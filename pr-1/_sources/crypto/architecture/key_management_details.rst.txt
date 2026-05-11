@@ -190,7 +190,7 @@ MAC Operation Example
 ---------------------
 
 This section traces a complete HMAC-SHA256 operation from application code
-down to the OpenSSL ``HMAC_CTX``.
+down to the OpenSSL ``EVP_MAC`` API.
 
 Step 1 — Resolve the key slot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -289,10 +289,11 @@ provider=SOFTWARE, key_node_id=key_ref_node_id)``:
 
    Then calls ``MacHandlerImpl::InitializeContext(params)``.
 
-6. **Handler initialization** (``MacHandlerImpl::InitializeContext``):
+6. **Handler initialization** (``OpenSslHmacHandler::InitializeContext``):
 
    - Validates ``m_algorithm == "HMAC-SHA256"``.
-   - Creates ``HMAC_CTX_new()``.
+   - Calls ``EVP_MAC_fetch(NULL, "HMAC", NULL)`` to obtain an ``EVP_MAC*``
+     object, then ``EVP_MAC_CTX_new(m_mac)`` to allocate the ``EVP_MAC_CTX``.
    - Checks ``params.bound_key_handler != nullptr``.
    - Verifies ``bound_key_handler->GetProviderId() == 0`` (numeric ID; type-safety
      without RTTI).
@@ -301,13 +302,14 @@ provider=SOFTWARE, key_node_id=key_ref_node_id)``:
      verified.
    - Calls ``GetRawKeyBytes(key_len)`` to obtain a direct pointer to the
      heap-allocated key material.
-   - ``HMAC_Init_ex(m_ctx, key_bytes, key_len, EVP_sha256(), nullptr)``
-     initializes the HMAC context; OpenSSL copies the key material
-     internally.
+   - Stores ``init_params``; the actual ``EVP_MAC_init(m_ctx, key_bytes,
+     key_len, params)`` call (with ``OSSL_PARAM`` selecting the digest) is
+     deferred to ``InitMac()`` so the context can be re-initialized on
+     ``MAC_INIT`` without re-fetching the MAC object.
 
 At the end of ``CTX_CREATE`` the daemon returns ``context_node_id`` to the
-client.  The key bytes have been loaded into the ``HMAC_CTX``; the
-``OpenSslKeyHandler`` retains the authoritative copy until it is released.
+client.  The key material is ready to be consumed by ``EVP_MAC_init``;
+the ``OpenSslKeyHandler`` retains the authoritative copy until it is released.
 
 Step 4 — Perform MAC operations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -323,17 +325,17 @@ Step 4 — Perform MAC operations
 1. ``MediatorImpl::ForwardSingleOperation`` looks up the ``ContextDataNode``
    by ``context_node_id`` → ``MacHandlerImpl::Execute(MAC_UPDATE, params)``.
 2. ``MacExecutor::Execute`` validates the stream transition
-   (``IDLE → STREAM_INIT`` on first update; ``STREAM_INIT → STREAM_ACTIVE``
+   (``IDLE → STREAM_INITIALIZED`` on first update; ``STREAM_INITIALIZED → STREAM_ACTIVE``
    on subsequent updates) and calls ``MacHandlerImpl::UpdateMac(dataToMac)``.
 3. The handler extracts raw bytes via ``ExtractBufferData`` then calls
-   ``HMAC_Update(m_ctx, data, len)`` to feed data into the running HMAC.
+   ``EVP_MAC_update(m_ctx, data, len)`` to feed data into the running HMAC.
 
-``MAC_FINAL``:
+``MAC_FINALIZE``:
 
-1. ``MacExecutor`` validates ``STREAM_INIT/ACTIVE → IDLE`` transition.
-2. ``MacHandlerImpl::FinalizeMac`` → ``HMAC_Final(m_ctx, output, &len)``
-   writes the 32-byte HMAC-SHA256 tag into the client-provided
-   ``VirtualMemoryBuffer``.
+1. ``MacExecutor`` validates ``STREAM_INITIALIZED/ACTIVE → IDLE`` transition.
+2. ``OpenSslHmacHandler::FinalizeMac`` → ``EVP_MAC_final(m_ctx, output,
+   &hmac_len, buf_len)`` writes the 32-byte HMAC-SHA256 tag into the
+   client-provided ``VirtualMemoryBuffer``.
 
 Step 5 — Release resources
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -349,8 +351,8 @@ Step 5 — Release resources
    - ``ContextDataNode`` destroyed.
    - Child ``KeyDataNode`` (bound at step 3) destroyed:
      calls ``key_entry->Release(client_id)`` → ``ref_count = 1``.
-   - HMAC context freed via ``MacHandlerImpl::~MacHandlerImpl`` →
-     ``HMAC_CTX_free``.
+   - HMAC context freed via ``OpenSslHmacHandler::~OpenSslHmacHandler`` →
+     ``EVP_MAC_CTX_free`` + ``EVP_MAC_free``.
 
 **KEY_RELEASE** (``key_guard.reset()``):
    ``DataManager::deleteNode(client_id, key_ref_node_id)`` destroys the

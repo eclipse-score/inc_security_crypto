@@ -38,14 +38,14 @@ bases that sit between the generic ``IHandler`` interface and concrete
 implementations:
 
 - ``ScoreHashHandler`` owns a ``HashExecutor`` that drives the stream state
-  machine (``HASH_INIT`` → ``HASH_UPDATE`` → ``HASH_FINISH``).
+  machine (``HASH_INIT`` → ``HASH_UPDATE`` → ``HASH_FINALIZE``).
 - ``ScoreMacHandler`` owns a ``MacExecutor`` with the equivalent MAC state machine.
 - ``ScoreKeyManagementHandler`` delegates to a shared ``KeyManagementExecutor``
   (from ``provider/executors/``).
 
 Concrete providers (e.g. ``openssl/``) inherit from these bases and override
-only the typed crypto primitive methods (``StartHash``, ``UpdateHash``,
-``FinishHash``). They do not re-implement the state machine logic.
+only the typed crypto primitive methods (``InitHash``, ``UpdateHash``,
+``FinalizeHash``). They do not re-implement the state machine logic.
 
 PKCS#11 Provider Family
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -60,7 +60,7 @@ Shared Operation Constants
 
 ``handler/operations/hash_handler_operations.hpp`` and
 ``handler/operations/mac_handler_operations.hpp`` define the ``OperationAction``
-integer constants (``HASH_INIT``, ``HASH_UPDATE``, ``HASH_FINISH``,
+integer constants (``HASH_INIT``, ``HASH_UPDATE``, ``HASH_FINALIZE``,
 ``MAC_INIT``, etc.) that identify each IPC operation.
 Both provider families include these headers directly — the constants are not
 specific to any algorithm family or provider.

@@ -414,7 +414,7 @@ are registered with <code class="docutils literal notranslate"><span class="pre"
 bootstrapping sequence.</p>
 <figure class="align-center" id="id1">
 <p class="plantuml">
-<object data="../../_images/plantuml-8332f834adc4313d1f4ded7b88dc4ef5ee3693af.svg" type="image/svg+xml" style="width:4176px;height:1513px;background:#FFFFFF;"></object></p>
+<object data="../../_images/plantuml-21b035b21c70771518cad954ce14dddce68e1bd6.svg" type="image/svg+xml" style="width:4180px;height:1513px;background:#FFFFFF;"></object></p>
 <figcaption>
 <p><span class="caption-number">Fig. 8 </span><span class="caption-text">Daemon Provider Architecture — Score and PKCS#11 families, handler hierarchy, and config visitor pattern.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
@@ -428,14 +428,14 @@ bases that sit between the generic <code class="docutils literal notranslate"><s
 implementations:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">ScoreHashHandler</span></code> owns a <code class="docutils literal notranslate"><span class="pre">HashExecutor</span></code> that drives the stream state
-machine (<code class="docutils literal notranslate"><span class="pre">HASH_INIT</span></code> → <code class="docutils literal notranslate"><span class="pre">HASH_UPDATE</span></code> → <code class="docutils literal notranslate"><span class="pre">HASH_FINISH</span></code>).</p></li>
+machine (<code class="docutils literal notranslate"><span class="pre">HASH_INIT</span></code> → <code class="docutils literal notranslate"><span class="pre">HASH_UPDATE</span></code> → <code class="docutils literal notranslate"><span class="pre">HASH_FINALIZE</span></code>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ScoreMacHandler</span></code> owns a <code class="docutils literal notranslate"><span class="pre">MacExecutor</span></code> with the equivalent MAC state machine.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ScoreKeyManagementHandler</span></code> delegates to a shared <code class="docutils literal notranslate"><span class="pre">KeyManagementExecutor</span></code>
 (from <code class="docutils literal notranslate"><span class="pre">provider/executors/</span></code>).</p></li>
 </ul>
 <p>Concrete providers (e.g. <code class="docutils literal notranslate"><span class="pre">openssl/</span></code>) inherit from these bases and override
-only the typed crypto primitive methods (<code class="docutils literal notranslate"><span class="pre">StartHash</span></code>, <code class="docutils literal notranslate"><span class="pre">UpdateHash</span></code>,
-<code class="docutils literal notranslate"><span class="pre">FinishHash</span></code>). They do not re-implement the state machine logic.</p>
+only the typed crypto primitive methods (<code class="docutils literal notranslate"><span class="pre">InitHash</span></code>, <code class="docutils literal notranslate"><span class="pre">UpdateHash</span></code>,
+<code class="docutils literal notranslate"><span class="pre">FinalizeHash</span></code>). They do not re-implement the state machine logic.</p>
 </section>
 <section id="pkcs-11-provider-family">
 <h3>PKCS#11 Provider Family<a class="headerlink" href="#pkcs-11-provider-family" title="Link to this heading">#</a></h3>
@@ -448,7 +448,7 @@ against a token. Shared key management logic is provided via the same
 <h3>Shared Operation Constants<a class="headerlink" href="#shared-operation-constants" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">handler/operations/hash_handler_operations.hpp</span></code> and
 <code class="docutils literal notranslate"><span class="pre">handler/operations/mac_handler_operations.hpp</span></code> define the <code class="docutils literal notranslate"><span class="pre">OperationAction</span></code>
-integer constants (<code class="docutils literal notranslate"><span class="pre">HASH_INIT</span></code>, <code class="docutils literal notranslate"><span class="pre">HASH_UPDATE</span></code>, <code class="docutils literal notranslate"><span class="pre">HASH_FINISH</span></code>,
+integer constants (<code class="docutils literal notranslate"><span class="pre">HASH_INIT</span></code>, <code class="docutils literal notranslate"><span class="pre">HASH_UPDATE</span></code>, <code class="docutils literal notranslate"><span class="pre">HASH_FINALIZE</span></code>,
 <code class="docutils literal notranslate"><span class="pre">MAC_INIT</span></code>, etc.) that identify each IPC operation.
 Both provider families include these headers directly — the constants are not
 specific to any algorithm family or provider.</p>
