@@ -14,5 +14,9 @@
   {
     "version": "pr-20",
     "url": "https://eclipse-score.github.io/inc_security_crypto/pr-20/"
+  },
+  {
+    "version": "pr-19",
+    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-19/"
   }
 ]
