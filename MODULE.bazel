@@ -226,7 +226,7 @@ bazel_dep(name = "buildifier_prebuilt", version = "8.2.0.2")
 bazel_dep(name = "score_docs_as_code", version = "2.2.0")
 
 # GoogleTest
-bazel_dep(name = "googletest", version = "1.17.0")
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 
 # s-core baselibs
 bazel_dep(name = "score_baselibs", version = "0.2.7")
