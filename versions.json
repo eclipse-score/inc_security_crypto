@@ -30,5 +30,9 @@
   {
     "version": "pr-24",
     "url": "https://eclipse-score.github.io/inc_security_crypto/pr-24/"
+  },
+  {
+    "version": "pr-28",
+    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-28/"
   }
 ]
