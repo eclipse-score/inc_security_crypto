@@ -15,7 +15,7 @@ module(
     version = "0.1.0",
 )
 
-bazel_dep(name = "rules_python", version = "1.5.4")
+bazel_dep(name = "rules_python", version = "2.0.1")
 single_version_override(
     module_name = "rules_python",
     version = "1.5.4",
@@ -156,7 +156,7 @@ archive_override(
 )
 
 # Protobuf dependency (pulled by grpc)
-bazel_dep(name = "protobuf", version = "31.1")
+bazel_dep(name = "protobuf", version = "35.0")
 
 # Patch protobuf to not link -lpthread on QNX (pthread is built into libc on QNX)
 archive_override(
