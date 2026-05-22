@@ -156,7 +156,7 @@ archive_override(
 )
 
 # Protobuf dependency (pulled by grpc)
-bazel_dep(name = "protobuf", version = "31.1")
+bazel_dep(name = "protobuf", version = "35.0")
 
 # Patch protobuf to not link -lpthread on QNX (pthread is built into libc on QNX)
 archive_override(
