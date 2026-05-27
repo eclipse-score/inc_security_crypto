@@ -1,0 +1,40 @@
+{
+  "name": "score_hmac_demo",
+  "reportingBehavior": "DOES-NOT-REPORT-EXECUTION-STATE",
+  "executableType": "NOT_DAEMON",
+  "processes": [
+    {
+      "name": "score_hmac_demo_instance",
+      "shortNamePath": "/bmw/platform/sec/score_hmac_demo_instance",
+      "startupConfigs": [
+        {
+          "schedulingPolicy": "SCHED_OTHER",
+          "schedulingPriority": 1,
+          "securityPolicy": "test_t",
+          "options": [],
+          "environmentVariables": [
+            { "key": "AMSR_PROCESS_CONFIG_DIR", "value": "./etc" },
+            { "key": "AMSR_EXECUTABLE_CONFIG_DIR", "value": "./etc" },
+            { "key": "LD_LIBRARY_PATH", "value": "./lib:/ifs/lib64:/lib64:/usr/lib" }
+          ],
+          "executionDependency": {
+            "name": "score_crypto_daemon_instance",
+            "state": "kRunning"
+          },
+          "functionGroups": [
+            { "name": "MachineFG", "states": ["Running"] }
+          ],
+          "cores": { "shallRunOn": [0, 1, 2, 3] },
+          "enterTimeoutNanoSeconds": 60000000000,
+          "exitTimeoutNanoSeconds": 10000000000,
+          "userId": 10038,
+          "primaryGroupId": 1054
+        }
+      ]
+    }
+  ],
+  "generatorVersion": {
+    "name": "amsr_em_exec_config",
+    "commitId": "6f0d1e2d62d926047488f95778d734ddfad30df2"
+  }
+}

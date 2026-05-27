@@ -41,7 +41,7 @@ configure_make(
         "no-threads",  # Disable threading to avoid pthread requirement on QNX
         "no-makedepend",  # Disable dependency generation that causes QCC issues
         "no-sock",  # Disable socket/network BIO (not needed for a crypto library; avoids missing socket APIs in QNX sysroot)
-        # Note: ENGINE API kept enabled for SoftHSM compatibility (ENGINE is deprecated in OpenSSL 3.x but still functional)
+        "--openssldir=/etc/openssl",  # Override compiled-in paths to target-appropriate locations
 
         # Build Scope Reduction - Applications and Tools
         "no-apps",  # Skip building CLI tools (not needed for library use)

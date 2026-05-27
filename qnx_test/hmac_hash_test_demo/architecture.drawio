@@ -1,0 +1,483 @@
+<mxfile host="app.diagrams.net" modified="2026-05-29T12:00:00.000Z" agent="draw.io" version="24.0.0" type="device">
+  <diagram id="hmac-sequence" name="HMAC-SHA256 Sequence">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="&lt;b&gt;HMAC-SHA256 CreateMacContext — Full Sequence Diagram&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="600" y="20" width="600" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Participants (lifelines) -->
+        <mxCell id="p1" value="&lt;b&gt;score_hmac_demo&lt;/b&gt;&#xa;(Client App)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=60;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="80" width="160" height="1480" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p2" value="&lt;b&gt;CryptoStackFactory&lt;/b&gt;&#xa;(Client Lib)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=60;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="320" y="80" width="160" height="1480" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p3" value="&lt;b&gt;gRPC Transport&lt;/b&gt;&#xa;(IPC Channel)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=60;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="560" y="80" width="160" height="1480" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p4" value="&lt;b&gt;MediatorImpl&lt;/b&gt;&#xa;(Daemon Core)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=60;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="800" y="80" width="160" height="1480" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p5" value="&lt;b&gt;KeyManagement&lt;br/&gt;Service&lt;/b&gt;&#xa;(Daemon)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=60;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="80" width="160" height="1480" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p6" value="&lt;b&gt;SlotRegistry&lt;/b&gt;&#xa;(Daemon)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=60;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="80" width="160" height="1480" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p7" value="&lt;b&gt;ProviderManager&lt;/b&gt;&#xa;(Daemon)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=60;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="1520" y="80" width="160" height="1480" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p8" value="&lt;b&gt;OpenSSL&lt;br/&gt;HmacHandler&lt;/b&gt;&#xa;(Provider)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=60;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="1760" y="80" width="160" height="1480" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p9" value="&lt;b&gt;DataManager&lt;/b&gt;&#xa;(Session Store)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=60;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="2000" y="80" width="160" height="1480" as="geometry" />
+        </mxCell>
+
+        <!-- Phase 0: Connection Setup -->
+        <mxCell id="phase0" value="&lt;b&gt;Phase 0: Connection Setup&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="160" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="CreateCryptoStack(config)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p1" target="p2">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="160" y="200" as="sourcePoint" /><mxPoint x="400" y="200" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m2" value="CONNECTION_OPEN&#xa;{endpoint=unix:///tmp/crypto_daemon.sock}" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p2" target="p3">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="400" y="230" as="sourcePoint" /><mxPoint x="640" y="230" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m3" value="Extract client_id=(pid,uid)&#xa;Create ConnectionDataNode" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p3" target="p9">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="640" y="260" as="sourcePoint" /><mxPoint x="2080" y="260" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m4" value="connection_node_id" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p9" target="p2">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="2080" y="290" as="sourcePoint" /><mxPoint x="400" y="290" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m5" value="ICryptoStack" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p2" target="p1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="400" y="310" as="sourcePoint" /><mxPoint x="160" y="310" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <!-- Phase 1: ResolveResource -->
+        <mxCell id="phase1" value="&lt;b&gt;Phase 1: Resolve KeySlot&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="340" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m6" value="ResolveResource(slot_name, kKeySlot)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p1" target="p3">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="160" y="380" as="sourcePoint" /><mxPoint x="640" y="380" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m7" value="RESOLVE_RESOURCE&#xa;{name, type=kKeySlot}" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p3" target="p4">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="640" y="410" as="sourcePoint" /><mxPoint x="880" y="410" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m8" value="ResolveSlot(slot_name, client_id)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p4" target="p6">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="880" y="440" as="sourcePoint" /><mxPoint x="1360" y="440" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m9" value="Check UID in allowed_uids&#xa;Return SlotHandle" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p6" target="p4">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1360" y="470" as="sourcePoint" /><mxPoint x="880" y="470" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m10" value="addNode(KeySlotDataNode)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p4" target="p9">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="880" y="500" as="sourcePoint" /><mxPoint x="2080" y="500" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m11" value="key_node_id" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p9" target="p1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="2080" y="530" as="sourcePoint" /><mxPoint x="160" y="530" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <!-- Phase 2: CreateMacContext -->
+        <mxCell id="phase2" value="&lt;b&gt;Phase 2: CreateMacContext (Key Binding &amp; Provider Resolution)&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="560" width="420" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m12" value="CreateMacContext(MacContextConfig)&#xa;{algorithm=HMAC-SHA256, key=key_node_id}" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p1" target="p3">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="160" y="600" as="sourcePoint" /><mxPoint x="640" y="600" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m13" value="CTX_CREATE&#xa;{&quot;MAC&quot;, &quot;HMAC-SHA256&quot;, provider_type, key_node_id}" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p3" target="p4">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="640" y="640" as="sourcePoint" /><mxPoint x="880" y="640" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m14" value="ResolveTargetProvider(client_id, type, key_node_id)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p4" target="p5">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="880" y="680" as="sourcePoint" /><mxPoint x="1120" y="680" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m15" value="GetPrimaryProviderId(slot)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p5" target="p6">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1120" y="710" as="sourcePoint" /><mxPoint x="1360" y="710" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m16" value="provider_id (from slot config)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p6" target="p4">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1360" y="740" as="sourcePoint" /><mxPoint x="880" y="740" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m17" value="GetProvider(provider_id)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p4" target="p7">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="880" y="770" as="sourcePoint" /><mxPoint x="1600" y="770" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m18" value="IProvider (OpenSSL)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p7" target="p4">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1600" y="800" as="sourcePoint" /><mxPoint x="880" y="800" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m19" value="GetCryptoHandlerFactory()&#xa;→ CreateHandler(&quot;MAC&quot;, &quot;HMAC-SHA256&quot;)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p4" target="p8">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="880" y="830" as="sourcePoint" /><mxPoint x="1840" y="830" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m20" value="new OpenSslHmacHandler" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p8" target="p4">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1840" y="860" as="sourcePoint" /><mxPoint x="880" y="860" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m21" value="addChildNode(ContextDataNode)&#xa;under connection_node" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p4" target="p9">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="880" y="890" as="sourcePoint" /><mxPoint x="2080" y="890" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m22" value="context_node_id" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p9" target="p4">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="2080" y="920" as="sourcePoint" /><mxPoint x="880" y="920" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <!-- Key Binding Phase -->
+        <mxCell id="phase2b" value="&lt;b&gt;Phase 2b: Key Binding to Session Context&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="940" width="320" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m23" value="BindKeyToContext(client_id, context_node_id, key_node_id, provider_id)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p4" target="p5">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="880" y="980" as="sourcePoint" /><mxPoint x="1120" y="980" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m24" value="GetNodeAccessor(key_node_id)&#xa;→ KeySlotDataNode" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p5" target="p9">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1120" y="1010" as="sourcePoint" /><mxPoint x="2080" y="1010" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m25" value="LoadOrShare(slot_handle, provider_id)&#xa;→ FileBackedSlotHandler.LoadKey()" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p5" target="p8">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1120" y="1050" as="sourcePoint" /><mxPoint x="1840" y="1050" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m26" value="Read key from deployment_path&#xa;(e.g., /bmw/platform/opt/.../key_aes_256.key)&#xa;Return IKeyHandler*" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p8" target="p5">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1840" y="1090" as="sourcePoint" /><mxPoint x="1120" y="1090" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m27" value="CreateKeyDataNode&#xa;(child under ContextDataNode)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p5" target="p9">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1120" y="1120" as="sourcePoint" /><mxPoint x="2080" y="1120" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m28" value="KeyBindingResult{key_handler, node_id}" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p5" target="p4">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1120" y="1150" as="sourcePoint" /><mxPoint x="880" y="1150" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m29" value="InitializeContext(InitParams{&#xa;  client_id, context_node_id,&#xa;  provider_id, bound_key_handler})" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p4" target="p8">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="880" y="1180" as="sourcePoint" /><mxPoint x="1840" y="1180" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m30" value="EVP_MAC_fetch(&quot;HMAC&quot;)&#xa;EVP_MAC_CTX_new()&#xa;Store key_handler ref" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p8" target="p4">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1840" y="1220" as="sourcePoint" /><mxPoint x="880" y="1220" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m31" value="context_node_id" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p4" target="p1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="880" y="1250" as="sourcePoint" /><mxPoint x="160" y="1250" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <!-- Phase 3: MAC Operations -->
+        <mxCell id="phase3" value="&lt;b&gt;Phase 3: Streaming MAC Operations&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="1270" width="280" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m32" value="Init() → EVP_MAC_init(key_bytes, digest=SHA256)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p1" target="p8">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="160" y="1310" as="sourcePoint" /><mxPoint x="1840" y="1310" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m33" value="Update(message) → EVP_MAC_update(data, len)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p1" target="p8">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="160" y="1360" as="sourcePoint" /><mxPoint x="1840" y="1360" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m34" value="Finalize(output) → EVP_MAC_final()" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p1" target="p8">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="160" y="1410" as="sourcePoint" /><mxPoint x="1840" y="1410" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m35" value="32-byte HMAC-SHA256 tag" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;" edge="1" parent="1" source="p8" target="p1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1840" y="1440" as="sourcePoint" /><mxPoint x="160" y="1440" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <!-- Notes -->
+        <mxCell id="note1" value="&lt;b&gt;Session Node Hierarchy:&lt;/b&gt;&#xa;&#xa;CLIENT_ENTRY (per pid+uid)&#xa;├─ ConnectionDataNode (connection_id)&#xa;│   ├─ ContextDataNode (MAC context)&#xa;│   │   └─ KeyDataNode (bound key ref)&#xa;│   └─ ContextDataNode (HASH context)&#xa;└─ KeySlotDataNode (resolved slot)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacingLeft=10;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="2200" y="160" width="320" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note2" value="&lt;b&gt;Key Loading (LoadOrShare):&lt;/b&gt;&#xa;&#xa;1. Check if slot already loaded (dedup)&#xa;2. If not: FileBackedSlotHandler reads&#xa;   key file from deployment_path&#xa;3. Registers in provider's KeyRegistry&#xa;4. Creates KeyDataNode under context&#xa;5. Key material lives in IKeyHandler&#xa;6. RAII: auto-zeroize on last ref drop" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;spacingLeft=10;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="2200" y="380" width="320" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note3" value="&lt;b&gt;Provider Resolution:&lt;/b&gt;&#xa;&#xa;• Key-affinity: slot → provider_ids[0]&#xa;• Type-based: ProviderType → ProviderId map&#xa;• Cross-provider guard prevents mismatched&#xa;  key/handler combinations&#xa;• Provider determined at context creation,&#xa;  NOT at operation time" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=15;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;spacingLeft=10;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="2200" y="600" width="320" height="170" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="daemon-architecture" name="Daemon Architecture">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="arch_title" value="&lt;b&gt;Score Crypto Daemon — Component Architecture&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="500" y="20" width="500" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Client Layer -->
+        <mxCell id="client_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;dashPattern=5 5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="400" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="client_label" value="&lt;b&gt;Client Process (score_hmac_demo)&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=top;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="80" y="85" width="320" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1" value="&lt;b&gt;ICryptoStack&lt;/b&gt;&#xa;CryptoStackFactory" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="120" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c2" value="&lt;b&gt;ICryptoContext&lt;/b&gt;&#xa;CryptoContextImpl" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="200" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c3" value="&lt;b&gt;IMacContext&lt;/b&gt;&#xa;MacContextImpl" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="200" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- IPC Layer -->
+        <mxCell id="ipc_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;dashPattern=5 5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="400" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ipc_label" value="&lt;b&gt;IPC Transport (gRPC + FlatBuffers)&lt;/b&gt;&#xa;unix:///tmp/crypto_daemon.sock" style="text;html=1;align=center;verticalAlign=middle;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="80" y="330" width="320" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Daemon Layer -->
+        <mxCell id="daemon_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;dashed=1;dashPattern=5 5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="440" width="1700" height="700" as="geometry" />
+        </mxCell>
+        <mxCell id="daemon_label" value="&lt;b&gt;Crypto Daemon Process&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=top;fillColor=none;strokeColor=none;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="700" y="445" width="250" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Mediator -->
+        <mxCell id="d1" value="&lt;b&gt;MediatorImpl&lt;/b&gt;&#xa;(Request Dispatcher)&#xa;&#xa;• HandleContextCreation&#xa;• HandleResolveResource&#xa;• HandleMacOperation&#xa;• HandleKeyManagement" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="490" width="240" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- Data Manager -->
+        <mxCell id="d2" value="&lt;b&gt;DataManager&lt;/b&gt;&#xa;(Session Store)&#xa;&#xa;• Node hierarchy per client&#xa;• Connection/Context/Key nodes&#xa;• RAII lifecycle management&#xa;• Cascade delete on close" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="380" y="490" width="240" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- Key Management -->
+        <mxCell id="d3" value="&lt;b&gt;KeyManagementService&lt;/b&gt;&#xa;&#xa;• ResolveTargetProvider()&#xa;• BindKeyToContext()&#xa;• LoadOrShare() (dedup)&#xa;• Cross-provider guard&#xa;• KeyRegistry (ref-counted)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="680" y="490" width="240" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- Slot Registry -->
+        <mxCell id="d4" value="&lt;b&gt;SlotRegistry&lt;/b&gt;&#xa;&#xa;• name → SlotHandle map&#xa;• Access policy (UID check)&#xa;• Provider ID resolution&#xa;• Config from crypto_config.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="980" y="490" width="240" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- Provider Manager -->
+        <mxCell id="d5" value="&lt;b&gt;ProviderManager&lt;/b&gt;&#xa;&#xa;• CreateProviders()&#xa;• InitializeAll()&#xa;• GetProvider(id/name/type)&#xa;• Type→Provider mapping" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="490" width="220" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- Provider Implementations -->
+        <mxCell id="prov_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;dashPattern=3 3;" vertex="1" parent="1">
+          <mxGeometry x="80" y="700" width="860" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="prov_label" value="&lt;b&gt;Crypto Providers&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=top;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="400" y="705" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prov1" value="&lt;b&gt;OpenSSL Provider&lt;/b&gt;&#xa;(ProviderType::kSoftware)&#xa;&#xa;├─ HandlerFactory&#xa;├─ OpenSslHmacHandler&#xa;├─ FileBackedSlotHandler&#xa;└─ OpenSslKeyHandler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="100" y="730" width="240" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prov2" value="&lt;b&gt;PKCS#11 Provider&lt;/b&gt;&#xa;(ProviderType::kHardware)&#xa;&#xa;├─ HandlerFactory&#xa;├─ Pkcs11HmacHandler&#xa;├─ Pkcs11SlotHandler&#xa;└─ HsmKeyHandler&#xa;&#xa;&lt;i&gt;(Optional - continues on failure)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="380" y="730" width="240" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prov3" value="&lt;b&gt;Future Providers&lt;/b&gt;&#xa;(Extensible)&#xa;&#xa;• QNX Crypto Engine&#xa;• ARM TrustZone&#xa;• Custom HSM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=10;fontColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="660" y="730" width="240" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- Config Files -->
+        <mxCell id="config_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;dashPattern=3 3;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="700" width="700" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="config_label" value="&lt;b&gt;Configuration&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=top;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="705" width="140" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cfg1" value="&lt;b&gt;crypto_config.json&lt;/b&gt;&#xa;&#xa;• Slot definitions&#xa;• algorithm, allowed_ops&#xa;• deployment_path&#xa;• allowed_uids&#xa;• provider_names" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="730" width="200" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cfg2" value="&lt;b&gt;*.kv / *.key&lt;/b&gt;&#xa;&#xa;• Key material files&#xa;• deployment_format:&#xa;  RAW / PEM / DER&#xa;• Absolute paths required&#xa;  (IsDeploymentPathSafe)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="730" width="200" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cfg3" value="&lt;b&gt;exec_config.json&lt;/b&gt;&#xa;&#xa;• App manifest&#xa;• UID/GID mappings&#xa;• Resource permissions&#xa;• IPC socket path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="730" width="200" height="150" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows between components -->
+        <mxCell id="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetSize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="c1" target="c2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetSize=auto;html=1;" edge="1" parent="1" source="c2" target="c3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" value="IPC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetSize=auto;html=1;strokeWidth=2;" edge="1" parent="1" source="ipc_box" target="d1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetSize=auto;html=1;" edge="1" parent="1" source="d1" target="d2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetSize=auto;html=1;" edge="1" parent="1" source="d1" target="d3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetSize=auto;html=1;" edge="1" parent="1" source="d3" target="d4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetSize=auto;html=1;" edge="1" parent="1" source="d1" target="d5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetSize=auto;html=1;" edge="1" parent="1" source="d5" target="prov_box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetSize=auto;html=1;dashed=1;" edge="1" parent="1" source="d4" target="config_box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="key-lifecycle" name="Key Lifecycle &amp; Session Binding">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="kl_title" value="&lt;b&gt;Key Lifecycle &amp; Session Binding&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="550" y="20" width="400" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Node Tree -->
+        <mxCell id="tree_title" value="&lt;b&gt;DataManager Node Hierarchy (per client session)&lt;/b&gt;" style="text;html=1;align=left;fillColor=none;strokeColor=none;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="400" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_root" value="&lt;b&gt;CLIENT_ENTRY&lt;/b&gt;&#xa;(pid=1234, uid=10038)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="300" y="120" width="200" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_conn" value="&lt;b&gt;ConnectionDataNode&lt;/b&gt;&#xa;connection_node_id=1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="140" y="220" width="200" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_slot" value="&lt;b&gt;KeySlotDataNode&lt;/b&gt;&#xa;key_node_id=2&#xa;slot=HMAC_SHA256_IntegrationTestKey_OpenSSL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="420" y="220" width="320" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_ctx" value="&lt;b&gt;ContextDataNode&lt;/b&gt;&#xa;context_node_id=3&#xa;handler=OpenSslHmacHandler, algo=HMAC-SHA256" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="330" width="340" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_key" value="&lt;b&gt;KeyDataNode&lt;/b&gt;&#xa;bound to context&#xa;refs → KeyEntry (OpenSslKeyHandler)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="140" y="440" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Tree edges -->
+        <mxCell id="te1" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="n_root" target="n_conn">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te2" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="n_root" target="n_slot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te3" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="n_conn" target="n_ctx">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="te4" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="n_ctx" target="n_key">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Key Lifecycle States -->
+        <mxCell id="kl_states_title" value="&lt;b&gt;Key Material Lifecycle&lt;/b&gt;" style="text;html=1;align=left;fillColor=none;strokeColor=none;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="850" y="80" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ks1" value="1. &lt;b&gt;Configured&lt;/b&gt;&#xa;(crypto_config.json loaded at startup)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="880" y="120" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ks2" value="2. &lt;b&gt;Resolved&lt;/b&gt;&#xa;(ResolveResource → KeySlotDataNode)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="880" y="200" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ks3" value="3. &lt;b&gt;Loaded&lt;/b&gt;&#xa;(LoadOrShare → read from deployment_path)&#xa;Deduplication: shared if already loaded" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="880" y="280" width="280" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ks4" value="4. &lt;b&gt;Bound&lt;/b&gt;&#xa;(BindKeyToContext → KeyDataNode under context)&#xa;Provider affinity enforced" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="880" y="370" width="280" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ks5" value="5. &lt;b&gt;Active&lt;/b&gt;&#xa;(InitializeContext → EVP_MAC_CTX ready)&#xa;Key bytes accessible via IKeyHandler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="880" y="460" width="280" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ks6" value="6. &lt;b&gt;Released&lt;/b&gt;&#xa;(Context close → cascade delete)&#xa;Key zeroized when last ref drops" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="880" y="550" width="280" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- State arrows -->
+        <mxCell id="sa1" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="ks1" target="ks2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sa2" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="ks2" target="ks3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sa3" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="ks3" target="ks4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sa4" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="ks4" target="ks5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sa5" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="ks5" target="ks6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Security Properties -->
+        <mxCell id="sec_title" value="&lt;b&gt;Security Properties&lt;/b&gt;" style="text;html=1;align=left;fillColor=none;strokeColor=none;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="550" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sec_box" value="• &lt;b&gt;Isolation&lt;/b&gt;: Key material never crosses IPC boundary&#xa;• &lt;b&gt;Affinity&lt;/b&gt;: Provider determined by slot config, not client&#xa;• &lt;b&gt;Deduplication&lt;/b&gt;: Same slot loaded once, shared via ref-count&#xa;• &lt;b&gt;RAII&lt;/b&gt;: Auto-zeroize on last reference drop&#xa;• &lt;b&gt;Access Control&lt;/b&gt;: UID checked during ResolveResource&#xa;• &lt;b&gt;Path Safety&lt;/b&gt;: IsDeploymentPathSafe() rejects relative paths&#xa;• &lt;b&gt;Cross-provider Guard&lt;/b&gt;: Cannot bind key to mismatched provider" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="580" width="500" height="160" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

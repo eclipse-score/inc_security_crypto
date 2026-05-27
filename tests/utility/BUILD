@@ -17,7 +17,10 @@ cc_library(
     name = "utility",
     srcs = ["test_utility.cpp"],
     hdrs = ["test_utility.hpp"],
-    visibility = ["//tests:__subpackages__"],
+    visibility = [
+        "//qnx_test:__subpackages__",
+        "//tests:__subpackages__",
+    ],
     deps = [
         "@googletest//:gtest",
     ],

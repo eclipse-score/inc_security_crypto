@@ -1,15 +1,14 @@
-/********************************************************************************
- * Copyright (c) 2026 Contributors to the Eclipse Foundation
- *
- * See the NOTICE file(s) distributed with this work for additional
- * information regarding copyright ownership.
- *
- * This program and the accompanying materials are made available under the
- * terms of the Apache License Version 2.0 which is available at
- * https://www.apache.org/licenses/LICENSE-2.0
- *
- * SPDX-License-Identifier: Apache-2.0
- ********************************************************************************/
+// =============================================================================
+//  C O P Y R I G H T
+// -----------------------------------------------------------------------------
+//  Copyright (c) 2026 by ETAS GmbH. All rights reserved.
+//
+//  The reproduction, distribution and utilization of this file as
+//  well as the communication of its contents to others without express
+//  authorization is prohibited. Offenders will be held liable for the
+//  payment of damages. All rights reserved in the event of the grant
+//  of a patent, utility model or design.
+// =============================================================================
 
 #include "score/crypto/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
 #include "score/crypto/daemon/common/algorithm_info.hpp"
@@ -165,9 +164,11 @@ OpenSslHmacHandler::InitializeContext(
     if (init_params.bound_key_handler != nullptr)
     {
         // Provider-id check validates the key comes from the same provider (no dynamic_cast/RTTI).
-        if (init_params.bound_key_handler->GetProviderId() != 0)  // OPENSSL provider ID
+        if (init_params.bound_key_handler->GetProviderId() != init_params.provider_id)
         {
-            score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: bound key is not an OpenSSL key handler";
+            score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: bound key is not an OpenSSL key handler"
+                                       << " (key provider_id=" << init_params.bound_key_handler->GetProviderId()
+                                       << ", expected=" << init_params.provider_id << ")";
             return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) � type tag verified above
@@ -189,6 +190,7 @@ OpenSslHmacHandler::InitializeContext(
 
     return std::monostate{};
 }
+
 
 ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> OpenSslHmacHandler::InitMac(
     const std::optional<common::RequestParameter> /*initialDataOrIV*/)

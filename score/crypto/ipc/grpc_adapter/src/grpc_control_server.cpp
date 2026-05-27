@@ -61,7 +61,8 @@ void GrpcControlServer::Start(std::string_view socket_path)
     _impl->server = builder.BuildAndStart();
     if (!_impl->server)
     {
-        throw std::runtime_error("Failed to start gRPC server on unix:" + std::string(socket_path));
+        score::mw::log::LogError() << "[GrpcControlServer] Failed to start gRPC server on unix:" << _impl->socket_path;
+        return;
     }
 
     score::mw::log::LogWarn() << "[GrpcControlServer] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";

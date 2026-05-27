@@ -1,0 +1,13 @@
+--- a/src/lib/crypto/OSSLCryptoFactory.cpp
++++ b/src/lib/crypto/OSSLCryptoFactory.cpp
+@@ -144,7 +144,9 @@
+ 	// Initialise OpenSSL
+ 	OpenSSL_add_all_algorithms();
+ 
+-#ifdef WITH_ENGINES
++// RDRAND ENGINE disabled: rdrand is x86-only and ENGINE_by_id("rdrand") triggers
++// a dlopen that aborts on QNX aarch64 when the engine .so is unavailable.
++#if defined(WITH_ENGINES) && 0
+ #if !( OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER) )
+ 	// Make sure RDRAND is loaded first
+ 	ENGINE_load_rdrand();
