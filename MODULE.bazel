@@ -128,6 +128,7 @@ use_repo(
 # *******************************************************************************
 
 bazel_dep(name = "rules_rust", version = "0.68.2-score")
+
 bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
 
 # ===============================================================================
