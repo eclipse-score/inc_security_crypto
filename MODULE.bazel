@@ -124,20 +124,11 @@ use_repo(
 )
 
 # *******************************************************************************
-# Rust toolchains (partial takeover from inc_security_crypto_valeo_pitch
+# Rust toolchains
 # *******************************************************************************
 
-bazel_dep(name = "rules_rust", version = "0.70.0")
-
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
-rust.toolchain(
-    edition = "2021",
-    versions = ["1.85.0"],
-)
-use_repo(rust, "rust_toolchains")
-
-# Register the Rust toolchains
-register_toolchains("@rust_toolchains//:all")
+bazel_dep(name = "rules_rust", version = "0.68.2-score")
+bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
 
 # ===============================================================================
 # T H I R D - P A R T Y   D E P E N D E N C I E S
