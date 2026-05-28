@@ -144,7 +144,7 @@ archive_override(
 )
 
 # Abseil-cpp dependency (pulled by grpc)
-bazel_dep(name = "abseil-cpp", version = "20250512.1")
+bazel_dep(name = "abseil-cpp", version = "20260107.1")
 
 # Patch abseil-cpp to not link -lpthread on QNX (pthread is built into libc on QNX)
 archive_override(
