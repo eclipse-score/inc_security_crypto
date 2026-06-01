@@ -17,7 +17,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 filegroup(
     name = "crypto_config_fbs_schema",
     srcs = ["crypto_config.fbs"],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
 )
 
 genrule(

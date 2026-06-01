@@ -92,7 +92,7 @@ py_itf_test(
         ":score_api_mac_example",
         ":score_demo",
         "//score/crypto/api/control_plane",
-        "//score/crypto/daemon:crypto_daemon",
+        "//score/crypto/daemon:score_crypto_daemon",
         "//tests/config:logging.json",
         "//third_party/grpc:libgrpc_shared",
         "//third_party/openssl:openssl_shared",

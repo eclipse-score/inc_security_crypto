@@ -32,33 +32,55 @@
 
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/server_builder.h>
+#include <grpcpp/support/byte_buffer.h>
+
+// File-scope reference to grpc::Status::OK to prevent dead-code elimination.
+// The compiler cannot optimize away a global variable with external linkage.
+__attribute__((used)) const grpc::Status& grpc_force_status_ok_ref = grpc::Status::OK;
 
 namespace score::crypto::ipc::internal
 {
 
 // Force inclusion of server-side symbols
-void* ForceServerSymbols()
+__attribute__((used)) void* ForceServerSymbols()
 {
     // These will never be called, but create references the linker needs
-    static bool initialized = false;
+    static volatile bool initialized = false;
     if (initialized)
     {
         // Create references to server APIs
         grpc::ServerBuilder builder;
+        builder.AddListeningPort("", grpc::InsecureServerCredentials(), nullptr);
+        builder.RegisterService(static_cast<grpc::Service*>(nullptr));
+        builder.SetSyncServerOption(grpc::ServerBuilder::NUM_CQS, 1);
         builder.BuildAndStart();
     }
     return nullptr;
 }
 
 // Force inclusion of client-side symbols
-void* ForceClientSymbols()
+__attribute__((used)) void* ForceClientSymbols()
 {
-    static bool initialized = false;
+    static volatile bool initialized = false;
     if (initialized)
     {
         // Create references to client APIs
         grpc::CreateChannel("", grpc::InsecureChannelCredentials());
         grpc::ClientContext context;
+    }
+    return nullptr;
+}
+
+// Force inclusion of ByteBuffer and Status symbols used by FlatBuffers gRPC
+__attribute__((used)) void* ForceByteBufferSymbols()
+{
+    static volatile bool initialized = false;
+    if (initialized)
+    {
+        grpc::ByteBuffer buf;
+        grpc::Slice slice;
+        buf.TrySingleSlice(&slice);
+        buf.DumpToSingleSlice(&slice);
     }
     return nullptr;
 }

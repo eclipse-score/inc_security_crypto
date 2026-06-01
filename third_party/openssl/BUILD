@@ -91,19 +91,26 @@ configure_make(
         "no-legacy",  # Disable legacy provider (only default provider used)
         "no-async",  # Disable async dispatch (unused, especially with no-threads)
         "-DUSE_TIMEGM",  # QNX doesn't provide the 'timezone' global variable
-        "--prefix=$${INSTALLDIR}",
-        "--openssldir=$${INSTALLDIR}",
         "--libdir=lib",
     ],
     env = select({
         "//platforms:is_qnx_aarch64": {
             # Override toolchain paths to use absolute paths instead of /proc/self/cwd
-            "QNX_HOST": "$${PWD}/external/score_bazel_cpp_toolchains++gcc+score_qcc_aarch64_toolchain_pkg/host/linux/x86_64",
-            "QNX_TARGET": "$${PWD}/external/score_bazel_cpp_toolchains++gcc+score_qcc_aarch64_toolchain_pkg/target/qnx",
+            "QNX_HOST": "$$EXT_BUILD_ROOT$$/external/ipnext_qnx_sdp/host/linux/x86_64",
+            "QNX_TARGET": "$$EXT_BUILD_ROOT$$/external/ipnext_qnx_sdp/target/qnx7",
+            # rules_foreign_cc changes CWD so relative paths in the toolchain env break
+            "QNX_SDP_WRAP": "$$EXT_BUILD_ROOT$$/third_party/ipnext_qnx/sdp/7.1.0/wrappers/tool_wrap.sh",
+            "QNX_SDP_BIN_DIR": "$$EXT_BUILD_ROOT$$/external/ipnext_qnx_sdp/host/linux/x86_64/usr/bin",
+            "QNX_SDP_ENV_SH": "$$EXT_BUILD_ROOT$$/external/ipnext_qnx_sdp/qnxsdp-env.sh",
+            "QNX_SHARED_LICENSE_FILE": "$$EXT_BUILD_ROOT$$/third_party/ipnext_qnx/sdp/7.1.0/wrappers/licenses",
         },
         "//platforms:is_qnx_x86_64": {
-            "QNX_HOST": "$${PWD}/external/score_bazel_cpp_toolchains++gcc+score_qcc_x86_64_toolchain_pkg/host/linux/x86_64",
-            "QNX_TARGET": "$${PWD}/external/score_bazel_cpp_toolchains++gcc+score_qcc_x86_64_toolchain_pkg/target/qnx",
+            "QNX_HOST": "$$EXT_BUILD_ROOT$$/external/ipnext_qnx_sdp/host/linux/x86_64",
+            "QNX_TARGET": "$$EXT_BUILD_ROOT$$/external/ipnext_qnx_sdp/target/qnx7",
+            "QNX_SDP_WRAP": "$$EXT_BUILD_ROOT$$/third_party/ipnext_qnx/sdp/7.1.0/wrappers/tool_wrap.sh",
+            "QNX_SDP_BIN_DIR": "$$EXT_BUILD_ROOT$$/external/ipnext_qnx_sdp/host/linux/x86_64/usr/bin",
+            "QNX_SDP_ENV_SH": "$$EXT_BUILD_ROOT$$/external/ipnext_qnx_sdp/qnxsdp-env.sh",
+            "QNX_SHARED_LICENSE_FILE": "$$EXT_BUILD_ROOT$$/third_party/ipnext_qnx/sdp/7.1.0/wrappers/licenses",
         },
         "//conditions:default": {},
     }),
