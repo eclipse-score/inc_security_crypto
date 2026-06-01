@@ -11,97 +11,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-# Import user-specific configurations
-try-import %workspace%/user.bazelrc
-
-build --per_file_copt=external/score_baselibs.*/.*@-Wno-deprecated-declarations
-common --@score_baselibs//score/json:base_library=nlohmann # TODO : https://github.com/eclipse-score/baselibs/issues/57
-
 build --java_language_version=17
 build --tool_java_language_version=17
 build --java_runtime_version=remotejdk_17
 build --tool_java_runtime_version=remotejdk_17
 
-# Only contact license server every 59 secs per tool and not for every tool invocation to avoid flooding the license server
-common --action_env=QNX_LICENSE_EXTSERVER_DELAY=59
-#common --action_env=QNX_LICENSE_QUEUE_TIMEOUT=300 # If not reach retry in 60seconds for overall 300 (configured) seconds
-# Disable for the moment as this leads to "warning: Cannot find Build server key, the value of QNX_LICENSE_QUEUE_TIMEOUT will be ignored."
-
 test --test_output=errors
 
-# Bazel registry configuration
 common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
 common --registry=https://bcr.bazel.build
-# QNX credential helper configuration
-common --credential_helper=*.qnx.com=%workspace%/.github/tools/qnx_credential_helper.py
-common --credential_helper_timeout="60s"
 
-# Shared configuration for simple test execution
-build:shared --incompatible_strict_action_env
-build:shared --sandbox_writable_path=/var/tmp
-build:shared --host_platform=@score_bazel_platforms//:x86_64-linux
-
-# Shared qnx configuration
-build:shared_qnx --config=shared
-build:shared_qnx --copt=-D_QNX_SOURCE
-build:shared_qnx --copt=-DGRPC_POSIX_SOCKET
-build:shared_qnx --copt=-DGRPC_POSIX_SOCKETUTILS
-build:shared_qnx --copt=-DGRPC_POSIX_WAKEUP_FD
-build:shared_qnx --copt=-DIP_PKTINFO=0
-build:shared_qnx --cxxopt=-D_QNX_SOURCE
-build:shared_qnx --cxxopt=-DGRPC_POSIX_SOCKET
-build:shared_qnx --cxxopt=-DGRPC_POSIX_SOCKETUTILS
-build:shared_qnx --cxxopt=-DGRPC_POSIX_WAKEUP_FD
-build:shared_qnx --cxxopt=-DIP_PKTINFO=0
-
-# -------------------------------------------------------------------------------
-# Config dedicated to host platform CPU:x86_64 and OS:Linux
-# -------------------------------------------------------------------------------
-build:x86_64-linux --config=shared
-build:x86_64-linux --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
-
-# -------------------------------------------------------------------------------
-# Different toolchain configuration for x86_64-linux
-# -------------------------------------------------------------------------------
-build:host_config_1 --config=x86_64-linux
-build:host_config_1 --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
-build:host_config_1 --features=use_pthread
-
-# -------------------------------------------------------------------------------
-# Config dedicated to target platform CPU:aarch64 and OS:linux
-# -------------------------------------------------------------------------------
-build:aarch64-linux --config=shared
-build:aarch64-linux --platforms=@score_bazel_platforms//:aarch64-linux-gcc_12.2.0-posix
-
-# -------------------------------------------------------------------------------
-# Different toolchain configuration for aarch64-linux
-# -------------------------------------------------------------------------------
-build:target_config_3 --config=aarch64-linux
-build:target_config_3 --extra_toolchains=@score_gcc_aarch64_toolchain//:aarch64-linux-gcc_12.2.0
-
-
-# -------------------------------------------------------------------------------
-# Config dedicated to target platform CPU:x86_64 and OS:QNX
-# -------------------------------------------------------------------------------
-build:x86_64-qnx --config=shared_qnx
-# Use custom platform that extends score platform with @platforms//os:qnx constraint
-build:x86_64-qnx --platforms=//platforms:x86_64-qnx-extended
-
-# -------------------------------------------------------------------------------
-# Different toolchain configuration for x86_64-qnx
-# -------------------------------------------------------------------------------
-build:target_config_1 --config=x86_64-qnx
-build:target_config_1 --extra_toolchains=@score_qcc_x86_64_toolchain//:x86_64-qnx-sdp_8.0.0
-
-# -------------------------------------------------------------------------------
-# Config dedicated to target platform CPU:aarch64 and OS:QNX
-# -------------------------------------------------------------------------------
-build:aarch64-qnx --config=shared_qnx
-# Use custom platform that extends score platform with @platforms//os:qnx constraint
-build:aarch64-qnx --platforms=//platforms:aarch64-qnx-extended
-
-# -------------------------------------------------------------------------------
-# Different toolchain configuration for aarch64-qnx
-# -------------------------------------------------------------------------------
-build:target_config_2 --config=aarch64-qnx
-build:target_config_2 --extra_toolchains=@score_qcc_aarch64_toolchain//:aarch64-qnx-sdp_8.0.0
+# Import custom user settings
+# Can be used to enable e.g. sanitizers or other features without modifying the main .bazelrc
+try-import %workspace%/user.bazelrc
