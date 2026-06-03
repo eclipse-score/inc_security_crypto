@@ -1,0 +1,94 @@
+@startuml typical_usage_sequence
+
+'TODO: Update the diagram to reflect the latest API design and interaction patterns, including any new features or changes in the flow.
+
+title Score Crypto API — Typical Usage Flow
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+participant "Application" as App
+participant "score::mw::crypto\n(Client Library)" as Lib
+participant "Crypto Daemon" as Daemon
+
+== Stack Initialization ==
+
+App -> Lib : CreateCryptoStack(CryptoStackConfig)
+activate Lib
+Lib -> Daemon : connect(connection_endpoint)
+activate Daemon
+Daemon --> Lib : connection established
+Lib --> App : Result<ICryptoStack::Uptr>
+deactivate Lib
+
+== Memory Allocation (Data Plane) ==
+
+App -> Lib : ICryptoStack::GetMemoryAllocator()
+activate Lib
+Lib --> App : Result<IMemoryAllocator::Uptr>
+deactivate Lib
+
+App -> Lib : IMemoryAllocator::Allocate(size)
+activate Lib
+Lib -> Daemon : allocate shared memory
+Daemon --> Lib : IReadWriteMemoryRegion
+Lib --> App : Result<IReadWriteMemoryRegion::Uptr>
+deactivate Lib
+
+App -> App : write data to region
+
+== Context & Resource Resolution ==
+
+App -> Lib : ICryptoStack::CreateCryptoContext()
+activate Lib
+Lib -> Daemon : create session
+Daemon --> Lib : session handle
+Lib --> App : Result<ICryptoContext::Uptr>
+deactivate Lib
+
+App -> Lib : ICryptoContext::ResolveResource(\n  ResourceId, ResourceType::kKeySlot)
+activate Lib
+Lib -> Daemon : resolve + ACL check (uid)
+Daemon --> Lib : resource handle
+Lib --> App : Result<CryptoResourceId>
+deactivate Lib
+
+== Hash Operation (Streaming) ==
+
+App -> Lib : ICryptoContext::CreateHashContext(\n  HashContextConfig)
+activate Lib
+Lib -> Daemon : create hash context
+Daemon --> Lib : context handle
+Lib --> App : Result<IHashContext::Uptr>
+deactivate Lib
+
+App -> Lib : IHashContext::Init()
+activate Lib
+Lib -> Daemon : forward to provider
+Daemon --> Lib : Result<std::monostate>
+Lib --> App : Result<std::monostate>
+deactivate Lib
+
+App -> Lib : IHashContext::Update(span<const uint8_t>)
+activate Lib
+Lib -> Daemon : forward to provider
+Daemon --> Lib : Result<std::monostate>
+Lib --> App : Result<std::monostate>
+deactivate Lib
+
+App -> Lib : IHashContext::Finalize(span<uint8_t>)
+activate Lib
+Lib -> Daemon : forward to provider
+Daemon --> Lib : digest bytes
+Lib --> App : Result<size_t>
+deactivate Lib
+
+== Cleanup ==
+
+App -> Lib : ~ICryptoStack()
+activate Lib
+Lib -> Daemon : disconnect
+deactivate Daemon
+deactivate Lib
+
+@enduml

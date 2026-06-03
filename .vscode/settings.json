@@ -1,0 +1,77 @@
+{
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+  "editor.insertSpaces": true,
+  "editor.tabCompletion": "on",
+  "editor.rulers": [
+    99
+  ],
+  "files.watcherExclude": {
+    ".*/**": true,
+    "**/__pycache__/**": true,
+    "bazel-*/**": true,
+    ".venv*/**": true,
+    "_build/**": true
+  },
+  "python.analysis.exclude": [
+    ".*",
+    "**/__pycache__",
+    "bazel-*",
+    ".venv*",
+    "_build"
+  ],
+  "[python]": {
+    "editor.rulers": [
+      79
+    ],
+    "editor.codeActionsOnSave": {
+      "source.sortImports": "explicit"
+    },
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+  "[markdown]": {
+    "editor.rulers": [
+      79,
+      99
+    ]
+  },
+  "bazel.lsp.command": "bazel",
+  "bazel.lsp.args": [
+    "run",
+    "//:starpls_server"
+  ],
+  "[restructuredtext]": {
+    "editor.tabSize": 3
+  },
+  "esbonio.server.pythonPath": "${workspaceFolder}/.venv_docs/bin/python",
+  "esbonio.sphinx.srcDir": "${workspaceFolder}/docs",
+  "esbonio.sphinx.confDir": "${workspaceFolder}/docs",
+  "esbonio.sphinx.buildDir": "${workspaceFolder}/_build",
+  "esbonio.server.logLevel": "info",
+  "esbonio.server.installBehavior": "nothing",
+  "remote.autoForwardPorts": true,
+  "remote.autoForwardPortsSource": "process",
+  "esbonio.sphinx.pythonCommand": [
+    ".venv_docs/bin/python"
+  ],
+  "esbonio.sphinx.buildCommand": [
+    "docs",
+    "_build",
+    "-T",
+    "--jobs",
+    "auto",
+    "--conf-dir",
+    "docs"
+  ],
+  "esbonio.logging.level": "warning",
+  "python.testing.pytestArgs": [
+    ".",
+    "--ignore-glob=bazel-*/*",
+    "--ignore-glob=.venv_docs/*",
+    "--ignore-glob=_build/*"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "C_Cpp_Runner.msvcBatchPath": ""
+}

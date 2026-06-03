@@ -1,0 +1,52 @@
+diff -ruN abseil-orig/absl/base/BUILD.bazel abseil-modified/absl/base/BUILD.bazel
+--- abseil-orig/absl/base/BUILD.bazel	2026-01-22 10:12:36.628729718 +0100
++++ abseil-modified/absl/base/BUILD.bazel	2026-01-22 10:12:58.428728092 +0100
+@@ -209,6 +209,7 @@
+         "@rules_cc//cc/compiler:msvc-cl": [],
+         "@rules_cc//cc/compiler:clang-cl": [],
+         "@rules_cc//cc/compiler:emscripten": [],
++        "@platforms//os:qnx": [],
+         "//conditions:default": ["-pthread"],
+     }) + ABSL_DEFAULT_LINKOPTS,
+     visibility = [
+@@ -276,6 +277,7 @@
+             "-ladvapi32",
+         ],
+         "@rules_cc//cc/compiler:emscripten": [],
++        "@platforms//os:qnx": [],
+         "//conditions:default": ["-pthread"],
+     }) + ABSL_DEFAULT_LINKOPTS,
+     deps = [
+diff -ruN abseil-orig/absl/debugging/BUILD.bazel abseil-modified/absl/debugging/BUILD.bazel
+--- abseil-orig/absl/debugging/BUILD.bazel	2026-01-22 10:12:36.684730267 +0100
++++ abseil-modified/absl/debugging/BUILD.bazel	2026-01-22 10:13:00.836754051 +0100
+@@ -182,6 +182,7 @@
+         "@rules_cc//cc/compiler:msvc-cl": [],
+         "@rules_cc//cc/compiler:clang-cl": [],
+         "@rules_cc//cc/compiler:emscripten": [],
++        "@platforms//os:qnx": [],
+         "//conditions:default": ["-pthread"],
+     }) + ABSL_DEFAULT_LINKOPTS,
+     deps = [
+diff -ruN abseil-orig/absl/random/internal/BUILD.bazel abseil-modified/absl/random/internal/BUILD.bazel
+--- abseil-orig/absl/random/internal/BUILD.bazel	2026-01-22 10:12:36.748730895 +0100
++++ abseil-modified/absl/random/internal/BUILD.bazel	2026-01-22 10:13:02.092767591 +0100
+@@ -182,6 +182,7 @@
+         "@rules_cc//cc/compiler:msvc-cl": [],
+         "@rules_cc//cc/compiler:clang-cl": [],
+         "@rules_cc//cc/compiler:emscripten": [],
++        "@platforms//os:qnx": [],
+         "//conditions:default": ["-pthread"],
+     }) + ABSL_DEFAULT_LINKOPTS,
+     deps = [
+diff -ruN abseil-orig/absl/synchronization/BUILD.bazel abseil-modified/absl/synchronization/BUILD.bazel
+--- abseil-orig/absl/synchronization/BUILD.bazel	2026-01-22 10:12:36.808731483 +0100
++++ abseil-modified/absl/synchronization/BUILD.bazel	2026-01-22 10:13:03.500782769 +0100
+@@ -127,6 +127,7 @@
+         "@rules_cc//cc/compiler:msvc-cl": [],
+         "@rules_cc//cc/compiler:clang-cl": [],
+         "@rules_cc//cc/compiler:emscripten": [],
++        "@platforms//os:qnx": [],
+         "//conditions:default": ["-pthread"],
+     }) + ABSL_DEFAULT_LINKOPTS,
+     visibility = ["//visibility:public"],

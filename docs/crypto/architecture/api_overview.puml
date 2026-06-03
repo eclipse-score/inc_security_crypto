@@ -1,0 +1,86 @@
+@startuml score_crypto_api_overview
+
+title Score Crypto API — Stack, Factory & Context Overview
+
+skinparam packageStyle rectangle
+
+' ============================================================
+' Factory
+' ============================================================
+package "Factory" {
+    class CryptoStackConfig <<struct>> {
+        + connection_endpoint : string
+        + default_operation_timeout : optional<milliseconds>
+        ---
+        + SetConnectionEndpoint(endpoint) : CryptoStackConfig&
+        + SetDefaultOperationTimeout(timeout) : CryptoStackConfig&
+    }
+
+    interface "CreateCryptoStack" as CreateCryptoStack {
+        + CreateCryptoStack(config : CryptoStackConfig) : Result<ICryptoStack::Uptr>
+    }
+}
+
+' ============================================================
+' Stack & Resource Ownership
+' ============================================================
+package "Stack & Ownership" {
+    interface ICryptoStack {
+        + CreateCryptoContext() : Result<ICryptoContext::Uptr>
+        + GetMemoryAllocator() : Result<IMemoryAllocator::Uptr>
+    }
+
+    interface IMemoryAllocator {
+        + Allocate(size) : Result<IReadWriteMemoryRegion::Uptr>
+        + Allocate(size, type, provider) : Result<IReadWriteMemoryRegion::Uptr>
+        + GetQuota() : size_t
+        + GetCurrentUsage() : size_t
+    }
+
+}
+
+' ============================================================
+' ICryptoContext
+' ============================================================
+package "Crypto Context" {
+    interface ICryptoContext {
+        __ Resource Resolution __
+        + ResolveResource(resource_id, type) : Result<CryptoResourceId>
+        __ Context Factory (Crypto) __
+        + CreateHashContext(config) : Result<IHashContext::Uptr>
+        + CreateMacContext(config) : Result<IMacContext::Uptr>
+        + CreateKeyManagementContext(config) : Result<IKeyManagementContext::Uptr>
+        + CreateCipherContext(config) : Result<ICipherContext::Uptr>
+        + CreateSignContext(config) : Result<ISignContext::Uptr>
+        + CreateVerifySignatureContext(config) : Result<IVerifySignatureContext::Uptr>
+        + CreateAeadContext(config) : Result<IAeadContext::Uptr>
+        + CreateRandomContext(config) : Result<IRandomContext::Uptr>
+        __ Context Factory (Certificate) __
+        + CreateCertificateManagementContext(config) : Result<ICertificateManagementContext::Uptr>
+        + CreateCertificateVerificationContext(config) : Result<ICertificateVerificationContext::Uptr>
+        + CreateCsrGenerationContext(config) : Result<ICsrGenerationContext::Uptr>
+        __ Queries __
+        + QueryCapabilities(algorithm) : Result<AlgorithmCapabilities>
+        + QueryCapabilities() : Result<SystemCapabilities>
+        + QueryProviderCompatibility(resource) : Result<ProviderCompatibilityInfo>
+        + GetProviderInfo(provider_id) : Result<ProviderInfo>
+        __ Typed Object Access __
+        + GetKeyObject(id) : Result<IKeyObject::Uptr>
+        + GetKeySlotObject(id) : Result<IKeySlotObject::Uptr>
+        + GetCertificateObject(id) : Result<ICertificateObject::Uptr>
+        + GetCertSlotObject(id) : Result<ICertSlotObject::Uptr>
+        + GetProviderObject(id) : Result<IProviderObject::Uptr>
+    }
+
+    ICryptoContext -[hidden]-> ICryptoStack
+}
+
+' ============================================================
+' Relationships
+' ============================================================
+CreateCryptoStack ..> CryptoStackConfig : accepts
+CreateCryptoStack --> ICryptoStack : creates
+ICryptoStack --> ICryptoContext : creates
+ICryptoStack --> IMemoryAllocator : provides
+
+@enduml

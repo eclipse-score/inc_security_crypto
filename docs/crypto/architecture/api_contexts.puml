@@ -1,0 +1,145 @@
+@startuml score_crypto_api_contexts
+
+title Score Crypto API — Crypto Operation Contexts
+
+skinparam packageStyle rectangle
+
+' ============================================================
+' Context Base Hierarchy
+' ============================================================
+package "Context Base Hierarchy" {
+    interface IContext {
+    }
+
+    interface IStreamingContext {
+        # Init(iv : optional<span<uint8_t>> = nullopt) : Result<std::monostate>
+        # Update(data : span<const uint8_t>) : Result<std::monostate>
+        # Reset() : Result<std::monostate>
+    }
+
+    interface IStreamingOutputContext {
+        # Finalize(output : span<uint8_t>) : Result<size_t>
+        # GetOutputSize() : size_t
+    }
+
+    IStreamingContext --|> IContext : inherits
+    IStreamingOutputContext --|> IStreamingContext : inherits
+}
+
+' ============================================================
+' Hash & MAC
+' ============================================================
+package "Hash & MAC" {
+    interface IHashContext {
+        + {using} Init(), Update(), Reset(), Finalize()
+        + SingleShot(input, output) : Result<size_t>
+        + GetDigestSize() : size_t
+        ' Note: GetOutputSize() not exposed — use GetDigestSize()
+    }
+
+    interface IMacContext {
+        + {using} Init(iv), Update(), Reset(), Finalize()
+        + Verify(mac : span<const uint8_t>) : Result<bool>
+        + GetMacSize() : size_t
+        ' Note: GetOutputSize() not exposed — use GetMacSize()
+    }
+
+    IHashContext --|> IStreamingOutputContext : inherits
+    IMacContext --|> IStreamingOutputContext : inherits
+}
+
+' ============================================================
+' Cipher & AEAD
+' ============================================================
+package "Cipher & AEAD" {
+    interface ICipherContext {
+        + {using} Init(iv), Reset(), Finalize(), GetOutputSize()
+        + Update(input, output : span<uint8_t>) : Result<size_t>
+        + SingleShot(iv, input, output) : Result<size_t>
+        ' Init(iv) from base: span implicitly converts to optional<span>
+        ' IV mandatory for CBC/CTR/GCM; nullopt valid for ECB
+        ' direction set via CipherContextConfig::SetDirection()
+    }
+
+    interface IAeadContext {
+        + {using} Init(iv), Reset()
+        + UpdateAad(aad : span<const uint8_t>) : Result<std::monostate>
+        + Update(input, output : span<uint8_t>) : Result<size_t>
+        + Finalize(output, tag_out) : Result<size_t>
+        + VerifyAndFinalize(output, tag_in) : Result<bool>
+        + GetTagSize() : size_t
+        ' Init(iv) from base: IV mandatory (nullopt returns error)
+        ' direction set via AeadContextConfig::SetDirection()
+    }
+
+    ICipherContext --|> IStreamingOutputContext : inherits
+    IAeadContext --|> IStreamingContext : inherits
+}
+
+' ============================================================
+' Signature
+' ============================================================
+package "Signature" {
+    interface ISignContext {
+        + {using} Init(), Update(), Reset()
+        + SignFinalize(signature : span<uint8_t>) : Result<size_t>
+        + SingleShot(data, signature) : Result<size_t>
+        + GetSignatureSize() : size_t
+    }
+
+    interface IVerifySignatureContext {
+        + {using} Init(), Update(), Reset()
+        + VerifyFinalize(signature : span<const uint8_t>) : Result<bool>
+        + SingleShot(data, signature) : Result<bool>
+    }
+
+    ISignContext --|> IStreamingOutputContext : inherits
+    IVerifySignatureContext --|> IStreamingContext : inherits
+}
+
+' ============================================================
+' Key Management & Random
+' ============================================================
+package "Key Management & Random" {
+    interface IKeyManagementContext {
+        __ Key Generation __
+        + GenerateKey(params : GenerateKeyParams) : Result<CryptoResourceGuard>
+        + GenerateKey(target_slot, params : GenerateKeyParams) : Result<std::monostate>
+        __ Key Derivation __
+        + DeriveKey(params : DeriveKeyParams) : Result<CryptoResourceGuard>
+        + DeriveKey(target_slot, params : DeriveKeyParams) : Result<std::monostate>
+        __ Key Agreement __
+        + AgreeKey(params : AgreeKeyParams) : Result<CryptoResourceGuard>
+        + AgreeKey(target_slot, params : AgreeKeyParams) : Result<std::monostate>
+        __ Persistence __
+        + PersistKey(target_slot, ephemeral_key) : Result<std::monostate>
+        + PersistKey(target_slot, guard) : Result<std::monostate>
+        __ Key Unwrapping __
+        + UnwrapKey(params : UnwrapKeyParams) : Result<CryptoResourceGuard>
+        + UnwrapKey(target_slot, params : UnwrapKeyParams) : Result<std::monostate>
+        __ Key Import __
+        + ImportKey(params : ImportKeyParams) : Result<CryptoResourceGuard>
+        + ImportKey(target_slot, params : ImportKeyParams) : Result<std::monostate>
+        __ Key Loading __
+        + LoadKey(slot) : Result<CryptoResourceGuard>
+        __ Key Wrapping & Export __
+        + WrapKey(params : WrapKeyParams, output) : Result<size_t>
+        + GetWrapKeySize(params : WrapKeyParams) : Result<size_t>
+        + ExportKey(key, output, format) : Result<size_t>
+        + GetExportKeySize(key, format) : Result<size_t>
+        __ Key Clearing __
+        + ClearKey(key) : Result<std::monostate>
+        __ Slot Queries __
+        + GetKeySlotInfo(slot) : Result<KeySlotInfo>
+    }
+
+    interface IRandomContext {
+        + Generate(output : span<uint8_t>) : Result<size_t>
+        + Seed(seed : span<const uint8_t>) : Result<std::monostate>
+    }
+
+    IKeyManagementContext --|> IContext : inherits
+    IRandomContext --|> IContext : inherits
+}
+
+@enduml

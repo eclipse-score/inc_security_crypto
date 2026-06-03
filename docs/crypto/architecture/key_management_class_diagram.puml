@@ -1,0 +1,561 @@
+﻿@startuml key_management_class_diagram
+!theme plain
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam packageFontSize 14
+
+title Key Management — Class Diagram
+
+' ====================================================================
+' COMPOSITION ROOT
+' ====================================================================
+package "Composition Root" <<Rectangle>> #FAFAFA {
+    class KeyManagementModule {
+        - m_slot_registry : SlotRegistry::Sptr
+        - m_service : KeyManagementService::Sptr
+        - m_provider_manager : ProviderManager::Sptr
+        --
+        + {static} Create(IDataManager::Sptr, ProviderManager::Sptr, KeyConfig&) : Sptr
+        + GetSlotRegistry() : SlotRegistry::Sptr
+        + GetService() : KeyManagementService::Sptr
+        + GetProviderManager() : ProviderManager::Sptr
+    }
+
+    interface IKeySlotCatalog <<Interface>> {
+        + Load(registry : SlotRegistry&)
+    }
+
+    class ConfigDrivenSlotCatalog <<Production>> {
+        - m_key_config : const KeyConfig&
+        --
+        + Load(registry : SlotRegistry&)
+    }
+}
+
+' ====================================================================
+' KEY MANAGEMENT SERVICE
+' ====================================================================
+package "Core Service" <<Rectangle>> #F0FFF0 {
+
+    class KeyManagementService {
+        - m_data_manager : IDataManager::Sptr
+        - m_provider_manager : ProviderManager::Sptr
+        - m_slot_registry : SlotRegistry::Sptr
+        - m_registries : unordered_map<ProviderId, KeyRegistry>
+        - m_slot_node_cache : unordered_map<ClientId, unordered_map<string, DataNodeId>>
+        --
+        + ResolveKeySlot(resource_name, client_id) : Expected<DataNodeId>
+        .. dedup: returns cached DataNodeId when same resource resolved twice ..
+        + RegisterKeyMaterial(params, key_handler) : Expected<KeyDataNodeResult>
+        + LoadOrShare(params, slot_handler, slot_config) : Expected<KeyDataNodeResult>
+        + ReleaseKeyMaterial(client_id, ref_node_id) : Expected<monostate>
+        + CleanupClient(client_id)
+        + BindKeyToContext(client_id, context_node_id, key_node_id, target_provider_id) : Expected<KeyBindingResult>
+        + ResolveTargetProvider(client_id, type, key_node_id) : Expected<ProviderId>
+        + ResolveSlotForOperation(client_id, slot_node_id) : Expected<SlotResolution>
+        + GetSlotRegistry() : SlotRegistry::Sptr
+        + GetProviderManager() : ProviderManager::Sptr
+        + GetDataManager() : IDataManager::Sptr
+        - GetProviderRegistry(provider_id) : KeyRegistry&
+    }
+
+    struct SlotResolution {
+        + config : const KeySlotConfig*
+        + handle : SlotHandle
+    }
+
+    struct KeyBindingResult {
+        + key_handler : IKeyHandler::Sptr
+        + resolved_node_id : DataNodeId
+    }
+
+    struct KeyDataNodeResult {
+        + node_id : DataNodeId
+        + key_node : shared_ptr<KeyEntry>
+    }
+
+    note right of KeyManagementService
+      **Orchestration only**
+      DataNode lifecycle, slot resolution,
+      context key binding, provider routing,
+      cross-crash cleanup.
+      No typed crypto methods.
+    end note
+}
+
+' ====================================================================
+' KEY REGISTRY
+' ====================================================================
+package "Key Registry" <<Rectangle>> #F0FFF0 {
+    class KeyRegistry {
+        - m_mutex : mutex
+        - m_keys : unordered_map<KeyRegistryId, shared_ptr<KeyEntry>>
+        - m_slot_to_id : unordered_map<uint32_t, KeyRegistryId>
+        - m_next_id : KeyRegistryId
+        --
+        + RegisterSlotKey(slot_handle, key_entry) : KeyRegistryId
+        + RegisterEphemeralKey(key_entry) : KeyRegistryId
+        + FindBySlot(slot_handle) : shared_ptr<KeyEntry>
+        + FindById(id) : shared_ptr<KeyEntry>
+        + Unregister(id) : bool
+        + CleanupClient(client_id)
+        + Size() : size_t
+    }
+}
+
+' ====================================================================
+' KEY MANAGEMENT CORE
+' ====================================================================
+package "Slot Management" <<Rectangle>> #F0F8FF {
+
+    class SlotRegistry {
+        - m_registry : vector<SlotRegistryEntry>
+        - m_name_index : unordered_map<string, uint32_t>
+        - m_mutex : mutex
+        --
+        + RegisterSlot(config : KeySlotConfig) : SlotHandle
+        + ResolveSlot(slot_name, client_id) : Expected<SlotHandle>
+        + ResolveAppResource(app_resource_id, client_id) : Expected<SlotHandle>
+        + RegisterAppResource(uid, app_resource_id, slot_name)
+        + GetConfig(handle) : Expected<const KeySlotConfig*>
+        + GetPrimaryProviderId(handle) : Expected<ProviderId>
+        + IsProviderAllowedForSlot(handle, provider_id) : Expected<monostate>
+        + ResolveProviderIds(provider_manager)
+        + GetSlotCount() : size_t
+    }
+
+    class AccessPolicyEnforcer <<Static Utility>> {
+        + {static} CheckSlotAccess(config, client_id) : Expected<monostate>
+        + {static} CheckWritePermission(config, client_id) : Expected<monostate>
+        + {static} CheckOperationPermission(config, required) : Expected<monostate>
+        + {static} CheckProviderAccess(config, provider_id, is_write) : Expected<monostate>
+        + {static} Authorize(config, client_id, required) : Expected<monostate>
+    }
+
+    interface IKeyFactory <<Interface>> {
+        + GenerateKey(request) : Expected<IKeyHandler::Sptr>
+        + ImportKey(request) : Expected<IKeyHandler::Sptr>
+        + DeriveKey(request) : Expected<IKeyHandler::Sptr>
+        + AgreeKey(request) : Expected<IKeyHandler::Sptr>
+        + WrapKey(request) : Expected<SecureKeyBytes>
+        + UnwrapKey(request) : Expected<IKeyHandler::Sptr>
+        + ExportKey(handle, format) : Expected<SecureKeyBytes>
+        .. default implementations return kNotSupported ..
+    }
+
+    interface IKeySlotHandler <<Interface>> {
+        + LoadKey(config) : Expected<IKeyHandler::Sptr>
+        + GetSlotState(config) : Expected<KeySlotState>
+        + GetSlotInfo(config) : Expected<KeySlotInfo>
+        + StoreKey(config, handler) : Expected<bool>
+        + ClearSlot(config) : Expected<monostate>
+        .. StoreKey/ClearSlot default → kNotSupported ..
+    }
+
+    interface IKeyHandler <<Interface>> {
+        + GetHandle() : const ProviderKeyHandle&
+        + GetProviderId() : const ProviderId&
+        + Release() : Expected<bool>
+        + Export() : Expected<SecureKeyBytes>
+        .. Release() is idempotent; second call is no-op ..
+    }
+
+    class FileBackedSlotHandler {
+        - m_key_handler : IKeyHandler::Sptr
+        --
+        + LoadKey(config) : Expected<IKeyHandler::Sptr>
+        + GetSlotState(config) : Expected<KeySlotState>
+        + GetSlotInfo(config) : Expected<KeySlotInfo>
+    }
+}
+
+' ====================================================================
+' SLOT DEPLOYMENT  (slot/deployment/)
+' ====================================================================
+package "Slot Deployment" <<Rectangle>> #E8F0FE {
+
+    struct SlotDeploymentInfo {
+        + metadata : unordered_map<string, string>
+        + key_properties : unordered_map<string, string>
+        .. metadata_keys: availability, provisioned_at, ..
+        .. update_counter, hash, kek.keyslotname, kek.algo, kek.iv ..
+        .. deployment_keys: key_path, key_format, key, ..
+        .. pkcs11.label, pkcs11.object_id, pkcs11.object_class, ..
+        .. tee.key_id, psa.key_id ..
+    }
+
+    interface IDeploymentLoader <<Interface>> {
+        + Load(path : string) : Expected<SlotDeploymentInfo, DaemonErrorCode>
+        .. path is pre-validated by the façade ..
+    }
+
+    interface IDeploymentWriter <<Interface>> {
+        + Write(path : string, info : SlotDeploymentInfo) : Expected<monostate, DaemonErrorCode>
+        .. path is pre-validated by the façade ..
+    }
+
+    class DeploymentLoader <<Façade>> {
+        + {static} Load(path, format) : Expected<SlotDeploymentInfo, DaemonErrorCode>
+        .. 1. IsDeploymentPathSafe(path) ..
+        .. 2. if format=="kv" → KvDeploymentLoader{}.Load(path) ..
+        .. 3. add branch here for each future format ..
+    }
+
+    class DeploymentWriter <<Façade>> {
+        + {static} Write(path, format, info) : Expected<monostate, DaemonErrorCode>
+        .. 1. IsDeploymentPathSafe(path) ..
+        .. 2. if format=="kv" → KvDeploymentWriter{}.Write(path, info) ..
+    }
+
+    class KvDeploymentLoader {
+        + Load(path : string) : Expected<SlotDeploymentInfo, DaemonErrorCode>
+        .. parses [metadata] / [key] key=value sections ..
+        .. blank lines and # comments ignored ..
+    }
+
+    class KvDeploymentWriter {
+        + Write(path : string, info : SlotDeploymentInfo) : Expected<monostate, DaemonErrorCode>
+        .. writes [metadata] then [key] sections ..
+        .. opens with ios::trunc ..
+    }
+}
+
+' ====================================================================
+' OPENSSL IMPLEMENTATIONS
+' ====================================================================
+package "OpenSSL Provider" <<Rectangle>> #FFFDE7 {
+    class OpenSslKeyFactory {
+        + GenerateKey(request) : Expected<IKeyHandler::Sptr>
+        .. RAND_bytes → heap buffer → OpenSslKeyHandler ..
+        + ImportKey(request) : Expected<IKeyHandler::Sptr>
+        .. memcpy to heap buffer ..
+        - DetermineKeySize(algorithm) : size_t
+    }
+
+    class OpenSslKeyHandler {
+        - m_key_bytes : vector<uint8_t>
+        - m_handle : ProviderKeyHandle
+        - m_released : bool
+        --
+        + GetHandle() : const ProviderKeyHandle&
+        + GetProviderId() : const ProviderId&
+        + Release() : Expected<bool>
+        .. OPENSSL_cleanse + clear(); idempotent ..
+        + Export() : Expected<SecureKeyBytes>
+        + GetRawKeyBytes(out_size) : const uint8_t*
+        .. direct access for zero-copy MAC key binding ..
+    }
+}
+
+' ====================================================================
+' PKCS#11 IMPLEMENTATIONS
+' ====================================================================
+package "PKCS#11 Provider" <<Rectangle>> #E8F5E9 {
+
+    class Pkcs11Config {
+        - m_tokens : vector<Pkcs11TokenEntry>
+        --
+        + AddTokenEntry(entry)
+        + GetTokenEntries() : const vector<Pkcs11TokenEntry>&
+        + PopulateDefaults()
+        .. no-op when entries already present ..
+        + Configure(factory : Pkcs11ProviderFactory&)
+        .. visitor: converts TokenEntry → ProviderConfig ..
+        .. calls factory.SetTokenConfigs() ..
+    }
+
+    class Pkcs11ProviderFactory {
+        - m_injected_configs : vector<Pkcs11ProviderConfig>
+        --
+        + Pkcs11ProviderFactory()
+        + Pkcs11ProviderFactory(configs : vector<Pkcs11ProviderConfig>)
+        + SetTokenConfigs(configs : vector<Pkcs11ProviderConfig>)
+        .. acceptor side of Pkcs11Config visitor ..
+        + CreateAndRegister(manager) : bool
+        .. shared Pkcs11Module; one Pkcs11Provider per config ..
+    }
+
+    class Pkcs11KeyFactory {
+        + GenerateKey(request) : Expected<IKeyHandler::Sptr>
+        .. C_GenerateKey → session key (CKA_TOKEN=false) ..
+        + ImportKey(request) : Expected<IKeyHandler::Sptr>
+        .. C_CreateObject ..
+    }
+
+    class Pkcs11KeyHandler {
+        - m_key_store : weak_ptr<Pkcs11KeyStore>
+        - m_handle : ProviderKeyHandle
+        - m_released : atomic<bool>
+        --
+        + GetHandle() : const ProviderKeyHandle&
+        + GetProviderId() : const ProviderId&
+        + Release() : Expected<bool>
+        .. store->Release(opaque_id) ..
+        + Export() : Expected<SecureKeyBytes>
+        .. always kNotPermitted ..
+        + GetSessionKey() : pair<CK_SESSION_HANDLE, CK_OBJECT_HANDLE>
+    }
+
+    class Pkcs11KeySlotHandler {
+        + LoadKey(config) : Expected<IKeyHandler::Sptr>
+        .. C_FindObjects by label/object_id → Pkcs11KeyHandler ..
+        + GetSlotState(config) : Expected<KeySlotState>
+        + GetSlotInfo(config) : Expected<KeySlotInfo>
+    }
+
+    class Pkcs11KeyStore {
+        - m_map_mutex : mutex
+        - m_map : unordered_map<uint64_t, pair<CK_SESSION,CK_OBJECT>>
+        --
+        + Register(session, object, algo, size) : ProviderKeyHandle
+        + RegisterTokenObject(object, algo, size) : ProviderKeyHandle
+        + Lookup(opaque_id) : pair<CK_SESSION, CK_OBJECT>
+        + Release(opaque_id, handle) : Expected<bool>
+        .. session keys: C_DestroyObject on release ..
+        .. token objects: map entry removed, object preserved ..
+    }
+}
+
+' ====================================================================
+' PROVIDER HANDLER BASE
+' ====================================================================
+package "Provider Handler" <<Rectangle>> #FCE4EC {
+
+    abstract class Handler <<Abstract Base>> {
+        + InitializeContext(init_params) : Expected<monostate>
+        + Execute(operationId, request) : Expected<ResponseParameters>
+        + Reset() : Expected<monostate>
+    }
+
+    struct InitializationParams {
+        + client_id : uint64_t
+        + context_node_id : uint64_t
+        + provider_id : ProviderId
+        + key_node_id : uint64_t
+        + bound_key_handler : const IKeyHandler*
+        .. non-owning; valid for InitializeContext() only ..
+        + context_creation_params : RequestParameters
+        .. full CTX_CREATE wire params [0..N]; handlers read ..
+        .. MAC-specific fields (e.g. operation_mode at [4]) here ..
+    }
+
+    abstract class MacHandler {
+        # m_algorithm : AlgorithmId
+        # m_state : StreamOperationState
+        --
+        + GetMacSize() : size_t
+        + InitMac(initialDataOrIV) : Expected<monostate>
+        + UpdateMac(request) : Expected<monostate>
+        + FinalizeMac(output, finalData) : Expected<ResponseParameters>
+        + VerifyMac(expectedTag) : Expected<bool>
+    }
+
+    class OpenSslHmacHandler <<OpenSSL>> {
+        - m_mac : EVP_MAC*
+        - m_ctx : EVP_MAC_CTX*
+        - m_output_buffer : vector<uint8_t>
+        - m_init_params : InitializationParams
+        --
+        + InitializeContext(params) : Expected<monostate>
+        .. downcasts bound_key_handler → OpenSslKeyHandler ..
+        .. calls GetRawKeyBytes() + EVP_MAC_init ..
+        + Execute(opId, request) : Expected<ResponseParameters>
+        + UpdateMac(request) : Expected<monostate>
+        + FinalizeMac(output, finalData) : Expected<ResponseParameters>
+        + VerifyMac(expectedTag) : Expected<bool>
+        + InitMac(initialDataOrIV) : Expected<monostate>
+        + {static} IsAlgorithmSupported(algorithm) : bool
+    }
+}
+
+' ====================================================================
+' KEY MANAGEMENT EXECUTOR
+' ====================================================================
+package "Key Mgmt Executor" <<Rectangle>> #FFF8E7 {
+
+    class KeyManagementExecutor {
+        - m_factory : shared_ptr<IKeyFactory>
+        - m_slot_handler : shared_ptr<IKeySlotHandler>
+        - m_service : shared_ptr<KeyManagementService>
+        --
+        + KeyManagementExecutor(factory, slot_handler, service)
+        + Execute(ctx, operationId, request) : Expected<ResponseParameters>
+        - HandleGenerate(ctx, request) : Expected<ResponseParameters>
+        .. factory.GenerateKey() → service.RegisterKeyMaterial() ..
+        - HandleLoad(ctx, request) : Expected<ResponseParameters>
+        .. service.ResolveSlotForOperation() → service.LoadOrShare() ..
+        - HandleRelease(client_id, request) : Expected<ResponseParameters>
+        .. service.ReleaseKeyMaterial() ..
+        - HandleSlotInfo(ctx, request) : Expected<ResponseParameters>
+        .. ResolveSlot + slot_handler.GetSlotInfo() ..
+    }
+
+    class Pkcs11MacExecutor {
+        - m_module : const Pkcs11Module&
+        - m_functionList : const CK_FUNCTION_LIST*
+        --
+        + Execute(ctx, action, request, currentState, nextState) : Expected<ResponseParameters>
+        + Abort(session, operation_mode)
+        - HandleInit(ctx, use_verify, currentState, nextState)
+        - HandleUpdate(ctx, use_verify, currentState, nextState, request)
+        - HandleFinal(ctx, currentState, nextState, request)
+        - HandleVerify(ctx, use_verify, currentState, nextState, request)
+        - EnsureInitialized(session, mechanism, key_object, use_verify, currentState)
+        .. calls C_SignInit/C_VerifyInit only when STREAM_INITIALIZED ..
+        - ExecuteSignInit / ExecuteSignUpdate / ExecuteSignFinal
+        - ExecuteVerifyInit / ExecuteVerifyUpdate / ExecuteVerifyFinal
+        - ExecuteSignSingleShot / ExecuteVerifySingleShot / ExecuteSignVerify
+    }
+
+    note right of KeyManagementExecutor
+      Each provider handler owns one instance
+      and calls Execute() with its own deps
+      injected at construction time.
+      Key operations dispatched by operationAction.
+    end note
+}
+
+' ====================================================================
+' DATA NODES
+' ====================================================================
+package "Data Nodes" <<Rectangle>> #FFF0F0 {
+
+    class KeyEntry {
+        - m_handler : IKeyHandler::Sptr
+        - m_provider_id : ProviderId
+        - m_slot_handle : SlotHandle
+        - m_ref_mutex : mutex
+        - m_ref_count : atomic<uint32_t>
+        - m_referencing_clients : vector<ClientId>
+        --
+        + GetHandle() : const ProviderKeyHandle&
+        + GetKeyHandler() : IKeyHandler::Sptr
+        + GetProviderId() : const ProviderId&
+        + AddRef(client_id)
+        + Release(client_id) : bool
+        .. returns true when ref_count reaches 0 ..
+        + GetRefCount() : uint32_t
+        .. ~KeyEntry() → handler->Release() (zeroize) ..
+    }
+
+    class KeySlotDataNode {
+        - m_slot_handle : SlotHandle
+        - m_slot_registry : SlotRegistry::Sptr
+        --
+        + GetSlotHandle() : SlotHandle
+        + GetConfig() : Expected<const KeySlotConfig*>
+        + GetSlotRegistry() : SlotRegistry::Sptr
+        .. exclusiveAccess = false ..
+        .. ~24 bytes; no KeySlotConfig copy ..
+    }
+
+    class KeyDataNode {
+        - m_key_entry : shared_ptr<KeyEntry>
+        - m_registry_id : KeyRegistryId
+        - m_client_id : ClientId
+        - m_on_last_release : UnregisterCallback
+        --
+        + GetKeyEntry() : shared_ptr<KeyEntry>
+        + GetRegistryId() : KeyRegistryId
+        .. ctor: key_entry->AddRef(client_id) ..
+        .. dtor: key_entry->Release(client_id) ..
+        ..   if last ref → on_last_release(registry_id) ..
+        .. exclusiveAccess = false ..
+    }
+
+    class ContextDataNode {
+        - m_handler : shared_ptr<Handler>
+        - m_algorithm : string
+        --
+        + ContextDataNode(handler, algorithm)
+        + GetHandler() : shared_ptr<Handler>
+        + GetAlgorithm() : const string&
+        .. exclusiveAccess = true ..
+        .. child KeyDataNodes cascade-deleted on CTX_CLOSE ..
+    }
+}
+
+' ====================================================================
+' MEDIATOR INTEGRATION
+' ====================================================================
+package "Mediator" <<Rectangle>> #F8F0FF {
+    class MediatorImpl {
+        - m_data_manager : IDataManager::Sptr
+        - m_provider_manager : ProviderManager::Sptr
+        - m_km_service : KeyManagementService::Sptr
+        - m_resource_resolvers : map<uint8_t, ResourceResolverFn>
+        --
+        + processRequest(ControlRequest) : ControlResponse
+        - HandleSingleOperation(...)
+        - HandleMediatorOperation(...)
+        .. CTX_CREATE → HandleContextCreationOperation ..
+        .. CTX_CLOSE → deleteNode cascade ..
+        .. RESOLVE_RESOURCE → slot resolver ..
+        - HandleContextCreationOperation(...)
+        .. ResolveTargetProvider → GetProvider ..
+        .. CreateHandler → CreateContextDataNode ..
+        .. BindKeyToContext → InitializeContext ..
+        - ForwardSingleOperation(...)
+        .. look up ContextDataNode → handler->Execute() ..
+    }
+}
+
+' ====================================================================
+' RELATIONSHIPS
+' ====================================================================
+KeyManagementModule --> KeyManagementService : creates
+KeyManagementModule --> SlotRegistry : creates
+KeyManagementModule ..> IKeySlotCatalog : loads slots via
+
+ConfigDrivenSlotCatalog ..|> IKeySlotCatalog
+
+KeyManagementService --> SlotRegistry : uses
+KeyManagementService --> KeyRegistry : owns per provider
+KeyManagementService --> KeyEntry : creates via RegisterKeyMaterial
+KeyManagementService --> KeyDataNode : creates via LoadOrShare / RegisterKeyMaterial
+KeyManagementService --> KeySlotDataNode : creates via ResolveKeySlot, reads via ResolveSlotForOperation
+KeyManagementService ..> KeyBindingResult : returns from BindKeyToContext
+KeyManagementService ..> SlotResolution : returns from ResolveSlotForOperation
+KeyManagementService ..> KeyDataNodeResult : returns from RegisterKeyMaterial
+
+KeyManagementExecutor --> KeyManagementService : m_service
+KeyManagementExecutor --> IKeyFactory : m_factory
+KeyManagementExecutor --> IKeySlotHandler : m_slot_handler
+
+FileBackedSlotHandler ..|> IKeySlotHandler
+Pkcs11KeySlotHandler ..|> IKeySlotHandler
+
+DeploymentLoader ..> IDeploymentLoader : dispatches to
+DeploymentWriter ..> IDeploymentWriter : dispatches to
+KvDeploymentLoader ..|> IDeploymentLoader
+KvDeploymentWriter ..|> IDeploymentWriter
+DeploymentLoader ..> SlotDeploymentInfo : returns
+IDeploymentLoader ..> SlotDeploymentInfo : returns
+
+FileBackedSlotHandler --> DeploymentLoader : Load(deployment_path, format)
+Pkcs11KeySlotHandler --> DeploymentLoader : Load(deployment_path, format)
+
+OpenSslKeyFactory ..|> IKeyFactory
+Pkcs11KeyFactory ..|> IKeyFactory
+OpenSslKeyHandler ..|> IKeyHandler
+Pkcs11KeyHandler ..|> IKeyHandler
+Pkcs11KeyHandler --> Pkcs11KeyStore : weak_ptr
+Pkcs11KeyFactory --> Pkcs11KeyStore : shared_ptr
+
+MacHandler --|> Handler
+OpenSslHmacHandler --|> MacHandler
+OpenSslHmacHandler ..> OpenSslKeyHandler : downcast from bound_key_handler\n(type-safe via ProviderId check)
+
+KeyEntry --> IKeyHandler : owns (sole owner)
+KeyDataNode --> KeyEntry : shared_ptr; ctor AddRef / dtor Release
+KeyRegistry --> KeyEntry : shared ownership
+
+ContextDataNode --> Handler : owns
+ContextDataNode ..> KeyDataNode : parent — child KeyDataNodes\ncascade-deleted on CTX_CLOSE
+
+MediatorImpl --> KeyManagementService : ResolveKeySlot, BindKeyToContext, ResolveTargetProvider
+MediatorImpl --> ContextDataNode : creates, looks up
+MediatorImpl --> InitializationParams : builds for InitializeContext
+
+@enduml

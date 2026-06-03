@@ -1,0 +1,107 @@
+@startuml score_crypto_api_key_configuration_objects
+
+title Score Crypto API — Key
+
+skinparam packageStyle rectangle
+
+' ============================================================
+' Key Operation Parameters
+' ============================================================
+package "Key Operation Parameters" {
+    class KdfParameters <<struct>> {
+        + kdf_algorithm : AlgorithmId
+        + salt : array<uint8_t, 128>
+        + salt_length : size_t
+        + label : FixedCapacityString<128>
+        + seed : array<uint8_t, 256>
+        + seed_length : size_t
+        + output_key_length : optional<uint32_t>
+        + iteration_count : optional<uint32_t>
+        ---
+        + SetKdfAlgorithm(alg) : KdfParameters&
+        + SetSalt(data) : KdfParameters&
+        + SetLabel(lbl) : KdfParameters&
+        + SetSeed(data) : KdfParameters&
+        + SetOutputKeyLength(len) : KdfParameters&
+        + SetIterationCount(count) : KdfParameters&
+    }
+
+    class GenerateKeyParams <<struct>> {
+        + algorithm : AlgorithmId
+        + permissions : KeyOperationPermission
+        ---
+        + SetAlgorithm(alg) : GenerateKeyParams&
+        + SetPermissions(perms) : GenerateKeyParams&
+    }
+
+    class DeriveKeyParams <<struct>> {
+        + source_key : CryptoResourceId
+        + derived_key_algorithm : AlgorithmId
+        + kdf : KdfParameters
+        + permissions : KeyOperationPermission
+        ---
+        + SetSourceKey(id) : DeriveKeyParams&
+        + SetDerivedKeyAlgorithm(alg) : DeriveKeyParams&
+        + SetKdf(kdf) : DeriveKeyParams&
+        + SetPermissions(perms) : DeriveKeyParams&
+    }
+
+    class AgreeKeyParams <<struct>> {
+        + private_key : CryptoResourceId
+        + peer_public_key : span<const uint8_t>
+        + agreement_algorithm : AlgorithmId
+        + public_key_format : optional<FormatType>
+        + derived_key_algorithm : optional<AlgorithmId>
+        + kdf : optional<KdfParameters>
+        + permissions : KeyOperationPermission
+        ---
+        + SetPrivateKey(id) : AgreeKeyParams&
+        + SetPeerPublicKey(data) : AgreeKeyParams&
+        + SetAgreementAlgorithm(alg) : AgreeKeyParams&
+        + SetKdf(kdf) : AgreeKeyParams&
+    }
+
+    class WrapKeyParams <<struct>> {
+        + key_to_wrap : CryptoResourceId
+        + wrapping_key : CryptoResourceId
+        + wrapping_algorithm : optional<AlgorithmId>
+        + iv : span<const uint8_t>
+        + aad : span<const uint8_t>
+        ---
+        + SetKeyToWrap(id) : WrapKeyParams&
+        + SetWrappingKey(id) : WrapKeyParams&
+        + SetWrappingAlgorithm(alg) : WrapKeyParams&
+        + SetIv(data) : WrapKeyParams&
+        + SetAad(data) : WrapKeyParams&
+    }
+
+    class UnwrapKeyParams <<struct>> {
+        + wrapped_data : span<const uint8_t>
+        + wrapping_key : CryptoResourceId
+        + inner_key_algorithm : AlgorithmId
+        + wrapping_algorithm : optional<AlgorithmId>
+        + iv : span<const uint8_t>
+        + aad : span<const uint8_t>
+        + permissions : KeyOperationPermission
+        ---
+        + SetWrappedData(data) : UnwrapKeyParams&
+        + SetWrappingKey(id) : UnwrapKeyParams&
+        + SetInnerKeyAlgorithm(alg) : UnwrapKeyParams&
+    }
+
+    class ImportKeyParams <<struct>> {
+        + key_data : span<const uint8_t>
+        + format : FormatType
+        + algorithm : AlgorithmId
+        + permissions : KeyOperationPermission
+        ---
+        + SetKeyData(data) : ImportKeyParams&
+        + SetFormat(fmt) : ImportKeyParams&
+        + SetAlgorithm(alg) : ImportKeyParams&
+    }
+
+    DeriveKeyParams --> KdfParameters : uses
+    AgreeKeyParams --> KdfParameters : optionally uses
+}
+
+@enduml

@@ -1,0 +1,47 @@
+@startuml score_crypto_api_resource_management
+
+title Score Crypto API — Resource Management
+
+skinparam packageStyle rectangle
+
+' ============================================================
+' Resource Management
+' ============================================================
+package "Resource Management" {
+    class CryptoResourceGuard {
+        - release_handle_ : shared_ptr<void>  // internal, type-erased
+        - id_ : CryptoResourceId
+        - active_ : bool
+        ---
+        + Id() : const CryptoResourceId&
+        + {implicit} operator const CryptoResourceId&()
+        + IsActive() : bool
+        + Release() : Result<std::monostate>
+    }
+
+    class CryptoResourceGuardFactory <<internal>> {
+        + {static} Make(handle, id) : CryptoResourceGuard  // IPC layer only
+    }
+
+    class CryptoResourceId <<struct>> {
+        + id : uint64_t
+        + type : ResourceType
+        + persistence : ResourcePersistence
+        + primary_provider : uint16_t
+        ---
+        + operator==(other) : bool
+        + operator!=(other) : bool
+    }
+
+    note as N_Lifetime
+        Key lifetime managed by daemon ref-counting.
+        Guard holds a type-erased IPC release handle.
+        CryptoResourceGuardFactory is the sole
+        construction path — only IPC-layer implementations
+        can create guards.
+    end note
+
+    CryptoResourceGuard --> CryptoResourceId : guards
+}
+
+@enduml

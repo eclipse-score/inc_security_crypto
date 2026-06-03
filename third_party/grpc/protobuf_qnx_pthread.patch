@@ -1,0 +1,10 @@
+--- a/build_defs/cpp_opts.bzl
++++ b/build_defs/cpp_opts.bzl
+@@ -23,6 +23,7 @@ COPTS = select({
+
+ # Android and MSVC builds do not need to link in a separate pthread library.
+ LINK_OPTS = select({
++    "@platforms//os:qnx": ["-lm"],
+     "@platforms//os:android": [],
+     "//build_defs:config_android": [],
+     "//build_defs:config_android-legacy-default-crosstool": [],

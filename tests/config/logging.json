@@ -1,0 +1,6 @@
+{
+    "appId": "CRYP",
+    "logLevel": "kVerbose",
+    "logMode": "kConsole",
+    "logLevelThresholdConsole": "kVerbose"
+}

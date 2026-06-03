@@ -1,0 +1,18 @@
+--- a/bazel/grpc_build_system.bzl
++++ b/bazel/grpc_build_system.bzl
+@@ -139,7 +139,14 @@ def grpc_cc_library(
+     """
+     visibility = _update_visibility(visibility)
+     copts = []
+-    linkopts = linkopts + if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"])
++    # QNX has pthread built into libc, so don't link -lpthread on QNX.
++    # QNX requires -lsocket for socket/network functions.
++    linkopts = linkopts + select({
++        "@platforms//os:qnx": ["-lsocket"],
++        "@platforms//os:windows": ["-defaultlib:ws2_32.lib"],
++        "//conditions:default": ["-pthread"],
++    })
++
+     if select_deps:
+         for select_deps_entry in select_deps:
+             deps += select(select_deps_entry)

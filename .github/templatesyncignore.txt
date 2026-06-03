@@ -1,0 +1,17 @@
+**/Module.bazel
+.DS_Store
+.bazelversion
+.gitignore
+# TODO: Remove once we have harmonized the pre-commit workflow
+.pre-commit-config.yaml
+**/BUILD
+platforms/
+score/
+src/
+tests/
+third_party/
+examples/
+docs/
+README.md
+project_config.bzl
+CODEOWNERS

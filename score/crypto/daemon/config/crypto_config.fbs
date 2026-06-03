@@ -1,0 +1,67 @@
+// *******************************************************************************
+// Copyright (c) 2026 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache License Version 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// SPDX-License-Identifier: Apache-2.0
+// *******************************************************************************
+
+// Crypto Configuration Schema
+// Currently only includes key slot configuration
+
+file_identifier "CCFG";  // Crypto Configuration
+
+namespace score.crypto.daemon.config.keyslot;
+
+/// Single key slot definition from the configuration source
+/// Mirrors KeyConfig::KeySlotEntry structure
+table KeySlotEntry {
+  /// Human-readable resource ID (e.g., "vehicle/hmac-256")
+  slot_name: string (required);
+  /// Algorithm string (e.g., "HMAC-SHA256", "AES-256-CMAC")
+  algorithm: string (required);
+  /// Ordered provider names. [0] is the primary (sole writer)
+  provider_names: [string] (required);
+  /// List of operations allowed for the key in the slot (e.g., "MAC", "ENCRYPT|DECRYPT")
+  allowed_operations: string (required);
+  /// UIDs permitted to read/load from the slot
+  allowed_uids: [uint32] (required);
+  /// UIDs permitted to write/generate into the slot
+  allowed_write_uids: [uint32] (required);
+  /// Absolute path to the deployment descriptor file.
+  deployment_path: string (required);
+  /// Format of the deployment descriptor (default "kv").
+  deployment_format: string (required);
+}
+
+/// Per-application resource ID to slot name mapping
+/// Applications reference keys by portable application-local names
+/// (e.g., "signing_key")
+table AppResourceEntry {
+  /// UID of the application that owns this mapping
+  uid: uint32;
+  /// Application-local resource name
+  app_resource_id: string (required);
+  /// Actual slot name registered in the daemon registry
+  slot_name: string (required);
+}
+
+/// Key slot config contains all slot and app resource definitions
+table KeySlotConfig {
+  /// All key slot definitions
+  slot_entries: [KeySlotEntry] (required);
+  /// All per-app resource mappings
+  app_resource_entries: [AppResourceEntry] (required);
+}
+
+/// Top-level configuration root_type
+table CryptoConfig {
+  key_slot_config: KeySlotConfig (required);
+}
+
+root_type CryptoConfig;

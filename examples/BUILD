@@ -1,28 +1,45 @@
-load("@rules_rust//rust:defs.bzl", "rust_binary")
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
 
-package(default_visibility = ["//visibility:public"])
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 
-filegroup(
-    name = "examples",
-    srcs = glob(["**/*.rs"]),
-)
-
-rust_binary(
-    name = "pkcs11_demo",
-    crate_root = "pkcs11_demo.rs",
-    srcs = ["pkcs11_demo.rs"],
+cc_binary(
+    name = "hashing_example",
+    srcs = ["hashing_example.cpp"],
     deps = [
-        "//src:cryptoki_lib",
-        "@crates//:libc",
+        "//score/mw/crypto/api:crypto_stack",
+        "//score/mw/crypto/api/config:context_configs",
+        "//score/mw/crypto/api/contexts:crypto_contexts",
     ],
 )
 
-rust_binary(
-    name = "pkcs11_business_demo",
-    crate_root = "pkcs11_business_demo.rs",
-    srcs = ["pkcs11_business_demo.rs"],
+cc_binary(
+    name = "memory_allocator_example",
+    srcs = ["memory_allocator_example.cpp"],
     deps = [
-        "//src:cryptoki_lib",
-        "@crates//:libc",
+        "//score/mw/crypto/api:crypto_stack",
+        "//score/mw/crypto/api/common:crypto_common",
+        "//score/mw/crypto/api/config:context_configs",
+        "//score/mw/crypto/api/contexts:crypto_contexts",
     ],
 )
+
+# =============================================================================
+# FUTURE: Examples below depend on APIs not yet in scope.
+# =============================================================================
+# cc_binary(name = "encryption_example",   srcs = ["encryption_example.cpp"],   ...)
+# cc_binary(name = "pqc_signing_example",  srcs = ["pqc_signing_example.cpp"],  ...)
+# cc_binary(name = "certificate_example",  srcs = ["certificate_example.cpp"],  ...)
+# cc_binary(name = "ephemeral_key_example",srcs = ["ephemeral_key_example.cpp"],...) # needs cipher context
+# cc_binary(name = "cross_provider_example",srcs = ["cross_provider_example.cpp"],...)
+# cc_binary(name = "key_lifecycle_complete",srcs = ["key_lifecycle_complete.cpp"],..)

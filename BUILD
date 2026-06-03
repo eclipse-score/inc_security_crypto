@@ -11,93 +11,26 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("//:project_config.bzl", "PROJECT_CONFIG")
+load("@score_docs_as_code//:docs.bzl", "docs")
+load("@score_tooling//:defs.bzl", "copyright_checker", "use_format_targets")
 
-package(default_visibility = ["//visibility:public"])
+docs(
+    source_dir = "docs",
+)
 
-exports_files([
-    "Cargo.toml",
-    "Cargo.lock",
-    "README.md",
-    "LICENSE",
-    "NOTICE",
-    "CONTRIBUTION.md",
-    "MODULE.bazel",
-    "project_config.bzl",
-    "pyproject.toml",
-])
-
-filegroup(
-    name = "rust_srcs",
+copyright_checker(
+    name = "copyright",
     srcs = [
-        "Cargo.toml",
-        "Cargo.lock",
-        "//src:src",
-        "//examples:examples",
-        "//tests:rust_test_sources",
-        "//cpp:cpp_srcs",
+        # ".github",
+        "docs",
+        "score",
+        "third_party",
+        "//:BUILD",
+        "//:MODULE.bazel",
     ],
+    config = "@score_tooling//cr_checker/resources:config",
+    template = "@score_tooling//cr_checker/resources:templates",
+    visibility = ["//visibility:public"],
 )
 
-sh_binary(
-    name = "cargo_test",
-    srcs = ["//tests/rust:run_rust_tests.sh"],
-    data = [":rust_srcs"],
-)
-
-# Top-level aliases for ergonomic `bazel build/test //:foo` invocations
-alias(
-    name = "docs",
-    actual = "//docs:docs",
-)
-
-alias(
-    name = "rust_lib",
-    actual = "//src:cryptoki_lib",
-)
-
-alias(
-    name = "rust_unit_smoke",
-    actual = "//tests/rust:rust_unit_smoke",
-)
-
-alias(
-    name = "tests_rust",
-    actual = "//tests:integration_tests",
-)
-
-alias(
-    name = "tests_cpp",
-    actual = "//tests/cpp:test_cpp",
-)
-
-alias(
-    name = "example_pkcs11_demo",
-    actual = "//examples:pkcs11_demo",
-)
-
-alias(
-    name = "example_pkcs11_business_demo",
-    actual = "//examples:pkcs11_business_demo",
-)
-
-alias(
-    name = "cpp_srcs",
-    actual = "//cpp:cpp_srcs",
-)
-
-alias(
-    name = "parsec_client",
-    actual = "//parsec:parsec_client",
-)
-
-alias(
-    name = "parsec_start",
-    actual = "//parsec:start_parsec",
-)
-
-alias(
-    name = "parsec_start_client",
-    actual = "//parsec:start_client",
-)
+use_format_targets()

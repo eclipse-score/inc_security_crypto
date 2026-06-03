@@ -1,0 +1,16 @@
+# NOTE: the set of enabled checks is yet subject to be tailored for the S-CORE project
+Checks: >
+  -*, clang-analyzer-*, cert-*, cppcoreguidelines-*, bugprone-*, misc-*, performance-*, readability-*
+# Only treat critical checks as errors, others are warnings
+# NOTE: the `WarningsAsErrors` property is yet subject to be tailored for the enabled checks
+WarningsAsErrors: >
+  clang-analyzer-*,
+# Exclude third-party and external dependencies' headers from analysis
+HeaderFilterRegex: '^(?!.*/third_party/).*'
+FormatStyle: file
+# The rules above are permissive and we need the rules below to enforce naming conventions
+CheckOptions:
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase

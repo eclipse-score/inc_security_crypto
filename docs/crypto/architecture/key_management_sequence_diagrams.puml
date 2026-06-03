@@ -1,0 +1,331 @@
+﻿@startuml key_management_sequence_diagrams
+!theme plain
+skinparam sequenceMessageAlign center
+
+title Key Management — Sequence Diagrams
+
+' ====================================================================
+' DIAGRAM 1: DAEMON STARTUP
+' ====================================================================
+
+== Daemon Startup ==
+
+participant "main()" as Main
+participant "DataManager" as DM
+participant "ProviderManager" as PM
+participant "KeyManagementModule" as KMM
+participant "KeyManagementService" as KMS
+participant "BasicHandlerChainFactory" as BHCF
+participant "MediatorImpl" as Med
+
+Main -> DM ** : make_shared<DataManager>()
+Main -> PM ** : make_shared<ProviderManager>(config)
+Main -> PM : RegisterFactory(ScoreProviderFactory)
+Main -> PM : RegisterFactory(Pkcs11ProviderFactory)
+Main -> PM : Initialize()
+
+Main -> KMM : Create(data_manager, provider_manager, key_config)
+activate KMM
+KMM -> KMM : m_slot_registry = make_shared<SlotRegistry>()
+KMM -> KMM : catalog.Load(*m_slot_registry)
+note right : ConfigDrivenSlotCatalog
+KMM -> KMS ** : KeyManagementService(dm, pm, slot_registry)
+KMM -> PM : ForEachProvider → provider->SetKeyManagementService(service)
+KMM -> KMM : slot_registry->ResolveProviderIds(provider_manager)
+KMM --> Main : KeyManagementModule (Sptr)
+deactivate KMM
+
+Main -> BHCF ** : BasicHandlerChainFactory(\n  data_manager, provider_manager,\n  config, module->GetService())
+
+note over Main : GrpcControlServer::Start(socket)
+
+' ====================================================================
+' DIAGRAM 2: RESOLVE_RESOURCE — Resolve Slot Name
+' ====================================================================
+newpage RESOLVE_RESOURCE — Resolve Slot Name to DataNodeId
+
+participant "Client" as Client
+participant "MediatorImpl" as Med
+participant "SlotRegistry" as KCM
+participant "DataManager" as DM
+
+Client -> Med : HandleSingleOperation\n(OP_ACTOR_MEDIATOR, RESOLVE_RESOURCE)\nparam[0]=slot_name, param[1]=kKeySlot
+activate Med
+
+Med -> Med : HandleMediatorOperation()\n→ HandleResourceResolutionOperation()
+Med -> Med : look up resolver for kKeySlot\n(registered in RegisterResourceResolvers)
+
+Med -> KCM : ResolveAppResource(slot_name, client_id)
+note right : ResolveSlot + AccessPolicyEnforcer::CheckSlotAccess
+KCM --> Med : SlotHandle
+
+Med -> Med : create KeySlotDataNode\n(slot_handle, slot_registry)\n~24 bytes, no config copy
+Med -> DM : addNode(client_id, slot_node)
+DM --> Med : DataNodeId (slot_node_id)
+
+Med --> Client : response(slot_node_id)
+deactivate Med
+
+' ====================================================================
+' DIAGRAM 3: KEY_GENERATE (Forwarded to Executor)
+' ====================================================================
+newpage KEY_GENERATE — Generate Ephemeral Key
+
+participant "Client" as Client
+participant "MediatorImpl" as Med
+participant "KeyMgmtHandlerImpl\n(provider handler)" as KMH
+participant "KeyManagementExecutor" as Exec
+participant "IKeyFactory" as KF
+participant "KeyManagementService" as KMS
+participant "KeyRegistry" as KR
+participant "DataManager" as DM
+
+Client -> Med : HandleSingleOperation\n(OP_ACTOR_KEY_MANAGEMENT, KEY_GENERATE)\nparam[0]=context_id, param[1]=client_id,\nparam[2]=context_node_id, param[3]=algorithm
+activate Med
+
+Med -> Med : ForwardSingleOperation()
+Med -> DM : getNodeAccessor(client_id, context_id)\n→ ContextDataNode → GetHandler()
+DM --> Med : handler (KeyMgmtHandlerImpl)
+
+Med -> KMH : Execute(KEY_GENERATE, params)
+activate KMH
+KMH -> Exec : Execute(ctx{factory, slot_handler,\nservice, provider_id, client_id,\ncontext_node_id}, KEY_GENERATE, params)
+activate Exec
+
+Exec -> Exec : HandleGenerate()
+Exec -> KF : GenerateKey(KeyGenerationRequest{algorithm, permissions})
+note right : OpenSSL: RAND_bytes → heap buffer\nPKCS#11: C_GenerateKey (session key)
+KF --> Exec : IKeyHandler::Sptr (new handler)
+
+Exec -> KMS : RegisterKeyMaterial(client_id, context_node_id,\nkey_handler, provider_id, slot_handle={})
+activate KMS
+KMS -> KMS : GetProviderRegistry(provider_id)
+KMS -> KR : RegisterEphemeralKey(key_entry)
+KR --> KMS : KeyRegistryId
+KMS -> DM : addChildNode(client_id, context_node_id, KeyDataNode)
+note right : KeyDataNode ctor → key_entry->AddRef(client_id)\nref_count = 1
+DM --> KMS : DataNodeId (key_ref_node_id)
+KMS --> Exec : KeyDataNodeResult{key_ref_node_id, key_entry}
+deactivate KMS
+
+Exec --> KMH : ResponseParameters{key_ref_node_id}
+deactivate Exec
+KMH --> Med : ResponseParameters
+deactivate KMH
+
+Med --> Client : response(key_ref_node_id)
+deactivate Med
+
+' ====================================================================
+' DIAGRAM 4: KEY_LOAD — Load Key from Slot (with deduplication)
+' ====================================================================
+newpage KEY_LOAD — Load Key from Slot (Slot Deduplication)
+
+participant "Client" as Client
+participant "MediatorImpl" as Med
+participant "KeyMgmtHandlerImpl" as KMH
+participant "KeyManagementExecutor" as Exec
+participant "KeyManagementService" as KMS
+participant "KeyRegistry" as KR
+participant "IKeySlotHandler" as SH
+participant "DeploymentLoader" as DL
+participant "DataManager" as DM
+
+Client -> Med : HandleSingleOperation\n(OP_ACTOR_KEY_MANAGEMENT, KEY_LOAD)\nparam: slot_node_id
+activate Med
+
+Med -> Med : ForwardSingleOperation()\n→ ContextDataNode → handler
+Med -> KMH : Execute(KEY_LOAD, params)
+activate KMH
+KMH -> Exec : Execute(ctx, KEY_LOAD, params)
+activate Exec
+
+Exec -> Exec : HandleLoad()
+Exec -> KMS : ResolveSlotForOperation(client_id, slot_node_id)
+activate KMS
+KMS -> DM : getNodeAccessor(slot_node_id) → KeySlotDataNode
+DM --> KMS : KeySlotDataNode{slot_handle, slot_registry}
+KMS --> Exec : SlotResolution{config*, slot_handle}
+deactivate KMS
+
+Exec -> KMS : LoadOrShare(client_id, context_node_id,\nslot_handler, *config, slot_handle, provider_id)
+activate KMS
+KMS -> KR : FindBySlot(slot_handle)
+alt Slot already loaded (another client reuses same slot)
+    KR --> KMS : existing KeyEntry (ref_count N)
+    KMS -> DM : addChildNode(client_id, context_node_id, KeyDataNode)
+    note right : KeyDataNode ctor → key_entry->AddRef(client_id)\nref_count = N+1
+    DM --> KMS : DataNodeId (key_ref_node_id)
+else First load for this slot
+    KR --> KMS : nullptr
+    KMS -> SH : LoadKey(*config)
+    activate SH
+    SH -> DL : Load(config.deployment_path,\nconfig.deployment_format)
+    activate DL
+    note right of DL : IsDeploymentPathSafe() check\nformat=="kv" → KvDeploymentLoader{}.Load(path)
+    DL --> SH : SlotDeploymentInfo\n{metadata, key_properties}
+    deactivate DL
+    note right of SH : FileBackedSlotHandler:\n  key_properties["key_path"] → read file\n  → OpenSslKeyHandler\nPkcs11KeySlotHandler:\n  key_properties["pkcs11.label"/"pkcs11.object_id"]\n  → C_FindObjects → Pkcs11KeyHandler
+    SH --> KMS : IKeyHandler::Sptr
+    deactivate SH
+    KMS -> KR : RegisterSlotKey(slot_handle, new_key_entry)
+    KR --> KMS : KeyRegistryId
+    KMS -> DM : addChildNode(client_id, context_node_id, KeyDataNode)
+    DM --> KMS : DataNodeId (key_ref_node_id)
+end
+KMS --> Exec : KeyDataNodeResult{key_ref_node_id, key_entry}
+deactivate KMS
+
+Exec --> KMH : ResponseParameters{key_ref_node_id}
+deactivate Exec
+KMH --> Med : ResponseParameters
+deactivate KMH
+Med --> Client : response(key_ref_node_id)
+deactivate Med
+
+' ====================================================================
+' DIAGRAM 5: CTX_CREATE with Key Binding (MAC / Cipher use-case)
+' ====================================================================
+newpage CTX_CREATE with Key Binding — MAC Context Example
+
+participant "Client" as Client
+participant "MediatorImpl" as Med
+participant "ProviderManager" as PM
+participant "ICryptoHandlerFactory" as Factory
+participant "MacHandlerImpl" as Mac
+participant "KeyManagementService" as KMS
+participant "DataManager" as DM
+
+note over Client : Prerequisites:\n  slot_node_id = RESOLVE_RESOURCE("HmacSlot")\n  key_ref_node_id = KEY_LOAD(slot_node_id)\n  (or KEY_GENERATE)
+
+Client -> Med : HandleSingleOperation\n(OP_ACTOR_MEDIATOR, CTX_CREATE)\nparam[0]="MAC", param[1]="HMAC-SHA256"\nparam[2]=CryptoProviderType::SOFTWARE\nparam[3]=key_ref_node_id
+activate Med
+
+Med -> Med : HandleMediatorOperation()\n→ HandleContextCreationOperation()
+
+Med -> KMS : ResolveTargetProvider(client_id,\nSOFTWARE, key_ref_node_id)
+note right : Checks key affinity:\nkey is OpenSSL → provider_id = "openssl"
+KMS --> Med : resolved_provider_id = "openssl"
+
+Med -> PM : GetProvider("openssl")
+PM --> Med : provider (IProvider*)
+
+Med -> Factory : CreateHandler("MAC", "HMAC-SHA256")
+Factory -> Mac ** : make_shared<MacHandler>(MacExecutor, "HMAC-SHA256")
+Factory --> Med : MacHandler::Sptr
+
+Med -> DM : addChildNode(client_id, session_id, ContextDataNode(mac_handler))
+DM --> Med : context_node_id
+
+Med -> KMS : BindKeyToContext(client_id, context_node_id,\nkey_ref_node_id, "openssl")
+activate KMS
+note right : kKeyRef path: creates new KeyRefDataNode\nunder context_node_id\nand returns IKeyHandler::Sptr
+KMS -> DM : getNodeAccessor(key_ref_node_id) → KeyRefDataNode
+KMS -> DM : addChildNode(client_id, context_node_id, new KeyRefDataNode)
+note right : new KeyRefDataNode ctor →\nAddRef(client_id); ref_count++
+DM --> KMS : resolved_node_id
+KMS --> Med : KeyBindingResult{key_handler_sptr, resolved_node_id}
+deactivate KMS
+
+Med -> Med : build InitializationParams{\n  client_id, context_node_id,\n  provider_id="openssl",\n  key_node_id=key_ref_node_id,\n  bound_key_handler=key_handler.get()\n}
+
+Med -> Mac : InitializeContext(init_params)
+activate Mac
+Mac -> Mac : validate algorithm (HMAC-SHA256 ✓)
+Mac -> Mac : EVP_MAC_fetch(NULL, "HMAC", NULL) → m_mac\nEVP_MAC_CTX_new(m_mac) → m_ctx
+Mac -> Mac : downcast bound_key_handler\n→ OpenSslKeyHandler\n(type-safe: check ProviderId == 0)
+Mac -> Mac : GetRawKeyBytes(key_len)\n→ key_bytes pointer
+Mac -> Mac : store init_params for lazy EVP_MAC_init\n(called at MAC_INIT / first use)
+Mac --> Med : Expected<monostate> OK
+deactivate Mac
+
+Med --> Client : response(context_node_id)
+deactivate Med
+
+' ====================================================================
+' DIAGRAM 6: MAC Operation Streaming (UPDATE → FINAL)
+' ====================================================================
+newpage MAC Streaming — UPDATE, FINAL, CTX_CLOSE
+
+participant "Client" as Client
+participant "MediatorImpl" as Med
+participant "MacHandlerImpl" as Mac
+participant "MacExecutor" as Exec
+participant "DataManager" as DM
+
+note over Client : context_node_id established in CTX_CREATE with Key Binding
+
+Client -> Med : HandleSingleOperation\n(OP_ACTOR_MAC, MAC_UPDATE)\nparam[context_id=context_node_id], param[data_buf]
+activate Med
+Med -> Med : ForwardSingleOperation()\n→ getNodeAccessor(context_node_id)\n→ ContextDataNode → handler
+Med -> Mac : Execute(MAC_UPDATE, params)
+activate Mac
+Mac -> Exec : Execute(handler=*this, MAC_UPDATE, params)
+note right : ValidateStreamTransition:\nIDLE → STREAM_INITIALIZED on first MAC_UPDATE
+Exec -> Mac : UpdateMac(data_ptr, data_len)
+Mac -> Mac : EVP_MAC_update(m_ctx, data, len)
+Mac --> Exec : OK
+Exec --> Mac : ResponseParameters{}
+Mac --> Med : ResponseParameters{}
+deactivate Mac
+Med --> Client : response(OK)
+deactivate Med
+
+Client -> Med : HandleSingleOperation\n(OP_ACTOR_MAC, MAC_FINALIZE)\nparam[context_id], param[output_buf]
+activate Med
+Med -> Mac : Execute(MAC_FINALIZE, params)
+activate Mac
+Mac -> Exec : Execute(handler=*this, MAC_FINALIZE, params)
+note right : ValidateStreamTransition:\nSTREAM_INITIALIZED/ACTIVE → IDLE
+Exec -> Mac : FinalizeMac(output_buf)
+Mac -> Mac : EVP_MAC_final(m_ctx, output, &hmac_len, buf_len)
+Mac -> Mac : write MAC bytes to VirtualMemoryBuffer
+Mac --> Exec : ResponseParameters{mac_bytes}
+Exec --> Mac : ResponseParameters
+Mac --> Med : ResponseParameters
+deactivate Mac
+Med --> Client : response(mac_bytes)
+deactivate Med
+
+Client -> Med : HandleSingleOperation\n(OP_ACTOR_MEDIATOR, CTX_CLOSE)\ncontext_id
+activate Med
+Med -> Med : HandleContextCloseOperation()
+Med -> DM : deleteNode(client_id, context_node_id)
+note right : Cascade deletion:\n  ContextDataNode deleted\n  → child KeyDataNode deleted\n    → ~KeyDataNode()\n      → KeyEntry::Release(client_id)\n      → if last ref: registry.Unregister()\n        → ~KeyEntry()\n          → handler->Release() (zeroize)
+DM --> Med : OK
+Med --> Client : response(OK)
+deactivate Med
+
+' ====================================================================
+' DIAGRAM 7: CRASH CLEANUP — Client Process Death
+' ====================================================================
+newpage Crash Cleanup — Client Process Death
+
+participant "Daemon\n(connection monitor)" as Daemon
+participant "DataManager" as DM
+participant "KeyManagementService" as KMS
+participant "KeyRegistry" as KR
+participant "KeyDataNode" as KDN
+
+Daemon -> DM : deleteClientNodes(client_id)
+note right : Triggered when gRPC stream closes\nor process death detected
+activate DM
+DM -> DM : post-order traversal of client's subtree
+DM -> DM : delete ContextDataNode\n→ child KeyDataNodes cascade-deleted
+note right : Each ~KeyDataNode():\n  key_entry->Release(client_id): ref_count--\n  if last ref: on_last_release → Unregister
+DM --> Daemon : OK
+deactivate DM
+
+Daemon -> KMS : CleanupClient(client_id)
+note right : Safety net: catches any refs\nnot cleaned via tree deletion
+activate KMS
+KMS -> KR : CleanupClient(client_id) [for each registry]
+activate KR
+KR -> KDN : Release(client_id) [for each key]
+note right : if ref_count → 0:\n  erase from m_keys + m_slot_to_id
+KR --> KMS : done
+deactivate KR
+KMS --> Daemon : done
+deactivate KMS
+
+@enduml

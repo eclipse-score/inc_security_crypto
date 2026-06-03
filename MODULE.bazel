@@ -11,16 +11,213 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 module(
-    name = "cryptoki",
+    name = "score_crypto",
     version = "0.1.0",
 )
 
+bazel_dep(name = "rules_python", version = "2.0.1")
+single_version_override(
+    module_name = "rules_python",
+    version = "1.5.4",
+)
+
+PYTHON_VERSION = "3.12"
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = PYTHON_VERSION,
+)
+
+# Foreign CC rules for building projects with external build systems (make, cmake, etc.)
+bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
+
+# HTTP archive rule for downloading and extracting source code from the web
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 # ===============================================================================
-# CORE BAZEL RULES & DEPENDENCIES
+# T O O L C H A I N S
 # ===============================================================================
-bazel_dep(name = "rules_cc", version = "0.1.2")
-bazel_dep(name = "rules_python", version = "1.4.1")
+
+# *******************************************************************************
+# Constraint values for specifying platforms and toolchains
+# *******************************************************************************
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "score_bazel_platforms", version = "0.1.1")
+
+# *******************************************************************************
+# C++ Rules for Bazel
+# *******************************************************************************
+bazel_dep(name = "rules_cc", version = "0.2.16")
+
+# *******************************************************************************
+# Set dependency to Bazel C/C++ Toolchain repository
+# *******************************************************************************
+bazel_dep(
+    name = "score_bazel_cpp_toolchains",
+    version = "0.3.1",
+    dev_dependency = True,
+)
+
+# *******************************************************************************
+# Init GCC extention
+# Legend:
+#     * CPU:   Control Processor Unit
+#     * OS:    Operating System
+#     * V:     Version (GCC or SDP)
+#     * ES:    Runtime-EcoSystem
+#
+# *******************************************************************************
+gcc = use_extension("@score_bazel_cpp_toolchains//extensions:gcc.bzl", "gcc", dev_dependency = True)
+
+# *******************************************************************************
+# Setting default GCC (CPU:x86_64|OS:Linux|V:12.2.0|ES:posix)
+# *******************************************************************************
+gcc.toolchain(
+    name = "score_gcc_x86_64_toolchain",
+    target_cpu = "x86_64",
+    target_os = "linux",
+    use_default_package = True,
+    version = "12.2.0",
+)
+
+# *******************************************************************************
+# Setting default GCC (CPU:aarch64|OS:Linux|V:12.2.0|ES:posix)
+# *******************************************************************************
+gcc.toolchain(
+    name = "score_gcc_aarch64_toolchain",
+    target_cpu = "aarch64",
+    target_os = "linux",
+    use_default_package = True,
+    version = "12.2.0",
+)
+
+# *******************************************************************************
+# Setting GCC (CPU:x86_64|OS:QNX|version(sdp):8.0.0|ES:posix)
+# *******************************************************************************
+gcc.toolchain(
+    name = "score_qcc_x86_64_toolchain",
+    sdp_version = "8.0.0",
+    target_cpu = "x86_64",
+    target_os = "qnx",
+    use_default_package = True,
+    version = "12.2.0",
+)
+
+# *******************************************************************************
+# Setting GCC (CPU:aarch64|OS:QNX|version(sdp):8.0.0|ES:posix)
+# *******************************************************************************
+gcc.toolchain(
+    name = "score_qcc_aarch64_toolchain",
+    sdp_version = "8.0.0",
+    target_cpu = "aarch64",
+    target_os = "qnx",
+    use_default_package = True,
+    version = "12.2.0",
+)
+use_repo(
+    gcc,
+    "score_gcc_aarch64_toolchain",
+    "score_gcc_x86_64_toolchain",
+    "score_qcc_aarch64_toolchain",
+    "score_qcc_x86_64_toolchain",
+)
+
+# ===============================================================================
+# T H I R D - P A R T Y   D E P E N D E N C I E S
+# ===============================================================================
+
+# *******************************************************************************
+# gRPC
+# Intended to be replaced with score_communication transporting a size limited
+# FlatBuffers in the future
+# *******************************************************************************
+bazel_dep(name = "grpc", version = "1.76.0.bcr.1")
+
+# Patch grpc and bundled abseil-cpp to not link -lpthread on QNX (pthread is built into libc on QNX)
+archive_override(
+    module_name = "grpc",
+    patch_strip = 1,
+    patches = ["//third_party/grpc:grpc_qnx_pthread.patch"],
+    strip_prefix = "grpc-1.76.0",
+    urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.76.0.tar.gz"],
+)
+
+# Abseil-cpp dependency (pulled by grpc)
+bazel_dep(name = "abseil-cpp", version = "20260107.1")
+
+# Patch abseil-cpp to not link -lpthread on QNX (pthread is built into libc on QNX)
+archive_override(
+    module_name = "abseil-cpp",
+    patch_strip = 1,
+    patches = ["//third_party/grpc:abseil_qnx_pthread.patch"],
+    strip_prefix = "abseil-cpp-20250512.1",
+    urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20250512.1.tar.gz"],
+)
+
+# Protobuf dependency (pulled by grpc)
+bazel_dep(name = "protobuf", version = "35.0")
+
+# Patch protobuf to not link -lpthread on QNX (pthread is built into libc on QNX)
+archive_override(
+    module_name = "protobuf",
+    patch_strip = 1,
+    patches = ["//third_party/grpc:protobuf_qnx_pthread.patch"],
+    strip_prefix = "protobuf-31.1",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v31.1.tar.gz"],
+)
+
+single_version_override(
+    module_name = "rules_swift",
+    version = "3.1.2",  # resolve dependency conflict of grpc and flatbuffers
+)
+
+# FlatBuffers
+bazel_dep(name = "flatbuffers", version = "25.2.10")
+
+# *******************************************************************************
+# OpenSSL
+# *******************************************************************************
+
+http_archive(
+    name = "openssl_source",
+    build_file_content = """
+filegroup(
+    name = "all",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e",
+    strip_prefix = "openssl-3.6.1",
+    urls = ["https://www.openssl.org/source/openssl-3.6.1.tar.gz"],
+)
+
+# *******************************************************************************
+# SoftHSMv2
+# *******************************************************************************
+
+http_archive(
+    name = "softhsm_source",
+    build_file_content = """
+filegroup(
+    name = "all",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    patch_args = ["-p1"],
+    patches = ["//third_party/soft_hsm:softhsm_qnx_dl.patch"],
+    sha256 = "be14a5820ec457eac5154462ffae51ba5d8a643f6760514d4b4b83a77be91573",
+    strip_prefix = "SoftHSMv2-2.7.0",
+    urls = ["https://github.com/softhsm/SoftHSMv2/archive/refs/tags/2.7.0.tar.gz"],
+)
+
+# *******************************************************************************
+# Valeo - Cryptoki
+# *******************************************************************************
 bazel_dep(name = "rules_rust", version = "0.67.0")  # Synced version
+
 git_override(
     module_name = "rules_rust",
     commit = "2b171a7376e69cb1207eced1f66904ce4ae0c819",
@@ -42,70 +239,23 @@ use_repo(rust, "rust_toolchains")
 register_toolchains("@rust_toolchains//:all")
 
 bazel_dep(name = "rules_shell", version = "0.8.0")
-bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
-bazel_dep(name = "platforms", version = "1.0.0")
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-# ===============================================================================
-# PYTHON TOOLCHAIN
-# ===============================================================================
-PYTHON_VERSION = "3.12"
-
-python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
-python.toolchain(
-    is_default = True,
-    python_version = PYTHON_VERSION,
-)
-use_repo(python)
-
-# ===============================================================================
-# RUST TOOLCHAIN, POLICIES & CRATE CONFIGURATION
-# ===============================================================================
 bazel_dep(name = "score_rust_policies", version = "0.0.4", dev_dependency = True)
 bazel_dep(name = "score_toolchains_rust", version = "0.7.0", dev_dependency = True)
 
 bazel_dep(name = "score_crates", version = "0.0.7")
+
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", isolate = True)
+
 crate.from_cargo(
     name = "crates",
-    cargo_lockfile = "//:Cargo.lock",
-    manifests = ["//:Cargo.toml"],
+    cargo_lockfile = "//third_party/valeo_cryptoki:Cargo.lock",
+    manifests = ["//third_party/valeo_cryptoki:Cargo.toml"],
     supported_platform_triples = [
         "aarch64-unknown-linux-gnu",
         "x86_64-unknown-linux-gnu",
         "aarch64-unknown-nto-qnx710",
         "x86_64-pc-nto-qnx710",
     ],
-)
-
-crate.annotation(
-    crate = "score_log",
-    patch_args = ["-p0"],
-    patches = ["//third_party/patches:remove_readme.patch"],
-)
-crate.annotation(
-    crate = "score_log_fmt_macro",
-    patch_args = ["-p0"],
-    patches = ["//third_party/patches:remove_readme.patch"],
-)
-crate.annotation(
-    crate = "score_log_fmt",
-    patch_args = ["-p0"],
-    patches = ["//third_party/patches:remove_readme.patch"],
-)
-
-http_archive(
-    name = "openssl_source",
-    build_file_content = """
-filegroup(
-    name = "all",
-    srcs = glob(["**"]),
-    visibility = ["//visibility:public"],
-)
-""",
-    sha256 = "b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e",
-    strip_prefix = "openssl-3.6.1",
-    url = "https://github.com/openssl/openssl/releases/download/openssl-3.6.1/openssl-3.6.1.tar.gz",
 )
 
 crate.annotation(
@@ -118,92 +268,31 @@ crate.annotation(
 use_repo(crate, "crates")
 
 # ===============================================================================
-# THIRD-PARTY LIBRARIES & TOOLING
+# S C O R E   M O D U L E S
 # ===============================================================================
-bazel_dep(name = "aspect_rules_lint", version = "2.0.0")
-bazel_dep(name = "buildifier_prebuilt", version = "8.2.0.2")
-bazel_dep(name = "googletest", version = "1.17.0.bcr.1")
-bazel_dep(name = "google_benchmark", version = "1.9.4", dev_dependency = True)
 
-# ===============================================================================
-# SCORE INTERNAL MODULES
-# ===============================================================================
-bazel_dep(name = "score_baselibs", version = "0.2.7")
-bazel_dep(name = "score_baselibs_rust", version = "0.1.2")
-bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
-bazel_dep(name = "score_platform", version = "0.5.5", dev_dependency = True)
+# tooling
+bazel_dep(name = "score_tooling", version = "1.1.2")
+bazel_dep(name = "aspect_rules_lint", version = "1.5.3")
+bazel_dep(name = "buildifier_prebuilt", version = "8.2.0.2")
+
+#docs-as-code
 bazel_dep(name = "score_docs_as_code", version = "4.0.3", dev_dependency = True)
 multiple_version_override(
     module_name = "score_docs_as_code",
     versions = ["3.0.1", "4.0.3"],
 )
+
+# GoogleTest
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
+
+# s-core baselibs
+bazel_dep(name = "score_baselibs", version = "0.2.7")
+
+# Integration testing
 bazel_dep(name = "score_itf", version = "0.1.0")
-bazel_dep(name = "score_tooling", version = "1.2.0")
-# bazel_dep(name = "score_process", version = "1.4.3", dev_dependency = True)
+
+bazel_dep(name = "score_baselibs_rust", version = "0.1.2")
+bazel_dep(name = "score_platform", version = "0.5.5", dev_dependency = True)
 bazel_dep(name = "score_python_basics", version = "0.3.4")
 bazel_dep(name = "score_logging", version = "0.2.0")
-
-# ===============================================================================
-# C/C++ & QNX TOOLCHAIN CONFIGURATION
-# ===============================================================================
-bazel_dep(name = "score_bazel_cpp_toolchains", version = "0.2.2", dev_dependency = True)
-gcc = use_extension("@score_bazel_cpp_toolchains//extensions:gcc.bzl", "gcc", dev_dependency = True)
-
-gcc.toolchain(
-    name = "score_gcc_x86_64_toolchain",
-    target_cpu = "x86_64",
-    target_os = "linux",
-    use_default_package = True,
-    version = "12.2.0",
-)
-gcc.toolchain(
-    name = "score_gcc_aarch64_toolchain",
-    target_cpu = "aarch64",
-    target_os = "linux",
-    use_default_package = True,
-    version = "12.2.0",
-)
-gcc.toolchain(
-    name = "score_qcc_x86_64_toolchain",
-    sdp_version = "8.0.0",
-    target_cpu = "x86_64",
-    target_os = "qnx",
-    use_default_package = True,
-    version = "12.2.0",
-)
-gcc.toolchain(
-    name = "score_qcc_aarch64_toolchain",
-    sdp_version = "8.0.0",
-    target_cpu = "aarch64",
-    target_os = "qnx",
-    use_default_package = True,
-    version = "12.2.0",
-)
-
-use_repo(
-    gcc,
-    "score_gcc_aarch64_toolchain",
-    "score_gcc_x86_64_toolchain",
-    "score_qcc_aarch64_toolchain",
-    "score_qcc_x86_64_toolchain",
-)
-
-register_toolchains(
-    "@score_gcc_aarch64_toolchain//:all",
-    "@score_gcc_x86_64_toolchain//:all",
-    "@score_qcc_aarch64_toolchain//:all",
-    "@score_qcc_x86_64_toolchain//:all",
-)
-
-# -------------------------------------------------------------------------------
-# S-CORE QNX TOOLCHAIN CONFIGURATION
-# -------------------------------------------------------------------------------
-bazel_dep(name = "score_toolchains_qnx", version = "0.0.5", dev_dependency = True)
-
-toolchains_qnx = use_extension("@score_toolchains_qnx//:extensions.bzl", "toolchains_qnx", dev_dependency = True)
-toolchains_qnx.sdp(
-    sha256 = "f2e0cb21c6baddbcb65f6a70610ce498e7685de8ea2e0f1648f01b327f6bac63",
-    strip_prefix = "installation",
-    url = "https://www.qnx.com/download/download/79858/installation.tgz",
-)
-use_repo(toolchains_qnx, "toolchains_qnx_sdp", "toolchains_qnx_ifs")

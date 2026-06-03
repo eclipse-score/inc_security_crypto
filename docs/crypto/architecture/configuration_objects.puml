@@ -1,0 +1,128 @@
+@startuml score_crypto_api_configuration_objects
+
+title Score Crypto API — Configuration
+
+skinparam packageStyle rectangle
+
+' ============================================================
+' Configuration
+' ============================================================
+package "Configuration" {
+    class BaseContextConfig <<struct>> {
+        + algorithm : AlgorithmId
+        + provider : optional<CryptoResourceId>
+        + provider_type : optional<ProviderType>
+        + provider_properties : ProviderProperties
+        + operation_timeout : optional<milliseconds>
+        + timeout_enabled : bool
+        ---
+        + SetAlgorithm(alg) : BaseContextConfig&
+        + SetProvider(prov) : BaseContextConfig&
+        + SetProviderType(type) : BaseContextConfig&
+        + SetProviderProperty(key, value) : BaseContextConfig&
+        + SetOperationTimeout(timeout) : BaseContextConfig&
+        + DisableTimeout() : BaseContextConfig&
+        + EnableTimeout() : BaseContextConfig&
+    }
+
+    class HashContextConfig <<struct>> {
+        + SetAlgorithm(alg) : HashContextConfig&
+        + SetProvider(prov) : HashContextConfig&
+        + SetProviderType(type) : HashContextConfig&
+    }
+
+    class MacContextConfig <<struct>> {
+        + key : CryptoResourceId
+        ---
+        + SetAlgorithm(alg) : MacContextConfig&
+        + SetKey(id) : MacContextConfig&
+        + SetProvider(prov) : MacContextConfig&
+        + SetProviderType(type) : MacContextConfig&
+    }
+
+    class KeyManagementContextConfig <<struct>> {
+        + SetAlgorithm(alg) : KeyManagementContextConfig&
+        + SetProvider(prov) : KeyManagementContextConfig&
+        + SetProviderType(type) : KeyManagementContextConfig&
+    }
+
+    class CipherContextConfig <<struct>> {
+        + key : CryptoResourceId
+        + direction : CipherDirection
+        ---
+        + SetAlgorithm(alg) : CipherContextConfig&
+        + SetKey(id) : CipherContextConfig&
+        + SetDirection(dir) : CipherContextConfig&
+        + SetProvider(prov) : CipherContextConfig&
+        + SetProviderType(type) : CipherContextConfig&
+    }
+
+    class SignContextConfig <<struct>> {
+        + key : CryptoResourceId
+        ---
+        + SetAlgorithm(alg) : SignContextConfig&
+        + SetKey(id) : SignContextConfig&
+        + SetProvider(prov) : SignContextConfig&
+        + SetProviderType(type) : SignContextConfig&
+    }
+
+    class VerifySignatureContextConfig <<struct>> {
+        + key : CryptoResourceId
+        ---
+        + SetAlgorithm(alg) : VerifySignatureContextConfig&
+        + SetKey(id) : VerifySignatureContextConfig&
+        + SetProvider(prov) : VerifySignatureContextConfig&
+        + SetProviderType(type) : VerifySignatureContextConfig&
+    }
+
+    class AeadContextConfig <<struct>> {
+        + key : CryptoResourceId
+        + direction : CipherDirection
+        ---
+        + SetAlgorithm(alg) : AeadContextConfig&
+        + SetKey(id) : AeadContextConfig&
+        + SetDirection(dir) : AeadContextConfig&
+        + SetProvider(prov) : AeadContextConfig&
+        + SetProviderType(type) : AeadContextConfig&
+    }
+
+    class RandomContextConfig <<struct>> {
+        + SetAlgorithm(alg) : RandomContextConfig&
+        + SetProvider(prov) : RandomContextConfig&
+        + SetProviderType(type) : RandomContextConfig&
+    }
+
+    class CertificateContextConfig <<struct>> {
+        + SetAlgorithm(alg) : CertificateContextConfig&
+        + SetProvider(prov) : CertificateContextConfig&
+        + SetProviderType(type) : CertificateContextConfig&
+    }
+
+    class CertificateVerificationContextConfig <<struct>> {
+        + revocation_policy : optional<RevocationCheckPolicy>
+        ---
+        + SetRevocationPolicy(policy) : CertificateVerificationContextConfig&
+        + SetProvider(prov) : CertificateVerificationContextConfig&
+        + SetProviderType(type) : CertificateVerificationContextConfig&
+    }
+
+    class CsrGenerationContextConfig <<struct>> {
+        + SetAlgorithm(alg) : CsrGenerationContextConfig&
+        + SetProvider(prov) : CsrGenerationContextConfig&
+        + SetProviderType(type) : CsrGenerationContextConfig&
+    }
+
+    HashContextConfig --|> BaseContextConfig : inherits
+    MacContextConfig --|> BaseContextConfig : inherits
+    KeyManagementContextConfig --|> BaseContextConfig : inherits
+    CipherContextConfig --|> BaseContextConfig : inherits
+    SignContextConfig --|> BaseContextConfig : inherits
+    VerifySignatureContextConfig --|> BaseContextConfig : inherits
+    AeadContextConfig --|> BaseContextConfig : inherits
+    RandomContextConfig --|> BaseContextConfig : inherits
+    CertificateContextConfig --|> BaseContextConfig : inherits
+    CertificateVerificationContextConfig --|> BaseContextConfig : inherits
+    CsrGenerationContextConfig --|> BaseContextConfig : inherits
+}
+
+@enduml

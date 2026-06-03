@@ -1,0 +1,19 @@
+--- a/cmake/modules/CompilerOptions.cmake
++++ b/cmake/modules/CompilerOptions.cmake
+@@ -133,6 +133,16 @@
+ # Check if -ldl exists (equivalent of acx_dlopen.m4)
+ check_library_exists(dl dlopen "" HAVE_DLOPEN)
+ check_function_exists(LoadLibrary HAVE_LOADLIBRARY)
++
++# On platforms where dlopen() lives in libc rather than a separate libdl
++# (e.g. QNX), cmake still sets CMAKE_DL_LIBS to "dl" and FindOpenSSL appends
++# it to OPENSSL_LIBRARIES.  This causes link failures because -ldl does not
++# resolve.  Clear CMAKE_DL_LIBS when check_library_exists confirms libdl is
++# absent, so that neither FindOpenSSL nor any target_link_libraries call
++# (e.g. softhsm2-util) tries to link the non-existent library.
++if(NOT HAVE_DLOPEN)
++    set(CMAKE_DL_LIBS "")
++endif()
+
+ # acx_libtool.m4
+ check_include_files(dlfcn.h HAVE_DLFCN_H)

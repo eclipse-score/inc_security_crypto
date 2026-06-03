@@ -1,0 +1,7 @@
+--- src/log/score_log_fmt/fmt.rs
++++ src/log/score_log_fmt/fmt.rs
+@@ -73,3 +73,3 @@
+     pub fn set_data<T: ScoreLogArgument>(&mut self, value: &T) {
+-        let value = NonNull::from_ref(value).cast();
++        let value = NonNull::from(value).cast();
+         self.data = value.as_ptr() as *mut c_void;

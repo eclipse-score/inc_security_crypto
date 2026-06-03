@@ -1,0 +1,104 @@
+@startuml score_crypto_api_typed_objects
+
+title Score Crypto API — Typed Object Hierarchy
+
+skinparam packageStyle rectangle
+
+' ============================================================
+' Root
+' ============================================================
+interface ICryptoObject {
+    + GetId() : CryptoResourceId
+    + GetType() : ResourceType
+}
+
+' ============================================================
+' Key Objects
+' ============================================================
+package "Key Objects" {
+    interface IKeyObject {
+        + GetAlgorithm() : AlgorithmId
+        + GetPersistence() : ResourcePersistence
+        + IsExportable() : bool
+        + GetKeyLength() : size_t
+        + GetPermittedOperations() : KeyOperationPermission
+    }
+
+    interface IPrivateKeyObject {
+        + HasCorrespondingPublicKey() : bool
+    }
+
+    interface IPublicKeyObject {
+        + ExportPublicKey(output) : Result<size_t>
+    }
+
+    interface ISymmetricKeyObject {
+        + GetAllowedModes() : vector<string>
+    }
+
+    IKeyObject --|> ICryptoObject : inherits
+    IPrivateKeyObject --|> IKeyObject : inherits
+    IPublicKeyObject --|> IKeyObject : inherits
+    ISymmetricKeyObject --|> IKeyObject : inherits
+}
+
+' ============================================================
+' Key Slot Object
+' ============================================================
+package "Slot Objects" {
+    interface IKeySlotObject {
+        + GetInfo() : KeySlotInfo
+        + GetState() : KeySlotState
+        + GetAllowedAlgorithm() : AlgorithmId
+        + GetPrimaryProvider() : uint16_t
+        + GetCompatibleProviders() : vector<uint16_t>
+        + GetPermittedOperations() : KeyOperationPermission
+    }
+
+    interface ICertSlotObject {
+        + IsOccupied() : bool
+    }
+
+    IKeySlotObject --|> ICryptoObject : inherits
+    ICertSlotObject --|> ICryptoObject : inherits
+}
+
+' ============================================================
+' Certificate Objects
+' ============================================================
+package "Certificate Objects" {
+    interface ICertificateObject {
+        + GetSubject() : string_view
+        + GetIssuer() : string_view
+        + GetNotBefore() : int64_t
+        + GetNotAfter() : int64_t
+        + GetPublicKeyAlgorithm() : AlgorithmId
+    }
+
+    ICertificateObject --|> ICryptoObject : inherits
+}
+
+' ============================================================
+' Other Objects
+' ============================================================
+package "Other Objects" {
+    interface IProviderObject
+    interface IDataObject
+    interface ISecureObject
+
+    IProviderObject --|> ICryptoObject : inherits
+    IDataObject --|> ICryptoObject : inherits
+    ISecureObject --|> ICryptoObject : inherits
+}
+
+' ============================================================
+' Access note
+' ============================================================
+note bottom of ICryptoObject
+  Obtained via ICryptoContext accessor methods:
+  GetKeyObject(), GetKeySlotObject(),
+  GetCertificateObject(), GetCertSlotObject(),
+  GetProviderObject()
+end note
+
+@enduml

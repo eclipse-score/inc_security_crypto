@@ -1,0 +1,127 @@
+@startuml score_crypto_api_certificate_contexts
+
+title Score Crypto API — Certificate Operation Contexts
+
+skinparam packageStyle rectangle
+
+' ============================================================
+' Context Base (abbreviated for reference)
+' ============================================================
+package "Context Base" {
+    interface IContext {
+    }
+
+' ============================================================
+' Certificate Management
+' ============================================================
+package "Certificate Management" {
+    interface ICertificateManagementContext {
+        __ Parsing __
+        + ParseCertificate(cert_data, format) : Result<ICertificateObject::Uptr>
+        + ParseCertificates(cert_data, format) : Result<vector<ICertificateObject::Uptr>>
+        __ Persistence (copy semantics) __
+        + SaveCertificate(id, slot) : Result<std::monostate>
+        __ Export __
+        + GetCertificateExportSize(cert) : Result<size_t>
+        + ExportCertificate(cert, format, output) : Result<size_t>
+        + GetConvertedCertificateSize(cert, out_fmt) : Result<size_t>
+        + ConvertCertificateFormat(input, in_fmt, out_fmt, output) : Result<size_t>
+        __ Slot Management __
+        + ClearCertificate(slot) : Result<std::monostate>
+        + GetCertificateSlotInfo(slot) : Result<CertificateSlotInfo>
+        __ CRL Management __
+        + ImportCrl(crl_data, format, issuer_cert, persist) : Result<CryptoResourceGuard>
+        + DeleteCrl(crl) : Result<std::monostate>
+        + DeleteExpiredCrls() : Result<size_t>
+        + DeleteExpiredCertificates() : Result<size_t>
+        __ Key Extraction __
+        + LoadCertificatePublicKey(cert) : Result<pair<CryptoResourceGuard, AlgorithmId>>
+        __ OCSP __
+        + GetOcspRequestData(cert, issuer_cert) : Result<IOcspRequestExport::Uptr>
+    }
+
+    ICertificateManagementContext --|> IContext : inherits
+}
+
+' ============================================================
+' Certificate Verification
+' ============================================================
+package "Certificate Verification" {
+    interface ICertificateVerificationContext {
+        __ Configuration __
+        + SetCertificate(cert) : Result<std::monostate>
+        + SetCertificateChain(chain) : Result<std::monostate>
+        + SetVerificationTrustStore(trust_store) : Result<std::monostate>
+        + SetAdditionalTrustAnchors(anchors : span) : Result<std::monostate>
+        + SetOcspResponse(response_data) : Result<std::monostate>
+        + SetCrl(crl) : Result<std::monostate>
+        + SetVerificationTime(epoch_seconds) : Result<std::monostate>
+        + SetRevocationCheckPolicy(policy) : Result<std::monostate>
+        __ Execution __
+        + Verify() : Result<CertVerifyResult>
+    }
+
+    ICertificateVerificationContext --|> IContext : inherits
+}
+
+' ============================================================
+' CSR Generation
+' ============================================================
+package "CSR Generation" {
+    interface ICsrGenerationContext {
+        __ Configuration __
+        + SetSubjectKey(key) : Result<std::monostate>
+        + SetSignatureAlgorithm(algorithm) : Result<std::monostate>
+        + SetSubjectDn(dn) : Result<std::monostate>
+        + AddSubjectAltName(san) : Result<std::monostate>
+        __ Execution __
+        + Generate() : Result<ICsrExport::Uptr>
+    }
+
+    ICsrGenerationContext --|> IContext : inherits
+}
+
+' ============================================================
+' Configuration for Certificate Contexts
+' ============================================================
+package "Configuration" {
+    class BaseContextConfig <<struct>> {
+        + algorithm : AlgorithmId
+        + provider : optional<CryptoResourceId>
+        + provider_type : optional<ProviderType>
+        + operation_timeout : optional<milliseconds>
+        + timeout_enabled : bool
+    }
+
+    class CertificateContextConfig <<struct>> {
+        + SetProvider(prov) : CertificateContextConfig&
+        + SetProviderType(type) : CertificateContextConfig&
+    }
+
+    class CertificateVerificationContextConfig <<struct>> {
+        + revocation_policy : optional<RevocationCheckPolicy>
+        ---
+        + SetRevocationPolicy(policy) : CertificateVerificationContextConfig&
+        + SetProvider(prov) : CertificateVerificationContextConfig&
+        + SetProviderType(type) : CertificateVerificationContextConfig&
+    }
+
+    class CsrGenerationContextConfig <<struct>> {
+        + SetAlgorithm(alg) : CsrGenerationContextConfig&
+        + SetProvider(prov) : CsrGenerationContextConfig&
+        + SetProviderType(type) : CsrGenerationContextConfig&
+    }
+
+    CertificateContextConfig --|> BaseContextConfig : inherits
+    CertificateVerificationContextConfig --|> BaseContextConfig : inherits
+    CsrGenerationContextConfig --|> BaseContextConfig : inherits
+}
+
+' ============================================================
+' Relationships
+' ============================================================
+CertificateContextConfig ..> ICertificateManagementContext : configures
+CertificateVerificationContextConfig ..> ICertificateVerificationContext : configures
+CsrGenerationContextConfig ..> ICsrGenerationContext : configures
+
+@enduml

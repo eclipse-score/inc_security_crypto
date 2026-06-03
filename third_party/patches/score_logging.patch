@@ -1,0 +1,38 @@
+--- score/mw/log/rust/score_log_bridge/src/ffi.rs
++++ score/mw/log/rust/score_log_bridge/src/ffi.rs
+@@ -98,7 +98,7 @@
+         let size = min(value.len(), 4);
+ 
+         // Copy data into array.
+-        let mut data = [0; _];
++        let mut data = [0; 4];
+         // SAFETY:
+         // Copying is safe:
+         // - source is a `&str`.
+@@ -127,7 +127,7 @@
+             // Create a slice from pointer and size.
+             let slice = from_raw_parts(data, size);
+             // Create a UTF-8 string from a slice.
+-            str::from_utf8_unchecked(slice)
++            std::str::from_utf8_unchecked(slice)
+         }
+     }
+ }
+@@ -212,7 +212,7 @@
+ impl Default for SlotHandleStorage {
+     /// Create storage for `SlotHandle`.
+     fn default() -> Self {
+-        Self { _private: [0; _] }
++        Self { _private: [0; 24] }
+     }
+ }
+ 
+@@ -449,7 +449,7 @@
+     }
+ }
+ 
+-unsafe extern "C" {
++extern "C" {
+     fn recorder_get() -> *mut RecorderPtr;
+     fn recorder_start(
+         recorder: *mut RecorderPtr,

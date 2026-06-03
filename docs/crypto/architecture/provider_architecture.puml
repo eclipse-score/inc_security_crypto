@@ -1,0 +1,199 @@
+@startuml provider_architecture
+!theme plain
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam classFontSize 11
+skinparam packageFontSize 12
+
+title Daemon Provider Architecture
+
+' ====================================================================
+' CONFIGURATION LAYER
+' ====================================================================
+package "Configuration (config/)" <<Rectangle>> #FFF8DC {
+    class Config {
+        +GetScoreProviderConfig() : ScoreProviderConfig&
+        +GetPkcs11Config() : Pkcs11Config&
+    }
+
+    class ScoreProviderConfig {
+        +AddProviderEntry(entry)
+        +PopulateDefaults()
+        +Configure(factory : ScoreProviderFactory&)
+    }
+
+    class Pkcs11Config {
+        +AddTokenEntry(entry)
+        +PopulateDefaults()
+        +Configure(factory : Pkcs11ProviderFactory&)
+    }
+
+    Config *-- ScoreProviderConfig
+    Config *-- Pkcs11Config
+}
+
+' ====================================================================
+' PROVIDER MANAGER
+' ====================================================================
+package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
+
+    interface IProviderFactory {
+        +CreateAndRegister(manager : ProviderManager&) : bool
+    }
+
+    class ProviderManager {
+        +RegisterFactory(factory : unique_ptr<IProviderFactory>)
+        +Initialize() : bool
+        +RegisterProvider(name, provider, type) : bool
+        +GetProvider(id) : IProvider::Sptr
+    }
+
+    interface IProvider {
+        +Initialize() : Result<void>
+        +Shutdown() : Result<void>
+        +CreateHandlerFactory() : unique_ptr<ICryptoHandlerFactory>
+    }
+
+    ProviderManager *-- IProviderFactory : 0..n
+    ProviderManager *-- IProvider : 1..n
+    IProviderFactory ..> ProviderManager : registers into
+
+    ' ====================================================================
+    ' HANDLER SHARED INFRASTRUCTURE
+    ' ====================================================================
+    package "Handler Base (handler/)" <<Rectangle>> #EEEEEE {
+
+        interface IHandler {
+            +Execute(request, context) : Result<void>
+            +GetInitParams() : HandlerInitParams
+        }
+
+        interface ICryptoHandlerFactory {
+            +CreateHandler(config) : unique_ptr<IHandler>
+        }
+
+        package "operations/" <<Rectangle>> #E8E8E8 {
+            note "hash_handler_operations.hpp\nmac_handler_operations.hpp\n\nShared OperationAction constants.\nUsed identically by all providers." as opsNote
+        }
+    }
+
+    ' ====================================================================
+    ' SCORE PROVIDER FAMILY
+    ' ====================================================================
+    package "Score Provider Family (score_provider/)" <<Rectangle>> #E8F5E9 {
+
+        class ScoreProviderFactory {
+            -m_configs : vector<ScoreProviderEntry>
+            +SetConfigs(configs)
+            +CreateAndRegister(manager) : bool
+        }
+        ScoreProviderFactory .up.|> IProviderFactory
+        ScoreProviderConfig ..> ScoreProviderFactory : Configure() calls SetConfigs()
+
+        class OpenSSLProviderFactory {
+            +CreateAndRegister(manager) : bool
+        }
+        ScoreProviderFactory ..> OpenSSLProviderFactory : delegates to
+
+        abstract class ScoreProvider {
+            +Initialize() : Result<void>
+            +Shutdown() : Result<void>
+            #CreateHandlerFactory() : unique_ptr<ICryptoHandlerFactory>
+        }
+        ScoreProvider .up.|> IProvider
+
+        class OpenSSL {
+            +Initialize() : Result<void>
+            +Shutdown() : Result<void>
+        }
+        OpenSSL --|> ScoreProvider
+        OpenSSLProviderFactory ..> OpenSSL : creates
+
+        package "operations/ (base handlers + executors)" <<Rectangle>> #D5F0D5 {
+
+            abstract class ScoreHandlerFactory {
+                +CreateHashHandler(...) : unique_ptr<IHandler>
+                +CreateMacHandler(...) : unique_ptr<IHandler>
+                +CreateKeyManagementHandler(...) : unique_ptr<IHandler>
+            }
+            ScoreHandlerFactory .up.|> ICryptoHandlerFactory
+
+            abstract class ScoreHashHandler {
+                #InitHash(...) : Result<void>
+                #UpdateHash(...) : Result<void>
+                #FinalizeHash(...) : Result<void>
+                -m_executor : HashExecutor
+            }
+            ScoreHashHandler .up.|> IHandler
+
+            abstract class ScoreMacHandler {
+                #InitMac(...) : Result<void>
+                #UpdateMac(...) : Result<void>
+                #FinalizeMac(...) : Result<void>
+                -m_executor : MacExecutor
+            }
+            ScoreMacHandler .up.|> IHandler
+
+            abstract class ScoreKeyManagementHandler {
+                -m_executor : KeyManagementExecutor
+            }
+            ScoreKeyManagementHandler .up.|> IHandler
+
+            class HashExecutor <<stateless>>
+            class MacExecutor <<stateless>>
+
+            ScoreHashHandler *-- HashExecutor
+            ScoreMacHandler *-- MacExecutor
+        }
+
+        package "openssl/ (concrete handlers)" <<Rectangle>> #C8E6C9 {
+
+            class OpenSslHandlerFactory
+            OpenSslHandlerFactory --|> ScoreHandlerFactory
+
+            class OpenSslHashHandler
+            OpenSslHashHandler --|> ScoreHashHandler
+
+            class OpenSslHmacHandler
+            OpenSslHmacHandler --|> ScoreMacHandler
+
+            class OpenSslKeyManagementHandler
+            OpenSslKeyManagementHandler --|> ScoreKeyManagementHandler
+
+            OpenSslHandlerFactory ..> OpenSslHashHandler : creates
+            OpenSslHandlerFactory ..> OpenSslHmacHandler : creates
+            OpenSslHandlerFactory ..> OpenSslKeyManagementHandler : creates
+        }
+
+        OpenSSL ..> OpenSslHandlerFactory : uses
+    }
+
+    ' ====================================================================
+    ' PKCS#11 PROVIDER FAMILY
+    ' ====================================================================
+    package "PKCS#11 Provider Family (pkcs11/)" <<Rectangle>> #E3F2FD {
+
+        class Pkcs11ProviderFactory {
+            -m_configs : vector<Pkcs11ProviderConfig>
+            +SetTokenConfigs(configs)
+            +CreateAndRegister(manager) : bool
+        }
+        Pkcs11ProviderFactory .up.|> IProviderFactory
+        Pkcs11Config ..> Pkcs11ProviderFactory : Configure() calls SetTokenConfigs()
+
+        class Pkcs11Provider
+        Pkcs11Provider .up.|> IProvider
+        Pkcs11ProviderFactory ..> Pkcs11Provider : creates
+
+        note bottom of Pkcs11ProviderFactory
+          Each token entry produces
+          one Pkcs11Provider instance.
+        end note
+    }
+
+    ' shared ops used by both families
+    OpenSslHashHandler ..> opsNote : includes
+    OpenSslHmacHandler ..> opsNote : includes
+}
+
+@enduml
