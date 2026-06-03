@@ -21,6 +21,7 @@ load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
 # which avoids the libtool issues encountered with the autotools (configure_make) approach.
 cmake(
     name = "soft_hsm_cmake",
+    build_args = ["--parallel"],
     cache_entries = {
         "BUILD_TESTS": "OFF",  # Disable test suite compilation
         "WITH_CRYPTO_BACKEND": "openssl",  # Use OpenSSL as crypto backend (matches openssl_shared dependency)
