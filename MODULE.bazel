@@ -248,8 +248,8 @@ crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", iso
 
 crate.from_cargo(
     name = "crates",
-    cargo_lockfile = "//third_party/valeo_cryptoki:Cargo.lock",
-    manifests = ["//third_party/valeo_cryptoki:Cargo.toml"],
+    cargo_lockfile = "//score/crypto/daemon/provider/cryptoki:Cargo.lock",
+    manifests = ["//score/crypto/daemon/provider/cryptoki:Cargo.toml"],
     supported_platform_triples = [
         "aarch64-unknown-linux-gnu",
         "x86_64-unknown-linux-gnu",
@@ -296,3 +296,9 @@ bazel_dep(name = "score_baselibs_rust", version = "0.1.2")
 bazel_dep(name = "score_platform", version = "0.5.5", dev_dependency = True)
 bazel_dep(name = "score_python_basics", version = "0.3.4")
 bazel_dep(name = "score_logging", version = "0.2.0")
+
+single_version_override(
+    module_name = "score_logging",
+    patch_strip = 0,
+    patches = ["//third_party/patches:score_logging.patch"],
+)

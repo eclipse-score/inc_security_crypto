@@ -1,6 +1,6 @@
 # Valeo Cryptoki Integration Guide
 
-This document describes how the `@third_party/valeo_cryptoki` Rust PKCS#11 module is integrated into the `score_crypto` daemon, replacing the default SoftHSM implementation.
+This document describes how the `@score/crypto/provider` Rust PKCS#11 module is integrated into the `score_crypto` daemon, replacing the default SoftHSM implementation.
 
 ## Overview
 
@@ -8,10 +8,10 @@ The integration bridges a custom Rust-based PKCS#11 provider with the existing C
 
 1.  **Toolchain Configuration**: The integration uses the Ferrocene Rust toolchain (Rust 1.83.0+) to support modern Rust features (like `lazy_cell` and `unsafe extern "C"`) required by dependencies such as `score_logging` and `openssl`.
 2.  **Compile-Time Toggles**: A Bazel `--define use_rust_pkcs11=true` flag is used to conditionally:
-    *   Link `//third_party/valeo_cryptoki:cryptoki_cdylib` instead of `libsofthsm`.
+    *   Link `//score/crypto/daemon/provider/cryptoki:cryptoki_cdylib` instead of `libsofthsm`.
     *   Inject the `USE_RUST_PKCS11=1` C++ preprocessor macro.
     *   Switch header includes from `<cryptoki.h>` to the Rust module's `<pkcs11.h>`.
-3.  **Runtime Provider Remapping**: When the `USE_RUST_PKCS11` macro is active, the daemon dynamically remaps key-slot provider references from the legacy `"SOFTHSM"` string to `"VALEO_CRYPTOKI"`. This ensures existing configuration files and client code remain compatible without modification.
+3.  **Runtime Provider Remapping**: When the `USE_RUST_PKCS11` macro is active, the daemon dynamically remaps key-slot provider references from the legacy `"SOFTHSM"` string to `"SCORE_CRYPTO_PROVIDER"`. This ensures existing configuration files and client code remain compatible without modification.
 
 ## Prerequisites
 
