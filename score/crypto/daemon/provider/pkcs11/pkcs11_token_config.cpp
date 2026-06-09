@@ -33,10 +33,10 @@ void Pkcs11Config::PopulateDefaults()
 
 #ifdef USE_RUST_PKCS11
     Pkcs11TokenEntry rustToken{};
-    // Match third_party/valeo_cryptoki default token identity.
+    // Match score/crypto/provider default token identity.
     rustToken.tokenLabel = "ValeoCryptokiToken";
     rustToken.userPin = "1234";
-    rustToken.providerName = "VALEO_CRYPTOKI";  // Used for key slot bindings
+    rustToken.providerName = "SCORE_CRYPTO_PROVIDER";  // Used for key slot bindings
     rustToken.useHardCleanup = true;
     m_tokens.push_back(std::move(rustToken));
 #else

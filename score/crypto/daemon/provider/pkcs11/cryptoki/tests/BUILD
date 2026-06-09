@@ -8,7 +8,7 @@ filegroup(
     srcs = glob(["**/*.rs"]),
 )
 
-_COMMON_DEPS = ["//score/crypto/daemon/provider/cryptoki:cryptoki_lib"]
+_COMMON_DEPS = ["//score/crypto/daemon/provider/pkcs11/cryptoki:cryptoki_lib"]
 
 _TESTS_WITH_COMMON = [
     "always_authenticate",
@@ -49,10 +49,10 @@ _TESTS_NO_COMMON = [
     aliases = aliases(
         normal_dev = True,
         proc_macro_dev = True,
-        package_name = "score/crypto/daemon/provider/cryptoki",
+        package_name = "score/crypto/daemon/provider/pkcs11/cryptoki",
     ),
-    deps = _COMMON_DEPS + all_crate_deps(normal = True, package_name = "score/crypto/daemon/provider/cryptoki") + all_crate_deps(normal_dev = True, package_name = "score/crypto/daemon/provider/cryptoki"),
-    proc_macro_deps = all_crate_deps(proc_macro_dev = True, package_name = "score/crypto/daemon/provider/cryptoki"),
+    deps = _COMMON_DEPS + all_crate_deps(normal = True, package_name = "score/crypto/daemon/provider/pkcs11/cryptoki") + all_crate_deps(normal_dev = True, package_name = "score/crypto/daemon/provider/pkcs11/cryptoki"),
+    proc_macro_deps = all_crate_deps(proc_macro_dev = True, package_name = "score/crypto/daemon/provider/pkcs11/cryptoki"),
     env = {"RUST_TEST_THREADS": "1"},
 ) for name in _TESTS_WITH_COMMON]
 
@@ -63,10 +63,10 @@ _TESTS_NO_COMMON = [
     aliases = aliases(
         normal_dev = True,
         proc_macro_dev = True,
-        package_name = "score/crypto/daemon/provider/cryptoki",
+        package_name = "score/crypto/daemon/provider/pkcs11/cryptoki",
     ),
-    deps = _COMMON_DEPS + all_crate_deps(normal = True, package_name = "score/crypto/daemon/provider/cryptoki") + all_crate_deps(normal_dev = True, package_name = "score/crypto/daemon/provider/cryptoki"),
-    proc_macro_deps = all_crate_deps(proc_macro_dev = True, package_name = "score/crypto/daemon/provider/cryptoki"),
+    deps = _COMMON_DEPS + all_crate_deps(normal = True, package_name = "score/crypto/daemon/provider/pkcs11/cryptoki") + all_crate_deps(normal_dev = True, package_name = "score/crypto/daemon/provider/pkcs11/cryptoki"),
+    proc_macro_deps = all_crate_deps(proc_macro_dev = True, package_name = "score/crypto/daemon/provider/pkcs11/cryptoki"),
     env = {"RUST_TEST_THREADS": "1"},
 ) for name in _TESTS_NO_COMMON]
 

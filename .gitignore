@@ -72,3 +72,7 @@ path/to/venv/
 # Language Server
 compile_commands.json
 .cache/
+
+# Cargo
+target/
+**/target/

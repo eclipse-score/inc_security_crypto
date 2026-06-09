@@ -69,7 +69,7 @@ int main(int argc, char** argv)
     }
 
     // Dynamic compatibility mode: when Rust PKCS#11 is enabled, remap key-slot
-    // provider references from legacy "SOFTHSM" to "VALEO_CRYPTOKI" so clients
+    // provider references from legacy "SOFTHSM" to "SCORE_CRYPTO_PROVIDER" so clients
     // can keep using the same slot/app-resource IDs.
 #ifdef USE_RUST_PKCS11
     {
@@ -80,7 +80,7 @@ int main(int argc, char** argv)
             {
                 if (provider_name == "SOFTHSM")
                 {
-                    provider_name = "VALEO_CRYPTOKI";
+                    provider_name = "SCORE_CRYPTO_PROVIDER";
                 }
             }
         }
