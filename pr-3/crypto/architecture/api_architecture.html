@@ -2,13 +2,13 @@
 <!DOCTYPE html>
 
 
-<html lang="en" data-content_root="./" >
+<html lang="en" data-content_root="../../" >
 
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Crypto Documentation &#8212; Crypto Project  documentation</title>
+    <title>API Architecture &#8212; Crypto Project  documentation</title>
   
   
   
@@ -27,42 +27,42 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    <link rel="stylesheet" type="text/css" href="_static/css/score.css?v=6e51530f" />
-    <link rel="stylesheet" type="text/css" href="_static/css/score_needs.css?v=e97392eb" />
-    <link rel="stylesheet" type="text/css" href="_static/css/score_design.css?v=d9fd870c" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/modern.css?v=803738c0" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/score.css?v=6e51530f" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/score_needs.css?v=e97392eb" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/score_design.css?v=d9fd870c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
-  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/jquery.js?v=5d32c60e"></script>
-    <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-    <script src="_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
-    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-    <script src="_static/design-tabs.js?v=f930bc37"></script>
-    <script src="_static/sphinx-data-viewer/jsonview.bundle.js?v=18cd53c5"></script>
-    <script src="_static/sphinx-data-viewer/jsonview_loader.js?v=f7ff7e7d"></script>
-    <script src="_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
-    <script src="_static/sphinx-needs/libs/html/datatables_loader.js?v=a2cae175"></script>
-    <script src="_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <script src="../../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script src="../../_static/sphinx-data-viewer/jsonview.bundle.js?v=18cd53c5"></script>
+    <script src="../../_static/sphinx-data-viewer/jsonview_loader.js?v=f7ff7e7d"></script>
+    <script src="../../_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
+    <script src="../../_static/sphinx-needs/libs/html/datatables_loader.js?v=a2cae175"></script>
+    <script src="../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'crypto/architecture/api_architecture';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
@@ -70,9 +70,10 @@
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
         </script>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Component Architecture" href="crypto/architecture/index.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="API Description" href="api_description.html" />
+    <link rel="prev" title="Component Architecture" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1" />
@@ -94,7 +95,7 @@
   <dialog id="pst-search-dialog">
     
 <form class="bd-search d-flex align-items-center"
-      action="search.html"
+      action="../../search.html"
       method="get">
   <i class="fa-solid fa-magnifying-glass"></i>
   <input type="search"
@@ -130,7 +131,7 @@
     
   
 
-<a class="navbar-brand logo" href="#">
+<a class="navbar-brand logo" href="../../index.html">
   
   
   
@@ -151,8 +152,8 @@
 <nav>
   <ul class="bd-navbar-elements navbar-nav">
     
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="crypto/architecture/index.html">
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
     Component Architecture
   </a>
 </li>
@@ -250,10 +251,8 @@
       
       
       
-        
-      
       <dialog id="pst-primary-sidebar-modal"></dialog>
-      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -268,8 +267,8 @@
 <nav>
   <ul class="bd-navbar-elements navbar-nav">
     
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="crypto/architecture/index.html">
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
     Component Architecture
   </a>
 </li>
@@ -332,6 +331,25 @@
     
   </div>
   
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Architecture Details</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">API Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_description.html">API Description</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dynamic_architecture.html">API Dynamic Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interfaces.html">Interfaces</a></li>
+<li class="toctree-l1"><a class="reference internal" href="provider_architecture.html">Provider Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="key_management_details.html">Key Management Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="design_decisions.html">Design Decisions</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
       <div class="sidebar-primary-item">
@@ -352,7 +370,34 @@
           <div class="bd-content">
             <div class="bd-article-container">
               
-              <div class="bd-header-article d-print-none"></div>
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Component Architecture</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">API Architecture</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
               
               
               
@@ -360,91 +405,60 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="crypto-documentation">
-<h1>Crypto Documentation<a class="headerlink" href="#crypto-documentation" title="Link to this heading">#</a></h1>
-<p>This documentation covers the <strong>Crypto</strong> module — a cryptographic
-middleware stack for automotive ECUs. The module
-provides a C++ client library (<code class="docutils literal notranslate"><span class="pre">score::mw::crypto</span></code>) and an accompanying
-crypto daemon that together deliver key management, symmetric and asymmetric
-cryptography, hashing, signing, certificate handling, and secure memory
-allocation.</p>
-<nav class="contents local" id="table-of-contents">
-<p class="topic-title">Table of Contents</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="#overview" id="id1">Overview</a></p></li>
-<li><p><a class="reference internal" href="#requirements" id="id2">Requirements</a></p></li>
-<li><p><a class="reference internal" href="#architecture" id="id3">Architecture</a></p></li>
-<li><p><a class="reference internal" href="#project-layout" id="id4">Project Layout</a></p></li>
-<li><p><a class="reference internal" href="#quick-start" id="id5">Quick Start</a></p></li>
-</ul>
-</nav>
-<section id="overview">
-<h2><a class="toc-backref" href="#id1" role="doc-backlink">Overview</a><a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">score::mw::crypto</span></code> module follows a <strong>daemon-based client–server</strong>
-architecture:</p>
-<ul class="simple">
-<li><p><strong>Client library</strong> (<code class="docutils literal notranslate"><span class="pre">//score/mw/crypto/api/...</span></code>) — a pure C++ interface layer
-that applications link against. All operations are expressed through
-factory-created context objects (<code class="docutils literal notranslate"><span class="pre">IHashContext</span></code>, <code class="docutils literal notranslate"><span class="pre">IMacContext</span></code>, etc.)
-following an <code class="docutils literal notranslate"><span class="pre">Init()</span></code> → <code class="docutils literal notranslate"><span class="pre">Update()</span></code> → <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code> streaming pattern.</p></li>
-<li><p><strong>Crypto daemon</strong> (<code class="docutils literal notranslate"><span class="pre">//score/crypto/daemon:crypto_daemon</span></code>) — a separate process that
-hosts all cryptographic state, enforces per-application Access Control
-List (ACL) and per-key operation permissions (<code class="docutils literal notranslate"><span class="pre">KeyOperationPermission</span></code>
-bitmask), and drives the underlying provider (OpenSSL, SoftHSM / PKCS#11,
-or future HSM/TEE backends).</p></li>
-<li><p><strong>IPC transport</strong> — gRPC over a Unix domain socket (Temporary solution).
-ABI compatibility between library and daemon shall be guarenteed.</p></li>
-</ul>
-</section>
-<section id="requirements">
-<h2><a class="toc-backref" href="#id2" role="doc-backlink">Requirements</a><a class="headerlink" href="#requirements" title="Link to this heading">#</a></h2>
-<p>Functional requirements are captured implicitly via the public interface
-specifications in <a class="reference internal" href="crypto/architecture/interfaces.html#crypto-interfaces"><span class="std std-ref">Interfaces</span></a> and the design decisions in
-<a class="reference internal" href="crypto/architecture/design_decisions.html#crypto-design-decisions"><span class="std std-ref">Design Decisions</span></a>.</p>
-</section>
-<section id="architecture">
-<h2><a class="toc-backref" href="#id3" role="doc-backlink">Architecture</a><a class="headerlink" href="#architecture" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="crypto/architecture/index.html">Component Architecture</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#requirements-linked-to-component-architecture">Requirements Linked to Component Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#static-architecture">Static Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#provider-layer">Provider Layer</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#dynamic-architecture">Dynamic Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#interfaces">Interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#design-decisions">Design Decisions</a></li>
-</ul>
-</li>
-</ul>
-</div>
-</section>
-<section id="project-layout">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">Project Layout</a><a class="headerlink" href="#project-layout" title="Link to this heading">#</a></h2>
-<p>The module template includes the following top-level structure:</p>
-<ul class="simple">
-<li><p><cite>.github/workflows/</cite>: CI pipelines for Bazel build, unit tests, and documentation generation</p></li>
-<li><p><cite>docs/</cite>: Documentation using <cite>docs-as-code</cite></p></li>
-<li><p><cite>examples/</cite>: Usage examples for each context type (hash, encrypt, sign, key management, certificates)</p></li>
-<li><p><cite>tests/</cite>: Unit tests, integration tests, provider tests, and test vectors</p></li>
-<li><p><cite>third_party/</cite>: Patches for third-party dependencies (if any)</p></li>
-</ul>
-</section>
-<section id="quick-start">
-<h2><a class="toc-backref" href="#id5" role="doc-backlink">Quick Start</a><a class="headerlink" href="#quick-start" title="Link to this heading">#</a></h2>
-<p>To build documentation:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span>run<span class="w"> </span>//:docs
-</pre></div>
-</div>
-<p>To build the module:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span>build<span class="w"> </span>//score/...<span class="w"> </span>//tests/...
-</pre></div>
-</div>
-<p>To run tests:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Execute tests</span>
-bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//tests/...
-</pre></div>
-</div>
+  <section id="api-architecture">
+<span id="api-class-architecture"></span><h1>API Architecture<a class="headerlink" href="#api-architecture" title="Link to this heading">#</a></h1>
+<section id="class-diagram">
+<h2>Class Diagram<a class="headerlink" href="#class-diagram" title="Link to this heading">#</a></h2>
+<p>The Score Crypto API architecture is illustrated by several focused UML diagrams:</p>
+<figure class="align-center" id="id1">
+<p class="plantuml">
+<object data="../../_images/plantuml-b6d8a04ceec5e7df03ed665a14c3006ac953b336.svg" type="image/svg+xml" style="width:1949px;height:948px;background:#FFFFFF;"></object></p>
+<figcaption>
+<p><span class="caption-number">Fig. 1 </span><span class="caption-text">Score Crypto API — Stack, Factory, and Context Overview</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id2">
+<p class="plantuml">
+<object data="../../_images/plantuml-6aa6502f2ca196b1f5eb58d175e67f830c88d7bf.svg" type="image/svg+xml" style="width:2771px;height:1206px;background:#FFFFFF;"></object></p>
+<figcaption>
+<p><span class="caption-number">Fig. 2 </span><span class="caption-text">Score Crypto API — Operation Context Hierarchy</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id3">
+<p class="plantuml">
+<object data="../../_images/plantuml-29f021bdf06055689e3771c899822b25d8d9bc6f.svg" type="image/svg+xml" style="width:3198px;height:917px;background:#FFFFFF;"></object></p>
+<figcaption>
+<p><span class="caption-number">Fig. 3 </span><span class="caption-text">Score Crypto API — Certificate Operation Contexts</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id4">
+<p class="plantuml">
+<object data="../../_images/plantuml-56f238e3e625e826016a7bd52e2b2fc8fa136bbf.svg" type="image/svg+xml" style="width:2498px;height:685px;background:#FFFFFF;"></object></p>
+<figcaption>
+<p><span class="caption-number">Fig. 4 </span><span class="caption-text">Score Crypto API — Typed Object Hierarchy</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id5">
+<p class="plantuml">
+<object data="../../_images/plantuml-2c6a6dff6b62dde622226470ea351d57bc2518e4.svg" type="image/svg+xml" style="width:1357px;height:494px;background:#FFFFFF;"></object></p>
+<figcaption>
+<p><span class="caption-number">Fig. 5 </span><span class="caption-text">Score Crypto API — Resource Management</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id6">
+<p class="plantuml">
+<object data="../../_images/plantuml-406a9ec1a0dafab50bed6adfa43492a85f8f7df4.svg" type="image/svg+xml" style="width:4614px;height:616px;background:#FFFFFF;"></object></p>
+<figcaption>
+<p><span class="caption-number">Fig. 6 </span><span class="caption-text">Score Crypto API — Configuration Object Hierarchy</span><a class="headerlink" href="#id6" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id7">
+<p class="plantuml">
+<object data="../../_images/plantuml-3eff2d1dd159d3b00f330dde83193f27426960bc.svg" type="image/svg+xml" style="width:1616px;height:698px;background:#FFFFFF;"></object></p>
+<figcaption>
+<p><span class="caption-number">Fig. 7 </span><span class="caption-text">Score Crypto API — Key Configuration Parameters</span><a class="headerlink" href="#id7" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
 </section>
 </section>
 
@@ -458,12 +472,21 @@ bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span
                 <footer class="prev-next-footer d-print-none">
                   
 <div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Component Architecture</p>
+      </div>
+    </a>
     <a class="right-next"
-       href="crypto/architecture/index.html"
+       href="api_description.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Component Architecture</p>
+        <p class="prev-next-title">API Description</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -486,11 +509,7 @@ bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#requirements">Requirements</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture">Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#project-layout">Project Layout</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start">Quick Start</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#class-diagram">Class Diagram</a></li>
 </ul>
   </nav></div>
 
@@ -498,7 +517,7 @@ bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/'docs'/index.rst">
+    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/'docs'/crypto/architecture/api_architecture.rst">
       <i class="fa-solid fa-pencil"></i>
       
       
@@ -514,7 +533,7 @@ bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
-      <li><a href="_sources/index.rst.txt"
+      <li><a href="../../_sources/crypto/architecture/api_architecture.rst.txt"
             rel="nofollow">Show Source</a></li>
     </ul>
    </div></div>
@@ -532,8 +551,8 @@ bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">

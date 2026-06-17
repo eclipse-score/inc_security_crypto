@@ -6,9 +6,8 @@
 
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-
-    <title>Crypto Documentation &#8212; Crypto Project  documentation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Index &#8212; Crypto Project  documentation</title>
   
   
   
@@ -62,7 +61,7 @@
     <script src="_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
     <script src="_static/sphinx-needs/libs/html/datatables_loader.js?v=a2cae175"></script>
     <script src="_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'genindex';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
@@ -70,9 +69,8 @@
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
         </script>
-    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="index" title="Index" href="#" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Component Architecture" href="crypto/architecture/index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1" />
@@ -130,7 +128,7 @@
     
   
 
-<a class="navbar-brand logo" href="#">
+<a class="navbar-brand logo" href="index.html">
   
   
   
@@ -235,10 +233,6 @@
     </div>
   
 
-  
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
   
 </div>
 
@@ -360,93 +354,12 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="crypto-documentation">
-<h1>Crypto Documentation<a class="headerlink" href="#crypto-documentation" title="Link to this heading">#</a></h1>
-<p>This documentation covers the <strong>Crypto</strong> module — a cryptographic
-middleware stack for automotive ECUs. The module
-provides a C++ client library (<code class="docutils literal notranslate"><span class="pre">score::mw::crypto</span></code>) and an accompanying
-crypto daemon that together deliver key management, symmetric and asymmetric
-cryptography, hashing, signing, certificate handling, and secure memory
-allocation.</p>
-<nav class="contents local" id="table-of-contents">
-<p class="topic-title">Table of Contents</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="#overview" id="id1">Overview</a></p></li>
-<li><p><a class="reference internal" href="#requirements" id="id2">Requirements</a></p></li>
-<li><p><a class="reference internal" href="#architecture" id="id3">Architecture</a></p></li>
-<li><p><a class="reference internal" href="#project-layout" id="id4">Project Layout</a></p></li>
-<li><p><a class="reference internal" href="#quick-start" id="id5">Quick Start</a></p></li>
-</ul>
-</nav>
-<section id="overview">
-<h2><a class="toc-backref" href="#id1" role="doc-backlink">Overview</a><a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">score::mw::crypto</span></code> module follows a <strong>daemon-based client–server</strong>
-architecture:</p>
-<ul class="simple">
-<li><p><strong>Client library</strong> (<code class="docutils literal notranslate"><span class="pre">//score/mw/crypto/api/...</span></code>) — a pure C++ interface layer
-that applications link against. All operations are expressed through
-factory-created context objects (<code class="docutils literal notranslate"><span class="pre">IHashContext</span></code>, <code class="docutils literal notranslate"><span class="pre">IMacContext</span></code>, etc.)
-following an <code class="docutils literal notranslate"><span class="pre">Init()</span></code> → <code class="docutils literal notranslate"><span class="pre">Update()</span></code> → <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code> streaming pattern.</p></li>
-<li><p><strong>Crypto daemon</strong> (<code class="docutils literal notranslate"><span class="pre">//score/crypto/daemon:crypto_daemon</span></code>) — a separate process that
-hosts all cryptographic state, enforces per-application Access Control
-List (ACL) and per-key operation permissions (<code class="docutils literal notranslate"><span class="pre">KeyOperationPermission</span></code>
-bitmask), and drives the underlying provider (OpenSSL, SoftHSM / PKCS#11,
-or future HSM/TEE backends).</p></li>
-<li><p><strong>IPC transport</strong> — gRPC over a Unix domain socket (Temporary solution).
-ABI compatibility between library and daemon shall be guarenteed.</p></li>
-</ul>
-</section>
-<section id="requirements">
-<h2><a class="toc-backref" href="#id2" role="doc-backlink">Requirements</a><a class="headerlink" href="#requirements" title="Link to this heading">#</a></h2>
-<p>Functional requirements are captured implicitly via the public interface
-specifications in <a class="reference internal" href="crypto/architecture/interfaces.html#crypto-interfaces"><span class="std std-ref">Interfaces</span></a> and the design decisions in
-<a class="reference internal" href="crypto/architecture/design_decisions.html#crypto-design-decisions"><span class="std std-ref">Design Decisions</span></a>.</p>
-</section>
-<section id="architecture">
-<h2><a class="toc-backref" href="#id3" role="doc-backlink">Architecture</a><a class="headerlink" href="#architecture" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="crypto/architecture/index.html">Component Architecture</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#requirements-linked-to-component-architecture">Requirements Linked to Component Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#static-architecture">Static Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#provider-layer">Provider Layer</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#dynamic-architecture">Dynamic Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#interfaces">Interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="crypto/architecture/index.html#design-decisions">Design Decisions</a></li>
-</ul>
-</li>
-</ul>
+
+<h1 id="index">Index</h1>
+
+<div class="genindex-jumpbox">
+ 
 </div>
-</section>
-<section id="project-layout">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">Project Layout</a><a class="headerlink" href="#project-layout" title="Link to this heading">#</a></h2>
-<p>The module template includes the following top-level structure:</p>
-<ul class="simple">
-<li><p><cite>.github/workflows/</cite>: CI pipelines for Bazel build, unit tests, and documentation generation</p></li>
-<li><p><cite>docs/</cite>: Documentation using <cite>docs-as-code</cite></p></li>
-<li><p><cite>examples/</cite>: Usage examples for each context type (hash, encrypt, sign, key management, certificates)</p></li>
-<li><p><cite>tests/</cite>: Unit tests, integration tests, provider tests, and test vectors</p></li>
-<li><p><cite>third_party/</cite>: Patches for third-party dependencies (if any)</p></li>
-</ul>
-</section>
-<section id="quick-start">
-<h2><a class="toc-backref" href="#id5" role="doc-backlink">Quick Start</a><a class="headerlink" href="#quick-start" title="Link to this heading">#</a></h2>
-<p>To build documentation:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span>run<span class="w"> </span>//:docs
-</pre></div>
-</div>
-<p>To build the module:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span>build<span class="w"> </span>//score/...<span class="w"> </span>//tests/...
-</pre></div>
-</div>
-<p>To run tests:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Execute tests</span>
-bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//tests/...
-</pre></div>
-</div>
-</section>
-</section>
 
 
                 </article>
@@ -458,68 +371,12 @@ bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span
                 <footer class="prev-next-footer d-print-none">
                   
 <div class="prev-next-area">
-    <a class="right-next"
-       href="crypto/architecture/index.html"
-       title="next page">
-      <div class="prev-next-info">
-        <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Component Architecture</p>
-      </div>
-      <i class="fa-solid fa-angle-right"></i>
-    </a>
 </div>
                 </footer>
               
             </div>
             
             
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
-
-
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#requirements">Requirements</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture">Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#project-layout">Project Layout</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start">Quick Start</a></li>
-</ul>
-  </nav></div>
-
-  <div class="sidebar-secondary-item">
-
-  
-  <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/'docs'/index.rst">
-      <i class="fa-solid fa-pencil"></i>
-      
-      
-        
-          Edit on GitHub
-        
-      
-    </a>
-  </div>
-</div>
-
-  <div class="sidebar-secondary-item">
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/index.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div></div>
-
-</div></div>
               
             
           </div>
