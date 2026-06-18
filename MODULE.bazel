@@ -15,7 +15,7 @@ module(
     version = "0.1.0",
 )
 
-bazel_dep(name = "rules_python", version = "2.0.1")
+bazel_dep(name = "rules_python", version = "2.1.0-rc0")
 single_version_override(
     module_name = "rules_python",
     version = "1.5.4",
@@ -42,13 +42,13 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 # *******************************************************************************
 # Constraint values for specifying platforms and toolchains
 # *******************************************************************************
-bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "score_bazel_platforms", version = "0.1.1")
 
 # *******************************************************************************
 # C++ Rules for Bazel
 # *******************************************************************************
-bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_cc", version = "0.2.19")
 
 # *******************************************************************************
 # Set dependency to Bazel C/C++ Toolchain repository
@@ -127,7 +127,7 @@ use_repo(
 # Rust toolchains
 # *******************************************************************************
 
-bazel_dep(name = "rules_rust", version = "0.68.2-score")
+bazel_dep(name = "rules_rust", version = "0.70.0")
 
 bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
 
@@ -140,7 +140,7 @@ bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = Tr
 # Intended to be replaced with score_communication transporting a size limited
 # FlatBuffers in the future
 # *******************************************************************************
-bazel_dep(name = "grpc", version = "1.76.0.bcr.1")
+bazel_dep(name = "grpc", version = "1.81.1")
 
 # Patch grpc and bundled abseil-cpp to not link -lpthread on QNX (pthread is built into libc on QNX)
 archive_override(
@@ -164,7 +164,7 @@ archive_override(
 )
 
 # Protobuf dependency (pulled by grpc)
-bazel_dep(name = "protobuf", version = "35.0")
+bazel_dep(name = "protobuf", version = "35.1")
 
 # Patch protobuf to not link -lpthread on QNX (pthread is built into libc on QNX)
 archive_override(
@@ -181,7 +181,7 @@ single_version_override(
 )
 
 # FlatBuffers
-bazel_dep(name = "flatbuffers", version = "25.2.10")
+bazel_dep(name = "flatbuffers", version = "25.12.19")
 
 # *******************************************************************************
 # OpenSSL
@@ -228,7 +228,7 @@ filegroup(
 # tooling
 bazel_dep(name = "score_tooling", version = "1.1.2")
 bazel_dep(name = "aspect_rules_lint", version = "1.5.3")
-bazel_dep(name = "buildifier_prebuilt", version = "8.2.0.2")
+bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2")
 
 #docs-as-code
 bazel_dep(name = "score_docs_as_code", version = "2.2.0")
