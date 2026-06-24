@@ -17,7 +17,6 @@
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 
-#include <cryptoki.h>
 #include <pkcs11.h>
 
 #include <cstdint>

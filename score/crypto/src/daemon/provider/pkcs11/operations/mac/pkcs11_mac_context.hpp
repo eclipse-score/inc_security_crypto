@@ -16,7 +16,6 @@
 
 #include "score/crypto/src/api/common/types.hpp"  // OperationMode
 
-#include <cryptoki.h>
 #include <pkcs11.h>
 
 #include <cstddef>

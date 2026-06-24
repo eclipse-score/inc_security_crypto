@@ -23,7 +23,6 @@
 #include "score/crypto/src/daemon/provider/pkcs11/operations/factory/pkcs11_handler_factory.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
-#include <cryptoki.h>
 #include <pkcs11.h>
 
 #include <cstdint>
