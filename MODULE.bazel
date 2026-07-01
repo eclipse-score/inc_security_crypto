@@ -48,7 +48,7 @@ bazel_dep(name = "score_bazel_platforms", version = "0.1.1")
 # *******************************************************************************
 # C++ Rules for Bazel
 # *******************************************************************************
-bazel_dep(name = "rules_cc", version = "0.2.19")
+bazel_dep(name = "rules_cc", version = "0.2.20")
 
 # *******************************************************************************
 # Set dependency to Bazel C/C++ Toolchain repository
@@ -127,7 +127,7 @@ use_repo(
 # Rust toolchains
 # *******************************************************************************
 
-bazel_dep(name = "rules_rust", version = "0.70.0")
+bazel_dep(name = "rules_rust", version = "0.71.1")
 
 bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
 
