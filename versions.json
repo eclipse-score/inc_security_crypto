@@ -26,5 +26,9 @@
   {
     "version": "pr-62",
     "url": "https://eclipse-score.github.io/inc_security_crypto/pr-62/"
+  },
+  {
+    "version": "pr-60",
+    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-60/"
   }
 ]
