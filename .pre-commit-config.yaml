@@ -10,32 +10,43 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
+exclude: '.patch$'
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-shebang-scripts-are-executable
+      - id: check-executables-have-shebangs
+      - id: check-added-large-files
+        args: [--maxkb=50, --enforce-all] # increase or add git lfs if too strict
+        exclude: MODULE.bazel.lock
+
+  - repo: https://github.com/eclipse-score/tooling
+    rev: 31ff8eee214e4e97ef8f5cb46e443273515b63ec
+    hooks:
+      - id: copyright
+
+  - repo: https://codeberg.org/fsfe/reuse-tool
+    rev: a1bb792acda6fd0724936b4ebbdbc8eceb9c0459 # v6.2.0
+    hooks:
+      - id: reuse-lint-file
+
+  - repo: https://github.com/google/yamlfmt
+    rev: 21ca5323a9c87ee37a434e0ca908efc0a89daa07 # v0.21.0
+    hooks:
+      - id: yamlfmt
+
   - repo: local
     hooks:
-      - id: copyright-fix
-        name: //:copyright-fix
-        entry: bazel run //:copyright-fix
+      - id: bzlmod-tidy
+        name: bazel mod tidy
+        entry: bazel mod tidy
         language: system
         pass_filenames: false
-      - id: format-fix
-        name: //:format.fix
-        entry: bazel run //:format.fix
+      - id: bzlmod-lockfile
+        name: bazel mod deps lockfile check
+        entry: bazel mod deps --lockfile_mode=error
         language: system
-        files: (BUILD|BUILD\.bazel|WORKSPACE|\.bazelrc|[^/]+\.(py|bzl|bazel|yaml|yml|rs))$
         pass_filenames: false
-      - id: generate-compile-commands
-        name: bazel-compile-commands (for clang-tidy)
-        entry: bazel-compile-commands
-        language: system
-        files: \.(c|cpp|h|hpp)$
-        pass_filenames: false
-  - repo: https://github.com/pocc/pre-commit-hooks
-    rev: v1.3.5
-    hooks:
-      - id: clang-format
-        args: ["-i", "--style=file"]
-        files: \.(c|cpp|h|hpp)$
-      - id: clang-tidy
-        args: ["--config-file=.clang-tidy", "-p=$(pwd)", "--warnings-as-errors=*"]
-        exclude: '_test\.cpp$'

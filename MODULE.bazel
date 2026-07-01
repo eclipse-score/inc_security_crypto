@@ -11,233 +11,76 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 module(
-    name = "score_crypto",
-    version = "0.1.0",
+    name = "cpp_rust_template_repository",
 )
 
-bazel_dep(name = "rules_python", version = "2.1.0-rc0")
-single_version_override(
-    module_name = "rules_python",
-    version = "1.5.4",
-)
+bazel_dep(name = "rules_python", version = "1.8.3", dev_dependency = True)
 
+# Python 3.12: Required for testing infrastructure and code generation tools
 PYTHON_VERSION = "3.12"
 
-python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python = use_extension(
+    "@rules_python//python/extensions:python.bzl",
+    "python",
+    dev_dependency = True,
+)
 python.toolchain(
     is_default = True,
     python_version = PYTHON_VERSION,
 )
 
-# Foreign CC rules for building projects with external build systems (make, cmake, etc.)
-bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
-
-# HTTP archive rule for downloading and extracting source code from the web
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-# ===============================================================================
-# T O O L C H A I N S
-# ===============================================================================
-
-# *******************************************************************************
-# Constraint values for specifying platforms and toolchains
-# *******************************************************************************
-bazel_dep(name = "platforms", version = "1.1.0")
-bazel_dep(name = "score_bazel_platforms", version = "0.1.1")
-
-# *******************************************************************************
-# C++ Rules for Bazel
-# *******************************************************************************
-bazel_dep(name = "rules_cc", version = "0.2.19")
-
-# *******************************************************************************
-# Set dependency to Bazel C/C++ Toolchain repository
-# *******************************************************************************
-bazel_dep(
-    name = "score_bazel_cpp_toolchains",
-    version = "0.3.1",
+pip = use_extension(
+    "@rules_python//python/extensions:pip.bzl",
+    "pip",
     dev_dependency = True,
 )
-
-# *******************************************************************************
-# Init GCC extention
-# Legend:
-#     * CPU:   Control Processor Unit
-#     * OS:    Operating System
-#     * V:     Version (GCC or SDP)
-#     * ES:    Runtime-EcoSystem
-#
-# *******************************************************************************
-gcc = use_extension("@score_bazel_cpp_toolchains//extensions:gcc.bzl", "gcc", dev_dependency = True)
-
-# *******************************************************************************
-# Setting default GCC (CPU:x86_64|OS:Linux|V:12.2.0|ES:posix)
-# *******************************************************************************
-gcc.toolchain(
-    name = "score_gcc_x86_64_toolchain",
-    target_cpu = "x86_64",
-    target_os = "linux",
-    use_default_package = True,
-    version = "12.2.0",
+pip.parse(
+    envsubst = ["PIP_INDEX_URL"],
+    extra_pip_args = ["--index-url=${PIP_INDEX_URL:-https://pypi.org/simple/}"],
+    hub_name = "module_template_docs_hub_env",
+    python_version = PYTHON_VERSION,
+    requirements_lock = "@score_docs_as_code//src:requirements.txt",
 )
+use_repo(pip, "module_template_docs_hub_env")
 
-# *******************************************************************************
-# Setting default GCC (CPU:aarch64|OS:Linux|V:12.2.0|ES:posix)
-# *******************************************************************************
-gcc.toolchain(
-    name = "score_gcc_aarch64_toolchain",
-    target_cpu = "aarch64",
-    target_os = "linux",
-    use_default_package = True,
-    version = "12.2.0",
-)
+# Add GoogleTest dependency
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 
-# *******************************************************************************
-# Setting GCC (CPU:x86_64|OS:QNX|version(sdp):8.0.0|ES:posix)
-# *******************************************************************************
-gcc.toolchain(
-    name = "score_qcc_x86_64_toolchain",
-    sdp_version = "8.0.0",
-    target_cpu = "x86_64",
-    target_os = "qnx",
-    use_default_package = True,
-    version = "12.2.0",
-)
-
-# *******************************************************************************
-# Setting GCC (CPU:aarch64|OS:QNX|version(sdp):8.0.0|ES:posix)
-# *******************************************************************************
-gcc.toolchain(
-    name = "score_qcc_aarch64_toolchain",
-    sdp_version = "8.0.0",
-    target_cpu = "aarch64",
-    target_os = "qnx",
-    use_default_package = True,
-    version = "12.2.0",
-)
-use_repo(
-    gcc,
-    "score_gcc_aarch64_toolchain",
-    "score_gcc_x86_64_toolchain",
-    "score_qcc_aarch64_toolchain",
-    "score_qcc_x86_64_toolchain",
-)
-
-# *******************************************************************************
-# Rust toolchains
-# *******************************************************************************
-
+# Rust rules for Bazel
 bazel_dep(name = "rules_rust", version = "0.70.0")
 
-bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
+# C/C++ rules for Bazel
+bazel_dep(name = "rules_cc", version = "0.2.18")
 
-# ===============================================================================
-# T H I R D - P A R T Y   D E P E N D E N C I E S
-# ===============================================================================
+# LLVM Toolchains Rules - host configuration
+bazel_dep(name = "toolchains_llvm", version = "1.7.0", dev_dependency = True)
 
-# *******************************************************************************
-# gRPC
-# Intended to be replaced with score_communication transporting a size limited
-# FlatBuffers in the future
-# *******************************************************************************
-bazel_dep(name = "grpc", version = "1.81.1")
-
-# Patch grpc and bundled abseil-cpp to not link -lpthread on QNX (pthread is built into libc on QNX)
-archive_override(
-    module_name = "grpc",
-    patch_strip = 1,
-    patches = ["//third_party/grpc:grpc_qnx_pthread.patch"],
-    strip_prefix = "grpc-1.76.0",
-    urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.76.0.tar.gz"],
+llvm = use_extension(
+    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
+    "llvm",
+    dev_dependency = True,
 )
-
-# Abseil-cpp dependency (pulled by grpc)
-bazel_dep(name = "abseil-cpp", version = "20260107.1")
-
-# Patch abseil-cpp to not link -lpthread on QNX (pthread is built into libc on QNX)
-archive_override(
-    module_name = "abseil-cpp",
-    patch_strip = 1,
-    patches = ["//third_party/grpc:abseil_qnx_pthread.patch"],
-    strip_prefix = "abseil-cpp-20250512.1",
-    urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20250512.1.tar.gz"],
+llvm.toolchain(
+    cxx_standard = {"": "c++17"},
+    llvm_version = "19.1.0",
 )
+use_repo(llvm, "llvm_toolchain")
+use_repo(llvm, "llvm_toolchain_llvm")
 
-# Protobuf dependency (pulled by grpc)
-bazel_dep(name = "protobuf", version = "35.1")
-
-# Patch protobuf to not link -lpthread on QNX (pthread is built into libc on QNX)
-archive_override(
-    module_name = "protobuf",
-    patch_strip = 1,
-    patches = ["//third_party/grpc:protobuf_qnx_pthread.patch"],
-    strip_prefix = "protobuf-31.1",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v31.1.tar.gz"],
-)
-
-single_version_override(
-    module_name = "rules_swift",
-    version = "3.1.2",  # resolve dependency conflict of grpc and flatbuffers
-)
-
-# FlatBuffers
-bazel_dep(name = "flatbuffers", version = "25.12.19")
-
-# *******************************************************************************
-# OpenSSL
-# *******************************************************************************
-
-http_archive(
-    name = "openssl_source",
-    build_file_content = """
-filegroup(
-    name = "all",
-    srcs = glob(["**"]),
-    visibility = ["//visibility:public"],
-)
-""",
-    sha256 = "b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e",
-    strip_prefix = "openssl-3.6.1",
-    urls = ["https://www.openssl.org/source/openssl-3.6.1.tar.gz"],
-)
-
-# *******************************************************************************
-# SoftHSMv2
-# *******************************************************************************
-
-http_archive(
-    name = "softhsm_source",
-    build_file_content = """
-filegroup(
-    name = "all",
-    srcs = glob(["**"]),
-    visibility = ["//visibility:public"],
-)
-""",
-    patch_args = ["-p1"],
-    patches = ["//third_party/soft_hsm:softhsm_qnx_dl.patch"],
-    sha256 = "be14a5820ec457eac5154462ffae51ba5d8a643f6760514d4b4b83a77be91573",
-    strip_prefix = "SoftHSMv2-2.7.0",
-    urls = ["https://github.com/softhsm/SoftHSMv2/archive/refs/tags/2.7.0.tar.gz"],
-)
-
-# ===============================================================================
-# S C O R E   M O D U L E S
-# ===============================================================================
+register_toolchains("@llvm_toolchain//:all")
 
 # tooling
-bazel_dep(name = "score_tooling", version = "1.1.2")
-bazel_dep(name = "aspect_rules_lint", version = "1.5.3")
-bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2")
+bazel_dep(name = "score_tooling", version = "1.2.0", dev_dependency = True)
+bazel_dep(name = "aspect_rules_lint", version = "1.10.2", dev_dependency = True)
+bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
 
 #docs-as-code
-bazel_dep(name = "score_docs_as_code", version = "2.2.0")
+bazel_dep(name = "score_docs_as_code", version = "4.6.0", dev_dependency = True)
+bazel_dep(name = "score_process", version = "2.0.0", dev_dependency = True)
 
-# GoogleTest
-bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
-
-# s-core baselibs
-bazel_dep(name = "score_baselibs", version = "0.2.7")
-
-# Integration testing
-bazel_dep(name = "score_itf", version = "0.1.0")
+# grpc-java 1.66.0 imports a grpc extension repo removed in newer grpc versions.
+# Force a compatible grpc-java version until upstream dependencies converge.
+single_version_override(
+    module_name = "grpc-java",
+    version = "1.70.0",
+)

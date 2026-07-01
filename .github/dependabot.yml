@@ -15,38 +15,35 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
     groups:
-      all-in-one:
+      github-actions:
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
+    commit-message:
+      prefix: chore(github-actions)
 
   - package-ecosystem: cargo
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
     groups:
-      all-in-one:
+      cargo:
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
+    commit-message:
+      prefix: chore(cargo)
 
   - package-ecosystem: pip
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
     groups:
-      all-in-one:
+      pip:
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
+    commit-message:
+      prefix: chore(pip)
 
   - package-ecosystem: docker
     directories:
@@ -54,21 +51,22 @@ updates:
     schedule:
       interval: daily
     groups:
-      all-in-one:
+      docker:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
+    commit-message:
+      prefix: chore(docker)
 
-  - package-ecosystem: bazel
+  - package-ecosystem: pre-commit
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
     groups:
-      all-in-one:
+      pre-commit:
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
+    commit-message:
+      prefix: chore(pre-commit)

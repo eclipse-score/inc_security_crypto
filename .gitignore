@@ -63,12 +63,9 @@ styles/
 .envrc
 
 # Python
-.venv*
+.venv
 __pycache__/
 /.coverage
-.python-version
-path/to/venv/
 
-# Language Server
-compile_commands.json
-.cache/
+# MacOS
+.DS_Store
