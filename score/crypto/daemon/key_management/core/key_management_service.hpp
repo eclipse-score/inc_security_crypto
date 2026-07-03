@@ -247,10 +247,13 @@ class KeyManagementService final
         KeyRegistryId registry_id,
         const common::ProviderId& provider_id);
 
-    data_manager::IDataManager::Sptr m_data_manager;
     provider::ProviderManager::Sptr m_provider_manager;
     SlotRegistry::Sptr m_slot_registry;
+    // m_registries must be declared before m_data_manager so that the registries
+    // outlive the DataManager. ~DataManager() destroys KeyDataNode objects whose
+    // destructors invoke [&registry](...){ registry.Unregister(id); } callbacks.
     std::unordered_map<common::ProviderId, KeyRegistry> m_registries;
+    data_manager::IDataManager::Sptr m_data_manager;
 
     /// Per-client cache of resolved resource names → DataNodeId.
     /// Cleared in CleanupClient(). Prevents duplicate KeySlotDataNodes.

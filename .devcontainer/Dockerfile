@@ -28,5 +28,10 @@ RUN if [ "$USERNAME" != "vscode" ]; then \
         && chmod 0440 /etc/sudoers.d/${USERNAME}; \
     fi
 
+# Install dependencies and configure system trust store
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        qemu-system-x86 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set the default user for the container
 USER ${USERNAME}

@@ -22,9 +22,6 @@ cc_test(
     data = [
         "//tests/test_vectors/block_cipher/ECB-AES128:block_cipher_test_vectors",
     ],
-    dynamic_deps = [
-        "//third_party/openssl:openssl_shared",
-    ],
     deps = [
         "//tests/utility",
         "//third_party/openssl",

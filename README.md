@@ -92,7 +92,7 @@ To build all targets of the module the following command can be used:
 bazel build //score/...
 # linux ARM architecture
 # check .bazelrc for available host (x86_64) and target (aarch64) configurations
-bazel build //score/... --config=target_config_3
+bazel build //score/... --config=aarch64-qnx
 ```
 
 ### 3️⃣ Run Tests

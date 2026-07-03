@@ -59,26 +59,17 @@ build:shared_qnx --cxxopt=-DIP_PKTINFO=0
 # -------------------------------------------------------------------------------
 build:x86_64-linux --config=shared
 build:x86_64-linux --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
-
-# -------------------------------------------------------------------------------
-# Different toolchain configuration for x86_64-linux
-# -------------------------------------------------------------------------------
-build:host_config_1 --config=x86_64-linux
-build:host_config_1 --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
-build:host_config_1 --features=use_pthread
+build:x86_64-linux --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+build:x86_64-linux --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
+build:x86_64-linux --features=use_pthread
 
 # -------------------------------------------------------------------------------
 # Config dedicated to target platform CPU:aarch64 and OS:linux
 # -------------------------------------------------------------------------------
 build:aarch64-linux --config=shared
 build:aarch64-linux --platforms=@score_bazel_platforms//:aarch64-linux-gcc_12.2.0-posix
-
-# -------------------------------------------------------------------------------
-# Different toolchain configuration for aarch64-linux
-# -------------------------------------------------------------------------------
-build:target_config_3 --config=aarch64-linux
-build:target_config_3 --extra_toolchains=@score_gcc_aarch64_toolchain//:aarch64-linux-gcc_12.2.0
-
+build:aarch64-linux --extra_toolchains=@score_gcc_aarch64_toolchain//:aarch64-linux-gcc_12.2.0
+build:aarch64-linux --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_aarch64_unknown_linux_gnu
 
 # -------------------------------------------------------------------------------
 # Config dedicated to target platform CPU:x86_64 and OS:QNX
@@ -86,12 +77,11 @@ build:target_config_3 --extra_toolchains=@score_gcc_aarch64_toolchain//:aarch64-
 build:x86_64-qnx --config=shared_qnx
 # Use custom platform that extends score platform with @platforms//os:qnx constraint
 build:x86_64-qnx --platforms=//platforms:x86_64-qnx-extended
-
-# -------------------------------------------------------------------------------
-# Different toolchain configuration for x86_64-qnx
-# -------------------------------------------------------------------------------
-build:target_config_1 --config=x86_64-qnx
-build:target_config_1 --extra_toolchains=@score_qcc_x86_64_toolchain//:x86_64-qnx-sdp_8.0.0
+build:x86_64-qnx --extra_toolchains=@score_qcc_x86_64_toolchain//:x86_64-qnx-sdp_8.0.0
+build:x86_64-qnx --extra_toolchains=@score_qnx_x86_64_ifs_toolchain//:ifs-x86_64-qnx-sdp_8.0.0
+build:x86_64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_pc_nto_qnx800
+test:x86_64-qnx --run_under=@score_qnx_unit_tests//src:run_under_qnx
+test:x86_64-qnx --test_lang_filters=cc,rust
 
 # -------------------------------------------------------------------------------
 # Config dedicated to target platform CPU:aarch64 and OS:QNX
@@ -99,9 +89,9 @@ build:target_config_1 --extra_toolchains=@score_qcc_x86_64_toolchain//:x86_64-qn
 build:aarch64-qnx --config=shared_qnx
 # Use custom platform that extends score platform with @platforms//os:qnx constraint
 build:aarch64-qnx --platforms=//platforms:aarch64-qnx-extended
-
-# -------------------------------------------------------------------------------
-# Different toolchain configuration for aarch64-qnx
-# -------------------------------------------------------------------------------
-build:target_config_2 --config=aarch64-qnx
-build:target_config_2 --extra_toolchains=@score_qcc_aarch64_toolchain//:aarch64-qnx-sdp_8.0.0
+build:aarch64-qnx --extra_toolchains=@score_qcc_aarch64_toolchain//:aarch64-qnx-sdp_8.0.0
+build:aarch64-qnx --extra_toolchains=@score_qnx_aarch64_ifs_toolchain//:ifs-aarch64-qnx-sdp_8.0.0
+build:aarch64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_aarch64_unknown_nto_qnx800
+test:aarch64-qnx --run_under=@score_qnx_unit_tests//src:run_under_qnx
+test:aarch64-qnx --test_lang_filters=cc,rust
+test:aarch64-qnx --test_timeout=200

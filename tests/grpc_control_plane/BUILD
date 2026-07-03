@@ -18,7 +18,6 @@ cc_test(
     name = "test_control_plane",
     timeout = "short",
     srcs = ["test_control_plane.cpp"],
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/api:operations",
         "//score/crypto/api/control_plane:control_plane_impl",

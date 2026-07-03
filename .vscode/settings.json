@@ -52,11 +52,7 @@
         ]
     },
 
-    "bazel.lsp.command": "bazel",
-    "bazel.lsp.args": [
-        "run",
-        "//:starpls_server"
-    ],
+    "bazel.lsp.command": "starpls",
 
     // RST Settings
     "[restructuredtext]": {

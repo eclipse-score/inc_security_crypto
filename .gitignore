@@ -75,3 +75,6 @@ compile_commands.json
 
 # ubCode / ubc auto-generated config
 /ubproject.toml
+
+# Devcontainer
+.devcontainer/devcontainer-lock.json

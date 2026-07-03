@@ -123,13 +123,14 @@ class KeyManagementHandlerTest : public ::testing::Test
     static constexpr dm::ClientId kDeniedClient = (9999ULL << 32) | 42ULL;
     static constexpr common::ProviderId kProviderId = 0;  // OPENSSL provider (registered first)
 
-    dm::DataManager::Sptr m_data_manager;
     km::SlotRegistry::Sptr m_slot_registry;
     km::IKeyFactory::Sptr m_km_handler;
     km::IKeySlotHandler::Sptr m_slot_handler;
     km::KeyManagementService::Sptr m_service;
     std::shared_ptr<handler_ns::OpenSslKeyManagementHandler> m_handler;
     dm::DataNodeId m_parent_id{0U};
+    // Keep last to destroy first
+    dm::DataManager::Sptr m_data_manager;
 };
 
 // ============================================================================
@@ -224,17 +225,20 @@ TEST_F(KeyManagementHandlerTest, GetKeySlotInfo_DeniedClient_ReturnsError)
 
 TEST_F(KeyManagementHandlerTest, GenerateKey_HmacSha256_ReturnsNodeId)
 {
-    common::RequestParameters params;
-    SetStandardParams(params);
-    const std::string algo = "HMAC-SHA256";
-    params.push_back(std::string_view(algo));
-    params.push_back(static_cast<std::uint64_t>(score::mw::crypto::KeyOperationPermission::kMac));
+    {
+        common::RequestParameters params;
+        SetStandardParams(params);
+        const std::string algo = "HMAC-SHA256";
+        params.push_back(std::string_view(algo));
+        params.push_back(static_cast<std::uint64_t>(score::mw::crypto::KeyOperationPermission::kMac));
 
-    auto result = m_handler->Execute(
-        {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, params);
-    ASSERT_TRUE(result.has_value());
-    ASSERT_FALSE(result.value().empty());
-    EXPECT_NE(std::get<std::uint64_t>(result.value()[0]), 0U);
+        auto result = m_handler->Execute(
+            {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, params);
+        ASSERT_TRUE(result.has_value());
+        ASSERT_FALSE(result.value().empty());
+        EXPECT_NE(std::get<std::uint64_t>(result.value()[0]), 0U);
+    }
+    std::cout << "GenerateKey_HmacSha256_ReturnsNodeId: success" << std::endl;
 }
 
 TEST_F(KeyManagementHandlerTest, GenerateKey_UnknownAlgorithm_ReturnsError)
