@@ -15,7 +15,10 @@ load("@score_docs_as_code//:docs.bzl", "docs")
 load("@score_tooling//:defs.bzl", "copyright_checker", "use_format_targets")
 
 docs(
-    source_dir = "docs",
+    data = [
+        "@score_process//:needs_json",
+    ],
+    source_dir = ".",
 )
 
 copyright_checker(

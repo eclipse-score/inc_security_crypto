@@ -31,14 +31,14 @@ version = "0.1"
 
 
 extensions = [
-    "sphinx_design",
-    "sphinx_needs",
-    "sphinxcontrib.plantuml",
-    "score_plantuml",
-    "score_metamodel",
-    "score_draw_uml_funcs",
-    "score_source_code_linker",
-    "score_layout",
+    "score_sphinx_bundle",
+]
+
+include_patterns = [
+    "index.rst",
+    "docs/**",
+    "score/**",
+    "examples/**",
 ]
 
 exclude_patterns = [
@@ -48,9 +48,14 @@ exclude_patterns = [
     # entries are required to prevent the build from failing.
     "bazel-*",
     ".venv_docs",
+    "_build",
+    "examples/README.md",
 ]
 
 templates_path = ["templates"]
 
 # Enable numref
 numfig = True
+
+
+required_in_id = []

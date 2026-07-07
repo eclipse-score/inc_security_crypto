@@ -17,14 +17,16 @@
 API Dynamic Architecture
 ========================
 
-.. comp_arc_dyn:: Dynamic View
-   :id: comp_arc_dyn__crypto__dynamic_view
-   :security: YES
-   :safety: QM
-   :status: invalid
-   :fulfils:
+.. code-block:: rst
+   
+   .. comp_arc_dyn:: Dynamic View
+      :id: comp_arc_dyn__crypto__dynamic_view
+      :security: YES
+      :safety: QM
+      :status: invalid
+      :fulfils:
 
-   Dynamic interactions for typical crypto operations.
+      Dynamic interactions for typical crypto operations.
 
 Typical Usage Flow
 ------------------
