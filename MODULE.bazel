@@ -15,7 +15,7 @@ module(
     version = "0.1.0",
 )
 
-bazel_dep(name = "rules_python", version = "2.1.0")
+bazel_dep(name = "rules_python", version = "2.2.0")
 single_version_override(
     module_name = "rules_python",
     version = "1.5.4",
@@ -48,7 +48,7 @@ bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
 # *******************************************************************************
 # C++ Rules for Bazel
 # *******************************************************************************
-bazel_dep(name = "rules_cc", version = "0.2.20")
+bazel_dep(name = "rules_cc", version = "0.2.21")
 
 # *******************************************************************************
 # Set dependency to Bazel C/C++ Toolchain repository
@@ -140,7 +140,7 @@ bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = Tr
 # Intended to be replaced with score_communication transporting a size limited
 # FlatBuffers in the future
 # *******************************************************************************
-bazel_dep(name = "grpc", version = "1.81.1")
+bazel_dep(name = "grpc", version = "1.82.0")
 
 # Patch grpc and bundled abseil-cpp to not link -lpthread on QNX (pthread is built into libc on QNX)
 archive_override(
