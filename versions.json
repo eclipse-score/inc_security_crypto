@@ -26,5 +26,9 @@
   {
     "version": "pr-77",
     "url": "https://eclipse-score.github.io/inc_security_crypto/pr-77/"
+  },
+  {
+    "version": "pr-82",
+    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-82/"
   }
 ]
