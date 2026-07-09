@@ -16,7 +16,7 @@
 
 #include "score/mw/log/logging.h"
 #include <cstdlib>
-#include <filesystem>
+#include <sys/stat.h>
 
 #include <map>
 #include <string>
@@ -87,7 +87,8 @@ bool Config::ParseConfig()
     auto config_file_path = std::getenv(CRYPTO_CONFIG_FILE_ENV.data());
     if (config_file_path)
     {
-        if (!std::filesystem::exists(config_file_path))
+        struct stat st_cfg;
+        if (::stat(config_file_path, &st_cfg) != 0)
         {
             score::mw::log::LogError() << "[CONFIG] Configuration file does not exist:" << config_file_path;
             return false;
@@ -106,7 +107,8 @@ bool Config::ParseConfig()
     // Try default paths (in order of preference)
     for (const auto& path : DEFAULT_CONFIG_PATHS)
     {
-        if (std::filesystem::exists(path))
+        struct stat st_path;
+        if (::stat(path.data(), &st_path) == 0)
         {
             score::mw::log::LogDebug() << "[CONFIG] Found configuration at default path:" << path;
             auto result = FlatBufferConfigParser::ParseFromFile(path, m_key);

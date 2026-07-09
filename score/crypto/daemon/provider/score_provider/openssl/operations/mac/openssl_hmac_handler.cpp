@@ -165,9 +165,11 @@ OpenSslHmacHandler::InitializeContext(
     if (init_params.bound_key_handler != nullptr)
     {
         // Provider-id check validates the key comes from the same provider (no dynamic_cast/RTTI).
-        if (init_params.bound_key_handler->GetProviderId() != 0)  // OPENSSL provider ID
+        if (init_params.bound_key_handler->GetProviderId() != init_params.provider_id)
         {
-            score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: bound key is not an OpenSSL key handler";
+            score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: bound key is not an OpenSSL key handler"
+                                       << " (key provider_id=" << init_params.bound_key_handler->GetProviderId()
+                                       << ", expected=" << init_params.provider_id << ")";
             return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) � type tag verified above
@@ -189,6 +191,7 @@ OpenSslHmacHandler::InitializeContext(
 
     return std::monostate{};
 }
+
 
 ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> OpenSslHmacHandler::InitMac(
     const std::optional<common::RequestParameter> /*initialDataOrIV*/)

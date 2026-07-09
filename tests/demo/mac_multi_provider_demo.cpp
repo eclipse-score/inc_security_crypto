@@ -148,6 +148,9 @@ class MacDemoTest : public ::testing::Test
         if (key_handler != nullptr)
         {
             init_params.bound_key_handler = key_handler;
+            // Mirror the mediator: the context's provider_id must match the
+            // bound key's provider so the handler's provider-id validation passes.
+            init_params.provider_id = key_handler->GetProviderId();
         }
         EXPECT_TRUE(h->InitializeContext(init_params).has_value()) << "OpenSslHmacHandler::InitializeContext failed";
         return h;

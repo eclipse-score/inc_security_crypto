@@ -15,6 +15,7 @@
 #include <fstream>
 
 #include <limits>
+#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -203,7 +204,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseF
     file.seekg(0, std::ios::beg);
 
     // Read entire file into buffer
-    if (size > std::numeric_limits<size_t>::max())
+    if (static_cast<std::make_unsigned_t<std::streamsize>>(size) > std::numeric_limits<size_t>::max())
     {
         score::mw::log::LogError() << LOG_PREFIX << "File size exceeds maximum allowed size:" << filepath;
         return make_unexpected(common::DaemonErrorCode::kInvalidArgument);

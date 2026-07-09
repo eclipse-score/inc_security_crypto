@@ -36,7 +36,7 @@ bool ProviderManager::Initialize()
     // Create and register all available providers
     if (!CreateProviders())
     {
-        throw std::runtime_error("Failed to create providers");
+        return false;
     }
 
     // Use provided config or create default
@@ -128,14 +128,17 @@ bool ProviderManager::CreateProviders()
 {
     // Invoke each registered factory in order.
     // Factories are wired externally (e.g. in daemon main()) via RegisterFactory().
+    // Non-critical factories (e.g. PKCS#11/SoftHSM) may fail on platforms where
+    // the backing library is unavailable. Continue with remaining factories.
+    bool any_registered = false;
     for (auto& factory : m_factories)
     {
-        if (!factory->CreateAndRegister(*this))
+        if (factory->CreateAndRegister(*this))
         {
-            return false;
+            any_registered = true;
         }
     }
-    return true;
+    return any_registered;
 }
 
 void ProviderManager::RegisterFactory(std::unique_ptr<IProviderFactory> factory)
