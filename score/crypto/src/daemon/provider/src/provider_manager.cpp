@@ -54,7 +54,8 @@ bool ProviderManager::Initialize()
     return InitializeAll();
 }
 
-config::ProviderInitConfig ProviderManager::CreateDefaultConfig()
+config::ProviderInitConfig ProviderManager::CreateDefaultConfig(
+    const std::vector<common::CryptoProviderType>& preferenceOrder)
 {
     config::ProviderInitConfig config;
 
@@ -76,30 +77,27 @@ config::ProviderInitConfig ProviderManager::CreateDefaultConfig()
 
         if (config.typeToProviderId.find(common::CryptoProviderType::DEFAULT) == config.typeToProviderId.end())
         {
-            // Prefer the HARDWARE provider (e.g., SoftHSM/PKCS#11) as DEFAULT when available,
-            // falling back to SOFTWARE (OpenSSL) and then the first registered provider.
+            // Select default provider based on preference order parameter
             common::ProviderId defaultId = common::kInvalidProviderId;
 
-            // Search for HARDWARE or SOFTWARE provider
-            for (const auto& entry : m_providers)
-            {
-                if (entry.second.cryptoType == common::CryptoProviderType::HARDWARE)
-                {
-                    defaultId = entry.second.numeric_id;
-                    break;
-                }
-            }
-            if (defaultId == common::kInvalidProviderId)
+            // Try each type in the preference order
+            for (const auto& preferredType : preferenceOrder)
             {
                 for (const auto& entry : m_providers)
                 {
-                    if (entry.second.cryptoType == common::CryptoProviderType::SOFTWARE)
+                    if (entry.second.cryptoType == preferredType)
                     {
                         defaultId = entry.second.numeric_id;
                         break;
                     }
                 }
+                if (defaultId != common::kInvalidProviderId)
+                {
+                    break;
+                }
             }
+
+            // If no provider found via preference order, use first registered provider
             if (defaultId == common::kInvalidProviderId)
             {
                 defaultId = firstProviderId;

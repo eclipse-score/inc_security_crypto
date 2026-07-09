@@ -237,10 +237,16 @@ class ProviderManager
      * The default configuration:
      * - Enables all available providers
      * - Sets first available provider as default for basic types
+     * - Uses preference order to select the DEFAULT provider type
      *
+     * @param preferenceOrder Priority order for selecting default provider.
+     *        Defaults to HARDWARE → SOFTWARE fallback.
      * @return ProviderInitConfig with default settings
      */
-    config::ProviderInitConfig CreateDefaultConfig();
+    config::ProviderInitConfig CreateDefaultConfig(
+        const std::vector<common::CryptoProviderType>& preferenceOrder = {
+            common::CryptoProviderType::HARDWARE,
+            common::CryptoProviderType::SOFTWARE});
 
     /**
      * @brief Invoke all registered factories to create and register providers.
