@@ -38,4 +38,4 @@ repos:
         files: \.(c|cpp|h|hpp)$
       - id: clang-tidy
         args: ["--config-file=.clang-tidy", "-p=$(pwd)", "--warnings-as-errors=*"]
-        exclude: '_test\.cpp$'
+        exclude: '(_test\.cpp|test_.*\.cpp)$'

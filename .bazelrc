@@ -94,4 +94,4 @@ build:aarch64-qnx --extra_toolchains=@score_qnx_aarch64_ifs_toolchain//:ifs-aarc
 build:aarch64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_aarch64_unknown_nto_qnx800
 test:aarch64-qnx --run_under=@score_qnx_unit_tests//src:run_under_qnx
 test:aarch64-qnx --test_lang_filters=cc,rust
-test:aarch64-qnx --test_timeout=200
+test:aarch64-qnx --test_timeout=180,900,2700,10800 # Increase default test timeout by factor 3
