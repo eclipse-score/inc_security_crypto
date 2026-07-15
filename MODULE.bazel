@@ -140,7 +140,7 @@ bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = Tr
 # Intended to be replaced with score_communication transporting a size limited
 # FlatBuffers in the future
 # *******************************************************************************
-bazel_dep(name = "grpc", version = "1.82.0")
+bazel_dep(name = "grpc", version = "1.82.1")
 
 single_version_override(
     module_name = "grpc-java",
