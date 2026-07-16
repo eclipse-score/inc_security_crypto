@@ -90,15 +90,15 @@ bool Config::ParseConfig()
         struct stat st_cfg;
         if (::stat(config_file_path, &st_cfg) != 0)
         {
-            score::mw::log::LogError() << "[CONFIG] Configuration file does not exist:" << config_file_path;
+            score::mw::log::LogError() << "[CONFIG] Configuration file does not exist:" << std::string(config_file_path);
             return false;
         }
-        score::mw::log::LogDebug() << "[CONFIG] Parsing configuration from:" << config_file_path;
+        score::mw::log::LogDebug() << "[CONFIG] Parsing configuration from:" << std::string(config_file_path);
         auto result = FlatBufferConfigParser::ParseFromFile(config_file_path, m_key);
         if (!result.has_value())
         {
             score::mw::log::LogError() << "[CONFIG] Failed to parse FlatBuffers configuration file: "
-                                       << config_file_path;
+                                       << std::string(config_file_path);
             return false;
         }
         return true;
