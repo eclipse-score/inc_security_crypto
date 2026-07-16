@@ -13,6 +13,7 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_foreign_cc//foreign_cc:defs.bzl", "configure_make")
+load("@rules_cc//cc:defs.bzl", "cc_shared_library")
 
 # OpenSSL build using rules_foreign_cc
 # Configure options reference for OpenSSL 3.6.1:
@@ -36,7 +37,7 @@ configure_make(
         "//platforms:is_linux_aarch64": ["linux-aarch64"],
         "//conditions:default": [],
     }) + [
-        "no-shared",
+        "shared",  # Build shared libraries (libcrypto.so, libssl.so)
         "no-asm",  # Disable assembly optimizations to avoid GCC inline assembly issues
         "no-threads",  # Disable threading to avoid pthread requirement on QNX
         "no-makedepend",  # Disable dependency generation that causes QCC issues
@@ -109,30 +110,57 @@ configure_make(
     }),
     lib_source = "@openssl_source//:all",
     out_lib_dir = "lib",
-    out_static_libs = [
-        "libcrypto.a",
-        "libssl.a",
+    out_shared_libs = [
+        "libcrypto.so",
+        "libcrypto.so.3",
+        "libssl.so",
+        "libssl.so.3",
     ],
+    out_include_dir = "include",
     tags = ["no-sandbox"],
     targets = [
         "build_libs",
         "install_dev",
     ],
-    visibility = ["//third_party/openssl:__subpackages__"],
+    visibility = [
+        "//third_party/openssl:__subpackages__",
+    ],
 )
 
 cc_library(
     name = "openssl",
+    linkstatic = False,
     visibility = ["//:__subpackages__"],
     deps = [":openssl_make"],
 )
 
-cc_shared_library(
-    name = "openssl_shared",
-    shared_lib_name = "libopenssl.so.3",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":openssl",
-        ":openssl_make",
+# Extract the versioned .so files from the cmake output so they can be used
+# as plain data files in runfiles (e.g. py_itf_test copying into Docker).
+# cc_library (openssl) handles compile-time headers and dynamic linking;
+# these genrules serve only the data= / file-copy use case.
+genrule(
+    name = "openssl_libcrypto_so_extract",
+    srcs = [":openssl_make"],
+    outs = ["libcrypto.so.3"],
+    cmd = "for f in $(locations :openssl_make); do case $$f in *libcrypto.so.3) cp $$f $@; break;; esac; done",
+    visibility = ["//visibility:private"],
+)
+
+genrule(
+    name = "openssl_libssl_so_extract",
+    srcs = [":openssl_make"],
+    outs = ["libssl.so.3"],
+    cmd = "for f in $(locations :openssl_make); do case $$f in *libssl.so.3) cp $$f $@; break;; esac; done",
+    visibility = ["//visibility:private"],
+)
+
+# Single public target for all consumers that need the OpenSSL .so files as
+# data (runfiles). Mirrors the pattern used for softhsm_so.
+filegroup(
+    name = "openssl_so",
+    srcs = [
+        ":openssl_libcrypto_so_extract",
+        ":openssl_libssl_so_extract",
     ],
+    visibility = ["//:__subpackages__"],
 )

@@ -78,7 +78,7 @@ cc_test(
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_library",
         "//score/crypto/tests/softhsm:softhsm_test_fixture",
-        "//third_party/soft_hsm:libsofthsm_shared",
+        "//third_party/soft_hsm:softhsm",
         "@googletest//:gtest_main",
     ],
 )

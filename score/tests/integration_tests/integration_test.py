@@ -198,11 +198,14 @@ class TestCryptoDaemon:
                 Path("third_party/grpc/libgrpc++.so.1"): Path(
                     "/opt/crypto/lib/libgrpc++.so.1"
                 ),
-                Path("third_party/openssl/libopenssl.so.3"): Path(
-                    "/opt/crypto/lib/libopenssl.so.3"
+                Path("third_party/openssl/libcrypto.so.3"): Path(
+                    "/opt/crypto/lib/libcrypto.so.3"
+                ),
+                Path("third_party/openssl/libssl.so.3"): Path(
+                    "/opt/crypto/lib/libssl.so.3"
                 ),
                 Path(
-                    "third_party/soft_hsm/soft_hsm_cmake/lib/softhsm/libsofthsm2.so"
+                    "third_party/soft_hsm/libsofthsm2.so"
                 ): Path("/opt/crypto/lib/libsofthsm2.so"),
                 Path(
                     "score/tests/test_vectors/config/integration_test_config.bin"
