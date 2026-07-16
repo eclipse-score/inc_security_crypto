@@ -129,7 +129,7 @@ use_repo(
 # Rust toolchains
 # *******************************************************************************
 
-bazel_dep(name = "rules_rust", version = "0.68.2-score")
+bazel_dep(name = "rules_rust", version = "0.71.3")
 
 bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
 
@@ -170,7 +170,7 @@ use_repo(
 # Intended to be replaced with score_communication transporting a size limited
 # FlatBuffers in the future
 # *******************************************************************************
-bazel_dep(name = "grpc", version = "1.82.0")
+bazel_dep(name = "grpc", version = "1.82.1")
 
 single_version_override(
     module_name = "grpc-java",
@@ -268,7 +268,7 @@ filegroup(
 # tooling
 bazel_dep(name = "score_tooling", version = "1.2.0")
 bazel_dep(name = "score_rust_policies", version = "0.0.5")
-bazel_dep(name = "aspect_rules_lint", version = "2.3.0")
+bazel_dep(name = "aspect_rules_lint", version = "2.7.2")
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2")
 
 #docs-as-code
