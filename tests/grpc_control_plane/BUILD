@@ -11,12 +11,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
-load("@score_itf//:defs.bzl", "py_itf_test")
+load("@rules_cc//cc:defs.bzl", "cc_test")
 
 cc_test(
     name = "test_control_plane",
-    timeout = "short",
+    timeout = "moderate",  # required for QNX aarch64 (qemu emulation)
     srcs = ["test_control_plane.cpp"],
     deps = [
         "//score/crypto/api:operations",
