@@ -51,7 +51,7 @@ struct SearchTemplate
 ///
 /// Pkcs11KeyStore owns the per-provider key state: each daemon-visible key ID
 /// (uint64_t opaque_id) maps to a CK_OBJECT_HANDLE. Session objects additionally
-/// carry the owning CK_SESSION_HANDLE (kept open to prevent SoftHSM2 from
+/// carry the owning CK_SESSION_HANDLE (kept open to prevent underlying impl from
 /// destroying the object). Token objects carry only a SearchTemplate so that
 /// any number of handlers can independently resolve a session-local handle
 /// via ResolveObject().

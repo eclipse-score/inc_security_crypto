@@ -44,10 +44,6 @@ using ProviderId = std::uint16_t;
 
 constexpr ProviderId kInvalidProviderId = std::numeric_limits<ProviderId>::max();
 
-// Predefined Provider Names (configuration-time identifiers)
-const ProviderName kProviderNameOpenSSL{"OPENSSL"};
-const ProviderName kProviderNameSoftHSM{"SOFTHSM"};
-
 using OperationActor = uint16_t;
 using OperationAction = uint16_t;
 
@@ -154,6 +150,30 @@ enum class CryptoProviderType : std::uint8_t
     SOFTWARE,     ///< Software-based crypto provider
     SPECIALIZED,  ///< Specialized provider for specific operations
 };
+
+inline CryptoProviderType CryptoProviderTypeFromString(const std::string& typeStr)
+{
+    if (typeStr == "DEFAULT")
+    {
+        return CryptoProviderType::DEFAULT;
+    }
+    else if (typeStr == "HARDWARE")
+    {
+        return CryptoProviderType::HARDWARE;
+    }
+    else if (typeStr == "SOFTWARE")
+    {
+        return CryptoProviderType::SOFTWARE;
+    }
+    else if (typeStr == "SPECIALIZED")
+    {
+        return CryptoProviderType::SPECIALIZED;
+    }
+    else
+    {
+        return CryptoProviderType::DEFAULT;
+    }
+}
 
 }  // namespace score::crypto::daemon::common
 

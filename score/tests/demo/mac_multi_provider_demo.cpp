@@ -255,7 +255,7 @@ TEST_F(MacDemoTest, Demo3_SlotDirectFileBackedKey)
     slot.slot_name = "demo/sw-hmac-256";
     slot.algorithm = "HMAC-SHA256";
     // Config-time: populate provider names; runtime would populate provider_ids via ResolveProviderIds
-    slot.provider_names = {common::kProviderNameOpenSSL};
+    slot.provider_names = {"OPENSSL"};
     slot.provider_ids = {0};  // 0 = OpenSSL (typical registration order)
     // Write a temporary deployment descriptor pointing to the test key file.
     const std::string deploy_path =
