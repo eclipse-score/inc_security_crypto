@@ -74,9 +74,9 @@ separate config type and resolved at a different point during daemon startup.
 
 1. Provider-family topology — build time
    The set of provider families that can exist in a given daemon binary is
-decided by compile-time flags (for example ``SCORE_BACKEND_ENABLED`` and
-``SCORE_CRYPTO_PKCS11_ENABLED``). ``ProviderManagerFactory`` registers a factory
-for every family that is compiled in.
+   decided by compile-time flags (for example ``SCORE_BACKEND_ENABLED`` and
+   ``SCORE_CRYPTO_PKCS11_ENABLED``). ``ProviderManagerFactory`` registers a factory
+   for every family that is compiled in.
 
 2. Provider-specific parameters — config file / defaults
    Each family parses its own parameters from the daemon configuration:
