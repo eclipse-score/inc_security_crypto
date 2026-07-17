@@ -37,7 +37,6 @@ cc_library(
 cc_library(
     name = "provider_openssl_headers",
     hdrs = [
-        "openssl_provider_factory.hpp",
         "operations/factory/openssl_handler_factory.hpp",
         "operations/hash/openssl_hash_handler.hpp",
         "operations/key_management/openssl_key_management_handler.hpp",
@@ -71,7 +70,7 @@ cc_library(
         "provider_openssl.cpp",
     ],
     implementation_deps = [
-        "//third_party/openssl",
+        "//third_party/openssl:openssl",
     ],
     includes = ["."],
     linkstatic = True,
@@ -86,16 +85,5 @@ cc_library(
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
-    ],
-)
-
-cc_library(
-    name = "provider_openssl_factory",
-    srcs = ["openssl_provider_factory.cpp"],
-    hdrs = ["openssl_provider_factory.hpp"],
-    visibility = ["//:__subpackages__"],
-    deps = [
-        ":provider_openssl_library",
-        "//score/crypto/src/daemon/provider:provider_headers",
     ],
 )

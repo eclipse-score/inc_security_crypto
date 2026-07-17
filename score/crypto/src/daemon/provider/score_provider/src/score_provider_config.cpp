@@ -18,18 +18,6 @@
 namespace score::crypto::daemon::provider::score_provider
 {
 
-void ScoreProviderConfig::PopulateDefaults()
-{
-    if (!m_providers.empty())
-    {
-        return;  // Entries already present (from config file or test fixture).
-    }
-    ScoreProviderEntry openssl{};
-    openssl.providerName = "OPENSSL";
-    openssl.providerImpl = "openssl";
-    m_providers.push_back(std::move(openssl));
-}
-
 void ScoreProviderConfig::Configure(ScoreProviderFactory& factory) const
 {
     factory.SetConfigs(m_providers);

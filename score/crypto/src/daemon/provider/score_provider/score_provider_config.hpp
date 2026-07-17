@@ -35,6 +35,9 @@ struct ScoreProviderEntry
     std::string providerName{};
     /// Implementation tag that selects the concrete factory, e.g. "openssl".
     std::string providerImpl{};
+    /// Provider type (SOFTWARE, HARDWARE, etc.)
+    /// Note: Uses string to avoid including common/types.hpp in config header
+    std::string providerType{"SOFTWARE"};
 };
 
 /// @brief Aggregates the ordered list of score-interface provider entries for the daemon.
@@ -49,7 +52,7 @@ struct ScoreProviderEntry
 /// factory configuration lives entirely within the score_provider subsystem.
 /// Typical bootstrapper usage:
 /// @code
-///   config.GetScoreProviderConfig().PopulateDefaults();
+///   config.GetScoreProviderConfig().ParseConfig();
 ///   auto factory = std::make_unique<ScoreProviderFactory>();
 ///   config.GetScoreProviderConfig().Configure(*factory);
 ///   provider_manager->RegisterFactory(std::move(factory));
@@ -71,11 +74,13 @@ class ScoreProviderConfig
         return m_providers;
     }
 
-    /// @brief Populate production default provider entries when no config was loaded.
+    /// @brief Parse configuration from backend implementations and populate provider entries.
     ///
-    /// Adds an OpenSSL software entry with standard defaults.  No-op if any
-    /// provider entries are already present (e.g. loaded from file or test fixture).
-    void PopulateDefaults();
+    /// Unlike PKCS#11 (which selects one backend via label_flag), score providers support
+    /// multiple simultaneous backends. This method aggregates provider entries from all
+    /// enabled backends (OpenSSL, BoringSSL, etc.) that are linked into the build.
+    /// Each backend contributes its ParseConfig() implementation. No-op if entries already present.
+    void ParseConfig();
 
     /// @brief Visit @p factory: convert each provider entry and configure the factory.
     ///

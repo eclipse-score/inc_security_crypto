@@ -26,8 +26,8 @@ namespace score::crypto::daemon::provider::score_provider
 ///
 /// Mirrors the Pkcs11ProviderFactory pattern: accepts a vector of configuration
 /// entries, each describing a concrete score-interface provider to create.
-/// CreateAndRegister() iterates the entries and delegates to the respective
-/// internal provider factory (e.g. OpenSSLProviderFactory).
+/// CreateAndRegister() iterates the entries, constructs each IProvider via the
+/// matching backend's ProviderCreator, and registers it into ProviderManager.
 ///
 /// Configuration is supplied externally via SetConfigs() (the acceptor side of
 /// the ScoreProviderConfig visitor pattern) or the explicit vector constructor.

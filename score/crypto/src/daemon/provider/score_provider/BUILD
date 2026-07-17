@@ -32,6 +32,16 @@ cc_library(
     visibility = ["//:__subpackages__"],
 )
 
+# Backend adapter interface (used by backend adapters to register with score provider).
+cc_library(
+    name = "score_backend_adapter",
+    hdrs = ["score_backend_adapter.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/daemon/provider:provider_headers",
+    ],
+)
+
 # Top-level factory for the score interface family.
 cc_library(
     name = "score_provider_factory",
@@ -45,6 +55,8 @@ cc_library(
         ":score_provider",
         ":score_provider_config",
         "//score/crypto/src/daemon/provider:provider_headers",
-        "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_factory",
+    ],
+    implementation_deps = [
+        "//score/crypto/src/backend/score_provider:backend",  # Selected Score backends
     ],
 )

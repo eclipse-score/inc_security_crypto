@@ -12,6 +12,9 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//score/crypto/backend:backend_exports.bzl",
+     "ENABLE_PKCS11_BACKEND",
+     "ENABLE_SCORE_BACKEND")
 
 cc_library(
     name = "provider_headers",
@@ -19,6 +22,7 @@ cc_library(
         "i_provider.hpp",
         "i_provider_factory.hpp",
         "provider_manager.hpp",
+        "provider_manager_factory.hpp",
     ],
     visibility = ["//:__subpackages__"],
     deps = [
@@ -35,5 +39,23 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":provider_headers",
+    ],
+)
+
+cc_library(
+    name = "provider_manager_factory",
+    srcs = ["src/provider_manager_factory.cpp"],
+    hdrs = ["provider_manager_factory.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":provider_headers",
+        ":provider_manager",
+    ] + (["//score/crypto/src/daemon/provider/score_provider:score_provider_factory"]
+         if ENABLE_SCORE_BACKEND else [])
+      + (["//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_factory"]
+         if ENABLE_PKCS11_BACKEND else []),
+    implementation_deps = [
+        "//score/crypto/src/backend/score_provider:score_backend_defines",
+        "//score/crypto/src/backend:pkcs11_backend_defines",
     ],
 )
