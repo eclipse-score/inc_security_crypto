@@ -80,9 +80,9 @@ struct ProviderEntry
  * In daemon main:
  *   ProviderManager manager;
  *   ProviderInitConfig config;
- *   config.SetDefaultProviderForType(CryptoProviderType::SOFTWARE,
- * kProviderNameOpenSSL); manager.Initialize(config); auto provider =
- * manager.GetProvider(kProviderNameOpenSSL);
+ *   config.SetDefaultProviderForType(CryptoProviderType::SOFTWARE, "OPENSSL");
+ *   manager.Initialize(config);
+ *   auto provider = manager.GetProvider("OPENSSL");
  */
 class ProviderManager
 {
@@ -235,18 +235,45 @@ class ProviderManager
      * @brief Create a default provider initialization configuration
      *
      * The default configuration:
-     * - Enables all available providers
+     * - Enables all initialized providers
      * - Sets first available provider as default for basic types
      * - Uses preference order to select the DEFAULT provider type
+     *
+     * Only providers whose IsInitialized() returns true are considered.
+     * Provider names are used instead of runtime ProviderIds so the
+     * configuration remains stable across restarts.
      *
      * @param preferenceOrder Priority order for selecting default provider.
      *        Defaults to HARDWARE → SOFTWARE fallback.
      * @return ProviderInitConfig with default settings
      */
-    config::ProviderInitConfig CreateDefaultConfig(
-        const std::vector<common::CryptoProviderType>& preferenceOrder = {
-            common::CryptoProviderType::HARDWARE,
-            common::CryptoProviderType::SOFTWARE});
+    config::ProviderInitConfig CreateDefaultConfig(const std::vector<common::CryptoProviderType>& preferenceOrder = {
+                                                       common::CryptoProviderType::HARDWARE,
+                                                       common::CryptoProviderType::SOFTWARE});
+
+    /**
+     * @brief Shutdown and remove providers that are not marked as enabled.
+     *
+     * Called by Initialize() after selecting the active ProviderInitConfig.
+     * Providers whose name is absent from @p provider_configs or whose
+     * ProviderConfig::enabled is false are shut down and removed from
+     * lookup tables.
+     *
+     * @param provider_configs Active provider configurations.
+     */
+    void ApplyEnablement(const std::vector<config::ProviderConfig>& provider_configs);
+
+    /**
+     * @brief Build m_typeToProviderId from configured type-to-name mappings.
+     *
+     * Resolves provider names to the numeric IDs assigned at registration
+     * time. Warnings are logged for names that reference unknown or
+     * disabled providers.
+     *
+     * @param type_to_name Mapping from crypto provider type to provider name.
+     */
+    void BuildTypeMappings(
+        const std::unordered_map<common::CryptoProviderType, common::ProviderName>& type_to_name);
 
     /**
      * @brief Invoke all registered factories to create and register providers.
@@ -262,11 +289,20 @@ class ProviderManager
      * @brief Initialize all registered providers with ProviderInitContext.
      *
      * Passes each provider a ProviderInitContext containing its assigned
-     * numeric ID and name.
+     * numeric ID and name. Failed providers remain registered but are hidden
+     * from lookups because GetProvider() queries provider->IsInitialized().
      *
      * @return true if all providers initialized successfully, false otherwise
      */
     bool InitializeAll();
+
+    /**
+     * @brief Check whether a provider has been successfully initialized.
+     *
+     * @param provider_id The provider's numeric ID.
+     * @return true if the provider has been successfully initialized, false otherwise.
+     */
+    [[nodiscard]] bool IsProviderInitialized(common::ProviderId provider_id) const;
 
     /// Ordered list of factories to invoke during Initialize().
     std::vector<std::unique_ptr<IProviderFactory>> m_factories;

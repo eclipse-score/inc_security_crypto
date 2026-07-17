@@ -119,7 +119,6 @@ control_plane::ControlResponse MediatorImpl::processRequest(const control_plane:
 // ============================================================================
 // Helper Method Implementations
 // ============================================================================
-
 bool MediatorImpl::HandleSingleOperation(const control_plane::ControlRequest& request,
                                          const control_plane::SingleOperationRequest& operation,
                                          control_plane::protocol::OperationResponseBuilder& responseBuilder)
@@ -324,6 +323,14 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No providers available for type: "
                                    << static_cast<int>(requested_provider_type);
         responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        return false;
+    }
+    if (!provider->IsInitialized())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Selected provider is not initialized: name='"
+                                   << provider->GetProviderName() << "' id=" << provider->GetProviderId();
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
         return false;
     }
     score::mw::log::LogDebug() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm

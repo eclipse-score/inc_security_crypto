@@ -44,6 +44,10 @@ class ScoreProvider : public IProvider
     // --- IProvider lifecycle ---
     bool Initialize(const ProviderInitContext& ctx) override;
     void Shutdown() override;
+    [[nodiscard]] bool IsInitialized() const override
+    {
+        return m_initialized;
+    }
     common::ProviderId GetProviderId() const override;
     const common::ProviderName& GetProviderName() const override;
 

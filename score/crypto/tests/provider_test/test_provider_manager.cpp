@@ -40,10 +40,19 @@ class StubProvider final : public provider::IProvider
 
     bool Initialize(const provider::ProviderInitContext& ctx) override
     {
+        m_initialized = true;
         return true;
     }
 
-    void Shutdown() override {}
+    void Shutdown() override
+    {
+        m_initialized = false;
+    }
+
+    [[nodiscard]] bool IsInitialized() const override
+    {
+        return m_initialized;
+    }
 
     common::ProviderId GetProviderId() const override
     {
@@ -58,6 +67,51 @@ class StubProvider final : public provider::IProvider
   private:
     std::string m_name;
     common::ProviderId m_id;
+    bool m_initialized{true};
+};
+
+class FailingStubProvider final : public provider::IProvider
+{
+  public:
+    FailingStubProvider(const std::string& name, common::ProviderId id, bool fail_init)
+        : m_name{name}, m_id{id}, m_fail_init{fail_init}
+    {
+    }
+
+    bool Initialize(const provider::ProviderInitContext& ctx) override
+    {
+        if (m_fail_init)
+        {
+            return false;
+        }
+        m_initialized = true;
+        return true;
+    }
+
+    void Shutdown() override
+    {
+        m_initialized = false;
+    }
+
+    [[nodiscard]] bool IsInitialized() const override
+    {
+        return m_initialized;
+    }
+
+    common::ProviderId GetProviderId() const override
+    {
+        return m_id;
+    }
+    const common::ProviderName& GetProviderName() const override
+    {
+        return m_name;
+    }
+
+  private:
+    std::string m_name;
+    common::ProviderId m_id;
+    bool m_fail_init;
+    bool m_initialized{false};
 };
 }  // namespace
 
@@ -142,6 +196,33 @@ TEST_F(ProviderManagerTypeTest, UnknownProviderReturnsFalse)
 {
     EXPECT_FALSE(
         m_mgr->IsProviderCompatibleWithType(999, common::CryptoProviderType::SOFTWARE));  // Invalid provider ID
+}
+
+// ===========================================================================
+// Initialization state tracking
+// ===========================================================================
+
+TEST(ProviderManagerInitStateTest, FailedProviderRemainsRegisteredButIsHidden)
+{
+    score::crypto::daemon::config::Config config;
+    provider::ProviderManager mgr(config);
+
+    auto ok_provider = std::make_shared<FailingStubProvider>("OK_PROVIDER", 0, false);
+    auto fail_provider = std::make_shared<FailingStubProvider>("FAIL_PROVIDER", 1, true);
+
+    ASSERT_TRUE(mgr.RegisterProvider("OK_PROVIDER", ok_provider, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.RegisterProvider("FAIL_PROVIDER", fail_provider, common::CryptoProviderType::HARDWARE));
+
+    // FailingStubProvider instances are not pre-initialized, so they are hidden
+    // from lookups until InitializeAll() runs.
+    EXPECT_EQ(mgr.GetProvider("OK_PROVIDER"), nullptr);
+    EXPECT_EQ(mgr.GetProvider("FAIL_PROVIDER"), nullptr);
+    EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::SOFTWARE), nullptr);
+    EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::HARDWARE), nullptr);
+
+    // The registry still knows about the entries via GetProviderType.
+    EXPECT_TRUE(mgr.GetProviderType("OK_PROVIDER").has_value());
+    EXPECT_TRUE(mgr.GetProviderType("FAIL_PROVIDER").has_value());
 }
 
 // ===========================================================================

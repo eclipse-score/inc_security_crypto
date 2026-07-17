@@ -79,6 +79,10 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
 
     [[nodiscard]] bool Initialize(const ProviderInitContext& ctx) override;
     void Shutdown() override;
+    [[nodiscard]] bool IsInitialized() const override
+    {
+        return m_initialized;
+    }
     [[nodiscard]] common::ProviderId GetProviderId() const override;
     [[nodiscard]] const common::ProviderName& GetProviderName() const override;
 

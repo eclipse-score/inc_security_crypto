@@ -14,11 +14,11 @@
 #include "score/crypto/src/daemon/provider/provider_manager_factory.hpp"
 
 #if SCORE_BACKEND_ENABLED
-    #include "score/crypto/src/daemon/provider/score_provider/score_provider_factory.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/score_provider_factory.hpp"
 #endif
 
 #if SCORE_CRYPTO_PKCS11_ENABLED
-    #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
 #endif
 
 namespace score::crypto::daemon::provider
@@ -43,14 +43,14 @@ std::shared_ptr<ProviderManager> ProviderManagerFactory::Create(config::Config& 
         provider_manager->RegisterFactory(std::move(pkcs11_factory));
     }
 
-    // Initialize all registered providers
+    // Initialize all registered providers. Ignore failures here;
+    // Individual provider failures are logged and hidden from lookups.
     provider_manager->Initialize();
 
     return provider_manager;
 }
 
-std::unique_ptr<IProviderFactory> ProviderManagerFactory::CreateScoreProviderFactory(
-    config::Config& config)
+std::unique_ptr<IProviderFactory> ProviderManagerFactory::CreateScoreProviderFactory(config::Config& config)
 {
 #if SCORE_BACKEND_ENABLED
     config.GetScoreProviderConfig().ParseConfig();
@@ -68,8 +68,7 @@ std::unique_ptr<IProviderFactory> ProviderManagerFactory::CreateScoreProviderFac
 #endif
 }
 
-std::unique_ptr<IProviderFactory> ProviderManagerFactory::CreatePkcs11ProviderFactory(
-    config::Config& config)
+std::unique_ptr<IProviderFactory> ProviderManagerFactory::CreatePkcs11ProviderFactory(config::Config& config)
 {
 #if SCORE_CRYPTO_PKCS11_ENABLED
     // Parse PKCS#11 configuration

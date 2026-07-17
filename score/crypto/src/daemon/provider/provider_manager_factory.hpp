@@ -33,7 +33,7 @@ namespace score::crypto::daemon::provider
  * 5. Initialize all providers
  *
  * Backend discovery uses dependency injection:
- * - Score backends: Compile-time list from backend/active_backends_list.hpp
+ * - Score backends: Compile-time list from backend/score_provider/active_backends_list.hpp
  * - PKCS#11 backend: Conditionally created based on configuration
  *
  * Usage:
@@ -68,7 +68,7 @@ class ProviderManagerFactory
     /**
      * @brief Create score provider factory if backends enabled
      *
-     * Discovers active backends from backend/active_backends_list.hpp
+     * Discovers active backends from backend/score_provider/active_backends_list.hpp
      * (controlled by backend/BUILD). Creates a single ScoreProviderFactory
      * that handles all enabled score backends (OpenSSL, Primula, etc.).
      *
