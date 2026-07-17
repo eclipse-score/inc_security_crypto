@@ -132,7 +132,7 @@ through two complementary abstractions:
 ``OpenSSLProviderFactory``
    Internal factory used by ``ScoreProviderFactory``.  Constructs
    ``score::openssl::OpenSSL`` and registers it as ``CryptoProviderType::SOFTWARE``
-   under the ``common::kProviderNameOpenSSL`` name.  No per-instance configuration required.
+   under the name read from config (e.g. ``"OPENSSL"``).  No per-instance configuration required.
 
 ``Pkcs11ProviderFactory``
    Accepts an injected ``std::vector<Pkcs11ProviderConfig>`` via
