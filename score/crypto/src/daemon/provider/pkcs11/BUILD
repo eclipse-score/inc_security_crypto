@@ -69,8 +69,10 @@ cc_library(
         "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/handler:mac_handler_operations",
-        "//third_party/soft_hsm:libsofthsm_shared",
         "@score_baselibs//score/result",
+    ],
+    implementation_deps = [
+        "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
     ],
 )
 
@@ -91,6 +93,15 @@ cc_library(
     deps = [
         ":pkcs11_token_config",
         ":provider_pkcs11_library",
-        "//score/crypto/src/daemon/provider:provider_headers",
     ],
+    implementation_deps = [
+        "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
+    ],
+)
+
+# Alias for convenience - the full target is the factory
+alias(
+    name = "pkcs11",
+    actual = ":provider_pkcs11_factory",
+    visibility = ["//:__subpackages__"],
 )

@@ -39,6 +39,9 @@ struct Pkcs11TokenEntry
     std::string userPin{};
     /// Provider name used to register and look up this provider in ProviderManager.
     std::string providerName{};
+    /// Provider Type used to register this provider in ProviderManager (HARDWARE or SOFTWARE).
+    std::string providerType{"HARDWARE"};
+    /// Cleanup strategy for session objects (soft vs hard cleanup).
     /// true = kHardCleanup (re-open session after every handler), false = kSoftCleanup.
     bool useHardCleanup{true};
 };
@@ -77,11 +80,10 @@ class Pkcs11Config
         return m_tokens;
     }
 
-    /// @brief Populate production default token entries when no config was loaded.
+    /// @brief Parse the configuration and populate the token information.
     ///
-    /// Adds a SoftHSM entry with standard test credentials.  No-op if any
-    /// token entries are already present (e.g. loaded from file or test fixture).
-    void PopulateDefaults();
+    /// This method parses the pkcs11 configuration and populates the token information.
+    void ParseConfig();
 
     /// @brief Visit @p factory: convert each token entry and configure the factory.
     ///

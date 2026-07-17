@@ -182,6 +182,7 @@ struct Pkcs11ProviderConfig
     std::string userPin{};
 
     std::string providerName{};
+    std::string providerType{};               ///< Provider type string (e.g., "HARDWARE", "SOFTWARE")
     std::uint32_t maxRoSessionsOverride{0U};  ///< 0 = read from C_GetTokenInfo.ulMaxSessionCount
     std::uint32_t maxRwSessionsOverride{0U};  ///< 0 = read from C_GetTokenInfo.ulMaxRwSessionCount
     Pkcs11SessionCleanupStrategy cleanupStrategy{Pkcs11SessionCleanupStrategy::kSoftCleanup};

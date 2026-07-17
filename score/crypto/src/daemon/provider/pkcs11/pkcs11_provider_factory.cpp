@@ -24,12 +24,12 @@
 namespace score::crypto::daemon::provider::pkcs11
 {
 
-Pkcs11ProviderFactory::Pkcs11ProviderFactory(std::vector<Pkcs11ProviderConfig> configs)
+Pkcs11ProviderFactory::Pkcs11ProviderFactory(std::vector<Pkcs11TokenEntry> configs)
     : m_injected_configs{std::move(configs)}
 {
 }
 
-void Pkcs11ProviderFactory::SetTokenConfigs(std::vector<Pkcs11ProviderConfig> configs)
+void Pkcs11ProviderFactory::SetTokenConfigs(std::vector<Pkcs11TokenEntry> configs)
 {
     m_injected_configs = std::move(configs);
 }
@@ -39,6 +39,28 @@ bool Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& manager)
     if (m_injected_configs.empty())
     {
         return true;
+    }
+
+    // Convert plain-data entries to internal PKCS#11 configs here, rather than
+    // in the header, so callers (including provider_manager_factory) never see
+    // pkcs11.h types.
+    auto convertTokenEntry = [](const Pkcs11TokenEntry& entry) {
+        Pkcs11ProviderConfig cfg{};
+        cfg.tokenLabel = entry.tokenLabel;
+        cfg.tokenModel = entry.tokenModel;
+        cfg.userPin = entry.userPin;
+        cfg.providerName = entry.providerName;
+        cfg.providerType = entry.providerType;
+        cfg.cleanupStrategy = entry.useHardCleanup ? Pkcs11SessionCleanupStrategy::kHardCleanup
+                                                   : Pkcs11SessionCleanupStrategy::kSoftCleanup;
+        return cfg;
+    };
+
+    std::vector<Pkcs11ProviderConfig> provider_configs;
+    provider_configs.reserve(m_injected_configs.size());
+    for (const auto& entry : m_injected_configs)
+    {
+        provider_configs.push_back(convertTokenEntry(entry));
     }
 
     // All tokens on the same linked library MUST share a single Pkcs11Module
@@ -51,10 +73,11 @@ bool Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& manager)
         return false;
     }
 
-    for (const auto& config : m_injected_configs)
+    for (const auto& config : provider_configs)
     {
         auto provider = std::make_shared<Pkcs11Provider>(config, pkcs11Module);
-        if (!manager.RegisterProvider(config.providerName, provider, common::CryptoProviderType::HARDWARE))
+        if (!manager.RegisterProvider(
+                config.providerName, provider, common::CryptoProviderTypeFromString(config.providerType)))
         {
             return false;
         }
