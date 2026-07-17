@@ -11,9 +11,9 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/score_provider/score_provider_config.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/score_provider_config.hpp"
 
-#include "score/crypto/backend/score_provider/active_backends_list.hpp"
+#include "score/crypto/src/backend/score_provider/active_backends_list.hpp"
 
 namespace score::crypto::daemon::provider::score_provider
 {

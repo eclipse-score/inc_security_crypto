@@ -11,9 +11,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
 load("@rules_foreign_cc//foreign_cc:defs.bzl", "configure_make")
-load("@rules_cc//cc:defs.bzl", "cc_shared_library")
 
 # OpenSSL build using rules_foreign_cc
 # Configure options reference for OpenSSL 3.6.1:
@@ -109,6 +108,7 @@ configure_make(
         "//conditions:default": {},
     }),
     lib_source = "@openssl_source//:all",
+    out_include_dir = "include",
     out_lib_dir = "lib",
     out_shared_libs = [
         "libcrypto.so",
@@ -116,7 +116,6 @@ configure_make(
         "libssl.so",
         "libssl.so.3",
     ],
-    out_include_dir = "include",
     tags = ["no-sandbox"],
     targets = [
         "build_libs",

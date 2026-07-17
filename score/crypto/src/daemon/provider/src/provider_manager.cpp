@@ -151,7 +151,8 @@ void ProviderManager::ApplyEnablement(const std::vector<config::ProviderConfig>&
     score::mw::log::LogInfo() << "[ProviderManager] Enabled providers after applying enablement:";
     for (const auto& pair : m_providers)
     {
-        score::mw::log::LogInfo() << "  - " << pair.first << " (numeric_id=" << pair.second.numeric_id << ", type=" << static_cast<int>(pair.second.cryptoType) << ")";
+        score::mw::log::LogInfo() << "  - " << pair.first << " (numeric_id=" << pair.second.numeric_id
+                                  << ", type=" << static_cast<int>(pair.second.cryptoType) << ")";
     }
 }
 
@@ -180,7 +181,7 @@ void ProviderManager::BuildTypeMappings(
         if (it == m_providers.end())
         {
             score::mw::log::LogWarn() << "[ProviderManager] Type mapping references unknown or disabled provider: "
-                                         << provider_name;
+                                      << provider_name;
             continue;
         }
         m_typeToProviderId[crypto_type] = it->second.numeric_id;

@@ -463,14 +463,8 @@ class Config
                         const std::string& value,
                         const std::string& option,
                         std::string& target);
-    bool ParseUint32Arg(const std::string& arg,
-                        const std::string& value,
-                        const std::string& option,
-                        uint32_t& target);
-    bool ParseUint16Arg(const std::string& arg,
-                        const std::string& value,
-                        const std::string& option,
-                        uint16_t& target);
+    bool ParseUint32Arg(const std::string& arg, const std::string& value, const std::string& option, uint32_t& target);
+    bool ParseUint16Arg(const std::string& arg, const std::string& value, const std::string& option, uint16_t& target);
 };
 
 }  // namespace score::crypto::daemon::config

@@ -56,6 +56,9 @@ cc_library(
         "pkcs11_module.cpp",
         "pkcs11_provider.cpp",
     ],
+    implementation_deps = [
+        "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
+    ],
     includes = ["."],
     linkstatic = True,
     visibility = ["//:__subpackages__"],
@@ -70,9 +73,6 @@ cc_library(
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/handler:mac_handler_operations",
         "@score_baselibs//score/result",
-    ],
-    implementation_deps = [
-        "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
     ],
 )
 
@@ -89,13 +89,13 @@ cc_library(
         "pkcs11_token_config.cpp",
     ],
     hdrs = ["pkcs11_provider_factory.hpp"],
+    implementation_deps = [
+        "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
+    ],
     visibility = ["//:__subpackages__"],
     deps = [
         ":pkcs11_token_config",
         ":provider_pkcs11_library",
-    ],
-    implementation_deps = [
-        "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
     ],
 )
 

@@ -70,7 +70,7 @@ cc_library(
         "provider_openssl.cpp",
     ],
     implementation_deps = [
-        "//third_party/openssl:openssl",
+        "//third_party/openssl",
     ],
     includes = ["."],
     linkstatic = True,

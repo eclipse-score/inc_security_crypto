@@ -12,7 +12,7 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("//score/crypto/backend:backend_exports.bzl", "BACKEND_DEFINES")
+load("//score/crypto/src/backend:backend_exports.bzl", "BACKEND_DEFINES")
 
 # Score provider backend - provides ScoreProviderConfig::ParseConfig() with
 # default behaviour: discover all active backends via GetActiveBackends().
@@ -25,8 +25,8 @@ cc_library(
     srcs = ["score_provider_config_parser.cpp"],
     visibility = ["//visibility:public"],
     deps = [
-        "//score/crypto/backend:active_score_backends",
-        "//score/crypto/daemon/provider/score_provider:score_provider_config",
+        "//score/crypto/src/backend:active_score_backends",
+        "//score/crypto/src/daemon/provider/score_provider:score_provider_config",
     ],
 )
 
@@ -36,9 +36,9 @@ cc_library(
 cc_library(
     name = "score_backend_defines",
     hdrs = ["active_backends_list.hpp"],
-    visibility = ["//visibility:public"],
     defines = BACKEND_DEFINES,
+    visibility = ["//visibility:public"],
     deps = [
-        "//score/crypto/daemon/provider/score_provider:score_backend_adapter",
+        "//score/crypto/src/daemon/provider/score_provider:score_backend_adapter",
     ],
 )

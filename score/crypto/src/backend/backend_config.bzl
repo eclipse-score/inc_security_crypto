@@ -1,3 +1,15 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
 """Backend configuration helpers for score crypto backends."""
 
 def backend_defines(enable_score_backend, enable_openssl, enable_primula):
@@ -38,9 +50,9 @@ def backend_deps(enable_score_backend, enable_openssl, enable_primula):
 
     deps = []
     if enable_openssl:
-        deps.append("//score/crypto/backend/openssl:openssl_backend_adapter")
+        deps.append("//score/crypto/src/backend/openssl:openssl_backend_adapter")
     if enable_primula:
-        deps.append("//score/crypto/backend/primula:primula_backend_adapter")
+        deps.append("//score/crypto/src/backend/primula:primula_backend_adapter")
     return deps
 
 def _pkcs11_backend_map():
@@ -67,7 +79,9 @@ def pkcs11_backend_label(backend_name):
     target = backend_map.get(backend_name)
     if not target:
         fail("Unknown PKCS#11 backend: '{}'. Valid options: {}".format(
-            backend_name, ", ".join(backend_map.keys())))
+            backend_name,
+            ", ".join(backend_map.keys()),
+        ))
     return target
 
 def pkcs11_backend_deps(enable_pkcs11, backend_name):

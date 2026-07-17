@@ -26,13 +26,13 @@ load("@rules_cc//cc:defs.bzl", "cc_test")
 # backend_exports.bzl, update the expected values in backend_config_check_test.cpp.
 #
 # Run with:
-#   bazel test //tests/backend_symbol_check:backend_config_check
+#   bazel test //score/tests/backend_symbol_check:backend_config_check
 cc_test(
     name = "backend_config_check",
     srcs = ["backend_config_check_test.cpp"],
     deps = [
-        "//score/crypto/backend:pkcs11_backend_defines",
-        "//score/crypto/backend/score_provider:score_backend_defines",
+        "//score/crypto/src/backend:pkcs11_backend_defines",
+        "//score/crypto/src/backend/score_provider:score_backend_defines",
         "@googletest//:gtest_main",
     ],
 )

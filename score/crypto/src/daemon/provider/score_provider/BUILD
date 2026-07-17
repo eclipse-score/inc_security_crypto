@@ -50,13 +50,13 @@ cc_library(
         "src/score_provider_factory.cpp",
     ],
     hdrs = ["score_provider_factory.hpp"],
+    implementation_deps = [
+        "//score/crypto/src/backend/score_provider:backend",  # Selected Score backends
+    ],
     visibility = ["//:__subpackages__"],
     deps = [
         ":score_provider",
         ":score_provider_config",
         "//score/crypto/src/daemon/provider:provider_headers",
-    ],
-    implementation_deps = [
-        "//score/crypto/src/backend/score_provider:backend",  # Selected Score backends
     ],
 )

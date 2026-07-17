@@ -12,12 +12,14 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load(":backend_exports.bzl",
-     "BACKEND_DEFINES",
-     "ENABLE_PKCS11_BACKEND",
-     "PKCS11_BACKEND_DEFAULT_LABEL",
-     "PKCS11_BACKEND_DEPS",
-     "SCORE_BACKEND_DEPS")
+load(
+    ":backend_exports.bzl",
+    "BACKEND_DEFINES",
+    "ENABLE_PKCS11_BACKEND",
+    "PKCS11_BACKEND_DEFAULT_LABEL",
+    "PKCS11_BACKEND_DEPS",
+    "SCORE_BACKEND_DEPS",
+)
 
 # ============================================================================
 # Backend Architecture:
@@ -49,7 +51,7 @@ cc_library(
     name = "active_score_backends",
     visibility = ["//visibility:public"],
     deps = [
-        "//score/crypto/backend/score_provider:score_backend_defines",
+        "//score/crypto/src/backend/score_provider:score_backend_defines",
     ] + SCORE_BACKEND_DEPS,
 )
 
@@ -61,8 +63,8 @@ cc_library(
 # Label flag allowing command-line override of the PKCS#11 backend.
 # Default value is derived from PKCS11_BACKEND in backend_exports.bzl.
 # Example override:
-#   bazel build //score/crypto/daemon:crypto_daemon \
-#       --//score/crypto/backend:pkcs11_backend=//external/vendor_hsm:backend
+#   bazel build //score/crypto/src/daemon:crypto_daemon \
+#       --//score/crypto/src/backend:pkcs11_backend=//external/vendor_hsm:backend
 label_flag(
     name = "pkcs11_backend",
     build_setting_default = PKCS11_BACKEND_DEFAULT_LABEL,
@@ -72,8 +74,8 @@ label_flag(
 # Replaces the __has_include anti-pattern in provider_manager_factory.
 cc_library(
     name = "pkcs11_backend_defines",
-    visibility = ["//visibility:public"],
     defines = (["SCORE_CRYPTO_PKCS11_ENABLED=1"] if ENABLE_PKCS11_BACKEND else []),
+    visibility = ["//visibility:public"],
 )
 
 # PKCS#11 backend: selected library + fixed config parser.
@@ -85,6 +87,6 @@ cc_library(
         ":pkcs11_backend_defines",
     ] + ([
         ":pkcs11_backend",
-        "//score/crypto/backend/pkcs11:pkcs11_config_parser",
+        "//score/crypto/src/backend/pkcs11:pkcs11_config_parser",
     ] if ENABLE_PKCS11_BACKEND else []),
 )

@@ -272,8 +272,7 @@ class ProviderManager
      *
      * @param type_to_name Mapping from crypto provider type to provider name.
      */
-    void BuildTypeMappings(
-        const std::unordered_map<common::CryptoProviderType, common::ProviderName>& type_to_name);
+    void BuildTypeMappings(const std::unordered_map<common::CryptoProviderType, common::ProviderName>& type_to_name);
 
     /**
      * @brief Invoke all registered factories to create and register providers.

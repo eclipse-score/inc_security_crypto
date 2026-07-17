@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_BACKEND_SCORE_PROVIDER_ACTIVE_BACKENDS_LIST_HPP
-#define SCORE_CRYPTO_BACKEND_SCORE_PROVIDER_ACTIVE_BACKENDS_LIST_HPP
+#ifndef SCORE_CRYPTO_SRC_BACKEND_SCORE_PROVIDER_ACTIVE_BACKENDS_LIST_HPP
+#define SCORE_CRYPTO_SRC_BACKEND_SCORE_PROVIDER_ACTIVE_BACKENDS_LIST_HPP
 
 #include "score/crypto/daemon/provider/score_provider/score_backend_adapter.hpp"
 
@@ -21,11 +21,11 @@
 
 // Include enabled backend adapters (controlled by BUILD file defines)
 #ifdef SCORE_BACKEND_OPENSSL_ENABLED
-#include "score/crypto/backend/openssl/openssl_backend_adapter.hpp"
+#include "score/crypto/src/backend/openssl/openssl_backend_adapter.hpp"
 #endif
 
 #ifdef SCORE_BACKEND_PRIMULA_ENABLED
-#include "score/crypto/backend/primula/primula_backend_adapter.hpp"
+#include "score/crypto/src/backend/primula/primula_backend_adapter.hpp"
 #endif
 
 namespace score::crypto::backend
@@ -71,4 +71,4 @@ inline std::vector<std::unique_ptr<daemon::provider::score_provider::IBackendPro
 
 }  // namespace score::crypto::backend
 
-#endif  // SCORE_CRYPTO_BACKEND_SCORE_PROVIDER_ACTIVE_BACKENDS_LIST_HPP
+#endif  // SCORE_CRYPTO_SRC_BACKEND_SCORE_PROVIDER_ACTIVE_BACKENDS_LIST_HPP

@@ -11,9 +11,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
 load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
-load("@rules_cc//cc:defs.bzl", "cc_shared_library")
 
 # SoftHSM build using rules_foreign_cc cmake
 # CMake build options reference for SoftHSM 2.7.0:
@@ -52,7 +51,6 @@ cmake(
         "RUN_AES_KEY_WRAP_PAD": "0",
         "RUN_AES_KEY_WRAP_PAD__TRYRUN_OUTPUT": "",
     },
-    deps = ["//third_party/openssl:openssl"],
     env = select({
         "//platforms:is_qnx_aarch64": {
             # EXT_BUILD_ROOT is captured at the start of the build script (before any cd),
@@ -75,6 +73,7 @@ cmake(
     visibility = [
         "//third_party/soft_hsm:__pkg__",  # Internal wrappers
     ],
+    deps = ["//third_party/openssl"],
 )
 
 # Extract PKCS#11 headers from SoftHSM source for public consumption
@@ -82,7 +81,7 @@ genrule(
     name = "extract_pkcs11_headers",
     srcs = ["@softhsm_source//:all"],
     outs = [
-#        "include/cryptoki.h",
+        #        "include/cryptoki.h",
         "include/pkcs11.h",
     ],
     cmd = """
@@ -96,9 +95,9 @@ genrule(
 # Softhsm pkcs11 target for linking and header consumption
 cc_library(
     name = "softhsm",
-    linkstatic = False,
     hdrs = [":extract_pkcs11_headers"],
     includes = ["include"],
+    linkstatic = False,
     visibility = ["//:__subpackages__"],
     deps = [":soft_hsm_cmake"],
 )

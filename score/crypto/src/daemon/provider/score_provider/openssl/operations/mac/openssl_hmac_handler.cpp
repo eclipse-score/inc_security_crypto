@@ -192,7 +192,6 @@ OpenSslHmacHandler::InitializeContext(
     return std::monostate{};
 }
 
-
 ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> OpenSslHmacHandler::InitMac(
     const std::optional<common::RequestParameter> /*initialDataOrIV*/)
 {

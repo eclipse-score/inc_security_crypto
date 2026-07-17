@@ -1,3 +1,15 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
 """Backend selection and build dependency exports.
 
 This file contains the master backend configuration flags and exports
@@ -7,11 +19,13 @@ This is the SINGLE SOURCE OF TRUTH for backend selection.
 To enable/disable backends, modify the flags below.
 """
 
-load(":backend_config.bzl",
-     "backend_defines",
-     "backend_deps",
-     "pkcs11_backend_deps",
-     "pkcs11_backend_label")
+load(
+    ":backend_config.bzl",
+    "backend_defines",
+    "backend_deps",
+    "pkcs11_backend_deps",
+    "pkcs11_backend_label",
+)
 
 # ============================================================================
 # MASTER BACKEND CONFIGURATION FLAGS
@@ -67,5 +81,5 @@ PKCS11_BACKEND_DEPS = pkcs11_backend_deps(
 
 # Default PKCS#11 backend label (used as label_flag default).
 # Can be overridden at build time with:
-#   --//score/crypto/backend:pkcs11_backend=//some/other:target
+#   --//score/crypto/src/backend:pkcs11_backend=//some/other:target
 PKCS11_BACKEND_DEFAULT_LABEL = pkcs11_backend_label(PKCS11_BACKEND)

@@ -43,8 +43,8 @@ The default value comes from `PKCS11_BACKEND` in `backend_exports.bzl`. It can b
 overridden on the command line:
 
 ```bash
-bazel build //score/crypto/daemon:crypto_daemon \
-    --//score/crypto/backend:pkcs11_backend=//external/vendor_hsm:backend
+bazel build //score/crypto/src/daemon:crypto_daemon \
+    --//score/crypto/src/backend:pkcs11_backend=//external/vendor_hsm:backend
 ```
 
 Each PKCS#11 backend target provides:
@@ -104,8 +104,8 @@ the PKCS#11 library and headers.
    ```
    Or override at build time:
    ```bash
-   bazel build //score/crypto/daemon:crypto_daemon \
-       --//score/crypto/backend:pkcs11_backend=//third_party/<name>:<name>
+   bazel build //score/crypto/src/daemon:crypto_daemon \
+       --//score/crypto/src/backend:pkcs11_backend=//third_party/<name>:<name>
    ```
 
 ## Common Configurations
@@ -120,18 +120,18 @@ the PKCS#11 library and headers.
 
 | What | Example |
 |------|---------|
-| PKCS#11 backend | `--//score/crypto/backend:pkcs11_backend=//external/vendor_hsm:backend` |
+| PKCS#11 backend | `--//score/crypto/src/backend:pkcs11_backend=//external/vendor_hsm:backend` |
 
 ## Verification
 
 Check which backends are compiled into the daemon:
 
 ```bash
-bazel query 'deps(//score/crypto/daemon:crypto_daemon)' | grep -E "openssl|softhsm"
+bazel query 'deps(//score/crypto/src/daemon:crypto_daemon)' | grep -E "openssl|softhsm"
 ```
 
 Check the effective PKCS#11 backend:
 
 ```bash
-bazel cquery //score/crypto/daemon:crypto_daemon --output=build | grep pkcs11_backend
+bazel cquery //score/crypto/src/daemon:crypto_daemon --output=build | grep pkcs11_backend
 ```

@@ -30,12 +30,12 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #      to the library target (third_party or external)
 #   2. Set PKCS11_BACKEND = "<name>" in backend/backend_exports.bzl
 #   Or override at build time:
-#     --//score/crypto/backend:pkcs11_backend=//third_party/your_hsm:your_hsm
+#     --//score/crypto/src/backend:pkcs11_backend=//third_party/your_hsm:your_hsm
 cc_library(
     name = "pkcs11_config_parser",
     srcs = ["pkcs11_token_config_parser.cpp"],
-    visibility = ["//score/crypto/backend:__pkg__"],
+    visibility = ["//score/crypto/src/backend:__pkg__"],
     deps = [
-        "//score/crypto/daemon/provider/pkcs11:pkcs11_token_config",
+        "//score/crypto/src/daemon/provider/pkcs11:pkcs11_token_config",
     ],
 )

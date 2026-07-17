@@ -26,10 +26,10 @@ cc_library(
     srcs = ["openssl_backend_adapter.cpp"],
     hdrs = ["openssl_backend_adapter.hpp"],
     visibility = [
-        "//score/crypto/backend:__pkg__",  # For active_backends_list.hpp
+        "//score/crypto/src/backend:__pkg__",  # For active_backends_list.hpp
     ],
     deps = [
-        "//score/crypto/daemon/provider/score_provider:score_backend_adapter",
-        "//score/crypto/daemon/provider/score_provider/openssl:provider_openssl_library",
+        "//score/crypto/src/daemon/provider/score_provider:score_backend_adapter",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_library",
     ],
 )

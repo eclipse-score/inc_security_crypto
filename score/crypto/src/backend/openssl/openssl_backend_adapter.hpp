@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_BACKEND_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
-#define SCORE_CRYPTO_BACKEND_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
+#ifndef SCORE_CRYPTO_SRC_BACKEND_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
+#define SCORE_CRYPTO_SRC_BACKEND_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
 
-#include "score/crypto/daemon/provider/score_provider/score_backend_adapter.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/score_backend_adapter.hpp"
 
 namespace score::crypto::backend::openssl
 {
@@ -54,4 +54,4 @@ class OpenSSLBackendAdapter final : public daemon::provider::score_provider::IBa
 
 }  // namespace score::crypto::backend::openssl
 
-#endif  // SCORE_CRYPTO_BACKEND_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
+#endif  // SCORE_CRYPTO_SRC_BACKEND_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
