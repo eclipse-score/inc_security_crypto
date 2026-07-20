@@ -1,0 +1,69 @@
+{
+  "key_slot_config":
+  {
+    "slot_entries": [
+      {
+        "slot_name": "test/hmac-sha256",
+        "algorithm": "HMAC-SHA256",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "MAC",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/deploy/test_hmac_sha256.kv",
+        "deployment_format": "kv"
+      },
+      {
+        "slot_name": "test/aes-256-cmac",
+        "algorithm": "AES-256-CMAC",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "MAC",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/deploy/test_aes256_cmac.kv",
+        "deployment_format": "kv"
+      },
+      {
+        "slot_name": "test/pkcs11-hmac-sha256",
+        "algorithm": "HMAC-SHA256",
+        "provider_names": ["SOFTHSM"],
+        "allowed_operations": "MAC",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/deploy/test_pkcs11_hmac.kv",
+        "deployment_format": "kv"
+      }
+    ],
+    "app_resource_entries": [
+      {
+        "uid": 0,
+        "app_resource_id": "test/hmac",
+        "slot_name": "test/hmac-sha256"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "test/cmac",
+        "slot_name": "test/aes-256-cmac"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "test/pkcs11/hmac",
+        "slot_name": "test/pkcs11-hmac-sha256"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "test/hmac",
+        "slot_name": "test/hmac-sha256"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "test/cmac",
+        "slot_name": "test/aes-256-cmac"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "test/pkcs11/hmac",
+        "slot_name": "test/pkcs11-hmac-sha256"
+      }
+    ]
+  }
+}

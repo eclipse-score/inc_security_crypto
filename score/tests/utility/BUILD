@@ -14,20 +14,11 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
-    name = "key_mgmt_executor",
-    srcs = ["src/key_mgmt_executor.cpp"],
-    hdrs = [
-        "key_mgmt_context.hpp",
-        "key_mgmt_executor.hpp",
-        "key_mgmt_request_parser.hpp",
-    ],
-    visibility = [
-        "//score/crypto/daemon/provider:__subpackages__",
-        "//score/crypto/tests:__subpackages__",
-    ],
+    name = "utility",
+    srcs = ["test_utility.cpp"],
+    hdrs = ["test_utility.hpp"],
+    visibility = ["//score:__subpackages__"],
     deps = [
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/key_management",
-        "//score/crypto/daemon/provider/handler:handler_headers",
+        "@googletest//:gtest",
     ],
 )

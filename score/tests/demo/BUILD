@@ -11,23 +11,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
-cc_library(
-    name = "key_mgmt_executor",
-    srcs = ["src/key_mgmt_executor.cpp"],
-    hdrs = [
-        "key_mgmt_context.hpp",
-        "key_mgmt_executor.hpp",
-        "key_mgmt_request_parser.hpp",
-    ],
-    visibility = [
-        "//score/crypto/daemon/provider:__subpackages__",
-        "//score/crypto/tests:__subpackages__",
+cc_test(
+    name = "mac_multi_provider_demo",
+    srcs = ["mac_multi_provider_demo.cpp"],
+    data = [
+        "//score/tests/test_vectors/key_management:key_management_test_vectors",
     ],
     deps = [
-        "//score/crypto/daemon/common",
         "//score/crypto/daemon/key_management",
-        "//score/crypto/daemon/provider/handler:handler_headers",
+        "//score/crypto/daemon/provider:provider_headers",
+        "//score/crypto/daemon/provider/score_provider/openssl:provider_openssl_library",
+        "//score/crypto/daemon/provider/score_provider/operations/mac:score_mac_handler",
+        "//third_party/openssl",
+        "@googletest//:gtest_main",
     ],
 )

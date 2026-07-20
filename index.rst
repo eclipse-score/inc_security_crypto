@@ -256,7 +256,7 @@ To run only component or feature integration tests:
 
 .. code-block:: bash
 
-   bazel test //tests/...
+   bazel test //score/...
 
 
 Module Build Configuration

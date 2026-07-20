@@ -66,7 +66,7 @@ cc_library(
     visibility = [
         "//score/crypto/api:__subpackages__",
         "//score/crypto/daemon/IPC:__pkg__",
-        "//tests:__subpackages__",
+        "//score/tests:__subpackages__",
     ],
     deps = [
         "//score/crypto/api/control_plane",

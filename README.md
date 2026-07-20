@@ -102,9 +102,9 @@ bazel build //score/... --config=aarch64-qnx
 docker pull ubuntu:24.04
 
 # host platform
-bazel test //tests/...
+bazel test //score/...
 # with detailed output and no caching
-bazel test //tests/... --test_output=all --cache_test_results=no
+bazel test //score/... --test_output=all --cache_test_results=no
 ```
 
 Note: Run the `docker pull` command from a VS Code Terminal associated with the devcontainer. This properly sets up all environment variables, which may not be the case when just using docker to attach to the running container.

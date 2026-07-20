@@ -88,11 +88,11 @@ To build the module:
 
 .. code-block:: bash
 
-   bazel build //score/... //tests/...
+   bazel build //score/...
 
 To run tests:
 
 .. code-block:: bash
 
    # Execute tests
-   bazel test //tests/...
+   bazel test //score/...

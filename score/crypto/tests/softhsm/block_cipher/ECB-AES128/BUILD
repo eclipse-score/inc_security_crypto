@@ -11,23 +11,19 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_test")
 
-cc_library(
-    name = "key_mgmt_executor",
-    srcs = ["src/key_mgmt_executor.cpp"],
-    hdrs = [
-        "key_mgmt_context.hpp",
-        "key_mgmt_executor.hpp",
-        "key_mgmt_request_parser.hpp",
+cc_test(
+    name = "test_softhsm_ecb_aes128",
+    srcs = ["test_softhsm_ecb_aes128.cpp"],
+    data = [
+        "//score/tests/test_vectors/block_cipher/ECB-AES128:block_cipher_test_vectors",
     ],
-    visibility = [
-        "//score/crypto/daemon/provider:__subpackages__",
-        "//score/crypto/tests:__subpackages__",
-    ],
+    linkstatic = True,
     deps = [
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/key_management",
-        "//score/crypto/daemon/provider/handler:handler_headers",
+        "//score/tests/utility",
+        "//third_party/soft_hsm:libsofthsm_shared",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )

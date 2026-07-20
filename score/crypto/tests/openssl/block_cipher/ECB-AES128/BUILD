@@ -11,23 +11,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+# Bazel build file for AES-128-ECB block cipher tests
 
-cc_library(
-    name = "key_mgmt_executor",
-    srcs = ["src/key_mgmt_executor.cpp"],
-    hdrs = [
-        "key_mgmt_context.hpp",
-        "key_mgmt_executor.hpp",
-        "key_mgmt_request_parser.hpp",
-    ],
-    visibility = [
-        "//score/crypto/daemon/provider:__subpackages__",
-        "//score/crypto/tests:__subpackages__",
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_test(
+    name = "test_ecb_aes128",
+    timeout = "short",
+    srcs = ["test_ecb_aes128.cpp"],
+    data = [
+        "//score/tests/test_vectors/block_cipher/ECB-AES128:block_cipher_test_vectors",
     ],
     deps = [
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/key_management",
-        "//score/crypto/daemon/provider/handler:handler_headers",
+        "//score/tests/utility",
+        "//third_party/openssl",
+        "@googletest//:gtest",
     ],
 )

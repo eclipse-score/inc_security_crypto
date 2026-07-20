@@ -27,4 +27,4 @@ jobs:
   tests:
     uses: eclipse-score/cicd-workflows/.github/workflows/tests.yml@main
     with:
-      bazel-target: "test //score/... //tests/..."
+      bazel-target: "test //score/... "
