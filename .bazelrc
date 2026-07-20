@@ -24,8 +24,6 @@ build --tool_java_runtime_version=remotejdk_17
 
 # Only contact license server every 59 secs per tool and not for every tool invocation to avoid flooding the license server
 common --action_env=QNX_LICENSE_EXTSERVER_DELAY=59
-#common --action_env=QNX_LICENSE_QUEUE_TIMEOUT=300 # If not reach retry in 60seconds for overall 300 (configured) seconds
-# Disable for the moment as this leads to "warning: Cannot find Build server key, the value of QNX_LICENSE_QUEUE_TIMEOUT will be ignored."
 
 test --test_output=errors
 
@@ -82,6 +80,7 @@ build:x86_64-qnx --extra_toolchains=@score_qnx_x86_64_ifs_toolchain//:ifs-x86_64
 build:x86_64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_pc_nto_qnx800
 test:x86_64-qnx --run_under=@score_qnx_unit_tests//src:run_under_qnx
 test:x86_64-qnx --test_lang_filters=cc,rust
+test:aarch64-qnx --test_timeout=180,900,2700,10800 # Increase default test timeout by factor 3
 
 # -------------------------------------------------------------------------------
 # Config dedicated to target platform CPU:aarch64 and OS:QNX
