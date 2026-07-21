@@ -204,9 +204,9 @@ class TestCryptoDaemon:
                 Path(
                     "third_party/soft_hsm/soft_hsm_cmake/lib/softhsm/libsofthsm2.so"
                 ): Path("/opt/crypto/lib/libsofthsm2.so"),
-                Path("score/tests/test_vectors/config/integration_test_config.bin"): Path(
-                    self.CRYPTO_CONFIG_PATH
-                ),
+                Path(
+                    "score/tests/test_vectors/config/integration_test_config.bin"
+                ): Path(self.CRYPTO_CONFIG_PATH),
                 Path("score/tests/test_vectors/hash/input_hello_world.bin"): Path(
                     "/opt/crypto/tests/test_vectors/hash/input_hello_world.bin"
                 ),
@@ -228,18 +228,20 @@ class TestCryptoDaemon:
                 Path("score/tests/test_vectors/mac/hmac_sha256_hello_world.bin"): Path(
                     "/opt/crypto/tests/test_vectors/mac/hmac_sha256_hello_world.bin"
                 ),
-                Path("score/tests/test_vectors/mac/hmac_sha256_complete_data.bin"): Path(
+                Path(
+                    "score/tests/test_vectors/mac/hmac_sha256_complete_data.bin"
+                ): Path(
                     "/opt/crypto/tests/test_vectors/mac/hmac_sha256_complete_data.bin"
                 ),
                 Path("score/tests/test_vectors/mac/key_aes_256.key"): Path(
                     "/opt/crypto/tests/test_vectors/mac/key_aes_256.key"
                 ),
-                Path("score/tests/test_vectors/config/integration_openssl_hmac.kv"): Path(
-                    "/opt/crypto/deploy/integration_openssl_hmac.kv"
-                ),
-                Path("score/tests/test_vectors/config/integration_softhsm_hmac.kv"): Path(
-                    "/opt/crypto/deploy/integration_softhsm_hmac.kv"
-                ),
+                Path(
+                    "score/tests/test_vectors/config/integration_openssl_hmac.kv"
+                ): Path("/opt/crypto/deploy/integration_openssl_hmac.kv"),
+                Path(
+                    "score/tests/test_vectors/config/integration_softhsm_hmac.kv"
+                ): Path("/opt/crypto/deploy/integration_softhsm_hmac.kv"),
                 Path("score/tests/config/logging.json"): Path(
                     "/opt/crypto/config/logging.json"
                 ),
