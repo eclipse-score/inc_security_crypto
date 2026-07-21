@@ -94,10 +94,6 @@ separate config type and resolved at a different point during daemon startup.
      user PIN, provider name, provider type, and session cleanup strategy.
      ``Pkcs11Config::ParseConfig()`` reads these values from the daemon config.
 
-   Both config classes use only standard-library types in their public headers
-   so that the top-level ``Config`` class can own them without pulling in
-   backend-specific headers.
-
 3. Runtime enablement and type mapping — ``ProviderInitConfig``
    After all factories have created and registered their providers, and after
    every provider has been initialized, ``ProviderManager::Initialize()`` loads

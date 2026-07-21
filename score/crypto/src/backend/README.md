@@ -133,5 +133,5 @@ bazel query 'deps(//score/crypto/src/daemon:crypto_daemon)' | grep -E "openssl|s
 Check the effective PKCS#11 backend:
 
 ```bash
-bazel cquery //score/crypto/src/daemon:crypto_daemon --output=build | grep pkcs11_backend
+bazel cquery //score/crypto/src/backend:pkcs11_backend --output=build
 ```
