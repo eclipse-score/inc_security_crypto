@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/score_provider/operations/mac/score_mac_handler.hpp"
-#include "score/crypto/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/mac/score_mac_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
 
 namespace score::crypto::daemon::provider::score_provider::operations::mac
 {

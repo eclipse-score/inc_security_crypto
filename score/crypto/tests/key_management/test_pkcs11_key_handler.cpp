@@ -26,18 +26,18 @@
 
 #include "score/crypto/tests/softhsm/softhsm_test_fixture.hpp"
 
-#include "score/crypto/daemon/common/actors.hpp"
-#include "score/crypto/daemon/data_manager/data_manager.hpp"
-#include "score/crypto/daemon/key_management/core/key_management_service.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_slot_handler.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_management_operations.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_slot_config.hpp"
-#include "score/crypto/daemon/key_management/nodes/key_slot_data_node.hpp"
-#include "score/crypto/daemon/key_management/slot/slot_registry.hpp"
-#include "score/crypto/daemon/provider/pkcs11/key_management/pkcs11_key_slot_handler.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_provider.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/data_manager/data_manager.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
+#include "score/crypto/src/daemon/key_management/nodes/key_slot_data_node.hpp"
+#include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_slot_handler.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 
 #include <gtest/gtest.h>
 #include <pkcs11.h>

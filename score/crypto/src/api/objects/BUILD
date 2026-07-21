@@ -26,7 +26,7 @@ cc_library(
     includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
-        "//score/crypto/api/common:crypto_common",
+        "//score/crypto/src/api/common:crypto_common",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],

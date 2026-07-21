@@ -11,9 +11,9 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
 
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_provider.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 
 #include "score/mw/log/logging.h"
 

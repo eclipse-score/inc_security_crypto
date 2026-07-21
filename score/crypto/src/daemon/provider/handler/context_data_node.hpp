@@ -11,11 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_CONTEXT_DATA_NODE_HPP_
-#define SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_CONTEXT_DATA_NODE_HPP_
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_CONTEXT_DATA_NODE_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_CONTEXT_DATA_NODE_HPP
 
-#include "score/crypto/daemon/data_manager/data_node.hpp"
-#include "score/crypto/daemon/provider/handler/i_handler.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 #include <memory>
 #include <string>
 
@@ -55,4 +55,4 @@ class ContextDataNode : public data_manager::DataNode
 
 }  // namespace score::crypto::daemon::provider::handler
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_CONTEXT_DATA_NODE_HPP_
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_CONTEXT_DATA_NODE_HPP

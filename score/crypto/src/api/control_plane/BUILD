@@ -23,9 +23,9 @@ cc_library(
     ],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/common:common_types",
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/control_plane:request_handler_hdr",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
     ],
 )
 
@@ -41,9 +41,9 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":control_plane",
-        "//score/crypto/daemon/control_plane",
-        "//score/crypto/ipc:ipc_config",
-        "//score/crypto/ipc/grpc_adapter:grpc_control_client",
+        "//score/crypto/src/daemon/control_plane",
+        "//score/crypto/src/ipc:ipc_config",
+        "//score/crypto/src/ipc/grpc_adapter:grpc_control_client",
         "@score_baselibs//score/mw/log",
     ],
 )

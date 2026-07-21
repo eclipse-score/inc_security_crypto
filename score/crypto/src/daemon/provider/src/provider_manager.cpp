@@ -13,7 +13,7 @@
 
 #include <stdexcept>
 
-#include "score/crypto/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 namespace score::crypto
 {

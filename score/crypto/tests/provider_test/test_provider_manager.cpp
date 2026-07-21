@@ -15,11 +15,11 @@
 /// @brief Unit tests for ProviderManager::GetProviderType and
 ///        IsProviderCompatibleWithType.
 
-#include "score/crypto/daemon/config/inc/config.hpp"
-#include "score/crypto/daemon/data_manager/data_node.hpp"
-#include "score/crypto/daemon/provider/handler/context_data_node.hpp"
-#include "score/crypto/daemon/provider/i_provider.hpp"
-#include "score/crypto/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
+#include "score/crypto/src/daemon/provider/i_provider.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <gtest/gtest.h>
 #include <memory>

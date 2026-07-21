@@ -11,13 +11,13 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_SRC_CRYPTO_STACK_IMPL_HPP
-#define SCORE_CRYPTO_API_SRC_CRYPTO_STACK_IMPL_HPP
+#ifndef SCORE_CRYPTO_SRC_API_SRC_CRYPTO_STACK_IMPL_HPP
+#define SCORE_CRYPTO_SRC_API_SRC_CRYPTO_STACK_IMPL_HPP
 
-#include "score/crypto/api/crypto_stack_factory.hpp"
-#include "score/crypto/api/i_crypto_stack.hpp"
+#include "score/crypto/src/api/crypto_stack_factory.hpp"
+#include "score/crypto/src/api/i_crypto_stack.hpp"
 
-#include "score/crypto/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/api/control_plane/i_connection.hpp"
 
 #include <memory>
 
@@ -62,4 +62,4 @@ class CryptoStackImpl final : public ICryptoStack
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_API_SRC_CRYPTO_STACK_IMPL_HPP
+#endif  // SCORE_CRYPTO_SRC_API_SRC_CRYPTO_STACK_IMPL_HPP

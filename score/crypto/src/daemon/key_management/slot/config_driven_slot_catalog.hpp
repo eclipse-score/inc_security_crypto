@@ -11,11 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CONFIG_DRIVEN_SLOT_CATALOG_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CONFIG_DRIVEN_SLOT_CATALOG_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_CONFIG_DRIVEN_SLOT_CATALOG_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_CONFIG_DRIVEN_SLOT_CATALOG_HPP
 
-#include "score/crypto/daemon/config/inc/config.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_slot_catalog.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_catalog.hpp"
 
 #include <string_view>
 
@@ -61,4 +61,4 @@ class ConfigDrivenSlotCatalog final : public IKeySlotCatalog
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CONFIG_DRIVEN_SLOT_CATALOG_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_CONFIG_DRIVEN_SLOT_CATALOG_HPP

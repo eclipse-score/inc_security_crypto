@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/key_management/key_management_module.hpp"
+#include "score/crypto/src/daemon/key_management/key_management_module.hpp"
 
-#include "score/crypto/daemon/key_management/slot/config_driven_slot_catalog.hpp"
-#include "score/crypto/daemon/provider/i_provider.hpp"
+#include "score/crypto/src/daemon/key_management/slot/config_driven_slot_catalog.hpp"
+#include "score/crypto/src/daemon/provider/i_provider.hpp"
 
 #include "score/mw/log/logging.h"
 

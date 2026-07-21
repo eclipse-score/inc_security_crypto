@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_I_KEY_SLOT_CATALOG_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_I_KEY_SLOT_CATALOG_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_INTERFACES_I_KEY_SLOT_CATALOG_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_INTERFACES_I_KEY_SLOT_CATALOG_HPP
 
 namespace score::crypto::daemon::key_management
 {
@@ -52,4 +52,4 @@ class IKeySlotCatalog
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_I_KEY_SLOT_CATALOG_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_INTERFACES_I_KEY_SLOT_CATALOG_HPP

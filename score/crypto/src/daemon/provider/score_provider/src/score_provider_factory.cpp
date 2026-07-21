@@ -11,9 +11,9 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/score_provider/score_provider_factory.hpp"
-#include "score/crypto/daemon/provider/provider_manager.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/openssl_provider_factory.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/score_provider_factory.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/openssl_provider_factory.hpp"
 
 #include "score/mw/log/logging.h"
 

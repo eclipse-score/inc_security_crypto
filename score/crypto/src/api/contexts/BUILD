@@ -23,7 +23,7 @@ cc_library(
     includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
-        "//score/crypto/api/common:crypto_common",
+        "//score/crypto/src/api/common:crypto_common",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],
@@ -40,9 +40,9 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":context_bases",
-        "//score/crypto/api/common:crypto_common",
-        "//score/crypto/api/config:context_configs",
-        "//score/crypto/api/objects:crypto_objects",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/config:context_configs",
+        "//score/crypto/src/api/objects:crypto_objects",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],
@@ -64,9 +64,9 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":crypto_contexts",
-        "//score/crypto/api:operations",
-        "//score/crypto/api/common:crypto_common",
-        "//score/crypto/api/common:release_callback_iface",
-        "//score/crypto/api/control_plane",
+        "//score/crypto/src/api:operations",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/common:release_callback_iface",
+        "//score/crypto/src/api/control_plane",
     ],
 )

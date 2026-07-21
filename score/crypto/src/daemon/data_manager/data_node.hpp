@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef CRYPTO_DAEMON_DATA_MANAGER_DATA_NODE_HPP_
-#define CRYPTO_DAEMON_DATA_MANAGER_DATA_NODE_HPP_
+#ifndef SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_DATA_NODE_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_DATA_NODE_HPP
 
 #include <atomic>
 #include <cstdint>
@@ -21,9 +21,9 @@
 #include <variant>
 #include <vector>
 
-#include "score/crypto/common/types.hpp"
+#include "score/crypto/src/common/types.hpp"
 
-#include "score/crypto/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 
 namespace score::crypto::daemon::data_manager
 {
@@ -224,4 +224,4 @@ class DataNode
 
 }  // namespace score::crypto::daemon::data_manager
 
-#endif  // CRYPTO_DAEMON_DATA_MANAGER_DATA_NODE_HPP_
+#endif  // SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_DATA_NODE_HPP

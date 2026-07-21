@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_COMMON_SRC_CRYPTO_RESOURCE_GUARD_FACTORY_HPP
-#define SCORE_CRYPTO_API_COMMON_SRC_CRYPTO_RESOURCE_GUARD_FACTORY_HPP
+#ifndef SCORE_CRYPTO_SRC_API_COMMON_SRC_CRYPTO_RESOURCE_GUARD_FACTORY_HPP
+#define SCORE_CRYPTO_SRC_API_COMMON_SRC_CRYPTO_RESOURCE_GUARD_FACTORY_HPP
 
 /// @file
 /// @brief Internal factory for constructing CryptoResourceGuard instances.
@@ -44,8 +44,8 @@
 /// ## Usage in a concrete implementation
 ///
 /// @code
-///   #include "score/crypto/api/common/src/crypto_resource_guard_factory.hpp"
-///   #include "score/crypto/api/common/src/i_release_callback.hpp"
+///   #include "score/crypto/src/api/common/src/crypto_resource_guard_factory.hpp"
+///   #include "score/crypto/src/api/common/src/i_release_callback.hpp"
 ///
 ///   class ConcreteKeyMgmt : public score::mw::crypto::IKeyManagementContext {
 ///   public:
@@ -66,7 +66,7 @@
 ///   };
 /// @endcode
 
-#include "score/crypto/api/common/crypto_resource_guard.hpp"
+#include "score/crypto/src/api/common/crypto_resource_guard.hpp"
 
 #include <memory>
 
@@ -105,4 +105,4 @@ class CryptoResourceGuardFactory
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_API_COMMON_SRC_CRYPTO_RESOURCE_GUARD_FACTORY_HPP
+#endif  // SCORE_CRYPTO_SRC_API_COMMON_SRC_CRYPTO_RESOURCE_GUARD_FACTORY_HPP

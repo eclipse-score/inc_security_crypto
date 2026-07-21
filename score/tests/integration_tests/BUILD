@@ -19,8 +19,8 @@ cc_binary(
     srcs = ["control_client_app.cpp"],
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
-        "//score/crypto/api:operations",
-        "//score/crypto/api/control_plane:control_plane_impl",
+        "//score/crypto/src/api:operations",
+        "//score/crypto/src/api/control_plane:control_plane_impl",
         "@googletest//:gtest",
     ],
 )
@@ -42,7 +42,7 @@ cc_binary(
     ],
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
-        "//score/crypto/api:crypto_stack",
+        "//score/crypto/src/api:crypto_stack",
         "//score/tests/utility",
         "@googletest//:gtest",
     ],
@@ -57,7 +57,7 @@ cc_binary(
     ],
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
-        "//score/crypto/api:crypto_stack",
+        "//score/crypto/src/api:crypto_stack",
         "//score/tests/utility",
         "@googletest//:gtest",
     ],
@@ -72,7 +72,7 @@ cc_binary(
     ],
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
-        "//score/crypto/api:crypto_stack",
+        "//score/crypto/src/api:crypto_stack",
         "//score/tests/utility",
     ],
 )
@@ -91,8 +91,8 @@ py_itf_test(
         ":score_api_hash_example",
         ":score_api_mac_example",
         ":score_demo",
-        "//score/crypto/api/control_plane",
-        "//score/crypto/daemon:crypto_daemon",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/daemon:crypto_daemon",
         "//score/tests/config:logging.json",
         "//third_party/grpc:libgrpc_shared",
         "//third_party/openssl:openssl_shared",

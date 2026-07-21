@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/pkcs11/operations/hash/pkcs11_hash_executor.hpp"
-#include "score/crypto/daemon/provider/handler/operations/hash_handler_operations.hpp"
-#include "score/crypto/daemon/provider/handler/src/handler_utils.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_executor.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
+#include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 
-#include "score/crypto/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include <string_view>
 
 namespace score::crypto::daemon::provider::pkcs11

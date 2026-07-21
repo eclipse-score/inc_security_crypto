@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef CRYPTO_DAEMON_CONTROL_PLANE_REQUEST_HANDLER_HPP_
-#define CRYPTO_DAEMON_CONTROL_PLANE_REQUEST_HANDLER_HPP_
+#ifndef SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_I_REQUEST_HANDLER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_I_REQUEST_HANDLER_HPP
 
 #include <cstdint>
 
-#include "score/crypto/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 namespace score::crypto::daemon::control_plane
 {
@@ -65,4 +65,4 @@ class IRequestHandler
 
 }  // namespace score::crypto::daemon::control_plane
 
-#endif  // CRYPTO_DAEMON_CONTROL_PLANE_REQUEST_HANDLER_HPP_
+#endif  // SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_I_REQUEST_HANDLER_HPP

@@ -11,17 +11,17 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_MAC_HANDLER_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_MAC_HANDLER_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_MAC_PKCS11_MAC_HANDLER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_MAC_PKCS11_MAC_HANDLER_HPP
 
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/provider/handler/i_handler.hpp"
-#include "score/crypto/daemon/provider/handler/operations/mac_handler_operations.hpp"
-#include "score/crypto/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/mac/pkcs11_mac_context.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/mac/pkcs11_mac_executor.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/mac_handler_operations.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_context.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_executor.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 
 #include <cryptoki.h>
 #include <pkcs11.h>
@@ -127,4 +127,4 @@ class Pkcs11MacHandler final : public handler::Handler
 
 }  // namespace score::crypto::daemon::provider::pkcs11
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_MAC_HANDLER_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_MAC_PKCS11_MAC_HANDLER_HPP

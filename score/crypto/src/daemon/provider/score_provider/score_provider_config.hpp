@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_CONFIG_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_CONFIG_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_SCORE_PROVIDER_CONFIG_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_SCORE_PROVIDER_CONFIG_HPP
 
 #include <string>
 #include <vector>
@@ -89,4 +89,4 @@ class ScoreProviderConfig
 
 }  // namespace score::crypto::daemon::provider::score_provider
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_CONFIG_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_SCORE_PROVIDER_CONFIG_HPP

@@ -18,7 +18,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "score/crypto/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 namespace score::crypto::ipc
 {

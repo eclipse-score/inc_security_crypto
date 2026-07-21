@@ -22,14 +22,14 @@
 #include <thread>
 #include <utility>
 
-#include "score/crypto/api/common/error_domain.hpp"
-#include "score/crypto/api/control_plane/connection_factory.hpp"
-#include "score/crypto/daemon/common/actors.hpp"
-#include "score/crypto/daemon/config/inc/config.hpp"
-#include "score/crypto/daemon/control_plane/control_protocol.h"
-#include "score/crypto/daemon/control_plane/src/connection_handler.hpp"
-#include "score/crypto/daemon/data_manager/data_manager.hpp"
-#include "score/crypto/ipc/grpc_adapter/grpc_control_server.h"
+#include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/control_plane/connection_factory.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/control_plane/src/connection_handler.hpp"
+#include "score/crypto/src/daemon/data_manager/data_manager.hpp"
+#include "score/crypto/src/ipc/grpc_adapter/grpc_control_server.h"
 
 // namespace aliases
 namespace api = score::crypto::api;

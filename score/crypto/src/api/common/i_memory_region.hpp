@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_COMMON_I_MEMORY_REGION_HPP
-#define SCORE_CRYPTO_API_COMMON_I_MEMORY_REGION_HPP
+#ifndef SCORE_CRYPTO_SRC_API_COMMON_I_MEMORY_REGION_HPP
+#define SCORE_CRYPTO_SRC_API_COMMON_I_MEMORY_REGION_HPP
 
 #include "score/result/result.h"
 #include "score/span.hpp"
@@ -101,4 +101,4 @@ class IReadWriteMemoryRegion : public IReadOnlyMemoryRegion
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_API_COMMON_I_MEMORY_REGION_HPP
+#endif  // SCORE_CRYPTO_SRC_API_COMMON_I_MEMORY_REGION_HPP

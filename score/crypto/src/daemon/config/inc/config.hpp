@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_CONFIG_CONFIG_HPP
-#define SCORE_CRYPTO_DAEMON_CONFIG_CONFIG_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_CONFIG_INC_CONFIG_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_CONFIG_INC_CONFIG_HPP
 
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_token_config.hpp"
-#include "score/crypto/daemon/provider/score_provider/score_provider_config.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_token_config.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/score_provider_config.hpp"
 
 #include <array>
 #include <cstdint>
@@ -469,4 +469,4 @@ class Config
 
 }  // namespace score::crypto::daemon::config
 
-#endif  // SCORE_CRYPTO_DAEMON_CONFIG_CONFIG_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_CONFIG_INC_CONFIG_HPP

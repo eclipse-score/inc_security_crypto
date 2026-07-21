@@ -14,12 +14,12 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/provider/handler/src/handler_utils.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/operations/hash/openssl_hash_handler.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/hash/openssl_hash_handler.hpp"
 
 #include "score/mw/log/logging.h"
 #include <cassert>

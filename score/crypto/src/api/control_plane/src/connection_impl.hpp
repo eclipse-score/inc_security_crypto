@@ -11,15 +11,15 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_CONTROL_PLANE_CONNECTION_IMPL_H
-#define SCORE_CRYPTO_API_CONTROL_PLANE_CONNECTION_IMPL_H
+#ifndef SCORE_CRYPTO_SRC_API_CONTROL_PLANE_SRC_CONNECTION_IMPL_HPP
+#define SCORE_CRYPTO_SRC_API_CONTROL_PLANE_SRC_CONNECTION_IMPL_HPP
 
 #include <memory>
 #include <string_view>
 
-#include "score/crypto/api/control_plane/i_connection.hpp"
-#include "score/crypto/daemon/control_plane/control_protocol.h"
-#include "score/crypto/ipc/grpc_adapter/grpc_control_client.h"
+#include "score/crypto/src/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/ipc/grpc_adapter/grpc_control_client.h"
 
 namespace score::crypto::api::control_plane
 {
@@ -53,4 +53,4 @@ class ConnectionImpl : public IConnection
 
 }  // namespace score::crypto::api::control_plane
 
-#endif  // SCORE_CRYPTO_API_CONTROL_PLANE_CONNECTION_IMPL_H
+#endif  // SCORE_CRYPTO_SRC_API_CONTROL_PLANE_SRC_CONNECTION_IMPL_HPP

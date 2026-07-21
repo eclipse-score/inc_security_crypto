@@ -14,7 +14,7 @@
 genrule(
     name = "generate_integration_test_config",
     srcs = [
-        "//score/crypto/daemon/config:crypto_config_fbs_schema",
+        "//score/crypto/src/daemon/config:crypto_config_fbs_schema",
         "integration_test_config.json",
     ],
     outs = ["integration_test_config.bin"],

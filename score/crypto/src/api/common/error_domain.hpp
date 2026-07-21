@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_COMMON_ERROR_DOMAIN_HPP
-#define SCORE_CRYPTO_API_COMMON_ERROR_DOMAIN_HPP
+#ifndef SCORE_CRYPTO_SRC_API_COMMON_ERROR_DOMAIN_HPP
+#define SCORE_CRYPTO_SRC_API_COMMON_ERROR_DOMAIN_HPP
 
 #include "score/result/result.h"
 
@@ -148,4 +148,4 @@ inline score::result::Error MakeError(CryptoErrorCode code, std::string_view use
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_API_COMMON_ERROR_DOMAIN_HPP
+#endif  // SCORE_CRYPTO_SRC_API_COMMON_ERROR_DOMAIN_HPP

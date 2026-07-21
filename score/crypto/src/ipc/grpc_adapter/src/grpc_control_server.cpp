@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/ipc/grpc_adapter/grpc_control_server.h"
-#include "score/crypto/ipc/grpc_adapter/grpc_control_handler.h"
+#include "score/crypto/src/ipc/grpc_adapter/grpc_control_server.h"
+#include "score/crypto/src/ipc/grpc_adapter/grpc_control_handler.h"
 #include "score/mw/log/logging.h"
 #include <grpcpp/grpcpp.h>
 #include <unistd.h>

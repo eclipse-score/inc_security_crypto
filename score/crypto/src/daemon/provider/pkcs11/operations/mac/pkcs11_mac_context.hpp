@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_MAC_CONTEXT_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_MAC_CONTEXT_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_MAC_PKCS11_MAC_CONTEXT_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_MAC_PKCS11_MAC_CONTEXT_HPP
 
-#include "score/crypto/api/common/types.hpp"  // OperationMode
+#include "score/crypto/src/api/common/types.hpp"  // OperationMode
 
 #include <cryptoki.h>
 #include <pkcs11.h>
@@ -41,4 +41,4 @@ struct Pkcs11MacExecutionContext
 
 }  // namespace score::crypto::daemon::provider::pkcs11
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_MAC_CONTEXT_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_MAC_PKCS11_MAC_CONTEXT_HPP

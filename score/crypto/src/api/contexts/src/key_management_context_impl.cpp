@@ -11,20 +11,20 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/api/contexts/src/key_management_context_impl.hpp"
+#include "score/crypto/src/api/contexts/src/key_management_context_impl.hpp"
 
-#include "score/crypto/api/common/crypto_resource_guard.hpp"
-#include "score/crypto/api/common/error_domain.hpp"
-#include "score/crypto/api/common/src/crypto_resource_guard_factory.hpp"
-#include "score/crypto/api/common/src/i_release_callback.hpp"
-#include "score/crypto/api/common/types.hpp"
-#include "score/crypto/api/config/key_operation_params.hpp"
+#include "score/crypto/src/api/common/crypto_resource_guard.hpp"
+#include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/common/src/crypto_resource_guard_factory.hpp"
+#include "score/crypto/src/api/common/src/i_release_callback.hpp"
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/config/key_operation_params.hpp"
 
-#include "score/crypto/api/control_plane/i_connection.hpp"
-#include "score/crypto/daemon/common/actors.hpp"
-#include "score/crypto/daemon/control_plane/control_protocol.h"
-#include "score/crypto/daemon/key_management/interfaces/key_management_operations.hpp"
-#include "score/crypto/daemon/mediator/mediator_operations.hpp"
+#include "score/crypto/src/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
+#include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 
 #include "score/result/result.h"
 #include "score/span.hpp"

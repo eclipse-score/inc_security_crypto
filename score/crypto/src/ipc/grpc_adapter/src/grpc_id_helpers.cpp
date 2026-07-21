@@ -17,8 +17,8 @@
 
 #include <mutex>
 
-#include "score/crypto/daemon/control_plane/control_protocol.h"
-#include "score/crypto/ipc/grpc_adapter/src/grpc_id_helpers.h"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/ipc/grpc_adapter/src/grpc_id_helpers.h"
 
 namespace score::crypto::ipc
 {

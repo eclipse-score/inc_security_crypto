@@ -18,13 +18,13 @@
 #include <string>
 #include <vector>
 
-#include "score/crypto/daemon/common/actors.hpp"
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/data_manager/data_manager.hpp"
-#include "score/crypto/daemon/provider/handler/operations/hash_handler_operations.hpp"
-#include "score/crypto/daemon/provider/i_provider.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/provider_openssl.hpp"
-#include "score/crypto/daemon/provider/score_provider/operations/hash/score_hash_handler.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/data_manager/data_manager.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
+#include "score/crypto/src/daemon/provider/i_provider.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/provider_openssl.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/hash/score_hash_handler.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
 namespace common = score::crypto::daemon::common;

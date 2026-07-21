@@ -11,11 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef CRYPTO_DAEMON_PROVIDER_PKCS11_SESSION_GUARD_HPP
-#define CRYPTO_DAEMON_PROVIDER_PKCS11_SESSION_GUARD_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_SESSION_GUARD_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_SESSION_GUARD_HPP
 
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_provider.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 
 namespace score::crypto::daemon::provider::pkcs11
 {
@@ -136,4 +136,4 @@ class Pkcs11SessionGuard final
 
 }  // namespace score::crypto::daemon::provider::pkcs11
 
-#endif  // CRYPTO_DAEMON_PROVIDER_PKCS11_SESSION_GUARD_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_SESSION_GUARD_HPP

@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_COMMON_OPERATION_NAMES_HPP
-#define SCORE_CRYPTO_DAEMON_COMMON_OPERATION_NAMES_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_OPERATION_NAMES_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_OPERATION_NAMES_HPP
 
 /// @file operation_names.hpp
 /// @brief Human-readable names for OperationActor and OperationAction values.
@@ -36,13 +36,13 @@
 /// - Falls back to "<unknown_actor>" / "<unknown_op>" for future or custom values,
 ///   while still printing the numeric ids so nothing is lost.
 
-#include "score/crypto/daemon/common/actors.hpp"
-#include "score/crypto/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 // Operation constants — these headers only depend on types.hpp (no circular risk).
-#include "score/crypto/daemon/key_management/interfaces/key_management_operations.hpp"
-#include "score/crypto/daemon/provider/handler/operations/hash_handler_operations.hpp"
-#include "score/crypto/daemon/provider/handler/operations/mac_handler_operations.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/mac_handler_operations.hpp"
 
 #include "score/mw/log/logging.h"
 #include <ostream>
@@ -223,4 +223,4 @@ inline score::mw::log::LogStream& operator<<(score::mw::log::LogStream& os, cons
 
 }  // namespace score::crypto::daemon::common
 
-#endif  // SCORE_CRYPTO_DAEMON_COMMON_OPERATION_NAMES_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_OPERATION_NAMES_HPP

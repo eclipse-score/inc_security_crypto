@@ -18,11 +18,11 @@ cc_test(
     timeout = "moderate",  # required for QNX aarch64 (qemu emulation)
     srcs = ["test_control_plane.cpp"],
     deps = [
-        "//score/crypto/api:operations",
-        "//score/crypto/api/control_plane:control_plane_impl",
-        "//score/crypto/daemon/control_plane",
-        "//score/crypto/daemon/mediator",
-        "//score/crypto/ipc/grpc_adapter:grpc_control_server",
+        "//score/crypto/src/api:operations",
+        "//score/crypto/src/api/control_plane:control_plane_impl",
+        "//score/crypto/src/daemon/control_plane",
+        "//score/crypto/src/daemon/mediator",
+        "//score/crypto/src/ipc/grpc_adapter:grpc_control_server",
         "@googletest//:gtest",
     ],
 )

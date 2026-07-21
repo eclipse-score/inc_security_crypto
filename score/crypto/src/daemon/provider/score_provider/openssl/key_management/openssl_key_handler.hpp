@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_OPENSSL_KEY_MANAGEMENT_OPENSSL_KEY_HANDLER_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_OPENSSL_KEY_MANAGEMENT_OPENSSL_KEY_HANDLER_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_KEY_MANAGEMENT_OPENSSL_KEY_HANDLER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_KEY_MANAGEMENT_OPENSSL_KEY_HANDLER_HPP
 
-#include "score/crypto/daemon/key_management/interfaces/i_key_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -64,4 +64,4 @@ class OpenSslKeyHandler final : public key_management::IKeyHandler
 
 }  // namespace score::crypto::daemon::provider::openssl
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_OPENSSL_KEY_MANAGEMENT_OPENSSL_KEY_HANDLER_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_KEY_MANAGEMENT_OPENSSL_KEY_HANDLER_HPP

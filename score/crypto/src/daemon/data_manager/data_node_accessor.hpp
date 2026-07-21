@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef CRYPTO_DAEMON_DATA_MANAGER_DATA_NODE_ACCESSOR_HPP_
-#define CRYPTO_DAEMON_DATA_MANAGER_DATA_NODE_ACCESSOR_HPP_
+#ifndef SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_DATA_NODE_ACCESSOR_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_DATA_NODE_ACCESSOR_HPP
 
 #include "score/mw/log/logging.h"
 
@@ -20,10 +20,10 @@
 #include <string_view>
 #include <type_traits>
 
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/data_manager/data_node.hpp"
-#include "score/crypto/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 
 namespace score::crypto::daemon::data_manager
 {
@@ -215,4 +215,4 @@ class DataNodeAccessor
 
 }  // namespace score::crypto::daemon::data_manager
 
-#endif  // CRYPTO_DAEMON_DATA_MANAGER_DATA_NODE_ACCESSOR_HPP_
+#endif  // SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_DATA_NODE_ACCESSOR_HPP

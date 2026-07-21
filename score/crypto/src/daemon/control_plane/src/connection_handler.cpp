@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/control_plane/src/connection_handler.hpp"
-#include "score/crypto/daemon/common/actors.hpp"
-#include "score/crypto/daemon/control_plane/control_operations.h"
-#include "score/crypto/daemon/control_plane/i_request_handler.hpp"
-#include "score/crypto/daemon/data_manager/data_node.hpp"
-#include "score/crypto/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/daemon/control_plane/src/connection_handler.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/control_plane/control_operations.h"
+#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 
 #include "score/mw/log/logging.h"
 

@@ -13,7 +13,7 @@
 
 # =============================================================================
 # FUTURE: Config headers below are not yet in scope. To activate, move the
-#         .hpp back to //score/crypto/api/config/ and add to context_configs.
+#         .hpp back to //score/crypto/src/api/config/ and add to context_configs.
 # =============================================================================
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
@@ -31,6 +31,6 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #         "verify_signature_context_config.hpp",
 #     ],
 #     deps = [
-#         "//score/crypto/api/common:crypto_common",
+#         "//score/crypto/src/api/common:crypto_common",
 #     ],
 # )

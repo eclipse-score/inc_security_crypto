@@ -11,13 +11,13 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
 
-#include "score/crypto/api/common/types.hpp"
-#include "score/crypto/daemon/data_manager/data_node.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_handler.hpp"
-#include "score/crypto/daemon/key_management/slot/slot_registry.hpp"
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
+#include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -125,4 +125,4 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP

@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_COMMON_TYPES_HPP
-#define SCORE_CRYPTO_COMMON_TYPES_HPP
+#ifndef SCORE_CRYPTO_SRC_COMMON_TYPES_HPP
+#define SCORE_CRYPTO_SRC_COMMON_TYPES_HPP
 
 #include <utility>
 
@@ -162,4 +162,4 @@ using span = score::cpp::span<T>;
 }  // namespace crypto
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_COMMON_TYPES_HPP
+#endif  // SCORE_CRYPTO_SRC_COMMON_TYPES_HPP

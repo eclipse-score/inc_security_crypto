@@ -12,13 +12,13 @@
  ********************************************************************************/
 
 // Full Pkcs11Provider definition required for ReleaseSession call in destructor.
-#include "score/crypto/daemon/provider/pkcs11/operations/hash/pkcs11_hash_handler.hpp"
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/algorithm_info.hpp"
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/provider/handler/operations/hash_handler_operations.hpp"
-#include "score/crypto/daemon/provider/pkcs11/detail/pkcs11_algorithm_info.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_provider.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_handler.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/detail/pkcs11_algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 
 #include <cstring>
 #include <string_view>

@@ -11,14 +11,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_FACTORY_OPENSSL_HANDLER_FACTORY_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_FACTORY_OPENSSL_HANDLER_FACTORY_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_FACTORY_OPENSSL_HANDLER_FACTORY_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_FACTORY_OPENSSL_HANDLER_FACTORY_HPP
 
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/key_management/core/key_management_service.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_factory.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_slot_handler.hpp"
-#include "score/crypto/daemon/provider/score_provider/operations/factory/score_handler_factory.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/factory/score_handler_factory.hpp"
 #include "score/result/result.h"
 
 #include <memory>
@@ -47,4 +47,4 @@ class OpenSslHandlerFactory final
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_FACTORY_OPENSSL_HANDLER_FACTORY_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_FACTORY_OPENSSL_HANDLER_FACTORY_HPP

@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 #include "handler_utils.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 
 namespace score
 {

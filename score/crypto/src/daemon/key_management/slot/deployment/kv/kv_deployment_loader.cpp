@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/key_management/slot/deployment/kv/kv_deployment_loader.hpp"
+#include "score/crypto/src/daemon/key_management/slot/deployment/kv/kv_deployment_loader.hpp"
 
 #include "score/mw/log/logging.h"
 #include <cstddef>

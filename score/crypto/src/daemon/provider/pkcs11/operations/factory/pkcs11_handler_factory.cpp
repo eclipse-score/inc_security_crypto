@@ -11,21 +11,21 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/pkcs11/operations/factory/pkcs11_handler_factory.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/factory/pkcs11_handler_factory.hpp"
 
 // Full Pkcs11Provider definition required here (forward-declared in the header)
 // to call AcquireSession / ReleaseSession.
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_provider.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_session_guard.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_session_guard.hpp"
 
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/provider/executors/key_mgmt_executor.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/hash/pkcs11_hash_executor.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/hash/pkcs11_hash_handler.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/mac/pkcs11_mac_executor.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/mac/pkcs11_mac_handler.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_executor.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_handler.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_executor.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_handler.hpp"
 
 #include "score/mw/log/logging.h"
 

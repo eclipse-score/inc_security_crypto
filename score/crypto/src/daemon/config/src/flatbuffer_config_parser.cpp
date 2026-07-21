@@ -19,10 +19,10 @@
 #include <variant>
 #include <vector>
 
-#include "score/crypto/daemon/config/src/flatbuffer_config_parser.hpp"
+#include "score/crypto/src/daemon/config/src/flatbuffer_config_parser.hpp"
 
 // Include FlatBuffers generated file
-#include "score/crypto/daemon/config/crypto_config_generated.h"
+#include "score/crypto/src/daemon/config/crypto_config_generated.h"
 
 using namespace score::crypto::daemon::config::keyslot;
 

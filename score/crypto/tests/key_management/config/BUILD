@@ -14,7 +14,7 @@
 genrule(
     name = "generate_key_management_test_config",
     srcs = [
-        "//score/crypto/daemon/config:crypto_config_fbs_schema",
+        "//score/crypto/src/daemon/config:crypto_config_fbs_schema",
         "key_management_test_config.json",
     ],
     outs = ["key_management_test_config.bin"],

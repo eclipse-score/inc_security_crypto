@@ -16,9 +16,9 @@
 #ifndef GRPC_CONTROL_HANDLER_H
 #define GRPC_CONTROL_HANDLER_H
 
-#include "score/crypto/daemon/control_plane/control_protocol.h"
-#include "score/crypto/daemon/control_plane/i_handler_chain_factory.hpp"
-#include "score/crypto/ipc/grpc_adapter/control.grpc.fb.h"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
+#include "score/crypto/src/ipc/grpc_adapter/control.grpc.fb.h"
 #include <grpcpp/grpcpp.h>
 #include <memory>
 

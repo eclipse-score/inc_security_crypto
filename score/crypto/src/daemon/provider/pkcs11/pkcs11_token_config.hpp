@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_TOKEN_CONFIG_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_TOKEN_CONFIG_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_TOKEN_CONFIG_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_TOKEN_CONFIG_HPP
 
 #include <string>
 #include <vector>
@@ -97,4 +97,4 @@ class Pkcs11Config
 
 }  // namespace score::crypto::daemon::provider::pkcs11
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_TOKEN_CONFIG_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_TOKEN_CONFIG_HPP

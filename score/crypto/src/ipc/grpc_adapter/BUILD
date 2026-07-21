@@ -43,7 +43,7 @@ cc_library(
     linkstatic = True,  # Internal library should only be statically linked
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/daemon/control_plane",
+        "//score/crypto/src/daemon/control_plane",
         "@flatbuffers",
     ],
 )
@@ -64,13 +64,13 @@ cc_library(
     ],
     linkstatic = True,  # Internal library should only be statically linked
     visibility = [
-        "//score/crypto/api:__subpackages__",
-        "//score/crypto/daemon/IPC:__pkg__",
+        "//score/crypto/src/api:__subpackages__",
+        "//score/crypto/src/daemon/IPC:__pkg__",
         "//score/tests:__subpackages__",
     ],
     deps = [
-        "//score/crypto/api/control_plane",
-        "//score/crypto/daemon/control_plane:request_handler_hdr",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
         "@flatbuffers",
     ],
 )

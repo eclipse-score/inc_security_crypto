@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/api/common/error_domain.hpp"
+#include "score/crypto/src/api/common/error_domain.hpp"
 
 namespace score
 {

@@ -11,11 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_FILE_BACKED_SLOT_HANDLER_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_FILE_BACKED_SLOT_HANDLER_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_FILE_BACKED_SLOT_HANDLER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_FILE_BACKED_SLOT_HANDLER_HPP
 
-#include "score/crypto/daemon/key_management/interfaces/i_key_factory.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_slot_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -85,4 +85,4 @@ class FileBackedSlotHandler final : public IKeySlotHandler
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_FILE_BACKED_SLOT_HANDLER_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_FILE_BACKED_SLOT_HANDLER_HPP

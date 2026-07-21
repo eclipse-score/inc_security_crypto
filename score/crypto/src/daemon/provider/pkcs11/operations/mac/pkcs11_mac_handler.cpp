@@ -10,13 +10,13 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
-#include "score/crypto/daemon/provider/pkcs11/operations/mac/pkcs11_mac_handler.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_handler.hpp"
 
-#include "score/crypto/daemon/common/algorithm_info.hpp"
-#include "score/crypto/daemon/provider/pkcs11/detail/pkcs11_algorithm_info.hpp"
-#include "score/crypto/daemon/provider/pkcs11/key_management/pkcs11_key_handler.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_provider.hpp"
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/detail/pkcs11_algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_handler.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 
 #include "score/mw/log/logging.h"
 

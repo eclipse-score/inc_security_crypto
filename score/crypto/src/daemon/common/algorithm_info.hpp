@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef CRYPTO_DAEMON_COMMON_ALGORITHM_INFO_HPP
-#define CRYPTO_DAEMON_COMMON_ALGORITHM_INFO_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP
 
 #include <cstddef>
 #include <optional>
@@ -124,4 +124,4 @@ inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
 
 }  // namespace score::crypto::daemon::common
 
-#endif  // CRYPTO_DAEMON_COMMON_ALGORITHM_INFO_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP

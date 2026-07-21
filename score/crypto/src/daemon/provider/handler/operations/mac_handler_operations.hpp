@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef CRYPTO_DAEMON_PROVIDER_CRYPTO_HANDLERS_MAC_HANDLER_OPERATIONS_HPP
-#define CRYPTO_DAEMON_PROVIDER_CRYPTO_HANDLERS_MAC_HANDLER_OPERATIONS_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_OPERATIONS_MAC_HANDLER_OPERATIONS_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_OPERATIONS_MAC_HANDLER_OPERATIONS_HPP
 
-#include "score/crypto/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 #include <limits>
 
@@ -101,4 +101,4 @@ inline constexpr OperationAction MAC_CUSTOM_OP_START = 1 << (std::numeric_limits
 }  // namespace crypto
 }  // namespace score
 
-#endif  // CRYPTO_DAEMON_PROVIDER_CRYPTO_HANDLERS_MAC_HANDLER_OPERATIONS_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_OPERATIONS_MAC_HANDLER_OPERATIONS_HPP

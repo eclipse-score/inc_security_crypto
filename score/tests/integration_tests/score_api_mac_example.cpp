@@ -22,15 +22,15 @@
 ///   - Context reuse via Reset()
 ///   - Automatic key release via CryptoResourceGuard RAII
 
-#include "score/crypto/api/common/types.hpp"
-#include "score/crypto/api/config/key_management_context_config.hpp"
-#include "score/crypto/api/config/key_operation_params.hpp"
-#include "score/crypto/api/config/mac_context_config.hpp"
-#include "score/crypto/api/contexts/i_key_management_context.hpp"
-#include "score/crypto/api/contexts/i_mac_context.hpp"
-#include "score/crypto/api/crypto_stack_factory.hpp"
-#include "score/crypto/api/i_crypto_context.hpp"
-#include "score/crypto/api/i_crypto_stack.hpp"
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/config/key_management_context_config.hpp"
+#include "score/crypto/src/api/config/key_operation_params.hpp"
+#include "score/crypto/src/api/config/mac_context_config.hpp"
+#include "score/crypto/src/api/contexts/i_key_management_context.hpp"
+#include "score/crypto/src/api/contexts/i_mac_context.hpp"
+#include "score/crypto/src/api/crypto_stack_factory.hpp"
+#include "score/crypto/src/api/i_crypto_context.hpp"
+#include "score/crypto/src/api/i_crypto_stack.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>

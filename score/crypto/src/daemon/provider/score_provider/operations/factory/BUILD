@@ -20,9 +20,9 @@ cc_library(
     hdrs = ["score_handler_factory.hpp"],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/key_management",
-        "//score/crypto/daemon/provider/handler:crypto_handler_factory_headers",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/key_management",
+        "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
         "@score_baselibs//score/result",
     ],
 )

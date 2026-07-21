@@ -20,8 +20,8 @@ cc_library(
     hdrs = ["score_provider.hpp"],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/daemon/provider:provider_headers",
-        "//score/crypto/daemon/provider/handler:crypto_handler_factory_headers",
+        "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
     ],
 )
 
@@ -44,7 +44,7 @@ cc_library(
     deps = [
         ":score_provider",
         ":score_provider_config",
-        "//score/crypto/daemon/provider:provider_headers",
-        "//score/crypto/daemon/provider/score_provider/openssl:provider_openssl_factory",
+        "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_factory",
     ],
 )

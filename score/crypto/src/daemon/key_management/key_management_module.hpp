@@ -11,14 +11,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_MODULE_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_MODULE_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_MODULE_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_MODULE_HPP
 
-#include "score/crypto/daemon/config/inc/config.hpp"
-#include "score/crypto/daemon/data_manager/i_data_manager.hpp"
-#include "score/crypto/daemon/key_management/core/key_management_service.hpp"
-#include "score/crypto/daemon/key_management/slot/slot_registry.hpp"
-#include "score/crypto/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
+#include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <memory>
 #include <string_view>
@@ -86,4 +86,4 @@ class KeyManagementModule
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_MODULE_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_MODULE_HPP

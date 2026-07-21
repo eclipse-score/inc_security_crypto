@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_COMMON_OPERATION_ACTORS_HPP
-#define SCORE_CRYPTO_DAEMON_COMMON_OPERATION_ACTORS_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_ACTORS_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_ACTORS_HPP
 
 #include <limits>
 
-#include "score/crypto/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 namespace score::crypto::daemon::common::actors
 {
@@ -33,4 +33,4 @@ inline constexpr OperationActor CUSTOM_ACTOR_START = 1 << (std::numeric_limits<O
 
 }  // namespace score::crypto::daemon::common::actors
 
-#endif  // SCORE_CRYPTO_DAEMON_COMMON_OPERATION_ACTORS_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_ACTORS_HPP

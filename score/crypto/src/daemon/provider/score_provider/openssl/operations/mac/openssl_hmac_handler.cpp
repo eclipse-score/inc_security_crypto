@@ -11,16 +11,16 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
-#include "score/crypto/daemon/common/algorithm_info.hpp"
-#include "score/crypto/daemon/provider/handler/src/handler_utils.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
 #include <openssl/crypto.h>  // CRYPTO_memcmp, OPENSSL_cleanse
 #include <openssl/params.h>  // OSSL_PARAM
 
-#include "score/crypto/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/mw/log/logging.h"
 #include <cstring>
 

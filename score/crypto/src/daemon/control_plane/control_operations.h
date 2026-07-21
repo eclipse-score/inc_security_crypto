@@ -15,8 +15,8 @@
 #define SCORE_CRYPTO_DAEMON_CONTROL_PLANE_CONTROL_OPERATIONS_H
 
 #include "control_protocol.h"
-#include "score/crypto/daemon/common/actors.hpp"
-#include "score/crypto/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 #include <limits>
 

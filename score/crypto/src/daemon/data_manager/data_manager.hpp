@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef CRYPTO_DAEMON_DATA_MANAGER_DATA_MANAGER_HPP_
-#define CRYPTO_DAEMON_DATA_MANAGER_DATA_MANAGER_HPP_
+#ifndef SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_DATA_MANAGER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_DATA_MANAGER_HPP
 
 #include <cstddef>
 #include <memory>
@@ -23,10 +23,10 @@
 #include <variant>
 #include <vector>
 
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/data_manager/data_node.hpp"
-#include "score/crypto/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 
 namespace score::crypto::daemon::data_manager
 {
@@ -201,4 +201,4 @@ class DataManager : public IDataManager
 
 }  // namespace score::crypto::daemon::data_manager
 
-#endif  // CRYPTO_DAEMON_DATA_MANAGER_DATA_MANAGER_HPP_
+#endif  // SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_DATA_MANAGER_HPP

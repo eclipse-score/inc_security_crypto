@@ -11,18 +11,18 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_PROVIDER_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_PROVIDER_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_PROVIDER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_PROVIDER_HPP
 
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/key_management/core/key_management_service.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_factory.hpp"
-#include "score/crypto/daemon/provider/i_provider.hpp"
-#include "score/crypto/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/factory/pkcs11_handler_factory.hpp"
-#include "score/crypto/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
+#include "score/crypto/src/daemon/provider/i_provider.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/factory/pkcs11_handler_factory.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 #include <cryptoki.h>
 #include <pkcs11.h>
 
@@ -195,4 +195,4 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
 
 }  // namespace score::crypto::daemon::provider::pkcs11
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_PROVIDER_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_PROVIDER_HPP

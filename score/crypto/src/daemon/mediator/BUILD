@@ -19,7 +19,7 @@ cc_library(
     visibility = [
         "//:__subpackages__",
     ],
-    deps = ["//score/crypto/daemon/common"],
+    deps = ["//score/crypto/src/daemon/common"],
 )
 
 cc_library(
@@ -35,14 +35,14 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":mediator_operations",
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/common:operation_names",
-        "//score/crypto/daemon/config",
-        "//score/crypto/daemon/control_plane:request_handler_hdr",
-        "//score/crypto/daemon/data_manager",
-        "//score/crypto/daemon/key_management",
-        "//score/crypto/daemon/key_management:key_management_headers",
-        "//score/crypto/daemon/provider:provider_headers",
-        "//score/crypto/daemon/provider:provider_manager",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:operation_names",
+        "//score/crypto/src/daemon/config",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/key_management",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider:provider_manager",
     ],
 )

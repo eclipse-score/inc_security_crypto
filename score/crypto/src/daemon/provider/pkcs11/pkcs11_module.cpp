@@ -11,11 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 
-#include "score/crypto/common/types.hpp"
+#include "score/crypto/src/common/types.hpp"
 
-#include "score/crypto/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/mw/log/logging.h"
 #include <cstring>
 

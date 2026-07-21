@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_DEPLOYMENT_LOADER_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_DEPLOYMENT_LOADER_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_DEPLOYMENT_LOADER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_DEPLOYMENT_LOADER_HPP
 
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_slot_config.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
 
 #include <string>
 #include <string_view>
@@ -67,4 +67,4 @@ class DeploymentLoader
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_DEPLOYMENT_LOADER_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_DEPLOYMENT_LOADER_HPP

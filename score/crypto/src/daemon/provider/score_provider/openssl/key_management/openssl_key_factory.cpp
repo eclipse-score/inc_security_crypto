@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
 
-#include "score/crypto/daemon/common/algorithm_info.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
 #include <openssl/crypto.h>  // OPENSSL_cleanse
 #include <openssl/rand.h>    // RAND_bytes

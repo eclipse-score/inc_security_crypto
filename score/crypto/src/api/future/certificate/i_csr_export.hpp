@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_FUTURE_CERTIFICATE_I_CSR_EXPORT_HPP
-#define SCORE_CRYPTO_API_FUTURE_CERTIFICATE_I_CSR_EXPORT_HPP
+#ifndef SCORE_CRYPTO_SRC_API_FUTURE_CERTIFICATE_I_CSR_EXPORT_HPP
+#define SCORE_CRYPTO_SRC_API_FUTURE_CERTIFICATE_I_CSR_EXPORT_HPP
 
 #include "score/result/result.h"
 #include "score/span.hpp"
@@ -62,4 +62,4 @@ class ICsrExport
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_API_FUTURE_CERTIFICATE_I_CSR_EXPORT_HPP
+#endif  // SCORE_CRYPTO_SRC_API_FUTURE_CERTIFICATE_I_CSR_EXPORT_HPP

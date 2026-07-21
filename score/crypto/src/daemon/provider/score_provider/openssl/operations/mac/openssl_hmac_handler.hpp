@@ -11,15 +11,15 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_MAC_OPENSSL_HMAC_HANDLER_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_MAC_OPENSSL_HMAC_HANDLER_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_MAC_OPENSSL_HMAC_HANDLER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_MAC_OPENSSL_HMAC_HANDLER_HPP
 
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/provider/handler/handler_init_params.hpp"
-#include "score/crypto/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
-#include "score/crypto/daemon/provider/score_provider/operations/mac/score_mac_handler.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/mac/score_mac_handler.hpp"
 
 #include <openssl/evp.h>
 
@@ -108,4 +108,4 @@ class OpenSslHmacHandler final
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_MAC_OPENSSL_HMAC_HANDLER_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_MAC_OPENSSL_HMAC_HANDLER_HPP

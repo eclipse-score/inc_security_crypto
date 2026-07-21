@@ -23,7 +23,7 @@ cc_library(
     ],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/api/common:crypto_common",
+        "//score/crypto/src/api/common:crypto_common",
         "@score_baselibs//score/result",
     ],
 )
@@ -43,9 +43,9 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":common",
-        "//score/crypto/daemon/key_management:key_management_operations",
-        "//score/crypto/daemon/provider/handler:hash_handler_operations",
-        "//score/crypto/daemon/provider/handler:mac_handler_operations",
+        "//score/crypto/src/daemon/key_management:key_management_operations",
+        "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:mac_handler_operations",
         "@score_baselibs//score/mw/log",
     ],
 )

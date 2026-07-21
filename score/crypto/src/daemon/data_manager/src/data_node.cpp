@@ -18,9 +18,9 @@
 #include <variant>
 #include <vector>
 
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
 
 namespace score::crypto::daemon::data_manager
 {

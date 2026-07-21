@@ -11,20 +11,20 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_MEDIATOR_IMPL_HPP_
-#define SCORE_CRYPTO_DAEMON_MEDIATOR_IMPL_HPP_
+#ifndef SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_SRC_MEDIATOR_IMPL_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_SRC_MEDIATOR_IMPL_HPP
 
-#include "score/crypto/daemon/mediator/i_mediator.hpp"
+#include "score/crypto/src/daemon/mediator/i_mediator.hpp"
 
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/config/inc/config.hpp"
-#include "score/crypto/daemon/control_plane/control_protocol.h"
-#include "score/crypto/daemon/control_plane/i_request_handler.hpp"
-#include "score/crypto/daemon/data_manager/data_node_accessor.hpp"
-#include "score/crypto/daemon/data_manager/i_data_manager.hpp"
-#include "score/crypto/daemon/provider/handler/context_data_node.hpp"
-#include "score/crypto/daemon/provider/handler/i_handler.hpp"
-#include "score/crypto/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
+#include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
+#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -114,4 +114,4 @@ class MediatorImpl : public IMediator
 
 }  // namespace score::crypto::daemon::mediator
 
-#endif  // SCORE_CRYPTO_DAEMON_MEDIATOR_IMPL_HPP_
+#endif  // SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_SRC_MEDIATOR_IMPL_HPP

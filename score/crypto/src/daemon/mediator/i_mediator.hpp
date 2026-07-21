@@ -11,16 +11,16 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_MEDIATOR_IMediator_HPP_
-#define SCORE_CRYPTO_DAEMON_MEDIATOR_IMediator_HPP_
+#ifndef SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_I_MEDIATOR_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_I_MEDIATOR_HPP
 
 #include <memory>
 
-#include "score/crypto/daemon/config/inc/config.hpp"
-#include "score/crypto/daemon/control_plane/i_request_handler.hpp"
-#include "score/crypto/daemon/data_manager/i_data_manager.hpp"
-#include "score/crypto/daemon/key_management/core/key_management_service.hpp"
-#include "score/crypto/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
+#include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 namespace score::crypto::daemon::mediator
 {

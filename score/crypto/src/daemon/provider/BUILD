@@ -22,10 +22,10 @@ cc_library(
     ],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/config",
-        "//score/crypto/daemon/provider/handler:context_node",
-        "//score/crypto/daemon/provider/handler:crypto_handler_factory_headers",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/config",
+        "//score/crypto/src/daemon/provider/handler:context_node",
+        "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
     ],
 )
 

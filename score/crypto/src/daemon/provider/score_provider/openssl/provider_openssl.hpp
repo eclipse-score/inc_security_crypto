@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_PROVIDER_OPENSSL_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_PROVIDER_OPENSSL_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_PROVIDER_OPENSSL_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_PROVIDER_OPENSSL_HPP
 
 #include <memory>
 
-#include "score/crypto/daemon/provider/score_provider/score_provider.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/score_provider.hpp"
 
 namespace score::crypto::daemon::provider::score_provider::openssl
 {
@@ -60,4 +60,4 @@ class OpenSSL final : public ::score::crypto::daemon::provider::score_provider::
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_PROVIDER_OPENSSL_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_PROVIDER_OPENSSL_HPP

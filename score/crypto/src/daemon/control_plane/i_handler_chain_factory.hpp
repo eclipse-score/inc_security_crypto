@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_CONTROL_PLANE_REQUEST_HANDLER_FACTORY_HPP_
-#define SCORE_CRYPTO_DAEMON_CONTROL_PLANE_REQUEST_HANDLER_FACTORY_HPP_
+#ifndef SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_I_HANDLER_CHAIN_FACTORY_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_I_HANDLER_CHAIN_FACTORY_HPP
 
-#include "score/crypto/daemon/control_plane/i_request_handler.hpp"
+#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include <memory>
 
 namespace score::crypto::daemon::control_plane
@@ -62,4 +62,4 @@ class IHandlerChainFactory
 
 }  // namespace score::crypto::daemon::control_plane
 
-#endif  // SCORE_CRYPTO_DAEMON_CONTROL_PLANE_REQUEST_HANDLER_FACTORY_HPP_
+#endif  // SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_I_HANDLER_CHAIN_FACTORY_HPP

@@ -11,11 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP
 
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 
 #include <cryptoki.h>
 #include <pkcs11.h>
@@ -29,7 +29,7 @@
 #include <utility>
 #include <vector>
 
-#include "score/crypto/common/types.hpp"
+#include "score/crypto/src/common/types.hpp"
 
 namespace score::crypto::daemon::provider::pkcs11
 {
@@ -195,4 +195,4 @@ class Pkcs11KeyStore
 
 }  // namespace score::crypto::daemon::provider::pkcs11
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP

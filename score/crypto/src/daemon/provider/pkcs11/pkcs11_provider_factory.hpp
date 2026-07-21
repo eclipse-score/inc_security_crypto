@@ -11,11 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_PROVIDER_FACTORY_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_PROVIDER_FACTORY_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_PROVIDER_FACTORY_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_PROVIDER_FACTORY_HPP
 
-#include "score/crypto/daemon/provider/i_provider_factory.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/daemon/provider/i_provider_factory.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 
 #include <vector>
 
@@ -82,4 +82,4 @@ class Pkcs11ProviderFactory final : public IProviderFactory
 
 }  // namespace score::crypto::daemon::provider::pkcs11
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_PROVIDER_FACTORY_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_PROVIDER_FACTORY_HPP

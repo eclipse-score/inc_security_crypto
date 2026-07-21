@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_CRYPTO_STACK_FACTORY_HPP
-#define SCORE_CRYPTO_API_CRYPTO_STACK_FACTORY_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CRYPTO_STACK_FACTORY_HPP
+#define SCORE_CRYPTO_SRC_API_CRYPTO_STACK_FACTORY_HPP
 
-#include "score/crypto/api/i_crypto_stack.hpp"
+#include "score/crypto/src/api/i_crypto_stack.hpp"
 #include "score/result/result.h"
 
 #include <chrono>
@@ -86,4 +86,4 @@ score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& con
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_API_CRYPTO_STACK_FACTORY_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CRYPTO_STACK_FACTORY_HPP

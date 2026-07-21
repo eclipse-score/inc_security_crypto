@@ -11,20 +11,20 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/api/src/crypto_context_impl.hpp"
+#include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
-#include "score/crypto/api/common/error_domain.hpp"
-#include "score/crypto/api/common/types.hpp"
-#include "score/crypto/api/config/hash_context_config.hpp"
-#include "score/crypto/api/config/key_management_context_config.hpp"
-#include "score/crypto/api/config/mac_context_config.hpp"
-#include "score/crypto/api/contexts/src/hash_context_impl.hpp"
-#include "score/crypto/api/contexts/src/key_management_context_impl.hpp"
-#include "score/crypto/api/contexts/src/mac_context_impl.hpp"
-#include "score/crypto/api/src/provider_type_converter.hpp"
-#include "score/crypto/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/config/hash_context_config.hpp"
+#include "score/crypto/src/api/config/key_management_context_config.hpp"
+#include "score/crypto/src/api/config/mac_context_config.hpp"
+#include "score/crypto/src/api/contexts/src/hash_context_impl.hpp"
+#include "score/crypto/src/api/contexts/src/key_management_context_impl.hpp"
+#include "score/crypto/src/api/contexts/src/mac_context_impl.hpp"
+#include "score/crypto/src/api/src/provider_type_converter.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
-#include "score/crypto/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/result/result.h"
 
 #include "score/mw/log/logging.h"
@@ -34,13 +34,13 @@
 #include <utility>
 
 // Full definitions needed for Result<unique_ptr<T>> return types
-#include "score/crypto/api/contexts/i_hash_context.hpp"
-#include "score/crypto/api/contexts/i_key_management_context.hpp"
-#include "score/crypto/api/contexts/i_mac_context.hpp"
-#include "score/crypto/api/objects/i_key_object.hpp"
-#include "score/crypto/api/objects/i_key_slot_object.hpp"
+#include "score/crypto/src/api/contexts/i_hash_context.hpp"
+#include "score/crypto/src/api/contexts/i_key_management_context.hpp"
+#include "score/crypto/src/api/contexts/i_mac_context.hpp"
+#include "score/crypto/src/api/objects/i_key_object.hpp"
+#include "score/crypto/src/api/objects/i_key_slot_object.hpp"
 
-#include "score/crypto/daemon/mediator/mediator_operations.hpp"
+#include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 
 namespace score
 {

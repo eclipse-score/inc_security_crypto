@@ -22,12 +22,12 @@ cc_library(
         "key_mgmt_request_parser.hpp",
     ],
     visibility = [
-        "//score/crypto/daemon/provider:__subpackages__",
+        "//score/crypto/src/daemon/provider:__subpackages__",
         "//score/crypto/tests:__subpackages__",
     ],
     deps = [
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/key_management",
-        "//score/crypto/daemon/provider/handler:handler_headers",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/key_management",
+        "//score/crypto/src/daemon/provider/handler:handler_headers",
     ],
 )

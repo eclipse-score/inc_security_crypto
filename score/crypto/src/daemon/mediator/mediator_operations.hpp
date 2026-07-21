@@ -11,14 +11,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP_
-#define SCORE_CRYPTO_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP_
+#ifndef SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP
 
 #include <limits>
 
-#include "score/crypto/daemon/common/actors.hpp"
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 namespace score::crypto::daemon::mediator::operations
 {
@@ -82,4 +82,4 @@ inline constexpr OperationAction CUSTOM_OP_START = 1 << (std::numeric_limits<Ope
 
 }  // namespace score::crypto::daemon::mediator::operations
 
-#endif  // SCORE_CRYPTO_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP_
+#endif  // SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP

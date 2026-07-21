@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_KEY_SLOT_DATA_NODE_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_KEY_SLOT_DATA_NODE_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_NODES_KEY_SLOT_DATA_NODE_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_NODES_KEY_SLOT_DATA_NODE_HPP
 
-#include "score/crypto/api/common/types.hpp"
-#include "score/crypto/daemon/data_manager/data_node.hpp"
-#include "score/crypto/daemon/key_management/slot/slot_registry.hpp"
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
 
 #include <memory>
 
@@ -98,4 +98,4 @@ class KeySlotDataNode : public data_manager::DataNode
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_KEY_SLOT_DATA_NODE_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_NODES_KEY_SLOT_DATA_NODE_HPP

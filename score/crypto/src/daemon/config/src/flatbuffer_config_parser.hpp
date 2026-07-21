@@ -11,17 +11,17 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_CONFIG_FLATBUFFER_CONFIG_PARSER_HPP
-#define SCORE_CRYPTO_DAEMON_CONFIG_FLATBUFFER_CONFIG_PARSER_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_CONFIG_SRC_FLATBUFFER_CONFIG_PARSER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_CONFIG_SRC_FLATBUFFER_CONFIG_PARSER_HPP
 
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
 #include <variant>
 
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/config/inc/config.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
 
 namespace score::crypto::daemon::config::keyslot
 {
@@ -141,4 +141,4 @@ class FlatBufferConfigParser
 
 }  // namespace score::crypto::daemon::config
 
-#endif  // SCORE_CRYPTO_DAEMON_CONFIG_FLATBUFFER_CONFIG_PARSER_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_CONFIG_SRC_FLATBUFFER_CONFIG_PARSER_HPP

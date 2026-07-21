@@ -11,19 +11,19 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_MANAGEMENT_SERVICE_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_MANAGEMENT_SERVICE_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_MANAGEMENT_SERVICE_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_MANAGEMENT_SERVICE_HPP
 
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/data_manager/i_data_manager.hpp"
-#include "score/crypto/daemon/key_management/core/key_registry.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_factory.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_handler.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_slot_handler.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_slot_config.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_types.hpp"
-#include "score/crypto/daemon/key_management/slot/slot_registry.hpp"
-#include "score/crypto/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_registry.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
+#include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -263,4 +263,4 @@ class KeyManagementService final
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_MANAGEMENT_SERVICE_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_MANAGEMENT_SERVICE_HPP

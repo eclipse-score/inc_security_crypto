@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_INIT_PARAMS_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_INIT_PARAMS_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_HANDLER_INIT_PARAMS_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_HANDLER_INIT_PARAMS_HPP
 
-#include "score/crypto/api/common/types.hpp"
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_handler.hpp"
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -53,4 +53,4 @@ struct InitializationParams
 
 }  // namespace score::crypto::daemon::provider::handler
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_INIT_PARAMS_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_HANDLER_INIT_PARAMS_HPP

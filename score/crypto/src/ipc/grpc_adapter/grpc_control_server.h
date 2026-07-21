@@ -17,8 +17,8 @@
 #include <memory>
 #include <string_view>
 
-#include "score/crypto/daemon/control_plane/i_control_server.h"
-#include "score/crypto/daemon/control_plane/i_handler_chain_factory.hpp"
+#include "score/crypto/src/daemon/control_plane/i_control_server.h"
+#include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 
 namespace score::crypto::ipc
 {

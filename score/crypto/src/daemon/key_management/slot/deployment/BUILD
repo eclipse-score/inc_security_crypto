@@ -25,15 +25,15 @@ cc_library(
     ],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/common:common_types",
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/key_management:key_management_headers",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
     ],
 )
 
 # KV format implementation.  Stdlib-only — no extra library deps required.
 # To add a new format, create an analogous target here (e.g. json_deployment)
-# and add it as a dep to //score/crypto/daemon/key_management:key_management.
+# and add it as a dep to //score/crypto/src/daemon/key_management:key_management.
 cc_library(
     name = "kv_deployment",
     srcs = [

@@ -26,10 +26,10 @@ cc_library(
     ],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/common:algorithm_info",
-        "//score/crypto/daemon/provider/handler:handler_headers",
-        "//score/crypto/daemon/provider/handler:handler_utils_impl",
-        "//score/crypto/daemon/provider/handler:hash_handler_operations",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_info",
+        "//score/crypto/src/daemon/provider/handler:handler_headers",
+        "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
+        "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
     ],
 )

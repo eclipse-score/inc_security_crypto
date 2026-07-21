@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_COMMON_SECURE_MEMORY_HPP
-#define SCORE_CRYPTO_DAEMON_COMMON_SECURE_MEMORY_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_SECURE_MEMORY_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_SECURE_MEMORY_HPP
 
 #include <cstddef>
 #include <cstdint>
@@ -73,4 +73,4 @@ inline void SecureZeroizeAndClear(std::vector<uint8_t>& v) noexcept
 
 }  // namespace score::crypto::daemon::common
 
-#endif  // SCORE_CRYPTO_DAEMON_COMMON_SECURE_MEMORY_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_SECURE_MEMORY_HPP

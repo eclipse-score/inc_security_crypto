@@ -15,7 +15,7 @@
 #ifndef GRPC_CONTROL_CLIENT_H
 #define GRPC_CONTROL_CLIENT_H
 
-#include "score/crypto/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/api/control_plane/i_connection.hpp"
 
 #include <memory>
 #include <string_view>

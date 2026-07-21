@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_COMMON_DAEMON_ERROR_HPP
-#define SCORE_CRYPTO_DAEMON_COMMON_DAEMON_ERROR_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_DAEMON_ERROR_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_DAEMON_ERROR_HPP
 
 // Forward-declaration of the translation target; only ToCryptoErrorCode() needs
 // the full CryptoErrorCode definition.
-#include "score/crypto/api/common/error_domain.hpp"
+#include "score/crypto/src/api/common/error_domain.hpp"
 
 #include <cstdint>
 
@@ -282,4 +282,4 @@ inline score::mw::crypto::CryptoErrorCode ToCryptoErrorCode(DaemonErrorCode code
 
 }  // namespace score::crypto::daemon::common
 
-#endif  // SCORE_CRYPTO_DAEMON_COMMON_DAEMON_ERROR_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_DAEMON_ERROR_HPP

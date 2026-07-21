@@ -37,9 +37,9 @@ cc_library(
     includes = ["inc"],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/provider/pkcs11:pkcs11_token_config",
-        "//score/crypto/daemon/provider/score_provider:score_provider_config",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/provider/pkcs11:pkcs11_token_config",
+        "//score/crypto/src/daemon/provider/score_provider:score_provider_config",
     ],
 )
 
@@ -58,8 +58,8 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":config_types",
-        "//score/crypto/common:common_types",
-        "//score/crypto/daemon/common",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
         "@flatbuffers",
         "@score_baselibs//score/mw/log",
     ],
@@ -73,6 +73,6 @@ cc_library(
     deps = [
         ":config_types",
         ":flatbuffer_config_parser",
-        "//score/crypto/daemon/common",
+        "//score/crypto/src/daemon/common",
     ],
 )

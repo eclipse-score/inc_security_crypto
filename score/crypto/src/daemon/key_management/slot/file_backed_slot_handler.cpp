@@ -11,13 +11,13 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/key_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
 
-#include "score/crypto/daemon/common/secure_memory.hpp"
-#include "score/crypto/daemon/key_management/detail/slot_info_builder.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_management_operations.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_slot_config.hpp"
-#include "score/crypto/daemon/key_management/slot/deployment_loader.hpp"
+#include "score/crypto/src/daemon/common/secure_memory.hpp"
+#include "score/crypto/src/daemon/key_management/detail/slot_info_builder.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
+#include "score/crypto/src/daemon/key_management/slot/deployment_loader.hpp"
 
 #include <cstdint>
 #include <fstream>

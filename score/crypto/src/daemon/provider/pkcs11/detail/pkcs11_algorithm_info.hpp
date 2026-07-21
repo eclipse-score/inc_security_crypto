@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
 
-#include "score/crypto/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 #include <cryptoki.h>
 #include <pkcs11.h>
@@ -167,4 +167,4 @@ inline std::vector<uint8_t> HexDecode(std::string_view hex) noexcept
 
 }  // namespace score::crypto::daemon::provider::pkcs11::detail
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP

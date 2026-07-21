@@ -24,11 +24,11 @@
 #include <memory>
 #include <string>
 
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/provider/i_provider.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_provider.hpp"
-#include "score/crypto/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/i_provider.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 namespace pkcs11 = score::crypto::daemon::provider::pkcs11;
 namespace provider = score::crypto::daemon::provider;

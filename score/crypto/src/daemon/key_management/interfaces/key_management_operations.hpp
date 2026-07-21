@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_OPERATIONS_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_OPERATIONS_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_INTERFACES_KEY_MANAGEMENT_OPERATIONS_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_INTERFACES_KEY_MANAGEMENT_OPERATIONS_HPP
 
-#include "score/crypto/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 namespace score::crypto::daemon::key_management::operations
 {
@@ -80,4 +80,4 @@ inline constexpr OperationAction KEY_MGMT_CUSTOM_OP_START = 1 << (std::numeric_l
 
 }  // namespace score::crypto::daemon::key_management::operations
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_OPERATIONS_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_INTERFACES_KEY_MANAGEMENT_OPERATIONS_HPP

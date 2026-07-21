@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_CONTROL_PLANE_I_CONNECTION_HPP
-#define SCORE_CRYPTO_API_CONTROL_PLANE_I_CONNECTION_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CONTROL_PLANE_I_CONNECTION_HPP
+#define SCORE_CRYPTO_SRC_API_CONTROL_PLANE_I_CONNECTION_HPP
 
-#include "score/crypto/api/common/error_domain.hpp"
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 namespace score::crypto::api::control_plane
 {
@@ -51,4 +51,4 @@ class IConnection
 
 }  // namespace score::crypto::api::control_plane
 
-#endif  // SCORE_CRYPTO_API_CONTROL_PLANE_I_CONNECTION_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CONTROL_PLANE_I_CONNECTION_HPP

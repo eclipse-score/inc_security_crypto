@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef CRYPTO_DAEMON_PROVIDER_HANDLER_HANDLER_HPP
-#define CRYPTO_DAEMON_PROVIDER_HANDLER_HANDLER_HPP
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/provider/handler/handler_init_params.hpp"
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_I_HANDLER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_I_HANDLER_HPP
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
 #include <memory>
 
 namespace score::crypto::daemon::provider::handler
@@ -42,4 +42,4 @@ class Handler
 
 }  // namespace score::crypto::daemon::provider::handler
 
-#endif  // CRYPTO_DAEMON_PROVIDER_HANDLER_HANDLER_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_I_HANDLER_HPP

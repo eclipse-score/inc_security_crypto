@@ -11,13 +11,13 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/ipc/grpc_adapter/grpc_control_client.h"
-#include "score/crypto/common/types.hpp"
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/control_plane/control_protocol.h"
-#include "score/crypto/ipc/grpc_adapter/control.grpc.fb.h"
-#include "score/crypto/ipc/grpc_adapter/control_generated.h"
-#include "score/crypto/ipc/grpc_adapter/src/grpc_id_helpers.h"
+#include "score/crypto/src/ipc/grpc_adapter/grpc_control_client.h"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/ipc/grpc_adapter/control.grpc.fb.h"
+#include "score/crypto/src/ipc/grpc_adapter/control_generated.h"
+#include "score/crypto/src/ipc/grpc_adapter/src/grpc_id_helpers.h"
 
 #include "flatbuffers/grpc.h"
 #include <grpcpp/grpcpp.h>

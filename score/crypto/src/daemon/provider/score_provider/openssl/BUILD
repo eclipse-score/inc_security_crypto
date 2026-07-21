@@ -22,7 +22,7 @@ cc_library(
     ],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
     ],
 )
 
@@ -48,13 +48,13 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":openssl_key_management_headers",
-        "//score/crypto/daemon/key_management:key_management_headers",
-        "//score/crypto/daemon/provider/executors:key_mgmt_executor",
-        "//score/crypto/daemon/provider/score_provider",
-        "//score/crypto/daemon/provider/score_provider/operations/factory:score_handler_factory",
-        "//score/crypto/daemon/provider/score_provider/operations/hash:score_hash_handler",
-        "//score/crypto/daemon/provider/score_provider/operations/key_management:score_key_management_handler",
-        "//score/crypto/daemon/provider/score_provider/operations/mac:score_mac_handler",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
+        "//score/crypto/src/daemon/provider/score_provider",
+        "//score/crypto/src/daemon/provider/score_provider/operations/factory:score_handler_factory",
+        "//score/crypto/src/daemon/provider/score_provider/operations/hash:score_hash_handler",
+        "//score/crypto/src/daemon/provider/score_provider/operations/key_management:score_key_management_handler",
+        "//score/crypto/src/daemon/provider/score_provider/operations/mac:score_mac_handler",
     ],
 )
 
@@ -80,12 +80,12 @@ cc_library(
         ":openssl_detail_headers",
         ":openssl_key_management_headers",
         ":provider_openssl_headers",
-        "//score/crypto/daemon/common",
-        "//score/crypto/daemon/common:algorithm_info",
-        "//score/crypto/daemon/data_manager",
-        "//score/crypto/daemon/key_management",
-        "//score/crypto/daemon/provider:provider_headers",
-        "//score/crypto/daemon/provider/handler:handler_utils_impl",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_info",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/key_management",
+        "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
     ],
 )
 
@@ -96,6 +96,6 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":provider_openssl_library",
-        "//score/crypto/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider:provider_headers",
     ],
 )

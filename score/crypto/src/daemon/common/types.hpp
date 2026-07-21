@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_COMMON_TYPES_HPP
-#define SCORE_CRYPTO_DAEMON_COMMON_TYPES_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_TYPES_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_TYPES_HPP
 
 #include <cstddef>
 #include <cstdint>
@@ -173,4 +173,4 @@ struct hash<score::crypto::daemon::common::CryptoProviderType>
 };
 }  // namespace std
 
-#endif  // SCORE_CRYPTO_DAEMON_COMMON_TYPES_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_TYPES_HPP

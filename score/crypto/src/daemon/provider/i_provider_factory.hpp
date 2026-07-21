@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_I_PROVIDER_FACTORY_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_I_PROVIDER_FACTORY_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_I_PROVIDER_FACTORY_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_I_PROVIDER_FACTORY_HPP
 
 namespace score::crypto::daemon::provider
 {
@@ -62,4 +62,4 @@ class IProviderFactory
 
 }  // namespace score::crypto::daemon::provider
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_I_PROVIDER_FACTORY_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_I_PROVIDER_FACTORY_HPP

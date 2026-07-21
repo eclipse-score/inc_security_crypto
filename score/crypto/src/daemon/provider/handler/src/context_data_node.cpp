@@ -11,9 +11,9 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/handler/context_data_node.hpp"
-#include "score/crypto/daemon/data_manager/data_node.hpp"
-#include "score/crypto/daemon/provider/handler/i_handler.hpp"
+#include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 #include <memory>
 #include <string>
 #include <utility>

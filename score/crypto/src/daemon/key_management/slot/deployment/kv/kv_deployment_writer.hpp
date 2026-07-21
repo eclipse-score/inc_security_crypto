@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_SLOT_DEPLOYMENT_KV_KV_DEPLOYMENT_WRITER_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_SLOT_DEPLOYMENT_KV_KV_DEPLOYMENT_WRITER_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_DEPLOYMENT_KV_KV_DEPLOYMENT_WRITER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_DEPLOYMENT_KV_KV_DEPLOYMENT_WRITER_HPP
 
-#include "score/crypto/daemon/key_management/slot/deployment/i_deployment_writer.hpp"
+#include "score/crypto/src/daemon/key_management/slot/deployment/i_deployment_writer.hpp"
 
 #include <string_view>
 
@@ -42,4 +42,4 @@ class KvDeploymentWriter : public IDeploymentWriter
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_SLOT_DEPLOYMENT_KV_KV_DEPLOYMENT_WRITER_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_DEPLOYMENT_KV_KV_DEPLOYMENT_WRITER_HPP

@@ -11,13 +11,13 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_SLOT_REGISTRY_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_SLOT_REGISTRY_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_SLOT_REGISTRY_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_SLOT_REGISTRY_HPP
 
-#include "score/crypto/api/common/types.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/data_manager/data_node.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_slot_config.hpp"
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -240,4 +240,4 @@ class SlotRegistry : public std::enable_shared_from_this<SlotRegistry>
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_SLOT_REGISTRY_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_SLOT_REGISTRY_HPP

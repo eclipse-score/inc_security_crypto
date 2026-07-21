@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_token_config.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_token_config.hpp"
 
 // pkcs11_module.hpp brings in Pkcs11ProviderConfig + Pkcs11SessionCleanupStrategy;
 // pkcs11_provider_factory.hpp brings in SetTokenConfigs() and the full class definition.
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
 
 namespace score::crypto::daemon::provider::pkcs11
 {

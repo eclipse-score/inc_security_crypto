@@ -11,14 +11,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_EXECUTOR_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_EXECUTOR_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_EXECUTOR_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_EXECUTOR_HPP
 
-#include "score/crypto/daemon/common/types.hpp"
-#include "score/crypto/daemon/key_management/core/key_management_service.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_factory.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_slot_handler.hpp"
-#include "score/crypto/daemon/provider/executors/key_mgmt_context.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
+#include "score/crypto/src/daemon/provider/executors/key_mgmt_context.hpp"
 
 #include <memory>
 #include <string>
@@ -80,4 +80,4 @@ class KeyManagementExecutor final
 
 }  // namespace score::crypto::daemon::provider::crypto_executor
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_EXECUTOR_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_EXECUTOR_HPP

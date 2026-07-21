@@ -20,17 +20,17 @@
 #include <memory>
 #include <thread>
 
-#include "score/crypto/daemon/config/inc/config.hpp"
-#include "score/crypto/daemon/control_plane/basic_handler_chain_factory.hpp"
-#include "score/crypto/daemon/control_plane/i_control_server.h"
-#include "score/crypto/daemon/data_manager/data_manager.hpp"
-#include "score/crypto/daemon/key_management/key_management_module.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
-#include "score/crypto/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
-#include "score/crypto/daemon/provider/provider_manager.hpp"
-#include "score/crypto/daemon/provider/score_provider/score_provider_factory.hpp"
-#include "score/crypto/ipc/grpc_adapter/grpc_control_server.h"
-#include "score/crypto/ipc/ipc_config.h"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/control_plane/basic_handler_chain_factory.hpp"
+#include "score/crypto/src/daemon/control_plane/i_control_server.h"
+#include "score/crypto/src/daemon/data_manager/data_manager.hpp"
+#include "score/crypto/src/daemon/key_management/key_management_module.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/score_provider_factory.hpp"
+#include "score/crypto/src/ipc/grpc_adapter/grpc_control_server.h"
+#include "score/crypto/src/ipc/ipc_config.h"
 
 namespace score::crypto::daemon
 {

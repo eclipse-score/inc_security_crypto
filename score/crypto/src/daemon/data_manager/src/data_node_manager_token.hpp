@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef CRYPTO_DAEMON_DATA_MANAGER_DATA_NODE_MANAGER_TOKEN_HPP_
-#define CRYPTO_DAEMON_DATA_MANAGER_DATA_NODE_MANAGER_TOKEN_HPP_
+#ifndef SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_SRC_DATA_NODE_MANAGER_TOKEN_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_SRC_DATA_NODE_MANAGER_TOKEN_HPP
 
 namespace score::crypto::daemon::data_manager
 {
@@ -39,4 +39,4 @@ class DataNodeManagerToken
 
 }  // namespace score::crypto::daemon::data_manager
 
-#endif  // CRYPTO_DAEMON_DATA_MANAGER_DATA_NODE_MANAGER_TOKEN_HPP_
+#endif  // SCORE_CRYPTO_SRC_DAEMON_DATA_MANAGER_SRC_DATA_NODE_MANAGER_TOKEN_HPP

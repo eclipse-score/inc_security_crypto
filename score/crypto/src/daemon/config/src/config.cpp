@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/config/inc/config.hpp"
-#include "score/crypto/daemon/config/src/flatbuffer_config_parser.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/config/src/flatbuffer_config_parser.hpp"
 
 #include "score/mw/log/logging.h"
 #include <cstdlib>

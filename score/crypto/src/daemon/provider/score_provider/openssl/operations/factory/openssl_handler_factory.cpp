@@ -11,14 +11,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/daemon/provider/score_provider/openssl/operations/factory/openssl_handler_factory.hpp"
-#include "score/crypto/daemon/common/daemon_error.hpp"
-#include "score/crypto/daemon/provider/executors/key_mgmt_executor.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/operations/hash/openssl_hash_handler.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/operations/key_management/openssl_key_management_handler.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
-#include "score/crypto/daemon/provider/score_provider/operations/hash/hash_executor.hpp"
-#include "score/crypto/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/factory/openssl_handler_factory.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/hash/openssl_hash_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/key_management/openssl_key_management_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/hash/hash_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
 #include "score/result/result.h"
 
 namespace score::crypto::daemon::provider::score_provider::openssl::handler

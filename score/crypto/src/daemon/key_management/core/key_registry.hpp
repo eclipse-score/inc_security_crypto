@@ -11,11 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_REGISTRY_HPP
-#define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_REGISTRY_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_REGISTRY_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_REGISTRY_HPP
 
-#include "score/crypto/daemon/data_manager/data_node.hpp"
-#include "score/crypto/daemon/key_management/slot/slot_registry.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
+#include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -138,4 +138,4 @@ class KeyRegistry final
 
 }  // namespace score::crypto::daemon::key_management
 
-#endif  // SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_REGISTRY_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_REGISTRY_HPP

@@ -19,21 +19,21 @@
 /// OpenSslKeyManagementHandler and FileBackedSlotHandler. Exercises the full
 /// handler dispatch flow without mocks.
 
-#include "score/crypto/api/common/error_domain.hpp"
-#include "score/crypto/api/common/types.hpp"
-#include "score/crypto/daemon/common/actors.hpp"
-#include "score/crypto/daemon/config/src/flatbuffer_config_parser.hpp"
-#include "score/crypto/daemon/data_manager/data_manager.hpp"
-#include "score/crypto/daemon/key_management/core/key_management_service.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_management_operations.hpp"
-#include "score/crypto/daemon/key_management/nodes/key_slot_data_node.hpp"
-#include "score/crypto/daemon/key_management/slot/config_driven_slot_catalog.hpp"
-#include "score/crypto/daemon/key_management/slot/file_backed_slot_handler.hpp"
-#include "score/crypto/daemon/key_management/slot/slot_registry.hpp"
-#include "score/crypto/daemon/provider/executors/key_mgmt_executor.hpp"
-#include "score/crypto/daemon/provider/handler/handler_init_params.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/operations/key_management/openssl_key_management_handler.hpp"
+#include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/config/src/flatbuffer_config_parser.hpp"
+#include "score/crypto/src/daemon/data_manager/data_manager.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
+#include "score/crypto/src/daemon/key_management/nodes/key_slot_data_node.hpp"
+#include "score/crypto/src/daemon/key_management/slot/config_driven_slot_catalog.hpp"
+#include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
+#include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
+#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/key_management/openssl_key_management_handler.hpp"
 
 #include <gtest/gtest.h>
 #include <cstdint>

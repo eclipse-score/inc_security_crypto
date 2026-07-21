@@ -58,26 +58,26 @@
 #include <vector>
 
 // Provider interfaces
-#include "score/crypto/daemon/provider/i_provider.hpp"
-#include "score/crypto/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/provider/i_provider.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 // Daemon config
-#include "score/crypto/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
 
 // OpenSSL provider
-#include "score/crypto/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
-#include "score/crypto/daemon/provider/score_provider/openssl/provider_openssl.hpp"
-#include "score/crypto/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/provider_openssl.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
 
 // Key management
-#include "score/crypto/daemon/key_management/interfaces/i_key_factory.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_handler.hpp"
-#include "score/crypto/daemon/key_management/interfaces/i_key_slot_handler.hpp"
-#include "score/crypto/daemon/key_management/interfaces/key_slot_config.hpp"
-#include "score/crypto/daemon/key_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
+#include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
 
 // MAC handler interface
-#include "score/crypto/daemon/provider/score_provider/operations/mac/score_mac_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/mac/score_mac_handler.hpp"
 
 #include <gtest/gtest.h>
 

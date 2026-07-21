@@ -20,7 +20,7 @@ cc_library(
     hdrs = ["score_key_management_handler.hpp"],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/daemon/provider/executors:key_mgmt_executor",
-        "//score/crypto/daemon/provider/handler:handler_headers",
+        "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
+        "//score/crypto/src/daemon/provider/handler:handler_headers",
     ],
 )

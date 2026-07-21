@@ -11,16 +11,16 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_CONTROLLPLANE_CONNECTION_FACTORY_HPP
-#define SCORE_CRYPTO_API_CONTROLLPLANE_CONNECTION_FACTORY_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CONTROL_PLANE_CONNECTION_FACTORY_HPP
+#define SCORE_CRYPTO_SRC_API_CONTROL_PLANE_CONNECTION_FACTORY_HPP
 
 #include <memory>
 #include <string_view>
 
-#include "score/crypto/api/common/error_domain.hpp"
-#include "score/crypto/common/types.hpp"
+#include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/common/types.hpp"
 
-#include "score/crypto/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/api/control_plane/i_connection.hpp"
 
 namespace score::crypto::api::control_plane
 {
@@ -45,4 +45,4 @@ class ConnectionFactory
 
 }  // namespace score::crypto::api::control_plane
 
-#endif  // SCORE_CRYPTO_API_CONTROLLPLANE_CONNECTION_FACTORY_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CONTROL_PLANE_CONNECTION_FACTORY_HPP

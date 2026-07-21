@@ -11,17 +11,17 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_CONTEXTS_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
-#define SCORE_CRYPTO_API_CONTEXTS_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CONTEXTS_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
+#define SCORE_CRYPTO_SRC_API_CONTEXTS_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
 
-#include "score/crypto/api/common/crypto_resource_guard.hpp"
-#include "score/crypto/api/common/src/i_release_callback.hpp"
-#include "score/crypto/api/common/types.hpp"
-#include "score/crypto/api/config/key_operation_params.hpp"
-#include "score/crypto/api/contexts/i_key_management_context.hpp"
+#include "score/crypto/src/api/common/crypto_resource_guard.hpp"
+#include "score/crypto/src/api/common/src/i_release_callback.hpp"
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/config/key_operation_params.hpp"
+#include "score/crypto/src/api/contexts/i_key_management_context.hpp"
 
-#include "score/crypto/api/control_plane/i_connection.hpp"
-#include "score/crypto/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 #include "score/result/result.h"
 #include "score/span.hpp"
@@ -139,4 +139,4 @@ class KeyManagementContextImpl final : public IKeyManagementContext
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_API_CONTEXTS_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CONTEXTS_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP

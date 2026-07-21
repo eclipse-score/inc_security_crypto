@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_API_FUTURE_OBJECTS_I_PROVIDER_OBJECT_HPP
-#define SCORE_CRYPTO_API_FUTURE_OBJECTS_I_PROVIDER_OBJECT_HPP
+#ifndef SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_PROVIDER_OBJECT_HPP
+#define SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_PROVIDER_OBJECT_HPP
 
-#include "score/crypto/api/objects/i_crypto_object.hpp"
+#include "score/crypto/src/api/objects/i_crypto_object.hpp"
 
 #include <memory>
 #include <string_view>
@@ -61,4 +61,4 @@ class IProviderObject : public ICryptoObject
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_API_FUTURE_OBJECTS_I_PROVIDER_OBJECT_HPP
+#endif  // SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_PROVIDER_OBJECT_HPP
