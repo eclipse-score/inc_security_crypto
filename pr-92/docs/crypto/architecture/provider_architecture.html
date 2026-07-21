@@ -645,9 +645,6 @@ discovered at compile time.</p></li>
 user PIN, provider name, provider type, and session cleanup strategy.
 <code class="docutils literal notranslate"><span class="pre">Pkcs11Config::ParseConfig()</span></code> reads these values from the daemon config.</p></li>
 </ul>
-<p>Both config classes use only standard-library types in their public headers
-so that the top-level <code class="docutils literal notranslate"><span class="pre">Config</span></code> class can own them without pulling in
-backend-specific headers.</p>
 </li>
 <li><p>Runtime enablement and type mapping — <code class="docutils literal notranslate"><span class="pre">ProviderInitConfig</span></code>
 After all factories have created and registered their providers, and after
