@@ -16,12 +16,12 @@
 #include <memory>
 #include <string_view>
 
+#include "score/crypto/api/common/error_domain.hpp"
 #include "score/crypto/api/control_plane/src/connection_impl.hpp"
 #include "score/crypto/common/types.hpp"
 #include "score/crypto/daemon/control_plane/control_operations.h"
 #include "score/crypto/daemon/control_plane/control_protocol.h"
 #include "score/crypto/ipc/grpc_adapter/grpc_control_client.h"
-#include "score/mw/crypto/api/common/error_domain.hpp"
 
 namespace score::crypto::api::control_plane
 {

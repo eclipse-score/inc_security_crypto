@@ -44,8 +44,8 @@
 /// ## Usage in a concrete implementation
 ///
 /// @code
-///   #include "score/mw/crypto/api/common/src/crypto_resource_guard_factory.hpp"
-///   #include "score/mw/crypto/api/common/src/i_release_callback.hpp"
+///   #include "score/crypto/api/common/src/crypto_resource_guard_factory.hpp"
+///   #include "score/crypto/api/common/src/i_release_callback.hpp"
 ///
 ///   class ConcreteKeyMgmt : public score::mw::crypto::IKeyManagementContext {
 ///   public:
@@ -66,7 +66,7 @@
 ///   };
 /// @endcode
 
-#include "score/mw/crypto/api/common/crypto_resource_guard.hpp"
+#include "score/crypto/api/common/crypto_resource_guard.hpp"
 
 #include <memory>
 

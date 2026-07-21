@@ -11,11 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/mw/crypto/api/crypto_stack_factory.hpp"
+#include "score/crypto/api/crypto_stack_factory.hpp"
 
-#include "score/mw/crypto/api/common/error_domain.hpp"
-#include "score/mw/crypto/api/i_crypto_stack.hpp"
-#include "score/mw/crypto/api/src/crypto_stack_impl.hpp"
+#include "score/crypto/api/common/error_domain.hpp"
+#include "score/crypto/api/i_crypto_stack.hpp"
+#include "score/crypto/api/src/crypto_stack_impl.hpp"
 
 #include "score/crypto/api/control_plane/connection_factory.hpp"
 #include "score/crypto/api/control_plane/i_connection.hpp"

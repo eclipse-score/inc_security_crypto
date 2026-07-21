@@ -14,11 +14,11 @@
 #ifndef SCORE_MW_CRYPTO_API_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
 #define SCORE_MW_CRYPTO_API_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
 
-#include "score/mw/crypto/api/common/crypto_resource_guard.hpp"
-#include "score/mw/crypto/api/common/src/i_release_callback.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
-#include "score/mw/crypto/api/config/key_operation_params.hpp"
-#include "score/mw/crypto/api/contexts/i_key_management_context.hpp"
+#include "score/crypto/api/common/crypto_resource_guard.hpp"
+#include "score/crypto/api/common/src/i_release_callback.hpp"
+#include "score/crypto/api/common/types.hpp"
+#include "score/crypto/api/config/key_operation_params.hpp"
+#include "score/crypto/api/contexts/i_key_management_context.hpp"
 
 #include "score/crypto/api/control_plane/i_connection.hpp"
 #include "score/crypto/daemon/control_plane/control_protocol.h"

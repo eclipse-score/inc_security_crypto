@@ -14,9 +14,9 @@
 #ifndef SCORE_CRYPTO_API_CONTROL_PLANE_I_CONNECTION_HPP
 #define SCORE_CRYPTO_API_CONTROL_PLANE_I_CONNECTION_HPP
 
+#include "score/crypto/api/common/error_domain.hpp"
 #include "score/crypto/common/types.hpp"
 #include "score/crypto/daemon/control_plane/control_protocol.h"
-#include "score/mw/crypto/api/common/error_domain.hpp"
 
 namespace score::crypto::api::control_plane
 {

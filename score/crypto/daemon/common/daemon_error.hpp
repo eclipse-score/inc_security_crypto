@@ -16,7 +16,7 @@
 
 // Forward-declaration of the translation target; only ToCryptoErrorCode() needs
 // the full CryptoErrorCode definition.
-#include "score/mw/crypto/api/common/error_domain.hpp"
+#include "score/crypto/api/common/error_domain.hpp"
 
 #include <cstdint>
 

@@ -23,8 +23,8 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #     name = "cipher_context",
 #     hdrs = ["i_cipher_context.hpp"],
 #     deps = [
-#         "//score/mw/crypto/api/contexts:context_bases",
-#         "//score/mw/crypto/api/common:crypto_common",
+#         "//score/crypto/api/contexts:context_bases",
+#         "//score/crypto/api/common:crypto_common",
 #         "@score_baselibs//score/result",
 #     ],
 # )
@@ -34,8 +34,8 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #     name = "sign_contexts",
 #     hdrs = ["i_sign_context.hpp", "i_verify_signature_context.hpp"],
 #     deps = [
-#         "//score/mw/crypto/api/contexts:context_bases",
-#         "//score/mw/crypto/api/common:crypto_common",
+#         "//score/crypto/api/contexts:context_bases",
+#         "//score/crypto/api/common:crypto_common",
 #         "@score_baselibs//score/result",
 #     ],
 # )
@@ -45,8 +45,8 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #     name = "aead_context",
 #     hdrs = ["i_aead_context.hpp"],
 #     deps = [
-#         "//score/mw/crypto/api/contexts:context_bases",
-#         "//score/mw/crypto/api/common:crypto_common",
+#         "//score/crypto/api/contexts:context_bases",
+#         "//score/crypto/api/common:crypto_common",
 #         "@score_baselibs//score/result",
 #     ],
 # )
@@ -56,8 +56,8 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #     name = "random_context",
 #     hdrs = ["i_random_context.hpp"],
 #     deps = [
-#         "//score/mw/crypto/api/contexts:context_bases",
-#         "//score/mw/crypto/api/common:crypto_common",
+#         "//score/crypto/api/contexts:context_bases",
+#         "//score/crypto/api/common:crypto_common",
 #         "@score_baselibs//score/result",
 #     ],
 # )
@@ -71,9 +71,9 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #         "i_csr_generation_context.hpp",
 #     ],
 #     deps = [
-#         "//score/mw/crypto/api/contexts:context_bases",
-#         "//score/mw/crypto/api/common:crypto_common",
-#         "//score/mw/crypto/api/future/certificate:crypto_certificate",
+#         "//score/crypto/api/contexts:context_bases",
+#         "//score/crypto/api/common:crypto_common",
+#         "//score/crypto/api/future/certificate:crypto_certificate",
 #         "@score_baselibs//score/result",
 #     ],
 # )

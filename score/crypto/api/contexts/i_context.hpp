@@ -14,7 +14,7 @@
 #ifndef SCORE_MW_CRYPTO_API_CONTEXTS_I_CONTEXT_HPP
 #define SCORE_MW_CRYPTO_API_CONTEXTS_I_CONTEXT_HPP
 
-#include "score/mw/crypto/api/common/error_domain.hpp"
+#include "score/crypto/api/common/error_domain.hpp"
 
 #include <memory>
 

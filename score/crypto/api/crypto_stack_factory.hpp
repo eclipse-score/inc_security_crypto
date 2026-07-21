@@ -14,7 +14,7 @@
 #ifndef SCORE_MW_CRYPTO_API_CRYPTO_STACK_FACTORY_HPP
 #define SCORE_MW_CRYPTO_API_CRYPTO_STACK_FACTORY_HPP
 
-#include "score/mw/crypto/api/i_crypto_stack.hpp"
+#include "score/crypto/api/i_crypto_stack.hpp"
 #include "score/result/result.h"
 
 #include <chrono>

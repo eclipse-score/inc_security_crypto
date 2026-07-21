@@ -14,7 +14,7 @@
 #ifndef SCORE_MW_CRYPTO_API_SRC_PROVIDER_TYPE_CONVERTER_HPP
 #define SCORE_MW_CRYPTO_API_SRC_PROVIDER_TYPE_CONVERTER_HPP
 
-#include "score/mw/crypto/api/common/types.hpp"
+#include "score/crypto/api/common/types.hpp"
 
 #include <cstdint>
 

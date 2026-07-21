@@ -14,9 +14,9 @@
 #ifndef SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_INIT_PARAMS_HPP
 #define SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_INIT_PARAMS_HPP
 
+#include "score/crypto/api/common/types.hpp"
 #include "score/crypto/daemon/common/types.hpp"
 #include "score/crypto/daemon/key_management/interfaces/i_key_handler.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
 #include <cstdint>
 #include <vector>
 

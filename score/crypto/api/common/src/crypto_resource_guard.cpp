@@ -11,9 +11,9 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/mw/crypto/api/common/crypto_resource_guard.hpp"
-#include "score/mw/crypto/api/common/error_domain.hpp"
-#include "score/mw/crypto/api/common/src/i_release_callback.hpp"
+#include "score/crypto/api/common/crypto_resource_guard.hpp"
+#include "score/crypto/api/common/error_domain.hpp"
+#include "score/crypto/api/common/src/i_release_callback.hpp"
 
 #include <cassert>
 #include <utility>

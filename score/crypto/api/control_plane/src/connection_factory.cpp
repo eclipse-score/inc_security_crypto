@@ -18,10 +18,10 @@
 
 #include "score/crypto/common/types.hpp"
 
+#include "score/crypto/api/common/error_domain.hpp"
 #include "score/crypto/api/control_plane/connection_factory.hpp"
 #include "score/crypto/api/control_plane/i_connection.hpp"
 #include "score/crypto/api/control_plane/src/connection_impl.hpp"
-#include "score/mw/crypto/api/common/error_domain.hpp"
 
 namespace score::crypto::api::control_plane
 {

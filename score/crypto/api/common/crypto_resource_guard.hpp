@@ -14,7 +14,7 @@
 #ifndef SCORE_MW_CRYPTO_API_COMMON_CRYPTO_RESOURCE_GUARD_HPP
 #define SCORE_MW_CRYPTO_API_COMMON_CRYPTO_RESOURCE_GUARD_HPP
 
-#include "score/mw/crypto/api/common/types.hpp"
+#include "score/crypto/api/common/types.hpp"
 #include "score/result/result.h"
 
 #include <memory>

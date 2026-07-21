@@ -14,11 +14,11 @@
 #ifndef SCORE_MW_CRYPTO_API_FUTURE_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
 #define SCORE_MW_CRYPTO_API_FUTURE_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
 
-#include "score/mw/crypto/api/certificate/i_ocsp_request_export.hpp"
-#include "score/mw/crypto/api/common/crypto_resource_guard.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
-#include "score/mw/crypto/api/contexts/i_context.hpp"
-#include "score/mw/crypto/api/future/objects/i_certificate_object.hpp"
+#include "score/crypto/api/certificate/i_ocsp_request_export.hpp"
+#include "score/crypto/api/common/crypto_resource_guard.hpp"
+#include "score/crypto/api/common/types.hpp"
+#include "score/crypto/api/contexts/i_context.hpp"
+#include "score/crypto/api/future/objects/i_certificate_object.hpp"
 #include "score/result/result.h"
 #include "score/span.hpp"
 

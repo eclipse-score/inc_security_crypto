@@ -32,7 +32,7 @@ Overview
 The ``score::mw::crypto`` module follows a **daemon-based client–server**
 architecture:
 
-- **Client library** (``//score/mw/crypto/api/...``) — a pure C++ interface layer
+- **Client library** (``//score/crypto/api/...``) — a pure C++ interface layer
   that applications link against. All operations are expressed through
   factory-created context objects (``IHashContext``, ``IMacContext``, etc.)
   following an ``Init()`` → ``Update()`` → ``Finalize()`` streaming pattern.

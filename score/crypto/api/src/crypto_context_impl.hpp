@@ -14,8 +14,8 @@
 #ifndef SCORE_MW_CRYPTO_API_SRC_CRYPTO_CONTEXT_IMPL_HPP
 #define SCORE_MW_CRYPTO_API_SRC_CRYPTO_CONTEXT_IMPL_HPP
 
-#include "score/mw/crypto/api/common/types.hpp"
-#include "score/mw/crypto/api/i_crypto_context.hpp"
+#include "score/crypto/api/common/types.hpp"
+#include "score/crypto/api/i_crypto_context.hpp"
 
 #include "score/crypto/api/control_plane/i_connection.hpp"
 #include "score/crypto/daemon/control_plane/control_protocol.h"

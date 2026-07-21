@@ -32,10 +32,10 @@ cc_library(
     ],
     visibility = ["//:__subpackages__"],
     deps = [
+        "//score/crypto/api/common:crypto_common",
+        "//score/crypto/api/config:context_configs",
         "//score/crypto/common:common_types",
         "//score/crypto/daemon/common",
-        "//score/mw/crypto/api/common:crypto_common",
-        "//score/mw/crypto/api/config:context_configs",
     ],
 )
 
@@ -74,12 +74,12 @@ cc_library(
     ],
     deps = [
         ":key_handler_iface",
+        "//score/crypto/api/common:crypto_common",
+        "//score/crypto/api/config:context_configs",
         "//score/crypto/daemon/common",
         "//score/crypto/daemon/control_plane:request_handler_hdr",
         "//score/crypto/daemon/data_manager",
         "//score/crypto/daemon/provider/handler:handler_headers",
-        "//score/mw/crypto/api/common:crypto_common",
-        "//score/mw/crypto/api/config:context_configs",
     ],
 )
 
@@ -108,11 +108,11 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":key_management_headers",
+        "//score/crypto/api/common:crypto_common",
         "//score/crypto/daemon/common",
         "//score/crypto/daemon/data_manager",
         "//score/crypto/daemon/key_management/slot/deployment:kv_deployment",
         "//score/crypto/daemon/provider:provider_headers",
         "//score/crypto/daemon/provider:provider_manager",
-        "//score/mw/crypto/api/common:crypto_common",
     ],
 )

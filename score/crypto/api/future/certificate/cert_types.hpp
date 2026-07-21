@@ -14,7 +14,7 @@
 #ifndef SCORE_MW_CRYPTO_API_CERTIFICATE_CERT_TYPES_HPP
 #define SCORE_MW_CRYPTO_API_CERTIFICATE_CERT_TYPES_HPP
 
-#include "score/mw/crypto/api/common/types.hpp"
+#include "score/crypto/api/common/types.hpp"
 
 #include <cstdint>
 

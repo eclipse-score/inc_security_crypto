@@ -42,7 +42,7 @@ cc_binary(
     ],
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
-        "//score/mw/crypto/api:crypto_stack",
+        "//score/crypto/api:crypto_stack",
         "//score/tests/utility",
         "@googletest//:gtest",
     ],
@@ -57,7 +57,7 @@ cc_binary(
     ],
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
-        "//score/mw/crypto/api:crypto_stack",
+        "//score/crypto/api:crypto_stack",
         "//score/tests/utility",
         "@googletest//:gtest",
     ],
@@ -72,7 +72,7 @@ cc_binary(
     ],
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
-        "//score/mw/crypto/api:crypto_stack",
+        "//score/crypto/api:crypto_stack",
         "//score/tests/utility",
     ],
 )

@@ -21,10 +21,10 @@ cc_library(
     ],
     visibility = ["//:__subpackages__"],
     deps = [
+        "//score/crypto/api/common:crypto_common",
         "//score/crypto/common:common_types",
         "//score/crypto/daemon/common",
         "//score/crypto/daemon/key_management:key_handler_iface",
-        "//score/mw/crypto/api/common:crypto_common",
     ],
 )
 

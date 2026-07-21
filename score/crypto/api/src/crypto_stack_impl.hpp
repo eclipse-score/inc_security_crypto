@@ -14,8 +14,8 @@
 #ifndef SCORE_MW_CRYPTO_API_SRC_CRYPTO_STACK_IMPL_HPP
 #define SCORE_MW_CRYPTO_API_SRC_CRYPTO_STACK_IMPL_HPP
 
-#include "score/mw/crypto/api/crypto_stack_factory.hpp"
-#include "score/mw/crypto/api/i_crypto_stack.hpp"
+#include "score/crypto/api/crypto_stack_factory.hpp"
+#include "score/crypto/api/i_crypto_stack.hpp"
 
 #include "score/crypto/api/control_plane/i_connection.hpp"
 

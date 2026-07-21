@@ -56,6 +56,7 @@ cc_test(
         "//score/crypto/tests/key_management/config:key_management_test_config",
     ],
     deps = [
+        "//score/crypto/api/common:crypto_common",
         "//score/crypto/daemon/common",
         "//score/crypto/daemon/config",
         "//score/crypto/daemon/data_manager",
@@ -63,7 +64,6 @@ cc_test(
         "//score/crypto/daemon/key_management:key_management_headers",
         "//score/crypto/daemon/provider/executors:key_mgmt_executor",
         "//score/crypto/daemon/provider/score_provider/openssl:provider_openssl_library",
-        "//score/mw/crypto/api/common:crypto_common",
         "@googletest//:gtest_main",
     ],
 )

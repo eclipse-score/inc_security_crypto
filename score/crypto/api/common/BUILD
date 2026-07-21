@@ -45,7 +45,6 @@ cc_library(
     includes = ["."],
     visibility = [
         "//score/crypto:__subpackages__",
-        "//score/mw/crypto:__subpackages__",
     ],
     deps = [
         "@score_baselibs//score/result",

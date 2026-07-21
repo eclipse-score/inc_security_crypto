@@ -20,6 +20,7 @@
 #include <string_view>
 #include <utility>
 
+#include "score/crypto/api/common/error_domain.hpp"
 #include "score/crypto/daemon/common/actors.hpp"
 #include "score/crypto/daemon/common/operation_names.hpp"
 #include "score/crypto/daemon/common/types.hpp"
@@ -36,7 +37,6 @@
 #include "score/crypto/daemon/provider/handler/i_crypto_handler_factory.hpp"
 #include "score/crypto/daemon/provider/handler/i_handler.hpp"
 #include "score/crypto/daemon/provider/provider_manager.hpp"
-#include "score/mw/crypto/api/common/error_domain.hpp"
 
 namespace control_plane = score::crypto::daemon::control_plane;
 

@@ -14,8 +14,8 @@
 #ifndef SCORE_MW_CRYPTO_API_I_CRYPTO_STACK_HPP
 #define SCORE_MW_CRYPTO_API_I_CRYPTO_STACK_HPP
 
-#include "score/mw/crypto/api/common/i_memory_allocator.hpp"
-#include "score/mw/crypto/api/i_crypto_context.hpp"
+#include "score/crypto/api/common/i_memory_allocator.hpp"
+#include "score/crypto/api/i_crypto_context.hpp"
 #include "score/result/result.h"
 
 #include <memory>

@@ -14,9 +14,9 @@
 #ifndef SCORE_MW_CRYPTO_API_SRC_HASH_CONTEXT_IMPL_HPP
 #define SCORE_MW_CRYPTO_API_SRC_HASH_CONTEXT_IMPL_HPP
 
-#include "score/mw/crypto/api/contexts/i_hash_context.hpp"
+#include "score/crypto/api/contexts/i_hash_context.hpp"
 
-#include "score/mw/crypto/api/common/types.hpp"
+#include "score/crypto/api/common/types.hpp"
 
 #include "score/crypto/api/control_plane/i_connection.hpp"
 

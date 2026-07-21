@@ -12,10 +12,10 @@
  ********************************************************************************/
 
 #include "score/crypto/daemon/provider/pkcs11/operations/mac/pkcs11_mac_executor.hpp"
+#include "score/crypto/api/common/types.hpp"
 #include "score/crypto/daemon/provider/handler/operations/mac_handler_operations.hpp"
 #include "score/crypto/daemon/provider/handler/src/handler_utils.hpp"
 #include "score/crypto/daemon/provider/pkcs11/pkcs11_module.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
 
 #include "score/crypto/daemon/common/daemon_error.hpp"
 #include "score/mw/log/logging.h"

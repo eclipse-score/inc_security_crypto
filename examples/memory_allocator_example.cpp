@@ -17,13 +17,13 @@
 /// Shows default and provider-compatible memory allocation, quota management,
 /// and how shared memory regions are used with operation contexts.
 
-#include "score/mw/crypto/api/common/i_memory_allocator.hpp"
-#include "score/mw/crypto/api/common/i_memory_region.hpp"
-#include "score/mw/crypto/api/config/hash_context_config.hpp"
-#include "score/mw/crypto/api/contexts/i_hash_context.hpp"
-#include "score/mw/crypto/api/crypto_stack_factory.hpp"
-#include "score/mw/crypto/api/i_crypto_context.hpp"
-#include "score/mw/crypto/api/i_crypto_stack.hpp"
+#include "score/crypto/api/common/i_memory_allocator.hpp"
+#include "score/crypto/api/common/i_memory_region.hpp"
+#include "score/crypto/api/config/hash_context_config.hpp"
+#include "score/crypto/api/contexts/i_hash_context.hpp"
+#include "score/crypto/api/crypto_stack_factory.hpp"
+#include "score/crypto/api/i_crypto_context.hpp"
+#include "score/crypto/api/i_crypto_stack.hpp"
 
 #include <array>
 #include <cstdint>

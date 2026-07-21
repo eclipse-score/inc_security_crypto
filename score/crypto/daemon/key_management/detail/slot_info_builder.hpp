@@ -14,8 +14,8 @@
 #ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_DETAIL_SLOT_INFO_BUILDER_HPP
 #define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_DETAIL_SLOT_INFO_BUILDER_HPP
 
+#include "score/crypto/api/common/types.hpp"
 #include "score/crypto/daemon/key_management/interfaces/key_slot_config.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
 
 namespace score::crypto::daemon::key_management::detail
 {

@@ -14,8 +14,8 @@
 #ifndef SCORE_MW_CRYPTO_API_COMMON_TYPES_HPP
 #define SCORE_MW_CRYPTO_API_COMMON_TYPES_HPP
 
-#include "score/mw/crypto/api/common/error_domain.hpp"
-#include "score/mw/crypto/api/common/fixed_capacity_string.hpp"
+#include "score/crypto/api/common/error_domain.hpp"
+#include "score/crypto/api/common/fixed_capacity_string.hpp"
 
 #include <array>
 #include <cstdint>

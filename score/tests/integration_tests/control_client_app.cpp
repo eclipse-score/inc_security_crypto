@@ -11,6 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
+#include "score/crypto/api/common/error_domain.hpp"
 #include "score/crypto/api/control_plane/connection_factory.hpp"
 #include "score/crypto/api/control_plane/i_connection.hpp"
 #include "score/crypto/common/types.hpp"
@@ -20,7 +21,6 @@
 #include "score/crypto/daemon/mediator/mediator_operations.hpp"
 #include "score/crypto/daemon/provider/handler/operations/hash_handler_operations.hpp"
 #include "score/crypto/ipc/ipc_config.h"
-#include "score/mw/crypto/api/common/error_domain.hpp"
 #include <gtest/gtest.h>
 #include <condition_variable>
 #include <mutex>

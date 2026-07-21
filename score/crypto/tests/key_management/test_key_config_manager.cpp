@@ -11,11 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
+#include "score/crypto/api/common/types.hpp"
 #include "score/crypto/daemon/config/src/flatbuffer_config_parser.hpp"
 #include "score/crypto/daemon/key_management/interfaces/key_slot_config.hpp"
 #include "score/crypto/daemon/key_management/slot/config_driven_slot_catalog.hpp"
 #include "score/crypto/daemon/key_management/slot/slot_registry.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
 
 #include <gtest/gtest.h>
 
@@ -35,7 +35,7 @@ class SlotRegistryTest : public ::testing::Test
     {
         config::KeyConfig test_config{};
         auto result = config::FlatBufferConfigParser::ParseFromFile(
-            "tests/key_management/config/key_management_test_config.bin", test_config);
+            "score/crypto/tests/key_management/config/key_management_test_config.bin", test_config);
         ASSERT_TRUE(result.has_value()) << "Failed to parse test config";
 
         // Use ConfigDrivenSlotCatalog to properly convert and register slots

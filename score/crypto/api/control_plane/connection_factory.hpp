@@ -17,8 +17,8 @@
 #include <memory>
 #include <string_view>
 
+#include "score/crypto/api/common/error_domain.hpp"
 #include "score/crypto/common/types.hpp"
-#include "score/mw/crypto/api/common/error_domain.hpp"
 
 #include "score/crypto/api/control_plane/i_connection.hpp"
 

@@ -14,8 +14,8 @@
 #ifndef SCORE_MW_CRYPTO_API_OBJECTS_I_PRIVATE_KEY_OBJECT_HPP
 #define SCORE_MW_CRYPTO_API_OBJECTS_I_PRIVATE_KEY_OBJECT_HPP
 
-#include "score/mw/crypto/api/common/crypto_resource_guard.hpp"
-#include "score/mw/crypto/api/objects/i_key_object.hpp"
+#include "score/crypto/api/common/crypto_resource_guard.hpp"
+#include "score/crypto/api/objects/i_key_object.hpp"
 #include "score/result/result.h"
 
 #include <memory>

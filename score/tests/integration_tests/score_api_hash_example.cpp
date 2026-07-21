@@ -16,11 +16,11 @@
 ///
 /// Shows both streaming (Init → Update* → Finalize) and single-shot modes.
 
-#include "score/mw/crypto/api/config/hash_context_config.hpp"
-#include "score/mw/crypto/api/contexts/i_hash_context.hpp"
-#include "score/mw/crypto/api/crypto_stack_factory.hpp"
-#include "score/mw/crypto/api/i_crypto_context.hpp"
-#include "score/mw/crypto/api/i_crypto_stack.hpp"
+#include "score/crypto/api/config/hash_context_config.hpp"
+#include "score/crypto/api/contexts/i_hash_context.hpp"
+#include "score/crypto/api/crypto_stack_factory.hpp"
+#include "score/crypto/api/i_crypto_context.hpp"
+#include "score/crypto/api/i_crypto_stack.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>

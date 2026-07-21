@@ -14,7 +14,7 @@
 #ifndef SCORE_MW_CRYPTO_API_OBJECTS_I_SYMMETRIC_KEY_OBJECT_HPP
 #define SCORE_MW_CRYPTO_API_OBJECTS_I_SYMMETRIC_KEY_OBJECT_HPP
 
-#include "score/mw/crypto/api/objects/i_key_object.hpp"
+#include "score/crypto/api/objects/i_key_object.hpp"
 
 #include <memory>
 #include <string>

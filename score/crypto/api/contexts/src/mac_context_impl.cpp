@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/mw/crypto/api/contexts/src/mac_context_impl.hpp"
+#include "score/crypto/api/contexts/src/mac_context_impl.hpp"
 
-#include "score/mw/crypto/api/common/error_domain.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
+#include "score/crypto/api/common/error_domain.hpp"
+#include "score/crypto/api/common/types.hpp"
 
 #include "score/crypto/api/control_plane/i_connection.hpp"
 #include "score/crypto/daemon/common/actors.hpp"

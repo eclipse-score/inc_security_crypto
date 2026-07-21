@@ -14,10 +14,10 @@
 #ifndef SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
 #define SCORE_CRYPTO_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
 
+#include "score/crypto/api/common/types.hpp"
 #include "score/crypto/daemon/data_manager/data_node.hpp"
 #include "score/crypto/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/daemon/key_management/slot/slot_registry.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
 
 #include <algorithm>
 #include <atomic>

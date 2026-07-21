@@ -14,8 +14,8 @@
 #ifndef SCORE_MW_CRYPTO_API_COMMON_I_MEMORY_ALLOCATOR_HPP
 #define SCORE_MW_CRYPTO_API_COMMON_I_MEMORY_ALLOCATOR_HPP
 
-#include "score/mw/crypto/api/common/i_memory_region.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
+#include "score/crypto/api/common/i_memory_region.hpp"
+#include "score/crypto/api/common/types.hpp"
 #include "score/result/result.h"
 
 #include <cstddef>

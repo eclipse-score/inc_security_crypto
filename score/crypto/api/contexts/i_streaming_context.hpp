@@ -14,7 +14,7 @@
 #ifndef SCORE_MW_CRYPTO_API_CONTEXTS_I_STREAMING_CONTEXT_HPP
 #define SCORE_MW_CRYPTO_API_CONTEXTS_I_STREAMING_CONTEXT_HPP
 
-#include "score/mw/crypto/api/contexts/i_context.hpp"
+#include "score/crypto/api/contexts/i_context.hpp"
 #include "score/result/result.h"
 #include "score/span.hpp"
 

@@ -14,7 +14,7 @@
 #ifndef SCORE_MW_CRYPTO_API_CONFIG_CSR_GENERATION_CONTEXT_CONFIG_HPP
 #define SCORE_MW_CRYPTO_API_CONFIG_CSR_GENERATION_CONTEXT_CONFIG_HPP
 
-#include "score/mw/crypto/api/config/base_context_config.hpp"
+#include "score/crypto/api/config/base_context_config.hpp"
 
 namespace score
 {

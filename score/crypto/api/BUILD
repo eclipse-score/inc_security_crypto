@@ -26,3 +26,34 @@ cc_library(
         "//score/crypto/daemon/provider/handler:mac_handler_operations",
     ],
 )
+
+cc_library(
+    name = "crypto_stack",
+    srcs = [
+        "src/crypto_context_impl.cpp",
+        "src/crypto_context_impl.hpp",
+        "src/crypto_stack_factory.cpp",
+        "src/crypto_stack_impl.cpp",
+        "src/crypto_stack_impl.hpp",
+        "src/provider_type_converter.hpp",
+    ],
+    hdrs = [
+        "crypto_stack_factory.hpp",
+        "i_crypto_context.hpp",
+        "i_crypto_stack.hpp",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//score/crypto/api:operations",
+        "//score/crypto/api/common:crypto_common",
+        "//score/crypto/api/config:context_configs",
+        "//score/crypto/api/contexts:context_bases",
+        "//score/crypto/api/contexts:crypto_contexts",
+        "//score/crypto/api/contexts:crypto_contexts_impl",
+        "//score/crypto/api/control_plane:control_plane_impl",
+        "//score/crypto/api/objects:crypto_objects",
+        "@score_baselibs//score/language/futurecpp",
+        "@score_baselibs//score/result",
+    ],
+)

@@ -25,7 +25,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #         "i_ocsp_request_export.hpp",
 #     ],
 #     deps = [
-#         "//score/mw/crypto/api/common:crypto_common",
+#         "//score/crypto/api/common:crypto_common",
 #         "@score_baselibs//score/language/futurecpp",
 #         "@score_baselibs//score/result",
 #     ],

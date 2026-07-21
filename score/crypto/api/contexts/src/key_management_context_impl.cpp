@@ -11,14 +11,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/mw/crypto/api/contexts/src/key_management_context_impl.hpp"
+#include "score/crypto/api/contexts/src/key_management_context_impl.hpp"
 
-#include "score/mw/crypto/api/common/crypto_resource_guard.hpp"
-#include "score/mw/crypto/api/common/error_domain.hpp"
-#include "score/mw/crypto/api/common/src/crypto_resource_guard_factory.hpp"
-#include "score/mw/crypto/api/common/src/i_release_callback.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
-#include "score/mw/crypto/api/config/key_operation_params.hpp"
+#include "score/crypto/api/common/crypto_resource_guard.hpp"
+#include "score/crypto/api/common/error_domain.hpp"
+#include "score/crypto/api/common/src/crypto_resource_guard_factory.hpp"
+#include "score/crypto/api/common/src/i_release_callback.hpp"
+#include "score/crypto/api/common/types.hpp"
+#include "score/crypto/api/config/key_operation_params.hpp"
 
 #include "score/crypto/api/control_plane/i_connection.hpp"
 #include "score/crypto/daemon/common/actors.hpp"

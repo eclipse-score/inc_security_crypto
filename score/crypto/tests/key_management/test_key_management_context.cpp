@@ -19,6 +19,8 @@
 /// OpenSslKeyManagementHandler and FileBackedSlotHandler. Exercises the full
 /// handler dispatch flow without mocks.
 
+#include "score/crypto/api/common/error_domain.hpp"
+#include "score/crypto/api/common/types.hpp"
 #include "score/crypto/daemon/common/actors.hpp"
 #include "score/crypto/daemon/config/src/flatbuffer_config_parser.hpp"
 #include "score/crypto/daemon/data_manager/data_manager.hpp"
@@ -32,8 +34,6 @@
 #include "score/crypto/daemon/provider/handler/handler_init_params.hpp"
 #include "score/crypto/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
 #include "score/crypto/daemon/provider/score_provider/openssl/operations/key_management/openssl_key_management_handler.hpp"
-#include "score/mw/crypto/api/common/error_domain.hpp"
-#include "score/mw/crypto/api/common/types.hpp"
 
 #include <gtest/gtest.h>
 #include <cstdint>
@@ -64,7 +64,7 @@ class KeyManagementHandlerTest : public ::testing::Test
         // Load test slot definitions from test config
         config::KeyConfig test_config{};
         auto result = config::FlatBufferConfigParser::ParseFromFile(
-            "tests/key_management/config/key_management_test_config.bin", test_config);
+            "score/crypto/tests/key_management/config/key_management_test_config.bin", test_config);
         ASSERT_TRUE(result.has_value()) << "Failed to parse test config";
 
         // Use ConfigDrivenSlotCatalog to properly convert and register slots

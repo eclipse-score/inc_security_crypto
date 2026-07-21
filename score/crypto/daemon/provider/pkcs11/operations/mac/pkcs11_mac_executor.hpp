@@ -14,11 +14,11 @@
 #ifndef SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_MAC_EXECUTOR_HPP
 #define SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_MAC_EXECUTOR_HPP
 
+#include "score/crypto/api/common/types.hpp"  // OperationMode
 #include "score/crypto/common/types.hpp"
 #include "score/crypto/daemon/common/daemon_error.hpp"
 #include "score/crypto/daemon/common/types.hpp"
 #include "score/crypto/daemon/provider/pkcs11/operations/mac/pkcs11_mac_context.hpp"
-#include "score/mw/crypto/api/common/types.hpp"  // OperationMode
 
 #include <cryptoki.h>
 #include <pkcs11.h>

@@ -22,6 +22,7 @@
 #include <thread>
 #include <utility>
 
+#include "score/crypto/api/common/error_domain.hpp"
 #include "score/crypto/api/control_plane/connection_factory.hpp"
 #include "score/crypto/daemon/common/actors.hpp"
 #include "score/crypto/daemon/config/inc/config.hpp"
@@ -29,7 +30,6 @@
 #include "score/crypto/daemon/control_plane/src/connection_handler.hpp"
 #include "score/crypto/daemon/data_manager/data_manager.hpp"
 #include "score/crypto/ipc/grpc_adapter/grpc_control_server.h"
-#include "score/mw/crypto/api/common/error_domain.hpp"
 
 // namespace aliases
 namespace api = score::crypto::api;

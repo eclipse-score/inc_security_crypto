@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_MAC_CONTEXT_HPP
 #define SCORE_CRYPTO_DAEMON_PROVIDER_PKCS11_MAC_CONTEXT_HPP
 
-#include "score/mw/crypto/api/common/types.hpp"  // OperationMode
+#include "score/crypto/api/common/types.hpp"  // OperationMode
 
 #include <cryptoki.h>
 #include <pkcs11.h>
