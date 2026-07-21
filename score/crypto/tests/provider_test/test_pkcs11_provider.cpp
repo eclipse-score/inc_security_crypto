@@ -211,7 +211,7 @@ TEST_F(Pkcs11ProviderHashTest, SHA256SingleShotHash)
     ASSERT_TRUE(initCtxResult.has_value()) << "InitializeContext failed";
 
     // Prepare input from test vector file.
-    auto inputBuffer = tests::utility::read_bin("tests/test_vectors/hash/input_hello_world.bin");
+    auto inputBuffer = tests::utility::read_bin("score/tests/test_vectors/hash/input_hello_world.bin");
     ASSERT_FALSE(inputBuffer.empty());
 
     // Prepare output (SHA-256 → 32 bytes).
@@ -230,7 +230,7 @@ TEST_F(Pkcs11ProviderHashTest, SHA256SingleShotHash)
     const auto digest = ExtractDigest(executeResult.value());
 
     // Verify against reference test vector.
-    const auto expectedHash = tests::utility::read_bin("tests/test_vectors/hash/sha256_hello_world.bin");
+    const auto expectedHash = tests::utility::read_bin("score/tests/test_vectors/hash/sha256_hello_world.bin");
     ASSERT_EQ(expectedHash.size(), kSha256DigestLen);
     EXPECT_EQ(digest, expectedHash) << "Hash output does not match expected SHA-256 digest";
 }
@@ -288,7 +288,7 @@ TEST_F(Pkcs11ProviderHashTest, SHA256StreamingHash)
     const auto digest = ExtractDigest(finishResult.value());
 
     // Verify same digest as single-shot using reference test vector.
-    const auto expectedHash = tests::utility::read_bin("tests/test_vectors/hash/sha256_hello_world.bin");
+    const auto expectedHash = tests::utility::read_bin("score/tests/test_vectors/hash/sha256_hello_world.bin");
     ASSERT_EQ(expectedHash.size(), kSha256DigestLen);
     EXPECT_EQ(digest, expectedHash) << "Streaming hash does not match expected SHA-256 digest";
 }
@@ -410,12 +410,12 @@ TEST_F(Pkcs11ProviderHashTest, TrueConcurrentStreamingOnSeparateSessions)
 
     // Both handlers digested "Hello, World!" -- verify correctness
     const auto digestA = ExtractDigest(finA.value());
-    const auto expectedSha256 = tests::utility::read_bin("tests/test_vectors/hash/sha256_hello_world.bin");
+    const auto expectedSha256 = tests::utility::read_bin("score/tests/test_vectors/hash/sha256_hello_world.bin");
     ASSERT_EQ(expectedSha256.size(), kSha256Len);
     EXPECT_EQ(digestA, expectedSha256) << "Interleaved SHA-256 stream produced wrong digest";
 
     const auto digestB = ExtractDigest(finB.value());
-    const auto expectedSha384 = tests::utility::read_bin("tests/test_vectors/hash/sha384_hello_world.bin");
+    const auto expectedSha384 = tests::utility::read_bin("score/tests/test_vectors/hash/sha384_hello_world.bin");
     ASSERT_EQ(expectedSha384.size(), kSha384Len);
     EXPECT_EQ(digestB, expectedSha384) << "Interleaved SHA-384 stream produced wrong digest";
 

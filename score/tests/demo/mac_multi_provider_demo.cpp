@@ -263,7 +263,7 @@ TEST_F(MacDemoTest, Demo3_SlotDirectFileBackedKey)
     {
         std::ofstream f(deploy_path);
         f << "[key]\n"
-          << std::string{km::deployment_keys::kKeyPath} << "=tests/test_vectors/key_management/hmac_sha256.key\n";
+          << std::string{km::deployment_keys::kKeyPath} << "=score/tests/test_vectors/key_management/hmac_sha256.key\n";
     }
     slot.deployment_path = deploy_path;
     slot.deployment_format = "kv";

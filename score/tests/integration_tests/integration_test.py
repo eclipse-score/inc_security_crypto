@@ -180,19 +180,19 @@ class TestCryptoDaemon:
                 Path("score/crypto/daemon/crypto_daemon"): Path(
                     "/opt/crypto/bin/crypto_daemon"
                 ),
-                Path("tests/integration_tests/control_client_app"): Path(
+                Path("score/tests/integration_tests/control_client_app"): Path(
                     "/opt/crypto/bin/control_client_app"
                 ),
-                Path("tests/integration_tests/init_softhsm_token"): Path(
+                Path("score/tests/integration_tests/init_softhsm_token"): Path(
                     "/opt/crypto/bin/init_softhsm_token"
                 ),
-                Path("tests/integration_tests/score_api_hash_example"): Path(
+                Path("score/tests/integration_tests/score_api_hash_example"): Path(
                     "/opt/crypto/bin/score_api_hash_example"
                 ),
-                Path("tests/integration_tests/score_api_mac_example"): Path(
+                Path("score/tests/integration_tests/score_api_mac_example"): Path(
                     "/opt/crypto/bin/score_api_mac_example"
                 ),
-                Path("tests/integration_tests/score_demo"): Path(
+                Path("score/tests/integration_tests/score_demo"): Path(
                     "/opt/crypto/bin/score_demo"
                 ),
                 Path("third_party/grpc/libgrpc++.so.1"): Path(
@@ -204,43 +204,43 @@ class TestCryptoDaemon:
                 Path(
                     "third_party/soft_hsm/soft_hsm_cmake/lib/softhsm/libsofthsm2.so"
                 ): Path("/opt/crypto/lib/libsofthsm2.so"),
-                Path("tests/test_vectors/config/integration_test_config.bin"): Path(
+                Path("score/tests/test_vectors/config/integration_test_config.bin"): Path(
                     self.CRYPTO_CONFIG_PATH
                 ),
-                Path("tests/test_vectors/hash/input_hello_world.bin"): Path(
+                Path("score/tests/test_vectors/hash/input_hello_world.bin"): Path(
                     "/opt/crypto/tests/test_vectors/hash/input_hello_world.bin"
                 ),
-                Path("tests/test_vectors/hash/sha256_hello_world.bin"): Path(
+                Path("score/tests/test_vectors/hash/sha256_hello_world.bin"): Path(
                     "/opt/crypto/tests/test_vectors/hash/sha256_hello_world.bin"
                 ),
-                Path("tests/test_vectors/hash/input_complete_data.bin"): Path(
+                Path("score/tests/test_vectors/hash/input_complete_data.bin"): Path(
                     "/opt/crypto/tests/test_vectors/hash/input_complete_data.bin"
                 ),
-                Path("tests/test_vectors/hash/sha256_complete_data.bin"): Path(
+                Path("score/tests/test_vectors/hash/sha256_complete_data.bin"): Path(
                     "/opt/crypto/tests/test_vectors/hash/sha256_complete_data.bin"
                 ),
-                Path("tests/test_vectors/mac/input_hello_world.bin"): Path(
+                Path("score/tests/test_vectors/mac/input_hello_world.bin"): Path(
                     "/opt/crypto/tests/test_vectors/mac/input_hello_world.bin"
                 ),
-                Path("tests/test_vectors/mac/input_complete_data.bin"): Path(
+                Path("score/tests/test_vectors/mac/input_complete_data.bin"): Path(
                     "/opt/crypto/tests/test_vectors/mac/input_complete_data.bin"
                 ),
-                Path("tests/test_vectors/mac/hmac_sha256_hello_world.bin"): Path(
+                Path("score/tests/test_vectors/mac/hmac_sha256_hello_world.bin"): Path(
                     "/opt/crypto/tests/test_vectors/mac/hmac_sha256_hello_world.bin"
                 ),
-                Path("tests/test_vectors/mac/hmac_sha256_complete_data.bin"): Path(
+                Path("score/tests/test_vectors/mac/hmac_sha256_complete_data.bin"): Path(
                     "/opt/crypto/tests/test_vectors/mac/hmac_sha256_complete_data.bin"
                 ),
-                Path("tests/test_vectors/mac/key_aes_256.key"): Path(
+                Path("score/tests/test_vectors/mac/key_aes_256.key"): Path(
                     "/opt/crypto/tests/test_vectors/mac/key_aes_256.key"
                 ),
-                Path("tests/test_vectors/config/integration_openssl_hmac.kv"): Path(
+                Path("score/tests/test_vectors/config/integration_openssl_hmac.kv"): Path(
                     "/opt/crypto/deploy/integration_openssl_hmac.kv"
                 ),
-                Path("tests/test_vectors/config/integration_softhsm_hmac.kv"): Path(
+                Path("score/tests/test_vectors/config/integration_softhsm_hmac.kv"): Path(
                     "/opt/crypto/deploy/integration_softhsm_hmac.kv"
                 ),
-                Path("tests/config/logging.json"): Path(
+                Path("score/tests/config/logging.json"): Path(
                     "/opt/crypto/config/logging.json"
                 ),
             },

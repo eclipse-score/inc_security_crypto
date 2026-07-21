@@ -28,10 +28,10 @@ class AES128ECBTest : public ::testing::TestWithParam<int>
 
 TEST_P(AES128ECBTest, EncryptBlock)
 {
-    auto key = read_bin("tests/test_vectors/block_cipher/ECB-AES128/key.bin");
+    auto key = read_bin("score/tests/test_vectors/block_cipher/ECB-AES128/key.bin");
     auto num = std::to_string(GetParam());
-    auto plaintext = read_bin("tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".bin");
-    auto expected_ciphertext = read_bin("tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".enc");
+    auto plaintext = read_bin("score/tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".bin");
+    auto expected_ciphertext = read_bin("score/tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".enc");
 
     ASSERT_EQ(key.size(), 16);
     ASSERT_EQ(plaintext.size(), 16);

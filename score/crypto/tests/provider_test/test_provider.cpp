@@ -125,7 +125,7 @@ TEST_F(ProviderHashTest, PerformSHA256SingleShotHashOperation)
     EXPECT_TRUE(init_result.has_value());
 
     // Step 4: Prepare test data
-    auto input_buffer = tests::utility::read_bin("tests/test_vectors/hash/input_hello_world.bin");
+    auto input_buffer = tests::utility::read_bin("score/tests/test_vectors/hash/input_hello_world.bin");
     ASSERT_FALSE(input_buffer.empty());
 
     // Create input parameter as VirtualMemoryBufferConst
@@ -149,7 +149,7 @@ TEST_F(ProviderHashTest, PerformSHA256SingleShotHashOperation)
 
     // Step 5: Verify output
     // SHA256("Hello, World!") loaded from test vector file
-    const auto expected_hash = tests::utility::read_bin("tests/test_vectors/hash/sha256_hello_world.bin");
+    const auto expected_hash = tests::utility::read_bin("score/tests/test_vectors/hash/sha256_hello_world.bin");
     ASSERT_EQ(expected_hash.size(), kSha256DigestLen);
     ASSERT_EQ(output_buffer.size(), expected_hash.size());
     EXPECT_EQ(output_buffer, expected_hash) << "Hash output does not match expected SHA256 hash";
@@ -234,7 +234,7 @@ TEST_F(ProviderHashTest, PerformSHA256StreamingHashOperation)
     ASSERT_TRUE(finalize_result.has_value()) << "HASH_FINALIZE failed";
 
     // Verify output is consistent with single-shot
-    const auto expected_hash = tests::utility::read_bin("tests/test_vectors/hash/sha256_hello_world.bin");
+    const auto expected_hash = tests::utility::read_bin("score/tests/test_vectors/hash/sha256_hello_world.bin");
     ASSERT_EQ(expected_hash.size(), kSha256DigestLen);
     ASSERT_EQ(output_buffer.size(), expected_hash.size());
     EXPECT_EQ(output_buffer, expected_hash) << "Streaming hash output does not match expected SHA256 hash";

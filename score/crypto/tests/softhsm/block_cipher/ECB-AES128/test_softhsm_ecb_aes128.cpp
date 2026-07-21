@@ -142,10 +142,10 @@ class AES128ECBSoftHSMTest : public SoftHSMTest, public ::testing::WithParamInte
 
 TEST_P(AES128ECBSoftHSMTest, EncryptBlock)
 {
-    auto key_data = read_bin("tests/test_vectors/block_cipher/ECB-AES128/key.bin");
+    auto key_data = read_bin("score/tests/test_vectors/block_cipher/ECB-AES128/key.bin");
     auto num = std::to_string(GetParam());
-    auto plaintext = read_bin("tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".bin");
-    auto expected_ciphertext = read_bin("tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".enc");
+    auto plaintext = read_bin("score/tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".bin");
+    auto expected_ciphertext = read_bin("score/tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".enc");
 
     ASSERT_EQ(key_data.size(), 16) << "AES-128 key must be 16 bytes";
     ASSERT_EQ(plaintext.size(), 16) << "AES block must be 16 bytes";
@@ -178,10 +178,10 @@ TEST_P(AES128ECBSoftHSMTest, EncryptBlock)
 
 TEST_P(AES128ECBSoftHSMTest, DecryptBlock)
 {
-    auto key_data = read_bin("tests/test_vectors/block_cipher/ECB-AES128/key.bin");
+    auto key_data = read_bin("score/tests/test_vectors/block_cipher/ECB-AES128/key.bin");
     auto num = std::to_string(GetParam());
-    auto expected_plaintext = read_bin("tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".bin");
-    auto ciphertext = read_bin("tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".enc");
+    auto expected_plaintext = read_bin("score/tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".bin");
+    auto ciphertext = read_bin("score/tests/test_vectors/block_cipher/ECB-AES128/block" + num + ".enc");
 
     ASSERT_EQ(key_data.size(), 16);
     ASSERT_EQ(ciphertext.size(), 16);
