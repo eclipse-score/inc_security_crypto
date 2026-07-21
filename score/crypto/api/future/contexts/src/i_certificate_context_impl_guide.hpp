@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_MW_CRYPTO_API_FUTURE_CONTEXTS_SRC_I_CERTIFICATE_MANAGEMENT_CONTEXT_IMPL_GUIDE_HPP
-#define SCORE_MW_CRYPTO_API_FUTURE_CONTEXTS_SRC_I_CERTIFICATE_MANAGEMENT_CONTEXT_IMPL_GUIDE_HPP
+#ifndef SCORE_CRYPTO_API_FUTURE_CONTEXTS_SRC_I_CERTIFICATE_CONTEXT_IMPL_GUIDE_HPP
+#define SCORE_CRYPTO_API_FUTURE_CONTEXTS_SRC_I_CERTIFICATE_CONTEXT_IMPL_GUIDE_HPP
 
 /// @file
 /// @brief Implementation guidance for concrete ICertificateManagementContext subclasses.
@@ -71,4 +71,4 @@
 #include "score/crypto/api/common/src/crypto_resource_guard_factory.hpp"
 #include "score/crypto/api/common/src/i_release_callback.hpp"
 
-#endif  // SCORE_MW_CRYPTO_API_FUTURE_CONTEXTS_SRC_I_CERTIFICATE_MANAGEMENT_CONTEXT_IMPL_GUIDE_HPP
+#endif  // SCORE_CRYPTO_API_FUTURE_CONTEXTS_SRC_I_CERTIFICATE_CONTEXT_IMPL_GUIDE_HPP

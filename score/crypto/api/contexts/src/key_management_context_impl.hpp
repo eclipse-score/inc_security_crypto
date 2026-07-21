@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_MW_CRYPTO_API_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
-#define SCORE_MW_CRYPTO_API_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
+#ifndef SCORE_CRYPTO_API_CONTEXTS_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
+#define SCORE_CRYPTO_API_CONTEXTS_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
 
 #include "score/crypto/api/common/crypto_resource_guard.hpp"
 #include "score/crypto/api/common/src/i_release_callback.hpp"
@@ -139,4 +139,4 @@ class KeyManagementContextImpl final : public IKeyManagementContext
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_MW_CRYPTO_API_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP
+#endif  // SCORE_CRYPTO_API_CONTEXTS_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP

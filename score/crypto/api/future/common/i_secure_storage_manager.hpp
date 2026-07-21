@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_MW_CRYPTO_API_FUTURE_COMMON_I_SECURE_STORAGE_MANAGER_HPP
-#define SCORE_MW_CRYPTO_API_FUTURE_COMMON_I_SECURE_STORAGE_MANAGER_HPP
+#ifndef SCORE_CRYPTO_API_FUTURE_COMMON_I_SECURE_STORAGE_MANAGER_HPP
+#define SCORE_CRYPTO_API_FUTURE_COMMON_I_SECURE_STORAGE_MANAGER_HPP
 
 #include "score/result/result.h"
 #include "score/span.hpp"
@@ -91,4 +91,4 @@ class ISecureStorageManager
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_MW_CRYPTO_API_FUTURE_COMMON_I_SECURE_STORAGE_MANAGER_HPP
+#endif  // SCORE_CRYPTO_API_FUTURE_COMMON_I_SECURE_STORAGE_MANAGER_HPP

@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_MW_CRYPTO_API_CERTIFICATE_CERT_TYPES_HPP
-#define SCORE_MW_CRYPTO_API_CERTIFICATE_CERT_TYPES_HPP
+#ifndef SCORE_CRYPTO_API_FUTURE_CERTIFICATE_CERT_TYPES_HPP
+#define SCORE_CRYPTO_API_FUTURE_CERTIFICATE_CERT_TYPES_HPP
 
 #include "score/crypto/api/common/types.hpp"
 
@@ -53,4 +53,4 @@ enum class OcspStatus : uint8_t
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_MW_CRYPTO_API_CERTIFICATE_CERT_TYPES_HPP
+#endif  // SCORE_CRYPTO_API_FUTURE_CERTIFICATE_CERT_TYPES_HPP

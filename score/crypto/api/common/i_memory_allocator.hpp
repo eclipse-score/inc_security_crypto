@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_MW_CRYPTO_API_COMMON_I_MEMORY_ALLOCATOR_HPP
-#define SCORE_MW_CRYPTO_API_COMMON_I_MEMORY_ALLOCATOR_HPP
+#ifndef SCORE_CRYPTO_API_COMMON_I_MEMORY_ALLOCATOR_HPP
+#define SCORE_CRYPTO_API_COMMON_I_MEMORY_ALLOCATOR_HPP
 
 #include "score/crypto/api/common/i_memory_region.hpp"
 #include "score/crypto/api/common/types.hpp"
@@ -83,4 +83,4 @@ class IMemoryAllocator
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_MW_CRYPTO_API_COMMON_I_MEMORY_ALLOCATOR_HPP
+#endif  // SCORE_CRYPTO_API_COMMON_I_MEMORY_ALLOCATOR_HPP

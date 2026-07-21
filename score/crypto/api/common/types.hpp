@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_MW_CRYPTO_API_COMMON_TYPES_HPP
-#define SCORE_MW_CRYPTO_API_COMMON_TYPES_HPP
+#ifndef SCORE_CRYPTO_API_COMMON_TYPES_HPP
+#define SCORE_CRYPTO_API_COMMON_TYPES_HPP
 
 #include "score/crypto/api/common/error_domain.hpp"
 #include "score/crypto/api/common/fixed_capacity_string.hpp"
@@ -440,4 +440,4 @@ struct std::hash<score::mw::crypto::CryptoResourceId>
     }
 };
 
-#endif  // SCORE_MW_CRYPTO_API_COMMON_TYPES_HPP
+#endif  // SCORE_CRYPTO_API_COMMON_TYPES_HPP

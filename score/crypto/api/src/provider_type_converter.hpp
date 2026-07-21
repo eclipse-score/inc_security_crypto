@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_MW_CRYPTO_API_SRC_PROVIDER_TYPE_CONVERTER_HPP
-#define SCORE_MW_CRYPTO_API_SRC_PROVIDER_TYPE_CONVERTER_HPP
+#ifndef SCORE_CRYPTO_API_SRC_PROVIDER_TYPE_CONVERTER_HPP
+#define SCORE_CRYPTO_API_SRC_PROVIDER_TYPE_CONVERTER_HPP
 
 #include "score/crypto/api/common/types.hpp"
 
@@ -54,4 +54,4 @@ inline constexpr std::uint8_t ToWireValue(ProviderType api_type) noexcept
 }  // namespace mw
 }  // namespace score
 
-#endif  // SCORE_MW_CRYPTO_API_SRC_PROVIDER_TYPE_CONVERTER_HPP
+#endif  // SCORE_CRYPTO_API_SRC_PROVIDER_TYPE_CONVERTER_HPP
