@@ -15,7 +15,6 @@
 
 #include "score/mw/log/logging.h"
 #include <openssl/crypto.h>  // OPENSSL_cleanse
-#include <algorithm>
 
 namespace score::crypto::daemon::provider::openssl
 {
@@ -77,8 +76,8 @@ OpenSslKeyHandler::Export() const
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
 
-    key_management::SecureKeyBytes out(m_key_bytes.size());
-    std::copy(m_key_bytes.begin(), m_key_bytes.end(), out.bytes.begin());
+    key_management::SecureKeyBytes out;
+    out.bytes.assign(m_key_bytes.begin(), m_key_bytes.end());
     return out;
 }
 
