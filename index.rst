@@ -211,9 +211,8 @@ For documentation of individual components within this module:
 .. toctree::
    :maxdepth: 1
 
-   score/component_example/docs/index
    score/iav_primula/docs/index
-   score/crypto/daemon/data_manager/docs/index
+   score/crypto/src/daemon/data_manager/docs/index
 
 Architecture Modeling Example
 -----------------------------

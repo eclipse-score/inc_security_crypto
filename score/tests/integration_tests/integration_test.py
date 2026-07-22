@@ -177,7 +177,7 @@ class TestCryptoDaemon:
         _docker_upload(
             docker,
             {
-                Path("score/crypto/daemon/crypto_daemon"): Path(
+                Path("score/crypto/src/daemon/crypto_daemon"): Path(
                     "/opt/crypto/bin/crypto_daemon"
                 ),
                 Path("score/tests/integration_tests/control_client_app"): Path(

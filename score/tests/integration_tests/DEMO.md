@@ -28,7 +28,7 @@ export CRYPTO_CONFIG_FILE=/opt/crypto/tests/test_vectors/config/integration_test
 export SOFTHSM2_CONF=/tmp/softhsm2.conf
 export MW_LOG_CONFIG_FILE=score/tests/config/logging.json
 
-./bazel-bin/score/crypto/daemon/crypto_daemon
+./bazel-bin/score/crypto/src/daemon/crypto_daemon
 ```
 
 > `MW_LOG_CONFIG_FILE` points to the logging config in `score/tests/config/logging.json`.

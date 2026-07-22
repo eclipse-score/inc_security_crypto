@@ -32,12 +32,12 @@ Overview
 The ``score::mw::crypto`` module follows a **daemon-based client–server**
 architecture:
 
-- **Client library** (``//score/crypto/api/...``) — a pure C++ interface layer
+- **Client library** (``//score/crypto/src/api/...``) — a pure C++ interface layer
   that applications link against. All operations are expressed through
   factory-created context objects (``IHashContext``, ``IMacContext``, etc.)
   following an ``Init()`` → ``Update()`` → ``Finalize()`` streaming pattern.
 
-- **Crypto daemon** (``//score/crypto/daemon:crypto_daemon``) — a separate process that
+- **Crypto daemon** (``//score/crypto/src/daemon:crypto_daemon``) — a separate process that
   hosts all cryptographic state, enforces per-application Access Control
   List (ACL) and per-key operation permissions (``KeyOperationPermission``
   bitmask), and drives the underlying provider (OpenSSL, SoftHSM / PKCS#11,
