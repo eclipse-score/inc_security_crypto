@@ -27,8 +27,8 @@ Overview
 This repository provides a standardized setup for projects using **C++** or **Rust** and **Bazel** as a build system.
 It integrates best practices for build, test, CI/CD and documentation.
 It also provides an example for the documentation of an module with all necessary artifacts for safety and security management, verification and release management.
-It also provides the component architecture template snippets in :doc:`/score/component_example/docs/architecture/component_architecture`.
-It also provides an example of documenting detailed design in :doc:`/score/component_example/docs/detailed_design/detailed_design_example`.
+It also provides the component architecture template snippets in :doc:`/score/crypto/docs/architecture/component_architecture`.
+It also provides an example of documenting detailed design in :doc:`/score/crypto/docs/detailed_design/detailed_design_example`.
 
 Module Layout
 -------------
@@ -211,6 +211,7 @@ For documentation of individual components within this module:
 .. toctree::
    :maxdepth: 1
 
+   score/crypto/docs/index
    score/iav_primula/docs/index
    score/crypto/src/daemon/data_manager/docs/index
 
