@@ -156,32 +156,32 @@ Component <name> Work products List
         * - :need:`wp__requirements_inspect`
           - :need:`gd_chklst__req_inspection`
           - :ndf:`copy('status', need_id='gd_chklst__req_inspection')`
-          - :need:`doc__mod_temp_component_name_req_inspection`
+          - :need:`doc__crypto_req_inspection`
 
         * - :need:`wp__component_arch`
           - :need:`gd_temp__arch_comp`
           - :ndf:`copy('status', need_id='gd_temp__arch_comp')`
-          - :need:`doc__mod_temp_component_name_architecture`
+          - :need:`doc__crypto_architecture`
 
         * - :need:`wp__sw_arch_verification`
           - :need:`gd_chklst__arch_inspection_checklist`
           - :ndf:`copy('status', need_id='gd_chklst__arch_inspection_checklist')`
-          - :need:`doc__mod_temp_component_name_arc_inspection`
+          - :need:`doc__crypto_arc_inspection`
 
         * - :need:`wp__sw_component_fmea`
           - :need:`gd_temp__comp_saf_fmea`
           - :ndf:`copy('status', need_id='gd_temp__comp_saf_fmea')`
-          - :need:`doc__mod_temp_component_name_fmea`
+          - :need:`doc__crypto_fmea`
 
         * - :need:`wp__sw_component_dfa`
           - :need:`gd_temp__comp_saf_dfa`
           - :ndf:`copy('status', need_id='gd_temp__comp_saf_dfa')`
-          - :need:`doc__mod_temp_component_name_dfa`
+          - :need:`doc__crypto_dfa`
 
         * - :need:`wp__sw_implementation`
           - :need:`gd_guidl__implementation`
           - :ndf:`copy('status', need_id='gd_guidl__implementation')`
-          - :need:`doc__mod_temp_component_name_detailed_design` & <Link to code>
+          - :need:`doc__crypto_detailed_design` & <Link to code>
 
         * - :need:`wp__verification_sw_unit_test`
           - :need:`gd_guidl__verification_guide`
@@ -191,7 +191,7 @@ Component <name> Work products List
         * - :need:`wp__sw_implementation_inspection`
           - :need:`gd_chklst__impl_inspection_checklist`
           - :ndf:`copy('status', need_id='gd_chklst__impl_inspection_checklist')`
-          - :need:`doc__mod_temp_component_name_impl_inspection`
+          - :need:`doc__crypto_impl_inspection`
 
         * - :need:`wp__verification_comp_int_test`
           - :need:`gd_guidl__verification_guide`
@@ -201,7 +201,7 @@ Component <name> Work products List
         * - :need:`wp__sw_component_class`
           - :need:`gd_guidl__component_classification`
           - :ndf:`copy('status', need_id='gd_guidl__component_classification')`
-          - :need:`doc__mod_temp_component_name_comp_class`
+          - :need:`doc__crypto_comp_class`
 
 Note: In case the component is a new development, :need:`wp__sw_component_class` shall be removed from the above list (and also from the folders).
 In case an OSS element is used in the module, part 6 has to be filled out.

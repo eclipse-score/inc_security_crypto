@@ -17,21 +17,14 @@ Component Classification
 
 .. note:: Document header
 
-.. document:: [Your Component Name] Component Classification
-   :id: doc__mod_temp_component_name_comp_class
+.. document:: Crypto Component Classification
+   :id: doc__crypto_comp_class
    :status: draft
    :safety: ASIL_B
    :security: NO
    :realizes: wp__sw_component_class
    :tags: template
 
-.. attention::
-    The above directive must be updated according to your Component.
-
-    - Modify ``Your Component Name`` to be your Component Name
-    - Modify ``id`` to be your Component Name in upper snake case preceded by ``doc__``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety`` and ``tags`` according to your needs
 
 | Classification of <component>
 |

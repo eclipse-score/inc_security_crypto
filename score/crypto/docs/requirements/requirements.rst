@@ -15,7 +15,7 @@
 Component <Name> Requirements
 #############################
 
-.. document:: [Your Component Name] Requirements
+.. document:: Crypto Requirements
    :id: doc__crypto_requirements
    :status: draft
    :safety: ASIL_B
@@ -23,13 +23,7 @@ Component <Name> Requirements
    :realizes: wp__requirements_comp[version==1]
    :tags: template
 
-.. attention::
-    The above directive must be updated according to your Component.
 
-    - Modify ``Your Component Name`` to be your Component Name
-    - Modify ``id`` to be your Component Name in upper snake case preceded by ``doc__`` and followed by ``_requirements``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety``, ``security`` and ``tags`` according to your needs
 
 <Headlines (for the list of requirements if structuring is needed)>
 ===================================================================
@@ -52,15 +46,6 @@ Functional Requirements
 
       Note: (optional, not to be verified)
 
-.. attention::
-    The above directive must be updated according to your component requirements.
-
-    - Replace the example content by the real content for your first requirement
-    - Set ``derived_from`` with links to Feature requirements
-    - Set ``satisfied_by`` with a link to the right Component id
-    - Set ``safety`` and ``security`` to the right value
-    - Set the status to valid and start the review/merge process
-    - Add other needed requirements for your component
 
 Assumption of Use Requirements
 ------------------------------

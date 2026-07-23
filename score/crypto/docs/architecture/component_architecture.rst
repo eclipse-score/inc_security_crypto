@@ -15,21 +15,14 @@
 Component Architecture Documentation
 ====================================
 
-.. document:: [Your Component Name] Architecture
-   :id: doc__mod_temp_component_name_architecture
+.. document:: Crypto Component Architecture
+   :id: doc__crypto_comp_architecture
    :status: draft
    :safety: ASIL_B
    :security: NO
    :realizes: wp__component_arch
    :tags: template
 
-.. attention::
-    The above directive must be updated according to your needs.
-
-    - Modify ``Your Component Name`` to be your Component Name
-    - Modify ``id`` to be your Component Name in upper snake case preceded by ``doc__`` and followed by ``_architecture``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety`` and ``tags`` according to your needs
 
 
 Overview
@@ -75,7 +68,7 @@ A component can optional also consist of lower level components to further struc
 .. code-block::
 
    .. comp:: Component Name
-      :id: comp__mod_temp_component_name_template
+      :id: comp__mod_temp_crypto_template
       :security: YES
       :safety: ASIL_B
       :status: valid
@@ -85,12 +78,12 @@ A component can optional also consist of lower level components to further struc
 .. code-block::
 
    .. comp_arc_sta:: Component Name (Static View)
-      :id: comp_arc_sta__mod_temp_component_name__sv
+      :id: comp_arc_sta__mod_temp_crypto__sv
       :security: YES
       :safety: ASIL_B
       :status: valid
-      :belongs_to: comp__mod_temp_component_name_template
-      :fulfils: comp_req__mod_temp_component_name__some_title
+      :belongs_to: comp__mod_temp_crypto_template
+      :fulfils: comp_req__mod_temp_crypto__some_title
 
       .. needarch::
          :scale: 50
@@ -104,12 +97,12 @@ Dynamic Architecture
 .. code-block::
 
    .. comp_arc_dyn:: Dynamic View
-      :id: comp_arc_dyn__mod_temp_component_name__dv
+      :id: comp_arc_dyn__mod_temp_crypto__dv
       :security: YES
       :safety: ASIL_B
       :status: valid
-      :belongs_to: comp__mod_temp_component_name_template
-      :fulfils: comp_req__mod_temp_component_name__some_title
+      :belongs_to: comp__mod_temp_crypto_template
+      :fulfils: comp_req__mod_temp_crypto__some_title
 
       Put here a sequence diagram
 
@@ -131,20 +124,14 @@ Internal Components
 .. code-block::
 
    .. comp_arc_sta:: Component Name Static View
-      :id: comp_arc_sta__mod_temp_component_name__2
+      :id: comp_arc_sta__mod_temp_crypto__2
       :status: valid
       :safety: ASIL_B
       :security: YES
-      :fulfils: comp_req__mod_temp_component_name__some_title
+      :fulfils: comp_req__mod_temp_crypto__some_title
       :belongs_to: comp__mod_temp_component_example_2
 
       No architecture but detailed design
 
 .. note::
    Architecture can be split into multiple files. At component level the public interfaces to be used by the user and tester to be shown.
-
-.. attention::
-    The above directives must be updated according to your component architecture.
-
-    - Replace the example content by the real content (according to :need:`gd_guidl__arch_design`)
-    - Set the status to valid and start the review/merge process

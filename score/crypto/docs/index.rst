@@ -14,13 +14,13 @@
 
 .. _component_template:
 
-[Your Component Name]
-#####################
+Crypto
+#######
 
 .. note:: Document header
 
-.. document:: [Your Component Name]
-   :id: doc__mod_temp_component_name
+.. document:: Crypto
+   :id: doc__mod_temp_crypto
    :status: draft
    :safety: ASIL_B
    :security: NO
@@ -30,21 +30,14 @@
 .. code-block:: rst
 
    .. comp:: Component Name
-      :id: comp__mod_temp_component_name_template
+      :id: comp__mod_temp_crypto_template
       :security: YES
       :safety: ASIL_B
       :status: invalid
       :implements: logic_arc_int__feature_name__interface_name1
-      :consists_of: comp__component_name_internal_1, comp__component_name_internal_2, comp__component_name_internal_3
+      :consists_of: comp__crypto_internal_1, comp__crypto_internal_2, comp__crypto_internal_3
       :belongs_to: feat__feature_name
 
-.. attention::
-    The above directives must be updated according to your Component.
-
-    - Modify ``document`` to be your Component Name
-    - Modify ``id`` to be your Component Name in upper snake case preceded by ``doc__``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety`` and ``tags`` according to your needs
 
 Abstract
 ========

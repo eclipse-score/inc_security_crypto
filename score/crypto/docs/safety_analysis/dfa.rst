@@ -16,8 +16,8 @@
 DFA (Dependent Failure Analysis)
 ================================
 
-.. document:: [Your Component Name] DFA
-   :id: doc__mod_temp_component_name_dfa
+.. document:: Crypto DFA
+   :id: doc__crypto_dfa
    :status: draft
    :safety: ASIL_B
    :security: NO
@@ -26,13 +26,6 @@ DFA (Dependent Failure Analysis)
 
 .. note:: Use the content of the document to describe e.g. why a fault model is not applicable for the diagram.
 
-.. attention::
-    The above directive must be updated according to your Component.
-
-    - Modify ``Your Component Name`` to be your Component Name
-    - Modify ``id`` to be your Component Name in upper snake case preceded by ``doc__`` and succeeded by ``_dfa``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety`` and ``tags`` according to your needs
 
 Dependent Failure Initiators
 ----------------------------

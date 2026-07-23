@@ -12,21 +12,14 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. document:: [Your Component Name] Implementation Inspection Checklist
-  :id: doc__mod_temp_component_name_impl_inspection
+.. document:: Crypto Implementation Inspection Checklist
+  :id: doc__crypto_impl_inspection
   :status: draft
   :safety: ASIL_B
   :security: YES
   :realizes: wp__sw_implementation_inspection
   :tags: template
 
-.. attention::
-    The above directive must be updated according to your Component.
-
-    - Modify ``Your Component Name`` to be your Component Name
-    - Modify ``id`` to be your Component Name in lower snake case preceded by ``doc__`` and followed by ``_impl_inspection``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety``, ``security`` and ``tags`` according to your needs
 
 Implementation Inspection Checklist
 ===================================

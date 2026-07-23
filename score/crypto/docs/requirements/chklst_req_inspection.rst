@@ -13,21 +13,14 @@
    # *******************************************************************************
 
 
-.. document:: [Your Component Name] Requirements Inspection Checklist
-  :id: doc__mod_temp_component_name_req_inspection
+.. document:: Crypto Requirements Inspection Checklist
+  :id: doc__crypto_req_inspection
   :status: draft
   :safety: ASIL_B
   :security: YES
   :realizes: wp__requirements_inspect
   :tags: template
 
-.. attention::
-    The above directive must be updated according to your Component.
-
-    - Modify ``Your Component Name`` to be your Component Name
-    - Modify ``id`` to be your Component Name in lower snake case preceded by ``doc__`` and followed by ``_req_inspection``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety``, ``security`` and ``tags`` according to your needs
 
 Requirement Inspection Checklist
 ================================
@@ -164,10 +157,10 @@ Note: If a Review ID is not applicable for your requirement, then state ""n/a" i
 The following requirements in "valid" state and with "inspected" tag set are in the scope of this inspection:
 
 .. needtable::
-   :filter: "component_name" in docname and "requirements" in docname and docname is not None and status == "valid"
+   :filter: "Crypto" in docname and "requirements" in docname and docname is not None and status == "valid"
    :style: table
    :types: comp_req
-   :tags: component_name
+   :tags: Crypto
    :columns: id;status;tags
    :colwidths: 25,25,25
    :sort: title
@@ -175,10 +168,10 @@ The following requirements in "valid" state and with "inspected" tag set are in 
 And also the following AoUs in "valid" state and with "inspected" tag set (for these please answer the questions above as if the AoUs are requirements, except question REQ_03_01):
 
 .. needtable::
-   :filter: "component_name" in docname and "requirements" in docname and docname is not None and status == "valid"
+   :filter: "Crypto" in docname and "requirements" in docname and docname is not None and status == "valid"
    :style: table
    :types: aou_req
-   :tags: component_name
+   :tags: Crypto
    :columns: id;status;tags
    :colwidths: 25,25,25
    :sort: title
@@ -186,4 +179,4 @@ And also the following AoUs in "valid" state and with "inspected" tag set (for t
 .. attention::
     The above tables filtering must be updated according to your Component.
 
-    - Modify ``component_name`` to be your Component Name in lower snake case
+    - Modify ``Crypto`` to be your Component Name in lower snake case

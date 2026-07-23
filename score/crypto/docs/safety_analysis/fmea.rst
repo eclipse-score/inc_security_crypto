@@ -16,8 +16,8 @@
 FMEA (Failure Modes and Effects Analysis)
 =========================================
 
-.. document:: [Your Component Name] FMEA
-   :id: doc__mod_temp_component_name_fmea
+.. document:: Crypto FMEA
+   :id: doc__crypto_fmea
    :status: draft
    :safety: ASIL_B
    :security: NO
@@ -26,13 +26,6 @@ FMEA (Failure Modes and Effects Analysis)
 
 .. note:: Use the content of the document to describe e.g. why a fault model is not applicable for the diagram.
 
-.. attention::
-    The above directive must be updated according to your Component.
-
-    - Modify ``Your Component Name`` to be your Component Name
-    - Modify ``id`` to be your Component Name in upper snake case preceded by ``doc__`` and succeeded by ``_fmea``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety`` and ``tags`` according to your needs
 
 Failure Mode List
 -----------------
