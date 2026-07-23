@@ -11,46 +11,42 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/daemon/key_management/slot/deployment/kv/kv_deployment_writer.hpp"
+#include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 
 #include "score/mw/log/logging.h"
+
 #include <fstream>
 
-#include <string>
-
-namespace score::crypto::daemon::key_management
+namespace score::crypto::daemon::common::storage
 {
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> KvDeploymentWriter::Write(
     const std::string& path,
-    const SlotDeploymentInfo& info)
+    const DeploymentDescriptor& descriptor)
 {
     std::ofstream file(path, std::ios::trunc);
     if (!file.is_open())
     {
-        score::mw::log::LogError() << kLogPrefix << "Cannot open deployment descriptor for writing:" << path;
-        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+        score::mw::log::LogError() << kLogPrefix << "Cannot open for writing: " << path;
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
 
-    file << "[metadata]\n";
-    for (const auto& [key, value] : info.metadata)
+    for (const auto& [section, entries] : descriptor.sections)
     {
-        file << key << '=' << value << '\n';
-    }
-
-    file << "\n[key]\n";
-    for (const auto& [key, value] : info.key_properties)
-    {
-        file << key << '=' << value << '\n';
+        file << '[' << section << ']' << '\n';
+        for (const auto& [key, value] : entries)
+        {
+            file << key << " = " << value << '\n';
+        }
+        file << '\n';
     }
 
     if (!file.good())
     {
-        score::mw::log::LogError() << kLogPrefix << "Write error for deployment descriptor:" << path;
+        score::mw::log::LogError() << kLogPrefix << "Write failed for: " << path;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
-
     return std::monostate{};
 }
 
-}  // namespace score::crypto::daemon::key_management
+}  // namespace score::crypto::daemon::common::storage
