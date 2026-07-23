@@ -16,7 +16,7 @@ Component <Name> Requirements
 #############################
 
 .. document:: [Your Component Name] Requirements
-   :id: doc__mod_temp_component_name_requirements
+   :id: doc__crypto_requirements
    :status: draft
    :safety: ASIL_B
    :security: YES
@@ -38,15 +38,15 @@ Functional Requirements
 -----------------------
 
 .. code-block::
-   
+
    .. comp_req:: Some Title
-      :id: comp_req__mod_temp_component_name__some_title
+      :id: comp_req__crypto__some_title
       :reqtype: Process
       :security: YES
       :safety: ASIL_B
       :derived_from:
       :status: valid
-      :satisfied_by: comp__mod_temp_component_name_template
+      :satisfied_by: comp__crypto_template
 
       The Component shall do xyz to another component to bring it to this condition at this time
 
@@ -66,7 +66,7 @@ Assumption of Use Requirements
 ------------------------------
 
 .. aou_req:: Next Title
-   :id: aou_req__mod_temp_component_name__next_title
+   :id: aou_req__crypto__next_title
    :reqtype: Process
    :security: YES
    :safety: ASIL_B
@@ -78,7 +78,7 @@ Environmental Requirements
 --------------------------
 
 .. aou_req:: Another Title
-   :id: aou_req__mod_temp_component_name__another
+   :id: aou_req__crypto__another
    :reqtype: Process
    :security: YES
    :safety: ASIL_B
@@ -99,5 +99,5 @@ Hints
     - Add other needed requirements for your feature
     - Set ``status`` to ``valid`` and start the review/merge process
 
-.. needextend:: is_external == False and "component_name" in id
-   :+tags: component_name
+.. needextend:: is_external == False and "crypto" in id
+   :+tags: crypto
