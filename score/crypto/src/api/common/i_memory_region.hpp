@@ -22,8 +22,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -98,7 +97,7 @@ class IReadWriteMemoryRegion : public IReadOnlyMemoryRegion
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_COMMON_I_MEMORY_REGION_HPP

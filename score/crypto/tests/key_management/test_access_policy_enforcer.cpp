@@ -30,7 +30,7 @@ class AccessPolicyEnforcerTest : public ::testing::Test
         m_slot_config.provider_names = {score::crypto::daemon::common::kProviderNameOpenSSL};
         // Test setup: simulate resolved provider IDs (would normally be done by ResolveProviderIds)
         m_slot_config.provider_ids = {0};  // 0 = OpenSSL, assigned by ProviderManager
-        m_slot_config.allowed_operations = score::mw::crypto::KeyOperationPermission::kMac;
+        m_slot_config.allowed_operations = score::crypto::KeyOperationPermission::kMac;
         m_slot_config.access_policy.allowed_uids = {0, 1000, 2000};
     }
 
@@ -78,23 +78,23 @@ TEST_F(AccessPolicyEnforcerTest, CheckSlotAccess_UidInUpperBits_ExtractsUpper32)
 
 TEST_F(AccessPolicyEnforcerTest, CheckOperationPermission_Mac_Succeeds)
 {
-    auto result = km::AccessPolicyEnforcer::CheckOperationPermission(m_slot_config,
-                                                                     score::mw::crypto::KeyOperationPermission::kMac);
+    auto result =
+        km::AccessPolicyEnforcer::CheckOperationPermission(m_slot_config, score::crypto::KeyOperationPermission::kMac);
     ASSERT_TRUE(result.has_value());
 }
 
 TEST_F(AccessPolicyEnforcerTest, CheckOperationPermission_None_Succeeds)
 {
     // kNone means no specific permission is requested → always passes
-    auto result = km::AccessPolicyEnforcer::CheckOperationPermission(m_slot_config,
-                                                                     score::mw::crypto::KeyOperationPermission::kNone);
+    auto result =
+        km::AccessPolicyEnforcer::CheckOperationPermission(m_slot_config, score::crypto::KeyOperationPermission::kNone);
     ASSERT_TRUE(result.has_value());
 }
 
 TEST_F(AccessPolicyEnforcerTest, CheckOperationPermission_Encrypt_FailsOnMacOnlySlot)
 {
-    auto result = km::AccessPolicyEnforcer::CheckOperationPermission(
-        m_slot_config, score::mw::crypto::KeyOperationPermission::kEncrypt);
+    auto result = km::AccessPolicyEnforcer::CheckOperationPermission(m_slot_config,
+                                                                     score::crypto::KeyOperationPermission::kEncrypt);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyOperationNotPermitted);
 }
@@ -107,7 +107,7 @@ TEST_F(AccessPolicyEnforcerTest, Authorize_ValidUidAndPermission_Succeeds)
 {
     uint64_t client_id = static_cast<uint64_t>(1000U) << 32U;
     auto result =
-        km::AccessPolicyEnforcer::Authorize(m_slot_config, client_id, score::mw::crypto::KeyOperationPermission::kMac);
+        km::AccessPolicyEnforcer::Authorize(m_slot_config, client_id, score::crypto::KeyOperationPermission::kMac);
     ASSERT_TRUE(result.has_value());
 }
 
@@ -116,7 +116,7 @@ TEST_F(AccessPolicyEnforcerTest, Authorize_InvalidUid_Fails)
     // UID is extracted from the upper 32 bits of client_id by GetUidFromClientId
     uint64_t client_id = static_cast<uint64_t>(9999U) << 32U;
     auto result =
-        km::AccessPolicyEnforcer::Authorize(m_slot_config, client_id, score::mw::crypto::KeyOperationPermission::kMac);
+        km::AccessPolicyEnforcer::Authorize(m_slot_config, client_id, score::crypto::KeyOperationPermission::kMac);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kAccessDenied);
 }
@@ -124,8 +124,8 @@ TEST_F(AccessPolicyEnforcerTest, Authorize_InvalidUid_Fails)
 TEST_F(AccessPolicyEnforcerTest, Authorize_InvalidPermission_Fails)
 {
     uint64_t client_id = static_cast<uint64_t>(1000U) << 32U;
-    auto result = km::AccessPolicyEnforcer::Authorize(
-        m_slot_config, client_id, score::mw::crypto::KeyOperationPermission::kEncrypt);
+    auto result =
+        km::AccessPolicyEnforcer::Authorize(m_slot_config, client_id, score::crypto::KeyOperationPermission::kEncrypt);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyOperationNotPermitted);
 }

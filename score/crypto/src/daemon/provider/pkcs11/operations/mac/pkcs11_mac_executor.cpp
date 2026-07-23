@@ -53,7 +53,7 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     StreamOperationState& nextState) noexcept
 {
     namespace ops = handler::mac_handler_operations;
-    const bool use_verify = (ctx.operation_mode == score::mw::crypto::OperationMode::kVerify);
+    const bool use_verify = (ctx.operation_mode == score::crypto::OperationMode::kVerify);
 
     if (operationAction == ops::MAC_SS)
     {
@@ -161,7 +161,7 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
 {
     // MAC_FINALIZE produces tag bytes — only valid on the sign (kGenerate) path.
     // The verify path (kVerify) has no equivalent; use MAC_VERIFY instead.
-    if (ctx.operation_mode == score::mw::crypto::OperationMode::kVerify)
+    if (ctx.operation_mode == score::crypto::OperationMode::kVerify)
     {
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
     }
@@ -223,14 +223,14 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
 // Abort
 // ---------------------------------------------------------------------------
 
-void Pkcs11MacExecutor::Abort(CK_SESSION_HANDLE session, score::mw::crypto::OperationMode operation_mode) noexcept
+void Pkcs11MacExecutor::Abort(CK_SESSION_HANDLE session, score::crypto::OperationMode operation_mode) noexcept
 {
     if (m_functionList == nullptr)
     {
         return;
     }
 
-    if (operation_mode == score::mw::crypto::OperationMode::kVerify)
+    if (operation_mode == score::crypto::OperationMode::kVerify)
     {
         // Abort an active C_Verify* operation by calling C_VerifyFinal with a dummy tag.
         // C_VerifyFinal terminates the active operation regardless of whether the tag

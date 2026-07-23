@@ -229,7 +229,7 @@ TEST_F(KeyManagementHandlerTest, GenerateKey_HmacSha256_ReturnsNodeId)
     SetStandardParams(params);
     const std::string algo = "HMAC-SHA256";
     params.push_back(std::string_view(algo));
-    params.push_back(static_cast<std::uint64_t>(score::mw::crypto::KeyOperationPermission::kMac));
+    params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kMac));
 
     auto result = m_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, params);
@@ -244,7 +244,7 @@ TEST_F(KeyManagementHandlerTest, GenerateKey_UnknownAlgorithm_ReturnsError)
     SetStandardParams(params);
     const std::string algo = "UNKNOWN-ALGO";
     params.push_back(std::string_view(algo));
-    params.push_back(static_cast<std::uint64_t>(score::mw::crypto::KeyOperationPermission::kMac));
+    params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kMac));
 
     auto result = m_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, params);
@@ -275,7 +275,7 @@ TEST_F(KeyManagementHandlerTest, GenerateAndRelease_EphemeralKey_FullLifecycle)
     SetStandardParams(gen_params);
     const std::string algo = "HMAC-SHA256";
     gen_params.push_back(std::string_view(algo));
-    gen_params.push_back(static_cast<std::uint64_t>(score::mw::crypto::KeyOperationPermission::kMac));
+    gen_params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kMac));
 
     auto gen = m_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, gen_params);
@@ -316,7 +316,7 @@ TEST_F(KeyManagementHandlerTest, MultipleEphemeralKeys_IndependentLifecycle)
     common::RequestParameters gen1_params;
     SetStandardParams(gen1_params);
     gen1_params.push_back(std::string_view(algo1));
-    gen1_params.push_back(static_cast<std::uint64_t>(score::mw::crypto::KeyOperationPermission::kMac));
+    gen1_params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kMac));
 
     auto g1 = m_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, gen1_params);
@@ -327,7 +327,7 @@ TEST_F(KeyManagementHandlerTest, MultipleEphemeralKeys_IndependentLifecycle)
     common::RequestParameters gen2_params;
     SetStandardParams(gen2_params);
     gen2_params.push_back(std::string_view(algo2));
-    gen2_params.push_back(static_cast<std::uint64_t>(score::mw::crypto::KeyOperationPermission::kMac));
+    gen2_params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kMac));
 
     auto g2 = m_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, gen2_params);

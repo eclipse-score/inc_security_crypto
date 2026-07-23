@@ -170,7 +170,7 @@ struct KeySlotConfig
     std::vector<common::ProviderId> provider_ids;
 
     /// @brief Permitted crypto operations for keys loaded from this slot.
-    score::mw::crypto::KeyOperationPermission allowed_operations{score::mw::crypto::KeyOperationPermission::kNone};
+    score::crypto::KeyOperationPermission allowed_operations{score::crypto::KeyOperationPermission::kNone};
 
     /// @brief UID-based access control for this slot.
     AccessPolicy access_policy;

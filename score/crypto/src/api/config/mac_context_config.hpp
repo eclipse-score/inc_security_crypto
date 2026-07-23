@@ -18,8 +18,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -80,7 +79,7 @@ struct MacContextConfig : public BaseContextConfig
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_CONFIG_MAC_CONTEXT_CONFIG_HPP

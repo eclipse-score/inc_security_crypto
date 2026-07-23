@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 /// @file hashing_example.cpp
-/// @brief Demonstrates SHA-256 hashing using the score::mw::crypto API.
+/// @brief Demonstrates SHA-256 hashing using the score::crypto API.
 ///
 /// Shows both streaming (Init → Update* → Finalize) and single-shot modes.
 
@@ -31,7 +31,7 @@
 #include <cstring>
 #include <vector>
 
-using namespace score::mw::crypto;
+using namespace score::crypto;
 using tests::utility::print_hex;
 
 namespace

@@ -17,7 +17,7 @@ Crypto Documentation
 
 This documentation covers the **Crypto** module — a cryptographic
 middleware stack for automotive ECUs. The module
-provides a C++ client library (``score::mw::crypto``) and an accompanying
+provides a C++ client library (``score::crypto``) and an accompanying
 crypto daemon that together deliver key management, symmetric and asymmetric
 cryptography, hashing, signing, certificate handling, and secure memory
 allocation.
@@ -29,7 +29,7 @@ allocation.
 Overview
 --------
 
-The ``score::mw::crypto`` module follows a **daemon-based client–server**
+The ``score::crypto`` module follows a **daemon-based client–server**
 architecture:
 
 - **Client library** (``//score/crypto/src/api/...``) — a pure C++ interface layer

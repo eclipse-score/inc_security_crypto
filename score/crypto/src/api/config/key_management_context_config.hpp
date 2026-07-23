@@ -18,8 +18,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -60,7 +59,7 @@ struct KeyManagementContextConfig : public BaseContextConfig
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_CONFIG_KEY_MANAGEMENT_CONTEXT_CONFIG_HPP

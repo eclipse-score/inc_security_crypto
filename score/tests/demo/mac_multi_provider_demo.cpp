@@ -201,7 +201,7 @@ TEST_F(MacDemoTest, Demo2_EphemeralKeyMac)
     // 2a. Generate an ephemeral HMAC-SHA256 key.
     KeyGenerationRequest gen_req{};
     gen_req.algorithm = "HMAC-SHA256";
-    gen_req.permissions = score::mw::crypto::KeyOperationPermission::kAll;  // includes kExport for demo verification
+    gen_req.permissions = score::crypto::KeyOperationPermission::kAll;  // includes kExport for demo verification
 
     auto gen_result = m_key_factory->GenerateKey(gen_req);
     ASSERT_TRUE(gen_result.has_value()) << "GenerateKey failed";

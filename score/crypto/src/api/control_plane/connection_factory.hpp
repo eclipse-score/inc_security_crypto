@@ -39,8 +39,7 @@ class ConnectionFactory
     ConnectionFactory(ConnectionFactory&&) = default;
     ConnectionFactory& operator=(ConnectionFactory&&) = default;
 
-    Expected<std::unique_ptr<IConnection>, score::mw::crypto::CryptoErrorCode> CreateConnection(
-        std::string_view endpoint);
+    Expected<std::unique_ptr<IConnection>, score::crypto::CryptoErrorCode> CreateConnection(std::string_view endpoint);
 };
 
 }  // namespace score::crypto::api::control_plane

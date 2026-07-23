@@ -19,8 +19,7 @@
 #include <utility>
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 CryptoResourceGuard::CryptoResourceGuard(std::shared_ptr<void> release_handle, CryptoResourceId id) noexcept
@@ -100,5 +99,5 @@ score::Result<std::monostate> CryptoResourceGuard::Release() noexcept
 }
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score

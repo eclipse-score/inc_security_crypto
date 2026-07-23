@@ -23,8 +23,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -101,7 +100,7 @@ class IStreamingContext : public IContext
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_CONTEXTS_I_STREAMING_CONTEXT_HPP

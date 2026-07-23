@@ -63,14 +63,14 @@ score::crypto::Expected<IKeyHandler::Sptr, score::crypto::daemon::common::Daemon
 
 score::crypto::Expected<SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode> IKeyFactory::ExportKey(
     const ProviderKeyHandle& /*handle*/,
-    score::mw::crypto::FormatType /*format*/)
+    score::crypto::FormatType /*format*/)
 {
     return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
 }
 
 score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorCode> IKeyFactory::GetExportKeySize(
     const ProviderKeyHandle& /*handle*/,
-    score::mw::crypto::FormatType /*format*/)
+    score::crypto::FormatType /*format*/)
 {
     return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
 }

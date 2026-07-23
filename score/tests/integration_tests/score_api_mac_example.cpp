@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 /// @file score_api_mac_example.cpp
-/// @brief Demonstrates HMAC-SHA-256 MAC operations using the score::mw::crypto API.
+/// @brief Demonstrates HMAC-SHA-256 MAC operations using the score::crypto API.
 ///
 /// Shows:
 ///   - Key generation via IKeyManagementContext::GenerateKey (ephemeral guard path)
@@ -44,7 +44,7 @@
 #include <utility>
 #include <vector>
 
-using namespace score::mw::crypto;
+using namespace score::crypto;
 using tests::utility::print_hex;
 
 namespace

@@ -24,8 +24,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -58,7 +57,7 @@ class ISecureObject : public ICryptoObject
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_SECURE_OBJECT_HPP

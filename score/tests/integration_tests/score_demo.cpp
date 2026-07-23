@@ -41,7 +41,7 @@
 #include <utility>
 #include <vector>
 
-using namespace score::mw::crypto;
+using namespace score::crypto;
 using tests::utility::Color;
 using tests::utility::print_colored;
 using tests::utility::print_error;

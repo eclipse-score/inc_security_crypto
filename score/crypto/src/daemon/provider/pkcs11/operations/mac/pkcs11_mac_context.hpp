@@ -36,7 +36,7 @@ struct Pkcs11MacExecutionContext
     CK_MECHANISM mechanism{};
     CK_OBJECT_HANDLE key_object{CK_INVALID_HANDLE};
     std::size_t mac_size{0U};
-    score::mw::crypto::OperationMode operation_mode{score::mw::crypto::OperationMode::kGenerate};
+    score::crypto::OperationMode operation_mode{score::crypto::OperationMode::kGenerate};
 };
 
 }  // namespace score::crypto::daemon::provider::pkcs11

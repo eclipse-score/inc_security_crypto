@@ -22,8 +22,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -52,7 +51,7 @@ class ISymmetricKeyObject : public IKeyObject
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_OBJECTS_I_SYMMETRIC_KEY_OBJECT_HPP

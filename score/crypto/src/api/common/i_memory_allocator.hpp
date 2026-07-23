@@ -23,8 +23,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -80,7 +79,7 @@ class IMemoryAllocator
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_COMMON_I_MEMORY_ALLOCATOR_HPP

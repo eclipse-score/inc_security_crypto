@@ -24,8 +24,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -59,7 +58,7 @@ class IOcspRequestExport
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_FUTURE_CERTIFICATE_I_OCSP_REQUEST_EXPORT_HPP

@@ -18,8 +18,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -148,7 +147,7 @@ class PermissionBuilder final
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_CONFIG_PERMISSION_BUILDER_HPP

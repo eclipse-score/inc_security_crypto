@@ -17,7 +17,7 @@
 Key Management Architecture
 ===========================
 
-This document explains the key management subsystem of ``score::mw::crypto``
+This document explains the key management subsystem of ``score::crypto``
 in detail: how keys come into being, how they are stored, how their lifetime
 is managed across multiple clients, and how they are bound to a cryptographic
 operation context.  A MAC operation is used as the running example because it

@@ -44,8 +44,8 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
     }
 
     ::score::result::Error error(
-        static_cast<::score::result::ErrorCode>(::score::mw::crypto::CryptoErrorCode::kUnsupportedOperation),
-        ::score::mw::crypto::kCryptoErrorDomain,
+        static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
+        ::score::crypto::kCryptoErrorDomain,
         "Handler not supported: " + handlerId);
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
@@ -57,8 +57,8 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateHashHandler(const common::AlgorithmId& /*algorithm*/)
 {
     ::score::result::Error error(
-        static_cast<::score::result::ErrorCode>(::score::mw::crypto::CryptoErrorCode::kUnsupportedOperation),
-        ::score::mw::crypto::kCryptoErrorDomain,
+        static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
+        ::score::crypto::kCryptoErrorDomain,
         "Hash handler not supported by this score provider");
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
@@ -66,8 +66,8 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateMacHandler(const common::AlgorithmId& /*algorithm*/)
 {
     ::score::result::Error error(
-        static_cast<::score::result::ErrorCode>(::score::mw::crypto::CryptoErrorCode::kUnsupportedOperation),
-        ::score::mw::crypto::kCryptoErrorDomain,
+        static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
+        ::score::crypto::kCryptoErrorDomain,
         "MAC handler not supported by this score provider");
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
@@ -75,8 +75,8 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateKeyManagementHandler()
 {
     ::score::result::Error error(
-        static_cast<::score::result::ErrorCode>(::score::mw::crypto::CryptoErrorCode::kUnsupportedOperation),
-        ::score::mw::crypto::kCryptoErrorDomain,
+        static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
+        ::score::crypto::kCryptoErrorDomain,
         "Key management handler not supported by this score provider");
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }

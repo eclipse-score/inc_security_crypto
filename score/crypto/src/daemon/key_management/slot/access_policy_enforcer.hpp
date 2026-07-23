@@ -60,7 +60,7 @@ class AccessPolicyEnforcer
     /// @param requested_op   The operation being requested.
     /// @return std::monostate on success, or kKeyOperationNotPermitted.
     static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    CheckOperationPermission(const KeySlotConfig& slot, score::mw::crypto::KeyOperationPermission requested_op);
+    CheckOperationPermission(const KeySlotConfig& slot, score::crypto::KeyOperationPermission requested_op);
 
     /// @brief Combined: access + operation check.
     ///
@@ -71,7 +71,7 @@ class AccessPolicyEnforcer
     static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Authorize(
         const KeySlotConfig& slot,
         data_manager::ClientId client_id,
-        score::mw::crypto::KeyOperationPermission requested_op);
+        score::crypto::KeyOperationPermission requested_op);
 
     /// @brief Check that `provider_id` is allowed to use this slot.
     ///

@@ -20,8 +20,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -50,7 +49,7 @@ enum class OcspStatus : uint8_t
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_FUTURE_CERTIFICATE_CERT_TYPES_HPP

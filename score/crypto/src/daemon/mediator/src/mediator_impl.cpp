@@ -200,8 +200,7 @@ bool MediatorImpl::ForwardSingleOperation(const control_plane::ControlRequest& r
     if (!node_accessor_res.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No context found for context_id:" << context_id;
-        responseBuilder.operation(operationIdentifier)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+        responseBuilder.operation(operationIdentifier).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
 
@@ -211,8 +210,7 @@ bool MediatorImpl::ForwardSingleOperation(const control_plane::ControlRequest& r
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Context node for context_id:" << context_id
                                    << " is not a ContextDataNode";
-        responseBuilder.operation(operationIdentifier)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+        responseBuilder.operation(operationIdentifier).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
     auto context_node_accessor = std::move(context_node_accessor_res).value();
@@ -223,7 +221,7 @@ bool MediatorImpl::ForwardSingleOperation(const control_plane::ControlRequest& r
         score::mw::log::LogError()
             << "[SCORE_API_MED] ERROR - Context node accessor does not contain a handler for context_id: "
             << context_id;
-        responseBuilder.operation(operationIdentifier).return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operationIdentifier).return_error(score::crypto::CryptoErrorCode::kInternalError);
         return false;
     }
 
@@ -249,16 +247,14 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     if (operation.parameters.size() < 2)
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Not enough parameters for request";
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
         return false;
     }
     auto context_type_res = operation.getParameter<std::string_view>(0);
     if (!context_type_res.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Wrong parameter type for context_type";
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
         return false;
     }
     auto context_type = context_type_res.value();
@@ -267,8 +263,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     if (!algorithm_res.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Wrong parameter type for algorithm";
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
         return false;
     }
     auto algorithm = algorithm_res.value();
@@ -312,7 +307,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
             score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Provider resolution failed for keyed context"
                                        << " (key_node_id=" << key_node_id << ")";
             responseBuilder.operation(operation.operationId)
-                .return_error(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+                .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
             return false;
         }
         score::mw::log::LogDebug() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
@@ -328,8 +323,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No providers available for type: "
                                    << static_cast<int>(requested_provider_type);
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
         return false;
     }
     score::mw::log::LogDebug() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
@@ -342,7 +336,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Crypto operations not available";
         responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kUnsupportedOperation);
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
         return false;
     }
 
@@ -351,8 +345,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Handler or algorithm not supported:" << context_type
                                    << "/" << algorithm;
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
         return false;
     }
 
@@ -382,7 +375,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
             score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding requires key management service";
             m_data_manager->deleteNode(client_id, context_node_id);
             responseBuilder.operation(operation.operationId)
-                .return_error(score::mw::crypto::CryptoErrorCode::kUnsupportedOperation);
+                .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
             return false;
         }
 
@@ -393,7 +386,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
             score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding failed for key_node_id=" << key_node_id;
             m_data_manager->deleteNode(client_id, context_node_id);
             responseBuilder.operation(operation.operationId)
-                .return_error(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+                .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
             return false;
         }
 
@@ -419,8 +412,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Handler initialization failed for context with error: "
                                    << static_cast<int>(init_result.error());
         m_data_manager->deleteNode(client_id, context_node_id);
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
         return false;
     }
 
@@ -496,7 +488,7 @@ bool MediatorImpl::HandleContextCloseOperation(
 
 void MediatorImpl::RegisterResourceResolvers()
 {
-    using RT = score::mw::crypto::ResourceType;
+    using RT = score::crypto::ResourceType;
 
     // --- kKeySlot -----------------------------------------------------------
     // Resolves an application resource name to a session-scoped KeySlotDataNode
@@ -511,14 +503,14 @@ void MediatorImpl::RegisterResourceResolvers()
                control_plane::protocol::OperationResponseBuilder& responseBuilder) -> bool {
         if (!m_km_service)
         {
-            responseBuilder.operation(op_id).return_error(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
             return false;
         }
 
         auto node_id_result = m_km_service->ResolveKeySlot(resource_name, client_id);
         if (!node_id_result.has_value())
         {
-            responseBuilder.operation(op_id).return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInternalError);
             return false;
         }
 
@@ -545,8 +537,7 @@ bool MediatorImpl::HandleResourceResolutionOperation(uint64_t client_id,
 {
     if (operation.parameters.empty())
     {
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
 
@@ -554,20 +545,19 @@ bool MediatorImpl::HandleResourceResolutionOperation(uint64_t client_id,
     const auto* name_param = std::get_if<std::string_view>(&operation.parameters[0]);
     if (!name_param)
     {
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
     const std::string resource_name{*name_param};
 
     // param[1]: ResourceType cast to uint64. Defaults to kKeySlot for
     // backward compatibility when the client omits the type parameter.
-    auto resource_type = score::mw::crypto::ResourceType::kKeySlot;
+    auto resource_type = score::crypto::ResourceType::kKeySlot;
     if (operation.parameters.size() > 1U)
     {
         if (const auto* type_param = std::get_if<std::uint64_t>(&operation.parameters[1]))
         {
-            resource_type = static_cast<score::mw::crypto::ResourceType>(static_cast<uint8_t>(*type_param));
+            resource_type = static_cast<score::crypto::ResourceType>(static_cast<uint8_t>(*type_param));
         }
     }
 
@@ -578,7 +568,7 @@ bool MediatorImpl::HandleResourceResolutionOperation(uint64_t client_id,
         score::mw::log::LogError() << "[SCORE_API_MED] RESOLVE_RESOURCE: no resolver registered for ResourceType="
                                    << static_cast<unsigned>(key);
         responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kUnsupportedOperation);
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
         return false;
     }
 

@@ -23,8 +23,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -59,7 +58,7 @@ class CryptoStackImpl final : public ICryptoStack
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_SRC_CRYPTO_STACK_IMPL_HPP

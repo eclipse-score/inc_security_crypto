@@ -34,7 +34,7 @@ class IConnection
   public:
     virtual ~IConnection() = default;
 
-    virtual Expected<daemon::control_plane::protocol::ControlResponse, score::mw::crypto::CryptoErrorCode> SendRequest(
+    virtual Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
         const daemon::control_plane::protocol::ControlRequest& request) = 0;
 
     /// @brief Returns the connection node ID assigned by the daemon during CONNECTION_OPEN.

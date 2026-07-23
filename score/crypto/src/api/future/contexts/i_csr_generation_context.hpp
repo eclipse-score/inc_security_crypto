@@ -24,8 +24,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -99,7 +98,7 @@ class ICsrGenerationContext : public IContext
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CSR_GENERATION_CONTEXT_HPP

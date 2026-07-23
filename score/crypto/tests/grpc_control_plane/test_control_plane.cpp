@@ -70,27 +70,27 @@ class DummyRequestHandlerNode : public score::crypto::daemon::control_plane::IRe
             {
                 if (op.parameters.size() != 2)
                 {
-                    responseBuilder.operation(opId).return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+                    responseBuilder.operation(opId).return_error(score::crypto::CryptoErrorCode::kInternalError);
                     continue;
                 }
 
                 auto paramRes = op.getParameter<std::string_view>(0);
                 if (!paramRes.has_value())
                 {
-                    responseBuilder.operation(opId).return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+                    responseBuilder.operation(opId).return_error(score::crypto::CryptoErrorCode::kInternalError);
                     continue;
                 }
                 auto paramValue = paramRes.value();
                 if (paramValue != dummyStringParameter)
                 {
-                    responseBuilder.operation(opId).return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+                    responseBuilder.operation(opId).return_error(score::crypto::CryptoErrorCode::kInternalError);
                     continue;
                 }
 
                 auto noParamRes = op.getParameter<score::crypto::daemon::control_plane::protocol::NoParam>(1);
                 if (!noParamRes.has_value())
                 {
-                    responseBuilder.operation(opId).return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+                    responseBuilder.operation(opId).return_error(score::crypto::CryptoErrorCode::kInternalError);
                     continue;
                 }
 
@@ -98,7 +98,7 @@ class DummyRequestHandlerNode : public score::crypto::daemon::control_plane::IRe
             }
             else
             {
-                responseBuilder.operation(opId).return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+                responseBuilder.operation(opId).return_error(score::crypto::CryptoErrorCode::kInternalError);
             }
         }
 

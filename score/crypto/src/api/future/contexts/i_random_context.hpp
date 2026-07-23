@@ -23,8 +23,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -66,7 +65,7 @@ class IRandomContext : public IContext
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_RANDOM_CONTEXT_HPP

@@ -44,7 +44,7 @@ struct ProviderKeyHandle
     std::uint64_t opaque_id{0U};
     common::ProviderId provider_id{common::kInvalidProviderId};
     bool is_asymmetric{false};
-    score::mw::crypto::KeyOperationPermission permissions{score::mw::crypto::KeyOperationPermission::kNone};
+    score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kNone};
     common::AlgorithmId algorithm{};
     std::size_t key_size{0U};
 };
@@ -57,11 +57,11 @@ struct ProviderKeyHandle
 struct KeyGenerationRequest
 {
     common::AlgorithmId algorithm{};
-    score::mw::crypto::KeyOperationPermission permissions{score::mw::crypto::KeyOperationPermission::kAll};
+    score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
     /// @brief Operations the public key is permitted to perform (asymmetric only).
     /// Use kExport bit to control public key exportability.
-    std::optional<score::mw::crypto::KeyOperationPermission> public_key_permissions{std::nullopt};
-    score::mw::crypto::ExtendedParameters provider_properties{};
+    std::optional<score::crypto::KeyOperationPermission> public_key_permissions{std::nullopt};
+    score::crypto::ExtendedParameters provider_properties{};
 };
 
 /// Parameters for raw key material import.
@@ -73,9 +73,9 @@ struct KeyImportRequest
     const std::uint8_t* key_data{nullptr};
     std::size_t key_data_size{0U};
     common::AlgorithmId algorithm{};
-    score::mw::crypto::FormatType format{score::mw::crypto::FormatType::kDer};
-    score::mw::crypto::KeyOperationPermission permissions{score::mw::crypto::KeyOperationPermission::kAll};
-    score::mw::crypto::ExtendedParameters provider_properties{};
+    score::crypto::FormatType format{score::crypto::FormatType::kDer};
+    score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
+    score::crypto::ExtendedParameters provider_properties{};
 };
 
 /// Parameters for key derivation (HKDF, PBKDF2, TLS 1.3 KDF, etc.).
@@ -86,8 +86,8 @@ struct KeyDeriveRequest
 {
     ProviderKeyHandle base_key{};
     common::AlgorithmId output_algorithm{};
-    score::mw::crypto::KdfParameters kdf{};
-    score::mw::crypto::KeyOperationPermission permissions{score::mw::crypto::KeyOperationPermission::kAll};
+    score::crypto::KdfParameters kdf{};
+    score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
 };
 
 /// Parameters for key agreement (ECDH, X25519, ML-KEM).
@@ -104,10 +104,10 @@ struct KeyAgreeRequest
     /// Algorithm of the agreed or derived output key.
     common::AlgorithmId output_algorithm{};
     /// @brief Format of the peer public key data. Defaults to raw/uncompressed.
-    std::optional<score::mw::crypto::FormatType> public_key_format{std::nullopt};
-    score::mw::crypto::KeyOperationPermission permissions{score::mw::crypto::KeyOperationPermission::kAll};
+    std::optional<score::crypto::FormatType> public_key_format{std::nullopt};
+    score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
     /// Optional KDF for combined agree-then-derive (e.g., ECIES, TLS key exchange).
-    std::optional<score::mw::crypto::KdfParameters> kdf{std::nullopt};
+    std::optional<score::crypto::KdfParameters> kdf{std::nullopt};
 };
 
 // ---------------------------------------------------------------------------
@@ -143,7 +143,7 @@ struct UnwrapKeyRequest
     std::size_t iv_size{0U};
     const std::uint8_t* aad{nullptr};
     std::size_t aad_size{0U};
-    score::mw::crypto::KeyOperationPermission permissions{score::mw::crypto::KeyOperationPermission::kAll};
+    score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
 };
 
 // ---------------------------------------------------------------------------

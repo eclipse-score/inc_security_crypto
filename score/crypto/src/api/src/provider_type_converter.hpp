@@ -20,8 +20,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -51,7 +50,7 @@ inline constexpr std::uint8_t ToWireValue(ProviderType api_type) noexcept
 }  // namespace ProviderTypeConverter
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_SRC_PROVIDER_TYPE_CONVERTER_HPP

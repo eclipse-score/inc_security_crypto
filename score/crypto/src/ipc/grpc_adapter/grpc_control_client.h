@@ -43,7 +43,7 @@ class GrpcControlClient : public api::control_plane::IConnection
     /// Send a control request and receive response (IConnection implementation)
     /// @param request Business logic request
     /// @return Business logic response
-    Expected<daemon::control_plane::protocol::ControlResponse, score::mw::crypto::CryptoErrorCode> SendRequest(
+    Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
         const daemon::control_plane::protocol::ControlRequest& request) override;
 
     /// Get the connection node ID (IConnection implementation)

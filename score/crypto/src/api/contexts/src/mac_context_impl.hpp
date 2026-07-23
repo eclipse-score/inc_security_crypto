@@ -26,8 +26,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -69,7 +68,7 @@ class MacContextImpl final : public IMacContext
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_CONTEXTS_SRC_MAC_CONTEXT_IMPL_HPP

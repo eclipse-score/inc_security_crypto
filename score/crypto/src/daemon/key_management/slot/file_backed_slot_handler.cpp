@@ -69,32 +69,32 @@ FileBackedSlotHandler::LoadKey(const KeySlotConfig& slot)
     return import_result;
 }
 
-score::crypto::Expected<score::mw::crypto::KeySlotState, score::crypto::daemon::common::DaemonErrorCode>
+score::crypto::Expected<score::crypto::KeySlotState, score::crypto::daemon::common::DaemonErrorCode>
 FileBackedSlotHandler::GetSlotState(const KeySlotConfig& slot)
 {
     auto deploy_result = DeploymentLoader::Load(slot.deployment_path, slot.deployment_format);
     if (!deploy_result.has_value())
     {
-        return score::mw::crypto::KeySlotState::kEmpty;
+        return score::crypto::KeySlotState::kEmpty;
     }
 
     const auto& deploy_info = deploy_result.value();
     const auto path_it = deploy_info.key_properties.find(std::string{deployment_keys::kKeyPath});
     if ((path_it == deploy_info.key_properties.end()) || path_it->second.empty())
     {
-        return score::mw::crypto::KeySlotState::kEmpty;
+        return score::crypto::KeySlotState::kEmpty;
     }
 
     std::ifstream file(path_it->second, std::ios::binary);
     if (file.good())
     {
-        return score::mw::crypto::KeySlotState::kOccupied;
+        return score::crypto::KeySlotState::kOccupied;
     }
 
-    return score::mw::crypto::KeySlotState::kEmpty;
+    return score::crypto::KeySlotState::kEmpty;
 }
 
-score::crypto::Expected<score::mw::crypto::KeySlotInfo, score::crypto::daemon::common::DaemonErrorCode>
+score::crypto::Expected<score::crypto::KeySlotInfo, score::crypto::daemon::common::DaemonErrorCode>
 FileBackedSlotHandler::GetSlotInfo(const KeySlotConfig& slot)
 {
     auto state_result = GetSlotState(slot);

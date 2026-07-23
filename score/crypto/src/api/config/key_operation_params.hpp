@@ -23,8 +23,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -580,7 +579,7 @@ struct ImportKeyParams
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_CONFIG_KEY_OPERATION_PARAMS_HPP

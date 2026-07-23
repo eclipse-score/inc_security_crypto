@@ -28,18 +28,18 @@ namespace
 ///
 /// Supports: "MAC", "ENCRYPT", "DECRYPT", "SIGN", "VERIFY", "ALL", "NONE".
 /// Pipe-separated combinations: "ENCRYPT|DECRYPT".
-score::mw::crypto::KeyOperationPermission ParseOperationPermission(const std::string& ops_str)
+score::crypto::KeyOperationPermission ParseOperationPermission(const std::string& ops_str)
 {
     if (ops_str.empty() || ops_str == "NONE")
     {
-        return score::mw::crypto::KeyOperationPermission::kNone;
+        return score::crypto::KeyOperationPermission::kNone;
     }
     if (ops_str == "ALL")
     {
-        return score::mw::crypto::KeyOperationPermission::kAll;
+        return score::crypto::KeyOperationPermission::kAll;
     }
 
-    auto result = score::mw::crypto::KeyOperationPermission::kNone;
+    auto result = score::crypto::KeyOperationPermission::kNone;
 
     // Simple pipe-separated token parsing
     std::string token;
@@ -49,33 +49,32 @@ score::mw::crypto::KeyOperationPermission ParseOperationPermission(const std::st
         {
             if (token == "MAC")
             {
-                result = static_cast<score::mw::crypto::KeyOperationPermission>(
-                    static_cast<uint32_t>(result) |
-                    static_cast<uint32_t>(score::mw::crypto::KeyOperationPermission::kMac));
+                result = static_cast<score::crypto::KeyOperationPermission>(
+                    static_cast<uint32_t>(result) | static_cast<uint32_t>(score::crypto::KeyOperationPermission::kMac));
             }
             else if (token == "ENCRYPT")
             {
-                result = static_cast<score::mw::crypto::KeyOperationPermission>(
+                result = static_cast<score::crypto::KeyOperationPermission>(
                     static_cast<uint32_t>(result) |
-                    static_cast<uint32_t>(score::mw::crypto::KeyOperationPermission::kEncrypt));
+                    static_cast<uint32_t>(score::crypto::KeyOperationPermission::kEncrypt));
             }
             else if (token == "DECRYPT")
             {
-                result = static_cast<score::mw::crypto::KeyOperationPermission>(
+                result = static_cast<score::crypto::KeyOperationPermission>(
                     static_cast<uint32_t>(result) |
-                    static_cast<uint32_t>(score::mw::crypto::KeyOperationPermission::kDecrypt));
+                    static_cast<uint32_t>(score::crypto::KeyOperationPermission::kDecrypt));
             }
             else if (token == "SIGN")
             {
-                result = static_cast<score::mw::crypto::KeyOperationPermission>(
+                result = static_cast<score::crypto::KeyOperationPermission>(
                     static_cast<uint32_t>(result) |
-                    static_cast<uint32_t>(score::mw::crypto::KeyOperationPermission::kSign));
+                    static_cast<uint32_t>(score::crypto::KeyOperationPermission::kSign));
             }
             else if (token == "VERIFY")
             {
-                result = static_cast<score::mw::crypto::KeyOperationPermission>(
+                result = static_cast<score::crypto::KeyOperationPermission>(
                     static_cast<uint32_t>(result) |
-                    static_cast<uint32_t>(score::mw::crypto::KeyOperationPermission::kVerify));
+                    static_cast<uint32_t>(score::crypto::KeyOperationPermission::kVerify));
             }
             token.clear();
         }

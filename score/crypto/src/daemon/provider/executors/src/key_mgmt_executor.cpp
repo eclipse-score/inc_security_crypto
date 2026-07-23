@@ -244,7 +244,7 @@ KeyManagementExecutor::HandleSlotInfo(std::uint64_t client_id, common::RequestPa
     const auto& info = info_result.value();
     common::ResponseParameters output;
     output.push_back(static_cast<std::uint64_t>(info.state));
-    output.push_back(static_cast<std::uint64_t>(info.state != score::mw::crypto::KeySlotState::kEmpty ? 1U : 0U));
+    output.push_back(static_cast<std::uint64_t>(info.state != score::crypto::KeySlotState::kEmpty ? 1U : 0U));
     output.push_back(static_cast<std::uint64_t>(info.permitted_operations));
     return output;
 }

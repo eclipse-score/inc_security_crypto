@@ -108,7 +108,7 @@ BuildGenerationRequest(const common::RequestParameters& request)
     const auto perm = ExtractOptionalPermissions(request, 1U);
     if (perm.has_value())
     {
-        req.permissions = static_cast<score::mw::crypto::KeyOperationPermission>(perm.value());
+        req.permissions = static_cast<score::crypto::KeyOperationPermission>(perm.value());
     }
 
     return req;

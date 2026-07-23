@@ -15,8 +15,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -153,5 +152,5 @@ std::string_view CryptoErrorDomain::MessageFor(const score::result::ErrorCode& c
 }
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score

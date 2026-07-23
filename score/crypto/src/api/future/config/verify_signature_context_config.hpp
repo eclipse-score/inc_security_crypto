@@ -18,8 +18,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -74,7 +73,7 @@ struct VerifySignatureContextConfig : public BaseContextConfig
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_VERIFY_SIGNATURE_CONTEXT_CONFIG_HPP

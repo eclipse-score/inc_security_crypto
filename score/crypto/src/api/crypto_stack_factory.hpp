@@ -24,8 +24,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -83,7 +82,7 @@ struct CryptoStackConfig
 score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& config);
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_CRYPTO_STACK_FACTORY_HPP

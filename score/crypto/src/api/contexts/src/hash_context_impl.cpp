@@ -37,8 +37,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -352,5 +351,5 @@ std::size_t HashContextImpl::GetOutputSize() const noexcept
 }
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score

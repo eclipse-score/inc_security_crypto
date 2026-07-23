@@ -42,7 +42,7 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_HmacSha256_Returns32ByteKey)
 {
     km::KeyGenerationRequest req{};
     req.algorithm = "HMAC-SHA256";
-    req.permissions = score::mw::crypto::KeyOperationPermission::kMac;
+    req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->GenerateKey(req);
 
@@ -53,8 +53,7 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_HmacSha256_Returns32ByteKey)
     EXPECT_EQ(handle.key_size, 32U);
     EXPECT_EQ(handle.algorithm, "HMAC-SHA256");
     EXPECT_FALSE(handle.is_asymmetric);
-    EXPECT_FALSE(
-        score::mw::crypto::HasPermission(handle.permissions, score::mw::crypto::KeyOperationPermission::kExport));
+    EXPECT_FALSE(score::crypto::HasPermission(handle.permissions, score::crypto::KeyOperationPermission::kExport));
 
     // Cleanup
     auto release = handler->Release();
@@ -65,16 +64,15 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_HmacSha512_Returns64ByteKey)
 {
     km::KeyGenerationRequest req{};
     req.algorithm = "HMAC-SHA512";
-    req.permissions =
-        score::mw::crypto::KeyOperationPermission::kMac | score::mw::crypto::KeyOperationPermission::kExport;
+    req.permissions = score::crypto::KeyOperationPermission::kMac | score::crypto::KeyOperationPermission::kExport;
 
     auto result = m_factory->GenerateKey(req);
 
     ASSERT_TRUE(result.has_value());
     auto& handler = result.value();
     EXPECT_EQ(handler->GetHandle().key_size, 64U);
-    EXPECT_TRUE(score::mw::crypto::HasPermission(handler->GetHandle().permissions,
-                                                 score::mw::crypto::KeyOperationPermission::kExport));
+    EXPECT_TRUE(
+        score::crypto::HasPermission(handler->GetHandle().permissions, score::crypto::KeyOperationPermission::kExport));
 
     auto release = handler->Release();
     EXPECT_TRUE(release.has_value());
@@ -84,7 +82,7 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_Aes256_Returns32ByteKey)
 {
     km::KeyGenerationRequest req{};
     req.algorithm = "AES-256-CBC";
-    req.permissions = score::mw::crypto::KeyOperationPermission::kEncrypt;
+    req.permissions = score::crypto::KeyOperationPermission::kEncrypt;
 
     auto result = m_factory->GenerateKey(req);
 
@@ -99,7 +97,7 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_UnknownAlgorithm_ReturnsError)
 {
     km::KeyGenerationRequest req{};
     req.algorithm = "UNKNOWN-ALGO";
-    req.permissions = score::mw::crypto::KeyOperationPermission::kMac;
+    req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->GenerateKey(req);
 
@@ -121,7 +119,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_ValidKey_Succeeds)
     req.key_data = raw_key;
     req.key_data_size = sizeof(raw_key);
     req.algorithm = "HMAC-SHA256";
-    req.permissions = score::mw::crypto::KeyOperationPermission::kMac;
+    req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->ImportKey(req);
 
@@ -151,7 +149,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_NullPointer_ReturnsError)
     req.key_data = nullptr;
     req.key_data_size = 32;
     req.algorithm = "HMAC-SHA256";
-    req.permissions = score::mw::crypto::KeyOperationPermission::kMac;
+    req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->ImportKey(req);
 
@@ -166,7 +164,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_ZeroSize_ReturnsError)
     req.key_data = &dummy;
     req.key_data_size = 0;
     req.algorithm = "HMAC-SHA256";
-    req.permissions = score::mw::crypto::KeyOperationPermission::kMac;
+    req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->ImportKey(req);
 
@@ -182,7 +180,7 @@ TEST_F(OpenSslKeyHandlerTest, ReleaseKey_ZeroOpaque_Idempotent)
     // Create a handler via GenerateKey and test that Release is idempotent
     km::KeyGenerationRequest req{};
     req.algorithm = "HMAC-SHA256";
-    req.permissions = score::mw::crypto::KeyOperationPermission::kMac;
+    req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto gen_result = m_factory->GenerateKey(req);
     ASSERT_TRUE(gen_result.has_value());
@@ -200,7 +198,7 @@ TEST_F(OpenSslKeyHandlerTest, GenerateAndRelease_FullLifecycle)
 {
     km::KeyGenerationRequest req{};
     req.algorithm = "HMAC-SHA256";
-    req.permissions = score::mw::crypto::KeyOperationPermission::kMac;
+    req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto gen_result = m_factory->GenerateKey(req);
     ASSERT_TRUE(gen_result.has_value());
@@ -217,7 +215,7 @@ TEST_F(OpenSslKeyHandlerTest, GetRawKeyBytes_ReleasedHandler_ReturnsNull)
 {
     km::KeyGenerationRequest req{};
     req.algorithm = "HMAC-SHA256";
-    req.permissions = score::mw::crypto::KeyOperationPermission::kMac;
+    req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto gen_result = m_factory->GenerateKey(req);
     ASSERT_TRUE(gen_result.has_value());

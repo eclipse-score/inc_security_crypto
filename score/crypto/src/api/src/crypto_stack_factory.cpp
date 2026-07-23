@@ -30,8 +30,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -103,5 +102,5 @@ score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& con
 }
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score

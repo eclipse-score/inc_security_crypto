@@ -183,7 +183,7 @@ Pkcs11KeySlotHandler::LoadKey(const key_management::KeySlotConfig& slot)
     return std::make_shared<Pkcs11KeyHandler>(m_key_store, std::move(handle));
 }
 
-score::crypto::Expected<score::mw::crypto::KeySlotState, score::crypto::daemon::common::DaemonErrorCode>
+score::crypto::Expected<score::crypto::KeySlotState, score::crypto::daemon::common::DaemonErrorCode>
 Pkcs11KeySlotHandler::GetSlotState(const key_management::KeySlotConfig& slot)
 {
     using key_management::deployment_keys::kPkcs11Label;
@@ -198,7 +198,7 @@ Pkcs11KeySlotHandler::GetSlotState(const key_management::KeySlotConfig& slot)
     auto deploy_result = key_management::DeploymentLoader::Load(slot.deployment_path, slot.deployment_format);
     if (!deploy_result.has_value())
     {
-        return score::mw::crypto::KeySlotState::kEmpty;
+        return score::crypto::KeySlotState::kEmpty;
     }
     const auto& key_props = deploy_result.value().key_properties;
 
@@ -207,7 +207,7 @@ Pkcs11KeySlotHandler::GetSlotState(const key_management::KeySlotConfig& slot)
 
     if (label_it == key_props.end() && id_it == key_props.end())
     {
-        return score::mw::crypto::KeySlotState::kEmpty;
+        return score::crypto::KeySlotState::kEmpty;
     }
 
     const Pkcs11HandlerRequirements reqs{Pkcs11SessionType::ReadOnly, Pkcs11TokenAuthState::User};
@@ -255,14 +255,14 @@ Pkcs11KeySlotHandler::GetSlotState(const key_management::KeySlotConfig& slot)
     }
 
     const CK_RV rv_init = fns->C_FindObjectsInit(session, tmpl.data(), static_cast<CK_ULONG>(tmpl.size()));
-    score::mw::crypto::KeySlotState state = score::mw::crypto::KeySlotState::kEmpty;
+    score::crypto::KeySlotState state = score::crypto::KeySlotState::kEmpty;
     if (rv_init == CKR_OK)
     {
         CK_OBJECT_HANDLE obj = CK_INVALID_HANDLE;
         CK_ULONG count = 0U;
         if (fns->C_FindObjects(session, &obj, 1U, &count) == CKR_OK && count > 0U)
         {
-            state = score::mw::crypto::KeySlotState::kOccupied;
+            state = score::crypto::KeySlotState::kOccupied;
         }
         static_cast<void>(fns->C_FindObjectsFinal(session));
     }
@@ -271,7 +271,7 @@ Pkcs11KeySlotHandler::GetSlotState(const key_management::KeySlotConfig& slot)
     return state;
 }
 
-score::crypto::Expected<score::mw::crypto::KeySlotInfo, score::crypto::daemon::common::DaemonErrorCode>
+score::crypto::Expected<score::crypto::KeySlotInfo, score::crypto::daemon::common::DaemonErrorCode>
 Pkcs11KeySlotHandler::GetSlotInfo(const key_management::KeySlotConfig& slot)
 {
     auto state = GetSlotState(slot);

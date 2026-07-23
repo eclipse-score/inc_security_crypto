@@ -98,8 +98,7 @@ class Pkcs11KeyStore
         CK_OBJECT_HANDLE object,
         const std::string& algorithm,
         std::size_t key_size,
-        score::mw::crypto::KeyOperationPermission permissions =
-            score::mw::crypto::KeyOperationPermission::kNone) noexcept;
+        score::crypto::KeyOperationPermission permissions = score::crypto::KeyOperationPermission::kNone) noexcept;
 
     /// Register a persistent token object by storing its search template.
     ///

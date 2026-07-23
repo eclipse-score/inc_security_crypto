@@ -19,8 +19,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -86,7 +85,7 @@ struct AeadContextConfig : public BaseContextConfig
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_AEAD_CONTEXT_CONFIG_HPP

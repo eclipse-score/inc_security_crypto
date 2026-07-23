@@ -44,8 +44,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -404,5 +403,5 @@ score::Result<std::unique_ptr<IKeySlotObject>> CryptoContextImpl::GetKeySlotObje
 }
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score

@@ -32,7 +32,7 @@
 #include <iomanip>
 #include <iostream>
 
-using namespace score::mw::crypto;
+using namespace score::crypto;
 
 int main()
 {

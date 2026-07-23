@@ -108,13 +108,13 @@ class IKeyFactory
     /// For raw symmetric bytes, prefer IKeyHandler::Export().
     /// Default: returns kNotSupported.
     [[nodiscard]] virtual score::crypto::Expected<SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode>
-    ExportKey(const ProviderKeyHandle& handle, score::mw::crypto::FormatType format);
+    ExportKey(const ProviderKeyHandle& handle, score::crypto::FormatType format);
 
     /// Return the byte length of the exported key in the given format.
     ///
     /// Default: returns kNotSupported.
     [[nodiscard]] virtual score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorCode>
-    GetExportKeySize(const ProviderKeyHandle& handle, score::mw::crypto::FormatType format);
+    GetExportKeySize(const ProviderKeyHandle& handle, score::crypto::FormatType format);
 
     /// Generate a key atomically into a persistent slot.
     ///

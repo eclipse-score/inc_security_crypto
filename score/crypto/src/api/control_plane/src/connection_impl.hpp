@@ -28,7 +28,7 @@ namespace score::crypto::api::control_plane
 class ConnectionImpl : public IConnection
 {
   public:
-    Expected<daemon::control_plane::protocol::ControlResponse, score::mw::crypto::CryptoErrorCode> SendRequest(
+    Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
         const daemon::control_plane::protocol::ControlRequest& request) override;
 
     daemon::control_plane::protocol::DataNodeId GetConnectionNodeId() const override;

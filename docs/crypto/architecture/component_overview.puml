@@ -6,7 +6,7 @@ set namespaceSeparator ::
 ' ====================================================================
 ' CLIENT SIDE
 ' ====================================================================
-package "Client Library (score::mw::crypto)" <<Rectangle>> {
+package "Client Library (score::crypto)" <<Rectangle>> {
     interface api::ICryptoStack {
         +CreateCryptoContext() : ICryptoContext
     }

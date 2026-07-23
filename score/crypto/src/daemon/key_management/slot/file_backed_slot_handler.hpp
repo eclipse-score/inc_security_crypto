@@ -62,13 +62,11 @@ class FileBackedSlotHandler final : public IKeySlotHandler
         const KeySlotConfig& slot) override;
 
     /// Return kOccupied if the key file exists, kEmpty otherwise.
-    [[nodiscard]] score::crypto::Expected<score::mw::crypto::KeySlotState,
-                                          score::crypto::daemon::common::DaemonErrorCode>
+    [[nodiscard]] score::crypto::Expected<score::crypto::KeySlotState, score::crypto::daemon::common::DaemonErrorCode>
     GetSlotState(const KeySlotConfig& slot) override;
 
     /// Return slot metadata derived from the KeySlotConfig.
-    [[nodiscard]] score::crypto::Expected<score::mw::crypto::KeySlotInfo,
-                                          score::crypto::daemon::common::DaemonErrorCode>
+    [[nodiscard]] score::crypto::Expected<score::crypto::KeySlotInfo, score::crypto::daemon::common::DaemonErrorCode>
     GetSlotInfo(const KeySlotConfig& slot) override;
 
   private:

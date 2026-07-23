@@ -8,7 +8,7 @@ skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 
 participant "Application" as App
-participant "score::mw::crypto\n(Client Library)" as Lib
+participant "score::crypto\n(Client Library)" as Lib
 participant "Crypto Daemon" as Daemon
 
 == Stack Initialization ==

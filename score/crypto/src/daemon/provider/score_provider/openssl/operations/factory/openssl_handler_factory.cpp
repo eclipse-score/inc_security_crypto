@@ -38,8 +38,8 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateHashHandler(const common
     if (!OpenSslHashHandler::IsAlgorithmSupported(algorithm))
     {
         score::result::Error error(
-            static_cast<score::result::ErrorCode>(score::mw::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
-            score::mw::crypto::kCryptoErrorDomain,
+            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+            score::crypto::kCryptoErrorDomain,
             "Algorithm not supported for handler: " + algorithm);
         return score::Result<HandlerSptr>(score::unexpect, error);
     }
@@ -52,8 +52,8 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateMacHandler(const common:
     if (!OpenSslHmacHandler::IsAlgorithmSupported(algorithm))
     {
         score::result::Error error(
-            static_cast<score::result::ErrorCode>(score::mw::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
-            score::mw::crypto::kCryptoErrorDomain,
+            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+            score::crypto::kCryptoErrorDomain,
             "Algorithm not supported for handler: " + algorithm);
         return score::Result<HandlerSptr>(score::unexpect, error);
     }

@@ -45,9 +45,9 @@ struct KeyUsageFlags
     CK_BBOOL ck_derive{CK_FALSE};
 };
 
-static KeyUsageFlags BuildUsageFlags(score::mw::crypto::KeyOperationPermission perm) noexcept
+static KeyUsageFlags BuildUsageFlags(score::crypto::KeyOperationPermission perm) noexcept
 {
-    using P = score::mw::crypto::KeyOperationPermission;
+    using P = score::crypto::KeyOperationPermission;
     auto has = [perm](P bit) -> CK_BBOOL {
         return ((perm & bit) != P::kNone) ? CK_TRUE : CK_FALSE;
     };
@@ -97,9 +97,8 @@ Pkcs11KeyFactory::GenerateKey(const key_management::KeyGenerationRequest& reques
     CK_BBOOL ck_true = CK_TRUE;
     CK_BBOOL ck_false = CK_FALSE;
     CK_BBOOL ck_extractable =
-        score::mw::crypto::HasPermission(request.permissions, score::mw::crypto::KeyOperationPermission::kExport)
-            ? CK_TRUE
-            : CK_FALSE;
+        score::crypto::HasPermission(request.permissions, score::crypto::KeyOperationPermission::kExport) ? CK_TRUE
+                                                                                                          : CK_FALSE;
     CK_ULONG val_len = algo_info->value_len;
     CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
     CK_KEY_TYPE key_type = algo_info->ck_key_type;
@@ -178,9 +177,8 @@ Pkcs11KeyFactory::ImportKey(const key_management::KeyImportRequest& request)
     CK_BBOOL ck_true = CK_TRUE;
     CK_BBOOL ck_false = CK_FALSE;
     CK_BBOOL ck_extractable =
-        score::mw::crypto::HasPermission(request.permissions, score::mw::crypto::KeyOperationPermission::kExport)
-            ? CK_TRUE
-            : CK_FALSE;
+        score::crypto::HasPermission(request.permissions, score::crypto::KeyOperationPermission::kExport) ? CK_TRUE
+                                                                                                          : CK_FALSE;
     CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
     CK_KEY_TYPE key_type = algo_info->ck_key_type;
     // MISRA C++:2023 Rule 8.2.3 deviation — PKCS#11 C API (CK_ATTRIBUTE) requires non-const pValue.

@@ -31,7 +31,7 @@ Component Architecture
 Overview
 --------
 
-The ``score::mw::crypto`` module provides a provider-agnostic C++ (>=17) middleware
+The ``score::crypto`` module provides a provider-agnostic C++ (>=17) middleware
 interface for cryptographic operations, key management, certificate lifecycle, and
 shared memory allocation. It follows a client-daemon architecture where the
 client library communicates with a daemon process over IPC.

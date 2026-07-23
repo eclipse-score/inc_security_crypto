@@ -20,8 +20,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -145,7 +144,7 @@ inline score::result::Error MakeError(CryptoErrorCode code, std::string_view use
 }
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_COMMON_ERROR_DOMAIN_HPP

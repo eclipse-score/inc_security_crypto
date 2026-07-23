@@ -24,8 +24,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -423,14 +422,14 @@ struct ExtendedParameters
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 /// @brief std::hash specialization for CryptoResourceId, enabling use in unordered containers.
 template <>
-struct std::hash<score::mw::crypto::CryptoResourceId>
+struct std::hash<score::crypto::CryptoResourceId>
 {
-    std::size_t operator()(const score::mw::crypto::CryptoResourceId& rid) const noexcept
+    std::size_t operator()(const score::crypto::CryptoResourceId& rid) const noexcept
     {
         std::size_t h = std::hash<uint64_t>{}(rid.id);
         h ^= std::hash<uint8_t>{}(static_cast<uint8_t>(rid.type)) << 1U;

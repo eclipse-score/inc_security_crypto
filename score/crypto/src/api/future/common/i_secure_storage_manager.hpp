@@ -26,8 +26,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -88,7 +87,7 @@ class ISecureStorageManager
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_FUTURE_COMMON_I_SECURE_STORAGE_MANAGER_HPP

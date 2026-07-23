@@ -63,12 +63,12 @@ class IKeySlotHandler
     LoadKey(const KeySlotConfig& slot) = 0;
 
     /// Query slot occupancy state (kEmpty or kOccupied).
-    [[nodiscard]] virtual score::crypto::Expected<score::mw::crypto::KeySlotState,
+    [[nodiscard]] virtual score::crypto::Expected<score::crypto::KeySlotState,
                                                   score::crypto::daemon::common::DaemonErrorCode>
     GetSlotState(const KeySlotConfig& slot) = 0;
 
     /// Get slot metadata (state, algorithm, provider, permissions).
-    [[nodiscard]] virtual score::crypto::Expected<score::mw::crypto::KeySlotInfo,
+    [[nodiscard]] virtual score::crypto::Expected<score::crypto::KeySlotInfo,
                                                   score::crypto::daemon::common::DaemonErrorCode>
     GetSlotInfo(const KeySlotConfig& slot) = 0;
 

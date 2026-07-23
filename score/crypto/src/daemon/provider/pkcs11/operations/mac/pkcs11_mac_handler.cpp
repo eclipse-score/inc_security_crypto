@@ -176,7 +176,7 @@ Pkcs11MacHandler::InitializeContext(const handler::InitializationParams& init_pa
             const auto* mode_val = std::get_if<std::uint8_t>(&init_params.context_creation_params[4]);
             if (mode_val != nullptr)
             {
-                m_ctx.operation_mode = static_cast<score::mw::crypto::OperationMode>(*mode_val);
+                m_ctx.operation_mode = static_cast<score::crypto::OperationMode>(*mode_val);
             }
         }
 

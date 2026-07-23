@@ -44,7 +44,7 @@ namespace score::crypto::daemon::control_plane::protocol
 // If cross-version wire stability ever becomes a requirement (rolling daemon/client upgrades),
 // introduce a dedicated serialization enum here and translate at the boundary so CryptoErrorCode
 // can evolve independently of the on-wire representation.
-using OperationResult = std::underlying_type<score::mw::crypto::CryptoErrorCode>::type;
+using OperationResult = std::underlying_type<score::crypto::CryptoErrorCode>::type;
 static constexpr OperationResult OPERATION_RESULT_SUCCESS = 0;
 
 // ============================================================================
@@ -68,16 +68,16 @@ struct SingleOperationRequest
     common::RequestParameters parameters;
 
     template <typename T>
-    Expected<T, score::mw::crypto::CryptoErrorCode> getParameter(std::size_t idx) const
+    Expected<T, score::crypto::CryptoErrorCode> getParameter(std::size_t idx) const
     {
         if (idx >= parameters.size())
         {
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
         if (!std::holds_alternative<T>(parameters[idx]))
         {
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
         return std::get<T>(parameters[idx]);
@@ -87,20 +87,20 @@ struct SingleOperationRequest
 struct SingleOperationResponse
 {
     OperationIdentifier operationId;
-    OperationResult result{static_cast<OperationResult>(score::mw::crypto::CryptoErrorCode::kInternalError)};
+    OperationResult result{static_cast<OperationResult>(score::crypto::CryptoErrorCode::kInternalError)};
     common::ResponseParameters parameters;
 
     template <typename T>
-    Expected<T, score::mw::crypto::CryptoErrorCode> getParameter(std::size_t idx) const
+    Expected<T, score::crypto::CryptoErrorCode> getParameter(std::size_t idx) const
     {
         if (idx >= parameters.size())
         {
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
         if (!std::holds_alternative<T>(parameters[idx]))
         {
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
         return std::get<T>(parameters[idx]);
@@ -299,7 +299,7 @@ class OperationRequestBuilder
         return *this;
     };
 
-    Expected<OperationRequest, score::mw::crypto::CryptoErrorCode> build()
+    Expected<OperationRequest, score::crypto::CryptoErrorCode> build()
     {
         if (error)
         {
@@ -310,7 +310,7 @@ class OperationRequestBuilder
             error = false;
             operationRequest.operations.clear();
 
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
         OperationRequest ret{
@@ -356,7 +356,7 @@ class OperationResponseBuilder
         return *this;
     };
 
-    OperationResponseBuilder& return_error(score::mw::crypto::CryptoErrorCode error)
+    OperationResponseBuilder& return_error(score::crypto::CryptoErrorCode error)
     {
         if (validateOperationExists())
         {
@@ -438,13 +438,13 @@ class OperationResponseBuilder
         }
         else
         {
-            return_error(static_cast<score::mw::crypto::CryptoErrorCode>(res));
+            return_error(static_cast<score::crypto::CryptoErrorCode>(res));
         }
         operationResponse.operations.back().parameters = std::move(response);
         return *this;
     };
 
-    Expected<OperationResponse, score::mw::crypto::CryptoErrorCode> build()
+    Expected<OperationResponse, score::crypto::CryptoErrorCode> build()
     {
         if (error)
         {
@@ -455,7 +455,7 @@ class OperationResponseBuilder
             error = false;
             operationResponse.operations.clear();
 
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
         return OperationResponse{
@@ -574,11 +574,11 @@ class ControlResponseValidator
         const auto& op = m_response.get().operations[m_currentOpIndex];
         if (op.result != OPERATION_RESULT_SUCCESS)
         {
-            auto errorCode = static_cast<score::mw::crypto::CryptoErrorCode>(op.result);
+            auto errorCode = static_cast<score::crypto::CryptoErrorCode>(op.result);
 
             m_isValid = false;
             m_errorMsg = "Operation at index " + std::to_string(m_currentOpIndex) + " failed with error code " +
-                         std::string(score::mw::crypto::kCryptoErrorDomain.MessageFor(
+                         std::string(score::crypto::kCryptoErrorDomain.MessageFor(
                              static_cast<score::result::ErrorCode>(errorCode)));
         }
 
@@ -591,23 +591,23 @@ class ControlResponseValidator
 
     /// Query if parameter at specified operation and parameter index is of requested type
     template <typename T>
-    Expected<bool, score::mw::crypto::CryptoErrorCode> isParameterOfType(size_t opIndex, size_t paramIdx)
+    Expected<bool, score::crypto::CryptoErrorCode> isParameterOfType(size_t opIndex, size_t paramIdx)
     {
         if (!m_isValid)
         {
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
         if (opIndex >= m_response.get().operations.size())
         {
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
         const auto& op = m_response.get().operations[opIndex];
 
         if (paramIdx >= op.parameters.size())
         {
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
         return std::holds_alternative<T>(op.parameters[paramIdx]);
@@ -615,12 +615,12 @@ class ControlResponseValidator
 
     /// Extract parameter at specified operation and parameter index with type checking
     template <typename T>
-    Expected<T, score::mw::crypto::CryptoErrorCode> getParameterAt(size_t opIndex, size_t paramIdx)
+    Expected<T, score::crypto::CryptoErrorCode> getParameterAt(size_t opIndex, size_t paramIdx)
     {
         if (!m_isValid)
         {
             logError();
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
         if (opIndex >= m_response.get().operations.size())
@@ -628,7 +628,7 @@ class ControlResponseValidator
             m_isValid = false;
             m_errorMsg = "Operation index " + std::to_string(opIndex) + " out of bounds";
             logError();
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
         const auto& op = m_response.get().operations[opIndex];
@@ -638,7 +638,7 @@ class ControlResponseValidator
             m_isValid = false;
             m_errorMsg = "Parameter index " + std::to_string(paramIdx) + " out of bounds";
             logError();
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
         if (!std::holds_alternative<T>(op.parameters[paramIdx]))
@@ -647,7 +647,7 @@ class ControlResponseValidator
             m_errorMsg = "Parameter type mismatch at operation " + std::to_string(opIndex) + " parameter " +
                          std::to_string(paramIdx);
             logError();
-            return make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+            return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
         return std::get<T>(op.parameters[paramIdx]);
@@ -842,10 +842,10 @@ class ControlRequestBuilder
      * Finalizes the internal OperationRequestBuilder and constructs the
      * ControlRequest with all accumulated settings.
      *
-     * @return Expected<ControlRequest, score::mw::crypto::CryptoErrorCode>
+     * @return Expected<ControlRequest, score::crypto::CryptoErrorCode>
      *         or an error if the operation builder encountered issues.
      */
-    Expected<ControlRequest, score::mw::crypto::CryptoErrorCode> build()
+    Expected<ControlRequest, score::crypto::CryptoErrorCode> build()
     {
         auto op_result = m_op_builder.build();
         if (!op_result.has_value())

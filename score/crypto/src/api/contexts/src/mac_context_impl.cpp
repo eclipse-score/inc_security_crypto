@@ -37,8 +37,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -308,5 +307,5 @@ score::Result<std::monostate> MacContextImpl::Init(std::optional<score::cpp::spa
 }
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score

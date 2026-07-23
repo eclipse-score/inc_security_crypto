@@ -92,7 +92,7 @@ class Pkcs11MacExecutor final
     /// For the sign path (kGenerate), calls C_SignFinal with a dummy buffer.
     /// For the verify path (kVerify), calls C_VerifyFinal with a dummy tag.
     /// Safe to call when no operation is active (error ignored).
-    void Abort(CK_SESSION_HANDLE session, score::mw::crypto::OperationMode operation_mode) noexcept;
+    void Abort(CK_SESSION_HANDLE session, score::crypto::OperationMode operation_mode) noexcept;
 
   private:
     /// @brief Validate a streaming action against the current state.

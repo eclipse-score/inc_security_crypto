@@ -26,8 +26,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -70,7 +69,7 @@ class HashContextImpl final : public IHashContext
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_CONTEXTS_SRC_HASH_CONTEXT_IMPL_HPP

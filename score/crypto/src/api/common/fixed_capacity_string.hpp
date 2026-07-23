@@ -23,8 +23,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -309,7 +308,7 @@ class FixedCapacityString
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 /// @brief std::hash specialization for FixedCapacityString.
@@ -317,9 +316,9 @@ class FixedCapacityString
 /// Enables use as key in std::unordered_map and std::unordered_set.
 /// Delegates to std::hash<std::string_view> for consistent hashing.
 template <std::size_t N>
-struct std::hash<score::mw::crypto::FixedCapacityString<N>>
+struct std::hash<score::crypto::FixedCapacityString<N>>
 {
-    std::size_t operator()(const score::mw::crypto::FixedCapacityString<N>& s) const noexcept
+    std::size_t operator()(const score::crypto::FixedCapacityString<N>& s) const noexcept
     {
         return std::hash<std::string_view>{}(std::string_view{s});
     }

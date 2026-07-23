@@ -62,13 +62,11 @@ class Pkcs11KeySlotHandler final : public key_management::IKeySlotHandler
     LoadKey(const key_management::KeySlotConfig& slot) override;
 
     /// Return kOccupied if the token object exists, kEmpty otherwise.
-    [[nodiscard]] score::crypto::Expected<score::mw::crypto::KeySlotState,
-                                          score::crypto::daemon::common::DaemonErrorCode>
+    [[nodiscard]] score::crypto::Expected<score::crypto::KeySlotState, score::crypto::daemon::common::DaemonErrorCode>
     GetSlotState(const key_management::KeySlotConfig& slot) override;
 
     /// Return slot metadata from config and token object attributes.
-    [[nodiscard]] score::crypto::Expected<score::mw::crypto::KeySlotInfo,
-                                          score::crypto::daemon::common::DaemonErrorCode>
+    [[nodiscard]] score::crypto::Expected<score::crypto::KeySlotInfo, score::crypto::daemon::common::DaemonErrorCode>
     GetSlotInfo(const key_management::KeySlotConfig& slot) override;
 
   private:

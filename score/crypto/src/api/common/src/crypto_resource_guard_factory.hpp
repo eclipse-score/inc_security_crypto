@@ -47,22 +47,22 @@
 ///   #include "score/crypto/src/api/common/src/crypto_resource_guard_factory.hpp"
 ///   #include "score/crypto/src/api/common/src/i_release_callback.hpp"
 ///
-///   class ConcreteKeyMgmt : public score::mw::crypto::IKeyManagementContext {
+///   class ConcreteKeyMgmt : public score::crypto::IKeyManagementContext {
 ///   public:
-///       score::Result<score::mw::crypto::CryptoResourceGuard>
-///       GenerateKey(const score::mw::crypto::GenerateKeyParams& params) override
+///       score::Result<score::crypto::CryptoResourceGuard>
+///       GenerateKey(const score::crypto::GenerateKeyParams& params) override
 ///       {
 ///           // 1. IPC: send GenerateKey to daemon, receive assigned resource id
-///           score::mw::crypto::CryptoResourceId id = /* IPC result */;
+///           score::crypto::CryptoResourceId id = /* IPC result */;
 ///
 ///           // 2. ipc_release_cb_ is std::shared_ptr<IReleaseCallback>
 ///           //    Implicit conversion to shared_ptr<void> happens here.
-///           return score::mw::crypto::CryptoResourceGuardFactory::Make(
+///           return score::crypto::CryptoResourceGuardFactory::Make(
 ///               ipc_release_cb_, id);
 ///       }
 ///
 ///   private:
-///       std::shared_ptr<score::mw::crypto::IReleaseCallback> ipc_release_cb_;
+///       std::shared_ptr<score::crypto::IReleaseCallback> ipc_release_cb_;
 ///   };
 /// @endcode
 
@@ -72,8 +72,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -102,7 +101,7 @@ class CryptoResourceGuardFactory
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_COMMON_SRC_CRYPTO_RESOURCE_GUARD_FACTORY_HPP

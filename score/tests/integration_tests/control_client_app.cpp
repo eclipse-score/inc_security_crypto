@@ -68,7 +68,7 @@ class Barrier
 
 /// Create a control plane connection and open a connection on the daemon
 inline score::crypto::Expected<std::pair<std::unique_ptr<api::control_plane::IConnection>, std::uint64_t>,
-                               score::mw::crypto::CryptoErrorCode>
+                               score::crypto::CryptoErrorCode>
 CreateConnectionWithOpen()
 {
     auto endpoint = "unix://" + std::string(score::crypto::ipc::kControlSocket);
@@ -77,7 +77,7 @@ CreateConnectionWithOpen()
 
     if (!connResult.has_value())
     {
-        return score::crypto::make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
     }
 
     auto connection = std::move(connResult.value());
@@ -90,7 +90,7 @@ CreateConnectionWithOpen()
 
     if (!connOpenResponse.has_value())
     {
-        return score::crypto::make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
     }
 
     auto connOpenResponseRes = connection->SendRequest(connOpenResponse.value());
@@ -98,27 +98,27 @@ CreateConnectionWithOpen()
 
     if (!connOpenValidator.isValid())
     {
-        return score::crypto::make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
     }
 
     connOpenValidator.expectOperation(daemon::control_plane::operations::OpenConnection()).expectSuccess();
 
     if (!connOpenValidator.isValid())
     {
-        return score::crypto::make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
     }
 
     auto connId = connOpenValidator.getParameterAt<std::uint64_t>(0, 0);
     if (!connId.has_value())
     {
-        return score::crypto::make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
     }
 
     return std::make_pair(std::move(connection), connId.value());
 }
 
 /// Create a context and return the context_id
-inline score::crypto::Expected<std::uint64_t, score::mw::crypto::CryptoErrorCode>
+inline score::crypto::Expected<std::uint64_t, score::crypto::CryptoErrorCode>
 CreateContext(api::control_plane::IConnection* connection, std::uint64_t connection_id, const std::string& algorithm)
 {
     auto ctxResponse = daemon::control_plane::protocol::ControlRequestBuilder()
@@ -130,7 +130,7 @@ CreateContext(api::control_plane::IConnection* connection, std::uint64_t connect
 
     if (!ctxResponse.has_value())
     {
-        return score::crypto::make_unexpected(score::mw::crypto::CryptoErrorCode::kContextCreationFailed);
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kContextCreationFailed);
     }
 
     auto ctxResponseRes = connection->SendRequest(ctxResponse.value());
@@ -138,20 +138,20 @@ CreateContext(api::control_plane::IConnection* connection, std::uint64_t connect
 
     if (!ctxValidator.isValid())
     {
-        return score::crypto::make_unexpected(score::mw::crypto::CryptoErrorCode::kContextCreationFailed);
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kContextCreationFailed);
     }
 
     ctxValidator.expectOperation(daemon::mediator::operations::CreateContext()).expectSuccess();
 
     if (!ctxValidator.isValid())
     {
-        return score::crypto::make_unexpected(score::mw::crypto::CryptoErrorCode::kContextCreationFailed);
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kContextCreationFailed);
     }
 
     auto ctxId = ctxValidator.getParameterAt<std::uint64_t>(0, 0);
     if (!ctxId.has_value())
     {
-        return score::crypto::make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
     }
 
     return ctxId.value();

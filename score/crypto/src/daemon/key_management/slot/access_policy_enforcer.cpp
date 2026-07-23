@@ -49,9 +49,9 @@ AccessPolicyEnforcer::CheckWritePermission(const KeySlotConfig& slot, data_manag
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 AccessPolicyEnforcer::CheckOperationPermission(const KeySlotConfig& slot,
-                                               score::mw::crypto::KeyOperationPermission requested_op)
+                                               score::crypto::KeyOperationPermission requested_op)
 {
-    if (score::mw::crypto::HasPermission(slot.allowed_operations, requested_op))
+    if (score::crypto::HasPermission(slot.allowed_operations, requested_op))
     {
         return std::monostate{};
     }
@@ -62,7 +62,7 @@ AccessPolicyEnforcer::CheckOperationPermission(const KeySlotConfig& slot,
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> AccessPolicyEnforcer::Authorize(
     const KeySlotConfig& slot,
     data_manager::ClientId client_id,
-    score::mw::crypto::KeyOperationPermission requested_op)
+    score::crypto::KeyOperationPermission requested_op)
 {
     auto access_result = CheckSlotAccess(slot, client_id);
     if (!access_result.has_value())
@@ -71,7 +71,7 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
     }
 
     // kNone means no specific operation check needed (e.g., ResolveResource)
-    if (requested_op != score::mw::crypto::KeyOperationPermission::kNone)
+    if (requested_op != score::crypto::KeyOperationPermission::kNone)
     {
         auto perm_result = CheckOperationPermission(slot, requested_op);
         if (!perm_result.has_value())

@@ -135,9 +135,9 @@ enum class DaemonErrorCode : std::uint32_t
 ///
 /// When CryptoErrorCode evolves in a later library version, update only this
 /// function — no daemon handler or executor files need to change.
-inline score::mw::crypto::CryptoErrorCode ToCryptoErrorCode(DaemonErrorCode code) noexcept
+inline score::crypto::CryptoErrorCode ToCryptoErrorCode(DaemonErrorCode code) noexcept
 {
-    using C = score::mw::crypto::CryptoErrorCode;
+    using C = score::crypto::CryptoErrorCode;
     switch (code)
     {
         // ---- General ----

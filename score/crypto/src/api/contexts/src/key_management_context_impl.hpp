@@ -34,8 +34,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 /// @brief Concrete IKeyManagementContext implementation that delegates to the crypto daemon via IPC.
@@ -136,7 +135,7 @@ class KeyManagementContextImpl final : public IKeyManagementContext
 };
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score
 
 #endif  // SCORE_CRYPTO_SRC_API_CONTEXTS_SRC_KEY_MANAGEMENT_CONTEXT_IMPL_HPP

@@ -70,7 +70,7 @@ GrpcControlClient::GrpcControlClient(std::string_view socket_path) : _impl(std::
 
 GrpcControlClient::~GrpcControlClient() = default;
 
-Expected<daemon::control_plane::protocol::ControlResponse, score::mw::crypto::CryptoErrorCode>
+Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
 GrpcControlClient::SendRequest(const daemon::control_plane::protocol::ControlRequest& request)
 {
     // TODO: Avoid copy
@@ -96,7 +96,7 @@ GrpcControlClient::SendRequest(const daemon::control_plane::protocol::ControlReq
         score::mw::log::LogError() << "[GrpcControlClient] [Thread" << tid.str() << "] "
                                    << "gRPC call failed for RequestID:" << request.request_id
                                    << " | Error:" << status.error_message();
-        return make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+        return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
     }
     // Convert FlatBuffer response → business logic
     auto response = _impl->ConvertResponse(fb_response.GetRoot());
@@ -104,7 +104,7 @@ GrpcControlClient::SendRequest(const daemon::control_plane::protocol::ControlReq
     if (enhanced_request.request_id != response.request_id)
     {
         score::mw::log::LogError() << " [MISMATCH!] RequestID mismatch - received: ";
-        return make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+        return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
     }
 
     return response;

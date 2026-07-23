@@ -26,7 +26,7 @@
 namespace score::crypto::api::control_plane
 {
 
-Expected<std::unique_ptr<IConnection>, score::mw::crypto::CryptoErrorCode> ConnectionFactory::CreateConnection(
+Expected<std::unique_ptr<IConnection>, score::crypto::CryptoErrorCode> ConnectionFactory::CreateConnection(
     std::string_view endpoint)
 {
     const std::string_view unixProtocolPrefix = "unix://";
@@ -35,7 +35,7 @@ Expected<std::unique_ptr<IConnection>, score::mw::crypto::CryptoErrorCode> Conne
         score::mw::log::LogError()
             << "[CONTROL_CLIENT_NODE_FACTORY] ERROR - Unsupported endpoint protocol. Only unix domain sockets "
                "are supported.";
-        return make_unexpected(score::mw::crypto::CryptoErrorCode::kInvalidArgument);
+        return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
     }
 
     const std::string_view socketPath = endpoint.substr(unixProtocolPrefix.size());
@@ -45,7 +45,7 @@ Expected<std::unique_ptr<IConnection>, score::mw::crypto::CryptoErrorCode> Conne
     {
         score::mw::log::LogError() << "[CONTROL_CLIENT_NODE_FACTORY] ERROR - Failed to create connection to socket: "
                                    << socketPath;
-        return make_unexpected(score::mw::crypto::CryptoErrorCode::kInternalError);
+        return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
     }
 
     return connection;

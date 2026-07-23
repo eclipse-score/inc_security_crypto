@@ -174,7 +174,7 @@ TEST_F(Pkcs11KeyHandlerTest, GenerateKey_AES256_ReturnsHandle)
     SetStandardParams(params);
     const std::string algo = "AES-256";
     params.push_back(std::string_view(algo));
-    params.push_back(static_cast<std::uint64_t>(score::mw::crypto::KeyOperationPermission::kEncrypt));
+    params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kEncrypt));
 
     auto result = m_km_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, params);
@@ -202,7 +202,7 @@ TEST_F(Pkcs11KeyHandlerTest, HmacSha256_GenerateAndRelease_FullLifecycle)
     SetStandardParams(gen_params);
     const std::string algo = "HMAC-SHA256";
     gen_params.push_back(std::string_view(algo));
-    gen_params.push_back(static_cast<std::uint64_t>(score::mw::crypto::KeyOperationPermission::kMac));
+    gen_params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kMac));
 
     auto gen = m_km_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, gen_params);
@@ -239,7 +239,7 @@ TEST_F(Pkcs11KeyHandlerTest, LoadKey_ByLabel_ReturnsHandle)
     // Config-time: populate provider names; runtime would populate provider_ids via ResolveProviderIds
     slot.provider_names = {"SOFTHSM_TEST"};
     slot.provider_ids = {1};  // 1 = SoftHSM (assuming default registration order)
-    slot.allowed_operations = score::mw::crypto::KeyOperationPermission::kMac;
+    slot.allowed_operations = score::crypto::KeyOperationPermission::kMac;
     slot.access_policy.allowed_uids.push_back(static_cast<uint32_t>(kClient & 0xFFFFFFFFU));
     // Write a temporary deployment descriptor containing the PKCS#11 label.
     const std::string deploy_path =
@@ -287,7 +287,7 @@ TEST_F(Pkcs11KeyHandlerTest, LoadKey_ExtractableKey_ReturnsNativeHandle)
     // Config-time: populate provider names; runtime would populate provider_ids via ResolveProviderIds
     slot.provider_names = {"SOFTHSM_TEST"};
     slot.provider_ids = {1};  // 1 = SoftHSM (assuming default registration order)
-    slot.allowed_operations = score::mw::crypto::KeyOperationPermission::kMac;
+    slot.allowed_operations = score::crypto::KeyOperationPermission::kMac;
     slot.access_policy.allowed_uids.push_back(static_cast<uint32_t>(kClient & 0xFFFFFFFFU));
     // Write a temporary deployment descriptor containing the PKCS#11 label.
     const std::string deploy_path =

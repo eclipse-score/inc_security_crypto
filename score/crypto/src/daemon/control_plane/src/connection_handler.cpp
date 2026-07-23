@@ -164,7 +164,7 @@ bool ConnectionHandler::ProcessUnknownRequest(const ControlRequest& request,
                                               control_plane::protocol::OperationResponseBuilder& responseBuilder)
 {
     score::mw::log::LogDebug() << "[CONTROL_HANDLER] Received unknown operationAction=" << opId.operationAction;
-    responseBuilder.operation(opId).return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+    responseBuilder.operation(opId).return_error(score::crypto::CryptoErrorCode::kInternalError);
     return true;
 }
 

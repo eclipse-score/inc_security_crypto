@@ -20,13 +20,13 @@
 namespace score::crypto::daemon::key_management::detail
 {
 
-inline score::mw::crypto::KeySlotInfo BuildKeySlotInfo(const KeySlotConfig& slot,
-                                                       score::mw::crypto::KeySlotState state,
-                                                       uint16_t primary_provider = 0U) noexcept
+inline score::crypto::KeySlotInfo BuildKeySlotInfo(const KeySlotConfig& slot,
+                                                   score::crypto::KeySlotState state,
+                                                   uint16_t primary_provider = 0U) noexcept
 {
-    score::mw::crypto::KeySlotInfo info{};
+    score::crypto::KeySlotInfo info{};
     info.state = state;
-    info.algorithm = (state == score::mw::crypto::KeySlotState::kOccupied) ? slot.algorithm : common::AlgorithmId{};
+    info.algorithm = (state == score::crypto::KeySlotState::kOccupied) ? slot.algorithm : common::AlgorithmId{};
     info.primary_provider = primary_provider;
     info.permitted_operations = slot.allowed_operations;
     info.compatible_provider_count = 0U;

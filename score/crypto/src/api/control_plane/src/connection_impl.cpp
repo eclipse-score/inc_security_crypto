@@ -63,8 +63,8 @@ ConnectionImpl::~ConnectionImpl()
     }
 }
 
-Expected<daemon::control_plane::protocol::ControlResponse, score::mw::crypto::CryptoErrorCode>
-ConnectionImpl::SendRequest(const daemon::control_plane::protocol::ControlRequest& request)
+Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> ConnectionImpl::SendRequest(
+    const daemon::control_plane::protocol::ControlRequest& request)
 {
     // HINT: We expect, that the IPC
     // - Ensures Blocking behaviour (RPC style)

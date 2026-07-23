@@ -30,8 +30,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -74,5 +73,5 @@ score::Result<IMemoryAllocator::Uptr> CryptoStackImpl::GetMemoryAllocator()
 }
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score

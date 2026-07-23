@@ -67,7 +67,7 @@ const std::uint8_t* OpenSslKeyHandler::GetRawKeyBytes(std::size_t& out_size) con
 ::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyHandler::Export() const
 {
-    if (!score::mw::crypto::HasPermission(m_handle.permissions, score::mw::crypto::KeyOperationPermission::kExport))
+    if (!score::crypto::HasPermission(m_handle.permissions, score::crypto::KeyOperationPermission::kExport))
     {
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kKeyOperationNotPermitted);

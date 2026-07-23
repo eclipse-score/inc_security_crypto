@@ -40,8 +40,7 @@
 
 namespace score
 {
-namespace mw
-{
+
 namespace crypto
 {
 
@@ -419,5 +418,5 @@ score::Result<KeySlotInfo> KeyManagementContextImpl::GetKeySlotInfo(const Crypto
 }
 
 }  // namespace crypto
-}  // namespace mw
+
 }  // namespace score

@@ -47,24 +47,24 @@
 ///   #include "score/crypto/src/api/common/src/crypto_resource_guard_factory.hpp"
 ///   #include "score/crypto/src/api/common/src/i_release_callback.hpp"
 ///
-///   class ConcreteCertContext : public score::mw::crypto::ICertificateManagementContext {
+///   class ConcreteCertContext : public score::crypto::ICertificateManagementContext {
 ///   public:
-///       score::Result<std::pair<score::mw::crypto::CryptoResourceGuard,
-///                               score::mw::crypto::AlgorithmId>>
-///       LoadCertificatePublicKey(const score::mw::crypto::CryptoResourceId& cert) override
+///       score::Result<std::pair<score::crypto::CryptoResourceGuard,
+///                               score::crypto::AlgorithmId>>
+///       LoadCertificatePublicKey(const score::crypto::CryptoResourceId& cert) override
 ///       {
 ///           // 1. Send ExtractPublicKey IPC to daemon, receive assigned key ID
-///           score::mw::crypto::CryptoResourceId key_id = /* IPC result */;
-///           score::mw::crypto::AlgorithmId alg = /* IPC result */;
+///           score::crypto::CryptoResourceId key_id = /* IPC result */;
+///           score::crypto::AlgorithmId alg = /* IPC result */;
 ///
 ///           // 2. ipc_release_cb_ is std::shared_ptr<IReleaseCallback>
-///           auto guard = score::mw::crypto::CryptoResourceGuardFactory::Make(
+///           auto guard = score::crypto::CryptoResourceGuardFactory::Make(
 ///               ipc_release_cb_, key_id);
 ///           return std::make_pair(std::move(guard), alg);
 ///       }
 ///
 ///   private:
-///       std::shared_ptr<score::mw::crypto::IReleaseCallback> ipc_release_cb_;
+///       std::shared_ptr<score::crypto::IReleaseCallback> ipc_release_cb_;
 ///   };
 /// @endcode
 
