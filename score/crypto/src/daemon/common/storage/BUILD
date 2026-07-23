@@ -13,12 +13,13 @@
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
-# Header-only: interfaces + shared path validation utility.
-# No format-specific deps — adding a new format (json, flatbuffer, ...) only
-# requires adding a new cc_library target in this file; nothing else changes.
 cc_library(
     name = "deployment_iface",
+    srcs = [
+        "deployment_descriptor.cpp",
+    ],
     hdrs = [
+        "deployment_descriptor.hpp",
         "deployment_path_utils.hpp",
         "i_deployment_loader.hpp",
         "i_deployment_writer.hpp",
@@ -27,13 +28,9 @@ cc_library(
     deps = [
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/key_management:key_management_headers",
     ],
 )
 
-# KV format implementation.  Stdlib-only — no extra library deps required.
-# To add a new format, create an analogous target here (e.g. json_deployment)
-# and add it as a dep to //score/crypto/src/daemon/key_management:key_management.
 cc_library(
     name = "kv_deployment",
     srcs = [
@@ -45,5 +42,8 @@ cc_library(
         "kv/kv_deployment_writer.hpp",
     ],
     visibility = ["//:__subpackages__"],
-    deps = [":deployment_iface"],
+    deps = [
+        ":deployment_iface",
+        "@score_baselibs//score/mw/log",
+    ],
 )
