@@ -73,7 +73,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Component Architecture" href="architecture/index.html" />
+    <link rel="next" title="Data Manager" href="../src/daemon/data_manager/docs/index.html" />
     <link rel="prev" title="Verification Report" href="../../../docs/verification_report/module_verification_report.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -223,13 +223,6 @@
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../../iav_primula/docs/index.html">
     IAV Primula Component
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../src/daemon/data_manager/docs/index.html">
-    Data Manager
   </a>
 </li>
 
@@ -416,13 +409,6 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../src/daemon/data_manager/docs/index.html">
-    Data Manager
-  </a>
-</li>
-
-
-<li class="nav-item ">
   <a class="nav-link nav-internal" href="../../../examples/docs/architecture_modeling_example.html">
     Example model of architectural design
   </a>
@@ -499,12 +485,14 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="architecture/index.html">Component Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../src/daemon/data_manager/docs/index.html">Data Manager</a></li>
+</ul>
+<ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="detailed_design/index.html">Detailed Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="requirements/index.html">Requirements</a></li>
 <li class="toctree-l1"><a class="reference internal" href="safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="safety_analysis/fmea.html">FMEA (Failure Modes and Effects Analysis)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="safety_analysis/aou_requirements.html">AoU Component Requirements Template</a></li>
+<li class="toctree-l1"><a class="reference internal" href="safety_analysis/aou_requirements.html">AoU Component Requirements</a></li>
 <li class="toctree-l1"><a class="reference internal" href="component_classification.html">Component Classification</a></li>
 </ul>
 </div>
@@ -569,7 +557,7 @@
 <p class="admonition-title">Note</p>
 <p>Document header</p>
 </div>
-<div class="need_container docutils container" id="SNCB-7ed8ecd2">
+<div class="need_container docutils container" id="SNCB-e7c387aa">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__mod_temp_crypto">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -578,7 +566,7 @@
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
 <div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">draft</span></span></span></div>
-<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">NO</span></span></span></div>
+<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
 <div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">ASIL_B</span></span></span></div>
 </div>
 </td>
@@ -588,7 +576,7 @@
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">template</span><span class="needs_spacer">, </span><span class="needs_data">crypto</span></span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>0</span></div>
 </span></span></div>
 <div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/change_management/change_management_workproducts.html#wp__cmpt_request">wp__cmpt_request</a></span></span></div>
@@ -614,7 +602,7 @@
 </div>
 </div>
 <div class="highlight-rst notranslate"><div class="highlight"><pre><span></span><span class="p">..</span> <span class="ow">comp</span><span class="p">::</span> Component Name
-   <span class="nc">:id:</span> comp__mod_temp_crypto_template
+   <span class="nc">:id:</span> comp__mod_temp_crypto
    <span class="nc">:security:</span> YES
    <span class="nc">:safety:</span> ASIL_B
    <span class="nc">:status:</span> invalid
@@ -723,16 +711,24 @@ This helps make sure all issues required for the CR to be ready for consideratio
 <p>[A collection of footnotes cited in the CR, and a place to list non-inline hyperlink targets.]</p>
 <p>Further Documentation of the component can be found in the following sections:</p>
 </section>
+<section id="subcomponent-documentation">
+<h2>Subcomponent Documentation<a class="headerlink" href="#subcomponent-documentation" title="Link to this heading">#</a></h2>
+<p>Additional documentation for relevant Crypto subcomponents can be found here:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../src/daemon/data_manager/docs/index.html">Data Manager</a></li>
+</ul>
+</div>
+</section>
 <section id="component-detail-information">
 <h2>Component Detail Information<a class="headerlink" href="#component-detail-information" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="architecture/index.html">Component Architecture</a></li>
 <li class="toctree-l1"><a class="reference internal" href="detailed_design/index.html">Detailed Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="requirements/index.html">Requirements</a></li>
 <li class="toctree-l1"><a class="reference internal" href="safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="safety_analysis/fmea.html">FMEA (Failure Modes and Effects Analysis)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="safety_analysis/aou_requirements.html">AoU Component Requirements Template</a></li>
+<li class="toctree-l1"><a class="reference internal" href="safety_analysis/aou_requirements.html">AoU Component Requirements</a></li>
 <li class="toctree-l1"><a class="reference internal" href="component_classification.html">Component Classification</a></li>
 </ul>
 </div>
@@ -759,11 +755,11 @@ This helps make sure all issues required for the CR to be ready for consideratio
       </div>
     </a>
     <a class="right-next"
-       href="architecture/index.html"
+       href="../src/daemon/data_manager/docs/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Component Architecture</p>
+        <p class="prev-next-title">Data Manager</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -797,6 +793,7 @@ This helps make sure all issues required for the CR to be ready for consideratio
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rejected-ideas">Rejected Ideas</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#open-issues">Open Issues</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#footnotes">Footnotes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subcomponent-documentation">Subcomponent Documentation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#component-detail-information">Component Detail Information</a></li>
 </ul>
   </nav></div>

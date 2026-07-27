@@ -73,8 +73,8 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="Detailed Design" href="../detailed_design/index.html" />
-    <link rel="prev" title="Component Architecture Documentation" href="component_architecture.html" />
+    <link rel="next" title="Design Decisions" href="design_decisions.html" />
+    <link rel="prev" title="Key Management Architecture" href="key_management_details.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1" />
@@ -157,7 +157,7 @@
 <nav>
   <ul class="bd-navbar-elements navbar-nav">
     
-<li class="nav-item ">
+<li class="nav-item current active">
   <a class="nav-link nav-internal" href="../../../../docs/index.html">
     Crypto Documentation
   </a>
@@ -213,7 +213,7 @@
 </li>
 
 
-<li class=" current active">
+<li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../index.html">
     Crypto
   </a>
@@ -223,13 +223,6 @@
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../../../iav_primula/docs/index.html">
     IAV Primula Component
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../../src/daemon/data_manager/docs/index.html">
-    Data Manager
   </a>
 </li>
 
@@ -352,7 +345,7 @@
 <nav>
   <ul class="bd-navbar-elements navbar-nav">
     
-<li class="nav-item ">
+<li class="nav-item current active">
   <a class="nav-link nav-internal" href="../../../../docs/index.html">
     Crypto Documentation
   </a>
@@ -401,7 +394,7 @@
 </li>
 
 
-<li class="nav-item current active">
+<li class="nav-item ">
   <a class="nav-link nav-internal" href="../index.html">
     Crypto
   </a>
@@ -411,13 +404,6 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../../../iav_primula/docs/index.html">
     IAV Primula Component
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../src/daemon/data_manager/docs/index.html">
-    Data Manager
   </a>
 </li>
 
@@ -501,15 +487,16 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Component Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="component_architecture.html">Component Architecture Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_architecture.html">API Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_description.html">API Description</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dynamic_architecture.html">API Dynamic Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interfaces.html">Interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="provider_architecture.html">Provider Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="key_management_details.html">Key Management Architecture</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Architecture Inspection Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design_decisions.html">Design Decisions</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../safety_analysis/fmea.html">FMEA (Failure Modes and Effects Analysis)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../safety_analysis/aou_requirements.html">AoU Component Requirements Template</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../component_classification.html">Component Classification</a></li>
 </ul>
 </div>
 </nav></div>
@@ -551,7 +538,7 @@
       </a>
     </li>
     
-    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Crypto</a></li>
+    <li class="breadcrumb-item"><a href="../../../../docs/index.html" class="nav-link">Crypto Documentation</a></li>
     
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Component Architecture</a></li>
@@ -573,7 +560,7 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <div class="need_container docutils container" id="SNCB-f069bbc6">
+  <div class="need_container docutils container" id="SNCB-54835dff">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_arc_inspection">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -592,7 +579,7 @@
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">template</span><span class="needs_spacer">, </span><span class="needs_data">crypto</span></span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>0</span></div>
 </span></span></div>
 <div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/architecture_design/architecture_workproducts.html#wp__sw_arch_verification">wp__sw_arch_verification</a></span></span></div>
@@ -643,7 +630,7 @@ communication and documentation of architectural decisions to stakeholders.</p>
 In case of “no” an issue link to the issue tracking system has to be added in the last column (if not solved in the same issue).
 See also <a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/general_concepts/score_review_concept.html#doc_concept__wp_inspections">doc_concept__wp_inspections</a> for further information about reviews in general and inspection in particular.</p>
 <div class="pst-scrollable-table-container"><table class="table" id="id2">
-<caption><span class="caption-number">Table 24 </span><span class="caption-text">Architecture Design Review Checklist</span><a class="headerlink" href="#id2" title="Link to this table">#</a></caption>
+<caption><span class="caption-number">Table 4 </span><span class="caption-text">Architecture Design Review Checklist</span><a class="headerlink" href="#id2" title="Link to this table">#</a></caption>
 <thead>
 <tr class="row-odd"><th class="head"><p>Review Id</p></th>
 <th class="head"><p>Acceptance criteria</p></th>
@@ -812,20 +799,20 @@ The belonging code metrics should be checked.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="component_architecture.html"
+       href="key_management_details.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Component Architecture Documentation</p>
+        <p class="prev-next-title">Key Management Architecture</p>
       </div>
     </a>
     <a class="right-next"
-       href="../detailed_design/index.html"
+       href="design_decisions.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Detailed Design</p>
+        <p class="prev-next-title">Design Decisions</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

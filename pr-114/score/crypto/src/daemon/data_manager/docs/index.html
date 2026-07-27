@@ -73,8 +73,8 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../../search.html" />
-    <link rel="next" title="Example model of architectural design" href="../../../../../../examples/docs/architecture_modeling_example.html" />
-    <link rel="prev" title="Component Classification" href="../../../../../iav_primula/docs/component_classification.html" />
+    <link rel="next" title="Detailed Design" href="../../../../docs/detailed_design/index.html" />
+    <link rel="prev" title="Crypto" href="../../../../docs/index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1" />
@@ -213,7 +213,7 @@
 </li>
 
 
-<li class=" ">
+<li class=" current active">
   <a class="nav-link dropdown-item nav-internal" href="../../../../docs/index.html">
     Crypto
   </a>
@@ -223,13 +223,6 @@
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../../../../../iav_primula/docs/index.html">
     IAV Primula Component
-  </a>
-</li>
-
-
-<li class=" current active">
-  <a class="nav-link dropdown-item nav-internal" href="#">
-    Data Manager
   </a>
 </li>
 
@@ -401,7 +394,7 @@
 </li>
 
 
-<li class="nav-item ">
+<li class="nav-item current active">
   <a class="nav-link nav-internal" href="../../../../docs/index.html">
     Crypto
   </a>
@@ -411,13 +404,6 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../../../../../iav_primula/docs/index.html">
     IAV Primula Component
-  </a>
-</li>
-
-
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="#">
-    Data Manager
   </a>
 </li>
 
@@ -498,7 +484,18 @@
 <nav class="bd-docs-nav bd-links"
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
-  <div class="bd-toc-item navbar-nav"></div>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Data Manager</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/detailed_design/index.html">Detailed Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/requirements/index.html">Requirements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/safety_analysis/fmea.html">FMEA (Failure Modes and Effects Analysis)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/safety_analysis/aou_requirements.html">AoU Component Requirements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/component_classification.html">Component Classification</a></li>
+</ul>
+</div>
 </nav></div>
     </div>
   
@@ -537,6 +534,9 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
+    
+    <li class="breadcrumb-item"><a href="../../../../docs/index.html" class="nav-link">Crypto</a></li>
+    
     <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Data Manager</span></li>
   </ul>
 </nav>
@@ -581,7 +581,7 @@ a busy-node tracking mechanism.</p></li>
 </section>
 <section id="design-decisions">
 <h2>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-b9ca6207">
+<div class="need_container docutils container" id="SNCB-2679bc87">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__central_data_node_manager">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -601,7 +601,7 @@ a busy-node tracking mechanism.</p></li>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
 <div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_feat_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">Extract state information into a central Data Manager component.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>0</span></div>
 </span></span></div>
@@ -727,20 +727,20 @@ theoretical contention risk.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../../../../../iav_primula/docs/component_classification.html"
+       href="../../../../docs/index.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Component Classification</p>
+        <p class="prev-next-title">Crypto</p>
       </div>
     </a>
     <a class="right-next"
-       href="../../../../../../examples/docs/architecture_modeling_example.html"
+       href="../../../../docs/detailed_design/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Example model of architectural design</p>
+        <p class="prev-next-title">Detailed Design</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
