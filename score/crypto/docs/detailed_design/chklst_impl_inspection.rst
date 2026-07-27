@@ -18,7 +18,6 @@
   :safety: ASIL_B
   :security: YES
   :realizes: wp__sw_implementation_inspection
-  :tags: template
 
 
 Implementation Inspection Checklist

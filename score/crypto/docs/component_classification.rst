@@ -21,9 +21,8 @@ Component Classification
    :id: doc__crypto_comp_class
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__sw_component_class
-   :tags: template
 
 
 | Classification of <component>

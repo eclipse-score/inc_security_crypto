@@ -19,7 +19,7 @@
   :safety: ASIL_B
   :security: YES
   :realizes: wp__sw_arch_verification
-  :tags: template
+
 
 
 Architecture Inspection Checklist

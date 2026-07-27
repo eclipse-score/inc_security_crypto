@@ -12,39 +12,32 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _feature_safety_wp_template:
+.. _feature_security_planning_template:
 
-Feature Safety Work Products List
-#################################
+Feature Security Work Products List
+###################################
 
-.. document:: [Your Feature Name] Safety WPs
-   :id: doc__feature_example_safety_wp
+.. document:: Crypto Security WPs
+   :id: doc__feature_example_security_planning_wp
    :status: draft
    :safety: ASIL_B
-   :security: NO
-   :realizes: wp__platform_safety_plan
+   :security: YES
+   :realizes: wp__platform_security_plan
    :tags: template
 
-.. attention::
-    The above directive must be updated according to your Feature.
-
-    - Modify ``Your Feature Name`` to be your Feature Name
-    - Modify ``id`` to be your Module Name in upper snake case preceded by ``doc__`` and succeeded by ``_safety_wp``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety`` and ``tags`` according to your needs
 
 Tailoring
 =========
 
-Additional to the tailoring in the SW platform project as defined in the project's :need:`wp__platform_safety_plan` we define here the additional tailoring on feature level.
+Additional to the tailoring in the SW platform project as defined in the project's :need:`wp__platform_security_plan` we define here the additional tailoring on feature level.
 
 - Excluded for this feature are additionally the following work products (and their related requirements):
 
   - <work product/requirement> - <Argumentation why it is not needed or replaced by another work product or activity.>
 
 
-Safety Work products List
-=========================
+Security Work products List
+===========================
 
 .. list-table:: Feature <feature_name> Work products
     :header-rows: 1
@@ -74,16 +67,6 @@ Safety Work products List
       - :ndf:`copy('status', need_id='gd_temp__arch_feature')`
       - :need:`doc__feature_name_architecture`
 
-    * - :need:`wp__feature_fmea`
-      - :need:`gd_temp__feat_saf_fmea`
-      - :ndf:`copy('status', need_id='gd_temp__feat_saf_fmea')`
-      - :need:`doc__feature_name_fmea`
-
-    * - :need:`wp__feature_dfa`
-      - :need:`gd_temp__feat_saf_dfa`
-      - :ndf:`copy('status', need_id='gd_temp__feat_saf_dfa')`
-      - :need:`doc__feature_name_dfa`
-
     * - :need:`wp__requirements_inspect`
       - :need:`gd_chklst__req_inspection`
       - :ndf:`copy('status', need_id='gd_chklst__req_inspection')`
@@ -100,14 +83,14 @@ Safety Work products List
       - <Link to WP>
 
 .. attention::
-    The above table must be updated according to your feature safety planning.
+    The above table must be updated according to your feature security planning.
 
     - Fill the work products links
 
-Feature Safety Package
-======================
+Feature Security Package
+========================
 
-To create the safety package (according to :need:`gd_guidl__saf_package`) the following
+To create the security package (according to :need:`gd_guidl__security_package`) the following
 documents and work products status have to go to "valid" (after the relevant verification were performed).
 
 Feature Documents Status
@@ -122,7 +105,7 @@ Feature Requirements Status
 ---------------------------
 
 .. needtable::
-   :filter: docname is not None and "feature_example" in docname and "requirements" in docname
+   :filter: docname is not None and "feature_name" in docname and "requirements" in docname
    :style: table
    :types: feat_req
    :tags: feature_name

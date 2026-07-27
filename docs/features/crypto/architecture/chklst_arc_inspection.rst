@@ -13,21 +13,14 @@
    # *******************************************************************************
 
 
-.. document:: [Your Feature Name] Architecture Inspection Checklist
-   :id: doc__feature_name_arc_inspection
+.. document:: Crypto feature Architecture Inspection Checklist
+   :id: doc__crypto_arc_inspection
    :status: draft
    :safety: ASIL_B
    :security: YES
    :realizes: wp__sw_arch_verification
    :tags: template
 
-.. attention::
-    The above directive must be updated according to your Feature.
-
-    - Modify ``Your Feature Name`` to be your Feature Name
-    - Modify ``id`` to be your Feature Name in lower snake case preceded by ``doc__`` and followed by ``_arc_inspection``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety``, ``security`` and ``tags`` according to your needs
 
 Architecture Inspection Checklist
 =================================

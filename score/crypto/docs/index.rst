@@ -23,14 +23,13 @@ Crypto
    :id: doc__mod_temp_crypto
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__cmpt_request
-   :tags: template
 
 .. code-block:: rst
 
    .. comp:: Component Name
-      :id: comp__mod_temp_crypto_template
+      :id: comp__mod_temp_crypto
       :security: YES
       :safety: ASIL_B
       :status: invalid

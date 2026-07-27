@@ -17,21 +17,15 @@
 Feature Architecture
 ====================
 
-.. document:: [Your Feature Name] Architecture
-   :id: doc__feature_example_architecture
+.. document:: Crypto Architecture
+   :id: doc__crypto_architecture
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__feature_arch
    :tags: template
 
-.. attention::
-    The above directive must be updated according to your Feature.
 
-    - Modify ``Your Feature Name`` to be your Feature Name
-    - Modify ``id`` to be your Feature Name in upper snake case preceded by ``doc__`` and followed by ``_architecture``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety``, ``security``  and ``tags`` according to your needs
 
 Overview
 --------

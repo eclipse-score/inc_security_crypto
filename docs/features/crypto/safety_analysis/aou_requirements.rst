@@ -15,22 +15,13 @@
 AoU Feature Requirements
 ========================
 
-.. document:: [Your Feature Name] Feature AoU
-   :id: doc__feature_name_feat_aou
+.. document:: Crypto Feature AoU
+   :id: doc__crypto_feat_aou
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: Yes
    :realizes: wp__requirements_feat_aou
    :tags: template
-
-
-.. attention::
-    The above directive must be updated according to your Feature.
-
-    - Modify ``Your Feature Name`` to be your Feature Name
-    - Modify ``id`` to be your Feature Name in upper snake case preceded by ``doc__`` and followed by ``_feat_aou``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety``, ``security`` and ``tags`` according to your needs
 
 
 This page contains Assumption of Use requirement snippets that belong to the
@@ -44,7 +35,7 @@ Feature AoU
    .. aou_req:: Some Other Title
       :id: aou_req__feature_name__some_other_title
       :reqtype: Process
-      :security: NO
+      :security: YES
       :safety: ASIL_B
       :status: invalid
 

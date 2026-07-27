@@ -19,10 +19,8 @@ Component Architecture Documentation
    :id: doc__crypto_comp_architecture
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__component_arch
-   :tags: template
-
 
 
 Overview

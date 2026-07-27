@@ -20,9 +20,8 @@ DFA (Dependent Failure Analysis)
    :id: doc__crypto_dfa
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__sw_component_dfa
-   :tags: template
 
 .. note:: Use the content of the document to describe e.g. why a fault model is not applicable for the diagram.
 

@@ -19,9 +19,8 @@ Example: Detailed Design
    :id: doc__crypto_detailed_design
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__sw_implementation
-   :tags: template
 
 
 Detailed Design for Component: <Component Name>

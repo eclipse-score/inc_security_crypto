@@ -12,16 +12,15 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-AoU Component Requirements Template
-===================================
+AoU Component Requirements
+===========================
 
 .. document:: Crypto Component AoU
    :id: doc__crypto_comp_aou
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__requirements_comp_aou
-   :tags: template
 
 
 This page contains Assumption of Use requirement snippets that belong to the

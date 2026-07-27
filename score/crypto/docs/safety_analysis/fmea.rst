@@ -20,9 +20,8 @@ FMEA (Failure Modes and Effects Analysis)
    :id: doc__crypto_fmea
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__sw_component_fmea
-   :tags: template
 
 .. note:: Use the content of the document to describe e.g. why a fault model is not applicable for the diagram.
 

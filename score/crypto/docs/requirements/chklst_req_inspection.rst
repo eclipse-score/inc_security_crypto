@@ -19,7 +19,6 @@
   :safety: ASIL_B
   :security: YES
   :realizes: wp__requirements_inspect
-  :tags: template
 
 
 Requirement Inspection Checklist

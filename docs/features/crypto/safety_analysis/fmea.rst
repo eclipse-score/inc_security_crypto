@@ -16,25 +16,19 @@
 FMEA (Failure Modes and Effects Analysis)
 =========================================
 
-.. document:: [Your Feature Name] FMEA
-   :id: doc__feature_name_fmea
+.. document:: Crypto FMEA
+   :id: doc__crypto_fmea
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__feature_fmea
    :tags: template
 
 .. note:: Use the content of the document to describe e.g. why a fault model is not applicable for the diagram.
 
-.. attention::
-    The above directive must be updated according to your Feature.
 
-    - Modify ``Your Feature Name`` to be your Feature Name
-    - Modify ``id`` to be your Feature Name in upper snake case preceded by ``doc__`` and succeeded by ``_fmea``
-    - Adjust ``status`` to be ``valid``
-    - Adjust ``safety`` and ``tags`` according to your needs
 
-The FMEA for the feature [Your Feature Name] is performed. To show evidence that all failure initiators are considered, the applicability has to be filled out in the
+The FMEA for the feature Crypto is performed. To show evidence that all failure initiators are considered, the applicability has to be filled out in the
 following tables. For all applicable failure initiators, the FMEA has to be performed.
 
 Failure Mode List
