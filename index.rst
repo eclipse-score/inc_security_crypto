@@ -15,7 +15,7 @@
 Crypto Documentation
 =====================
 
-This documentation describes the structure, usage and configuration of the Bazel-based C++/Rust module template according to the `SCORE module folder structure <https://eclipse-score.github.io/score/main/contribute/general/folder.html#module-folder-structure>`_ and the `SCORE building blocks concept <https://eclipse-score.github.io/process_description/main/general_concepts/score_building_blocks_concept.html>`_.
+This documentation describes the structure, usage, and configuration of the Crypto module in this repository, following the `SCORE module folder structure <https://eclipse-score.github.io/score/main/contribute/general/folder.html#module-folder-structure>`_ and the `SCORE building blocks concept <https://eclipse-score.github.io/process_description/main/general_concepts/score_building_blocks_concept.html>`_.
 
 .. contents:: Table of Contents
    :depth: 2
@@ -24,34 +24,27 @@ This documentation describes the structure, usage and configuration of the Bazel
 Overview
 --------
 
-This repository provides a standardized setup for projects using **C++** or **Rust** and **Bazel** as a build system.
-It integrates best practices for build, test, CI/CD and documentation.
-It also provides an example for the documentation of an module with all necessary artifacts for safety and security management, verification and release management.
-It also provides the component architecture template snippets in :doc:`/score/crypto/docs/architecture/component_architecture`.
-It also provides an example of documenting detailed design in :doc:`/score/crypto/docs/detailed_design/detailed_design_example`.
+This repository documents the Crypto module implementation, including its build, test, documentation, safety and security management, verification, and release workflows.
+It provides the documentation artifacts needed for the Crypto module, including the component architecture documentation in :doc:`/score/crypto/docs/architecture/component_architecture` and the detailed design documentation in :doc:`/score/crypto/docs/detailed_design/detailed_design_example`.
 
 
 Module Documentation
 --------------------
 
-<Brief description of the module and the implemented feature(s).>
+The Crypto module provides a cryptographic middleware stack for automotive ECUs, including client-side APIs, a crypto daemon, provider integration, and supporting safety and security documentation.
 
-<Module sphinx documentation template snippets for the module. The directives and their parameters
-should be updated according to the module and it's components. Further documentation of the module
-and the implemented feature(s) should be added in the respective sections of the documentation
-(e.g., feature architecture, safety analysis, security analysis, manuals, etc.) following the provided
-templates and guidelines.>
+The sections below provide the module-level documentation structure for these Crypto-specific artifacts, and additional content should be added in the relevant sections for feature architecture, safety analysis, security analysis, manuals, and related work products.
 
 .. code-block:: rst
 
-   .. mod:: Module Name
-      :id: mod__module_name
-      :includes: comp__component_name_template
+   .. mod:: Crypto Module
+      :id: mod__crypto_module
+      :includes: comp__crypto_component
 
 
-   .. mod_view_sta:: Module Name Static View
-      :id: mod_view_sta__feature_name__module_name
-      :includes: comp__component_name_template
+   .. mod_view_sta:: Crypto Module Static View
+      :id: mod_view_sta__crypto__module
+      :includes: comp__crypto_component
 
       .. needarch::
          :scale: 50
@@ -84,10 +77,10 @@ For documentation of individual components within this module:
    score/iav_primula/docs/index
    score/crypto/src/daemon/data_manager/docs/index
 
-Architecture Modeling Example
------------------------------
+Architecture Modeling Reference
+--------------------------------
 
-An example of modeling architecture in Sphinx Needs can be found in
+A reference for modeling the Crypto architecture in Sphinx Needs can be found in
 
 .. toctree::
    :maxdepth: 1
@@ -95,7 +88,7 @@ An example of modeling architecture in Sphinx Needs can be found in
    examples/docs/architecture_modeling_example
 
 
-Please note, that is not a template for architecture documentation, but an example of how to use Sphinx Needs for architecture modeling. The architecture documentation of the components and features of the module should follow the provided templates and guidelines.
+Please note that this is a reference model for using Sphinx Needs for architecture modeling, not the canonical architecture documentation for the Crypto module. The actual architecture documentation of the Crypto components and features should follow the provided guidance and module-specific content.
 
 
 .. _quick-start-building-testing:

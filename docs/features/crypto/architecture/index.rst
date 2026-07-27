@@ -12,13 +12,13 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _feature_architecture_template:
+.. _feature_architecture_example:
 
 Feature Architecture
 ====================
 
 .. document:: Crypto Architecture
-   :id: doc__crypto_feat_architecture_template
+   :id: doc__crypto_feat_architecture
    :status: draft
    :safety: ASIL_B
    :security: YES

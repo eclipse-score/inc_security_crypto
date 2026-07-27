@@ -14,7 +14,7 @@
 
 
 .. document:: Crypto feature Architecture Inspection Checklist
-   :id: doc__crypto_arc_inspection_template
+   :id: doc__crypto_feat_arc_inspection
    :status: draft
    :safety: ASIL_B
    :security: YES
