@@ -62,7 +62,6 @@ Architecture
    :maxdepth: 2
 
    ../score/crypto/docs/architecture/index
-   crypto_feat/architecture/index
 
 
 Project Layout
