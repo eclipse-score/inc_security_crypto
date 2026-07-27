@@ -12,8 +12,8 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-Component <Name> Requirements
-#############################
+Crypto Requirements
+####################
 
 .. document:: Crypto Requirements
    :id: doc__crypto_requirements
@@ -33,7 +33,7 @@ Functional Requirements
 .. code-block::
 
    .. comp_req:: Some Title
-      :id: comp_req__crypto__some_title
+      :id: comp_req__crypto__func_req_example
       :reqtype: Process
       :security: YES
       :safety: ASIL_B
@@ -49,8 +49,8 @@ Functional Requirements
 Assumption of Use Requirements
 ------------------------------
 
-.. aou_req:: Next Title
-   :id: aou_req__crypto__next_title
+.. aou_req:: Crypto AoU Requirement Example
+   :id: aou_req__crypto_aou__next_title
    :reqtype: Process
    :security: YES
    :safety: ASIL_B
@@ -61,8 +61,8 @@ Assumption of Use Requirements
 Environmental Requirements
 --------------------------
 
-.. aou_req:: Another Title
-   :id: aou_req__crypto__another
+.. aou_req:: Crypto Environmental Requirement Example
+   :id: aou_req__crypto__crypto_env_req_ex
    :reqtype: Process
    :security: YES
    :safety: ASIL_B

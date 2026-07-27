@@ -155,6 +155,16 @@ Footnotes
 
 Further Documentation of the component can be found in the following sections:
 
+Subcomponent Documentation
+==========================
+
+Additional documentation for relevant Crypto subcomponents can be found here:
+
+.. toctree::
+   :maxdepth: 1
+
+   ../src/daemon/data_manager/docs/index
+
 Component Detail Information
 ============================
 

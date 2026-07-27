@@ -132,10 +132,10 @@ Module Work products List
           - :ndf:`copy('status', need_id='gd_temp__rel_mod_rel_note')`
           - :need:`doc__mod_temp_module_name_release_note`
 
-Component <name> Work products List
------------------------------------
+Crypto Component Work products List
+------------------------------------
 
-.. list-table:: Component <name> Work products
+.. list-table:: Crypto Component Work products
         :header-rows: 1
 
         * - Work product Id
@@ -215,7 +215,7 @@ If the OSS element is classified as
     - component, then the below table shall match the above, adding the reasoning for tailoring of work products according to the OSS component classification.
     - lower level component, then no work products additional to the component’s will be planned and activities below are part of the component’s issues.
 
-.. list-table:: OSS (sub-)component <name> Work products
+.. list-table:: OSS (sub-)component Work products
         :header-rows: 1
 
         * - Work product Id

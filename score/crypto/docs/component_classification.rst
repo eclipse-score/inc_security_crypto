@@ -25,12 +25,12 @@ Component Classification
    :realizes: wp__sw_component_class
 
 
-| Classification of <component>
+| Classification of the Crypto component
 |
-| <Link to OSS component source (e.g. in github) including the selected version>
+| Link to the relevant upstream component source and selected version, if applicable
 |
 | Additional documentation considered:
-| <list of documentation links>
+| Crypto architecture, design, and safety/security documentation links
 
 
 Step 1: Determine (P): the uncertainty of the Processes applied
@@ -86,7 +86,7 @@ Step 1: Determine (P): the uncertainty of the Processes applied
 |       the risk of systematic faults due to these gaps is sufficiently low or manageable by mitigating the gaps.
 | (P=3) in all other cases.
 
-<component name> is determined as P=<1|2|3>
+The Crypto component is determined as P=<1|2|3>
 
 
 Step 2: Determine (C): the uncertainty of finding systematic faults based on the Complexity
@@ -151,7 +151,7 @@ Step 2: Determine (C): the uncertainty of finding systematic faults based on the
 | (C=3) in all other cases.
 |
 
-<component name> is determined as C=<1|2|3>
+The Crypto component is determined as C=<1|2|3>
 
 
 Step 3: Determine (CLAS_OUT): the classification outcome
@@ -171,7 +171,7 @@ Step 3: Determine (CLAS_OUT): the classification outcome
 | 3     |  QR   | QR    | NQ    |
 +-------+-------+-------+-------+
 
-<component name> is classified as CLAS_OUT=<Q|QR|NQ>
+The Crypto component is classified as CLAS_OUT=<Q|QR|NQ>
 
 
 Step 4: Document all results and rationale for choosing (P) and (C) and (CLAS_OUT)

@@ -176,6 +176,6 @@ And also the following AoUs in "valid" state and with "inspected" tag set (for t
    :sort: title
 
 .. attention::
-    The above tables filtering must be updated according to your Component.
+    The above tables reflect the Crypto component scope.
 
-    - Modify ``Crypto`` to be your Component Name in lower snake case
+    - Use ``crypto`` as the component identifier in lower snake case where a component name is required.

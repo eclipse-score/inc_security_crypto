@@ -23,8 +23,8 @@ Example: Detailed Design
    :realizes: wp__sw_implementation
 
 
-Detailed Design for Component: <Component Name>
-===============================================
+Detailed Design for the Crypto Component
+=========================================
 
 Description
 -----------

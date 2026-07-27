@@ -65,7 +65,7 @@ A component can optional also consist of lower level components to further struc
 
 .. code-block::
 
-   .. comp:: Component Name
+   .. comp:: Crypto Component
       :id: comp__mod_temp_crypto
       :security: YES
       :safety: ASIL_B
@@ -75,7 +75,7 @@ A component can optional also consist of lower level components to further struc
 
 .. code-block::
 
-   .. comp_arc_sta:: Component Name (Static View)
+   .. comp_arc_sta:: Crypto Component (Static View)
       :id: comp_arc_sta__mod_temp_crypto__sv
       :security: YES
       :safety: ASIL_B
@@ -121,7 +121,7 @@ Internal Components
 
 .. code-block::
 
-   .. comp_arc_sta:: Component Name Static View
+   .. comp_arc_sta:: Crypto Component Static View
       :id: comp_arc_sta__mod_temp_crypto__2
       :status: valid
       :safety: ASIL_B

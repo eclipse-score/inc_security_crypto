@@ -75,7 +75,6 @@ For documentation of individual components within this module:
 
    score/crypto/docs/index
    score/iav_primula/docs/index
-   score/crypto/src/daemon/data_manager/docs/index
 
 Architecture Modeling Reference
 --------------------------------

@@ -139,7 +139,7 @@ Security Plan
           - <automated>
 
 
-.. list-table:: Component <name> Work Products
+.. list-table:: Crypto Component Work Products
         :header-rows: 1
 
         * - Work Product Id
