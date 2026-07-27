@@ -161,7 +161,6 @@ Component Detail Information
 .. toctree::
    :maxdepth: 1
 
-   architecture/index
    detailed_design/index
    requirements/index
    safety_analysis/dfa

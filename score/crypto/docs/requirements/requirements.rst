@@ -39,7 +39,7 @@ Functional Requirements
       :safety: ASIL_B
       :derived_from:
       :status: valid
-      :satisfied_by: comp__crypto_template
+      :satisfied_by: comp__crypto
 
       The Component shall do xyz to another component to bring it to this condition at this time
 

@@ -17,7 +17,7 @@ FMEA (Failure Modes and Effects Analysis)
 =========================================
 
 .. document:: Crypto FMEA
-   :id: doc__crypto_fmea
+   :id: doc__crypto_fmea_template
    :status: draft
    :safety: ASIL_B
    :security: YES

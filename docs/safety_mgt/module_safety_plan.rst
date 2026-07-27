@@ -161,7 +161,7 @@ Component <name> Work products List
         * - :need:`wp__component_arch`
           - :need:`gd_temp__arch_comp`
           - :ndf:`copy('status', need_id='gd_temp__arch_comp')`
-          - :need:`doc__crypto_architecture`
+          - :need:`doc__crypto_feat_architecture`
 
         * - :need:`wp__sw_arch_verification`
           - :need:`gd_chklst__arch_inspection_checklist`

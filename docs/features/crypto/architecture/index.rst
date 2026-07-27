@@ -18,7 +18,7 @@ Feature Architecture
 ====================
 
 .. document:: Crypto Architecture
-   :id: doc__crypto_architecture
+   :id: doc__crypto_feat_architecture_template
    :status: draft
    :safety: ASIL_B
    :security: YES

@@ -66,7 +66,7 @@ A component can optional also consist of lower level components to further struc
 .. code-block::
 
    .. comp:: Component Name
-      :id: comp__mod_temp_crypto_template
+      :id: comp__mod_temp_crypto
       :security: YES
       :safety: ASIL_B
       :status: valid
@@ -80,7 +80,7 @@ A component can optional also consist of lower level components to further struc
       :security: YES
       :safety: ASIL_B
       :status: valid
-      :belongs_to: comp__mod_temp_crypto_template
+      :belongs_to: comp__mod_temp_crypto
       :fulfils: comp_req__mod_temp_crypto__some_title
 
       .. needarch::
@@ -99,7 +99,7 @@ Dynamic Architecture
       :security: YES
       :safety: ASIL_B
       :status: valid
-      :belongs_to: comp__mod_temp_crypto_template
+      :belongs_to: comp__mod_temp_crypto
       :fulfils: comp_req__mod_temp_crypto__some_title
 
       Put here a sequence diagram

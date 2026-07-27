@@ -19,7 +19,7 @@ AoU Feature Requirements
    :id: doc__crypto_feat_aou
    :status: draft
    :safety: ASIL_B
-   :security: Yes
+   :security: YES
    :realizes: wp__requirements_feat_aou
    :tags: template
 

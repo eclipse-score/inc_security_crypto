@@ -71,12 +71,12 @@ Safety Work products List
     * - :need:`wp__feature_fmea`
       - :need:`gd_temp__feat_saf_fmea`
       - :ndf:`copy('status', need_id='gd_temp__feat_saf_fmea')`
-      - :need:`doc__feature_name_fmea`
+      - :need:`doc__crypto_fmea`
 
     * - :need:`wp__feature_dfa`
       - :need:`gd_temp__feat_saf_dfa`
       - :ndf:`copy('status', need_id='gd_temp__feat_saf_dfa')`
-      - :need:`doc__feature_name_dfa`
+      - :need:`doc__crypto_dfa`
 
     * - :need:`wp__requirements_inspect`
       - :need:`gd_chklst__req_inspection`
@@ -86,7 +86,7 @@ Safety Work products List
     * - :need:`wp__sw_arch_verification`
       - :need:`gd_chklst__arch_inspection_checklist`
       - :ndf:`copy('status', need_id='gd_chklst__arch_inspection_checklist')`
-      - :need:`doc__feature_name_arc_inspection`
+      - :need:`doc__crypto_arc_inspection`
 
     * - :need:`wp__verification_feat_int_test`
       - :need:`gd_guidl__verification_guide`

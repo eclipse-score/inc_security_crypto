@@ -15,6 +15,22 @@
 Crypto Documentation
 =====================
 
+This documentation describes the structure, usage and configuration of the Bazel-based C++/Rust module template according to the `SCORE module folder structure <https://eclipse-score.github.io/score/main/contribute/general/folder.html#module-folder-structure>`_ and the `SCORE building blocks concept <https://eclipse-score.github.io/process_description/main/general_concepts/score_building_blocks_concept.html>`_.
+
+.. contents:: Table of Contents
+   :depth: 2
+   :local:
+
+Overview
+--------
+
+This repository provides a standardized setup for projects using **C++** or **Rust** and **Bazel** as a build system.
+It integrates best practices for build, test, CI/CD and documentation.
+It also provides an example for the documentation of an module with all necessary artifacts for safety and security management, verification and release management.
+It also provides the component architecture template snippets in :doc:`/score/crypto/docs/architecture/component_architecture`.
+It also provides an example of documenting detailed design in :doc:`/score/crypto/docs/detailed_design/detailed_design_example`.
+
+
 Module Documentation
 --------------------
 
@@ -68,6 +84,19 @@ For documentation of individual components within this module:
    score/iav_primula/docs/index
    score/crypto/src/daemon/data_manager/docs/index
 
+Architecture Modeling Example
+-----------------------------
+
+An example of modeling architecture in Sphinx Needs can be found in
+
+.. toctree::
+   :maxdepth: 1
+
+   examples/docs/architecture_modeling_example
+
+
+Please note, that is not a template for architecture documentation, but an example of how to use Sphinx Needs for architecture modeling. The architecture documentation of the components and features of the module should follow the provided templates and guidelines.
+
 
 .. _quick-start-building-testing:
 
@@ -84,7 +113,7 @@ To run all tests:
 
 .. code-block:: bash
 
-   bazel test //...
+   bazel test //score/...
 
 
 To run only component or feature integration tests:

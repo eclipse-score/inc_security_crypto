@@ -61,7 +61,8 @@ Architecture
 .. toctree::
    :maxdepth: 2
 
-   crypto/architecture/index.rst
+   ../score/crypto/docs/architecture/index
+   crypto_feat/architecture/index
 
 
 Project Layout

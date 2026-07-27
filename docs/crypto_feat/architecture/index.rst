@@ -18,7 +18,7 @@ Component Architecture
 ======================
 
 .. document:: Crypto Architecture
-   :id: doc__crypto_architecture
+   :id: doc__crypto_feat_architecture
    :status: draft
    :safety: QM
    :security: NO
