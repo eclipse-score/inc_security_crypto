@@ -1222,8 +1222,8 @@
     },
     "@@aspect_tools_telemetry+//:extension.bzl%telemetry": {
       "general": {
-        "bzlTransitiveDigest": "gA7tPEdJXhskzPIEUxjX9IdDrM6+WjfbgXJ8Ez47umk=",
-        "usagesDigest": "z8cWWnVpO8J/dzJXjYbJOFOppzxrQWI6B21RNkSjQI4=",
+        "bzlTransitiveDigest": "cl5A2O84vDL6Tt+Qga8FCj1DUDGqn+e7ly5rZ+4xvcc=",
+        "usagesDigest": "YrfZ4bJpm8TElVj7Cl9MuPxrvXtxG3i75iLf1pGcdG8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1232,8 +1232,8 @@
             "repoRuleId": "@@aspect_tools_telemetry+//:extension.bzl%tel_repository",
             "attributes": {
               "deps": {
-                "aspect_rules_lint": "2.3.0",
-                "aspect_tools_telemetry": "0.2.8"
+                "aspect_rules_lint": "2.7.2",
+                "aspect_tools_telemetry": "0.3.3"
               }
             }
           }
@@ -1241,8 +1241,8 @@
         "recordedRepoMappingEntries": [
           [
             "aspect_tools_telemetry+",
-            "aspect_bazel_lib",
-            "aspect_bazel_lib+"
+            "bazel_lib",
+            "bazel_lib+"
           ],
           [
             "aspect_tools_telemetry+",
@@ -1633,8 +1633,8 @@
     },
     "@@rules_nodejs+//nodejs:extensions.bzl%node": {
       "general": {
-        "bzlTransitiveDigest": "FmfMiNXAxRoLWw3NloQbssosE1egrSvzirbQnso7j7E=",
-        "usagesDigest": "RmjWGl+udnOtLbA4SVIYVixOYhc+YyN36MKAPAhLDWw=",
+        "bzlTransitiveDigest": "4pUxCNc22K4I+6+4Nxu52Hur12tFRfa1JMsN5mdDv60=",
+        "usagesDigest": "5umHhnYha2dMgkrasnQXn333vV/0T3O48R1z1u5zvzg=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1647,7 +1647,7 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.19.5",
+              "node_version": "22.22.0",
               "include_headers": false,
               "platform": "linux_amd64"
             }
@@ -1660,7 +1660,7 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.19.5",
+              "node_version": "22.22.0",
               "include_headers": false,
               "platform": "linux_arm64"
             }
@@ -1673,7 +1673,7 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.19.5",
+              "node_version": "22.22.0",
               "include_headers": false,
               "platform": "linux_s390x"
             }
@@ -1686,7 +1686,7 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.19.5",
+              "node_version": "22.22.0",
               "include_headers": false,
               "platform": "linux_ppc64le"
             }
@@ -1699,7 +1699,7 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.19.5",
+              "node_version": "22.22.0",
               "include_headers": false,
               "platform": "darwin_amd64"
             }
@@ -1712,7 +1712,7 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.19.5",
+              "node_version": "22.22.0",
               "include_headers": false,
               "platform": "darwin_arm64"
             }
@@ -1725,7 +1725,7 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.19.5",
+              "node_version": "22.22.0",
               "include_headers": false,
               "platform": "windows_amd64"
             }
@@ -1738,7 +1738,7 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.19.5",
+              "node_version": "22.22.0",
               "include_headers": false,
               "platform": "windows_arm64"
             }
@@ -1882,7 +1882,7 @@
     },
     "@@rules_rust+//crate_universe:extensions.bzl%crate": {
       "general": {
-        "bzlTransitiveDigest": "Muk5vCgTqTV1KCIcKNLHqzRtWSEmMpEiUnpad4ExkwQ=",
+        "bzlTransitiveDigest": "La7EquknHhP3UDTf2jvR5Nodc9f9tHtBTW9aaPBfvk4=",
         "usagesDigest": "cVdscpSlFdl79/WfeaFFp7KYFb2dNBCZ79adGMpYlEk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -2906,8 +2906,8 @@
     },
     "@@rules_rust+//crate_universe/private:internal_extensions.bzl%cu_nr": {
       "general": {
-        "bzlTransitiveDigest": "TpgCwrwjClh3LickxhxAIoIHk7aX94Yle6iYFe070es=",
-        "usagesDigest": "1ieIYuafZ1pmP+ncVvISMfB3Em0hv9LCmCRwIH7gL8E=",
+        "bzlTransitiveDigest": "5g+hQX7eitWahueHsY9Yd9fADIJO6bB5BILVHVKH7DQ=",
+        "usagesDigest": "ZhEElswceAZX4CCec5bijc9eZ9i3xTpnLMnjugHvyvI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2925,6 +2925,7 @@
                 "@@rules_rust+//crate_universe:src/cli/splice.rs",
                 "@@rules_rust+//crate_universe:src/cli/vendor.rs",
                 "@@rules_rust+//crate_universe:src/config.rs",
+                "@@rules_rust+//crate_universe:src/config/label_injection.rs",
                 "@@rules_rust+//crate_universe:src/context.rs",
                 "@@rules_rust+//crate_universe:src/context/crate_context.rs",
                 "@@rules_rust+//crate_universe:src/context/platforms.rs",
@@ -2940,13 +2941,13 @@
                 "@@rules_rust+//crate_universe:src/metadata/metadata_annotation.rs",
                 "@@rules_rust+//crate_universe:src/rendering.rs",
                 "@@rules_rust+//crate_universe:src/rendering/template_engine.rs",
+                "@@rules_rust+//crate_universe:src/rendering/templates/defs_bzl_shim.j2",
                 "@@rules_rust+//crate_universe:src/rendering/templates/module_bzl.j2",
                 "@@rules_rust+//crate_universe:src/rendering/templates/partials/header.j2",
                 "@@rules_rust+//crate_universe:src/rendering/templates/partials/module/aliases_map.j2",
                 "@@rules_rust+//crate_universe:src/rendering/templates/partials/module/deps_map.j2",
                 "@@rules_rust+//crate_universe:src/rendering/templates/partials/module/repo_git.j2",
                 "@@rules_rust+//crate_universe:src/rendering/templates/partials/module/repo_http.j2",
-                "@@rules_rust+//crate_universe:src/rendering/templates/vendor_module.j2",
                 "@@rules_rust+//crate_universe:src/rendering/verbatim/alias_rules.bzl",
                 "@@rules_rust+//crate_universe:src/select.rs",
                 "@@rules_rust+//crate_universe:src/splicing.rs",
@@ -2971,11 +2972,11 @@
               "binary": "cargo-bazel",
               "cargo_lockfile": "@@rules_rust+//crate_universe:Cargo.lock",
               "cargo_toml": "@@rules_rust+//crate_universe:Cargo.toml",
-              "version": "1.86.0",
-              "timeout": 900,
+              "version": "1.97.1",
               "rust_toolchain_cargo_template": "@rust_host_tools//:bin/{tool}",
               "rust_toolchain_rustc_template": "@rust_host_tools//:bin/{tool}",
-              "compressed_windows_toolchain_names": false
+              "compressed_windows_toolchain_names": false,
+              "timeout": 900
             }
           }
         },
@@ -2988,6 +2989,11 @@
           "reproducible": false
         },
         "recordedRepoMappingEntries": [
+          [
+            "apple_support+",
+            "bazel_skylib",
+            "bazel_skylib+"
+          ],
           [
             "bazel_features+",
             "bazel_features_globals",
@@ -3020,6 +3026,11 @@
           ],
           [
             "rules_rust+",
+            "apple_support",
+            "apple_support+"
+          ],
+          [
+            "rules_rust+",
             "bazel_features",
             "bazel_features+"
           ],
@@ -3032,11 +3043,6 @@
             "rules_rust+",
             "bazel_tools",
             "bazel_tools"
-          ],
-          [
-            "rules_rust+",
-            "cargo_bazel_bootstrap",
-            "rules_rust++cu_nr+cargo_bazel_bootstrap"
           ],
           [
             "rules_rust+",
