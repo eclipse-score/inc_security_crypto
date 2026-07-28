@@ -276,6 +276,7 @@ Requirements for the Example
    :security: YES
    :rationale: needed for archdes example
    :status: valid
+   :valid_from: v1.0.0
 
    The platform shall provide the feature ....
 
@@ -288,6 +289,7 @@ Requirements for the Example
    :safety: ASIL_B
    :derived_from: stkh_req__mtfn__example_req
    :status: valid
+   :valid_from: v1.0.0
    :satisfied_by: feat__mtef
 
    The feature shall provide the functionality to ....
