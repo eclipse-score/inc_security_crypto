@@ -21,7 +21,7 @@ Safety Plan Formal Review Report
   :id: doc__mod_temp_module_name_safety_plan_fdr
   :status: draft
   :safety: ASIL_B
-  :security: NO
+  :security: YES
   :realizes: wp__fdr_reports
   :tags: template
 

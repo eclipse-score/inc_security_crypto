@@ -21,7 +21,7 @@ Component Architecture
    :id: doc__crypto_architecture
    :status: draft
    :safety: QM
-   :security: NO
+   :security: YES
    :realizes: wp__cmpt_request_dummy
 
 .. workproduct:: Component Request Dummy

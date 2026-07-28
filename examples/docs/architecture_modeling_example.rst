@@ -224,7 +224,7 @@ Feature or Component Architecture File(s)
    :id: comp_arc_sta__example_feature__comp_1
    :status: valid
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :belongs_to: comp__mod_temp_component_example_1
    :fulfils: comp_req__example_feature__example_req
 
@@ -240,7 +240,7 @@ Feature or Component Architecture File(s)
    :id: comp__mod_temp_archex_sub_component_1
    :status: valid
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :uses: logic_arc_int__example_feature__if_2
    :implements: logic_arc_int__example_feature__if_1
    :belongs_to: feat__mtef
@@ -249,7 +249,7 @@ Feature or Component Architecture File(s)
    :id: comp__mod_temp_archex_sub_component_2
    :status: valid
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :uses: logic_arc_int__example_feature__if_2
    :implements: logic_arc_int__example_feature__if_2
    :belongs_to: feat__mtef
@@ -258,7 +258,7 @@ Feature or Component Architecture File(s)
    :id: comp__mod_temp_archex_sub_component_3
    :status: valid
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :belongs_to: feat__mtef
 
 

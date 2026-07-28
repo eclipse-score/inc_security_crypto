@@ -22,7 +22,7 @@ User Manual
    :status: draft
    :version: 1
    :safety: QM
-   :security: NO
+   :security: YES
    :realizes: wp__training_path[version==1]
 
 
