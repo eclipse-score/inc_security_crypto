@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_BACKEND_SCORE_PROVIDER_ACTIVE_BACKENDS_LIST_HPP
 #define SCORE_CRYPTO_SRC_BACKEND_SCORE_PROVIDER_ACTIVE_BACKENDS_LIST_HPP
 
-#include "score/crypto/daemon/provider/score_provider/score_backend_adapter.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/score_backend_adapter.hpp"
 
 #include <memory>
 #include <vector>

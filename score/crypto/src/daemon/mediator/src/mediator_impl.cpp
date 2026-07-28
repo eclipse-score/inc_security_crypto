@@ -329,14 +329,14 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Selected provider is not initialized: name='"
                                    << provider->GetProviderName() << "' id=" << provider->GetProviderId();
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::mw::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
         return false;
     }
     score::mw::log::LogDebug() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
                                << "] selected provider: name='" << provider->GetProviderName()
                                << "' id=" << provider->GetProviderId()
-                               << (has_key_binding ? " (key-affinity resolved)" : " (type-based selection)");
+                               << std::string_view{has_key_binding ? " (key-affinity resolved)"
+                                                                   : " (type-based selection)"};
 
     auto crypto_ops = provider->GetCryptoHandlerFactory();
     if (crypto_ops == nullptr)

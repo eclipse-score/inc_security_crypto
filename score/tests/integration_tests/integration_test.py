@@ -204,9 +204,9 @@ class TestCryptoDaemon:
                 Path("third_party/openssl/libssl.so.3"): Path(
                     "/opt/crypto/lib/libssl.so.3"
                 ),
-                Path(
-                    "third_party/soft_hsm/libsofthsm2.so"
-                ): Path("/opt/crypto/lib/libsofthsm2.so"),
+                Path("third_party/soft_hsm/libsofthsm2.so"): Path(
+                    "/opt/crypto/lib/libsofthsm2.so"
+                ),
                 Path(
                     "score/tests/test_vectors/config/integration_test_config.bin"
                 ): Path(self.CRYPTO_CONFIG_PATH),

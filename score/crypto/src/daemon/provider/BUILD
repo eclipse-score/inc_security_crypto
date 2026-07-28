@@ -13,7 +13,7 @@
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(
-    "//score/crypto/backend:backend_exports.bzl",
+    "//score/crypto/src/backend:backend_exports.bzl",
     "ENABLE_PKCS11_BACKEND",
     "ENABLE_SCORE_BACKEND",
 )
