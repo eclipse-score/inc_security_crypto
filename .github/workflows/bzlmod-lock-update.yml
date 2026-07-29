@@ -1,0 +1,69 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
+name: Bzlmod Lockfile Update
+
+# Regenerates MODULE.bazel.lock whenever a Dependabot Bazel branch is pushed.
+# Also available as a manual trigger so maintainers can refresh the lockfile on
+# any branch without a local Bazel installation.
+#
+# After this workflow commits an updated lockfile, push it to the PR branch so
+# that the "Bzlmod Lockfile Check" CI job can re-run and pass.
+
+on:
+  workflow_dispatch:
+    inputs:
+      working-directory:
+        description: "Directory containing MODULE.bazel (defaults to repo root)"
+        required: false
+        default: "."
+        type: string
+  push:
+    branches:
+      - "dependabot/bazel/**"
+
+permissions:
+  contents: write
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.18.0
+        with:
+          disk-cache: false
+          repository-cache: false
+          bazelisk-cache: true
+          cache-save: false
+
+      - name: Regenerate MODULE.bazel.lock
+        working-directory: ${{ inputs.working-directory || '.' }}
+        run: bazel mod deps --lockfile_mode=update
+
+      - name: Commit updated lockfile if changed
+        working-directory: ${{ inputs.working-directory || '.' }}
+        run: |
+          if git diff --quiet MODULE.bazel.lock; then
+            echo "MODULE.bazel.lock is already up to date, nothing to commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add MODULE.bazel.lock
+            git commit -m "chore: regenerate MODULE.bazel.lock"
+            git push
+          fi
