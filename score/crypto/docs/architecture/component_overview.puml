@@ -2,6 +2,9 @@
 title __Architecture overview__
 
 set namespaceSeparator ::
+top to bottom direction
+skinparam nodesep 18
+skinparam ranksep 34
 
 ' ====================================================================
 ' CLIENT SIDE
@@ -114,14 +117,29 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
         }
 
         interface provider::IProviderFactory {
-            +CreateAndRegister(manager) : bool
+            +CreateAndRegister(manager : ProviderManager&) : bool
+        }
+
+        class provider::ProviderManagerFactory {
+            +{static} Create(config : Config&) : ProviderManager::Sptr
+            -{static} CreateScoreProviderFactory(config) : IProviderFactory::Sptr
+            -{static} CreatePkcs11ProviderFactory(config) : IProviderFactory::Sptr
         }
 
         class provider::ProviderManager {
-            +RegisterFactory(factory)
+            +RegisterFactory(factory : unique_ptr<IProviderFactory>)
             +Initialize() : bool
             +RegisterProvider(name, provider, type) : bool
             +GetProvider(id) : IProvider::Sptr
+        }
+
+        package "backend/" <<Rectangle>> #E0F2F1 {
+            class backend::score_provider::ActiveBackends {
+                +GetActiveBackends() : vector<IBackendProviderAdapter>
+            }
+            class backend::pkcs11::SelectedBackend {
+                <<Bazel label_flag>>
+            }
         }
 
         ' --- Config visitor ---
@@ -133,10 +151,6 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
         class provider::score_provider::ScoreProviderFactory {
             -m_configs : vector<ScoreProviderEntry>
             +SetConfigs(configs)
-            +CreateAndRegister(manager) : bool
-        }
-
-        class provider::score_provider::openssl::OpenSSLProviderFactory {
             +CreateAndRegister(manager) : bool
         }
 
@@ -153,23 +167,37 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
 
         provider::score_provider::ScoreProviderConfig ..> provider::score_provider::ScoreProviderFactory : Configure() → SetConfigs()
         provider::score_provider::ScoreProviderFactory .up.|> provider::IProviderFactory
-        provider::score_provider::openssl::OpenSSLProviderFactory .up.- provider::score_provider::ScoreProviderFactory : delegates
+        provider::score_provider::ScoreProviderFactory ..> backend::score_provider::ActiveBackends : resolves providerImpl
 
         provider::pkcs11::Pkcs11Config ..> provider::pkcs11::Pkcs11ProviderFactory : Configure() → SetTokenConfigs()
         provider::pkcs11::Pkcs11ProviderFactory .up.|> provider::IProviderFactory
+        backend::pkcs11::SelectedBackend ..> provider::pkcs11::Pkcs11ProviderFactory : linked backend
 
         provider::ProviderManager *-- provider::IProviderFactory : 0..n
         provider::ProviderManager *-- provider::IProvider : 1..n
+        provider::ProviderManagerFactory ..> provider::ProviderManager : creates and initializes
+        provider::ProviderManagerFactory ..> provider::score_provider::ScoreProviderFactory : conditionally creates
+        provider::ProviderManagerFactory ..> provider::pkcs11::Pkcs11ProviderFactory : conditionally creates
+        provider::ProviderManagerFactory ..> provider::score_provider::ScoreProviderConfig : parses/configures
+        provider::ProviderManagerFactory ..> provider::pkcs11::Pkcs11Config : parses/configures
     }
 
     mediator::MediatorImpl o-- provider::ProviderManager
     key_management::KeyManagementModule o-- provider::ProviderManager
+
+    ' Keep the daemon layers readable on portrait-oriented output.
+    control_plane::IControlServer -[hidden]down- mediator::IMediator
+    mediator::IMediator -[hidden]down- data_manager::IDataManager
+    data_manager::IDataManager -[hidden]down- key_management::KeyManagementModule
+    key_management::KeyManagementModule -[hidden]down- provider::ProviderManager
 }
 
 ' ====================================================================
 ' CROSS-BOUNDARY CONNECTIONS
 ' ====================================================================
 api::ICryptoStack ..> ipc::GrpcControlServer : IPC (Unix socket / gRPC)
+api::ICryptoStack -[hidden]down- ipc::GrpcControlServer
+ipc::GrpcControlServer -[hidden]down- control_plane::IControlServer
 
 legend right
   **Not shown:** Logging, session node cleanup,

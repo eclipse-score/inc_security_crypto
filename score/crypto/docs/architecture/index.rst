@@ -126,13 +126,9 @@ through two complementary abstractions:
 ``ScoreProviderFactory``
    Top-level factory for the **score interface family**.  Accepts a vector of
    ``ScoreProviderEntry`` configs (default: single OpenSSL entry).
-   ``CreateAndRegister()`` iterates configs and delegates to the appropriate
-   internal factory (e.g. ``OpenSSLProviderFactory``).
-
-``OpenSSLProviderFactory``
-   Internal factory used by ``ScoreProviderFactory``.  Constructs
-   ``score::openssl::OpenSSL`` and registers it as ``CryptoProviderType::SOFTWARE``
-   under the name read from config (e.g. ``"OPENSSL"``).  No per-instance configuration required.
+   ``CreateAndRegister()`` resolves each configured implementation tag against
+   the active compile-time backend adapters and registers the resulting provider
+   under its configured name and type.
 
 ``Pkcs11ProviderFactory``
    Accepts an injected ``std::vector<Pkcs11ProviderConfig>`` via
