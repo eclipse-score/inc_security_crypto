@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_RANDOM_CONTEXT_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_RANDOM_CONTEXT_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CONTEXTS_I_RANDOM_CONTEXT_HPP
+#define SCORE_CRYPTO_SRC_API_CONTEXTS_I_RANDOM_CONTEXT_HPP
 
 #include "score/crypto/src/api/contexts/i_context.hpp"
 #include "score/result/result.h"
@@ -68,4 +68,4 @@ class IRandomContext : public IContext
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_RANDOM_CONTEXT_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CONTEXTS_I_RANDOM_CONTEXT_HPP

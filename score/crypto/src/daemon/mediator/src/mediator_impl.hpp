@@ -69,6 +69,31 @@ class MediatorImpl : public IMediator
         const control_plane::SingleOperationRequest& operation,
         score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
 
+    /// @brief Resolves a client-supplied key reference and authorizes it for the context.
+    ///
+    /// Performs the two steps that must not be separated: binding the key to the
+    /// context node, and checking that the key's permissions actually cover what
+    /// the context intends to do with it. Called only when CTX_CREATE carried a
+    /// key reference.
+    ///
+    /// @param client_id       Authenticated client requesting the context.
+    /// @param context_node_id Node the key is being bound to.
+    /// @param key_node_id     In: the client-supplied reference (key or slot).
+    ///                        Out: the resolved live key node id.
+    /// @param provider_id     Provider that will own the context.
+    /// @param context_type    CTX_CREATE param[0].
+    /// @param params          Full CTX_CREATE parameter list (param[4] carries the mode).
+    ///
+    /// @return The bound key handler, or the error code to report to the client.
+    ///         The caller owns cleanup of @p context_node_id on failure.
+    score::crypto::Expected<key_management::IKeyHandler::Sptr, score::crypto::CryptoErrorCode> BindAndAuthorizeKey(
+        std::uint64_t client_id,
+        std::uint64_t context_node_id,
+        std::uint64_t& key_node_id,
+        const common::ProviderId& provider_id,
+        std::string_view context_type,
+        const common::RequestParameters& params);
+
     // Private helpers
     // Shared operation execution helper - handles parameter extraction, execution, and response building
     bool ExecuteOperation(const OperationExecutionContext& exec_ctx,
