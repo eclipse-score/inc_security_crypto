@@ -44,10 +44,56 @@ struct ProviderKeyHandle
     std::uint64_t opaque_id{0U};
     common::ProviderId provider_id{common::kInvalidProviderId};
     bool is_asymmetric{false};
+
+    /// Operations this key may perform. For an asymmetric key this governs the
+    /// private half only — see public_key_permissions and GrantedPermissionsFor().
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kNone};
+
+    /// Operations the public half may perform (asymmetric keys only).
+    ///
+    /// std::nullopt means unrestricted, which is the documented default of
+    /// GenerateKeyParams::public_key_permissions: a public key is public
+    /// information, so withholding kVerify/kEncrypt by default would cost
+    /// compatibility without protecting anything. Always nullopt for
+    /// symmetric keys, which have no second half.
+    std::optional<score::crypto::KeyOperationPermission> public_key_permissions{std::nullopt};
+
     common::AlgorithmId algorithm{};
     std::size_t key_size{0U};
 };
+
+/// @brief The permission set that governs @p required for this key.
+///
+/// An asymmetric key carries two permission sets because its halves are used
+/// by different operations: the private half signs, decrypts, agrees and
+/// derives; the public half verifies, encrypts and wraps. Checking a verify
+/// request against the private half's permissions would deny a correctly
+/// provisioned sign-only key its legitimate public use, so the caller's
+/// intended operation selects which set applies.
+///
+/// A symmetric key has one half and one permission set, so `permissions`
+/// always applies.
+///
+/// @param handle   The key whose permissions are being consulted.
+/// @param required The single permission bit the caller intends to exercise.
+[[nodiscard]] inline score::crypto::KeyOperationPermission GrantedPermissionsFor(
+    const ProviderKeyHandle& handle,
+    score::crypto::KeyOperationPermission required) noexcept
+{
+    using Permission = score::crypto::KeyOperationPermission;
+
+    /// Operations that consume the public half of a key pair.
+    constexpr Permission kPublicHalfOperations = Permission::kVerify | Permission::kEncrypt | Permission::kWrap;
+
+    // HasPermission(kPublicHalfOperations, required) asks whether `required` is
+    // a subset of the public-half operations, i.e. "is this a public-half use?".
+    if (handle.is_asymmetric && score::crypto::HasPermission(kPublicHalfOperations, required))
+    {
+        return handle.public_key_permissions.value_or(Permission::kAll);
+    }
+
+    return handle.permissions;
+}
 
 // ---------------------------------------------------------------------------
 // Request parameter structs

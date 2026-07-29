@@ -43,6 +43,14 @@ class OpenSslHandlerFactory final
         const common::AlgorithmId& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
     CreateKeyManagementHandler() override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateCipherHandler(
+        const common::AlgorithmId& algorithm) override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateSignHandler(
+        const common::AlgorithmId& algorithm) override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateVerifyHandler(
+        const common::AlgorithmId& algorithm) override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateRandomHandler(
+        const common::AlgorithmId& algorithm) override;
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

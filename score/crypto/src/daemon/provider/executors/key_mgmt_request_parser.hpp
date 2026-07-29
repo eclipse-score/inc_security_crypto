@@ -68,31 +68,39 @@ namespace key_mgmt_request_parser
     return *val;
 }
 
-/// Try to extract an optional uint64 permission value at the given index.
+/// Try to extract an optional permission bitmask at the given index.
 ///
-/// Returns std::nullopt when the index is out of range or the variant
-/// alternative does not hold a uint64_t (both are silently acceptable).
-[[nodiscard]] inline std::optional<std::uint64_t> ExtractOptionalPermissions(const common::RequestParameters& request,
-                                                                             std::size_t index)
+/// KeyOperationPermission is a uint32_t enum and the API serialises it with
+/// with_in_val_uint32(), so uint32_t is the alternative to look for. The
+/// variant keeps uint32_t and uint64_t distinct and the flatbuffers transport
+/// preserves that distinction, so reading the wrong width yields nullopt —
+/// silently downgrading a restricted key to the kAll default.
+///
+/// Returns std::nullopt when the index is out of range or the parameter is not
+/// a uint32_t (both mean "caller did not specify permissions").
+[[nodiscard]] inline std::optional<score::crypto::KeyOperationPermission> ExtractOptionalPermissions(
+    const common::RequestParameters& request,
+    std::size_t index)
 {
     if (request.size() <= index)
     {
         return std::nullopt;
     }
-    const auto* val = std::get_if<std::uint64_t>(&request[index]);
+    const auto* val = std::get_if<std::uint32_t>(&request[index]);
     if (val == nullptr)
     {
         return std::nullopt;
     }
 
-    return *val;
+    return static_cast<score::crypto::KeyOperationPermission>(*val);
 }
 
 /// Build a KeyGenerationRequest from the packed request parameters.
 ///
 /// Expected layout:
-///   request[0] = algorithm    (string_view, required)
-///   request[1] = permissions  (uint64_t,    optional)
+///   request[0] = algorithm              (string_view, required)
+///   request[1] = permissions            (uint32_t,    optional)
+///   request[2] = public_key_permissions (uint32_t,    optional, asymmetric only)
 [[nodiscard]] inline Expected<key_management::KeyGenerationRequest, score::crypto::daemon::common::DaemonErrorCode>
 BuildGenerationRequest(const common::RequestParameters& request)
 {
@@ -108,8 +116,14 @@ BuildGenerationRequest(const common::RequestParameters& request)
     const auto perm = ExtractOptionalPermissions(request, 1U);
     if (perm.has_value())
     {
-        req.permissions = static_cast<score::crypto::KeyOperationPermission>(perm.value());
+        req.permissions = perm.value();
     }
+
+    // Left as nullopt when absent, which the key factory reads as "public half
+    // unrestricted" — the contract documented on GenerateKeyParams. The public
+    // half of a key pair is public information, so withholding kVerify/kEncrypt
+    // by default would cost compatibility without buying confidentiality.
+    req.public_key_permissions = ExtractOptionalPermissions(request, 2U);
 
     return req;
 }

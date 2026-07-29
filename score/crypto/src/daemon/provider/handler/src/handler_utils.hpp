@@ -119,6 +119,20 @@ enum class StreamOperation : std::uint8_t
 [[nodiscard]] Expected<common::StreamOperationState, ::score::crypto::daemon::common::DaemonErrorCode>
 ValidateStreamOperationSequence(common::StreamOperationState currentState, StreamOperation streamOperation) noexcept;
 
+/**
+ * @brief Map a handler's INIT / UPDATE / FINALIZE action onto a StreamOperation.
+ *
+ * Every actor numbers its streaming actions 1, 2, 3 in that order, so one
+ * mapping serves them all and each executor pairs this with its own
+ * ValidateStreamOperationSequence() call.
+ *
+ * @param action The operation action from the request.
+ * @return The matching StreamOperation, or kInvalidOperation for an action that
+ *         does not take part in the stream state machine.
+ */
+[[nodiscard]] Expected<StreamOperation, ::score::crypto::daemon::common::DaemonErrorCode> MapStreamAction(
+    common::OperationAction action) noexcept;
+
 }  // namespace handler_utils
 
 }  // namespace handler

@@ -17,6 +17,7 @@ cc_library(
     name = "common",
     hdrs = [
         "actors.hpp",
+        "context_types.hpp",
         "daemon_error.hpp",
         "secure_memory.hpp",
         "types.hpp",
@@ -36,7 +37,7 @@ cc_library(
 )
 
 # Header-only utility: human-readable names for OperationActor / OperationAction values.
-# Depends on the three operation-constants headers (each only deps on :common).
+# Depends on the operation-constants headers (each only deps on :common).
 cc_library(
     name = "operation_names",
     hdrs = ["operation_names.hpp"],
@@ -44,8 +45,12 @@ cc_library(
     deps = [
         ":common",
         "//score/crypto/src/daemon/key_management:key_management_operations",
+        "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/handler:mac_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:random_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:sign_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:verify_handler_operations",
         "@score_baselibs//score/mw/log",
     ],
 )
