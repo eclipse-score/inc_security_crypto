@@ -32,7 +32,10 @@ using OperationAction = common::OperationAction;
 // KEY_GENERATE (ephemeral)
 // Request:  data_node_id = context_id,
 //           param[0]: string — key algorithm (e.g., "AES-256", "HMAC-SHA256")
-//           param[1]: uint32 — permissions bitmask (KeyOperationPermission)
+//           param[1]: uint32 — permissions bitmask (KeyOperationPermission);
+//                              for an asymmetric key this governs the private half
+//           param[2]: uint32 — public-half permissions bitmask (optional, asymmetric
+//                              only); absent means the public half is unrestricted
 // Response: status_code (SUCCESS/error)
 //           param[0]: uint64 — daemon-assigned ephemeral key resource id
 //           param[1]: uint16 — primary provider id (optional)

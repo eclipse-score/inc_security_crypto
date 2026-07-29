@@ -16,13 +16,16 @@
 #include <cstdint>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/operation_names.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
@@ -32,6 +35,7 @@
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/data_plane/src/shm_data_node.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 #include "score/crypto/src/daemon/mediator/i_mediator.hpp"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/crypto/src/daemon/mediator/src/mediator_impl.hpp"
@@ -51,14 +55,14 @@ namespace score::crypto::daemon::mediator
 /// @brief Decode a ProviderType wire value (from the IPC protocol) into the
 ///        daemon-internal CryptoProviderType capability classification.
 ///
-/// The wire encoding is the uint8_t value of the client-side mw::crypto::ProviderType
+/// The wire encoding is the uint8_t value of the client-side crypto::ProviderType
 /// enumerator (0=kDefault, 1=kHardware, 2=kSoftware, 3=kHardwarePreferred, 4=kSoftwarePreferred).
 /// kHardwarePreferred / kSoftwarePreferred are resolved to their primary type; the
 /// daemon's ProviderManager::GetProvider() handles fallback to SOFTWARE/HARDWARE if
 /// the preferred type is not registered.
 static common::CryptoProviderType FromWireProviderType(std::uint8_t wire_value) noexcept
 {
-    // Wire values match mw::crypto::ProviderType enumerator positions:
+    // Wire values match crypto::ProviderType enumerator positions:
     //   0=kDefault, 1=kHardware, 2=kSoftware, 3=kHardwarePreferred, 4=kSoftwarePreferred
     switch (wire_value)
     {
@@ -73,6 +77,25 @@ static common::CryptoProviderType FromWireProviderType(std::uint8_t wire_value) 
         default:
             return common::CryptoProviderType::DEFAULT;
     }
+}
+
+/// @brief Read the optional mode byte from CTX_CREATE param[4].
+///
+/// Carries a CipherDirection for cipher contexts and an OperationMode for
+/// MAC/SIGN/VERIFY. Absent for context types that have only one mode.
+static std::optional<std::uint8_t> ExtractContextMode(const common::RequestParameters& params) noexcept
+{
+    constexpr std::size_t kModeParamIndex = 4U;
+    if (params.size() <= kModeParamIndex)
+    {
+        return std::nullopt;
+    }
+    const auto* mode = std::get_if<std::uint8_t>(&params[kModeParamIndex]);
+    if (mode == nullptr)
+    {
+        return std::nullopt;
+    }
+    return *mode;
 }
 
 MediatorImpl::MediatorImpl(MediatorDependencies deps) : IMediator(std::move(deps))
@@ -248,6 +271,54 @@ bool MediatorImpl::ForwardSingleOperation(const control_plane::ControlRequest& r
     return ExecuteOperation(exec_ctx, handler, responseBuilder);
 }
 
+score::crypto::Expected<key_management::IKeyHandler::Sptr, score::crypto::CryptoErrorCode>
+MediatorImpl::BindAndAuthorizeKey(std::uint64_t client_id,
+                                  std::uint64_t context_node_id,
+                                  std::uint64_t& key_node_id,
+                                  const common::ProviderId& provider_id,
+                                  std::string_view context_type,
+                                  const common::RequestParameters& params)
+{
+    if (!m_km_service)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding requires key management service";
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+    }
+
+    auto bind_res = m_km_service->BindKeyToContext(client_id, context_node_id, key_node_id, provider_id);
+    if (!bind_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding failed for key_node_id=" << key_node_id;
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
+    }
+
+    key_node_id = static_cast<std::uint64_t>(bind_res.value().resolved_node_id);
+    auto key_handler = bind_res.value().key_handler;
+
+    // A context is bound to one key, one operation and one direction for its
+    // whole life, so a single check here covers every operation that will ever
+    // run on it. Enforcing at CTX_CREATE also fails fast: the client learns the
+    // key is not usable for this purpose before it streams any data.
+    const auto required = common::RequiredKeyPermission(context_type, ExtractContextMode(params));
+    if (!required.has_value())
+    {
+        return key_handler;
+    }
+
+    const auto& handle = key_handler->GetHandle();
+    const auto granted = key_management::GrantedPermissionsFor(handle, required.value());
+    if (!score::crypto::HasPermission(granted, required.value()))
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key does not permit this operation"
+                                   << " (context_type=" << context_type << ", key_node_id=" << key_node_id
+                                   << ", required=" << static_cast<std::uint32_t>(required.value())
+                                   << ", granted=" << static_cast<std::uint32_t>(granted) << ")";
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
+    }
+
+    return key_handler;
+}
+
 bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::control_plane::ControlRequest& request,
                                                   const control_plane::SingleOperationRequest& operation,
                                                   control_plane::protocol::OperationResponseBuilder& responseBuilder)
@@ -363,32 +434,19 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     }
     auto context_node_id = context_id_res.value();
 
-    // --- Optional key binding: resolve key and bind to context node ---
+    // --- Optional key binding: resolve key, bind to context node, authorize ---
     key_management::IKeyHandler::Sptr bound_key_handler;
     if (has_key_binding)
     {
-        if (!m_km_service)
-        {
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding requires key management service";
-            m_data_manager->deleteNode(client_id, context_node_id);
-            responseBuilder.operation(operation.operationId)
-                .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
-            return false;
-        }
-
-        auto bind_res =
-            m_km_service->BindKeyToContext(client_id, context_node_id, key_node_id, provider->GetProviderId());
+        auto bind_res = BindAndAuthorizeKey(
+            client_id, context_node_id, key_node_id, provider->GetProviderId(), context_type, operation.parameters);
         if (!bind_res.has_value())
         {
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding failed for key_node_id=" << key_node_id;
             m_data_manager->deleteNode(client_id, context_node_id);
-            responseBuilder.operation(operation.operationId)
-                .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            responseBuilder.operation(operation.operationId).return_error(bind_res.error());
             return false;
         }
-
-        key_node_id = static_cast<std::uint64_t>(bind_res.value().resolved_node_id);
-        bound_key_handler = bind_res.value().key_handler;
+        bound_key_handler = bind_res.value();
     }
 
     // --- Build InitializationParams and initialize the handler ---

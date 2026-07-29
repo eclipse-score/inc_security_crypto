@@ -55,9 +55,11 @@ key_management::ProviderKeyHandle Pkcs11KeyStore::Register(CK_SESSION_HANDLE ses
     };
 }
 
-key_management::ProviderKeyHandle Pkcs11KeyStore::RegisterTokenObject(const SearchTemplate& search_template,
-                                                                      const std::string& algorithm,
-                                                                      std::size_t key_size) noexcept
+key_management::ProviderKeyHandle Pkcs11KeyStore::RegisterTokenObject(
+    const SearchTemplate& search_template,
+    const std::string& algorithm,
+    std::size_t key_size,
+    score::crypto::KeyOperationPermission permissions) noexcept
 {
     std::lock_guard<std::mutex> lock(m_map_mutex);
     const uint64_t opaque_id = m_next_opaque_id++;
@@ -68,7 +70,7 @@ key_management::ProviderKeyHandle Pkcs11KeyStore::RegisterTokenObject(const Sear
     return key_management::ProviderKeyHandle{
         .opaque_id = opaque_id,
         .provider_id = m_provider.lock() ? m_provider.lock()->GetProviderId() : common::kInvalidProviderId,
-        .permissions = score::crypto::KeyOperationPermission::kNone,
+        .permissions = permissions,
         .algorithm = algorithm,
         .key_size = key_size,
     };

@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_SIGN_CONTEXT_CONFIG_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_SIGN_CONTEXT_CONFIG_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CONFIG_VERIFY_SIGNATURE_CONTEXT_CONFIG_HPP
+#define SCORE_CRYPTO_SRC_API_CONFIG_VERIFY_SIGNATURE_CONTEXT_CONFIG_HPP
 
 #include "score/crypto/src/api/config/base_context_config.hpp"
 
@@ -22,50 +22,50 @@ namespace score
 namespace crypto
 {
 
-/// @brief Configuration for signature generation context creation.
+/// @brief Configuration for signature verification context creation.
 ///
-/// Requires an algorithm and a private key. Supports classical
+/// Requires an algorithm and a public key. Supports classical
 /// algorithms (RSA-PSS, ECDSA) and PQC algorithms (ML-DSA-65, SLH-DSA-SHA2-128s).
 ///
 /// @par Example
 /// @code
-///   SignContextConfig config;
-///   config.SetAlgorithm("ML-DSA-65").SetKey(signing_key);
-///   auto ctx = crypto_context->CreateSignContext(config);
+///   VerifySignatureContextConfig config;
+///   config.SetAlgorithm("ML-DSA-65").SetKey(public_key);
+///   auto ctx = crypto_context->CreateVerifySignatureContext(config);
 /// @endcode
-struct SignContextConfig : public BaseContextConfig
+struct VerifySignatureContextConfig : public BaseContextConfig
 {
-    /// @brief Handle to the private signing key (required).
+    /// @brief Handle to the public verification key (required).
     /// Must be a CryptoResourceId with type == kKey.
     CryptoResourceId key{};
 
     // -- Fluent builder --
 
-    SignContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
+    VerifySignatureContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
     {
         BaseContextConfig::SetAlgorithm(alg);
         return *this;
     }
 
-    SignContextConfig& SetKey(const CryptoResourceId& k) noexcept
+    VerifySignatureContextConfig& SetKey(const CryptoResourceId& k) noexcept
     {
         key = k;
         return *this;
     }
 
-    SignContextConfig& SetProvider(const CryptoResourceId& prov) noexcept
+    VerifySignatureContextConfig& SetProvider(const CryptoResourceId& prov) noexcept
     {
         BaseContextConfig::SetProvider(prov);
         return *this;
     }
 
-    SignContextConfig& SetProviderType(ProviderType type) noexcept
+    VerifySignatureContextConfig& SetProviderType(ProviderType type) noexcept
     {
         BaseContextConfig::SetProviderType(type);
         return *this;
     }
 
-    SignContextConfig& SetExtendedParameter(const std::string& key, const std::string& value)
+    VerifySignatureContextConfig& SetExtendedParameter(const std::string& key, const std::string& value)
     {
         BaseContextConfig::SetExtendedParameter(key, value);
         return *this;
@@ -76,4 +76,4 @@ struct SignContextConfig : public BaseContextConfig
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_SIGN_CONTEXT_CONFIG_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CONFIG_VERIFY_SIGNATURE_CONTEXT_CONFIG_HPP

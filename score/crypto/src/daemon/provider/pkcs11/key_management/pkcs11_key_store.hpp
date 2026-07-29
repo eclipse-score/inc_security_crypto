@@ -97,7 +97,10 @@ class Pkcs11KeyStore
         CK_OBJECT_HANDLE object,
         const std::string& algorithm,
         std::size_t key_size,
-        score::crypto::KeyOperationPermission permissions = score::crypto::KeyOperationPermission::kNone) noexcept;
+        // No default: a key registered with kNone cannot be used by any context,
+        // and silently defaulting to that is how the token-object path lost its
+        // slot policy.
+        score::crypto::KeyOperationPermission permissions) noexcept;
 
     /// Register a persistent token object by storing its search template.
     ///
@@ -105,9 +108,15 @@ class Pkcs11KeyStore
     /// C_GetAttributeValue succeed. No session is stored: the caller releases the
     /// find session back to the pool immediately. Future access uses ResolveObject()
     /// which re-runs C_FindObjects on the calling handler's session.
-    [[nodiscard]] key_management::ProviderKeyHandle RegisterTokenObject(const SearchTemplate& search_template,
-                                                                        const std::string& algorithm,
-                                                                        std::size_t key_size) noexcept;
+    ///
+    /// @param permissions The slot's allowed_operations. Must be passed through:
+    ///        it is what the daemon checks when a context asks to use this key,
+    ///        and defaulting it to kNone would make the slot unusable.
+    [[nodiscard]] key_management::ProviderKeyHandle RegisterTokenObject(
+        const SearchTemplate& search_template,
+        const std::string& algorithm,
+        std::size_t key_size,
+        score::crypto::KeyOperationPermission permissions) noexcept;
 
     /// Result of resolving a PKCS#11 key for use in a crypto operation.
     ///

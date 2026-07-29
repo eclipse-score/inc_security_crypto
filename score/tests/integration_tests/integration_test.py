@@ -70,6 +70,40 @@ def _docker_upload(docker: Container, file_map: dict[Path, Path]):
     logger.info(f"Successfully uploaded {src} to {tgt}.")
 
 
+def _mirror_test_vectors(
+    rel_dir: str, suffixes: tuple[str, ...] = (".bin", ".der", ".key")
+) -> dict[Path, Path]:
+    """
+    Maps every vector file under rel_dir to the same path beneath /opt/crypto.
+
+    The NIST vector sets are far too large to list file by file, and listing them
+    would mean editing this fixture every time a vector is added. Mirroring the
+    tree instead keeps the container paths a mechanical translation of the source
+    paths, which is what the C++ tests assume.
+    """
+    root = Path(rel_dir)
+    mapped = {
+        path: Path("/opt/crypto") / path.relative_to("score")
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.suffix in suffixes
+    }
+    assert mapped, f"No test vectors found under {root} — are they in the test's data deps?"
+    return mapped
+
+
+def _deployment_descriptors(rel_dir: str) -> dict[Path, Path]:
+    """
+    Maps every key slot deployment descriptor to the deploy directory the crypto
+    config points its slots at.
+    """
+    mapped = {
+        path: Path("/opt/crypto/deploy") / path.name
+        for path in sorted(Path(rel_dir).glob("*.kv"))
+    }
+    assert mapped, f"No deployment descriptors found under {rel_dir}"
+    return mapped
+
+
 class ProcessHandler:
     """Helper class to manage a process inside the Docker container."""
 
@@ -187,6 +221,18 @@ class TestCryptoDaemon:
             Path("score/tests/integration_tests/score_api_mac_example"): Path(
                 "/opt/crypto/bin/score_api_mac_example"
             ),
+            Path("score/tests/integration_tests/score_api_cipher_example"): Path(
+                "/opt/crypto/bin/score_api_cipher_example"
+            ),
+            Path("score/tests/integration_tests/score_api_random_example"): Path(
+                "/opt/crypto/bin/score_api_random_example"
+            ),
+            Path("score/tests/integration_tests/score_api_ecdsa_example"): Path(
+                "/opt/crypto/bin/score_api_ecdsa_example"
+            ),
+            Path("score/tests/integration_tests/score_api_key_permissions_example"): Path(
+                "/opt/crypto/bin/score_api_key_permissions_example"
+            ),
             Path("score/tests/integration_tests/score_demo"): Path(
                 "/opt/crypto/bin/score_demo"
             ),
@@ -205,44 +251,20 @@ class TestCryptoDaemon:
             Path("third_party/soft_hsm/libsofthsm2.so"): Path(
                 "/opt/crypto/lib/libsofthsm2.so"
             ),
-            Path("score/tests/test_vectors/config/integration_test_config.bin"): Path(
-                self.CRYPTO_CONFIG_PATH
-            ),
-            Path("score/tests/test_vectors/hash/input_hello_world.bin"): Path(
-                "/opt/crypto/tests/test_vectors/hash/input_hello_world.bin"
-            ),
-            Path("score/tests/test_vectors/hash/sha256_hello_world.bin"): Path(
-                "/opt/crypto/tests/test_vectors/hash/sha256_hello_world.bin"
-            ),
-            Path("score/tests/test_vectors/hash/input_complete_data.bin"): Path(
-                "/opt/crypto/tests/test_vectors/hash/input_complete_data.bin"
-            ),
-            Path("score/tests/test_vectors/hash/sha256_complete_data.bin"): Path(
-                "/opt/crypto/tests/test_vectors/hash/sha256_complete_data.bin"
-            ),
-            Path("score/tests/test_vectors/mac/input_hello_world.bin"): Path(
-                "/opt/crypto/tests/test_vectors/mac/input_hello_world.bin"
-            ),
-            Path("score/tests/test_vectors/mac/input_complete_data.bin"): Path(
-                "/opt/crypto/tests/test_vectors/mac/input_complete_data.bin"
-            ),
-            Path("score/tests/test_vectors/mac/hmac_sha256_hello_world.bin"): Path(
-                "/opt/crypto/tests/test_vectors/mac/hmac_sha256_hello_world.bin"
-            ),
-            Path("score/tests/test_vectors/mac/hmac_sha256_complete_data.bin"): Path(
-                "/opt/crypto/tests/test_vectors/mac/hmac_sha256_complete_data.bin"
-            ),
-            Path("score/tests/test_vectors/mac/key_aes_256.key"): Path(
-                "/opt/crypto/tests/test_vectors/mac/key_aes_256.key"
-            ),
-            Path("score/tests/test_vectors/config/integration_openssl_hmac.kv"): Path(
-                "/opt/crypto/deploy/integration_openssl_hmac.kv"
-            ),
-            Path("score/tests/test_vectors/config/integration_softhsm_hmac.kv"): Path(
-                "/opt/crypto/deploy/integration_softhsm_hmac.kv"
-            ),
             Path("score/tests/config/logging.json"): Path("/opt/crypto/config/logging.json"),
         }
+
+        # Hash, MAC, AES-CBC and ECDSA vectors, plus the compiled crypto config,
+        # all mirror their source paths under /opt/crypto.
+        file_map.update(_mirror_test_vectors("score/tests/test_vectors"))
+        assert (
+            Path("score/tests/test_vectors/config/integration_test_config.bin")
+            in file_map
+        ), "compiled crypto config missing from the mirrored test vectors"
+
+        # Every key slot the config declares needs its deployment descriptor in
+        # the deploy directory as well.
+        file_map.update(_deployment_descriptors("score/tests/test_vectors/config"))
 
         # Upload the Rust CryptoKi provider only if compiled by Bazel
         rust_lib = Path("score/cryptoki/libcryptoki.so")
@@ -343,6 +365,58 @@ class TestCryptoDaemon:
         )
         assert exit_code == 0, (
             f"test_score_api_mac_example failed with exit code {exit_code}. Output: {output.decode()}"
+        )
+
+    def test_score_api_cipher_example(self, docker, daemon):
+        """Test SCORE symmetric encryption / decryption API."""
+
+        exit_code, output = docker.exec_run(
+            "sh -c 'LD_LIBRARY_PATH=/opt/crypto/lib:$LD_LIBRARY_PATH /opt/crypto/bin/score_api_cipher_example'"
+        )
+        logger.info(
+            f"test_score_api_cipher_example exit_code={exit_code}, output:\n{output.decode()}"
+        )
+        assert exit_code == 0, (
+            f"test_score_api_cipher_example failed with exit code {exit_code}. Output: {output.decode()}"
+        )
+
+    def test_score_api_random_example(self, docker, daemon):
+        """Test SCORE random number generation API."""
+
+        exit_code, output = docker.exec_run(
+            "sh -c 'LD_LIBRARY_PATH=/opt/crypto/lib:$LD_LIBRARY_PATH /opt/crypto/bin/score_api_random_example'"
+        )
+        logger.info(
+            f"test_score_api_random_example exit_code={exit_code}, output:\n{output.decode()}"
+        )
+        assert exit_code == 0, (
+            f"test_score_api_random_example failed with exit code {exit_code}. Output: {output.decode()}"
+        )
+
+    def test_score_api_ecdsa_example(self, docker, daemon):
+        """Test SCORE ECDSA key generation, signing and verification API."""
+
+        exit_code, output = docker.exec_run(
+            "sh -c 'LD_LIBRARY_PATH=/opt/crypto/lib:$LD_LIBRARY_PATH /opt/crypto/bin/score_api_ecdsa_example'"
+        )
+        logger.info(
+            f"test_score_api_ecdsa_example exit_code={exit_code}, output:\n{output.decode()}"
+        )
+        assert exit_code == 0, (
+            f"test_score_api_ecdsa_example failed with exit code {exit_code}. Output: {output.decode()}"
+        )
+
+    def test_score_api_key_permissions_example(self, docker, daemon):
+        """Test SCORE key operation permission enforcement at context creation."""
+
+        exit_code, output = docker.exec_run(
+            "sh -c 'LD_LIBRARY_PATH=/opt/crypto/lib:$LD_LIBRARY_PATH /opt/crypto/bin/score_api_key_permissions_example'"
+        )
+        logger.info(
+            f"test_score_api_key_permissions_example exit_code={exit_code}, output:\n{output.decode()}"
+        )
+        assert exit_code == 0, (
+            f"test_score_api_key_permissions_example failed with exit code {exit_code}. Output: {output.decode()}"
         )
 
     def test_hash_performance_test(self, docker, daemon):
