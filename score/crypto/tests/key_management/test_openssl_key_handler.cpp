@@ -173,6 +173,71 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_ZeroSize_ReturnsError)
 }
 
 // ============================================================================
+// EC import tests
+// ============================================================================
+
+namespace
+{
+/// A P-256 public key as a SubjectPublicKeyInfo DER blob — the form a verify-only
+/// slot deploys when it holds no private half.
+constexpr std::uint8_t kP256SpkiDer[] = {
+    0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce,
+    0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00, 0x04, 0xc6, 0x6b, 0xdc, 0x53, 0xd6, 0xea, 0xc4, 0xe5, 0x2e, 0xce, 0xb1,
+    0xd5, 0x7d, 0x6d, 0x5d, 0x93, 0x91, 0xfc, 0x36, 0xac, 0x1e, 0xf3, 0xc3, 0x25, 0xc6, 0x89, 0x9f, 0x81, 0xb9, 0x11,
+    0xff, 0x3f, 0x02, 0x44, 0xf1, 0x37, 0x84, 0x52, 0x03, 0x0f, 0x28, 0x62, 0x0a, 0x4a, 0xd7, 0xbb, 0x13, 0x0f, 0x7c,
+    0xbe, 0x39, 0x23, 0x32, 0x6a, 0x61, 0xc9, 0x96, 0x5b, 0xc6, 0x34, 0x39, 0x98, 0xc6, 0x53};
+}  // namespace
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicOnlyEcKey_DropsPrivateHalfPermissions)
+{
+    // The grant describes the slot, so a slot allowing kSign can still deploy a
+    // blob carrying only the public half. The handle must not then claim kSign:
+    // the mediator checks the handle, and a key with no private scalar would
+    // pass that check and fail inside OpenSSL instead.
+    km::KeyImportRequest req{};
+    req.key_data = kP256SpkiDer;
+    req.key_data_size = sizeof(kP256SpkiDer);
+    req.algorithm = "ECDSA-P256";
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_TRUE(result.has_value()) << "A public-only EC key is a legitimate import";
+    const auto& handle = result.value()->GetHandle();
+
+    EXPECT_TRUE(handle.is_asymmetric);
+    EXPECT_FALSE(score::crypto::HasPermission(handle.permissions, score::crypto::KeyOperationPermission::kSign))
+        << "No private half was imported, so nothing may sign with this handle";
+
+    ASSERT_TRUE(handle.public_key_permissions.has_value())
+        << "An imported key must carry the slot's grant on its public half";
+    EXPECT_TRUE(score::crypto::HasPermission(handle.public_key_permissions.value(),
+                                             score::crypto::KeyOperationPermission::kVerify))
+        << "Verification is exactly what a public-only slot exists for";
+
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyNonDer_IsRejected)
+{
+    // The control for the case above: the permission downgrade is reached only
+    // after the blob parses, so a rejected format must fail earlier and for a
+    // different reason.
+    km::KeyImportRequest req{};
+    req.key_data = kP256SpkiDer;
+    req.key_data_size = sizeof(kP256SpkiDer);
+    req.algorithm = "ECDSA-P256";
+    req.format = score::crypto::FormatType::kPem;
+    req.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value()) << "Only DER-encoded EC keys are accepted";
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+}
+
+// ============================================================================
 // ReleaseKey tests
 // ============================================================================
 

@@ -83,6 +83,84 @@ cc_binary(
 )
 
 cc_binary(
+    name = "score_api_cipher_test",
+    srcs = ["score_api_cipher_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/block_cipher/CBC-AES128:block_cipher_test_vectors",
+        "//score/tests/test_vectors/block_cipher/CBC-AES192:block_cipher_test_vectors",
+        "//score/tests/test_vectors/block_cipher/CBC-AES256:block_cipher_test_vectors",
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "//score/tests/utility",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
+    name = "score_api_random_test",
+    srcs = ["score_api_random_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "//score/tests/utility",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
+    name = "score_api_ecdsa_test",
+    srcs = ["score_api_ecdsa_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/config:integration_test_config",
+        "//score/tests/test_vectors/ecdsa:ecdsa_test_vectors",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "//score/tests/utility",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
+    name = "score_api_key_permissions_test",
+    srcs = ["score_api_key_permissions_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    defines = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": ["SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:openssl_backend_active": ["SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }),
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
     name = "score_demo",
     srcs = ["score_demo.cpp"],
     data = [
@@ -110,11 +188,19 @@ integration_test(
     binaries = [
         ":score_api_hash_test",
         ":score_api_mac_test",
+        ":score_api_key_permissions_test",
         ":hash_performance_test",
         ":score_demo",
         "//score/crypto/src/daemon:crypto_daemon",
     ] + select({
         "//score/crypto/src/backend:pkcs11_backend_enabled": [":init_pkcs11_token"],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:openssl_backend_active": [
+            ":score_api_cipher_test",
+            ":score_api_random_test",
+            ":score_api_ecdsa_test",
+        ],
         "//conditions:default": [],
     }),
     configs = [
@@ -124,11 +210,23 @@ integration_test(
     extra_args = select({
         "//score/crypto/src/backend:pkcs11_backend_enabled": ["--pkcs11-backend-enabled"],
         "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:openssl_backend_active": ["--openssl-backend-enabled"],
+        "//conditions:default": [],
     }),
     file_pkgs = [
         "//score/tests/test_vectors/hash:hash_test_vectors_pkg",
         "//score/tests/test_vectors/mac:mac_test_vectors_pkg",
-    ],
+    ] + select({
+        # Read by the cipher and ECDSA tests, which need the OpenSSL provider.
+        "//score/crypto/src/backend:openssl_backend_active": [
+            "//score/tests/test_vectors/block_cipher/CBC-AES128:block_cipher_test_vectors_pkg",
+            "//score/tests/test_vectors/block_cipher/CBC-AES192:block_cipher_test_vectors_pkg",
+            "//score/tests/test_vectors/block_cipher/CBC-AES256:block_cipher_test_vectors_pkg",
+            "//score/tests/test_vectors/ecdsa:ecdsa_test_vectors_pkg",
+        ],
+        "//conditions:default": [],
+    }),
     libraries = [
         "//score/crypto/src/api/control_plane",
         "//third_party/grpc:libgrpc_shared",

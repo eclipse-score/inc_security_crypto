@@ -100,3 +100,35 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = ["//score/crypto/src/daemon/common"],
 )
+
+# Cipher handler operations header-only library
+cc_library(
+    name = "cipher_handler_operations",
+    hdrs = ["operations/cipher_handler_operations.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = ["//score/crypto/src/daemon/common"],
+)
+
+# Signature generation handler operations header-only library
+cc_library(
+    name = "sign_handler_operations",
+    hdrs = ["operations/sign_handler_operations.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = ["//score/crypto/src/daemon/common"],
+)
+
+# Signature verification handler operations header-only library
+cc_library(
+    name = "verify_handler_operations",
+    hdrs = ["operations/verify_handler_operations.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = ["//score/crypto/src/daemon/common"],
+)
+
+# Random handler operations header-only library
+cc_library(
+    name = "random_handler_operations",
+    hdrs = ["operations/random_handler_operations.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = ["//score/crypto/src/daemon/common"],
+)
