@@ -175,8 +175,8 @@ Pkcs11KeySlotHandler::LoadKey(const key_management::KeySlotConfig& slot)
     search_tmpl.id = id_bytes;
     search_tmpl.obj_class = obj_class;
 
-    const auto handle =
-        m_key_store->RegisterTokenObject(search_tmpl, slot.algorithm, static_cast<std::size_t>(value_len));
+    const auto handle = m_key_store->RegisterTokenObject(
+        search_tmpl, slot.algorithm, static_cast<std::size_t>(value_len), slot.allowed_operations);
 
     m_provider->ReleaseSession(session, reqs);
 

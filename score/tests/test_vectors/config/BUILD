@@ -25,9 +25,7 @@ genrule(
 
 filegroup(
     name = "integration_test_config",
-    srcs = [
-        "integration_openssl_hmac.kv",
-        "integration_softhsm_hmac.kv",
+    srcs = glob(["*.kv"]) + [
         ":generate_integration_test_config",
     ],
     visibility = ["//:__subpackages__"],

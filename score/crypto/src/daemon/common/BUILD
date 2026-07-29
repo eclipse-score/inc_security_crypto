@@ -17,6 +17,7 @@ cc_library(
     name = "common",
     hdrs = [
         "actors.hpp",
+        "context_types.hpp",
         "daemon_error.hpp",
         "secure_memory.hpp",
         "types.hpp",

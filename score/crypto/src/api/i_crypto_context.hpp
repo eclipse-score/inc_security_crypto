@@ -31,14 +31,22 @@ namespace crypto
 // requires forward declarations for parameter and return types.
 
 // Config types (used as const& parameters)
+class CipherContextConfig;
 class HashContextConfig;
 class KeyManagementContextConfig;
 class MacContextConfig;
+class RandomContextConfig;
+class SignContextConfig;
+class VerifySignatureContextConfig;
 
 // Operation contexts (returned as std::unique_ptr)
+class ICipherContext;
 class IHashContext;
 class IKeyManagementContext;
 class IMacContext;
+class IRandomContext;
+class ISignContext;
+class IVerifySignatureContext;
 
 // Typed object interfaces (returned as std::unique_ptr)
 class IKeyObject;
@@ -48,19 +56,11 @@ class IKeySlotObject;
 // class AeadContextConfig;
 // class CertificateContextConfig;
 // class CertificateVerificationContextConfig;
-// class CipherContextConfig;
 // class CsrGenerationContextConfig;
-// class RandomContextConfig;
-// class SignContextConfig;
-// class VerifySignatureContextConfig;
 // class IAeadContext;
 // class ICertificateManagementContext;
 // class ICertificateVerificationContext;
-// class ICipherContext;
 // class ICsrGenerationContext;
-// class IRandomContext;
-// class ISignContext;
-// class IVerifySignatureContext;
 // class ICertificateObject;
 // class ICertSlotObject;
 // class IProviderObject;
@@ -137,24 +137,33 @@ class ICryptoContext
     virtual score::Result<std::unique_ptr<IKeyManagementContext>> CreateKeyManagementContext(
         const KeyManagementContextConfig& config) = 0;
 
+    /// @brief Creates a cipher context.
+    /// @param config Cipher configuration (algorithm + key + direction required)
+    /// @note The direction is fixed for the lifetime of the context; create a
+    ///       second context to run the opposite direction with the same key.
+    virtual score::Result<std::unique_ptr<ICipherContext>> CreateCipherContext(const CipherContextConfig& config) = 0;
+
+    /// @brief Creates a signature generation context.
+    /// @param config Sign configuration (algorithm + private key required)
+    virtual score::Result<std::unique_ptr<ISignContext>> CreateSignContext(const SignContextConfig& config) = 0;
+
+    /// @brief Creates a signature verification context.
+    /// @param config Verification configuration (algorithm + key required)
+    /// @note The key handle is the same one returned by GenerateKey() for an
+    ///       asymmetric algorithm; the daemon selects its public half.
+    virtual score::Result<std::unique_ptr<IVerifySignatureContext>> CreateVerifySignatureContext(
+        const VerifySignatureContextConfig& config) = 0;
+
+    /// @brief Creates a random number generation context.
+    /// @param config Random configuration (algorithm and provider both optional)
+    virtual score::Result<std::unique_ptr<IRandomContext>> CreateRandomContext(const RandomContextConfig& config) = 0;
+
     // The following factory methods are declared but not yet active.
     // Each is implemented in score/crypto/src/api/future/contexts/
     // and will be moved here together with its IPC implementation.
 
-    // virtual score::Result<std::unique_ptr<ICipherContext>> CreateCipherContext(
-    //     const CipherContextConfig& config) = 0;
-
-    // virtual score::Result<std::unique_ptr<ISignContext>> CreateSignContext(
-    //     const SignContextConfig& config) = 0;
-
-    // virtual score::Result<std::unique_ptr<IVerifySignatureContext>> CreateVerifySignatureContext(
-    //     const VerifySignatureContextConfig& config) = 0;
-
     // virtual score::Result<std::unique_ptr<IAeadContext>> CreateAeadContext(
     //     const AeadContextConfig& config) = 0;
-
-    // virtual score::Result<std::unique_ptr<IRandomContext>> CreateRandomContext(
-    //     const RandomContextConfig& config) = 0;
 
     // virtual score::Result<std::unique_ptr<ICertificateManagementContext>> CreateCertificateManagementContext(
     //     const CertificateContextConfig& config) = 0;
