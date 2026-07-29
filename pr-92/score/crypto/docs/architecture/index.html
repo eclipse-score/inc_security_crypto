@@ -559,7 +559,7 @@
                   
   <section id="component-architecture">
 <span id="component-architecture-template"></span><h1>Component Architecture<a class="headerlink" href="#component-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-a70c9d9f">
+<div class="need_container docutils container" id="SNCB-fec84ea0">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_architecture">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -603,7 +603,7 @@
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-e6c2a8d7">
+<div class="need_container docutils container" id="SNCB-d225d0bb">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_workproduct table" id="wp__cmpt_request_dummy">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -778,7 +778,7 @@ with fluent builders; new optional fields never break existing callers</p></li>
    <span class="nc">:implements:</span>
 </pre></div>
 </div>
-<a class="reference internal image-reference" href="../../../../_images/component_overview.png"><img alt="../../../../_images/component_overview.png" class="align-center" height="1556" src="../../../../_images/component_overview.png" width="1150" />
+<a class="reference internal image-reference" href="../../../../_images/component_overview.png"><img alt="../../../../_images/component_overview.png" class="align-center" height="1575" src="../../../../_images/component_overview.png" width="1521" />
 </a>
 </section>
 <section id="provider-layer">
@@ -799,12 +799,9 @@ registration order during <code class="docutils literal notranslate"><span class
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ScoreProviderFactory</span></code></dt><dd><p>Top-level factory for the <strong>score interface family</strong>.  Accepts a vector of
 <code class="docutils literal notranslate"><span class="pre">ScoreProviderEntry</span></code> configs (default: single OpenSSL entry).
-<code class="docutils literal notranslate"><span class="pre">CreateAndRegister()</span></code> iterates configs and delegates to the appropriate
-internal factory (e.g. <code class="docutils literal notranslate"><span class="pre">OpenSSLProviderFactory</span></code>).</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">OpenSSLProviderFactory</span></code></dt><dd><p>Internal factory used by <code class="docutils literal notranslate"><span class="pre">ScoreProviderFactory</span></code>.  Constructs
-<code class="docutils literal notranslate"><span class="pre">score::openssl::OpenSSL</span></code> and registers it as <code class="docutils literal notranslate"><span class="pre">CryptoProviderType::SOFTWARE</span></code>
-under the name read from config (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;OPENSSL&quot;</span></code>).  No per-instance configuration required.</p>
+<code class="docutils literal notranslate"><span class="pre">CreateAndRegister()</span></code> resolves each configured implementation tag against
+the active compile-time backend adapters and registers the resulting provider
+under its configured name and type.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">Pkcs11ProviderFactory</span></code></dt><dd><p>Accepts an injected <code class="docutils literal notranslate"><span class="pre">std::vector&lt;Pkcs11ProviderConfig&gt;</span></code> via
 <code class="docutils literal notranslate"><span class="pre">SetTokenConfigs()</span></code> (the acceptor side of the visitor pattern) or
