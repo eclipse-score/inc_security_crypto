@@ -20,6 +20,7 @@
 #include <functional>
 
 #include <limits>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -588,12 +589,29 @@ class ControlResponseValidator
             auto errorCode = static_cast<score::crypto::CryptoErrorCode>(op.result);
 
             m_isValid = false;
+            m_operationError = errorCode;
             m_errorMsg = "Operation at index " + std::to_string(m_currentOpIndex) + " failed with error code " +
                          std::string(score::crypto::kCryptoErrorDomain.MessageFor(
                              static_cast<score::result::ErrorCode>(errorCode)));
         }
 
         return *this;
+    }
+
+    /// The error code the daemon reported, when the failure came from the daemon.
+    ///
+    /// expectSuccess() folds the code into a human-readable message for logging;
+    /// this exposes the code itself so a caller can forward the daemon's verdict
+    /// instead of collapsing every failure into one generic error. A client that
+    /// asked for something the key policy forbids needs to see
+    /// kKeyOperationNotPermitted, not "context creation failed".
+    ///
+    /// Returns std::nullopt when validation failed for a client-side reason —
+    /// no response at all, wrong operation id, missing or mistyped parameter —
+    /// because there is no daemon verdict to report in those cases.
+    [[nodiscard]] std::optional<score::crypto::CryptoErrorCode> getOperationError() const
+    {
+        return m_operationError;
     }
 
     // ========================================================================
@@ -683,6 +701,10 @@ class ControlResponseValidator
     bool m_isValid = true;
     std::string m_errorMsg;
     bool m_logErrors = false;
+
+    /// Set only by expectSuccess(), so it stays empty for client-side
+    /// validation failures where the daemon returned no verdict.
+    std::optional<score::crypto::CryptoErrorCode> m_operationError;
 
     void logError()
     {

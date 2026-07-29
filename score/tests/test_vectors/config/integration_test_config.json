@@ -51,6 +51,116 @@
         "allowed_write_uids": [0],
         "deployment_path" : "/opt/crypto/deploy/integration_softhsm_hmac.kv",
         "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "HMAC_SHA256_SignOnlySlot_OpenSSL",
+        "algorithm": "AES-256",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "SIGN",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_openssl_hmac.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "HMAC_SHA256_SignOnlySlot",
+        "algorithm": "AES-256",
+        "provider_names": ["PKCS11_ENGINE"],
+        "allowed_operations": "SIGN",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_softhsm_hmac.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "AES128_CBC_IntegrationTestKey_OpenSSL",
+        "algorithm": "AES-128-CBC",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "ENCRYPT|DECRYPT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_openssl_aes128_cbc.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "AES192_CBC_IntegrationTestKey_OpenSSL",
+        "algorithm": "AES-192-CBC",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "ENCRYPT|DECRYPT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_openssl_aes192_cbc.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "AES256_CBC_IntegrationTestKey_OpenSSL",
+        "algorithm": "AES-256-CBC",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "ENCRYPT|DECRYPT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_openssl_aes256_cbc.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "ECDSA_P256_IntegrationTestKey_OpenSSL",
+        "algorithm": "ECDSA-P256",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "SIGN|VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_openssl_ecdsa_p256.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "ECDSA_P384_IntegrationTestKey_OpenSSL",
+        "algorithm": "ECDSA-P384",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "SIGN|VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_openssl_ecdsa_p384.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "ECDSA_P521_IntegrationTestKey_OpenSSL",
+        "algorithm": "ECDSA-P521",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "SIGN|VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_openssl_ecdsa_p521.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "ECDSA_P256_PublicKeySlot_OpenSSL",
+        "algorithm": "ECDSA-P256",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_openssl_ecdsa_p256_pub.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "ECDSA_P384_PublicKeySlot_OpenSSL",
+        "algorithm": "ECDSA-P384",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_openssl_ecdsa_p384_pub.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "ECDSA_P521_PublicKeySlot_OpenSSL",
+        "algorithm": "ECDSA-P521",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/deploy/integration_openssl_ecdsa_p521_pub.kv",
+        "deployment_format" : "kv"
       }
     ],
     "app_resource_entries": [
@@ -80,6 +190,16 @@
         "slot_name": "HMAC_SHA256_IntegrationTestKey"
       },
       {
+        "uid": 0,
+        "app_resource_id": "HMAC_SHA256_SignOnlySlot_OpenSSL",
+        "slot_name": "HMAC_SHA256_SignOnlySlot_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "HMAC_SHA256_SignOnlySlot",
+        "slot_name": "HMAC_SHA256_SignOnlySlot"
+      },
+      {
         "uid": 1000,
         "app_resource_id": "test/hmac",
         "slot_name": "test/hmac-sha256"
@@ -103,6 +223,106 @@
         "uid": 1000,
         "app_resource_id": "HMAC_SHA256_IntegrationTestKey",
         "slot_name": "HMAC_SHA256_IntegrationTestKey"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "HMAC_SHA256_SignOnlySlot_OpenSSL",
+        "slot_name": "HMAC_SHA256_SignOnlySlot_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "HMAC_SHA256_SignOnlySlot",
+        "slot_name": "HMAC_SHA256_SignOnlySlot"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "AES128_CBC_IntegrationTestKey_OpenSSL",
+        "slot_name": "AES128_CBC_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "AES192_CBC_IntegrationTestKey_OpenSSL",
+        "slot_name": "AES192_CBC_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "AES256_CBC_IntegrationTestKey_OpenSSL",
+        "slot_name": "AES256_CBC_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "ECDSA_P256_IntegrationTestKey_OpenSSL",
+        "slot_name": "ECDSA_P256_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "ECDSA_P384_IntegrationTestKey_OpenSSL",
+        "slot_name": "ECDSA_P384_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "ECDSA_P521_IntegrationTestKey_OpenSSL",
+        "slot_name": "ECDSA_P521_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "ECDSA_P256_PublicKeySlot_OpenSSL",
+        "slot_name": "ECDSA_P256_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "ECDSA_P384_PublicKeySlot_OpenSSL",
+        "slot_name": "ECDSA_P384_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "ECDSA_P521_PublicKeySlot_OpenSSL",
+        "slot_name": "ECDSA_P521_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "AES128_CBC_IntegrationTestKey_OpenSSL",
+        "slot_name": "AES128_CBC_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "AES192_CBC_IntegrationTestKey_OpenSSL",
+        "slot_name": "AES192_CBC_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "AES256_CBC_IntegrationTestKey_OpenSSL",
+        "slot_name": "AES256_CBC_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "ECDSA_P256_IntegrationTestKey_OpenSSL",
+        "slot_name": "ECDSA_P256_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "ECDSA_P384_IntegrationTestKey_OpenSSL",
+        "slot_name": "ECDSA_P384_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "ECDSA_P521_IntegrationTestKey_OpenSSL",
+        "slot_name": "ECDSA_P521_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "ECDSA_P256_PublicKeySlot_OpenSSL",
+        "slot_name": "ECDSA_P256_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "ECDSA_P384_PublicKeySlot_OpenSSL",
+        "slot_name": "ECDSA_P384_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "ECDSA_P521_PublicKeySlot_OpenSSL",
+        "slot_name": "ECDSA_P521_PublicKeySlot_OpenSSL"
       }
     ]
   }
