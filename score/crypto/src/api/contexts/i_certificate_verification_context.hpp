@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CERTIFICATE_VERIFICATION_CONTEXT_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CERTIFICATE_VERIFICATION_CONTEXT_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_VERIFICATION_CONTEXT_HPP
+#define SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_VERIFICATION_CONTEXT_HPP
 
 #include "score/crypto/src/api/certificate/cert_types.hpp"
 #include "score/crypto/src/api/common/types.hpp"
@@ -41,19 +41,18 @@ namespace crypto
 ///   auto ctx = crypto_context->CreateCertificateVerificationContext(config).value();
 ///   ctx->SetCertificate(leaf_cert);
 ///   ctx->SetVerificationTrustStore(system_trust_store);
-///   ctx->SetRevocationCheckPolicy(RevocationCheckPolicy::kOcspWithCrlFallback);
-///   ctx->SetOcspResponse(ocsp_response_data);
+///   ctx->SetRevocationCheckPolicy(RevocationCheckPolicy::kCrlOnly);
 ///   auto result = ctx->Verify();
 /// @endcode
 ///
-/// @par Example — chain verification with additional trust anchors
+/// @par Example — chain verification with additional untrusted certificates
 /// @code
 ///   // ext_ca is a kCertificate from ParseCertificate() — not persisted.
 ///   std::array<CryptoResourceId, 1> extra = {ext_ca->GetId()};
 ///   auto ctx = crypto_context->CreateCertificateVerificationContext(config).value();
 ///   ctx->SetCertificateChain(chain);
 ///   ctx->SetVerificationTrustStore(system_trust_store);
-///   ctx->SetAdditionalTrustAnchors(extra);  // local to this context, no system store change
+///   ctx->SetAdditionalCertificates(extra);  // untrusted chain-building inputs
 ///   auto result = ctx->Verify();
 /// @endcode
 class ICertificateVerificationContext : public IContext
@@ -93,36 +92,60 @@ class ICertificateVerificationContext : public IContext
     /// @return std::monostate on success, error if handle is invalid
     virtual score::Result<std::monostate> SetVerificationTrustStore(const CryptoResourceId& trust_store) = 0;
 
-    /// @brief Supplies additional trust anchors for this verification, beyond the system trust store.
+    /// @brief Sets the standalone trusted certificates for this verification context.
     ///
-    /// Use this to trust certificates not provisioned in any system trust store —
-    /// e.g. an external CA received at runtime, a rotation candidate, or a test root.
-    /// Does not modify the system trust store; these roots are local to this context instance.
+    /// This mode is mutually exclusive with SetVerificationTrustStore(). Each
+    /// call replaces the previously configured set, so callers that discover
+    /// anchors incrementally must collect them before calling this method.
     ///
-    /// Accepts both `kCertificate` (parsed, not persisted) and `kCertSlot` handles.
-    /// The daemon validates each certificate immediately:
-    /// - Expired certificates cause the whole call to fail.
-    /// - Certificates already present in the configured system trust store are
-    ///   accepted silently (idempotent union — no duplicate anchors).
-    ///
-    /// Replaces any previously set additional anchors on this context (set semantics).
-    ///
-    /// @param anchors Span of certificate handles (type = kCertificate or kCertSlot)
-    /// @return std::monostate on success, error if any handle is invalid or any certificate has expired
-    virtual score::Result<std::monostate> SetAdditionalTrustAnchors(
-        score::cpp::span<const CryptoResourceId> anchors) = 0;
+    /// @param certs Span of certificate handles to treat as trust anchors
+    ///        (type = kCertificate or kCertSlot)
+    /// @return std::monostate on success, error if any handle is invalid
+    virtual score::Result<std::monostate> SetTrustedCertificates(
+        score::cpp::span<const CryptoResourceId> certs) = 0;
 
-    /// @brief Provides an OCSP response for revocation checking.
-    /// @param response_data DER-encoded OCSP response
-    /// @return std::monostate on success, error on parse failure
-    /// @note The context internally validates the OCSP responder's certificate
-    ///       chain against the configured verification trust store.
-    virtual score::Result<std::monostate> SetOcspResponse(score::cpp::span<const uint8_t> response_data) = 0;
+    /// @brief Selects the chain termination rule for trust-store verification.
+    ///
+    /// The default is ChainTerminationPolicy::kRootRequired. This setting has
+    /// no effect in standalone trusted-certificate mode.
+    virtual score::Result<std::monostate> SetChainTerminationPolicy(ChainTerminationPolicy policy) = 0;
 
-    /// @brief References an imported CRL for revocation checking.
-    /// @param crl Handle to a previously imported CRL
-    /// @return std::monostate on success, error if handle is invalid
-    virtual score::Result<std::monostate> SetCrl(const CryptoResourceId& crl) = 0;
+    /// @brief Supplies additional untrusted certificates for chain building.
+    ///
+    /// Use this for intermediate certificates that are not provisioned in the
+    /// system trust store, such as an intermediate received with a peer chain.
+    /// These certificates are local to this context and do not establish trust.
+    ///
+    /// Accepts `kCertificate` and `kCertSlot` handles. Certificates already
+    /// present in the trust store are deduplicated by fingerprint. The daemon
+    /// uses these objects only as untrusted chain-building inputs; trust is
+    /// established exclusively by the configured trust store or standalone
+    /// trusted certificates.
+    ///
+    /// Replaces any previously set additional certificates on this context.
+    ///
+    /// @param certificates Span of untrusted certificate handles
+    ///        (type = kCertificate or kCertSlot)
+    /// @return std::monostate on success, or an error if a handle is invalid
+    virtual score::Result<std::monostate> SetAdditionalCertificates(
+      score::cpp::span<const CryptoResourceId> certificates) = 0;
+
+    // ---- OCSP (not yet active — IPC implementation pending) ----
+#if 0
+    /// @brief Provides one or more OCSP responses for revocation checking.
+    ///
+    /// Each entry is a DER-encoded OCSP response. Supplying multiple responses
+    /// covers chains where both the leaf and one or more intermediates have
+    /// stapled OCSP responses (e.g. TLS 1.3 certificate_status records).
+    /// The daemon matches each response to the appropriate certificate in the
+    /// chain by the certID field embedded in the response; order does not matter.
+    /// Replaces any previously set responses on this context.
+    ///
+    /// @param responses Span of DER-encoded OCSP response byte spans
+    /// @return std::monostate on success, error if any response fails to parse
+    virtual score::Result<std::monostate> SetOcspResponses(
+        score::cpp::span<const score::cpp::span<const uint8_t>> responses) = 0;
+#endif  // OCSP
 
     /// @brief Overrides the verification time.
     /// @param epoch_seconds Verification time as seconds since Unix epoch
@@ -144,6 +167,25 @@ class ICertificateVerificationContext : public IContext
     /// @note At minimum, a certificate (or chain) and trust anchor must be set.
     virtual score::Result<CertVerifyResult> Verify() = 0;
 
+    /// @brief Returns the number of certificates in the verified chain.
+    ///
+    /// Valid only after a successful Verify() call. The length is stable between
+    /// this call and GetVerifiedChain() provided no intervening Verify() is made.
+    ///
+    /// @return Number of entries in the chain (leaf to terminating anchor inclusive),
+    ///         or an error if Verify() has not yet succeeded.
+    virtual score::Result<std::size_t> GetVerifiedChainLength() const = 0;
+
+    /// @brief Fills caller-provided buffer with verified chain certificate IDs.
+    ///
+    /// Certificates are ordered leaf-first, terminating anchor last.
+    /// The caller must size @p out to at least GetVerifiedChainLength() entries.
+    ///
+    /// @param out Caller-allocated span of CryptoResourceId to fill
+    /// @return Number of entries written, or an error if @p out is too small
+    ///         or Verify() has not yet succeeded.
+    virtual score::Result<std::size_t> GetVerifiedChain(score::cpp::span<CryptoResourceId> out) const = 0;
+
   protected:
     ICertificateVerificationContext() = default;
 };
@@ -152,4 +194,4 @@ class ICertificateVerificationContext : public IContext
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CERTIFICATE_VERIFICATION_CONTEXT_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_VERIFICATION_CONTEXT_HPP
