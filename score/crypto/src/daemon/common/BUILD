@@ -18,6 +18,7 @@ cc_library(
     hdrs = [
         "actors.hpp",
         "daemon_error.hpp",
+        "hex.hpp",
         "secure_memory.hpp",
         "types.hpp",
     ],
