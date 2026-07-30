@@ -248,8 +248,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(
-                common::VirtualMemoryBufferConst{data.data(), data.size()});
+            operationRequest.operations.back().parameters.push_back(data);
         }
         return *this;
     };
@@ -295,6 +294,18 @@ class OperationRequestBuilder
         if (validateOperationExists())
         {
             operationRequest.operations.back().parameters.push_back(val);
+        }
+        return *this;
+    };
+
+    OperationRequestBuilder& with_shm(std::uint64_t node_id,
+                                      std::size_t offset,
+                                      std::size_t size,
+                                      common::ShmDirection direction = common::ShmDirection::In)
+    {
+        if (validateOperationExists())
+        {
+            operationRequest.operations.back().parameters.push_back(common::DataShm{node_id, offset, size, direction});
         }
         return *this;
     };

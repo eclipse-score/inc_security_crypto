@@ -68,5 +68,6 @@ cc_library(
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/common:release_callback_iface",
         "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/api/data_plane:data_plane_client",
     ],
 )

@@ -41,12 +41,15 @@ cc_binary(
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/control_plane",
         "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/data_plane",
         "//score/crypto/src/daemon/mediator",
         "//score/crypto/src/daemon/provider:provider_manager",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_factory",
         "//score/crypto/src/daemon/provider/score_provider:score_provider_factory",
         "//score/crypto/src/ipc:ipc_config",
         "//score/crypto/src/ipc/grpc_adapter:grpc_control_server",
+        "@score_baselibs//score/memory/shared",
+        "@score_baselibs//score/mw/log",
     ],
 )
 

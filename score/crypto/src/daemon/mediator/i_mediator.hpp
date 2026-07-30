@@ -16,14 +16,22 @@
 
 #include <memory>
 
-#include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/daemon/data_plane/i_shm_registry.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 namespace score::crypto::daemon::mediator
 {
+
+struct MediatorDependencies
+{
+    daemon::data_manager::IDataManager::Sptr data_manager;
+    daemon::provider::ProviderManager::Sptr provider_manager;
+    daemon::key_management::KeyManagementService::Sptr km_service;
+    daemon::data_plane::IShmRegistry::Sptr shm_registry;
+};
 
 /**
  * @interface IMediator
@@ -37,17 +45,11 @@ namespace score::crypto::daemon::mediator
 class IMediator : public score::crypto::daemon::control_plane::IRequestHandler
 {
   public:
-    /**
-     * @brief Default constructor.
-     */
-    IMediator(daemon::data_manager::IDataManager::Sptr data_manager,
-              daemon::provider::ProviderManager::Sptr provider_manager,
-              const config::Config& config,
-              daemon::key_management::KeyManagementService::Sptr km_service = nullptr)
-        : m_data_manager(data_manager),
-          m_provider_manager(provider_manager),
-          m_config(config),
-          m_km_service(std::move(km_service))
+    explicit IMediator(MediatorDependencies deps)
+        : m_data_manager(std::move(deps.data_manager)),
+          m_provider_manager(std::move(deps.provider_manager)),
+          m_km_service(std::move(deps.km_service)),
+          m_shm_registry(std::move(deps.shm_registry))
     {
     }
 
@@ -71,15 +73,15 @@ class IMediator : public score::crypto::daemon::control_plane::IRequestHandler
      * request.
      */
     virtual score::crypto::daemon::control_plane::ControlResponse processRequest(
-        const score::crypto::daemon::control_plane::ControlRequest& request) override = 0;
+        score::crypto::daemon::control_plane::ControlRequest& request) override = 0;
 
   protected:
     daemon::data_manager::IDataManager::Sptr m_data_manager;
     daemon::provider::ProviderManager::Sptr m_provider_manager;
-    const config::Config& m_config;
     daemon::key_management::KeyManagementService::Sptr m_km_service;
+    daemon::data_plane::IShmRegistry::Sptr m_shm_registry;
 };
 
 }  // namespace score::crypto::daemon::mediator
 
-#endif  // IPC_IMediator_HPP_
+#endif  // SCORE_CRYPTO_DAEMON_MEDIATOR_IMEDIATOR_HPP

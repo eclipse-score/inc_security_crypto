@@ -1,0 +1,271 @@
+@startuml data_plane_client_overview
+!theme plain
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam packageFontSize 14
+skinparam arrowFontSize 11
+skinparam shadowing false
+skinparam nodesep 80
+skinparam ranksep 100
+skinparam wrapWidth 400
+
+title Client-Side Data Plane — Runtime Interaction (Public API → Baselibs)
+
+' Force top-down vertical layout
+top to bottom direction
+
+' ====================================================================
+' PUBLIC API
+' ====================================================================
+package "Public API" as PublicApi  #EEF4FF {
+    interface ICryptoContext <<Interface>> {
+    }
+
+    interface IMemoryAllocator <<Interface>> {
+        + Allocate(size, provider_type : optional<ProviderType>) : Result<IReadWriteMemory::Uptr>
+        + Allocate(size, provider : CryptoResourceId) : Result<IReadWriteMemory::Uptr>
+    }
+
+    class HashContext <<Example>> {
+        - m_transcoder : shared_ptr<IBufferTranscoder>
+        --
+        + Update(data : span<const uint8_t>)
+        + Finalize(output : span<uint8_t>)
+    }
+
+    note bottom of ICryptoContext
+      Hash/Mac context creation and other
+      construction details omitted here;
+      this view focuses on data-plane flow.
+    end note
+
+    ICryptoContext -[hidden]-> IMemoryAllocator
+    IMemoryAllocator -[hidden]-> HashContext
+}
+
+' ====================================================================
+' DATA PLANE COMPONENT  (Public API sits above this and is NOT part of it)
+' ====================================================================
+package "Data Plane" as DataPlane  #FFFFFF {
+
+' ====================================================================
+' BUFFER TRANSCODER
+' ====================================================================
+package "Buffer Transcoder" as BufferTranscoder  #FFF0F0 {
+    interface IBufferTranscoder <<Interface>> {
+        + Acquire(data : span<const uint8_t>, is_output=false) : Expected<TranscoderSpan, CryptoErrorCode>
+        + AppendInputBuffer(builder, tspan)
+        + AppendOutputBuffer(builder, tspan)
+        + ExtractOutputBuffer(tspan, validator, param_idx=0) : Result<size_t>
+    }
+
+    class BufferShmTranscoder <<Production>> {
+        - m_pool_allocator : shared_ptr<IPoolAllocator>
+        - m_registry : shared_ptr<IShmRegionRegistry>
+        --
+        + BufferShmTranscoder(pool_allocator, registry)
+    }
+
+    class TranscoderSpan <<nested>> {
+        + kind : Kind
+        + caller_span : span<uint8_t>
+        + pool_span : span<uint8_t>
+        + region : AllocatedRegion
+        --
+        + ~TranscoderSpan()
+    }
+
+    enum Kind {
+        kInBand
+        kPool
+        kBulk
+    }
+
+    note right of BufferShmTranscoder
+      Routing decision (kInBandThreshold = 32 bytes):
+      1. bulk SHM (registered)? → kBulk (zero-copy)
+      2. INPUT heap ≤ 32 bytes → kInBand (copy to wire)
+      3. INPUT heap > 32 bytes → kPool (allocate slot)
+      4. OUTPUT buffers: ALWAYS kPool or kBulk
+         (kInBand not allowed; requires SHM for daemon write-back)
+
+      TranscoderSpan destructor auto-releases
+      pool slot if kind == kPool
+    end note
+
+    IBufferTranscoder -[hidden]-> BufferShmTranscoder
+    BufferShmTranscoder -[hidden]-> TranscoderSpan
+    TranscoderSpan -[hidden]-> Kind
+}
+
+' ====================================================================
+' POOL ALLOCATOR
+' ====================================================================
+package "Pool Allocator" as PoolAllocation  #FFFBF0 {
+    interface IPoolAllocator <<Interface>> {
+        + Allocate(size : size_t) : Expected<span<uint8_t>, AllocationError>
+        + Deallocate(region : span<uint8_t>)
+        + GetChunkSize() : size_t
+        + GetNodeId() : uint64_t
+        + GetOffset(slot : span<const uint8_t>) : Expected<size_t, AllocationError>
+    }
+
+    class PoolAllocator <<Production>> {
+        - m_chunk_size : size_t
+        - m_node_id : uint64_t
+        - m_pool_memory : IReadWriteMemory::Uptr
+        - m_mutex : mutable mutex
+        - m_free_sectors : vector<bool>
+        --
+        + PoolAllocator(pool_memory : IReadWriteMemory::Uptr, slot_size : size_t)
+        + ~PoolAllocator()
+    }
+
+    note bottom of PoolAllocator
+      m_free_sectors bitmap: 1=free, 0=occupied
+      Destructor: m_pool_memory.reset()
+      triggers IReadWriteMemory destructor,
+      releasing the underlying pool memory.
+    end note
+
+    struct AllocatedRegion {
+        + node_id : uint64_t
+        + offset : size_t
+    }
+
+    IPoolAllocator -[hidden]-> PoolAllocator
+    PoolAllocator -[hidden]-> AllocatedRegion
+}
+
+' ====================================================================
+' REGION REGISTRY
+' ====================================================================
+package "Region Registry" as RegionRegistry  #F5F0FF {
+    interface IShmRegionRegistry <<Interface>> {
+        + Register(entry : RegionEntry)
+        + Unregister(node_id : uint64_t)
+        + IdentifyNode(data : span<const uint8_t>) : uint64_t
+        + GetOffset(data : span<const uint8_t>) : size_t
+        + GetTotalRegisteredSize() : size_t
+        + GetQuota() : size_t
+    }
+
+    class ShmRegionRegistry <<Production>> {
+        - m_mutex : mutex
+        - m_regions : map<uint64_t, RegionEntry>
+        - m_total_quota : size_t
+        --
+        + ShmRegionRegistry(total_quota : size_t)
+    }
+
+    struct RegionEntry {
+        + node_id : uint64_t
+        + base_addr : uintptr_t
+        + size : size_t
+        + is_pool : bool
+    }
+
+    IShmRegionRegistry -[hidden]-> ShmRegionRegistry
+    ShmRegionRegistry -[hidden]-> RegionEntry
+}
+
+' ====================================================================
+' BULK ALLOCATOR
+' ====================================================================
+package "Bulk Allocator" as BulkAllocator  #F0FFF0 {
+    class ShmMemoryAllocator <<Production>> {
+        - m_registry_ptr : shared_ptr<IShmRegionRegistry>
+        --
+        + {static} Create(registry) : Result<unique_ptr<ShmMemoryAllocator>>
+        + Allocate(size, provider_type : optional<ProviderType>) : Result<IReadWriteMemory::Uptr>
+        + Allocate(size, provider : CryptoResourceId) : Result<IReadWriteMemory::Uptr>
+        + GetQuota() : size_t
+        + GetCurrentUsage() : size_t
+    }
+}
+
+' ====================================================================
+' MEMORY OBJECTS
+' ====================================================================
+package "Memory Objects" as MemoryObjects  #EAF7EA {
+    interface IReadWriteMemory <<Interface>> {
+        + data() : const uint8_t*
+        + data() : uint8_t*
+        + AsWritableSpan() : span<uint8_t>
+        + Resize(std::size_t new_size) : score::Result<std::monostate>
+    }
+
+    class ShmReadWriteMemory <<Production>> {
+        - m_node_id : uint64_t
+        - m_handle : shared_ptr<void>
+        - m_span : span<uint8_t>
+        - m_registry : weak_ptr<IShmRegionRegistry>
+        --
+        + {static} Create(node_id, handle, region, registry) : Result<IReadWriteMemory::Uptr>
+        + GetNodeId() : uint64_t
+    }
+
+    note bottom of ShmReadWriteMemory
+      m_handle captures the mapped
+      ISharedMemoryResource in a custom deleter.
+
+      Destructor:
+      1. m_registry.lock()->Unregister(node_id)
+      2. m_handle.reset() → unmaps region
+    end note
+
+    IReadWriteMemory -[hidden]-> ShmReadWriteMemory
+}
+
+' Internal layout within DataPlane (controlled by hidden relationships)
+BufferTranscoder -[hidden]-> PoolAllocation
+PoolAllocation -[hidden]-> RegionRegistry
+RegionRegistry -[hidden]-> BulkAllocator
+BulkAllocator -[hidden]-> MemoryObjects
+
+' End of DataPlane package
+}
+
+' ====================================================================
+' EXTERNAL: BASELIBS
+' ====================================================================
+package "Baselibs (external)" as Baselibs  #F0F0F0 {
+    class ISharedMemoryResource <<external>> {
+        + getUsableBaseAddress() : void*
+        + ~ISharedMemoryResource()
+    }
+
+    note bottom of ISharedMemoryResource
+      Destructor: unmaps the shared memory region
+    end note
+}
+
+' Force strict vertical stack of top-level layers: Public API -> Data Plane -> Baselibs
+PublicApi -[hidden]-> DataPlane
+DataPlane -[hidden]-> Baselibs
+
+' ====================================================================
+' RELATIONSHIPS
+' ====================================================================
+ICryptoContext ..> IBufferTranscoder : uses
+HashContext ..> IBufferTranscoder : Update() / Finalize()
+IMemoryAllocator ..> ShmMemoryAllocator : uses
+
+IBufferTranscoder <|.. BufferShmTranscoder
+TranscoderSpan ..> Kind : uses enum
+BufferShmTranscoder ..> TranscoderSpan : creates
+BufferShmTranscoder ..> IPoolAllocator : Allocate() / GetOffset()
+BufferShmTranscoder ..> IShmRegionRegistry : IdentifyNode() / GetOffset()
+
+IPoolAllocator <|.. PoolAllocator
+PoolAllocator o-- IReadWriteMemory : owns pool memory
+
+IShmRegionRegistry <|.. ShmRegionRegistry
+
+ShmMemoryAllocator ..> ShmReadWriteMemory : creates
+
+ShmReadWriteMemory --|> IReadWriteMemory
+ShmReadWriteMemory ..> ShmRegionRegistry : Register() in Create()
+ShmReadWriteMemory o-- ISharedMemoryResource : owns mapped region
+@enduml

@@ -63,6 +63,7 @@ cc_library(
         ":provider_pkcs11_headers",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_info",
+        "//score/crypto/src/daemon/data_plane",
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",

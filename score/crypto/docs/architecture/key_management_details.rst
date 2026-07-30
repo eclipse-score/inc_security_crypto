@@ -336,7 +336,7 @@ Step 4 — Perform MAC operations
 1. ``MacExecutor`` validates ``STREAM_INITIALIZED/ACTIVE → IDLE`` transition.
 2. ``OpenSslHmacHandler::FinalizeMac`` → ``EVP_MAC_final(m_ctx, output,
    &hmac_len, buf_len)`` writes the 32-byte HMAC-SHA256 tag into the
-   client-provided ``VirtualMemoryBuffer``.
+   client-provided shared-memory buffer.
 
 Step 5 — Release resources
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

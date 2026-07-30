@@ -279,7 +279,7 @@ Mac -> Exec : Execute(handler=*this, MAC_FINALIZE, params)
 note right : ValidateStreamTransition:\nSTREAM_INITIALIZED/ACTIVE → IDLE
 Exec -> Mac : FinalizeMac(output_buf)
 Mac -> Mac : EVP_MAC_final(m_ctx, output, &hmac_len, buf_len)
-Mac -> Mac : write MAC bytes to VirtualMemoryBuffer
+Mac -> Mac : write MAC bytes to shared-memory buffer
 Mac --> Exec : ResponseParameters{mac_bytes}
 Exec --> Mac : ResponseParameters
 Mac --> Med : ResponseParameters

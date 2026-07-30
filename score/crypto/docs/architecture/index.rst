@@ -81,6 +81,7 @@ Requirements Linked to Component Architecture
    key_management_details
    chklst_arc_inspection
    design_decisions
+   data_plane_architecture
 
 
 Static Architecture

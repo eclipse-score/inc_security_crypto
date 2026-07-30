@@ -355,22 +355,6 @@ GrpcControlClient::Impl::BuildRequestParameters(const daemon::common::RequestPar
             auto fb_string = score::crypto::ipc::control::CreateString(mb, fb_str_offset);
             fb_params.emplace_back(fb_string.o);
         }
-        else if (std::holds_alternative<daemon::common::VirtualMemoryBufferConst>(bl_param))
-        {
-            const auto& buffer = std::get<daemon::common::VirtualMemoryBufferConst>(bl_param);
-            fb_param_types.emplace_back(score::crypto::ipc::control::OperationParameter_DataBufferInBand);
-            auto fb_data = mb.CreateVector(buffer.data, buffer.size);
-            auto fb_buffer = score::crypto::ipc::control::CreateDataBufferInBand(mb, fb_data);
-            fb_params.emplace_back(fb_buffer.o);
-        }
-        else if (std::holds_alternative<daemon::common::VirtualMemoryBuffer>(bl_param))
-        {
-            const auto& buffer = std::get<daemon::common::VirtualMemoryBuffer>(bl_param);
-            fb_param_types.emplace_back(score::crypto::ipc::control::OperationParameter_DataBufferInBand);
-            auto fb_data = mb.CreateVector(buffer.data, buffer.size);
-            auto fb_buffer = score::crypto::ipc::control::CreateDataBufferInBand(mb, fb_data);
-            fb_params.emplace_back(fb_buffer.o);
-        }
         else if (std::holds_alternative<std::uint8_t>(bl_param))
         {
             const auto& val = std::get<std::uint8_t>(bl_param);
@@ -398,6 +382,26 @@ GrpcControlClient::Impl::BuildRequestParameters(const daemon::common::RequestPar
             fb_param_types.emplace_back(score::crypto::ipc::control::OperationParameter_ValueUint64);
             auto fb_val = score::crypto::ipc::control::CreateValueUint64(mb, val);
             fb_params.emplace_back(fb_val.o);
+        }
+        else if (std::holds_alternative<daemon::common::DataShm>(bl_param))
+        {
+            const auto& shm = std::get<daemon::common::DataShm>(bl_param);
+            fb_param_types.emplace_back(score::crypto::ipc::control::OperationParameter_DataShm);
+            auto fb_shm = score::crypto::ipc::control::CreateDataShm(
+                mb,
+                shm.node_id,
+                static_cast<std::uint64_t>(shm.offset),
+                static_cast<std::uint64_t>(shm.size),
+                static_cast<score::crypto::ipc::control::ShmDirection>(shm.direction));
+            fb_params.emplace_back(fb_shm.o);
+        }
+        else if (std::holds_alternative<score::cpp::span<const uint8_t>>(bl_param))
+        {
+            const auto& buf = std::get<score::cpp::span<const uint8_t>>(bl_param);
+            fb_param_types.emplace_back(score::crypto::ipc::control::OperationParameter_DataBufferInBand);
+            auto fb_data = mb.CreateVector(buf.data(), buf.size());
+            auto fb_buf = score::crypto::ipc::control::CreateDataBufferInBand(mb, fb_data);
+            fb_params.emplace_back(fb_buf.o);
         }
         else
         {

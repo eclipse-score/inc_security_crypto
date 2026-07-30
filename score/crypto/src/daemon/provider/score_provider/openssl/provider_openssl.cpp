@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/provider_openssl.hpp"
+#include "score/crypto/src/daemon/data_plane/src/base_shm_factory.hpp"
 #include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/factory/openssl_handler_factory.hpp"
@@ -52,6 +53,8 @@ bool OpenSSL::Initialize(const ProviderInitContext& ctx)
     // Create key factory.
     m_factory = std::make_shared<::score::crypto::daemon::provider::openssl::OpenSslKeyFactory>(m_numeric_id);
 
+    m_shm_factory = std::make_shared<data_plane::BaseShmFactory>();
+
     m_initialized = true;
     return m_initialized;
 }
@@ -64,6 +67,7 @@ void OpenSSL::Shutdown()
     }
 
     m_factory.reset();
+    m_shm_factory.reset();
     m_keyManagementService.reset();
 
     // Clean up OpenSSL resources
@@ -87,6 +91,11 @@ std::shared_ptr<key_management::IKeyFactory> OpenSSL::GetKeyFactory()
     const ::score::crypto::daemon::key_management::KeySlotConfig& /*config*/)
 {
     return std::make_shared<key_management::FileBackedSlotHandler>(m_factory);
+}
+
+std::shared_ptr<::score::crypto::daemon::data_plane::IShmFactory> OpenSSL::GetShmFactory()
+{
+    return m_shm_factory;
 }
 
 void OpenSSL::SetKeyManagementService(std::shared_ptr<key_management::KeyManagementService> service)

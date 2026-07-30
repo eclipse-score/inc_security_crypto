@@ -19,6 +19,8 @@
 #include "score/crypto/src/daemon/common/types.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
+#include <type_traits>
 #include <variant>
 
 namespace score
@@ -41,50 +43,59 @@ namespace handler
 namespace handler_utils
 {
 
-/**
- * @brief Extract buffer data from RequestParameter structure
- *
- * Supports extraction of data from virtual mapped memory regions.
- * Currently assumes VIR_MAPPED data type, but can be extended for other types.
- *
- * @param userData The RequestParameter structure containing the buffer information
- * @param buffer Output pointer to the extracted buffer
- * @param size Output parameter for the buffer size in bytes
- * @return std::monostate on success, error code otherwise
- *
- * @retval std::monostate Buffer successfully extracted
- * @retval score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize Invalid buffer address or zero size
- * @retval score::crypto::daemon::common::DaemonErrorCode::kInvalidDataType) Unsupported data type
- */
-[[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
-ExtractBufferData(const common::RequestParameter& userData, const uint8_t*& buffer, size_t& size) noexcept;
+namespace detail
+{
+
+template <typename T>
+struct SpanTraits
+{
+    using SpanType = score::cpp::span<T>;
+    using ParamType =
+        std::conditional_t<std::is_const_v<T>, const common::RequestParameter&, common::RequestParameter&>;
+};
+
+}  // namespace detail
 
 /**
- * @brief Extract non-const buffer data from RequestParameter structure
+ * @brief Extract and validate a buffer span from a RequestParameter.
  *
- * Similar to ExtractBufferData but returns non-const pointer for output buffers.
- * Supports extraction of data from virtual mapped memory regions.
+ * @tparam T The element type of the span to extract (const uint8_t for input,
+ *           uint8_t for output). Parameter constness is deduced from T.
+ * @param param The RequestParameter variant expected to hold a span<T>.
+ * @return The extracted span on success, or an error code otherwise.
  *
- * @param userData The RequestParameter structure containing the buffer information
- * @param buffer Output pointer to the extracted buffer (non-const)
- * @param size Output parameter for the buffer size in bytes
- * @return std::monostate on success, error code otherwise
- *
- * @retval std::monostate Buffer successfully extracted
- * @retval score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize Invalid buffer address or zero size
- * @retval score::crypto::daemon::common::DaemonErrorCode::kInvalidDataType) Unsupported data type
+ * @retval score::cpp::span<T> Span successfully extracted.
+ * @retval score::crypto::daemon::common::DaemonErrorCode::kInvalidDataType Parameter is not the requested span type.
+ * @retval score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize Null data or zero size.
  */
-[[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
-ExtractOutputBufferData(common::RequestParameter& userData, uint8_t*& buffer, size_t& size) noexcept;
+template <typename T>
+[[nodiscard]] Expected<typename detail::SpanTraits<T>::SpanType, ::score::crypto::daemon::common::DaemonErrorCode>
+CheckAndGetSpan(typename detail::SpanTraits<T>::ParamType param) noexcept
+{
+    using SpanType = typename detail::SpanTraits<T>::SpanType;
+    auto* span = std::get_if<SpanType>(&param);
+    if (span == nullptr)
+    {
+        return make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidDataType);
+    }
+    if (span->data() == nullptr || span->size() == 0U)
+    {
+        return make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
+    }
+    return *span;
+}
 
-/// @brief Type-safe identifiers for streaming operation phases.
-///
-/// Used by ValidateStreamOperationSequence to enforce the stream state machine
+/**
+ * @brief Streaming operation kind used to drive the stream state machine.
+ *
+ * Maps a concrete operation (init/update/finalize) onto a state transition in
+ * ValidateStreamOperationSequence().
+ */
 enum class StreamOperation : std::uint8_t
 {
-    kInit = 0,      ///< Initialize or restart the streaming operation
-    kUpdate = 1,    ///< Feed data into the active stream
-    kFinalize = 2,  ///< Finalize the stream and produce output
+    kInit,      ///< Initialize (or restart) a streaming operation.
+    kUpdate,    ///< Feed additional data into an active stream.
+    kFinalize,  ///< Complete the stream and produce the final result.
 };
 
 /**

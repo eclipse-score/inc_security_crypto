@@ -16,6 +16,8 @@
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/common/i_memory_allocator.hpp"
 #include "score/crypto/src/api/crypto_stack_factory.hpp"
+#include "score/crypto/src/api/data_plane/src/buffer_shm_transcoder.hpp"
+#include "score/crypto/src/api/data_plane/src/shm_memory_allocator.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
 #include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
@@ -35,9 +37,13 @@ namespace crypto
 {
 
 CryptoStackImpl::CryptoStackImpl(const CryptoStackConfig& config,
-                                 std::shared_ptr<score::crypto::api::control_plane::IConnection> connection)
-    : m_config(config), m_connection(std::move(connection))
+                                 std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
+                                 IReadWriteMemoryFactory::Sptr factory,
+                                 std::shared_ptr<IPoolAllocator> pool_allocator,
+                                 std::shared_ptr<IShmRegionRegistry> registry)
+    : m_config(config), m_connection(std::move(connection)), m_shm_factory(std::move(factory)), m_shm_registry(registry)
 {
+    m_transcoder = std::make_shared<BufferShmTranscoder>(std::move(pool_allocator), std::move(registry));
 }
 
 CryptoStackImpl::~CryptoStackImpl()
@@ -59,17 +65,25 @@ score::Result<ICryptoContext::Uptr> CryptoStackImpl::CreateCryptoContext()
             score::unexpect, MakeError(CryptoErrorCode::kConnectionFailed, "Connection is not initialized")};
     }
 
-    auto ctx = std::make_unique<CryptoContextImpl>(m_connection);
+    auto ctx = std::make_unique<CryptoContextImpl>(m_connection, m_transcoder);
     return ctx;
 }
 
 score::Result<IMemoryAllocator::Uptr> CryptoStackImpl::GetMemoryAllocator()
 {
-    // TODO: Implement shared-memory allocator for data-plane zero-copy path.
-    //       For now, this is not needed by the hash example test.
-    score::mw::log::LogError() << "[API][CryptoStackImpl] ERROR: GetMemoryAllocator not yet implemented";
-    return score::Result<IMemoryAllocator::Uptr>{
-        score::unexpect, MakeError(CryptoErrorCode::kInternalError, "GetMemoryAllocator not yet implemented")};
+    if (!m_connection)
+    {
+        score::mw::log::LogError() << "[API][CryptoStackImpl] ERROR: Connection is not initialized";
+        return score::Result<IMemoryAllocator::Uptr>{
+            score::unexpect, MakeError(CryptoErrorCode::kConnectionFailed, "Connection is not initialized")};
+    }
+
+    auto allocator_result = ShmMemoryAllocator::Create(m_connection, m_shm_factory, m_shm_registry);
+    if (!allocator_result.has_value())
+    {
+        return score::Result<IMemoryAllocator::Uptr>{score::unexpect, allocator_result.error()};
+    }
+    return std::move(allocator_result).value();
 }
 
 }  // namespace crypto

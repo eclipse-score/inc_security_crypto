@@ -28,46 +28,19 @@ namespace handler_utils
 {
 
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-ExtractBufferData(const common::RequestParameter& userData, const uint8_t*& buffer, size_t& size) noexcept
-{
-    // Check if data is VirtualMemoryBufferConst type variant
-    if (auto providerBuffer = std::get_if<common::VirtualMemoryBufferConst>(&userData))
-    {
-        if (providerBuffer->data == nullptr || providerBuffer->size == 0)
-        {
-            buffer = nullptr;
-            size = 0;
-            return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
-        }
-
-        buffer = providerBuffer->data;
-        size = providerBuffer->size;
-
-        return std::monostate{};
-    }
-
-    // Default: Unsupported type in variant
-    buffer = nullptr;
-    size = 0;
-    return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidDataType);
-}
-
-Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 ExtractOutputBufferData(common::RequestParameter& userData, uint8_t*& buffer, size_t& size) noexcept
 {
-    // Extract from VirtualMemoryBufferConst variant
-    if (auto bufferPtr = std::get_if<common::VirtualMemoryBuffer>(&userData))
+    if (auto bufferPtr = std::get_if<score::cpp::span<uint8_t>>(&userData))
     {
-        if (bufferPtr->data == nullptr || bufferPtr->size == 0)
+        if (bufferPtr->data() == nullptr || bufferPtr->empty())
         {
             buffer = nullptr;
             size = 0;
             return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
         }
 
-        buffer = static_cast<uint8_t*>(bufferPtr->data);
-        size = bufferPtr->size;
-
+        buffer = bufferPtr->data();
+        size = bufferPtr->size();
         return std::monostate{};
     }
 

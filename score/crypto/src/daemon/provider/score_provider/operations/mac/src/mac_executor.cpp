@@ -150,7 +150,7 @@ Expected<ResponseParameters, DaemonErrorCode> MacExecutor::ExecuteFinalize(Score
     std::optional<common::RequestParameter> output;
     if (!request.empty())
     {
-        if (auto* buf = std::get_if<common::VirtualMemoryBuffer>(&request[0]))
+        if (auto* buf = std::get_if<score::cpp::span<uint8_t>>(&request[0]))
         {
             output.emplace(*buf);
         }
@@ -195,7 +195,7 @@ Expected<ResponseParameters, DaemonErrorCode> MacExecutor::ExecuteSingleShot(Sco
     std::optional<common::RequestParameter> output;
     if (request.size() > 1U)
     {
-        if (auto* buf = std::get_if<common::VirtualMemoryBuffer>(&request[1]))
+        if (auto* buf = std::get_if<score::cpp::span<uint8_t>>(&request[1]))
         {
             output.emplace(*buf);
         }

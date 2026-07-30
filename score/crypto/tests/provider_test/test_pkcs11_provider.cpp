@@ -46,19 +46,28 @@ common::OperationIdentifier MakeHashOp(common::OperationAction action)
     return id;
 }
 
-/// @brief Helper to extract the digest bytes from a OwnedBuffer or a VirtualMemoryBufferConst in the response's
-/// parameters.
-std::vector<std::uint8_t> ExtractDigest(const common::ResponseParameters& response)
+/// @brief Helper to extract the digest bytes from response.
+/// New protocol: response contains uint64_t size, data is already in the output buffer provided to Execute().
+/// Old protocol (fallback): response contains OwnedBuffer or span with the data.
+std::vector<std::uint8_t> ExtractDigest(const common::ResponseParameters& response,
+                                        const std::vector<std::uint8_t>& outputBuffer)
 {
     for (const auto& param : response)
     {
+        // New protocol: uint64_t size (data already written to outputBuffer by handler)
+        if (const auto* size_ptr = std::get_if<std::uint64_t>(&param))
+        {
+            const auto size = static_cast<std::size_t>(*size_ptr);
+            return {outputBuffer.begin(), outputBuffer.begin() + size};
+        }
+        // Old protocol: full data in response (backward compatibility)
         if (const auto buf = std::get_if<common::OwnedBuffer>(&param))
         {
             return *buf;
         }
-        if (const auto* buf = std::get_if<common::VirtualMemoryBufferConst>(&param))
+        if (const auto* buf = std::get_if<score::cpp::span<const uint8_t>>(&param))
         {
-            return {buf->data, buf->data + buf->size};
+            return {buf->data(), buf->data() + buf->size()};
         }
     }
     return {};
@@ -220,14 +229,14 @@ TEST_F(Pkcs11ProviderHashTest, SHA256SingleShotHash)
 
     // Execute single-shot.
     common::RequestParameters request{};
-    request.push_back(common::VirtualMemoryBufferConst{inputBuffer.data(), inputBuffer.size()});
-    request.push_back(common::VirtualMemoryBuffer{outputBuffer.data(), outputBuffer.size()});
+    request.push_back(score::cpp::span<const uint8_t>{inputBuffer.data(), inputBuffer.size()});
+    request.push_back(score::cpp::span<uint8_t>{outputBuffer.data(), outputBuffer.size()});
 
     auto executeResult = handler->Execute(MakeHashOp(ops::HASH_SS), request);
     ASSERT_TRUE(executeResult.has_value()) << "Execute failed";
 
     // Extract digest from response parameters.
-    const auto digest = ExtractDigest(executeResult.value());
+    const auto digest = ExtractDigest(executeResult.value(), outputBuffer);
 
     // Verify against reference test vector.
     const auto expectedHash = tests::utility::read_bin("score/tests/test_vectors/hash/sha256_hello_world.bin");
@@ -262,7 +271,7 @@ TEST_F(Pkcs11ProviderHashTest, SHA256StreamingHash)
     std::vector<std::uint8_t> chunk1Buf(chunk1Str.begin(), chunk1Str.end());
 
     common::RequestParameters updateOp1{};
-    updateOp1.push_back(common::VirtualMemoryBufferConst{chunk1Buf.data(), chunk1Buf.size()});
+    updateOp1.push_back(score::cpp::span<const uint8_t>{chunk1Buf.data(), chunk1Buf.size()});
     auto update1Result = handler->Execute(MakeHashOp(ops::HASH_UPDATE), updateOp1);
     ASSERT_TRUE(update1Result.has_value()) << "HASH_UPDATE chunk1 failed";
 
@@ -271,7 +280,7 @@ TEST_F(Pkcs11ProviderHashTest, SHA256StreamingHash)
     std::vector<std::uint8_t> chunk2Buf(chunk2Str.begin(), chunk2Str.end());
 
     common::RequestParameters updateOp2{};
-    updateOp2.push_back(common::VirtualMemoryBufferConst{chunk2Buf.data(), chunk2Buf.size()});
+    updateOp2.push_back(score::cpp::span<const uint8_t>{chunk2Buf.data(), chunk2Buf.size()});
     auto update2Result = handler->Execute(MakeHashOp(ops::HASH_UPDATE), updateOp2);
     ASSERT_TRUE(update2Result.has_value()) << "HASH_UPDATE chunk2 failed";
 
@@ -280,12 +289,12 @@ TEST_F(Pkcs11ProviderHashTest, SHA256StreamingHash)
     std::vector<std::uint8_t> outputBuffer(kSha256DigestLen);
 
     common::RequestParameters finishOp{};
-    finishOp.push_back(common::VirtualMemoryBuffer{outputBuffer.data(), outputBuffer.size()});
+    finishOp.push_back(score::cpp::span<uint8_t>{outputBuffer.data(), outputBuffer.size()});
     auto finishResult = handler->Execute(MakeHashOp(ops::HASH_FINALIZE), finishOp);
     ASSERT_TRUE(finishResult.has_value()) << "HASH_FINALIZE failed";
 
     // Extract digest from response.
-    const auto digest = ExtractDigest(finishResult.value());
+    const auto digest = ExtractDigest(finishResult.value(), outputBuffer);
 
     // Verify same digest as single-shot using reference test vector.
     const auto expectedHash = tests::utility::read_bin("score/tests/test_vectors/hash/sha256_hello_world.bin");
@@ -315,7 +324,7 @@ TEST_F(Pkcs11ProviderHashTest, StreamStateViolation)
     std::vector<std::uint8_t> dataBuf(data.begin(), data.end());
 
     common::RequestParameters updateOp{};
-    updateOp.push_back(common::VirtualMemoryBufferConst{dataBuf.data(), dataBuf.size()});
+    updateOp.push_back(score::cpp::span<const uint8_t>{dataBuf.data(), dataBuf.size()});
 
     auto updateResult = handler->Execute(MakeHashOp(ops::HASH_UPDATE), updateOp);
     EXPECT_FALSE(updateResult.has_value()) << "HASH_UPDATE without HASH_INIT should fail";
@@ -324,7 +333,7 @@ TEST_F(Pkcs11ProviderHashTest, StreamStateViolation)
     std::vector<std::uint8_t> outBuf(32U);
 
     common::RequestParameters finishOp{};
-    finishOp.push_back(common::VirtualMemoryBuffer{outBuf.data(), outBuf.size()});
+    finishOp.push_back(score::cpp::span<uint8_t>{outBuf.data(), outBuf.size()});
 
     auto finishResult = handler->Execute(MakeHashOp(ops::HASH_FINALIZE), finishOp);
     EXPECT_FALSE(finishResult.has_value()) << "HASH_FINALIZE without active stream should fail";
@@ -368,28 +377,28 @@ TEST_F(Pkcs11ProviderHashTest, TrueConcurrentStreamingOnSeparateSessions)
     const std::string chunk1A = "Hello, ";
     std::vector<std::uint8_t> bufA1(chunk1A.begin(), chunk1A.end());
     common::RequestParameters updateA1{};
-    updateA1.push_back(common::VirtualMemoryBufferConst{bufA1.data(), bufA1.size()});
+    updateA1.push_back(score::cpp::span<const uint8_t>{bufA1.data(), bufA1.size()});
     auto updA1 = handlerA->Execute(MakeHashOp(ops::HASH_UPDATE), updateA1);
     ASSERT_TRUE(updA1.has_value()) << "HASH_UPDATE A1 failed";
 
     const std::string chunk1B = "Hello, ";
     std::vector<std::uint8_t> bufB1(chunk1B.begin(), chunk1B.end());
     common::RequestParameters updateB1{};
-    updateB1.push_back(common::VirtualMemoryBufferConst{bufB1.data(), bufB1.size()});
+    updateB1.push_back(score::cpp::span<const uint8_t>{bufB1.data(), bufB1.size()});
     auto updB1 = handlerB->Execute(MakeHashOp(ops::HASH_UPDATE), updateB1);
     ASSERT_TRUE(updB1.has_value()) << "HASH_UPDATE B1 failed";
 
     const std::string chunk2A = "World!";
     std::vector<std::uint8_t> bufA2(chunk2A.begin(), chunk2A.end());
     common::RequestParameters updateA2{};
-    updateA2.push_back(common::VirtualMemoryBufferConst{bufA2.data(), bufA2.size()});
+    updateA2.push_back(score::cpp::span<const uint8_t>{bufA2.data(), bufA2.size()});
     auto updA2 = handlerA->Execute(MakeHashOp(ops::HASH_UPDATE), updateA2);
     ASSERT_TRUE(updA2.has_value()) << "HASH_UPDATE A2 failed";
 
     const std::string chunk2B = "World!";
     std::vector<std::uint8_t> bufB2(chunk2B.begin(), chunk2B.end());
     common::RequestParameters updateB2{};
-    updateB2.push_back(common::VirtualMemoryBufferConst{bufB2.data(), bufB2.size()});
+    updateB2.push_back(score::cpp::span<const uint8_t>{bufB2.data(), bufB2.size()});
     auto updB2 = handlerB->Execute(MakeHashOp(ops::HASH_UPDATE), updateB2);
     ASSERT_TRUE(updB2.has_value()) << "HASH_UPDATE B2 failed";
 
@@ -397,24 +406,24 @@ TEST_F(Pkcs11ProviderHashTest, TrueConcurrentStreamingOnSeparateSessions)
     constexpr std::size_t kSha256Len{32U};
     std::vector<std::uint8_t> outA(kSha256Len);
     common::RequestParameters finishA{};
-    finishA.push_back(common::VirtualMemoryBuffer{outA.data(), outA.size()});
+    finishA.push_back(score::cpp::span<uint8_t>{outA.data(), outA.size()});
     auto finA = handlerA->Execute(MakeHashOp(ops::HASH_FINALIZE), finishA);
     ASSERT_TRUE(finA.has_value()) << "HASH_FINALIZE A failed";
 
     constexpr std::size_t kSha384Len{48U};
     std::vector<std::uint8_t> outB(kSha384Len);
     common::RequestParameters finishB{};
-    finishB.push_back(common::VirtualMemoryBuffer{outB.data(), outB.size()});
+    finishB.push_back(score::cpp::span<uint8_t>{outB.data(), outB.size()});
     auto finB = handlerB->Execute(MakeHashOp(ops::HASH_FINALIZE), finishB);
     ASSERT_TRUE(finB.has_value()) << "HASH_FINALIZE B failed";
 
     // Both handlers digested "Hello, World!" -- verify correctness
-    const auto digestA = ExtractDigest(finA.value());
+    const auto digestA = ExtractDigest(finA.value(), outA);
     const auto expectedSha256 = tests::utility::read_bin("score/tests/test_vectors/hash/sha256_hello_world.bin");
     ASSERT_EQ(expectedSha256.size(), kSha256Len);
     EXPECT_EQ(digestA, expectedSha256) << "Interleaved SHA-256 stream produced wrong digest";
 
-    const auto digestB = ExtractDigest(finB.value());
+    const auto digestB = ExtractDigest(finB.value(), outB);
     const auto expectedSha384 = tests::utility::read_bin("score/tests/test_vectors/hash/sha384_hello_world.bin");
     ASSERT_EQ(expectedSha384.size(), kSha384Len);
     EXPECT_EQ(digestB, expectedSha384) << "Interleaved SHA-384 stream produced wrong digest";

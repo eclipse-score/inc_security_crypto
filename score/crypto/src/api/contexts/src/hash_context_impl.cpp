@@ -47,13 +47,48 @@ namespace hash_ops = ::score::crypto::daemon::provider::handler::hash_handler_op
 
 HashContextImpl::HashContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                  uint64_t context_id,
-                                 AlgorithmId algorithm)
-    : m_connection(std::move(connection)), m_context_id(context_id), m_algorithm(algorithm)
+                                 AlgorithmId algorithm,
+                                 std::shared_ptr<IBufferTranscoder> transcoder)
+    : m_connection(std::move(connection)),
+      m_context_id(context_id),
+      m_algorithm(algorithm),
+      m_transcoder(std::move(transcoder))
 {
+}
+
+HashContextImpl::HashContextImpl(HashContextImpl&& other) noexcept
+    : m_connection(std::move(other.m_connection)),
+      m_context_id(std::exchange(other.m_context_id, 0)),
+      m_algorithm(other.m_algorithm),
+      m_transcoder(std::move(other.m_transcoder))
+{
+}
+
+HashContextImpl& HashContextImpl::operator=(HashContextImpl&& other) noexcept
+{
+    if (this != &other)
+    {
+        CloseContext();
+        m_connection = std::move(other.m_connection);
+        m_context_id = std::exchange(other.m_context_id, 0);
+        m_algorithm = other.m_algorithm;
+        m_transcoder = std::move(other.m_transcoder);
+    }
+    return *this;
 }
 
 HashContextImpl::~HashContextImpl()
 {
+    CloseContext();
+}
+
+void HashContextImpl::CloseContext() noexcept
+{
+    if (m_context_id == 0)
+    {
+        return;  // moved-from instance — nothing to close
+    }
+
     if (!m_connection)
     {
         score::mw::log::LogError() << "[API][HashContextImpl] ERROR: Connection is not initialized during destruction";
@@ -133,20 +168,30 @@ score::Result<std::monostate> HashContextImpl::Init(std::optional<score::cpp::sp
 
 score::Result<std::monostate> HashContextImpl::Update(score::cpp::span<const uint8_t> data)
 {
-    auto control_req_result = proto::ControlRequestBuilder()
-                                  .forDataNodeId(m_context_id)
-                                  .operation({actors::OP_ACTOR_HASH_HANDLER, hash_ops::HASH_UPDATE})
-                                  .with_in_data_buffer(data)
-                                  .build();
-    if (!control_req_result.has_value())
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_HASH_HANDLER, hash_ops::HASH_UPDATE});
+
+    auto tspan_result = m_transcoder->Acquire(data);
+    if (!tspan_result.has_value())
+    {
+        return score::Result<std::monostate>{score::unexpect,
+                                             MakeError(tspan_result.error(), "Failed to acquire input buffer")};
+    }
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendInputBuffer(builder, tspan);
+
+    auto control_request_result = builder.build();
+    if (!control_request_result.has_value())
     {
         score::mw::log::LogError() << "[API][HashContextImpl] ERROR: Failed to build HASH_UPDATE request";
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build HASH_UPDATE request")};
     }
 
-    // Send HASH_UPDATE request to daemon
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    proto::ControlRequest control_req{};
+    control_req.operation = control_request_result.value();
+    control_req.data_node_id = m_context_id;
+    auto control_response_res = m_connection->SendRequest(control_req);
 
     // Validate HASH_UPDATE response
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
@@ -164,21 +209,30 @@ score::Result<std::monostate> HashContextImpl::Update(score::cpp::span<const uin
 
 score::Result<std::size_t> HashContextImpl::Finalize(score::cpp::span<uint8_t> output)
 {
-    using proto::DataBufferReturn;
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_HASH_HANDLER, hash_ops::HASH_FINALIZE});
 
-    auto control_req_result = proto::ControlRequestBuilder()
-                                  .forDataNodeId(m_context_id)
-                                  .operation({actors::OP_ACTOR_HASH_HANDLER, hash_ops::HASH_FINALIZE})
-                                  .build();
-    if (!control_req_result.has_value())
+    auto tspan_result = m_transcoder->Acquire(output, /*is_output=*/true);
+    if (!tspan_result.has_value())
+    {
+        return score::Result<std::size_t>{score::unexpect,
+                                          MakeError(tspan_result.error(), "Failed to acquire output buffer")};
+    }
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendOutputBuffer(builder, tspan);
+
+    auto control_request_result = builder.build();
+    if (!control_request_result.has_value())
     {
         score::mw::log::LogError() << "[API][HashContextImpl] ERROR: Failed to build HASH_FINALIZE request";
         return score::Result<std::size_t>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build HASH_FINALIZE request")};
     }
 
-    // Send HASH_FINALIZE request to daemon
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    proto::ControlRequest control_req{};
+    control_req.operation = control_request_result.value();
+    control_req.data_node_id = m_context_id;
+    auto control_response_res = m_connection->SendRequest(control_req);
 
     // Validate HASH_FINALIZE response
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
@@ -191,52 +245,45 @@ score::Result<std::size_t> HashContextImpl::Finalize(score::cpp::span<uint8_t> o
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "HASH_FINALIZE daemon response invalid")};
     }
 
-    auto hash_result = validator.getParameterAt<proto::DataBufferReturn>(0, 0);
-    if (!hash_result.has_value())
-    {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR: HASH_FINALIZE response has invalid parameter type";
-        return score::Result<std::size_t>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kOperationFailed, "HASH_FINALIZE response has invalid parameter type")};
-    }
-
-    const auto& hash_data = hash_result.value();
-    auto bytes_to_copy = std::min(hash_data.size(), output.size());
-    std::memcpy(output.data(), hash_data.data(), bytes_to_copy);
-
-    // TODO: Consider if we should just abort here and not write anything to the output buffer
-    // We may also be able to get the required out size as soon as we have created the ctx
-    // at least a sub-set of operations / algorithms.
-    if (bytes_to_copy < hash_data.size())
-    {
-        score::mw::log::LogError()
-            << "[API][HashContextImpl] ERROR: Output buffer too small for full hash, truncated copy performed";
-        return score::Result<std::size_t>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kInsufficientBufferSize,
-                      "ERROR: Output buffer too small for full hash, truncated copy performed")};
-    }
-
-    return bytes_to_copy;
+    return m_transcoder->ExtractOutputBuffer(tspan, validator);
 }
 
 score::Result<std::size_t> HashContextImpl::SingleShot(score::cpp::span<const uint8_t> input,
                                                        score::cpp::span<uint8_t> output)
 {
-    auto control_req_result = proto::ControlRequestBuilder()
-                                  .forDataNodeId(m_context_id)
-                                  .operation({actors::OP_ACTOR_HASH_HANDLER, hash_ops::HASH_SS})
-                                  .with_in_data_buffer(input)
-                                  .build();
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_HASH_HANDLER, hash_ops::HASH_SS});
 
-    if (!control_req_result.has_value())
+    auto input_tspan_result = m_transcoder->Acquire(input);
+    if (!input_tspan_result.has_value())
+    {
+        return score::Result<std::size_t>{score::unexpect,
+                                          MakeError(input_tspan_result.error(), "Failed to acquire input buffer")};
+    }
+    TranscoderSpan input_tspan = std::move(input_tspan_result.value());
+    m_transcoder->AppendInputBuffer(builder, input_tspan);
+
+    auto output_tspan_result = m_transcoder->Acquire(output, /*is_output=*/true);
+    if (!output_tspan_result.has_value())
+    {
+        return score::Result<std::size_t>{score::unexpect,
+                                          MakeError(output_tspan_result.error(), "Failed to acquire output buffer")};
+    }
+    TranscoderSpan output_tspan = std::move(output_tspan_result.value());
+    m_transcoder->AppendOutputBuffer(builder, output_tspan);
+
+    auto control_request_result = builder.build();
+    if (!control_request_result.has_value())
     {
         score::mw::log::LogError() << "[API][HashContextImpl] ERROR: Failed to build HASH_SS request";
         return score::Result<std::size_t>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build HASH_SS request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    proto::ControlRequest control_req{};
+    control_req.operation = control_request_result.value();
+    control_req.data_node_id = m_context_id;
+    auto control_response_res = m_connection->SendRequest(control_req);
 
     // Validate HASH_SS response
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
@@ -249,33 +296,7 @@ score::Result<std::size_t> HashContextImpl::SingleShot(score::cpp::span<const ui
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "HASH_SS daemon response invalid")};
     }
 
-    auto hash_result = validator.getParameterAt<proto::DataBufferReturn>(0, 0);
-    if (!hash_result.has_value())
-    {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR: HASH_SS response has invalid parameter type";
-        return score::Result<std::size_t>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kOperationFailed, "HASH_SS response has invalid parameter type")};
-    }
-
-    const auto& hash_data = hash_result.value();
-    auto bytes_to_copy = std::min(hash_data.size(), output.size());
-    std::memcpy(output.data(), hash_data.data(), bytes_to_copy);
-
-    // TODO: Consider if we should just abort here and not write anything to the output buffer
-    // We may also be able to get the required out size as soon as we have created the ctx
-    // at least a sub-set of operations / algorithms.
-    if (bytes_to_copy < hash_data.size())
-    {
-        score::mw::log::LogError()
-            << "[API][HashContextImpl] ERROR: Output buffer too small for full hash, truncated copy performed";
-        return score::Result<std::size_t>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kInsufficientBufferSize,
-                      "ERROR: Output buffer too small for full hash, truncated copy performed")};
-    }
-
-    return bytes_to_copy;
+    return m_transcoder->ExtractOutputBuffer(output_tspan, validator);
 }
 
 score::Result<std::monostate> HashContextImpl::Reset()

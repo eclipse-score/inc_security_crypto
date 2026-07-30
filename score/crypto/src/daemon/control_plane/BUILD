@@ -57,6 +57,7 @@ cc_library(
         ":request_handler_hdr",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/data_plane",
         "//score/crypto/src/daemon/mediator",
         "//score/crypto/src/daemon/provider:provider_manager",
         "@score_baselibs//score/mw/log",

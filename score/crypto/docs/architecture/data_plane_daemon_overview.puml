@@ -1,0 +1,304 @@
+@startuml data_plane_daemon_class_diagram
+!theme plain
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam packageFontSize 14
+skinparam arrowFontSize 11
+skinparam shadowing false
+
+' Highlight data_plane boundary with bold cyan border
+skinparam package {
+    BorderColor #AAAAAA
+    FontColor #333333
+}
+
+skinparam package<<dataplane>> {
+    BorderColor #0099CC
+    BorderThickness 3
+    FontColor #0055AA
+    FontStyle bold
+}
+
+title Daemon-Side Data Plane — Class Diagram
+
+' Force top-down layout
+ top to bottom direction
+
+' ====================================================================
+' MODULE: control_plane  (score/crypto/daemon/control_plane/)
+' ====================================================================
+package "control_plane" as ControlPlane  #EEF4FF {
+    interface IRequestHandler <<Interface>> {
+        + processRequest(req : ControlRequest) : ControlResponse
+    }
+
+    class BasicHandlerChainFactory {
+        - m_data_manager : IDataManager::Sptr
+        - m_provider_manager : ProviderManager::Sptr
+        - m_shm_registry : IShmRegistry::Sptr
+        - m_config : Config&
+        - m_km_service : KeyManagementService::Sptr
+        --
+        + BasicHandlerChainFactory(data_manager, provider_manager, config, km_service)
+        + CreateRequestHandler() : unique_ptr<IRequestHandler>
+    }
+}
+
+' ====================================================================
+' MODULE: mediator  (score/crypto/daemon/mediator/)
+' ====================================================================
+package "mediator" as Mediator  #FFF0FF {
+    abstract class IMediator {
+        # m_data_manager : IDataManager::Sptr
+        # m_provider_manager : ProviderManager::Sptr
+        # m_km_service : KeyManagementService::Sptr
+        # m_shm_registry : IShmRegistry::Sptr
+        --
+        + processRequest(req) : ControlResponse
+    }
+
+    note bottom of IMediator
+      implementation of IMediator : on SHM_SETUP (HandleShmCreateObject):
+      1. provider = m_provider_manager->GetProvider()
+         (by ProviderId, CryptoProviderType, or DEFAULT)
+      2. factory = provider->GetShmFactory()
+      3. ShmDataNode::Create(m_shm_registry, factory,size, client_id)
+      4. m_data_manager->addChildNode(client_id, parent_id, node)
+      Pool creation (is_pool=1): uses pool_factory from
+      ShmClientConfig returned by m_shm_registry->GetConfig()
+    end note
+}
+
+' ====================================================================
+' MODULE: data_plane  (score/crypto/daemon/data_plane/)
+' ====================================================================
+package "data_plane" as DataPlane #F0FFF0 {
+    class ShmRequestHandler {
+        - m_next_handler : unique_ptr<IRequestHandler>
+        - m_data_manager : IDataManager::Sptr
+        --
+        + processRequest(req) : ControlResponse
+        - ForwardWithResolvedShm(req) : ControlResponse
+    }
+
+    note bottom of ShmRequestHandler
+      Resolves DataShm parameters:
+      node_id + offset -> virtual address
+      (base_addr + offset from ShmDataNode)
+      Then forwards to next handler
+    end note
+
+interface IShmRegistry <<Interface>> {
+    + GetConfig(uid : uint32_t) : Expected<ShmClientConfig>
+    + Register(uid : uint32_t, size : size_t) : Expected<void>
+    + Unregister(uid : uint32_t, size : size_t)
+}
+
+    class ShmRegistry {
+        - m_mutex : std::mutex
+        - m_usage_per_uid : map<uint32_t, size_t>
+        --
+        + ShmRegistry()
+    }
+
+
+    class ShmClientConfig {
+        + pool_size : size_t
+        + pool_slot_size : size_t
+        + total_quota : size_t
+        + current_usage : size_t
+        + pool_factory : IShmFactory::Sptr
+}
+
+    interface IShmFactory <<Interface>> {
+        + Create(name : std::string_view, uid, size) : Expected<ShmResource>
+    }
+
+    class BaseShmFactory {
+        + Create(name : std::string_view, uid, size) : Expected<ShmResource>
+    }
+
+    class ShmResource {
+        + handle : shared_ptr<ISharedMemoryResource>
+        + size : size_t
+        + transport_type : ShmTransportType
+    }
+
+    note bottom of ShmResource
+      handle reset -> ~ISharedMemoryResource
+                   -> munmap
+      (name and removal managed separately
+       by ShmDataNode lifecycle)
+    end note
+
+    interface IShmDataNode <<Interface>> {
+        + GetSize() : size_t
+        + GetName() : FixedCapacityString<64>
+        + GetTransportType() : ShmTransportType
+        + GetHandle() : ISharedMemoryResource*
+    }
+
+
+    class ShmDataNode <<dataplane>> #DFFFFF {
+        - m_handle : shared_ptr<ISharedMemoryResource>
+        - m_size : size_t
+        - m_transport_type : ShmTransportType
+        - m_registry : weak_ptr<IShmRegistry>
+        - m_client_id : ClientId
+        --
+        + {static} Create(registry, factory, size, client_id) : Expected<shared_ptr<ShmDataNode>>
+        + GetNodeType() : DataNodeType
+        + GetSize() : size_t
+        + GetName() : FixedCapacityString<64>
+        + GetTransportType() : ShmTransportType
+        + GetHandle() : ISharedMemoryResource*
+        + ~ShmDataNode()
+    }
+
+    note bottom of ShmDataNode
+      Constructor: calls DataNode(exclusiveAccess=false)
+      → shared access, not exclusive
+
+      Destructor order:
+      1. m_handle->UnlinkFilesystemEntry() -> shm_unlink
+      2. m_handle.reset() -> munmap
+      3. registry->Unregister(uid_from_client_id(m_client_id), m_size)
+    end note
+}
+
+' Force control_plane / mediator / data_plane into a tall vertical stack
+ControlPlane -[hidden]-> Mediator
+Mediator -[hidden]-> DataPlane
+
+' ====================================================================
+' MODULE: provider  (score/crypto/daemon/provider/)
+' ====================================================================
+package "provider"  #FFF5EE {
+    interface IProvider <<Interface>> {
+        + GetShmFactory() : shared_ptr<IShmFactory>
+    }
+
+    class ProviderManager {
+        - m_providers : unordered_map<ProviderName, ProviderEntry>
+        - m_provider_by_id : vector<shared_ptr<IProvider>>
+        - m_typeToProviderId : unordered_map<CryptoProviderType, ProviderId>
+        --
+        + GetProvider(id : ProviderId) : shared_ptr<IProvider>
+        + GetProvider(name : ProviderName) : shared_ptr<IProvider>
+        + GetProvider(type : CryptoProviderType) : shared_ptr<IProvider>
+    }
+
+    note bottom of ProviderManager
+      Mediator uses all 3 GetProvider()
+      overloads depending on client hint:
+      - ProviderId (from resolved resource)
+      - CryptoProviderType (from wire hint)
+      - DEFAULT fallback
+      Result is passed to GetShmFactory()
+      which supplies IShmFactory to
+      ShmDataNode::Create().
+    end note
+
+
+
+    note bottom of IProvider
+      Each provider supplies its own
+      IShmFactory, enabling provider-
+      specific transports (typed memory,
+      fd-passing, etc.).
+      Default: BaseShmFactory (POSIX SHM).
+    end note
+}
+
+' ====================================================================
+' MODULE: data_manager  (score/crypto/daemon/data_manager/)
+' ====================================================================
+package "data_manager"  #FFF0F0 {
+    interface IDataManager <<Interface>> {
+    }
+
+    class DataManager {
+    }
+
+    class "DataNodeAccessor<T>" as DataNodeAccessor <<RAII>> {
+    }
+
+    note bottom of DataNodeAccessor
+      Move-only (copy deleted).
+      Destructor calls releaseNodeAccessor()
+      releasing busy-mark on the node.
+      downCast() is consuming (&&) --
+      invalidates the original accessor.
+    end note
+}
+
+' ====================================================================
+' EXTERNAL: BASELIBS
+' ====================================================================
+package "Baselibs (external)"  #F0F0F0 {
+    class SharedMemoryFactory <<external>> {
+        {static} + Create(name, size, uid) : shared_ptr<ISharedMemoryResource>
+        {static} + Remove(name)
+    }
+
+    class ISharedMemoryResource <<external>> {
+        + getUsableBaseAddress() : void*
+        + GetFileDescriptor() : FileDescriptor
+        + ~ISharedMemoryResource()
+    }
+
+    note bottom of ISharedMemoryResource
+      Destructor:
+      Mman::instance().munmap()
+      -> ::munmap() syscall
+    end note
+}
+
+' ====================================================================
+' RELATIONSHIPS
+' ====================================================================
+
+' Handler chain
+IRequestHandler <|.. ShmRequestHandler
+IRequestHandler <|.. IMediator
+BasicHandlerChainFactory *--> ShmRegistry : owns\n(created once,\nshared across chains)
+BasicHandlerChainFactory ..> ShmRequestHandler : creates per chain
+ShmRequestHandler *--> IRequestHandler   : next handler
+ShmRequestHandler o--> IDataManager      : resolves nodes
+
+' Mediator SHM_SETUP collaboration
+IMediator ..> ProviderManager            : GetProvider()\n(by id/type/default)
+IMediator ..> IProvider                  : GetShmFactory()
+IMediator ..> ShmDataNode                : Create()
+IMediator ..> IDataManager               : addChildNode()
+
+' Provider layer
+ProviderManager *--> IProvider           : manages
+
+
+' Registry
+IShmRegistry <|.. ShmRegistry
+ShmRegistry ..> ShmClientConfig          : returns
+ShmClientConfig o-- IShmFactory          : pool_factory
+
+' Factory
+IShmFactory <|.. BaseShmFactory
+BaseShmFactory ..> SharedMemoryFactory   : Create()
+BaseShmFactory ..> ShmResource          : returns
+ShmResource *--> ISharedMemoryResource  : owns (handle)
+
+' DataManager
+IDataManager <|.. DataManager
+DataManager ..> DataNodeAccessor         : creates
+DataNodeAccessor *--> DataNode           : owns
+
+' DataNode hierarchy
+DataNode <|-- IShmDataNode
+IShmDataNode <|.. ShmDataNode
+DataNode --> DataNodeType                : GetNodeType()
+ShmDataNode *--> ISharedMemoryResource   : owns (m_handle)
+ShmDataNode o--> IShmRegistry             : quota Register/Unregister\n(weak_ptr)
+ShmDataNode ..> IShmFactory              : creates handle via factory
+
+@enduml

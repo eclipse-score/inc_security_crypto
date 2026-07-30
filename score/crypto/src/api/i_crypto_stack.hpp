@@ -53,7 +53,7 @@ class ICryptoStack
     /// @brief Returns the data-plane memory allocator.
     /// @return Result containing ownership of the memory allocator.
     ///         On success, extract via `.value()`. On error, check `.error()`.
-    /// @note Allocated memory regions remain valid until explicitly destroyed
+    /// @note Allocated shared memory remain valid until explicitly destroyed
     ///       or the allocator is destroyed.
     virtual score::Result<IMemoryAllocator::Uptr> GetMemoryAllocator() = 0;
 

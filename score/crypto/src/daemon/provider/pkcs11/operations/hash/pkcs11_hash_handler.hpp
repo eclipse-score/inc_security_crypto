@@ -98,7 +98,6 @@ class Pkcs11HashHandler final : public handler::Handler
     Pkcs11Provider* m_provider;        ///< Non-owning; used for ReleaseSession on destruction
     common::AlgorithmId m_algorithm;
     common::StreamOperationState m_state;
-    std::vector<std::uint8_t> m_outputBuffer;
 };
 
 }  // namespace score::crypto::daemon::provider::pkcs11

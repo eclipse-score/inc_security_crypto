@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
@@ -29,6 +30,7 @@
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/daemon/data_plane/src/shm_data_node.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/mediator/i_mediator.hpp"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
@@ -73,11 +75,7 @@ static common::CryptoProviderType FromWireProviderType(std::uint8_t wire_value) 
     }
 }
 
-MediatorImpl::MediatorImpl(data_manager::IDataManager::Sptr data_manager,
-                           provider::ProviderManager::Sptr provider_manager,
-                           const config::Config& config,
-                           key_management::KeyManagementService::Sptr km_service)
-    : IMediator(std::move(data_manager), std::move(provider_manager), config, std::move(km_service))
+MediatorImpl::MediatorImpl(MediatorDependencies deps) : IMediator(std::move(deps))
 {
     if (m_km_service)
     {
@@ -85,11 +83,11 @@ MediatorImpl::MediatorImpl(data_manager::IDataManager::Sptr data_manager,
     }
 }
 
-control_plane::ControlResponse MediatorImpl::processRequest(const control_plane::ControlRequest& request)
+control_plane::ControlResponse MediatorImpl::processRequest(control_plane::ControlRequest& request)
 {
-    score::mw::log::LogDebug() << "[SCORE_API_MED] Processing request - "
-                               << "RequestId:" << request.request_id << ", Client Id:" << request.client_id
-                               << ", DataNodeId:" << request.data_node_id;
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] Processing request - "
+                                 << "RequestId: " << request.request_id << ", Client Id: " << request.client_id
+                                 << ", DataNodeId: " << request.data_node_id;
     auto responseBuilder = control_plane::protocol::OperationResponseBuilder();
 
     for (size_t idx = 0; idx < request.operation.operations.size(); ++idx)
@@ -111,7 +109,7 @@ control_plane::ControlResponse MediatorImpl::processRequest(const control_plane:
     response.request_id = request.request_id;
     response.operation = opResponse;
 
-    score::mw::log::LogDebug() << "[SCORE_API_MED] Response operations:" << opResponse.operations.size();
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] Response operations: " << opResponse.operations.size();
 
     return response;
 }
@@ -162,7 +160,7 @@ bool MediatorImpl::HandleMediatorOperation(const control_plane::ControlRequest& 
     }
     else if (operationIdentifier.operationAction == operations::CTX_CLOSE)
     {
-        auto success = HandleContextCloseOperation(request, operation, responseBuilder);
+        auto success = DeleteNodeAndRespond(request, operation, request.data_node_id, responseBuilder);
         if (!success)
         {
             score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle context close operation";
@@ -177,6 +175,33 @@ bool MediatorImpl::HandleMediatorOperation(const control_plane::ControlRequest& 
         if (!success)
         {
             score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle resource resolution operation";
+        }
+        return success;
+    }
+    else if (operationIdentifier.operationAction == operations::SHM_SETUP)
+    {
+        auto success = HandleShmCreateObject(request, operation, responseBuilder);
+        if (!success)
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle SHM create operation";
+        }
+        return success;
+    }
+    else if (operationIdentifier.operationAction == operations::SHM_DESTROY_OBJECT)
+    {
+        const auto node_id = operation.getParameter<std::uint64_t>(0);
+        if (!node_id.has_value())
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - SHM destroy request has no node id";
+            responseBuilder.operation(operation.operationId)
+                .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            return false;
+        }
+
+        auto success = DeleteNodeAndRespond(request, operation, node_id.value(), responseBuilder);
+        if (!success)
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle SHM destroy operation";
         }
         return success;
     }
@@ -225,7 +250,7 @@ bool MediatorImpl::ForwardSingleOperation(const control_plane::ControlRequest& r
         return false;
     }
 
-    score::mw::log::LogDebug() << "[SCORE_API_MED] Context found in data manager for context_id:" << context_id;
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] Context found in data manager for context_id: " << context_id;
 
     // TODO: Once requests are non-const, we can drop the copy here.
     auto mutable_params = operation.parameters;
@@ -242,7 +267,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
                                                   const control_plane::SingleOperationRequest& operation,
                                                   control_plane::protocol::OperationResponseBuilder& responseBuilder)
 {
-    score::mw::log::LogDebug() << "[SCORE_API_MED] Creating context node";
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] Creating context node";
 
     if (operation.parameters.size() < 2)
     {
@@ -277,9 +302,9 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         if (provider_type_res.has_value())
         {
             requested_provider_type = FromWireProviderType(provider_type_res.value());
-            score::mw::log::LogDebug() << "[SCORE_API_MED] Requested ProviderType: wire="
-                                       << static_cast<int>(provider_type_res.value())
-                                       << " resolved_daemon_type=" << static_cast<int>(requested_provider_type);
+            score::mw::log::LogVerbose() << "[SCORE_API_MED] Requested ProviderType: wire="
+                                         << static_cast<int>(provider_type_res.value())
+                                         << " resolved_daemon_type=" << static_cast<int>(requested_provider_type);
         }
     }
 
@@ -310,9 +335,9 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
                 .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
             return false;
         }
-        score::mw::log::LogDebug() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
-                                   << "] resolved provider via key affinity (key_node_id=" << key_node_id
-                                   << "): provider_id=" << resolved_id_res.value();
+        score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
+                                     << "] resolved provider via key affinity (key_node_id=" << key_node_id
+                                     << "): provider_id=" << resolved_id_res.value();
         provider = m_provider_manager->GetProvider(resolved_id_res.value());
     }
     else
@@ -321,15 +346,15 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     }
     if (!provider)
     {
-        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No providers available for type: "
-                                   << static_cast<int>(requested_provider_type);
+        score::mw::log::LogVerbose() << "[SCORE_API_MED] ERROR - No providers available for type: "
+                                     << static_cast<int>(requested_provider_type) << "";
         responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
         return false;
     }
-    score::mw::log::LogDebug() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
-                               << "] selected provider: name='" << provider->GetProviderName()
-                               << "' id=" << provider->GetProviderId()
-                               << (has_key_binding ? " (key-affinity resolved)" : " (type-based selection)");
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
+                                 << "] selected provider: name='" << provider->GetProviderName()
+                                 << "' id=" << provider->GetProviderId()
+                                 << (has_key_binding ? " (key-affinity resolved)" : " (type-based selection)") << "";
 
     auto crypto_ops = provider->GetCryptoHandlerFactory();
     if (crypto_ops == nullptr)
@@ -350,7 +375,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     }
 
     auto handler = create_result.value();
-    score::mw::log::LogDebug() << "[SCORE_API_MED] Created handler pointer:" << handler.get();
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] Created handler pointer: " << handler.get() << "";
 
     // --- Create the context node FIRST so we have its node-id for InitializationParams ---
     auto client_id = request.client_id;
@@ -416,7 +441,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         return false;
     }
 
-    score::mw::log::LogDebug() << "[SCORE_API_MED] Context node created for context_id:" << context_node_id;
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] Context node created for context_id: " << context_node_id << "";
 
     // Return context_id in response (no return_result for CTX_* operations)
     responseBuilder.operation(operation.operationId).return_success().return_value_uint64(context_node_id);
@@ -431,7 +456,8 @@ bool MediatorImpl::ExecuteOperation(const OperationExecutionContext& exec_ctx,
                                     control_plane::protocol::OperationResponseBuilder& responseBuilder)
 {
     // Execute operation
-    score::mw::log::LogDebug() << "[SCORE_API_MED] Calling handler->Execute:" << common::OpId{exec_ctx.operationId};
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] Calling handler->Execute: " << common::OpId{exec_ctx.operationId}
+                                 << "";
     auto execute_result = handler->Execute(exec_ctx.operationId, exec_ctx.parameters);
 
     if (!execute_result.has_value())
@@ -443,43 +469,176 @@ bool MediatorImpl::ExecuteOperation(const OperationExecutionContext& exec_ctx,
     }
 
     // Build response
-    score::mw::log::LogDebug() << "[SCORE_API_MED]" << common::OpId{exec_ctx.operationId} << " completed successfully";
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] " << common::OpId{exec_ctx.operationId}
+                                 << " completed successfully";
     // Add all output parameters to response
     responseBuilder.return_crypto_operation_response(
         exec_ctx.operationId, control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(execute_result.value()));
     return true;
 }
 
-// ============================================================================
-// Private Helper: Get Handler Configuration by Handler Type and Algorithm
-// ============================================================================
-bool MediatorImpl::HandleContextCloseOperation(
-    const score::crypto::daemon::control_plane::ControlRequest& request,
+bool MediatorImpl::DeleteNodeAndRespond(
+    const control_plane::ControlRequest& request,
     const control_plane::SingleOperationRequest& operation,
+    control_plane::protocol::DataNodeId node_id,
     score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder)
 {
-    auto client_id = request.client_id;
-    auto context_id = request.data_node_id;
-
-    score::mw::log::LogDebug() << "[SCORE_API_MED] Closing context_id:" << context_id;
-
-    // Remove context node from data manager
-    const bool removed = m_data_manager->deleteNode(client_id, context_id).has_value();
-
+    // Node deletion is idempotent: a missing node means the desired end-state (node absent)
+    // already holds, so it is reported as success rather than an error. This mirrors
+    // ConnectionHandler's connection-close handling.
+    const bool removed = m_data_manager->deleteNode(request.client_id, node_id).has_value();
     if (removed)
     {
-        score::mw::log::LogDebug() << "[SCORE_API_MED] Context_id:" << context_id << " removed from data manager";
-        responseBuilder.operation(operation.operationId).return_success();
-        return true;
+        score::mw::log::LogVerbose() << "[SCORE_API_MED] node_id: " << node_id << " removed from data manager";
     }
     else
     {
-        // Context not found - this is not necessarily an error
-        score::mw::log::LogDebug() << "[SCORE_API_MED] WARNING - Context_id:" << context_id
-                                   << " not found in data manager";
-        responseBuilder.operation(operation.operationId).return_success();
-        return true;
+        score::mw::log::LogVerbose() << "[SCORE_API_MED] WARNING - node_id: " << node_id
+                                     << " not found in data manager";
     }
+
+    responseBuilder.operation(operation.operationId).return_success();
+    return true;
+}
+
+// ============================================================================
+// SHM Lifecycle Operation Handling
+// ============================================================================
+
+bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& request,
+                                         const control_plane::SingleOperationRequest& operation,
+                                         control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] [SHM_SETUP_BEGIN] client=" << request.client_id
+                                 << " parent_id=" << request.data_node_id << "";
+
+    if (!m_shm_registry)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] SHM registry not available";
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+        return false;
+    }
+
+    // param[3]: is_pool (0=bulk, 1=pool).
+    const auto is_pool_param = operation.getParameter<std::uint64_t>(3);
+    const bool is_pool = is_pool_param.has_value() && (is_pool_param.value() != 0U);
+    const std::uint32_t uid = control_plane::protocol::GetUidFromClientId(request.client_id);
+
+    std::size_t size{};
+    std::shared_ptr<data_plane::IShmFactory> factory_override{};
+    data_plane::IShmRegistry::ShmClientConfig pool_config{};
+
+    if (!is_pool)
+    {
+        auto size_res = operation.getParameter<std::uint64_t>(0);
+        if (!size_res.has_value())
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] missing size parameter";
+            responseBuilder.operation(operation.operationId)
+                .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            return false;
+        }
+        size = static_cast<std::size_t>(size_res.value());
+
+        // Decode provider hints encoded by ShmMemoryAllocator::AllocateInternal().
+        // param(1): wire ProviderType (SHM_WIRE_PROVIDER_TYPE_ABSENT = absent/DEFAULT)
+        // param(2): primary_provider numeric ID (SHM_WIRE_PROVIDER_ID_UNBOUND = absent/unbound)
+        const auto type_hint = operation.getParameter<std::uint64_t>(1);
+        const auto id_hint = operation.getParameter<std::uint64_t>(2);
+
+        std::shared_ptr<provider::IProvider> provider{};
+        if (id_hint.has_value() && id_hint.value() != operations::SHM_WIRE_PROVIDER_ID_UNBOUND)
+        {
+            provider = m_provider_manager->GetProvider(static_cast<common::ProviderId>(id_hint.value()));
+        }
+        else if (type_hint.has_value() && type_hint.value() != operations::SHM_WIRE_PROVIDER_TYPE_ABSENT)
+        {
+            provider =
+                m_provider_manager->GetProvider(FromWireProviderType(static_cast<std::uint8_t>(type_hint.value())));
+        }
+        else
+        {
+            provider = m_provider_manager->GetProvider(common::CryptoProviderType::DEFAULT);
+        }
+
+        if (provider)
+        {
+            factory_override = provider->GetShmFactory();
+        }
+    }
+    else
+    {
+        // Pool path — use deployment config size and per-app pool factory.
+        auto config_res = m_shm_registry->GetConfig(uid);
+        if (!config_res.has_value())
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] GetConfig failed";
+            responseBuilder.operation(operation.operationId).return_error(config_res.error());
+            return false;
+        }
+        pool_config = config_res.value();
+        size = pool_config.pool_size;
+        factory_override = pool_config.pool_factory;
+    }
+
+    if (!factory_override)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] No SHM factory available for client_id="
+                                   << request.client_id;
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        return false;
+    }
+
+    // Create SHM data node (handles Register + Create + rollback)
+    auto node_res = data_plane::ShmDataNode::Create(m_shm_registry, factory_override, size, request.client_id);
+
+    if (!node_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] ShmDataNode::Create error:"
+                                   << static_cast<int>(node_res.error());
+        responseBuilder.operation(operation.operationId).return_error(node_res.error());
+        return false;
+    }
+
+    auto node = std::move(node_res).value();
+
+    // Add to data manager
+    auto node_id_res = m_data_manager->addChildNode(request.client_id, request.data_node_id, node);
+    if (!node_id_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] addChildNode failed:"
+                                   << static_cast<int>(node_id_res.error());
+        responseBuilder.operation(operation.operationId).return_error(node_id_res.error());
+        return false;
+    }
+
+    const auto node_id = node_id_res.value();
+
+    // Build IPC response using IShmDataNode interface
+    const auto shm_name = node->GetName();
+    const auto actual_size = node->GetSize();
+    const auto transport_type = node->GetTransportType();
+
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] [SHM_SETUP_SUCCESS] node_id=" << node_id << " name='"
+                                 << shm_name.data() << "' size=" << actual_size << " is_pool=" << is_pool << "";
+
+    const std::string_view name_sv = shm_name;
+    std::vector<std::uint8_t> name_bytes(name_sv.begin(), name_sv.end());
+
+    auto& resp = responseBuilder.operation(operation.operationId)
+                     .return_value_uint64(static_cast<std::uint64_t>(node_id))
+                     .return_value_uint64(static_cast<std::uint64_t>(actual_size))
+                     .return_value_data_buffer_out(std::move(name_bytes))
+                     .return_value_uint64(static_cast<std::uint64_t>(transport_type));
+    if (is_pool)
+    {
+        resp.return_value_uint64(static_cast<std::uint64_t>(pool_config.pool_slot_size))
+            .return_value_uint64(static_cast<std::uint64_t>(pool_config.total_quota));
+    }
+
+    resp.return_success();
+    return true;
 }
 
 // ============================================================================

@@ -32,7 +32,7 @@ using common::RequestParameters;
 using common::ResponseParameters;
 using common::StreamOperationState;
 using ::score::crypto::daemon::common::DaemonErrorCode;
-namespace handler_utils = ::score::crypto::daemon::provider::handler::handler_utils;
+using ::score::crypto::daemon::provider::handler::handler_utils::CheckAndGetSpan;
 
 // ---------------------------------------------------------------------------
 // Supported algorithms
@@ -172,7 +172,7 @@ OpenSslHmacHandler::InitializeContext(
                                        << ", expected=" << init_params.provider_id << ")";
             return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) � type tag verified above
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) — type tag verified above
         const auto* openssl_key = static_cast<const ::score::crypto::daemon::provider::openssl::OpenSslKeyHandler*>(
             init_params.bound_key_handler);
 
@@ -184,14 +184,13 @@ OpenSslHmacHandler::InitializeContext(
             return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
 
-        // Key is valid � store params so InitMac() and Reset() can use them.
+        // Key is valid — store params so InitMac() and Reset() can use them.
         m_init_params = init_params;
         m_state = StreamOperationState::STREAM_INITIALIZED;
     }
 
     return std::monostate{};
 }
-
 
 ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> OpenSslHmacHandler::InitMac(
     const std::optional<common::RequestParameter> /*initialDataOrIV*/)
@@ -208,7 +207,7 @@ OpenSslHmacHandler::InitializeContext(
     if (!GetBoundKeyMaterial(key_bytes, key_len))
     {
         score::mw::log::LogError() << LOG_PREFIX
-                                   << "InitMac: no valid key material \u2014 call InitializeContext with a key first";
+                                   << "InitMac: no valid key material — call InitializeContext with a key first";
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kStreamNotInitialized);
     }
@@ -222,7 +221,7 @@ OpenSslHmacHandler::InitializeContext(
     }
 
     // EVP_MAC_init with key + OSSL_PARAM for digest algorithm
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast) ? OpenSSL OSSL_PARAM API requires non-const char*
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast) — OpenSSL OSSL_PARAM API requires non-const char*
     OSSL_PARAM params[] = {
         OSSL_PARAM_construct_utf8_string("digest", const_cast<char*>(digest_name), 0),
         OSSL_PARAM_construct_end(),
@@ -245,7 +244,7 @@ bool OpenSslHmacHandler::GetBoundKeyMaterial(const uint8_t*& key_bytes, std::siz
     {
         return false;
     }
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) � type tag verified in InitializeContext
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) — type tag verified in InitializeContext
     const auto* openssl_key = static_cast<const ::score::crypto::daemon::provider::openssl::OpenSslKeyHandler*>(
         m_init_params.bound_key_handler);
     key_bytes = openssl_key->GetRawKeyBytes(key_len);
@@ -270,15 +269,13 @@ OpenSslHmacHandler::UpdateMac(const common::RequestParameter& dataToMac)
             ::score::crypto::daemon::common::DaemonErrorCode::kStreamNotInitialized);
     }
 
-    const uint8_t* data{nullptr};
-    std::size_t data_len{0U};
-    auto extract = handler_utils::ExtractBufferData(dataToMac, data, data_len);
-    if (!extract.has_value())
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(dataToMac);
+    if (!inputSpan.has_value())
     {
-        return ::score::crypto::make_unexpected(extract.error());
+        return ::score::crypto::make_unexpected(inputSpan.error());
     }
 
-    const int rv = EVP_MAC_update(m_ctx, data, data_len);
+    const int rv = EVP_MAC_update(m_ctx, inputSpan.value().data(), inputSpan.value().size());
     if (rv != 1)
     {
         score::mw::log::LogError() << LOG_PREFIX << "EVP_MAC_update failed";
@@ -302,49 +299,33 @@ OpenSslHmacHandler::FinalizeMac(std::optional<common::RequestParameter> macOutpu
         }
     }
 
-    const std::size_t mac_size = GetMacSize();
-    const bool allocateOutputBuffer = !macOutput.has_value();
-
-    // Resolve output buffer: caller-provided or internal.
-    uint8_t* outputBuf = nullptr;
-    std::size_t outputBufSize = 0U;
-    if (!allocateOutputBuffer)
+    // Caller must always provide a SHM output buffer; internal allocation is not supported.
+    if (!macOutput.has_value())
     {
-        common::RequestParameter& outputRef = macOutput.value();
-        const auto result = handler_utils::ExtractOutputBufferData(outputRef, outputBuf, outputBufSize);
-        if (!result.has_value())
-        {
-            return ::score::crypto::make_unexpected(result.error());
-        }
-        if (outputBufSize < mac_size)
-        {
-            return ::score::crypto::make_unexpected(
-                ::score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
-        }
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
-    else
+
+    const std::size_t mac_size = GetMacSize();
+    const auto outputSpan = CheckAndGetSpan<uint8_t>(macOutput.value());
+    if (!outputSpan.has_value())
     {
-        AllocateOutputBuffer(mac_size);
-        outputBuf = m_output_buffer.data();
-        outputBufSize = m_output_buffer.size();
+        return ::score::crypto::make_unexpected(outputSpan.error());
+    }
+    if (outputSpan.value().size() < mac_size)
+    {
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
     }
 
     std::size_t hmac_len{0U};
-    const auto raw_res = FinalizeMacInternal(outputBuf, outputBufSize, hmac_len);
+    const auto raw_res = FinalizeMacInternal(outputSpan.value().data(), outputSpan.value().size(), hmac_len);
     if (!raw_res.has_value())
     {
         return ::score::crypto::make_unexpected(raw_res.error());
     }
 
     common::ResponseParameters response;
-    if (allocateOutputBuffer)
-    {
-        response.push_back(common::OwnedBuffer{std::move(m_output_buffer)});
-    }
-    else
-    {
-        response.push_back(common::VirtualMemoryBufferConst{outputBuf, hmac_len});
-    }
+    response.push_back(static_cast<uint64_t>(hmac_len));
     return response;
 }
 
@@ -381,15 +362,14 @@ OpenSslHmacHandler::FinalizeMacInternal(uint8_t* output_buf, std::size_t buf_len
 ::score::crypto::Expected<bool, ::score::crypto::daemon::common::DaemonErrorCode> OpenSslHmacHandler::VerifyMac(
     const common::RequestParameter& expectedTag)
 {
-    const uint8_t* tag{nullptr};
-    std::size_t tag_len{0U};
-    auto extract = handler_utils::ExtractBufferData(expectedTag, tag, tag_len);
-    if (!extract.has_value())
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(expectedTag);
+    if (!inputSpan.has_value())
     {
-        return ::score::crypto::make_unexpected(extract.error());
+        return ::score::crypto::make_unexpected(inputSpan.error());
     }
 
-    if (tag_len != GetMacSize())
+    const auto tagSpan = inputSpan.value();
+    if (tagSpan.size() != GetMacSize())
     {
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
@@ -405,7 +385,7 @@ OpenSslHmacHandler::FinalizeMacInternal(uint8_t* output_buf, std::size_t buf_len
     }
 
     // Constant-time comparison.
-    const int match = CRYPTO_memcmp(m_output_buffer.data(), tag, out_len);
+    const int match = CRYPTO_memcmp(m_output_buffer.data(), tagSpan.data(), out_len);
     OPENSSL_cleanse(m_output_buffer.data(), m_output_buffer.size());
     return match == 0;
 }

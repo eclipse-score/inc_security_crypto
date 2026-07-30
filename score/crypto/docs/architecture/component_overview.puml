@@ -90,6 +90,16 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
         mediator::MediatorImpl o-- data_manager::IDataManager
     }
 
+    ' --- Data Plane ---
+    package "data_plane/" <<Rectangle>> #FFE8CC [[data_plane_architecture.html]] {
+        class data_plane::ShmRegistry {
+        }
+        class data_plane::BaseShmFactory {
+        }
+        note "Client: ShmMemoryAllocator,\nPoolAllocator,\nBufferShmTranscoder\n\n**Click for class diagrams**" as dp_note
+    }
+    mediator::MediatorImpl o-- data_plane::ShmRegistry : IShmRegistry
+
     ' --- Key Management ---
     package "key_management/" <<Rectangle>> #F0FFF0 {
         class key_management::KeyManagementModule {

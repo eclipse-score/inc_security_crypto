@@ -48,8 +48,9 @@ namespace score
 namespace crypto
 {
 
-CryptoContextImpl::CryptoContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection)
-    : m_connection(std::move(connection))
+CryptoContextImpl::CryptoContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
+                                     std::shared_ptr<IBufferTranscoder> transcoder)
+    : m_connection(std::move(connection)), m_transcoder(std::move(transcoder))
 {
 }
 
@@ -113,7 +114,7 @@ score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContex
     }
 
     const uint64_t context_id = ctx_id_result.value();
-    auto hash_ctx = std::make_unique<HashContextImpl>(m_connection, context_id, config.algorithm);
+    auto hash_ctx = std::make_unique<HashContextImpl>(m_connection, context_id, config.algorithm, m_transcoder);
 
     return hash_ctx;
 }
@@ -279,7 +280,7 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
     }
 
     const uint64_t context_id = ctx_id_result.value();
-    auto mac_ctx = std::make_unique<MacContextImpl>(m_connection, context_id, config.algorithm);
+    auto mac_ctx = std::make_unique<MacContextImpl>(m_connection, context_id, config.algorithm, m_transcoder);
 
     return mac_ctx;
 }

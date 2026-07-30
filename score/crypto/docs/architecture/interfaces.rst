@@ -95,10 +95,11 @@ The public API surface is organized into the following interface groups:
    :status: invalid
    :language: cpp
 
-   Zero-copy shared-memory allocator. Allocates provider-compatible
-   memory regions with optional type and provider hints. Provides
-   ``Allocate()`` for default and provider-compatible shared memory,
-   with per-application quota tracking via ``GetQuota()`` and
+   Zero-copy shared-memory allocator. Provides two allocation overloads:
+   ``Allocate(size, provider_type = nullopt)`` for default or provider-category
+   hints, and ``Allocate(size, provider)`` for zero-copy allocation bound to a
+   specific resolved provider instance (``CryptoResourceId`` of type
+   ``kProvider``). Per-application quota is tracked via ``GetQuota()`` and
    ``GetCurrentUsage()``.
 
 .. real_arc_int:: Streaming Context Hierarchy

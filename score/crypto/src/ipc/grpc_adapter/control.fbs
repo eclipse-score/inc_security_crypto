@@ -22,6 +22,25 @@ namespace score.crypto.ipc.control;
 
 // Basic Operation Structures
 
+enum ShmDirection : uint8 {
+  In = 0,
+  InOut = 1,
+}
+
+
+// Shared-memory parameter type
+// node_id:   daemon-assigned DataNodeId — backend-agnostic region handle
+// offset:    byte offset within the region (0 = start)
+// size:      number of bytes to read/write
+// direction: specifies whether this is In or InOut (read-only or read-write)
+
+table DataShm {
+  node_id: uint64;
+  offset: uint64;
+  size: uint64;
+  direction: ShmDirection;
+}
+
 union OperationParameter {
   NoParam,
 
@@ -35,6 +54,8 @@ union OperationParameter {
   DataBufferDataPlane,
 
   String,
+
+  DataShm,
 }
 
 table SingleOperationRequest {

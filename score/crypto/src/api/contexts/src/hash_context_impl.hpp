@@ -17,6 +17,7 @@
 #include "score/crypto/src/api/contexts/i_hash_context.hpp"
 
 #include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 
@@ -42,11 +43,20 @@ class HashContextImpl final : public IHashContext
     /// @param connection Shared connection for IPC communication (contains DataNodeId)
     /// @param context_id Daemon-assigned context identifier (from CTX_CREATE response)
     /// @param algorithm Algorithm name (e.g., "SHA-256") for digest size queries
+    /// @param transcoder Stack-shared buffer-routing abstraction (pool/bulk/in-band).
+    ///                   Shared with all other contexts in the same CryptoStack.
+    ///                   When non-null, handles transparent copying via pool SHM.
     HashContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                     uint64_t context_id,
-                    AlgorithmId algorithm);
+                    AlgorithmId algorithm,
+                    std::shared_ptr<IBufferTranscoder> transcoder = nullptr);
 
     ~HashContextImpl() override;
+
+    HashContextImpl(const HashContextImpl&) = delete;
+    HashContextImpl& operator=(const HashContextImpl&) = delete;
+    HashContextImpl(HashContextImpl&&) noexcept;
+    HashContextImpl& operator=(HashContextImpl&&) noexcept;
 
     // -- IStreamingContext --
     score::Result<std::monostate> Init(std::optional<score::cpp::span<const uint8_t>> iv) override;
@@ -63,9 +73,12 @@ class HashContextImpl final : public IHashContext
     std::size_t GetDigestSize() const noexcept override;
 
   private:
+    void CloseContext() noexcept;
+
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     score::crypto::daemon::control_plane::protocol::DataNodeId m_context_id;
     AlgorithmId m_algorithm;
+    std::shared_ptr<IBufferTranscoder> m_transcoder;  ///< Stack-shared transcoder; null allowed.
 };
 
 }  // namespace crypto

@@ -28,7 +28,7 @@ OpenSslKeyHandler::OpenSslKeyHandler(std::vector<std::uint8_t> key_bytes,
 
 OpenSslKeyHandler::~OpenSslKeyHandler()
 {
-    score::mw::log::LogDebug() << "[OPENSSL_KEY_HANDLER] Release Key";
+    score::mw::log::LogVerbose() << "[OPENSSL_KEY_HANDLER] Release Key";
     static_cast<void>(Release());
 }
 

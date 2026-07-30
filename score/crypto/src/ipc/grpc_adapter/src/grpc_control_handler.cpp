@@ -34,6 +34,14 @@
 #include <variant>
 #include <vector>
 
+// Compile-time check: FlatBuffer ShmDirection must match daemon::common::ShmDirection
+static_assert(static_cast<std::uint8_t>(score::crypto::ipc::control::ShmDirection_In) ==
+                  static_cast<std::uint8_t>(score::crypto::daemon::common::ShmDirection::In),
+              "ShmDirection::In values must match between FlatBuffer and daemon types");
+static_assert(static_cast<std::uint8_t>(score::crypto::ipc::control::ShmDirection_InOut) ==
+                  static_cast<std::uint8_t>(score::crypto::daemon::common::ShmDirection::InOut),
+              "ShmDirection::InOut values must match between FlatBuffer and daemon types");
+
 namespace score::crypto::ipc
 {
 
@@ -252,12 +260,12 @@ GrpcControlServiceAdapter::BuildResponseParameters(const daemon::common::Respons
             fb_params.emplace_back(fb_buffer.o);
         }
         // Convert non-owning buffers to owning ones for the transfer via the IPC
-        else if (std::holds_alternative<score::crypto::daemon::common::VirtualMemoryBufferConst>(bl_param))
+        else if (std::holds_alternative<score::cpp::span<const uint8_t>>(bl_param))
         {
-            const auto& buffer = std::get<score::crypto::daemon::common::VirtualMemoryBufferConst>(bl_param);
+            const auto& buffer = std::get<score::cpp::span<const uint8_t>>(bl_param);
             fb_param_types.emplace_back(score::crypto::ipc::control::OperationParameter_DataBufferInBand);
             // Create FlatBuffer vector directly from buffer data without intermediate copy
-            auto fb_data = builder.CreateVector(buffer.data, buffer.size);
+            auto fb_data = builder.CreateVector(buffer.data(), buffer.size());
             auto fb_buffer = score::crypto::ipc::control::CreateDataBufferInBand(builder, fb_data);
             fb_params.emplace_back(fb_buffer.o);
         }
@@ -371,7 +379,22 @@ daemon::common::RequestParameters GrpcControlServiceAdapter::ExtractRequestParam
                 {
                     // Zero-copy: borrow from FlatBuffer memory (alive for RPC duration)
                     const auto* fb_data = fb_buffer->val();
-                    parameters.emplace_back(daemon::common::VirtualMemoryBufferConst{fb_data->data(), fb_data->size()});
+                    parameters.emplace_back(score::cpp::span<const uint8_t>{fb_data->data(), fb_data->size()});
+                }
+                break;
+            }
+            case score::crypto::ipc::control::OperationParameter_DataShm:
+            {
+                const auto* fb_shm =
+                    static_cast<const score::crypto::ipc::control::DataShm*>(static_cast<const void*>(fb_param));
+                if (fb_shm)
+                {
+                    daemon::common::DataShm shm{};
+                    shm.node_id = fb_shm->node_id();
+                    shm.offset = static_cast<std::size_t>(fb_shm->offset());
+                    shm.size = static_cast<std::size_t>(fb_shm->size());
+                    shm.direction = static_cast<daemon::common::ShmDirection>(fb_shm->direction());
+                    parameters.emplace_back(std::move(shm));
                 }
                 break;
             }

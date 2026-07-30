@@ -29,11 +29,21 @@ Lib --> App : Result<IMemoryAllocator::Uptr>
 deactivate Lib
 
 App -> Lib : IMemoryAllocator::Allocate(size)
+note right : provider_type = nullopt (default shared memory implementation)
 activate Lib
 Lib -> Daemon : allocate shared memory
-Daemon --> Lib : IReadWriteMemoryRegion
-Lib --> App : Result<IReadWriteMemoryRegion::Uptr>
+Daemon --> Lib : IReadWriteMemory
+Lib --> App : Result<IReadWriteMemory::Uptr>
 deactivate Lib
+
+alt provider-compatible (zero-copy)
+App -> Lib : IMemoryAllocator::Allocate(size, providerResourceId)
+activate Lib
+Lib -> Daemon : allocate provider-compatible SHM
+Daemon --> Lib : IReadWriteMemory
+Lib --> App : Result<IReadWriteMemory::Uptr>
+deactivate Lib
+end
 
 App -> App : write data to region
 

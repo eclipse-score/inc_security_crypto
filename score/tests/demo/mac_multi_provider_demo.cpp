@@ -222,22 +222,25 @@ TEST_F(MacDemoTest, Demo2_EphemeralKeyMac)
     const auto* msg = reinterpret_cast<const uint8_t*>(kTestMessage);
     const std::size_t msg_len = std::strlen(kTestMessage);
 
-    auto update_result = mac->UpdateMac(common::VirtualMemoryBufferConst{msg, msg_len});
+    auto update_result = mac->UpdateMac(score::cpp::span<const uint8_t>{msg, msg_len});
     ASSERT_TRUE(update_result.has_value()) << "UpdateMac failed";
     std::cout << "[PASS] UpdateMac succeeded\n";
 
     // 2d. Finalize and get the MAC tag.
-    auto final_result = mac->FinalizeMac(std::nullopt, std::nullopt);  // Handler allocates buffer
+    constexpr std::size_t kHmacSha256Size = 32U;
+    std::vector<std::uint8_t> macBuffer(kHmacSha256Size);
+    common::RequestParameter macOutput = score::cpp::span<uint8_t>{macBuffer.data(), macBuffer.size()};
+    auto final_result = mac->FinalizeMac(macOutput, std::nullopt);
     ASSERT_TRUE(final_result.has_value()) << "FinalizeMac failed";
 
-    // Extract the OwnedBuffer from the ResponseParameters variant
+    // Extract the size from response (new protocol: response contains uint64_t, data is in macBuffer)
     const auto& response = final_result.value();
     ASSERT_EQ(response.size(), 1U) << "Expected single response parameter";
     const auto& param = response[0];
-    ASSERT_TRUE(std::holds_alternative<common::OwnedBuffer>(param)) << "Expected OwnedBuffer in response";
-    const auto& tag = std::get<common::OwnedBuffer>(param);
-    ASSERT_EQ(tag.size(), 32U) << "Expected 32-byte HMAC-SHA256 tag";
-    std::cout << "[PASS] FinalizeMac succeeded. Tag (hex): " << hex(tag.data(), tag.size()) << "\n";
+    ASSERT_TRUE(std::holds_alternative<std::uint64_t>(param)) << "Expected uint64_t size in response";
+    const auto actual_size = static_cast<std::size_t>(std::get<std::uint64_t>(param));
+    ASSERT_EQ(actual_size, kHmacSha256Size) << "Expected 32-byte HMAC-SHA256 tag";
+    std::cout << "[PASS] FinalizeMac succeeded. Tag (hex): " << hex(macBuffer.data(), actual_size) << "\n";
 
     // Cleanup.
     static_cast<void>(key_handler->Release());
@@ -289,18 +292,21 @@ TEST_F(MacDemoTest, Demo3_SlotDirectFileBackedKey)
 
     const auto* msg = reinterpret_cast<const uint8_t*>(kTestMessage);
     const std::size_t msg_len = std::strlen(kTestMessage);
-    ASSERT_TRUE(mac->UpdateMac(common::VirtualMemoryBufferConst{msg, msg_len}).has_value()) << "UpdateMac failed";
+    ASSERT_TRUE(mac->UpdateMac(score::cpp::span<const uint8_t>{msg, msg_len}).has_value()) << "UpdateMac failed";
 
-    auto final_result = mac->FinalizeMac(std::nullopt, std::nullopt);
+    constexpr std::size_t kHmacSha256Size = 32U;
+    std::vector<std::uint8_t> macBuffer(kHmacSha256Size);
+    common::RequestParameter macOutput = score::cpp::span<uint8_t>{macBuffer.data(), macBuffer.size()};
+    auto final_result = mac->FinalizeMac(macOutput, std::nullopt);
     ASSERT_TRUE(final_result.has_value()) << "FinalizeMac failed";
 
     const auto& response = final_result.value();
     ASSERT_EQ(response.size(), 1U) << "Expected single response parameter";
     const auto& param = response[0];
-    ASSERT_TRUE(std::holds_alternative<common::OwnedBuffer>(param)) << "Expected OwnedBuffer in response";
-    const auto& tag = std::get<common::OwnedBuffer>(param);
-    ASSERT_EQ(tag.size(), 32U) << "Expected 32-byte HMAC-SHA256 tag";
-    std::cout << "[PASS] MAC computed for file-backed key. Tag (hex): " << hex(tag.data(), tag.size()) << "\n";
+    ASSERT_TRUE(std::holds_alternative<std::uint64_t>(param)) << "Expected uint64_t size in response";
+    const auto actual_size = static_cast<std::size_t>(std::get<std::uint64_t>(param));
+    ASSERT_EQ(actual_size, kHmacSha256Size) << "Expected 32-byte HMAC-SHA256 tag";
+    std::cout << "[PASS] MAC computed for file-backed key. Tag (hex): " << hex(macBuffer.data(), actual_size) << "\n";
 
     static_cast<void>(key_handler->Release());
 }

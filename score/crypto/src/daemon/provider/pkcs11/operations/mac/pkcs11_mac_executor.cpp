@@ -29,6 +29,7 @@ using common::RequestParameters;
 using common::ResponseParameters;
 using common::StreamOperationState;
 using score::crypto::daemon::common::DaemonErrorCode;
+using ::score::crypto::daemon::provider::handler::handler_utils::CheckAndGetSpan;
 
 static constexpr std::string_view LOG_PREFIX = "[PKCS11_MAC_EXECUTOR]";
 
@@ -199,19 +200,17 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         {
             return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
         }
-        const uint8_t* expected_tag{nullptr};
-        std::size_t tag_len{0U};
-        const auto e = handler::handler_utils::ExtractBufferData(request[0], expected_tag, tag_len);
-        if (!e.has_value())
+        const auto tagSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+        if (!tagSpan.has_value())
         {
-            return make_unexpected(e.error());
+            return make_unexpected(tagSpan.error());
         }
         auto init_res = EnsureInitialized(ctx.session, ctx.mechanism, ctx.key_object, true, currentState);
         if (!init_res.has_value())
         {
             return make_unexpected(init_res.error());
         }
-        return ExecuteVerifyFinal(ctx.session, expected_tag, tag_len);
+        return ExecuteVerifyFinal(ctx.session, tagSpan.value().data(), tagSpan.value().size());
     }
 
     // C_Sign* path: compute tag via C_SignFinal then constant-time compare.
@@ -310,22 +309,22 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    const uint8_t* data{nullptr};
-    std::size_t data_len{0U};
-    const auto extract = handler::handler_utils::ExtractBufferData(request[0], data, data_len);
-    if (!extract.has_value())
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    if (!inputSpan.has_value())
     {
-        return make_unexpected(extract.error());
+        return make_unexpected(inputSpan.error());
     }
 
     // MISRA C++:2023 Rule 8.2.3 deviation — C_SignUpdate requires non-const pPart;
     // PKCS#11 spec guarantees it will not modify the data.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    CK_BYTE_PTR p = const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(static_cast<const void*>(data)));
-    const CK_RV rv = m_functionList->C_SignUpdate(session, p, static_cast<CK_ULONG>(data_len));
+    CK_BYTE_PTR p =
+        const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(static_cast<const void*>(inputSpan.value().data())));
+    const CK_RV rv = m_functionList->C_SignUpdate(session, p, static_cast<CK_ULONG>(inputSpan.value().size()));
     if (rv != CKR_OK)
     {
         score::mw::log::LogError() << LOG_PREFIX << "C_SignUpdate failed: rv=" << static_cast<unsigned long>(rv);
+
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
     return std::monostate{};
@@ -336,34 +335,25 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     std::size_t mac_size,
     RequestParameters& request) noexcept
 {
-    uint8_t* out_buf{nullptr};
-    std::size_t out_buf_len{0U};
-    // When no output buffer is provided by the caller, allocate internally and return an
-    // OwnedBuffer - mirroring the OpenSSL OpenSslHmacHandler::FinalizeMac() allocation path.
-    common::OwnedBuffer internal_buf;
-
     if (request.empty())
     {
-        internal_buf.resize(mac_size);
-        out_buf = internal_buf.data();
-        out_buf_len = mac_size;
+        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
-    else
+
+    const auto outputSpan = CheckAndGetSpan<uint8_t>(request[0]);
+    if (!outputSpan.has_value())
     {
-        const auto extract = handler::handler_utils::ExtractOutputBufferData(request[0], out_buf, out_buf_len);
-        if (!extract.has_value())
-        {
-            return make_unexpected(extract.error());
-        }
-
-        if (out_buf_len < mac_size)
-        {
-            return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
-        }
+        return make_unexpected(outputSpan.error());
     }
 
-    CK_ULONG sig_len = static_cast<CK_ULONG>(out_buf_len);
-    const CK_RV rv = m_functionList->C_SignFinal(session, static_cast<CK_BYTE_PTR>(out_buf), &sig_len);
+    if (outputSpan.value().size() < mac_size)
+    {
+        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
+    }
+
+    CK_ULONG sig_len = static_cast<CK_ULONG>(outputSpan.value().size());
+    const CK_RV rv =
+        m_functionList->C_SignFinal(session, static_cast<CK_BYTE_PTR>(outputSpan.value().data()), &sig_len);
     if (rv != CKR_OK)
     {
         score::mw::log::LogError() << LOG_PREFIX << "C_SignFinal failed: rv=" << static_cast<unsigned long>(rv);
@@ -371,16 +361,7 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     }
 
     ResponseParameters response;
-    if (!internal_buf.empty())
-    {
-        // Trim to actual output size and return as owned heap buffer.
-        internal_buf.resize(static_cast<std::size_t>(sig_len));
-        response.push_back(std::move(internal_buf));
-    }
-    else
-    {
-        response.push_back(static_cast<std::uint64_t>(sig_len));
-    }
+    response.push_back(static_cast<std::uint64_t>(sig_len));
     return response;
 }
 
@@ -396,23 +377,19 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    const uint8_t* data{nullptr};
-    std::size_t data_len{0U};
-    auto e1 = handler::handler_utils::ExtractBufferData(request[0], data, data_len);
-    if (!e1.has_value())
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    if (!inputSpan.has_value())
     {
-        return make_unexpected(e1.error());
+        return make_unexpected(inputSpan.error());
     }
 
-    uint8_t* out_buf{nullptr};
-    std::size_t out_buf_len{0U};
-    auto e2 = handler::handler_utils::ExtractOutputBufferData(request[1], out_buf, out_buf_len);
-    if (!e2.has_value())
+    const auto outputSpan = CheckAndGetSpan<uint8_t>(request[1]);
+    if (!outputSpan.has_value())
     {
-        return make_unexpected(e2.error());
+        return make_unexpected(outputSpan.error());
     }
 
-    if (out_buf_len < mac_size)
+    if (outputSpan.value().size() < mac_size)
     {
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
     }
@@ -425,17 +402,19 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
 
     // MISRA C++:2023 Rule 8.2.3 deviation — PKCS#11 C API (C_SignUpdate) requires non-const pPart.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    CK_BYTE_PTR p = const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(static_cast<const void*>(data)));
-    CK_RV rv = m_functionList->C_SignUpdate(session, p, static_cast<CK_ULONG>(data_len));
+    CK_BYTE_PTR p =
+        const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(static_cast<const void*>(inputSpan.value().data())));
+    CK_RV rv = m_functionList->C_SignUpdate(session, p, static_cast<CK_ULONG>(inputSpan.value().size()));
     if (rv != CKR_OK)
     {
         score::mw::log::LogError() << LOG_PREFIX
                                    << "C_SignUpdate (single-shot) failed: rv=" << static_cast<unsigned long>(rv);
+
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
-    CK_ULONG sig_len = static_cast<CK_ULONG>(out_buf_len);
-    rv = m_functionList->C_SignFinal(session, static_cast<CK_BYTE_PTR>(out_buf), &sig_len);
+    CK_ULONG sig_len = static_cast<CK_ULONG>(outputSpan.value().size());
+    rv = m_functionList->C_SignFinal(session, static_cast<CK_BYTE_PTR>(outputSpan.value().data()), &sig_len);
     if (rv != CKR_OK)
     {
         score::mw::log::LogError() << LOG_PREFIX
@@ -466,15 +445,13 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    const uint8_t* expected_tag{nullptr};
-    std::size_t tag_len{0U};
-    const auto e = handler::handler_utils::ExtractBufferData(request[0], expected_tag, tag_len);
-    if (!e.has_value())
+    const auto tagSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    if (!tagSpan.has_value())
     {
-        return make_unexpected(e.error());
+        return make_unexpected(tagSpan.error());
     }
 
-    if (tag_len != mac_size)
+    if (tagSpan.value().size() != mac_size)
     {
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
     }
@@ -501,6 +478,7 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     {
         score::mw::log::LogError() << LOG_PREFIX
                                    << "C_SignFinal (verify) failed: rv=" << static_cast<unsigned long>(rv);
+
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
@@ -508,7 +486,7 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     uint8_t diff{0U};
     for (std::size_t i = 0U; i < static_cast<std::size_t>(sig_len); ++i)
     {
-        diff |= computed[i] ^ expected_tag[i];
+        diff |= computed[i] ^ tagSpan.value()[i];
     }
     ResponseParameters response;
     response.push_back(diff == 0U);
@@ -524,6 +502,7 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
     if (rv != CKR_OK)
     {
         score::mw::log::LogError() << LOG_PREFIX << "C_VerifyInit failed: rv=" << static_cast<unsigned long>(rv);
+
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmInitializationFailed);
     }
     return std::monostate{};
@@ -538,22 +517,22 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    const uint8_t* data{nullptr};
-    std::size_t data_len{0U};
-    const auto extract = handler::handler_utils::ExtractBufferData(request[0], data, data_len);
-    if (!extract.has_value())
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    if (!inputSpan.has_value())
     {
-        return make_unexpected(extract.error());
+        return make_unexpected(inputSpan.error());
     }
 
     // MISRA C++:2023 Rule 8.2.3 deviation — C_VerifyUpdate requires non-const pPart;
     // PKCS#11 spec guarantees it will not modify the data.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    CK_BYTE_PTR p = const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(static_cast<const void*>(data)));
-    const CK_RV rv = m_functionList->C_VerifyUpdate(session, p, static_cast<CK_ULONG>(data_len));
+    CK_BYTE_PTR p =
+        const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(static_cast<const void*>(inputSpan.value().data())));
+    const CK_RV rv = m_functionList->C_VerifyUpdate(session, p, static_cast<CK_ULONG>(inputSpan.value().size()));
     if (rv != CKR_OK)
     {
         score::mw::log::LogError() << LOG_PREFIX << "C_VerifyUpdate failed: rv=" << static_cast<unsigned long>(rv);
+
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
     return std::monostate{};
@@ -602,23 +581,19 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    const uint8_t* data{nullptr};
-    std::size_t data_len{0U};
-    const auto e1 = handler::handler_utils::ExtractBufferData(request[0], data, data_len);
-    if (!e1.has_value())
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    if (!inputSpan.has_value())
     {
-        return make_unexpected(e1.error());
+        return make_unexpected(inputSpan.error());
     }
 
-    const uint8_t* expected_tag{nullptr};
-    std::size_t tag_len{0U};
-    const auto e2 = handler::handler_utils::ExtractBufferData(request[1], expected_tag, tag_len);
-    if (!e2.has_value())
+    const auto tagSpan = CheckAndGetSpan<const uint8_t>(request[1]);
+    if (!tagSpan.has_value())
     {
-        return make_unexpected(e2.error());
+        return make_unexpected(tagSpan.error());
     }
 
-    if (tag_len != mac_size)
+    if (tagSpan.value().size() != mac_size)
     {
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
     }
@@ -631,8 +606,9 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
 
     // MISRA C++:2023 Rule 8.2.3 deviation — PKCS#11 C API (C_VerifyUpdate) requires non-const pPart.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    CK_BYTE_PTR p = const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(static_cast<const void*>(data)));
-    const CK_RV rv_upd = m_functionList->C_VerifyUpdate(session, p, static_cast<CK_ULONG>(data_len));
+    CK_BYTE_PTR p =
+        const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(static_cast<const void*>(inputSpan.value().data())));
+    const CK_RV rv_upd = m_functionList->C_VerifyUpdate(session, p, static_cast<CK_ULONG>(inputSpan.value().size()));
     if (rv_upd != CKR_OK)
     {
         score::mw::log::LogError() << LOG_PREFIX << "C_VerifyUpdate (single-shot verify) failed: rv="
@@ -640,7 +616,7 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
-    return ExecuteVerifyFinal(session, expected_tag, tag_len);
+    return ExecuteVerifyFinal(session, tagSpan.value().data(), tagSpan.value().size());
 }
 
 }  // namespace score::crypto::daemon::provider::pkcs11

@@ -46,6 +46,7 @@ enum class DataNodeType : std::uint8_t
     kContext = 2U,     ///< Crypto operation context (ContextDataNode)
     kKeySlot = 3U,     ///< Key slot reference (KeySlotDataNode)
     kKeyData = 4U,     ///< Loaded-key reference (KeyDataNode)
+    kShm = 5U,         ///< SHM region (ShmDataNode)
 };
 
 /**

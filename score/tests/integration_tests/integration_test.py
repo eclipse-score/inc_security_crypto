@@ -180,14 +180,14 @@ class TestCryptoDaemon:
                 Path("score/crypto/src/daemon/crypto_daemon"): Path(
                     "/opt/crypto/bin/crypto_daemon"
                 ),
-                Path("score/tests/integration_tests/control_client_app"): Path(
-                    "/opt/crypto/bin/control_client_app"
-                ),
                 Path("score/tests/integration_tests/init_softhsm_token"): Path(
                     "/opt/crypto/bin/init_softhsm_token"
                 ),
                 Path("score/tests/integration_tests/score_api_hash_example"): Path(
                     "/opt/crypto/bin/score_api_hash_example"
+                ),
+                Path("score/tests/integration_tests/hash_performance_test"): Path(
+                    "/opt/crypto/bin/hash_performance_test"
                 ),
                 Path("score/tests/integration_tests/score_api_mac_example"): Path(
                     "/opt/crypto/bin/score_api_mac_example"
@@ -310,19 +310,6 @@ class TestCryptoDaemon:
             f"Unix domain socket {socket_path} was not created within {max_wait} seconds"
         )
 
-    def test_control_communication_basic(self, docker, daemon):
-        """Test basic communication of the control plane daemon."""
-
-        exit_code, output = docker.exec_run(
-            "sh -c 'LD_LIBRARY_PATH=/opt/crypto/lib:$LD_LIBRARY_PATH /opt/crypto/bin/control_client_app'"
-        )
-        logger.info(
-            f"control_client_app exit_code={exit_code}, output:\n{output.decode()}"
-        )
-        assert exit_code == 0, (
-            f"control_client_app failed with exit code {exit_code}. Output: {output.decode()}"
-        )
-
     def test_score_api_hash_example(self, docker, daemon):
         """Test SCORE HASH API."""
 
@@ -347,6 +334,19 @@ class TestCryptoDaemon:
         )
         assert exit_code == 0, (
             f"test_score_api_mac_example failed with exit code {exit_code}. Output: {output.decode()}"
+        )
+
+    def test_hash_performance_test(self, docker, daemon):
+        """Test concurrent and sequential hash operations."""
+
+        exit_code, output = docker.exec_run(
+            "sh -c 'LD_LIBRARY_PATH=/opt/crypto/lib:$LD_LIBRARY_PATH /opt/crypto/bin/hash_performance_test'"
+        )
+        logger.info(
+            f"test_hash_performance_test exit_code={exit_code}, output:\n{output.decode()}"
+        )
+        assert exit_code == 0, (
+            f"test_hash_performance_test failed with exit code {exit_code}. Output: {output.decode()}"
         )
 
     def test_score_demo(self, docker, daemon):

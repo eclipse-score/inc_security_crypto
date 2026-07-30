@@ -54,6 +54,10 @@ class ParameterizedHashTest : public ::testing::TestWithParam<HashTestData>
 {
 };
 
+class HashExampleTest : public ::testing::Test
+{
+};
+
 TEST_P(ParameterizedHashTest, HashingTest)
 {
     // Prepare test data
@@ -169,6 +173,137 @@ TEST_P(ParameterizedHashTest, HashingTest)
     // 7. Query digest size
     auto digest_size = hash->GetDigestSize();
     EXPECT_EQ(digest_size, expected_out_data_size) << "Unexpected Digest size of: " << digest_size;
+}
+
+/// @brief Demonstrates three SHM transport routing paths using SHA-256 (in-band)
+/// and SHA-512 (pool and bulk), with the 32-byte in-band threshold defined in
+/// BufferShmTranscoder::kInBandThreshold.
+TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
+{
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock")
+        .SetDefaultOperationTimeout(std::chrono::milliseconds{500});
+
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    auto& stack = stack_result.value();
+
+    auto ctx_result = stack->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    auto& ctx = ctx_result.value();
+
+    constexpr std::size_t kSha256DigestSize = 32;
+    constexpr std::size_t kSha512DigestSize = 64;
+
+    // =========================================================================
+    // [1/3] IN-BAND — SHA-256. Message size below 32-byte threshold forces in-band transport.
+    std::cout << "\n[1/3] IN-BAND Transport Path (SHA-256, 13-byte heap message):\n";
+
+    HashContextConfig inband_config;
+    inband_config.SetAlgorithm("SHA256").SetOperationTimeout(std::chrono::milliseconds{500});
+    auto inband_ctx = ctx->CreateHashContext(inband_config);
+    ASSERT_TRUE(inband_ctx.has_value()) << "Failed to create SHA-256 context";
+    auto inband_hash = std::move(inband_ctx).value();
+
+    const std::string inband_msg = "Hello, World!";  // 13 bytes < threshold
+    std::array<uint8_t, kSha256DigestSize> digest_inband{};
+
+    ASSERT_TRUE(inband_hash->Init().has_value()) << "Init failed";
+    ASSERT_TRUE(
+        inband_hash->Update({reinterpret_cast<const uint8_t*>(inband_msg.data()), inband_msg.size()}).has_value())
+        << "Update failed";
+    auto fin_inband = inband_hash->Finalize({digest_inband.data(), digest_inband.size()});
+    ASSERT_TRUE(fin_inband.has_value()) << "Finalize failed";
+
+    print_hex("In-band SHA-256", std::vector<uint8_t>(digest_inband.begin(), digest_inband.end()), fin_inband.value());
+    std::cout << "      [OK] In-band transport verified\n";
+
+    // =========================================================================
+    // [2/3] POOL — SHA-512, 100-byte heap message
+    //   Input  100B > 32-byte threshold  =>  copied into 4KB pool SHM slot
+    //   Output  64B > 32-byte threshold  =>  copied from 4KB pool SHM slot
+    // =========================================================================
+    std::cout << "\n[2/3] POOL Transport Path (SHA-512, 100-byte heap message):\n";
+
+    HashContextConfig pool_config;
+    pool_config.SetAlgorithm("SHA512").SetOperationTimeout(std::chrono::milliseconds{500});
+    auto pool_ctx = ctx->CreateHashContext(pool_config);
+    ASSERT_TRUE(pool_ctx.has_value()) << "Failed to create SHA-512 pool context";
+    auto pool_hash = std::move(pool_ctx).value();
+
+    const std::string pool_msg(100, 'A');  // 100 bytes > kInBandThreshold (32 bytes)
+    std::array<uint8_t, kSha512DigestSize> digest_pool{};
+
+    ASSERT_TRUE(pool_hash->Init().has_value()) << "Init failed";
+    ASSERT_TRUE(pool_hash->Update({reinterpret_cast<const uint8_t*>(pool_msg.data()), pool_msg.size()}).has_value())
+        << "Update failed";
+    auto fin_pool = pool_hash->Finalize({digest_pool.data(), digest_pool.size()});
+    ASSERT_TRUE(fin_pool.has_value()) << "Finalize failed";
+
+    print_hex("Pool-path SHA-512", std::vector<uint8_t>(digest_pool.begin(), digest_pool.end()), fin_pool.value());
+    std::cout << "      [OK] Pool-path transport verified\n";
+
+    // =========================================================================
+    // [3/3] BULK — SHA-512, 100-byte message placed in pre-allocated SHM region
+    //   Input  detected as registered SHM subregion  =>  zero-copy BULK
+    //   Output  detected as registered SHM subregion =>  zero-copy BULK (reuse)
+    // =========================================================================
+    std::cout << "\n[3/3] BULK Transport Path (SHA-512, 100-byte SHM input + 64-byte SHM output):\n";
+    std::cout << "      Input  in pre-alloc SHM  ->  BULK (zero-copy)\n";
+    std::cout << "      Output in pre-alloc SHM  ->  BULK (zero-copy reuse)\n";
+
+    auto allocator_result = stack->GetMemoryAllocator();
+    ASSERT_TRUE(allocator_result.has_value()) << "Failed to get memory allocator";
+    auto allocator = std::move(allocator_result).value();
+
+    // Quota tracking demonstration
+    std::cout << "\nQuota tracking:\n";
+    std::cout << "  Initial quota:  " << allocator->GetQuota() << " bytes\n";
+    std::cout << "  Initial usage:  " << allocator->GetCurrentUsage() << " bytes\n";
+
+    // Create a larger bulk region (8KB) to hold both input (100B) and output (64B) subregions
+    constexpr std::size_t kBulkRegionSize = 8192;
+    auto bulk_region_result = allocator->Allocate(kBulkRegionSize);
+    ASSERT_TRUE(bulk_region_result.has_value()) << "Failed to create bulk SHM region";
+    auto bulk_region = std::move(bulk_region_result).value();
+
+    // Show usage after allocation
+    std::cout << "  After alloc:    " << allocator->GetCurrentUsage() << " bytes (+" << kBulkRegionSize << ")\n";
+
+    // Same 100-byte content as pool test so we can verify consistency below
+    std::memcpy(bulk_region->AsWritableSpan().data(), pool_msg.data(), pool_msg.size());
+    const auto bulk_input = bulk_region->AsSpan().subspan(0, pool_msg.size());
+
+    // Reserve output buffer at offset 4096 (second half of the 8KB region, avoids input overlap)
+    uint8_t* output_buffer = bulk_region->AsWritableSpan().data() + 4096;
+    auto output_span = score::cpp::span<uint8_t>{output_buffer, kSha512DigestSize};
+
+    HashContextConfig bulk_config;
+    bulk_config.SetAlgorithm("SHA512").SetOperationTimeout(std::chrono::milliseconds{500});
+    auto bulk_ctx = ctx->CreateHashContext(bulk_config);
+    ASSERT_TRUE(bulk_ctx.has_value()) << "Failed to create SHA-512 bulk context";
+    auto bulk_hash = std::move(bulk_ctx).value();
+
+    std::array<uint8_t, kSha512DigestSize> digest_bulk{};
+
+    ASSERT_TRUE(bulk_hash->Init().has_value()) << "Init failed";
+    ASSERT_TRUE(bulk_hash->Update(bulk_input).has_value()) << "Update failed";
+    // Output directly into the bulk SHM region (second half)
+    auto fin_bulk = bulk_hash->Finalize(output_span);
+    ASSERT_TRUE(fin_bulk.has_value()) << "Finalize failed";
+
+    // Copy result back for verification
+    std::memcpy(digest_bulk.data(), output_buffer, kSha512DigestSize);
+
+    print_hex("Bulk-path SHA-512", std::vector<uint8_t>(digest_bulk.begin(), digest_bulk.end()), fin_bulk.value());
+    std::cout << "      [OK] Bulk-path transport verified\n";
+
+    // Show usage lifecycle before/after region deallocation
+    std::cout << "  Before reset:   " << allocator->GetCurrentUsage() << " bytes\n";
+    bulk_region.reset();
+    std::cout << "  After reset:    " << allocator->GetCurrentUsage() << " bytes\n";
+
+    EXPECT_EQ(digest_pool, digest_bulk) << "Pool and bulk SHA-512 must match for identical input";
 }
 
 const std::string kAlgSha256 = "SHA256";

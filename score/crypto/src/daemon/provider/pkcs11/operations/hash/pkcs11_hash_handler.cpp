@@ -58,8 +58,7 @@ Pkcs11HashHandler::Pkcs11HashHandler(std::unique_ptr<Pkcs11HashExecutor> executo
       m_ctx{},
       m_provider{provider},
       m_algorithm{algorithm},
-      m_state{StreamOperationState::IDLE},
-      m_outputBuffer{}
+      m_state{StreamOperationState::IDLE}
 {
     m_ctx.session = session;
     m_ctx.mechanism.mechanism = MapAlgorithm(m_algorithm);
@@ -124,7 +123,6 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
     m_ctx.mechanism.ulParameterLen = 0U;
     m_ctx.digest_size = static_cast<std::size_t>(GetDigestSize());
     m_state = StreamOperationState::IDLE;
-    m_outputBuffer.clear();
 
     return std::monostate{};
 }
@@ -151,27 +149,13 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         return response;
     }
 
-    // All other operations delegated to the executor.
-    m_outputBuffer.clear();
-
-    // TODO: When mediator is refactored, this needs to be revisted
-    //  Inject an internal output buffer for HASH_SS and HASH_FINALIZE when the
-    //  caller has not supplied one.  This mirrors the OpenSSL handler's behaviour
-    //  of using an internal buffer and populating response.parameter on return.
-    auto allocate_out_buffer = false;
-    if ((operationId.operationAction == ops::HASH_SS) && request.size() < 2)
+    if (operationId.operationAction == ops::HASH_SS && request.size() < 2U)
     {
-        allocate_out_buffer = true;
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
-    else if ((operationId.operationAction == ops::HASH_FINALIZE) && request.empty())
+    if (operationId.operationAction == ops::HASH_FINALIZE && request.empty())
     {
-        allocate_out_buffer = true;
-    }
-    if (allocate_out_buffer)
-    {
-        m_outputBuffer.assign(GetDigestSize(), 0U);
-        common::VirtualMemoryBuffer outputMapped{m_outputBuffer.data(), m_outputBuffer.size()};
-        request.push_back(outputMapped);
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
     StreamOperationState nextState{m_state};
@@ -182,25 +166,9 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         return response;
     }
 
-    auto response_value = response.value();
-    common::VirtualMemoryBufferConst* non_owning_buffer_ptr = nullptr;
-    if (!response_value.empty())
-    {
-        non_owning_buffer_ptr = std::get_if<common::VirtualMemoryBufferConst>(&response_value.back());
-    }
-
-    // TODO: Rework and harmonize who is responsible for:
-    // - Allocation of Buffer if not provided (Handler vs Executor)
-    // - Construction of Response including the correct type when a buffer is allocated
-    if (allocate_out_buffer && non_owning_buffer_ptr)
-    {
-        response_value.pop_back();
-        response_value.push_back(common::OwnedBuffer{m_outputBuffer});
-    }
-
     m_state = nextState;
 
-    return response_value;
+    return response.value();
 }
 
 // --- Handler interface: Reset ---
@@ -215,7 +183,6 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
     }
 
     m_state = StreamOperationState::IDLE;
-    m_outputBuffer.clear();
     return std::monostate{};
 }
 

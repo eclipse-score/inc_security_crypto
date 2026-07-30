@@ -31,8 +31,8 @@ package "Stack & Ownership" {
     }
 
     interface IMemoryAllocator {
-        + Allocate(size) : Result<IReadWriteMemoryRegion::Uptr>
-        + Allocate(size, type, provider) : Result<IReadWriteMemoryRegion::Uptr>
+        + Allocate(size, provider_type = nullopt) : Result<IReadWriteMemory::Uptr>
+        + Allocate(size, provider : CryptoResourceId) : Result<IReadWriteMemory::Uptr>
         + GetQuota() : size_t
         + GetCurrentUsage() : size_t
     }

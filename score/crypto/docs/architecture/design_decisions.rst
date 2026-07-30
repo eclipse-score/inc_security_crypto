@@ -818,8 +818,9 @@ Consequences
 * Data-plane and control-plane concerns are visibly separated in the API.
 * Components that allocate buffers do not depend on ``ICryptoStack``.
 * Unit tests for memory-dependent components are cheaper and hermetic.
-* The zero-copy path (``kProviderCompatible`` allocation) is a data-plane concern
-  and sits cleanly on ``IMemoryAllocator`` without polluting ``ICryptoStack``.
+* The zero-copy path (``Allocate(size, providerResourceId)``) is a data-plane
+  concern and sits cleanly on ``IMemoryAllocator`` without polluting
+  ``ICryptoStack``.
 
 **Negative:**
 
@@ -1025,3 +1026,19 @@ Consequences
   single factory call with a string argument.
 * Span fields in params structs have lifetime constraints — referenced data
   must outlive the struct. This is documented but not enforced at compile time.
+
+
+Return Type of IMemoryAllocator::Allocate()
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. dec_rec:: Return Type of IMemoryAllocator::Allocate()
+   :id: dec_rec__crypto__allocate_return_type
+   :status: accepted
+   :context: doc__crypto_architecture
+   :decision: All overloads of ``IMemoryAllocator::Allocate()`` return ``score::mw::crypto::IReadWriteMemory`` rather than a score::baselibs memory type.
+
+**Rationale**
+
+Bulk-allocated memory is intended for large inputs and/or outputs of cryptographic operations.
+The data does not require type interpretation — it is treated as a raw byte sequence,
+accessible via ``IReadWriteMemory::AsWritableSpan()`` or ``IReadWriteMemory::data()``.

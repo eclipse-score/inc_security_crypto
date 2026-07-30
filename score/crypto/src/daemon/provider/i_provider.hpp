@@ -32,6 +32,11 @@ class KeyManagementService;
 struct KeySlotConfig;
 }  // namespace score::crypto::daemon::key_management
 
+namespace score::crypto::daemon::data_plane
+{
+class IShmFactory;
+}  // namespace score::crypto::daemon::data_plane
+
 namespace score::crypto::daemon::provider
 {
 
@@ -125,6 +130,18 @@ class IProvider
     /// Called once at daemon startup before any handler is created.
     /// Providers that do not support key management may ignore this (default no-op).
     virtual void SetKeyManagementService(std::shared_ptr<key_management::KeyManagementService> /*service*/) {}
+
+    // -----------------------------------------------------------------------
+    // SHM capability (override if supported — default returns nullptr)
+    // -----------------------------------------------------------------------
+
+    /// @brief Return the provider's shared-memory factory.
+    ///
+    /// Returns nullptr if the provider does not supply its own SHM allocation
+    virtual std::shared_ptr<data_plane::IShmFactory> GetShmFactory()
+    {
+        return nullptr;
+    }
 };
 
 }  // namespace score::crypto::daemon::provider

@@ -16,7 +16,6 @@ try-import %workspace%/user.bazelrc
 
 build --per_file_copt=external/score_baselibs.*/.*@-Wno-deprecated-declarations
 common --@score_baselibs//score/json:base_library=nlohmann # TODO : https://github.com/eclipse-score/baselibs/issues/57
-
 build --java_language_version=17
 build --tool_java_language_version=17
 build --java_runtime_version=remotejdk_17
@@ -40,6 +39,10 @@ build:shared --sandbox_writable_path=/var/tmp
 build:shared --host_platform=@score_bazel_platforms//:x86_64-linux
 
 # Shared qnx configuration
+# Disable typedshmd. In score_baselibs 0.2.7 and 0.2.8 the use_typedshmd flag defaults to True,
+# which defines USE_TYPEDSHMD for the typedshm_wrapper:typedmemory target (pulled in transitively
+# we do not need typedshm for now, once upstream is fixed, we can remove this flag and use the default value)
+build:shared_qnx --@score_baselibs//score/memory/shared/flags:use_typedshmd=False
 build:shared_qnx --config=shared
 build:shared_qnx --copt=-D_QNX_SOURCE
 build:shared_qnx --copt=-DGRPC_POSIX_SOCKET

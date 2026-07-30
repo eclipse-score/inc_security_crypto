@@ -102,13 +102,13 @@ class ScoreHashHandler : public handler::Handler
 
     /// @brief Finalize the hash and produce the digest.
     [[nodiscard]] virtual Expected<common::ResponseParameters, common::DaemonErrorCode> FinalizeHash(
-        std::optional<common::RequestParameter> hashOutput,
+        common::RequestParameter hashOutput,
         const std::optional<common::RequestParameter> finalDataToHash);
 
     /// @brief Perform single-shot hash without streaming.
     [[nodiscard]] virtual Expected<common::ResponseParameters, common::DaemonErrorCode> SingleShotHash(
         const common::RequestParameter& dataToHash,
-        std::optional<common::RequestParameter> outputHash,
+        common::RequestParameter outputHash,
         std::optional<common::RequestParameter> iv);
 
     /// @brief Get the digest size for the current algorithm.

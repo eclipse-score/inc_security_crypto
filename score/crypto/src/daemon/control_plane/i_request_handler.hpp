@@ -60,7 +60,7 @@ class IRequestHandler
      * @param request The control request to be processed.
      * @return ControlResponse The response generated after processing the request.
      */
-    virtual ControlResponse processRequest(const ControlRequest& request) = 0;
+    virtual ControlResponse processRequest(ControlRequest& request) = 0;
 };
 
 }  // namespace score::crypto::daemon::control_plane
