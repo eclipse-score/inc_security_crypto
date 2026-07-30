@@ -18,12 +18,13 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
+# certificate_context_config.hpp and certificate_verification_context_config.hpp
+# moved to //score/crypto/src/api/config:cert_context_configs (active).
+
 # cc_library(
 #     name = "future_context_configs",
 #     hdrs = [
 #         "aead_context_config.hpp",
-#         "certificate_context_config.hpp",
-#         "certificate_verification_context_config.hpp",
 #         "cipher_context_config.hpp",
 #         "csr_generation_context_config.hpp",
 #         "random_context_config.hpp",

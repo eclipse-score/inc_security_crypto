@@ -11,14 +11,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
+#define SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
 
 #include "score/crypto/src/api/certificate/i_ocsp_request_export.hpp"
 #include "score/crypto/src/api/common/crypto_resource_guard.hpp"
 #include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/contexts/i_context.hpp"
-#include "score/crypto/src/api/future/objects/i_certificate_object.hpp"
+#include "score/crypto/src/api/objects/i_certificate_object.hpp"
 #include "score/result/result.h"
 #include "score/span.hpp"
 
@@ -44,8 +44,8 @@ namespace crypto
 ///   ICertificateObject goes out of scope).
 /// - **Export / convert** using a two-call pattern: query the required buffer
 ///   size first, then fill the caller-supplied span.
-/// - **Slot management**, **CRL management**, and **trust store management**
-///   are all co-located here.
+/// - **Slot management** and **trust store management** are co-located here.
+/// - CRL, OCSP, and CSR operations are defined in future/ and not yet active.
 ///
 /// **ParseCertificate lifecycle**:
 /// @code
@@ -170,46 +170,10 @@ class ICertificateManagementContext : public IContext
 
     /// @brief Queries the occupancy and metadata of a certificate slot.
     /// @param slot Handle to the slot (type = kCertSlot)
-    /// @return CertificateSlotInfo with occupancy, algorithm, and provider binding
+    /// @return CertificateSlotInfo with certificate-slot state and CRL presence
     virtual score::Result<CertificateSlotInfo> GetCertificateSlotInfo(const CryptoResourceId& slot) = 0;
 
-    // ---- CRL management ----
-
-    /// @brief Imports a Certificate Revocation List and associates it with its issuer.
-    ///
-    /// The returned CryptoResourceId uses ResourceType::kCrl and carries the
-    /// same numeric id as the resolved issuer certificate — callers can look up
-    /// the applicable CRL for any issuer by re-resolving with ResourceType::kCrl.
-    ///
-    /// @param crl_data Encoded CRL data
-    /// @param format Encoding format of the CRL
-    /// @param issuer_cert Handle to the issuer certificate
-    ///        (type = kCertificate or kCertSlot). The daemon validates that the
-    ///        CRL issuer DN matches and that the CRL signature is correct.
-    /// @param persist When true, the CRL survives the guard's destructor
-    ///        (kPersistent — daemon retains the CRL when the client releases its
-    ///        reference). When false, the CRL is deleted when the guard is destroyed.
-    /// @return Guard wrapping a handle with type = kCrl. Pass guard.GetId() to
-    ///         SetCrl() or re-resolve via ResourceType::kCrl on the issuer id.
-    virtual score::Result<CryptoResourceGuard> ImportCrl(score::cpp::span<const uint8_t> crl_data,
-                                                         FormatType format,
-                                                         const CryptoResourceId& issuer_cert,
-                                                         bool persist) = 0;
-
-    /// @brief Removes a specific CRL from the store.
-    /// @param crl Handle to the CRL to delete (type = kCrl)
-    /// @return std::monostate on success, error if the CRL is not found
-    virtual score::Result<std::monostate> DeleteCrl(const CryptoResourceId& crl) = 0;
-
-    /// @brief Bulk-deletes expired CRLs from the store.
-    /// @return Number of CRLs deleted
-    virtual score::Result<std::size_t> DeleteExpiredCrls() = 0;
-
-    /// @brief Bulk-deletes expired certificates from persistent slots.
-    /// @return Number of certificates deleted
-    virtual score::Result<std::size_t> DeleteExpiredCertificates() = 0;
-
-    // ---- Key extraction and OCSP ----
+    // ---- Key extraction ----
 
     /// @brief Extracts the public key from a certificate as an ephemeral key resource.
     ///
@@ -223,17 +187,64 @@ class ICertificateManagementContext : public IContext
     virtual score::Result<std::pair<CryptoResourceGuard, AlgorithmId>> LoadCertificatePublicKey(
         const CryptoResourceId& cert) = 0;
 
+    /// @brief Bulk-deletes expired certificates from persistent slots.
+    /// @return Number of certificates deleted
+    virtual score::Result<std::size_t> DeleteExpiredCertificates() = 0;
+
+    // ---- CRL management (not yet active — IPC implementation pending) ----
+#if 0
+    /// @brief Imports a Certificate Revocation List and associates it with its issuer certificate.
+    ///
+    /// The CRL lifecycle follows the lifecycle of @p issuer_cert:
+    /// - kCertSlot + persist=true: CRL written to the slot's [crl] section; write access required.
+    /// - kCertSlot or kCertificate + persist=false (default): session-scoped; no write access needed.
+    ///
+    /// @param crl_data Encoded CRL data
+    /// @param format Encoding format of the CRL
+    /// @param issuer_cert Handle to the issuer certificate (type = kCertSlot or kCertificate)
+    /// @param persist When true, store permanently to the issuer slot (kCertSlot only).
+    /// @return std::monostate on success, error if validation fails or access is denied
+    virtual score::Result<std::monostate> ImportCrl(score::cpp::span<const uint8_t> crl_data,
+                                                    FormatType format,
+                                                    const CryptoResourceId& issuer_cert,
+                                                    bool persist = false) = 0;
+
+    /// @brief Removes the CRL stored in a certificate slot.
+    /// @param cert_slot Handle to the slot whose CRL should be removed (type = kCertSlot)
+    /// @return std::monostate on success, error if no CRL is present or access is denied
+    virtual score::Result<std::monostate> DeleteCrl(const CryptoResourceId& cert_slot) = 0;
+
+    /// @brief Bulk-deletes expired CRLs across all certificate slots.
+    /// @return Number of CRLs deleted
+    virtual score::Result<std::size_t> DeleteExpiredCrls() = 0;
+#endif  // CRL management
+
+    // ---- OCSP (not yet active — IPC implementation pending) ----
+#if 0
     /// @brief Constructs an OCSP request for a certificate's revocation status.
     ///
-    /// The returned object exposes the DER-encoded OCSP request and the responder URL.
-    /// Send the request to the URL via HTTP POST, then feed the response to
-    /// ICertificateVerificationContext::SetOcspResponse().
-    ///
     /// @param cert Handle to the certificate to check (type = kCertificate or kCertSlot)
-    /// @param issuer_cert Handle to the issuer certificate (required for OCSP request construction)
-    /// @return Export object providing the encoded request and responder URL
+    /// @param issuer_cert Handle to the issuer certificate
+    /// @return Export object providing the DER-encoded request and responder URL
     virtual score::Result<IOcspRequestExport::Uptr> GetOcspRequestData(const CryptoResourceId& cert,
                                                                        const CryptoResourceId& issuer_cert) = 0;
+#endif  // OCSP
+
+    // ---- Trust-store membership management ----
+
+    /// @brief Adds a certificate to a persistent trust store.
+    ///
+    /// The certificate is assigned to a trust-store-managed slot. This is a
+    /// write operation and requires trust-store write access.
+    virtual score::Result<std::monostate> AddCertificateToTrustStore(const CryptoResourceId& trust_store,
+                                      const CryptoResourceId& cert) = 0;
+
+    /// @brief Removes a certificate from a persistent trust store by SHA-256 fingerprint.
+    ///
+    /// This changes trust-store deployment state and requires write access.
+    virtual score::Result<std::monostate> RemoveCertificateFromTrustStore(
+      const CryptoResourceId& trust_store,
+      score::cpp::span<const uint8_t> certificate_fingerprint) = 0;
 
   protected:
     ICertificateManagementContext() = default;
@@ -243,4 +254,4 @@ class ICertificateManagementContext : public IContext
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP

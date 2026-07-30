@@ -133,6 +133,18 @@ enum class KeySlotState : uint8_t
     kLocked     ///< Slot is in use and cannot be modified
 };
 
+/// @brief State of a certificate slot.
+///
+/// Certificate slots contain certificate/CRL storage and are not bound to a
+/// certificate-operation provider. Provider selection is made by the
+/// operation/context that parses or verifies the material.
+enum class CertificateSlotState : uint8_t
+{
+    kEmpty,     ///< Slot contains no certificate
+    kOccupied,  ///< Slot contains a certificate
+    kLocked     ///< Slot is in use and cannot be modified
+};
+
 /// @brief Validity status of a certificate.
 enum class CertificateStatus : uint8_t
 {
@@ -284,14 +296,15 @@ inline constexpr bool HasPermission(KeyOperationPermission granted, KeyOperation
     return (g & r) == r;
 }
 
-/// @brief Information about a certificate slot and its contents.
+/// @brief Lightweight information about certificate-slot storage.
 ///
 /// Returned by ICertificateManagementContext::GetCertificateSlotInfo().
+/// Certificate-specific details such as subject, issuer, algorithm, and
+/// validity are obtained by loading/parsing the certificate.
 struct CertificateSlotInfo
 {
-    bool occupied{false};           ///< Whether the slot contains a certificate
-    AlgorithmId algorithm{};        ///< Public key algorithm of the stored certificate (empty if unoccupied)
-    uint16_t primary_provider{0U};  ///< Provider/device that owns this slot
+    CertificateSlotState state{CertificateSlotState::kEmpty};
+    bool has_crl{false}; ///< Whether a CRL is currently associated with the slot
 };
 
 /// @brief Information about a key slot and its contents.
