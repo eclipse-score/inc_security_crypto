@@ -17,12 +17,13 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
+# cert_types.hpp and i_ocsp_request_export.hpp moved to
+# //score/crypto/src/api/certificate:cert_types (active).
+
 # cc_library(
 #     name = "crypto_certificate",
 #     hdrs = [
-#         "cert_types.hpp",
 #         "i_csr_export.hpp",
-#         "i_ocsp_request_export.hpp",
 #     ],
 #     deps = [
 #         "//score/crypto/src/api/common:crypto_common",
