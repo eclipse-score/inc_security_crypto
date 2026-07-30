@@ -14,34 +14,14 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
-    name = "crypto_objects",
+    name = "cert_types",
     hdrs = [
-        "i_crypto_object.hpp",
-        "i_key_object.hpp",
-        "i_key_slot_object.hpp",
-        "i_private_key_object.hpp",
-        "i_public_key_object.hpp",
-        "i_symmetric_key_object.hpp",
+        "cert_types.hpp",
+        "i_ocsp_request_export.hpp",
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
-        "//score/crypto/src/api/common:crypto_common",
-        "@score_baselibs//score/language/futurecpp",
-        "@score_baselibs//score/result",
-    ],
-)
-
-cc_library(
-    name = "cert_objects",
-    hdrs = [
-        "i_cert_slot_object.hpp",
-        "i_certificate_object.hpp",
-    ],
-    includes = ["."],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":crypto_objects",
         "//score/crypto/src/api/common:crypto_common",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
