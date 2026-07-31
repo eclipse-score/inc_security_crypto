@@ -21,7 +21,7 @@ Verification Report
    :id: doc__mod_temp_module_name_verification_report
    :status: draft
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__verification_module_ver_report
    :tags: template
 

@@ -50,6 +50,7 @@ exclude_patterns = [
     ".venv_docs",
     "_build",
     "examples/README.md",
+    "score/tests/**",
 ]
 
 templates_path = ["templates"]

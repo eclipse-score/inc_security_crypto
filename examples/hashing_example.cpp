@@ -12,15 +12,15 @@
  ********************************************************************************/
 
 /// @file hashing_example.cpp
-/// @brief Demonstrates SHA-256 hashing using the score::mw::crypto API.
+/// @brief Demonstrates SHA-256 hashing using the score::crypto API.
 ///
 /// Shows both streaming (Init → Update* → Finalize) and single-shot modes.
 
-#include "score/mw/crypto/api/config/hash_context_config.hpp"
-#include "score/mw/crypto/api/contexts/i_hash_context.hpp"
-#include "score/mw/crypto/api/crypto_stack_factory.hpp"
-#include "score/mw/crypto/api/i_crypto_context.hpp"
-#include "score/mw/crypto/api/i_crypto_stack.hpp"
+#include "score/crypto/src/api/config/hash_context_config.hpp"
+#include "score/crypto/src/api/contexts/i_hash_context.hpp"
+#include "score/crypto/src/api/crypto_stack_factory.hpp"
+#include "score/crypto/src/api/i_crypto_context.hpp"
+#include "score/crypto/src/api/i_crypto_stack.hpp"
 
 #include <array>
 #include <chrono>
@@ -30,7 +30,7 @@
 #include <iomanip>
 #include <iostream>
 
-using namespace score::mw::crypto;
+using namespace score::crypto;
 
 namespace
 {

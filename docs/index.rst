@@ -17,7 +17,7 @@ Crypto Documentation
 
 This documentation covers the **Crypto** module — a cryptographic
 middleware stack for automotive ECUs. The module
-provides a C++ client library (``score::mw::crypto``) and an accompanying
+provides a C++ client library (``score::crypto``) and an accompanying
 crypto daemon that together deliver key management, symmetric and asymmetric
 cryptography, hashing, signing, certificate handling, and secure memory
 allocation.
@@ -29,15 +29,15 @@ allocation.
 Overview
 --------
 
-The ``score::mw::crypto`` module follows a **daemon-based client–server**
+The ``score::crypto`` module follows a **daemon-based client–server**
 architecture:
 
-- **Client library** (``//score/mw/crypto/api/...``) — a pure C++ interface layer
+- **Client library** (``//score/crypto/src/api/...``) — a pure C++ interface layer
   that applications link against. All operations are expressed through
   factory-created context objects (``IHashContext``, ``IMacContext``, etc.)
   following an ``Init()`` → ``Update()`` → ``Finalize()`` streaming pattern.
 
-- **Crypto daemon** (``//score/crypto/daemon:crypto_daemon``) — a separate process that
+- **Crypto daemon** (``//score/crypto/src/daemon:crypto_daemon``) — a separate process that
   hosts all cryptographic state, enforces per-application Access Control
   List (ACL) and per-key operation permissions (``KeyOperationPermission``
   bitmask), and drives the underlying provider (OpenSSL, SoftHSM / PKCS#11,
@@ -61,7 +61,7 @@ Architecture
 .. toctree::
    :maxdepth: 2
 
-   crypto/architecture/index.rst
+   ../score/crypto/docs/architecture/index
 
 
 Project Layout
@@ -88,11 +88,11 @@ To build the module:
 
 .. code-block:: bash
 
-   bazel build //score/... //tests/...
+   bazel build //score/...
 
 To run tests:
 
 .. code-block:: bash
 
    # Execute tests
-   bazel test //tests/...
+   bazel test //score/...
