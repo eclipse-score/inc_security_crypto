@@ -25,14 +25,13 @@ namespace score::crypto::daemon::provider::pkcs11
 /**
  * @brief Factory that creates and registers PKCS#11 token providers.
  *
- * Token configuration is supplied externally via SetTokenConfigs() (the acceptor
- * side of the Pkcs11Config visitor pattern) or the explicit vector constructor.
- * The daemon bootstrapper delegates config setup to Pkcs11Config::Configure():
+ * Token configuration is supplied as one complete Pkcs11ProviderFactoryConfig
+ * snapshot. This prevents partially configured or order-dependent factories
+ * when additional factory-wide options are added.
  *
  * @code
- *   config.GetPkcs11Config().PopulateDefaults();
- *   auto factory = std::make_unique<Pkcs11ProviderFactory>();
- *   config.GetPkcs11Config().Configure(*factory);
+ *   Pkcs11ProviderFactoryConfig factory_config{token_entries};
+ *   auto factory = std::make_unique<Pkcs11ProviderFactory>(std::move(factory_config));
  *   manager.RegisterFactory(std::move(factory));
  * @endcode
  *
@@ -48,21 +47,7 @@ namespace score::crypto::daemon::provider::pkcs11
 class Pkcs11ProviderFactory final : public IProviderFactory
 {
   public:
-    /// Construct with default (empty) token configuration.
-    Pkcs11ProviderFactory() = default;
-
-    /// Construct with externally supplied token configurations.
-    ///
-    /// Called by Pkcs11Config::Configure() via SetTokenConfigs(), or directly
-    /// in tests that need to inject specific PKCS#11 provider configs.
-    explicit Pkcs11ProviderFactory(std::vector<Pkcs11TokenEntry> configs);
-
-    /// @brief Accept a token-config vector pushed by Pkcs11Config::Configure().
-    ///
-    /// This is the "acceptor" side of the visitor pattern: Pkcs11Config
-    /// (the visitor) hands its Pkcs11TokenEntry list to the factory via this
-    /// method.  The conversion to Pkcs11ProviderConfig happens internally.
-    void SetTokenConfigs(std::vector<Pkcs11TokenEntry> configs);
+    explicit Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig config);
 
     ~Pkcs11ProviderFactory() override = default;
 
@@ -82,7 +67,7 @@ class Pkcs11ProviderFactory final : public IProviderFactory
 
   private:
     /// Token configurations injected at construction (empty = no providers registered).
-    std::vector<Pkcs11TokenEntry> m_injected_configs;
+    Pkcs11ProviderFactoryConfig m_config;
 };
 
 }  // namespace score::crypto::daemon::provider::pkcs11

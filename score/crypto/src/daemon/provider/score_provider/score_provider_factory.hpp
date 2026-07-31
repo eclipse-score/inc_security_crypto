@@ -29,39 +29,27 @@ namespace score::crypto::daemon::provider::score_provider
 /// CreateAndRegister() iterates the entries, constructs each IProvider via the
 /// matching backend's ProviderCreator, and registers it into ProviderManager.
 ///
-/// Configuration is supplied externally via SetConfigs() (the acceptor side of
-/// the ScoreProviderConfig visitor pattern) or the explicit vector constructor.
-/// The daemon bootstrapper delegates config setup to ScoreProviderConfig::Configure():
+/// Configuration is supplied as one complete ScoreProviderFactoryConfig
+/// snapshot. This prevents partially configured or order-dependent factories
+/// when additional factory-wide options are added.
 ///
 /// @code
-///   config.GetScoreProviderConfig().PopulateDefaults();
-///   auto factory = std::make_unique<ScoreProviderFactory>();
-///   config.GetScoreProviderConfig().Configure(*factory);
+///   ScoreProviderFactoryConfig factory_config{provider_entries};
+///   auto factory = std::make_unique<ScoreProviderFactory>(std::move(factory_config));
 ///   provider_manager->RegisterFactory(std::move(factory));
 /// @endcode
 class ScoreProviderFactory final : public IProviderFactory
 {
   public:
-    /// Construct with default (empty) configuration.
-    ScoreProviderFactory() = default;
-
-    /// Construct with externally supplied provider configurations.
-    explicit ScoreProviderFactory(std::vector<ScoreProviderEntry> configs);
+    explicit ScoreProviderFactory(ScoreProviderFactoryConfig config);
 
     ~ScoreProviderFactory() override = default;
-
-    /// @brief Accept a provider-config vector pushed by ScoreProviderConfig::Configure().
-    ///
-    /// This is the "acceptor" side of the visitor pattern: ScoreProviderConfig
-    /// (the visitor) converts its ScoreProviderEntry list and hands them to
-    /// the factory via this method.
-    void SetConfigs(std::vector<ScoreProviderEntry> configs);
 
     /// Creates and registers all configured score providers.
     bool CreateAndRegister(ProviderManager& manager) override;
 
   private:
-    std::vector<ScoreProviderEntry> m_configs;
+    ScoreProviderFactoryConfig m_config;
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider

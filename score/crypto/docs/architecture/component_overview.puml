@@ -121,7 +121,7 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
         }
 
         class provider::ProviderManagerFactory {
-            +{static} Create(config : Config&) : ProviderManager::Sptr
+            +{static} Create(config : Config&) : Expected<ProviderManager::Sptr, DaemonErrorCode>
             -{static} CreateScoreProviderFactory(config) : IProviderFactory::Sptr
             -{static} CreatePkcs11ProviderFactory(config) : IProviderFactory::Sptr
         }
@@ -142,34 +142,32 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
             }
         }
 
-        ' --- Config visitor ---
+        ' --- Provider-specific configuration ---
         class provider::score_provider::ScoreProviderConfig {
-            +PopulateDefaults()
-            +Configure(factory : ScoreProviderFactory&)
+            +GetConfig()
         }
 
         class provider::score_provider::ScoreProviderFactory {
-            -m_configs : vector<ScoreProviderEntry>
-            +SetConfigs(configs)
+            -m_config : ScoreProviderFactoryConfig
+            +ScoreProviderFactory(config)
             +CreateAndRegister(manager) : bool
         }
 
         class provider::pkcs11::Pkcs11Config {
-            +PopulateDefaults()
-            +Configure(factory : Pkcs11ProviderFactory&)
+            +GetConfig()
         }
 
         class provider::pkcs11::Pkcs11ProviderFactory {
-            -m_configs : vector<Pkcs11ProviderConfig>
-            +SetTokenConfigs(configs)
+            -m_config : Pkcs11ProviderFactoryConfig
+            +Pkcs11ProviderFactory(config)
             +CreateAndRegister(manager) : bool
         }
 
-        provider::score_provider::ScoreProviderConfig ..> provider::score_provider::ScoreProviderFactory : Configure() → SetConfigs()
+        provider::score_provider::ScoreProviderConfig ..> provider::score_provider::ScoreProviderFactory : supplies config snapshot
         provider::score_provider::ScoreProviderFactory .up.|> provider::IProviderFactory
         provider::score_provider::ScoreProviderFactory ..> backend::score_provider::ActiveBackends : resolves providerImpl
 
-        provider::pkcs11::Pkcs11Config ..> provider::pkcs11::Pkcs11ProviderFactory : Configure() → SetTokenConfigs()
+        provider::pkcs11::Pkcs11Config ..> provider::pkcs11::Pkcs11ProviderFactory : supplies config snapshot
         provider::pkcs11::Pkcs11ProviderFactory .up.|> provider::IProviderFactory
         backend::pkcs11::SelectedBackend ..> provider::pkcs11::Pkcs11ProviderFactory : linked backend
 

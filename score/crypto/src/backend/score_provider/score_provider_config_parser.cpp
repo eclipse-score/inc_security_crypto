@@ -18,13 +18,16 @@
 namespace score::crypto::daemon::provider::score_provider
 {
 
-// This function can later  parse the actual configuration file to populate
+// This function can later parse the actual configuration file to populate
 // the ScoreProviderConfig with entries for each backend.
-void ScoreProviderConfig::ParseConfig()
+score::crypto::Expected<std::monostate, common::DaemonErrorCode> ScoreProviderConfig::ParseConfig(
+    config::Config& config)
 {
-    if (!m_providers.empty())
+    (void)config;
+
+    if (!m_config.providers.empty())
     {
-        return;
+        return std::monostate{};
     }
 
     auto backends = backend::GetActiveBackends();
@@ -38,8 +41,10 @@ void ScoreProviderConfig::ParseConfig()
         entry.providerImpl = creator.backend_id;
         entry.providerType = creator.provider_type;
 
-        m_providers.push_back(std::move(entry));
+        m_config.providers.push_back(std::move(entry));
     }
+
+    return std::monostate{};
 }
 
 }  // namespace score::crypto::daemon::provider::score_provider

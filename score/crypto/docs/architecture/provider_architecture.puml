@@ -18,14 +18,12 @@ package "Configuration (config/)" <<Rectangle>> #FFF8DC {
 
     class ScoreProviderConfig {
         +AddProviderEntry(entry)
-        +PopulateDefaults()
-        +Configure(factory : ScoreProviderFactory&)
+        +GetConfig() : const ScoreProviderFactoryConfig&
     }
 
     class Pkcs11Config {
         +AddTokenEntry(entry)
-        +PopulateDefaults()
-        +Configure(factory : Pkcs11ProviderFactory&)
+        +GetConfig() : const Pkcs11ProviderFactoryConfig&
     }
 
     Config *-- ScoreProviderConfig
@@ -83,12 +81,12 @@ package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
     package "Score Provider Family (score_provider/)" <<Rectangle>> #E8F5E9 {
 
         class ScoreProviderFactory {
-            -m_configs : vector<ScoreProviderEntry>
-            +SetConfigs(configs)
+            -m_config : ScoreProviderFactoryConfig
+            +ScoreProviderFactory(config : ScoreProviderFactoryConfig)
             +CreateAndRegister(manager) : bool
         }
         ScoreProviderFactory .up.|> IProviderFactory
-        ScoreProviderConfig ..> ScoreProviderFactory : Configure() calls SetConfigs()
+        ScoreProviderConfig ..> ScoreProviderFactory : supplies config snapshot
 
         class OpenSSLProviderFactory {
             +CreateAndRegister(manager) : bool
@@ -174,12 +172,12 @@ package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
     package "PKCS#11 Provider Family (pkcs11/)" <<Rectangle>> #E3F2FD {
 
         class Pkcs11ProviderFactory {
-            -m_configs : vector<Pkcs11ProviderConfig>
-            +SetTokenConfigs(configs)
+            -m_config : Pkcs11ProviderFactoryConfig
+            +Pkcs11ProviderFactory(config : Pkcs11ProviderFactoryConfig)
             +CreateAndRegister(manager) : bool
         }
         Pkcs11ProviderFactory .up.|> IProviderFactory
-        Pkcs11Config ..> Pkcs11ProviderFactory : Configure() calls SetTokenConfigs()
+        Pkcs11Config ..> Pkcs11ProviderFactory : supplies config snapshot
 
         class Pkcs11Provider
         Pkcs11Provider .up.|> IProvider

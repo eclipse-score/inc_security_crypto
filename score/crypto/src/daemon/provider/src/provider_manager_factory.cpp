@@ -24,72 +24,91 @@
 namespace score::crypto::daemon::provider
 {
 
-std::shared_ptr<ProviderManager> ProviderManagerFactory::Create(config::Config& config)
+score::crypto::Expected<std::shared_ptr<ProviderManager>, common::DaemonErrorCode> ProviderManagerFactory::Create(
+    config::Config& config)
 {
     // Create the provider manager instance
     auto provider_manager = std::make_shared<ProviderManager>(config);
 
     // Create and register Score provider factory if backends enabled
     auto score_factory = CreateScoreProviderFactory(config);
-    if (score_factory)
+    if (!score_factory.has_value())
     {
-        provider_manager->RegisterFactory(std::move(score_factory));
+        return score::crypto::make_unexpected(score_factory.error());
+    }
+    if (score_factory.value())
+    {
+        provider_manager->RegisterFactory(std::move(*score_factory));
     }
 
     // Create and register PKCS#11 factory if configured
     auto pkcs11_factory = CreatePkcs11ProviderFactory(config);
-    if (pkcs11_factory)
+    if (!pkcs11_factory.has_value())
     {
-        provider_manager->RegisterFactory(std::move(pkcs11_factory));
+        return score::crypto::make_unexpected(pkcs11_factory.error());
+    }
+    if (pkcs11_factory.value())
+    {
+        provider_manager->RegisterFactory(std::move(*pkcs11_factory));
     }
 
     // Initialize all registered providers. Ignore failures here;
     // Individual provider failures are logged and hidden from lookups.
-    provider_manager->Initialize();
+    if (!provider_manager->Initialize())
+    {
+        return score::crypto::make_unexpected(common::DaemonErrorCode::kInternalError);
+    }
 
     return provider_manager;
 }
 
-std::unique_ptr<IProviderFactory> ProviderManagerFactory::CreateScoreProviderFactory(config::Config& config)
+score::crypto::Expected<std::unique_ptr<IProviderFactory>, common::DaemonErrorCode>
+ProviderManagerFactory::CreateScoreProviderFactory(config::Config& config)
 {
 #if SCORE_BACKEND_ENABLED
-    config.GetScoreProviderConfig().ParseConfig();
-    if (config.GetScoreProviderConfig().GetProviderEntries().empty())
+    auto& provider_config = config.GetScoreProviderConfig();
+    auto parse_result = provider_config.ParseConfig(config);
+    if (!parse_result.has_value())
     {
-        return nullptr;
+        return score::crypto::make_unexpected(parse_result.error());
+    }
+    if (provider_config.GetConfig().providers.empty())
+    {
+        return std::unique_ptr<IProviderFactory>{};
     }
 
-    auto score_factory = std::make_unique<score_provider::ScoreProviderFactory>();
-    config.GetScoreProviderConfig().Configure(*score_factory);
-    return score_factory;
+    return std::make_unique<score_provider::ScoreProviderFactory>(provider_config.GetConfig());
 #else
     (void)config;
-    return nullptr;
+    return std::unique_ptr<IProviderFactory>{};
 #endif
 }
 
-std::unique_ptr<IProviderFactory> ProviderManagerFactory::CreatePkcs11ProviderFactory(config::Config& config)
+score::crypto::Expected<std::unique_ptr<IProviderFactory>, common::DaemonErrorCode>
+ProviderManagerFactory::CreatePkcs11ProviderFactory(config::Config& config)
 {
 #if SCORE_CRYPTO_PKCS11_ENABLED
     // Parse PKCS#11 configuration
-    config.GetPkcs11Config().ParseConfig();
+    auto& pkcs11_config = config.GetPkcs11Config();
+    auto parse_result = pkcs11_config.ParseConfig(config);
+    if (!parse_result.has_value())
+    {
+        return score::crypto::make_unexpected(parse_result.error());
+    }
 
     // Check if PKCS#11 is configured
-    if (config.GetPkcs11Config().GetTokenEntries().empty())
+    if (pkcs11_config.GetConfig().tokens.empty())
     {
         // PKCS#11 not configured or disabled
-        return nullptr;
+        return std::unique_ptr<IProviderFactory>{};
     }
 
     // Create and configure PKCS#11 factory
-    auto factory = std::make_unique<pkcs11::Pkcs11ProviderFactory>();
-    config.GetPkcs11Config().Configure(*factory);
-
-    return factory;
+    return std::make_unique<pkcs11::Pkcs11ProviderFactory>(pkcs11_config.GetConfig());
 #else
     // PKCS#11 backend not enabled in build
     (void)config;  // Suppress unused parameter warning
-    return nullptr;
+    return std::unique_ptr<IProviderFactory>{};
 #endif
 }
 

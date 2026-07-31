@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <thread>
+#include <utility>
 
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/basic_handler_chain_factory.hpp"
@@ -70,7 +71,13 @@ int main(int argc, char** argv)
     // 2. Creating and configuring provider factories (Score/OpenSSL, PKCS#11)
     // 3. Registering factories with the provider manager
     // 4. Initializing all providers
-    auto provider_manager = score::crypto::daemon::provider::ProviderManagerFactory::Create(config);
+    auto provider_manager_result = score::crypto::daemon::provider::ProviderManagerFactory::Create(config);
+    if (!provider_manager_result.has_value())
+    {
+        score::mw::log::LogError() << "Failed to create provider manager";
+        return 1;
+    }
+    auto provider_manager = std::move(*provider_manager_result);
 
     // Create data manager
     auto data_manager = std::make_shared<score::crypto::daemon::data_manager::DataManager>();

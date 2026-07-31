@@ -16,18 +16,22 @@
 namespace score::crypto::daemon::provider::pkcs11
 {
 
-void Pkcs11Config::ParseConfig()
+score::crypto::Expected<std::monostate, common::DaemonErrorCode> Pkcs11Config::ParseConfig(config::Config& config)
 {
-    if (!m_tokens.empty())
+    (void)config;
+
+    if (!m_config.tokens.empty())
     {
-        return;
+        return std::monostate{};
     }
     Pkcs11TokenEntry entry{};
     entry.tokenLabel = "SoftHSM";
     entry.userPin = "1234";
     entry.providerName = "SOFTHSM";
     entry.useHardCleanup = true;
-    m_tokens.push_back(std::move(entry));
+    m_config.tokens.push_back(std::move(entry));
+
+    return std::monostate{};
 }
 
 }  // namespace score::crypto::daemon::provider::pkcs11

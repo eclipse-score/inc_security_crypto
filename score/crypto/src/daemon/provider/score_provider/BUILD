@@ -30,6 +30,10 @@ cc_library(
     name = "score_provider_config",
     hdrs = ["score_provider_config.hpp"],
     visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+    ],
 )
 
 # Backend adapter interface (used by backend adapters to register with score provider).
@@ -46,7 +50,6 @@ cc_library(
 cc_library(
     name = "score_provider_factory",
     srcs = [
-        "src/score_provider_config.cpp",
         "src/score_provider_factory.cpp",
     ],
     hdrs = ["score_provider_factory.hpp"],

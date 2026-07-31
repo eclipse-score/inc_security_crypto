@@ -14,7 +14,7 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//score/crypto/src/backend:backend_exports.bzl", "BACKEND_DEFINES")
 
-# Score provider backend - provides ScoreProviderConfig::ParseConfig() with
+# Score provider backend - provides ScoreProviderConfig::ParseConfig(config) with
 # default behaviour: discover all active backends via GetActiveBackends().
 #
 # active_score_backends is in deps (not implementation_deps) so that

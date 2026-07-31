@@ -21,12 +21,7 @@
 namespace score::crypto::daemon::provider::score_provider
 {
 
-ScoreProviderFactory::ScoreProviderFactory(std::vector<ScoreProviderEntry> configs) : m_configs{std::move(configs)} {}
-
-void ScoreProviderFactory::SetConfigs(std::vector<ScoreProviderEntry> configs)
-{
-    m_configs = std::move(configs);
-}
+ScoreProviderFactory::ScoreProviderFactory(ScoreProviderFactoryConfig config) : m_config{std::move(config)} {}
 
 bool ScoreProviderFactory::CreateAndRegister(ProviderManager& manager)
 {
@@ -35,7 +30,7 @@ bool ScoreProviderFactory::CreateAndRegister(ProviderManager& manager)
     // Get active backends to resolve providerImpl -> factory creator
     auto backends = backend::GetActiveBackends();
 
-    for (const auto& entry : m_configs)
+    for (const auto& entry : m_config.providers)
     {
         // Find backend adapter for this provider implementation
         auto backend_it = std::find_if(backends.begin(), backends.end(), [&entry](const auto& backend) {

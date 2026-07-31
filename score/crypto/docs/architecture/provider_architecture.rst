@@ -25,7 +25,7 @@ bootstrapping sequence.
 
 .. uml:: provider_architecture.puml
    :align: center
-   :caption: Daemon Provider Architecture — Score and PKCS#11 families, handler hierarchy, and config visitor pattern.
+   :caption: Daemon Provider Architecture — Score and PKCS#11 families, handler hierarchy, and configuration flow.
    :alt: UML class diagram of the provider architecture.
 
 Provider Families
@@ -85,14 +85,14 @@ separate config type and resolved at a different point during daemon startup.
      holds one ``ScoreProviderEntry`` per score backend. An entry contains the
      provider name, the backend implementation tag (for example ``"openssl"``),
      and the provider type (``SOFTWARE``, ``HARDWARE``, ``SPECIALIZED``).
-     ``ScoreProviderConfig::ParseConfig()`` populates entries from the config
+     ``ScoreProviderConfig::ParseConfig(config)`` populates entries from the config
      file; when no config is present it falls back to the active backends
      discovered at compile time.
 
    - ``Pkcs11Config`` (``pkcs11/pkcs11_token_config.hpp``) holds one
      ``Pkcs11TokenEntry`` per token. An entry contains the token label, model,
      user PIN, provider name, provider type, and session cleanup strategy.
-     ``Pkcs11Config::ParseConfig()`` reads these values from the daemon config.
+     ``Pkcs11Config::ParseConfig(config)`` reads these values from the daemon config.
 
 3. Runtime enablement and type mapping — ``ProviderInitConfig``
    After all factories have created and registered their providers, and after
@@ -121,17 +121,17 @@ Configuration flow
 
    Config::ParseConfig()
         │
-        ├── ScoreProviderConfig::ParseConfig()  ──► ScoreProviderEntry list
+        ├── ScoreProviderConfig::ParseConfig(config)  ──► ScoreProviderEntry list
         │
-        └── Pkcs11Config::ParseConfig()         ──► Pkcs11TokenEntry list
+        └── Pkcs11Config::ParseConfig(config)         ──► Pkcs11TokenEntry list
         │
    ProviderManagerFactory::Create(config)
         │
         ├── CreateScoreProviderFactory(config)
-        │      ScoreProviderConfig::Configure(ScoreProviderFactory)
+        │      ScoreProviderFactory(ScoreProviderFactoryConfig)
         │
         ├── CreatePkcs11ProviderFactory(config)
-        │      Pkcs11Config::Configure(Pkcs11ProviderFactory)
+        │      Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig)
         │
         └── provider_manager->Initialize()
                │

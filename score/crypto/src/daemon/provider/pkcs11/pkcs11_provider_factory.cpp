@@ -24,19 +24,11 @@
 namespace score::crypto::daemon::provider::pkcs11
 {
 
-Pkcs11ProviderFactory::Pkcs11ProviderFactory(std::vector<Pkcs11TokenEntry> configs)
-    : m_injected_configs{std::move(configs)}
-{
-}
-
-void Pkcs11ProviderFactory::SetTokenConfigs(std::vector<Pkcs11TokenEntry> configs)
-{
-    m_injected_configs = std::move(configs);
-}
+Pkcs11ProviderFactory::Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig config) : m_config{std::move(config)} {}
 
 bool Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& manager)
 {
-    if (m_injected_configs.empty())
+    if (m_config.tokens.empty())
     {
         return true;
     }
@@ -57,8 +49,8 @@ bool Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& manager)
     };
 
     std::vector<Pkcs11ProviderConfig> provider_configs;
-    provider_configs.reserve(m_injected_configs.size());
-    for (const auto& entry : m_injected_configs)
+    provider_configs.reserve(m_config.tokens.size());
+    for (const auto& entry : m_config.tokens)
     {
         provider_configs.push_back(convertTokenEntry(entry));
     }

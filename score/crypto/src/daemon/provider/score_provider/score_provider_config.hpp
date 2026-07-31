@@ -14,15 +14,21 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_SCORE_PROVIDER_CONFIG_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_SCORE_PROVIDER_CONFIG_HPP
 
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
+
+namespace score::crypto::daemon::config
+{
+class Config;
+}
 
 namespace score::crypto::daemon::provider::score_provider
 {
-
-// Forward declaration — Configure() is implemented in score_provider_config.cpp
-// to keep this header free of factory internals.
-class ScoreProviderFactory;
 
 /// @brief Plain-data configuration entry for one score-interface provider.
 ///
@@ -40,21 +46,25 @@ struct ScoreProviderEntry
     std::string providerType{"SOFTWARE"};
 };
 
+/// @brief Complete configuration snapshot consumed by ScoreProviderFactory.
+struct ScoreProviderFactoryConfig
+{
+    std::vector<ScoreProviderEntry> providers;
+};
+
 /// @brief Aggregates the ordered list of score-interface provider entries for the daemon.
 ///
 /// This is the canonical score-provider configuration type.  The daemon's
 /// top-level Config class holds one instance (via a type alias in the config
 /// namespace) so that config.hpp does not need to define provider structures.
 ///
-/// @par Visitor pattern
-/// Configure() acts as a "visitor" that pushes the provider entries into a
-/// ScoreProviderFactory.  The conversion from ScoreProviderEntry to internal
-/// factory configuration lives entirely within the score_provider subsystem.
-/// Typical bootstrapper usage:
+/// The provider manager bootstrapper parses this configuration and passes a
+/// complete ScoreProviderFactoryConfig snapshot to the factory. Typical usage:
 /// @code
-///   config.GetScoreProviderConfig().ParseConfig();
-///   auto factory = std::make_unique<ScoreProviderFactory>();
-///   config.GetScoreProviderConfig().Configure(*factory);
+///   config.GetScoreProviderConfig().ParseConfig(config);
+///   ScoreProviderFactoryConfig factory_config{
+///       config.GetScoreProviderConfig().GetConfig()};
+///   auto factory = std::make_unique<ScoreProviderFactory>(std::move(factory_config));
 ///   provider_manager->RegisterFactory(std::move(factory));
 /// @endcode
 class ScoreProviderConfig
@@ -65,13 +75,13 @@ class ScoreProviderConfig
     /// @brief Add a provider entry (called by parser or bootstrapper).
     void AddProviderEntry(ScoreProviderEntry entry)
     {
-        m_providers.push_back(std::move(entry));
+        m_config.providers.push_back(std::move(entry));
     }
 
-    /// @brief Get all registered provider entries (read-only).
-    const std::vector<ScoreProviderEntry>& GetProviderEntries() const
+    /// @brief Get the complete factory configuration snapshot (read-only).
+    const ScoreProviderFactoryConfig& GetConfig() const
     {
-        return m_providers;
+        return m_config;
     }
 
     /// @brief Parse configuration from backend implementations and populate provider entries.
@@ -80,16 +90,11 @@ class ScoreProviderConfig
     /// multiple simultaneous backends. This method aggregates provider entries from all
     /// enabled backends (OpenSSL, BoringSSL, etc.) that are linked into the build.
     /// Each backend contributes its ParseConfig() implementation. No-op if entries already present.
-    void ParseConfig();
-
-    /// @brief Visit @p factory: convert each provider entry and configure the factory.
-    ///
-    /// Implemented out-of-line in score_provider_config.cpp so that this header
-    /// remains free of factory internals.
-    void Configure(ScoreProviderFactory& factory) const;
+    /// @return Empty value on success, or a daemon error if parsing fails.
+    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ParseConfig(config::Config& config);
 
   private:
-    std::vector<ScoreProviderEntry> m_providers;
+    ScoreProviderFactoryConfig m_config;
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider

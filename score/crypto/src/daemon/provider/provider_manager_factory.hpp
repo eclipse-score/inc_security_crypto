@@ -14,6 +14,9 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_MANAGER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_MANAGER_FACTORY_HPP
 
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+
 #include <memory>
 
 #include "provider_manager.hpp"
@@ -41,6 +44,9 @@ namespace score::crypto::daemon::provider
  *   Config config;
  *   config.ParseConfig();
  *   auto provider_manager = ProviderManagerFactory::Create(config);
+ *   if (!provider_manager.has_value()) {
+ *       // Handle provider configuration or initialization failure.
+ *   }
  * @endcode
  */
 class ProviderManagerFactory
@@ -57,10 +63,11 @@ class ProviderManagerFactory
      * - Calls Initialize() on the provider manager
      *
      * @param config The daemon configuration containing provider settings
-     * @return Shared pointer to initialized ProviderManager
-     * @throws std::runtime_error if initialization fails
+     * @return Expected containing the initialized ProviderManager, or a daemon
+     *         error code if provider configuration or initialization fails
      */
-    static std::shared_ptr<ProviderManager> Create(config::Config& config);
+    [[nodiscard]] static score::crypto::Expected<std::shared_ptr<ProviderManager>, common::DaemonErrorCode> Create(
+        config::Config& config);
 
   private:
     ProviderManagerFactory() = delete;
@@ -76,7 +83,8 @@ class ProviderManagerFactory
      * @return unique_ptr to ScoreProviderFactory if score backends enabled,
      *         nullptr if ENABLE_SCORE_BACKEND = False
      */
-    static std::unique_ptr<IProviderFactory> CreateScoreProviderFactory(config::Config& config);
+    [[nodiscard]] static score::crypto::Expected<std::unique_ptr<IProviderFactory>, common::DaemonErrorCode>
+    CreateScoreProviderFactory(config::Config& config);
 
     /**
      * @brief Create PKCS#11 provider factory if configured
@@ -88,7 +96,8 @@ class ProviderManagerFactory
      * @return unique_ptr to Pkcs11ProviderFactory if configured,
      *         nullptr if PKCS#11 disabled or not configured
      */
-    static std::unique_ptr<IProviderFactory> CreatePkcs11ProviderFactory(config::Config& config);
+    [[nodiscard]] static score::crypto::Expected<std::unique_ptr<IProviderFactory>, common::DaemonErrorCode>
+    CreatePkcs11ProviderFactory(config::Config& config);
 };
 
 }  // namespace score::crypto::daemon::provider

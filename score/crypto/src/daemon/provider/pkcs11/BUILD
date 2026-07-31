@@ -80,13 +80,16 @@ cc_library(
     name = "pkcs11_token_config",
     hdrs = ["pkcs11_token_config.hpp"],
     visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+    ],
 )
 
 cc_library(
     name = "provider_pkcs11_factory",
     srcs = [
         "pkcs11_provider_factory.cpp",
-        "pkcs11_token_config.cpp",
     ],
     hdrs = ["pkcs11_provider_factory.hpp"],
     implementation_deps = [

@@ -13,7 +13,7 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
-# Default Pkcs11Config::ParseConfig() implementation.
+# Default Pkcs11Config::ParseConfig(config) implementation.
 #
 # This is a fixed dependency of active_pkcs11_backend and is always present
 # when PKCS#11 is enabled, regardless of which backend library is selected via

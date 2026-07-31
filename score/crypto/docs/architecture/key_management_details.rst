@@ -506,19 +506,21 @@ PKCS#11 library (e.g. multiple SoftHSM slots).  Each ``Pkcs11TokenEntry``
 in ``Pkcs11Config`` becomes a separate ``Pkcs11Provider`` instance that
 shares the ``Pkcs11Module`` (and thus ``C_Initialize`` is called once).
 
-The visitor pattern drives configuration:
+The provider-specific factory configuration snapshot drives initialization:
 
 .. code-block:: cpp
 
-   config.GetPkcs11Config().PopulateDefaults();
-   auto factory = std::make_unique<Pkcs11ProviderFactory>();
-   config.GetPkcs11Config().Configure(*factory);  // visitor call
-   manager.RegisterFactory(std::move(factory));
+       Pkcs11ProviderFactoryConfig factory_config{
+         config.GetPkcs11Config().GetConfig()};
+       auto factory = std::make_unique<Pkcs11ProviderFactory>(
+         std::move(factory_config));
+       manager.RegisterFactory(std::move(factory));
 
-``Pkcs11Config::Configure()`` converts each ``Pkcs11TokenEntry`` to a
-``Pkcs11ProviderConfig`` and calls ``factory.SetTokenConfigs()``; the
-entire mapping logic lives in ``pkcs11_token_config.cpp`` and does not
-leak into ``daemon.cpp`` or ``config.hpp``.
+The factory converts each ``Pkcs11TokenEntry`` to a
+``Pkcs11ProviderConfig``; the mapping logic remains inside the PKCS#11
+factory implementation and does not leak into ``daemon.cpp`` or
+``config.hpp``. The complete snapshot also allows additional factory-wide
+options to be added without introducing order-dependent setter calls.
 
 Each provider has its own session pool, its own ``TokenAuthGuard``, and
 its own ``Pkcs11KeyStore``.  Login state, sessions, and key registrations

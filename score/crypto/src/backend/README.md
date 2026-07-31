@@ -49,7 +49,7 @@ bazel build //score/crypto/src/daemon:crypto_daemon \
 
 Each PKCS#11 backend target provides:
 
-1. A `Pkcs11Config::ParseConfig()` implementation with backend-specific defaults
+1. A `Pkcs11Config::ParseConfig(config)` implementation with backend-specific defaults
 2. The PKCS#11 library and headers for linking
 
 ## Configuration (`backend_exports.bzl`)
@@ -86,7 +86,7 @@ PKCS11_BACKEND = "softhsm"     # Options: "softhsm", "vendor_hsm", ...
 
 ## Adding a New PKCS#11 Backend
 
-Config parsing (`Pkcs11Config::ParseConfig`) lives in `backend/pkcs11/` and is
+Config parsing (`Pkcs11Config::ParseConfig(config)`) lives in `backend/pkcs11/` and is
 independent of which backend library is selected. Backend targets provide only
 the PKCS#11 library and headers.
 
