@@ -26,11 +26,12 @@ namespace score::crypto::daemon::provider::pkcs11
 
 Pkcs11ProviderFactory::Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig config) : m_config{std::move(config)} {}
 
-bool Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& manager)
+ProviderFactoryResult Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& manager)
 {
+    ProviderFactoryResult result;
     if (m_config.tokens.empty())
     {
-        return true;
+        return result;
     }
 
     // Convert plain-data entries to internal PKCS#11 configs here, rather than
@@ -62,7 +63,9 @@ bool Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& manager)
     const auto initResult = pkcs11Module->Init();
     if (!initResult.has_value())
     {
-        return false;
+        result.failures.push_back(ProviderFailure{
+            "Pkcs11ProviderFactory", "", ProviderFailureReason::kFactoryCreationFailed, initResult.error()});
+        return result;
     }
 
     for (const auto& config : provider_configs)
@@ -71,11 +74,16 @@ bool Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& manager)
         if (!manager.RegisterProvider(
                 config.providerName, provider, common::CryptoProviderTypeFromString(config.providerType)))
         {
-            return false;
+            result.failures.push_back(ProviderFailure{"Pkcs11ProviderFactory",
+                                                      config.providerName,
+                                                      ProviderFailureReason::kProviderRegistrationFailed,
+                                                      common::DaemonErrorCode::kInternalError});
+            continue;
         }
+        ++result.registeredCount;
     }
 
-    return true;
+    return result;
 }
 
 }  // namespace score::crypto::daemon::provider::pkcs11

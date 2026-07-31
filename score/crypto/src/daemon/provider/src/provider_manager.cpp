@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include <stdexcept>
-#include <unordered_set>
+#include <algorithm>
+#include <utility>
 
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 #include "score/mw/log/logging.h"
@@ -24,7 +24,10 @@ namespace daemon
 namespace provider
 {
 
-ProviderManager::ProviderManager(const score::crypto::daemon::config::Config& config) : m_config(config) {}
+ProviderManager::ProviderManager(config::ProviderInitConfig provider_config)
+    : m_providerConfig(std::move(provider_config))
+{
+}
 
 ProviderManager::~ProviderManager()
 {
@@ -35,130 +38,78 @@ ProviderManager::~ProviderManager()
 
 bool ProviderManager::Initialize()
 {
-    // Create and register all available providers
-    if (!CreateProviders())
+    // Make an initial attempt for every registered provider before building
+    // mappings. Individual failures are tolerated and retried on lookup.
+    (void)InitializeAll();
+
+    config::ProviderInitConfig activeConfig = m_providerConfig;
+
+    if (activeConfig.typeToProviderName.find(common::CryptoProviderType::DEFAULT) ==
+        activeConfig.typeToProviderName.end())
     {
-        return false;
+        const auto defaultName = ResolveDefaultProviderName();
+        if (!defaultName.empty())
+        {
+            activeConfig.typeToProviderName[common::CryptoProviderType::DEFAULT] = defaultName;
+        }
     }
-
-    // Initialize all providers before deciding on default mappings.
-    // Individual failures are tolerated; failed providers are hidden from lookups
-    // because GetProvider() queries provider->IsInitialized() directly.
-    const bool init_ok = InitializeAll();
-
-    // Use provided config or create default from initialized providers only.
-    config::ProviderInitConfig activeConfig = m_config.GetProviderInitConfig();
-
-    if (activeConfig.providers.empty())
-    {
-        activeConfig = CreateDefaultConfig();
-    }
-
-    // Apply enablement: shutdown and hide providers not marked as enabled.
-    ApplyEnablement(activeConfig.providers);
 
     // Build type-to-provider mappings, resolving configured names to runtime IDs.
-    BuildTypeMappings(activeConfig.typeToProviderName);
+    const bool mappings_ok = BuildTypeMappings(activeConfig.typeToProviderName);
 
-    return init_ok;
+    return mappings_ok && !m_providers.empty() && !m_hasFatalInitializationFailure;
 }
 
-config::ProviderInitConfig ProviderManager::CreateDefaultConfig(
+void ProviderManager::RecordFactoryResult(const std::string& factoryName, ProviderFactoryResult result)
+{
+    for (auto& failure : result.failures)
+    {
+        if (failure.factoryName.empty())
+        {
+            failure.factoryName = factoryName;
+        }
+        if (failure.reason == ProviderFailureReason::kRequiredProviderUnavailable ||
+            failure.reason == ProviderFailureReason::kDefaultProviderUnavailable)
+        {
+            m_hasFatalInitializationFailure = true;
+        }
+        m_initializationFailures.push_back(std::move(failure));
+    }
+}
+
+common::ProviderName ProviderManager::ResolveDefaultProviderName(
     const std::vector<common::CryptoProviderType>& preferenceOrder)
 {
-    config::ProviderInitConfig config;
-
-    // Add all initialized providers to config as enabled
-    for (const auto& pair : m_providers)
+    std::unordered_map<common::CryptoProviderType, common::ProviderName> byType;
+    common::ProviderName anyName;
+    for (const auto& [name, entry] : m_providers)
     {
-        if (pair.second.instance && pair.second.instance->IsInitialized())
+        if (!entry.instance)
         {
-            config.AddProviderConfig(config::ProviderConfig(pair.first, pair.second.cryptoType, true));
+            continue;
+        }
+        byType.emplace(entry.cryptoType, name);
+        if (anyName.empty())
+        {
+            anyName = name;
         }
     }
 
-    // Select a DEFAULT provider based on the preference order. SOFTWARE,
-    // HARDWARE and SPECIALIZED mappings are derived from each provider's
-    // declared cryptoType in BuildTypeMappings(), so they are not overridden
-    // here.
-    if (!config.providers.empty())
+    for (const auto& preferred : preferenceOrder)
     {
-        if (config.typeToProviderName.find(common::CryptoProviderType::DEFAULT) == config.typeToProviderName.end())
+        auto it = byType.find(preferred);
+        if (it != byType.end())
         {
-            common::ProviderName defaultName;
-
-            for (const auto& preferredType : preferenceOrder)
-            {
-                for (const auto& entry : m_providers)
-                {
-                    if (entry.second.instance && entry.second.instance->IsInitialized() &&
-                        entry.second.cryptoType == preferredType)
-                    {
-                        defaultName = entry.first;
-                        break;
-                    }
-                }
-                if (!defaultName.empty())
-                {
-                    break;
-                }
-            }
-
-            if (defaultName.empty())
-            {
-                defaultName = config.providers.front().providerName;
-            }
-
-            config.SetDefaultProviderForType(common::CryptoProviderType::DEFAULT, defaultName);
+            return it->second;
         }
     }
-
-    return config;
+    return anyName;
 }
 
-void ProviderManager::ApplyEnablement(const std::vector<config::ProviderConfig>& provider_configs)
-{
-    std::unordered_set<common::ProviderName> enabled_names;
-    for (const auto& cfg : provider_configs)
-    {
-        if (cfg.enabled)
-        {
-            enabled_names.insert(cfg.providerName);
-        }
-    }
-
-    for (auto it = m_providers.begin(); it != m_providers.end();)
-    {
-        if (enabled_names.find(it->first) == enabled_names.end())
-        {
-            const auto numeric_id = it->second.numeric_id;
-            if (it->second.instance)
-            {
-                it->second.instance->Shutdown();
-            }
-            if (numeric_id < m_provider_by_id.size())
-            {
-                m_provider_by_id[numeric_id].reset();
-            }
-            it = m_providers.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
-    }
-    // List the enabled providers after applying enablement
-    score::mw::log::LogInfo() << "[ProviderManager] Enabled providers after applying enablement:";
-    for (const auto& pair : m_providers)
-    {
-        score::mw::log::LogInfo() << "  - " << pair.first << " (numeric_id=" << pair.second.numeric_id
-                                  << ", type=" << static_cast<int>(pair.second.cryptoType) << ")";
-    }
-}
-
-void ProviderManager::BuildTypeMappings(
+bool ProviderManager::BuildTypeMappings(
     const std::unordered_map<common::CryptoProviderType, common::ProviderName>& type_to_name)
 {
+    bool mappings_ok = true;
     // Start from the type declared by each registered provider. This ensures
     // a SOFTWARE provider is reachable via CryptoProviderType::SOFTWARE and a
     // HARDWARE provider via CryptoProviderType::HARDWARE even when the daemon
@@ -182,36 +133,16 @@ void ProviderManager::BuildTypeMappings(
         {
             score::mw::log::LogWarn() << "[ProviderManager] Type mapping references unknown or disabled provider: "
                                       << provider_name;
+            m_initializationFailures.push_back(ProviderFailure{"",
+                                                               provider_name,
+                                                               ProviderFailureReason::kDefaultProviderUnavailable,
+                                                               common::DaemonErrorCode::kProviderNotAvailable});
+            mappings_ok = false;
             continue;
         }
         m_typeToProviderId[crypto_type] = it->second.numeric_id;
     }
-}
-
-bool ProviderManager::CreateProviders()
-{
-    // Invoke each registered factory in order.
-    // Factories are wired externally (e.g. in daemon main()) via RegisterFactory().
-    // Non-critical factories (e.g. PKCS#11/SoftHSM) may fail on platforms where
-    // the backing library is unavailable. Continue with remaining factories.
-    bool any_registered = false;
-    for (auto& factory : m_factories)
-    {
-        if (factory->CreateAndRegister(*this))
-        {
-            any_registered = true;
-        }
-    }
-    return any_registered;
-}
-
-void ProviderManager::RegisterFactory(std::unique_ptr<IProviderFactory> factory)
-{
-    if (!factory)
-    {
-        throw std::runtime_error("RegisterFactory: factory must not be null");
-    }
-    m_factories.emplace_back(std::move(factory));
+    return mappings_ok;
 }
 
 bool ProviderManager::RegisterProvider(const common::ProviderName& providerName,
@@ -226,7 +157,8 @@ bool ProviderManager::RegisterProvider(const common::ProviderName& providerName,
 
     if (!provider)
     {
-        throw std::runtime_error("Cannot register null provider for: " + providerName);
+        score::mw::log::LogError() << "[ProviderManager] Cannot register null provider for: " << providerName;
+        return false;
     }
 
     // Assign numeric ID: next index in m_provider_by_id
@@ -237,6 +169,8 @@ bool ProviderManager::RegisterProvider(const common::ProviderName& providerName,
 
     // Store the entry in the map for O(1) name lookup
     m_providers.emplace(providerName, ProviderEntry(providerName, numeric_id, provider, cryptoType));
+    score::mw::log::LogInfo() << "[ProviderManager] Provider registered: " << providerName
+                              << " (numeric_id=" << numeric_id << ")";
 
     // Map the type to this numeric ID if not already mapped
     if (m_typeToProviderId.find(cryptoType) == m_typeToProviderId.end())
@@ -247,13 +181,19 @@ bool ProviderManager::RegisterProvider(const common::ProviderName& providerName,
     return true;
 }
 
+bool ProviderManager::IsProviderRegistered(const common::ProviderName& provider_name) const
+{
+    return m_providers.find(provider_name) != m_providers.end();
+}
+
 std::shared_ptr<IProvider> ProviderManager::GetProvider(common::ProviderId providerId) const
 {
     if (providerId >= m_provider_by_id.size())
     {
         return nullptr;
     }
-    if (!IsProviderInitialized(providerId))
+    auto& provider_entry = const_cast<ProviderEntry&>(m_providers.at(m_provider_by_id[providerId]->GetProviderName()));
+    if (!EnsureProviderInitialized(provider_entry))
     {
         return nullptr;
     }
@@ -267,7 +207,8 @@ std::shared_ptr<IProvider> ProviderManager::GetProvider(const common::ProviderNa
     {
         return nullptr;
     }
-    if (!IsProviderInitialized(it->second.numeric_id))
+    auto& provider_entry = const_cast<ProviderEntry&>(it->second);
+    if (!EnsureProviderInitialized(provider_entry))
     {
         return nullptr;
     }
@@ -281,17 +222,22 @@ std::shared_ptr<IProvider> ProviderManager::GetProvider(common::CryptoProviderTy
     {
         return nullptr;
     }
-    if (!IsProviderInitialized(it->second))
+    if (it->second >= m_provider_by_id.size() || !m_provider_by_id[it->second])
     {
         return nullptr;
     }
-    return GetProvider(it->second);
+    auto& provider_entry = const_cast<ProviderEntry&>(m_providers.at(m_provider_by_id[it->second]->GetProviderName()));
+    if (!EnsureProviderInitialized(provider_entry))
+    {
+        return nullptr;
+    }
+    return provider_entry.instance;
 }
 
 bool ProviderManager::SetDefaultProviderForType(common::CryptoProviderType cryptoType, common::ProviderId providerId)
 {
     // Verify the provider exists by numeric ID and is initialized
-    if (providerId >= m_provider_by_id.size() || !m_provider_by_id[providerId] || !IsProviderInitialized(providerId))
+    if (!IsProviderInitialized(providerId))
     {
         return false;
     }
@@ -303,16 +249,52 @@ bool ProviderManager::SetDefaultProviderForType(common::CryptoProviderType crypt
 
 bool ProviderManager::InitializeAll()
 {
-    bool all_ok = true;
+    bool any_ok = false;
     for (auto& entry : m_providers)
     {
-        ProviderInitContext ctx{entry.second.numeric_id, entry.first};
-        if (!entry.second.instance->Initialize(ctx))
+        if (EnsureProviderInitialized(entry.second))
         {
-            all_ok = false;
+            any_ok = true;
         }
     }
-    return all_ok;
+    return any_ok;
+}
+
+bool ProviderManager::EnsureProviderInitialized(ProviderEntry& entry) const
+{
+    if (!entry.instance)
+    {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(m_providerMutex);
+    if (entry.instance->IsInitialized())
+    {
+        return true;
+    }
+
+    score::mw::log::LogInfo() << "[ProviderManager] Initializing provider: " << entry.name;
+    ProviderInitContext ctx{entry.numeric_id, entry.name};
+    if (entry.instance->Initialize(ctx))
+    {
+        score::mw::log::LogInfo() << "[ProviderManager] Provider is available: " << entry.name;
+        return true;
+    }
+
+    score::mw::log::LogWarn() << "[ProviderManager] Provider is not available yet: " << entry.name;
+    const bool failure_already_recorded = std::any_of(
+        m_initializationFailures.begin(), m_initializationFailures.end(), [&entry](const ProviderFailure& failure) {
+            return failure.providerName == entry.name &&
+                   failure.reason == ProviderFailureReason::kProviderInitializationFailed;
+        });
+    if (!failure_already_recorded)
+    {
+        m_initializationFailures.push_back(ProviderFailure{"",
+                                                           entry.name,
+                                                           ProviderFailureReason::kProviderInitializationFailed,
+                                                           common::DaemonErrorCode::kProviderNotAvailable});
+    }
+    return false;
 }
 
 bool ProviderManager::IsProviderInitialized(common::ProviderId provider_id) const

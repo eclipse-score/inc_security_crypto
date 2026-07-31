@@ -32,7 +32,7 @@ namespace score::crypto::daemon::provider::pkcs11
  * @code
  *   Pkcs11ProviderFactoryConfig factory_config{token_entries};
  *   auto factory = std::make_unique<Pkcs11ProviderFactory>(std::move(factory_config));
- *   manager.RegisterFactory(std::move(factory));
+ *   auto result = factory->CreateAndRegister(manager);
  * @endcode
  *
  * The factory accepts plain-data Pkcs11TokenEntry objects and converts them to
@@ -63,7 +63,7 @@ class Pkcs11ProviderFactory final : public IProviderFactory
      * @param manager  The ProviderManager to register providers into.
      * @return true on full success.
      */
-    bool CreateAndRegister(ProviderManager& manager) override;
+    ProviderFactoryResult CreateAndRegister(ProviderManager& manager) override;
 
   private:
     /// Token configurations injected at construction (empty = no providers registered).

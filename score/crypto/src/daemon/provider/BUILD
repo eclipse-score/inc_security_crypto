@@ -24,7 +24,6 @@ cc_library(
         "i_provider.hpp",
         "i_provider_factory.hpp",
         "provider_manager.hpp",
-        "provider_manager_factory.hpp",
     ],
     visibility = ["//:__subpackages__"],
     deps = [

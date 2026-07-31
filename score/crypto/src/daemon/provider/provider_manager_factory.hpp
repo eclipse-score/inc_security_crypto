@@ -22,6 +22,8 @@
 #include "provider_manager.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 
+#include <string>
+
 namespace score::crypto::daemon::provider
 {
 
@@ -71,6 +73,9 @@ class ProviderManagerFactory
 
   private:
     ProviderManagerFactory() = delete;
+
+    [[nodiscard]] static bool IsProviderAllowed(const std::string& provider_name,
+                                                const config::ProviderInitConfig& provider_config);
 
     /**
      * @brief Create score provider factory if backends enabled

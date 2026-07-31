@@ -36,7 +36,7 @@ namespace score::crypto::daemon::provider::score_provider
 /// @code
 ///   ScoreProviderFactoryConfig factory_config{provider_entries};
 ///   auto factory = std::make_unique<ScoreProviderFactory>(std::move(factory_config));
-///   provider_manager->RegisterFactory(std::move(factory));
+///   auto result = factory->CreateAndRegister(*provider_manager);
 /// @endcode
 class ScoreProviderFactory final : public IProviderFactory
 {
@@ -46,7 +46,7 @@ class ScoreProviderFactory final : public IProviderFactory
     ~ScoreProviderFactory() override = default;
 
     /// Creates and registers all configured score providers.
-    bool CreateAndRegister(ProviderManager& manager) override;
+    ProviderFactoryResult CreateAndRegister(ProviderManager& manager) override;
 
   private:
     ScoreProviderFactoryConfig m_config;

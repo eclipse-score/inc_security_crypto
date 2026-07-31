@@ -75,8 +75,8 @@ separate config type and resolved at a different point during daemon startup.
 1. Provider-family topology — build time
    The set of provider families that can exist in a given daemon binary is
    decided by compile-time flags (for example ``SCORE_BACKEND_ENABLED`` and
-   ``SCORE_CRYPTO_PKCS11_ENABLED``). ``ProviderManagerFactory`` registers a factory
-   for every family that is compiled in.
+   ``SCORE_CRYPTO_PKCS11_ENABLED``). ``ProviderManagerFactory`` creates the
+   corresponding backend factory for every configured family that is compiled in.
 
 2. Provider-specific parameters — config file / defaults
    Each family parses its own parameters from the daemon configuration:
@@ -95,12 +95,11 @@ separate config type and resolved at a different point during daemon startup.
      ``Pkcs11Config::ParseConfig(config)`` reads these values from the daemon config.
 
 3. Runtime enablement and type mapping — ``ProviderInitConfig``
-   After all factories have created and registered their providers, and after
-   every provider has been initialized, ``ProviderManager::Initialize()`` loads
-   ``ProviderInitConfig`` to decide:
+   After all factories have created and registered their providers,
+   ``ProviderManager::Initialize()`` applies ``ProviderInitConfig`` to decide:
 
-   - Which registered providers are enabled. Disabled providers are shut down
-     and removed from lookup tables.
+   - Which registered providers are eligible. Disabled providers are excluded
+     before backend registration.
    - Which provider is the default for each ``CryptoProviderType``
      (``DEFAULT``, ``SOFTWARE``, ``HARDWARE``, ``SPECIALIZED``).
 
@@ -110,9 +109,17 @@ separate config type and resolved at a different point during daemon startup.
    configuration stable across restarts and independent of registration order.
 
    If the daemon config does not supply a ``ProviderInitConfig``,
-   ``ProviderManager`` creates a default one that enables every successfully
-   initialized provider and selects defaults using the preference order
+   ``ProviderManager`` creates a default one that enables every registered
+   provider and selects defaults using the preference order
    ``HARDWARE`` → ``SOFTWARE``.
+
+Registration and availability are separate states. Registration assigns a
+stable ``ProviderId`` exactly once. ``ProviderManager::Initialize()`` makes
+an initial initialization attempt, but an individual provider may remain
+unavailable without preventing optional providers from being registered.
+A provider lookup retries initialization using the same ``ProviderId`` and
+serializes concurrent attempts. ``IProvider::IsInitialized()`` reports state
+only; it does not initialize the provider.
 
 Configuration flow
 ^^^^^^^^^^^^^^^^^^
@@ -129,20 +136,24 @@ Configuration flow
         │
         ├── CreateScoreProviderFactory(config)
         │      ScoreProviderFactory(ScoreProviderFactoryConfig)
+        │      CreateAndRegister(manager) ──► ProviderId assigned once
         │
         ├── CreatePkcs11ProviderFactory(config)
         │      Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig)
+        │      CreateAndRegister(manager) ──► ProviderId assigned once
         │
         └── provider_manager->Initialize()
                │
-               ├── CreateProviders()   ← factories create & RegisterProvider()
-               ├── InitializeAll()     ← providers initialize
-               │
-               ├── ApplyEnablement(ProviderInitConfig.providers)
-               │      shut down / hide disabled providers
+               ├── InitializeAll()
+               │      provider->Initialize(context)
                │
                └── BuildTypeMappings(ProviderInitConfig.typeToProviderName)
-                      resolve names → runtime ProviderId
+                 resolve registered names → runtime ProviderId
+
+On a later request, ``ProviderManager::GetProvider(...)`` checks
+``IsInitialized()`` and retries ``Initialize(context)`` when necessary.
+Failed providers remain registered, but unavailable providers are not
+returned to callers.
 
 Directory Layout
 ----------------

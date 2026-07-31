@@ -124,7 +124,7 @@ class ProviderManagerTypeTest : public ::testing::Test
     void SetUp() override
     {
         score::crypto::daemon::config::Config config;
-        m_mgr = std::make_shared<provider::ProviderManager>(config);
+        m_mgr = std::make_shared<provider::ProviderManager>(config.GetProviderInitConfig());
 
         // Register SW_PROVIDER (ID 0)
         m_mgr->RegisterProvider(
@@ -202,10 +202,10 @@ TEST_F(ProviderManagerTypeTest, UnknownProviderReturnsFalse)
 // Initialization state tracking
 // ===========================================================================
 
-TEST(ProviderManagerInitStateTest, FailedProviderRemainsRegisteredButIsHidden)
+TEST(ProviderManagerInitStateTest, FailedProviderRemainsRegisteredButUnavailable)
 {
     score::crypto::daemon::config::Config config;
-    provider::ProviderManager mgr(config);
+    provider::ProviderManager mgr(config.GetProviderInitConfig());
 
     auto ok_provider = std::make_shared<FailingStubProvider>("OK_PROVIDER", 0, false);
     auto fail_provider = std::make_shared<FailingStubProvider>("FAIL_PROVIDER", 1, true);
@@ -213,14 +213,14 @@ TEST(ProviderManagerInitStateTest, FailedProviderRemainsRegisteredButIsHidden)
     ASSERT_TRUE(mgr.RegisterProvider("OK_PROVIDER", ok_provider, common::CryptoProviderType::SOFTWARE));
     ASSERT_TRUE(mgr.RegisterProvider("FAIL_PROVIDER", fail_provider, common::CryptoProviderType::HARDWARE));
 
-    // FailingStubProvider instances are not pre-initialized, so they are hidden
-    // from lookups until InitializeAll() runs.
-    EXPECT_EQ(mgr.GetProvider("OK_PROVIDER"), nullptr);
+    // Lookup initializes registered providers on demand. A failed provider
+    // remains registered but is unavailable to callers.
+    EXPECT_EQ(mgr.GetProvider("OK_PROVIDER"), ok_provider);
     EXPECT_EQ(mgr.GetProvider("FAIL_PROVIDER"), nullptr);
-    EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::SOFTWARE), nullptr);
+    EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::SOFTWARE), ok_provider);
     EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::HARDWARE), nullptr);
 
-    // The registry still knows about the entries via GetProviderType.
+    // The registry still knows about both entries even when one is unavailable.
     EXPECT_TRUE(mgr.GetProviderType("OK_PROVIDER").has_value());
     EXPECT_TRUE(mgr.GetProviderType("FAIL_PROVIDER").has_value());
 }

@@ -79,13 +79,8 @@ class IProvider
 
     /// @brief Return whether the provider has been successfully initialized.
     ///
-    /// ProviderManager uses this to hide providers whose Initialize() failed
-    /// without removing their registry entries.
     /// @return true if Initialize() returned success, false otherwise
-    [[nodiscard]] virtual bool IsInitialized() const
-    {
-        return false;
-    }
+    [[nodiscard]] virtual bool IsInitialized() const = 0;
 
     /// @brief Return the provider's unique numeric identifier.
     /// @return ProviderId (uint16_t) assigned by ProviderManager

@@ -14,8 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PROVIDER_MANAGER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PROVIDER_MANAGER_HPP
 
-#include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -67,21 +67,22 @@ struct ProviderEntry
 /**
  * @brief Initialization class for managing crypto provider instances
  *
- * This class manages the lifecycle of provider instances during daemon startup.
- * The daemon calls Initialize() once during startup with a configuration.
+ * This class manages provider registration, availability, and lifecycle.
+ * Providers receive a stable ID at registration; initialization is attempted
+ * at startup and retried under synchronization when a request needs a provider.
  *
  * To add new providers:
- * 1. Modify the Initialize() or CreateProviders() implementation in
- * provider_manager.cpp
- * 2. Add your provider instantiation logic
- * 3. The factory will register and manage your provider automatically
+ * 1. Register providers through RegisterProvider().
+ * 2. Add provider instantiation logic to the relevant backend factory.
+ * 3. Call RegisterProvider() through the factory bootstrap path.
  *
  * Usage Pattern:
  * In daemon main:
  *   ProviderManager manager;
  *   ProviderInitConfig config;
  *   config.SetDefaultProviderForType(CryptoProviderType::SOFTWARE, "OPENSSL");
- *   manager.Initialize(config);
+ *   ProviderManager manager(config);
+ *   manager.Initialize();
  *   auto provider = manager.GetProvider("OPENSSL");
  */
 class ProviderManager
@@ -91,7 +92,7 @@ class ProviderManager
     /**
      * @brief Constructor
      */
-    ProviderManager(const score::crypto::daemon::config::Config& config);
+    explicit ProviderManager(config::ProviderInitConfig provider_config);
 
     /**
      * @brief Destructor - cleans up all registered providers
@@ -107,22 +108,32 @@ class ProviderManager
     ProviderManager& operator=(ProviderManager&&) noexcept = delete;
 
     /**
-     * @brief Initialize the factory with provider configuration
+     * @brief Make the initial initialization attempt and build type mappings
      *
-     * This method initializes all providers based on the provided configuration.
-     * If no config is provided, a default configuration is used that:
-     * - Enables all available providers
-     * - Sets the first available provider as default for all applicable types
+     * Individual provider failures are retained and can be retried when a
+     * provider lookup occurs. If the provider policy is empty, registered
+     * providers are eligible and defaults are selected by preference.
      *
      * This is the only method the daemon needs to call during startup.
      * Provider instantiation logic is in the implementation file.
      *
-     * @param config Optional provider initialization configuration. If not
-     * provided, a default configuration is created automatically.
-     * @return true if all providers initialized successfully, false otherwise
-     * @throws std::runtime_error if provider initialization fails
+     * @return true if registration and type mapping setup succeeded, false if
+     * the manager cannot provide a usable registry or a required mapping failed
      */
     bool Initialize();
+
+    /**
+     * @brief Get the startup failures recorded for provider factories and providers.
+     */
+    [[nodiscard]] const std::vector<ProviderFailure>& GetInitializationFailures() const noexcept
+    {
+        return m_initializationFailures;
+    }
+
+    /**
+     * @brief Record the result of a provider factory invocation.
+     */
+    void RecordFactoryResult(const std::string& factoryName, ProviderFactoryResult result);
 
     /**
      * @brief Get a provider by its numeric ID
@@ -175,22 +186,22 @@ class ProviderManager
      * @param providerName Human-readable name for the provider
      * @param provider Shared pointer to the provider instance
      * @param cryptoType Functional category of provider
-     * @return true if provider registered successfully, false if name already exists
+     * @return true if provider registered successfully, false if name already exists or provider is null
      */
     bool RegisterProvider(const common::ProviderName& providerName,
                           std::shared_ptr<IProvider> provider,
                           common::CryptoProviderType cryptoType);
 
     /**
-     * @brief Register a provider factory to be invoked during Initialize().
+     * @brief Check whether a provider has been registered.
      *
-     * Factories are called in registration order inside Initialize(), before
-     * provider configuration is applied.  Ownership is transferred to the
-     * ProviderManager.
+     * Registration is independent from provider initialization. A registered
+     * provider may be temporarily unavailable and retried by the manager later.
      *
-     * @param factory  Concrete factory instance (must be non-null).
+     * @param provider_name The provider's human-readable name.
+     * @return true if the provider is present in the registry.
      */
-    void RegisterFactory(std::unique_ptr<IProviderFactory> factory);
+    [[nodiscard]] bool IsProviderRegistered(const common::ProviderName& provider_name) const;
 
     /**
      * @brief Invoke a callback for each registered provider.
@@ -231,37 +242,23 @@ class ProviderManager
                                                     common::CryptoProviderType requested_type) const;
 
   private:
+    [[nodiscard]] bool EnsureProviderInitialized(ProviderEntry& entry) const;
+
     /**
-     * @brief Create a default provider initialization configuration
+     * @brief Resolve the name of the default provider by preference order.
      *
-     * The default configuration:
-     * - Enables all initialized providers
-     * - Sets first available provider as default for basic types
-     * - Uses preference order to select the DEFAULT provider type
-     *
-     * Only providers whose IsInitialized() returns true are considered.
-     * Provider names are used instead of runtime ProviderIds so the
-     * configuration remains stable across restarts.
+     * Scans registered providers and returns the name of the first one whose
+     * cryptoType matches an entry in preferenceOrder. Falls back to the first
+     * registered provider if no preferred type is found. Returns an empty
+     * string when no providers are registered.
      *
      * @param preferenceOrder Priority order for selecting default provider.
      *        Defaults to HARDWARE → SOFTWARE fallback.
-     * @return ProviderInitConfig with default settings
+     * @return Name of the selected default provider, or empty if none available.
      */
-    config::ProviderInitConfig CreateDefaultConfig(const std::vector<common::CryptoProviderType>& preferenceOrder = {
-                                                       common::CryptoProviderType::HARDWARE,
-                                                       common::CryptoProviderType::SOFTWARE});
-
-    /**
-     * @brief Shutdown and remove providers that are not marked as enabled.
-     *
-     * Called by Initialize() after selecting the active ProviderInitConfig.
-     * Providers whose name is absent from @p provider_configs or whose
-     * ProviderConfig::enabled is false are shut down and removed from
-     * lookup tables.
-     *
-     * @param provider_configs Active provider configurations.
-     */
-    void ApplyEnablement(const std::vector<config::ProviderConfig>& provider_configs);
+    common::ProviderName ResolveDefaultProviderName(const std::vector<common::CryptoProviderType>& preferenceOrder = {
+                                                        common::CryptoProviderType::HARDWARE,
+                                                        common::CryptoProviderType::SOFTWARE});
 
     /**
      * @brief Build m_typeToProviderId from configured type-to-name mappings.
@@ -272,17 +269,8 @@ class ProviderManager
      *
      * @param type_to_name Mapping from crypto provider type to provider name.
      */
-    void BuildTypeMappings(const std::unordered_map<common::CryptoProviderType, common::ProviderName>& type_to_name);
-
-    /**
-     * @brief Invoke all registered factories to create and register providers.
-     *
-     * Called once by Initialize().  Each registered IProviderFactory's
-     * CreateAndRegister() is called in registration order.
-     *
-     * @return true if all factory invocations succeeded, false otherwise
-     */
-    bool CreateProviders();
+    [[nodiscard]] bool BuildTypeMappings(
+        const std::unordered_map<common::CryptoProviderType, common::ProviderName>& type_to_name);
 
     /**
      * @brief Initialize all registered providers with ProviderInitContext.
@@ -291,7 +279,8 @@ class ProviderManager
      * numeric ID and name. Failed providers remain registered but are hidden
      * from lookups because GetProvider() queries provider->IsInitialized().
      *
-     * @return true if all providers initialized successfully, false otherwise
+     * @return true if at least one provider initialized, false if all current
+     * initialization attempts failed
      */
     bool InitializeAll();
 
@@ -303,9 +292,6 @@ class ProviderManager
      */
     [[nodiscard]] bool IsProviderInitialized(common::ProviderId provider_id) const;
 
-    /// Ordered list of factories to invoke during Initialize().
-    std::vector<std::unique_ptr<IProviderFactory>> m_factories;
-
     /// Registry of providers by name: ProviderName -> ProviderEntry
     std::unordered_map<common::ProviderName, ProviderEntry> m_providers;
 
@@ -315,8 +301,17 @@ class ProviderManager
     /// Mapping of provider type to numeric provider ID for type-based lookups
     std::unordered_map<common::CryptoProviderType, common::ProviderId> m_typeToProviderId;
 
-    /// Configuration reference
-    const score::crypto::daemon::config::Config& m_config;
+    /// Provider activation and default-mapping policy snapshot.
+    config::ProviderInitConfig m_providerConfig;
+
+    /// Failures encountered while selecting, creating, registering, or initializing providers.
+    mutable std::vector<ProviderFailure> m_initializationFailures;
+
+    /// Serializes provider initialization and availability checks.
+    mutable std::mutex m_providerMutex;
+
+    /// Whether a required provider or explicit default mapping could not be satisfied.
+    bool m_hasFatalInitializationFailure{false};
 };
 
 }  // namespace provider

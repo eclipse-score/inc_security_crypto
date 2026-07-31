@@ -65,7 +65,7 @@ struct ScoreProviderFactoryConfig
 ///   ScoreProviderFactoryConfig factory_config{
 ///       config.GetScoreProviderConfig().GetConfig()};
 ///   auto factory = std::make_unique<ScoreProviderFactory>(std::move(factory_config));
-///   provider_manager->RegisterFactory(std::move(factory));
+///   auto result = factory->CreateAndRegister(*provider_manager);
 /// @endcode
 class ScoreProviderConfig
 {

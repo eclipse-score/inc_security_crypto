@@ -23,9 +23,9 @@ namespace score::crypto::daemon::provider::score_provider
 
 ScoreProviderFactory::ScoreProviderFactory(ScoreProviderFactoryConfig config) : m_config{std::move(config)} {}
 
-bool ScoreProviderFactory::CreateAndRegister(ProviderManager& manager)
+ProviderFactoryResult ScoreProviderFactory::CreateAndRegister(ProviderManager& manager)
 {
-    bool all_ok = true;
+    ProviderFactoryResult result;
 
     // Get active backends to resolve providerImpl -> factory creator
     auto backends = backend::GetActiveBackends();
@@ -41,7 +41,10 @@ bool ScoreProviderFactory::CreateAndRegister(ProviderManager& manager)
         {
             score::mw::log::LogError() << "[ScoreProviderFactory] Unknown provider implementation: "
                                        << entry.providerImpl;
-            all_ok = false;
+            result.failures.push_back(ProviderFailure{"ScoreProviderFactory",
+                                                      entry.providerName,
+                                                      ProviderFailureReason::kProviderUnavailable,
+                                                      common::DaemonErrorCode::kProviderNotAvailable});
             continue;
         }
 
@@ -53,11 +56,18 @@ bool ScoreProviderFactory::CreateAndRegister(ProviderManager& manager)
         if (!manager.RegisterProvider(entry.providerName, std::move(provider), type))
         {
             score::mw::log::LogError() << "[ScoreProviderFactory] Failed to register provider: " << entry.providerName;
-            all_ok = false;
+            result.failures.push_back(ProviderFailure{"ScoreProviderFactory",
+                                                      entry.providerName,
+                                                      ProviderFailureReason::kProviderRegistrationFailed,
+                                                      common::DaemonErrorCode::kInternalError});
+        }
+        else
+        {
+            ++result.registeredCount;
         }
     }
 
-    return all_ok;
+    return result;
 }
 
 }  // namespace score::crypto::daemon::provider::score_provider

@@ -19,9 +19,9 @@ participant "BasicHandlerChainFactory" as BHCF
 participant "MediatorImpl" as Med
 
 Main -> DM ** : make_shared<DataManager>()
-Main -> PM ** : make_shared<ProviderManager>(config)
-Main -> PM : RegisterFactory(ScoreProviderFactory)
-Main -> PM : RegisterFactory(Pkcs11ProviderFactory)
+Main -> PM ** : make_shared<ProviderManager>(config.GetProviderInitConfig())
+Main -> PM : ScoreProviderFactory.CreateAndRegister(PM)
+Main -> PM : Pkcs11ProviderFactory.CreateAndRegister(PM)
 Main -> PM : Initialize()
 
 Main -> KMM : Create(data_manager, provider_manager, key_config)

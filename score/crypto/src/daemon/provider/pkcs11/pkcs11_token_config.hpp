@@ -70,7 +70,7 @@ struct Pkcs11ProviderFactoryConfig
 ///   Pkcs11ProviderFactoryConfig factory_config{
 ///       config.GetPkcs11Config().GetConfig()};
 ///   auto factory = std::make_unique<Pkcs11ProviderFactory>(std::move(factory_config));
-///   manager.RegisterFactory(std::move(factory));
+///   auto result = factory->CreateAndRegister(manager);
 /// @endcode
 class Pkcs11Config
 {

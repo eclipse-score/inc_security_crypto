@@ -117,11 +117,11 @@ through two complementary abstractions:
 
 ``IProviderFactory``
    A pure-virtual factory interface with a single method
-   ``bool CreateAndRegister(ProviderManager&)``.
+   ``ProviderFactoryResult CreateAndRegister(ProviderManager&)``.
    Concrete implementations encapsulate the construction and registration of one or more
-   related ``IProvider`` instances.  Factories are registered externally
-   (daemon bootstrapper) via ``ProviderManager::RegisterFactory()`` and called in
-   registration order during ``ProviderManager::Initialize()``.
+   related ``IProvider`` instances. ``ProviderManagerFactory`` invokes backend
+   factories independently and records each structured result; ``ProviderManager``
+   does not own concrete factories.
 
 ``ScoreProviderFactory``
    Top-level factory for the **score interface family**.  Accepts a vector of
@@ -142,7 +142,7 @@ through two complementary abstractions:
            config.GetPkcs11Config().GetConfig()};
         auto factory = std::make_unique<Pkcs11ProviderFactory>(
            std::move(factory_config));
-      manager.RegisterFactory(std::move(factory));
+      auto result = factory->CreateAndRegister(manager);
 
    ``CreateAndRegister`` creates a single shared ``Pkcs11Module`` (so
    ``C_Initialize`` is invoked exactly once regardless of token count),
@@ -168,8 +168,10 @@ through two complementary abstractions:
 
 ``ProviderManager``
    Aggregates all registered providers and routes requests by ``ProviderId`` or
-   ``CryptoProviderType``.  After all factories have been called, ``Initialize()``
-   applies the daemon configuration and calls ``Initialize()`` on every provider.
+   ``CryptoProviderType``. ``ProviderManagerFactory`` registers providers first.
+   ``ProviderManager::Initialize()`` then makes the initial initialization pass and
+   builds type mappings. Provider lookups retry unavailable providers under
+   synchronization, using the original stable ``ProviderId``.
 
 Dynamic Architecture
 --------------------

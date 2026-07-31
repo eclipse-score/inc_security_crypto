@@ -3,8 +3,8 @@ title __Architecture overview__
 
 set namespaceSeparator ::
 top to bottom direction
-skinparam nodesep 18
-skinparam ranksep 34
+skinparam nodesep 2
+skinparam ranksep 72
 
 ' ====================================================================
 ' CLIENT SIDE
@@ -39,7 +39,7 @@ package "IPC (score::crypto::ipc)" <<Rectangle>> {
 package "Daemon (score::crypto::daemon)" <<Rectangle>> {
 
     ' --- Control Plane ---
-    package "control_plane/" <<Rectangle>> #F5F5F5 {
+    package control_plane <<Rectangle>> #F5F5F5 {
 
         interface control_plane::IControlServer {
             +Start(socket_path)
@@ -60,7 +60,6 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
         }
 
         class control_plane::ConnectionHandler {
-            -m_next : IRequestHandler
             +processRequest(request) : ControlResponse
         }
 
@@ -72,7 +71,7 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
     }
 
     ' --- Mediator ---
-    package "mediator/" <<Rectangle>> #F0F0FF {
+    package mediator <<Rectangle>> #F0F0FF {
         interface mediator::IMediator {
             +processRequest(request) : ControlResponse
         }
@@ -85,7 +84,7 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
     }
 
     ' --- Data Manager ---
-    package "data_manager/" <<Rectangle>> #FFF8DC {
+    package data_manager <<Rectangle>> #FFF8DC {
         interface data_manager::IDataManager {
             +GetNode(...) : DataNode
             +CreateNode(...) : DataNodeId
@@ -94,7 +93,7 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
     }
 
     ' --- Key Management ---
-    package "key_management/" <<Rectangle>> #F0FFF0 {
+    package key_management <<Rectangle>> #F0FFF0 {
         class key_management::KeyManagementModule {
             +{static} Create(...) : Sptr
             +GetService() : KeyManagementService::Sptr
@@ -109,75 +108,81 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
     }
 
     ' --- Provider ---
-    package "provider/" <<Rectangle>> #E8F5E9 {
+    package provider <<Rectangle>> #E8F5E9 {
 
         interface provider::IProvider {
-            +Initialize() : Result<void>
-            +Shutdown() : Result<void>
+            +Initialize(context : ProviderInitContext) : bool
+            +Shutdown() : void
+            +IsInitialized() : bool
         }
 
         interface provider::IProviderFactory {
-            +CreateAndRegister(manager : ProviderManager&) : bool
+            +CreateAndRegister(manager : ProviderManager&) : ProviderFactoryResult
         }
 
         class provider::ProviderManagerFactory {
             +{static} Create(config : Config&) : Expected<ProviderManager::Sptr, DaemonErrorCode>
-            -{static} CreateScoreProviderFactory(config) : IProviderFactory::Sptr
-            -{static} CreatePkcs11ProviderFactory(config) : IProviderFactory::Sptr
         }
+        note right of provider::ProviderManagerFactory
+            Internally instantiates and wires
+            concrete provider factories based
+            on build configuration.
+        end note
 
         class provider::ProviderManager {
-            +RegisterFactory(factory : unique_ptr<IProviderFactory>)
             +Initialize() : bool
             +RegisterProvider(name, provider, type) : bool
+            +IsProviderRegistered(name) : bool
             +GetProvider(id) : IProvider::Sptr
         }
 
-        package "backend/" <<Rectangle>> #E0F2F1 {
-            class backend::score_provider::ActiveBackends {
-                +GetActiveBackends() : vector<IBackendProviderAdapter>
+        package backend <<Rectangle>> #E0F2F1 {
+            package backend_score_provider {
+                class "ActiveBackends" as BackendActiveBackends {
+                    +GetActiveBackends() : vector<IBackendProviderAdapter>
+                }
             }
-            class backend::pkcs11::SelectedBackend {
-                <<Bazel label_flag>>
+            package backend_pkcs11 {
+                class "SelectedBackend" as BackendSelectedBackend {
+                    <<Bazel label_flag>>
+                }
             }
         }
 
-        ' --- Provider-specific configuration ---
-        class provider::score_provider::ScoreProviderConfig {
-            +GetConfig()
+        package provider_score_provider {
+            class "ScoreProviderConfig" as ScoreProviderConfigNode {
+                +GetConfig()
+            }
+
+            class "ScoreProviderFactory" as ScoreProviderFactoryNode {
+                +ScoreProviderFactory(config)
+                +CreateAndRegister(manager) : bool
+            }
         }
 
-        class provider::score_provider::ScoreProviderFactory {
-            -m_config : ScoreProviderFactoryConfig
-            +ScoreProviderFactory(config)
-            +CreateAndRegister(manager) : bool
+        package provider_pkcs11 {
+            class "Pkcs11Config" as Pkcs11ConfigNode {
+                +GetConfig()
+            }
+
+            class "Pkcs11ProviderFactory" as Pkcs11ProviderFactoryNode {
+                +Pkcs11ProviderFactory(config)
+                +CreateAndRegister(manager) : bool
+            }
         }
 
-        class provider::pkcs11::Pkcs11Config {
-            +GetConfig()
-        }
-
-        class provider::pkcs11::Pkcs11ProviderFactory {
-            -m_config : Pkcs11ProviderFactoryConfig
-            +Pkcs11ProviderFactory(config)
-            +CreateAndRegister(manager) : bool
-        }
-
-        provider::score_provider::ScoreProviderConfig ..> provider::score_provider::ScoreProviderFactory : supplies config snapshot
-        provider::score_provider::ScoreProviderFactory .up.|> provider::IProviderFactory
-        provider::score_provider::ScoreProviderFactory ..> backend::score_provider::ActiveBackends : resolves providerImpl
-
-        provider::pkcs11::Pkcs11Config ..> provider::pkcs11::Pkcs11ProviderFactory : supplies config snapshot
-        provider::pkcs11::Pkcs11ProviderFactory .up.|> provider::IProviderFactory
-        backend::pkcs11::SelectedBackend ..> provider::pkcs11::Pkcs11ProviderFactory : linked backend
-
-        provider::ProviderManager *-- provider::IProviderFactory : 0..n
         provider::ProviderManager *-- provider::IProvider : 1..n
-        provider::ProviderManagerFactory ..> provider::ProviderManager : creates and initializes
-        provider::ProviderManagerFactory ..> provider::score_provider::ScoreProviderFactory : conditionally creates
-        provider::ProviderManagerFactory ..> provider::pkcs11::Pkcs11ProviderFactory : conditionally creates
-        provider::ProviderManagerFactory ..> provider::score_provider::ScoreProviderConfig : parses/configures
-        provider::ProviderManagerFactory ..> provider::pkcs11::Pkcs11Config : parses/configures
+        ScoreProviderFactoryNode .up.|> provider::IProviderFactory
+        Pkcs11ProviderFactoryNode .up.|> provider::IProviderFactory
+        ScoreProviderConfigNode ..> ScoreProviderFactoryNode : supplies config snapshot
+        Pkcs11ConfigNode ..> Pkcs11ProviderFactoryNode : supplies config snapshot
+        ScoreProviderFactoryNode ..> BackendActiveBackends : resolves providerImpl
+        BackendSelectedBackend ..> Pkcs11ProviderFactoryNode : linked backend
+        provider::ProviderManagerFactory ..> provider::ProviderManager : creates, registers, initializes
+        provider::ProviderManagerFactory ..> ScoreProviderFactoryNode : conditionally creates
+        provider::ProviderManagerFactory ..> Pkcs11ProviderFactoryNode : conditionally creates
+        provider::ProviderManagerFactory ..> ScoreProviderConfigNode : parses/configures
+        provider::ProviderManagerFactory ..> Pkcs11ConfigNode : parses/configures
     }
 
     mediator::MediatorImpl o-- provider::ProviderManager

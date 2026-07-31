@@ -114,11 +114,15 @@ struct ProviderConfig
     common::ProviderName providerName;      ///< Human-readable provider identifier
     common::CryptoProviderType cryptoType;  ///< Functional category
     bool enabled{true};                     ///< Whether this provider should be used
+    bool required{false};                   ///< Whether startup must provide this provider
     ResourceQuotaPolicy quota_policy{};     ///< Per-provider quota policy override
 
     ProviderConfig() = default;
-    ProviderConfig(const common::ProviderName& name, common::CryptoProviderType cryptoType, bool enabled = true)
-        : providerName(name), cryptoType(cryptoType), enabled(enabled)
+    ProviderConfig(const common::ProviderName& name,
+                   common::CryptoProviderType cryptoType,
+                   bool enabled = true,
+                   bool required = false)
+        : providerName(name), cryptoType(cryptoType), enabled(enabled), required(required)
     {
     }
 };

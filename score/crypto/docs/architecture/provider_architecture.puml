@@ -40,19 +40,19 @@ package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
     }
 
     class ProviderManager {
-        +RegisterFactory(factory : unique_ptr<IProviderFactory>)
         +Initialize() : bool
         +RegisterProvider(name, provider, type) : bool
+        +IsProviderRegistered(name) : bool
         +GetProvider(id) : IProvider::Sptr
     }
 
     interface IProvider {
-        +Initialize() : Result<void>
-        +Shutdown() : Result<void>
+        +Initialize(context : ProviderInitContext) : bool
+        +Shutdown() : void
+        +IsInitialized() : bool
         +CreateHandlerFactory() : unique_ptr<ICryptoHandlerFactory>
     }
 
-    ProviderManager *-- IProviderFactory : 0..n
     ProviderManager *-- IProvider : 1..n
     IProviderFactory ..> ProviderManager : registers into
 

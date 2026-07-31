@@ -512,9 +512,9 @@ The provider-specific factory configuration snapshot drives initialization:
 
        Pkcs11ProviderFactoryConfig factory_config{
          config.GetPkcs11Config().GetConfig()};
-       auto factory = std::make_unique<Pkcs11ProviderFactory>(
-         std::move(factory_config));
-       manager.RegisterFactory(std::move(factory));
+     auto factory = std::make_unique<Pkcs11ProviderFactory>(
+       std::move(factory_config));
+     auto result = factory->CreateAndRegister(manager);
 
 The factory converts each ``Pkcs11TokenEntry`` to a
 ``Pkcs11ProviderConfig``; the mapping logic remains inside the PKCS#11
