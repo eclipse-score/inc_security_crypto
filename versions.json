@@ -4,6 +4,10 @@
     "url": "https://eclipse-score.github.io/inc_security_crypto/main/"
   },
   {
+    "version": "pr-137",
+    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-137/"
+  },
+  {
     "version": "pr-42",
     "url": "https://eclipse-score.github.io/inc_security_crypto/pr-42/"
   },
@@ -14,13 +18,5 @@
   {
     "version": "pr-92",
     "url": "https://eclipse-score.github.io/inc_security_crypto/pr-92/"
-  },
-  {
-    "version": "pr-136",
-    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-136/"
-  },
-  {
-    "version": "pr-137",
-    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-137/"
   }
 ]
