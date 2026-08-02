@@ -19,6 +19,7 @@ Feature Safety Work Products List
 
 .. document:: Crypto Safety WPs
    :id: doc__crypto_safety_wp
+   :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES

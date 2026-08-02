@@ -19,6 +19,7 @@ Safety Plan Formal Review Report
 
 .. document:: [Your Module Name] Safety Plan Formal Review
   :id: doc__mod_temp_module_name_safety_plan_fdr
+  :version: 1
   :status: draft
   :safety: ASIL_B
   :security: YES

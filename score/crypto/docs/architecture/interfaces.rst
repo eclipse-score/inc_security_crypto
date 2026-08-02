@@ -21,6 +21,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: ICryptoStack
    :id: real_arc_int__crypto__i_crypto_stack
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -38,6 +39,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: CryptoResourceGuard
    :id: real_arc_int__crypto__crypto_resource_guard
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -62,6 +64,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: ICryptoContext
    :id: real_arc_int__crypto__i_crypto_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -86,6 +89,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: IMemoryAllocator
    :id: real_arc_int__crypto__i_memory_allocator
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -99,6 +103,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: Streaming Context Hierarchy
    :id: real_arc_int__crypto__streaming_contexts
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -127,6 +132,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: IKeyManagementContext
    :id: real_arc_int__crypto__i_key_mgmnt_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -172,6 +178,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: ICertificateManagementContext
    :id: real_arc_int__crypto__i_cert_mgmt_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -194,6 +201,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: ICertificateVerificationContext
    :id: real_arc_int__crypto__i_cert_ver_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -205,6 +213,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: ICsrGenerationContext
    :id: real_arc_int__crypto__i_csr_gen_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -217,6 +226,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: Typed Object Hierarchy
    :id: real_arc_int__crypto__typed_objects
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -240,6 +250,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: CryptoResourceId
    :id: real_arc_int__crypto__crypto_resource_id
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -256,6 +267,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: BaseContextConfig
    :id: real_arc_int__crypto__base_context_config
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -278,6 +290,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: KdfParameters
    :id: real_arc_int__crypto__kdf_parameters
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -296,6 +309,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: Key Operation Parameter Structs
    :id: real_arc_int__crypto__key_operation_params
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -325,6 +339,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: IHashContext
    :id: real_arc_int__crypto__i_hash_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -338,6 +353,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: IMacContext
    :id: real_arc_int__crypto__i_mac_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -352,6 +368,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: ICipherContext
    :id: real_arc_int__crypto__i_cipher_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -369,6 +386,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: IAeadContext
    :id: real_arc_int__crypto__i_aead_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -385,6 +403,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: ISignContext
    :id: real_arc_int__crypto__i_sign_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -398,6 +417,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: IVerifySignatureContext
    :id: real_arc_int__crypto__i_verify_sign_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid
@@ -409,6 +429,7 @@ The public API surface is organized into the following interface groups:
 
 .. real_arc_int:: IRandomContext
    :id: real_arc_int__crypto__i_random_context
+   :version: 1
    :security: YES
    :safety: QM
    :status: invalid

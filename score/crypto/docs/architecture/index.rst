@@ -19,6 +19,7 @@ Component Architecture
 
 .. document:: Crypto Architecture
    :id: doc__crypto_architecture
+   :version: 1
    :status: draft
    :safety: QM
    :security: YES
@@ -26,6 +27,7 @@ Component Architecture
 
 .. workproduct:: Component Request Dummy
    :id: wp__cmpt_request_dummy
+   :version: 1
    :status: draft
 
 Overview

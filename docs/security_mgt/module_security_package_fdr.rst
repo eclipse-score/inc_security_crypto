@@ -19,6 +19,7 @@ Security Package Formal Review Report
 
 .. document:: [Your Module Name] Security Package Formal Review
   :id: doc__mod_temp_module_name_sec_pkg_fdr
+  :version: 1
   :status: draft
   :safety: ASIL_B
   :security: YES

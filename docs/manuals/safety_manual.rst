@@ -19,6 +19,7 @@ Safety Manual
 
 .. document:: [Your Module Name] Safety Manual
    :id: doc__mod_temp_module_name_safety_manual
+   :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES

@@ -17,6 +17,7 @@ Component Architecture Documentation
 
 .. document:: IAV Primula Architecture
    :id: doc__iav_primula_architecture
+   :version: 1
    :status: draft
    :safety: QM
    :security: YES
@@ -70,6 +71,7 @@ A component can optional also consist of lower level components to further struc
 
 .. comp:: IAV Primula
    :id: comp__iav_primula
+   :version: 1
    :security: YES
    :safety: QM
    :status: valid
@@ -77,6 +79,7 @@ A component can optional also consist of lower level components to further struc
 
 .. comp_arc_sta:: IAV Primula Static View
    :id: comp_arc_sta__iav_primula__sv
+   :version: 1
    :security: YES
    :safety: QM
    :status: valid
@@ -94,6 +97,7 @@ Dynamic Architecture
 
 .. comp_arc_dyn:: IAV Primula Dynamic View
    :id: comp_arc_dyn__iav_primula__dv
+   :version: 1
    :security: YES
    :safety: QM
    :status: valid
@@ -108,6 +112,7 @@ Interfaces
 
 .. real_arc_int:: Public hello message interface
    :id: real_arc_int__iav_primula__get_hello_message
+   :version: 1
    :security: NO
    :safety: QM
    :status: valid

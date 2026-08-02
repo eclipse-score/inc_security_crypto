@@ -19,6 +19,7 @@ Release Note
 
 .. document:: [Your Module Name] Release Note
    :id: doc__mod_temp_module_name_release_note
+   :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES

@@ -17,6 +17,7 @@ Example: Detailed Design
 
 .. document:: Crypto Detailed Design
    :id: doc__crypto_detailed_design
+   :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES

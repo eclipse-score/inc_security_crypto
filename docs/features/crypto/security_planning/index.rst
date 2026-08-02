@@ -19,6 +19,7 @@ Feature Security Work Products List
 
 .. document:: Crypto Security WPs
    :id: doc__feature_example_security_planning_wp
+   :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES

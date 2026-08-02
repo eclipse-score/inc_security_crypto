@@ -18,6 +18,7 @@ DFA (Dependent Failure Analysis)
 
 .. document:: IAV Primula DFA
    :id: doc__iav_primula_dfa
+   :version: 1
    :status: draft
    :safety: QM
    :security: YES

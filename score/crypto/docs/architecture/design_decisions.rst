@@ -22,6 +22,7 @@ ABI Compatibility for IPC Layer (Deferred Post-Stabilisation)
 
 .. dec_rec:: ABI Compatibility for IPC Layer (Deferred Post-Stabilisation)
    :id: dec_rec__crypto__no_abi_compatibility_ipc
+   :version: 1
    :status: proposed
    :context: doc__crypto_architecture
    :decision: ABI compatibility for the IPC layer between the crypto library and daemon is deferred until the API and wire format are stable. Once stable, a versioned wire format (FlatBuffers is the primary candidate) will be introduced to allow independent deployment of library and daemon versions.
@@ -116,6 +117,7 @@ CryptoResourceGuard Lifetime via Daemon-Side Reference Counting
 
 .. dec_rec:: CryptoResourceGuard Lifetime via Daemon-Side Reference Counting
    :id: dec_rec__crypto__cry_res_grd_lifetime
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: Transient key lifetime is managed exclusively in the daemon via reference counting. The guard holds a type-erased IPC release handle; Create*Context() increments the daemon ref-count atomically. The guard may be destroyed after Create*Context() returns. On client disconnect, the daemon bulk-frees all resources for that client.
@@ -269,6 +271,7 @@ Shared-Connection Anchor for Persistent Resource ID Stability
 
 .. dec_rec:: Shared-Connection Anchor for Persistent Resource ID Stability
    :id: dec_rec__crypto__conn_anchor_persistent_ids
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: The IPC connection to the crypto daemon is the anchor for kPersistent resource IDs. All ICryptoStack instances within the same application share a single connection, ensuring that the same resource name always resolves to the same numeric CryptoResourceId regardless of which stack or context resolves it. ID assignment is on-demand per connection, and each application gets its own isolated connection with an independent ID namespace.
@@ -373,6 +376,7 @@ Consequences
 
 .. dec_rec:: AlgorithmId Represented as FixedCapacityString<64>
    :id: dec_rec__crypto__alg_id_fixed_cap_str
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: ``AlgorithmId`` is defined as ``FixedCapacityString<64>`` rather than a compile-time enum or std::string, providing open-set extensibility with deterministic stack allocation. 64 bytes covers the longest currently-known PQC identifier (e.g., "SLH-DSA-SHA2-128s") with comfortable headroom. All constructors and assignments are noexcept.
@@ -437,6 +441,7 @@ Synchronous-Only IPC Model
 
 .. dec_rec:: Synchronous-Only IPC Model
    :id: dec_rec__crypto__synchronous_ipc
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: All IPC calls between the client library and the crypto daemon are synchronous (blocking). No callback, future, or async-notify pattern is exposed in the V1 public API.
@@ -497,6 +502,7 @@ Context ``Reset()`` for Streaming Context Reuse
 
 .. dec_rec:: Context Reset() for Streaming Context Reuse
    :id: dec_rec__crypto__context_reset_reuse
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: ``IStreamingContext`` exposes a ``Reset()`` method returning the context to
@@ -555,6 +561,7 @@ Two-Layer Per-Call Timeout with Daemon-Side Enforcement
 
 .. dec_rec:: Two-Layer Per-Call Timeout with Daemon-Side Enforcement
    :id: dec_rec__crypto__two_layer_timeout
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: Two-layer timeout model selected for bounded behaviour at both layers.
@@ -626,6 +633,7 @@ Consequences
 
 .. dec_rec:: KeyOperationPermission as a Capability Bitmask
    :id: dec_rec__crypto__key_op_permission_bitmask
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: Per-key usage restrictions are encoded as a ``KeyOperationPermission`` bitmask (named bit-flag capabilities: ``kEncrypt``, ``kDecrypt``, ``kSign``, ``kVerify``, ``kDerive``, ``kWrap``, ``kExport``, ``kGenerate``). The daemon enforces the bitmask at context creation time; operations not permitted by the key's bitmask return ``kKeyOperationNotPermitted``.
@@ -689,6 +697,7 @@ Unified Cipher Context (No Encrypt/Decrypt or Symmetric/Asymmetric Split)
 
 .. dec_rec:: Unified Cipher Context Rather Than Separate Encrypt/Decrypt Plus Symmetric/Asymmetric Split
    :id: dec_rec__crypto__unified_enc_dec_contexts
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: A single ``ICipherContext`` type is used for both encryption and decryption, with direction configured via ``CipherContextConfig``. Sign, verify, MAC, and AEAD are each separate context types under the ``IStreamingContext`` hierarchy. The algorithm identifier and key type determine whether the operation is symmetric or asymmetric at runtime. Separate ``SymmetricEncryptContext`` / ``AsymmetricEncryptContext`` types were rejected for increased complexity without benefit.
@@ -758,6 +767,7 @@ Consequences
 
 .. dec_rec:: IMemoryAllocator Separated from ICryptoStack
    :id: dec_rec__crypto__memory_allocator_separation
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: ``IMemoryAllocator`` is a standalone interface independent of ``ICryptoStack``. It represents the data plane, can be injected into components that need only memory management, and enables isolated unit testing — none of which are possible if it is coupled to the control-plane ``ICryptoStack``.
@@ -823,6 +833,7 @@ Control Plane IPC Boundary Copy with Daemon-Internal Zero-Copy References
 
 .. dec_rec:: Control Plane IPC Boundary Copy with Daemon-Internal Zero-Copy References
    :id: dec_rec__crypto__ipc_boundary_copy
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: The control plane IPC layer on the daemon side shall create exactly one owning copy of all incoming request data at the deserialization boundary. All subsequent daemon-internal processing shall operate on non-owning references into that single owned copy. This prevents time-of-check-time-of-use (TOCTOU) attacks on control information while minimising memory copies within the daemon. The data plane is explicitly excluded — it carries only opaque data payloads and may use zero-copy transfer.
@@ -910,6 +921,7 @@ Per-Operation Parameter Structs with Dual Overloads
 
 .. dec_rec:: Per-Operation Parameter Structs with Dual Overloads
    :id: dec_rec__crypto__per_op_params
+   :version: 1
    :status: proposed
    :context: doc__crypto_architecture
    :decision: Key management operations (``GenerateKey``, ``DeriveKey``, ``AgreeKey``, ``UnwrapKey``, ``ImportKey``, ``WrapKey``) are encapsulated in dedicated fluent-builder parameter structs. Dual overloads support both ephemeral keys (returning ``CryptoResourceGuard``) and direct-to-slot writes (returning ``bool``). KDF configuration is represented as a structured ``KdfParameters`` type rather than opaque byte spans, providing type safety and extensibility.
