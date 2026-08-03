@@ -1,136 +1,111 @@
 # Backend Configuration
 
-This folder controls which cryptographic backends are compiled into the daemon.
+This package controls which cryptographic backends are compiled into the daemon.
 It is the **single source of truth** for backend selection at build time.
 
-## Files
+## Overview
 
-| File | Purpose |
-|------|---------|
-| `backend_exports.bzl` | Master flags (`ENABLE_BACKEND_OPENSSL`, `PKCS11_BACKEND`, ...) |
-| `backend_config.bzl` | Helper functions that map flags to Bazel labels/defines |
-| `BUILD` | Bazel targets: `active_score_backends`, `active_pkcs11_backend`, `pkcs11_backend` label_flag |
-| `score_provider/active_backends_list.hpp` | Compile-time discovery of enabled score backends |
+Two independent backend families exist:
 
-## How It Works
+| Family | Factory | Selection |
+|--------|---------|-----------|
+| **Score provider** | `ScoreProviderFactory` | Multiple sub-backends can be active simultaneously |
+| **PKCS#11** | `Pkcs11ProviderFactory` | Exactly one library is active at a time |
 
-### Score Provider Backends
+## Enable / Disable Flags
 
-A single `ScoreProviderFactory` handles multiple score backends (OpenSSL, Primula, etc.).
-The factory discovers enabled backends at compile time via `score_provider/active_backends_list.hpp`.
-Each backend adapter exposes:
+Backend enable/disable is controlled via `bool_flag` targets. All flags are in
+`//score/crypto/src/backend:BUILD`.
 
-- `backend_id` — implementation tag used for dispatch (e.g. `"openssl"`)
-- `backend_name` — human-readable provider name (e.g. `"OPENSSL"`)
-- `provider_type` — `"SOFTWARE"`, `"HARDWARE"` or `"SPECIALIZED"`
-- `create_provider` — factory function for the concrete provider
+| Flag | Default | Command-line override |
+|------|---------|----------------------|
+| `score_crypto_score_backend_enabled` | `True` | `--//score/crypto/src/backend:score_crypto_score_backend_enabled=False` |
+| `score_crypto_pkcs11_enabled` | `True` | `--//score/crypto/src/backend:score_crypto_pkcs11_enabled=False` |
+| `score_crypto_openssl_enabled` | `True` | `--//score/crypto/src/backend:score_crypto_openssl_enabled=False` |
+| `score_crypto_primula_enabled` | `False` | `--//score/crypto/src/backend:score_crypto_primula_enabled=True` |
 
-### PKCS#11 Backends
+`score_crypto_score_backend_enabled` is the master gate for the score provider
+family. Individual sub-backend flags (`score_crypto_openssl_enabled`, etc.) have
+no effect unless the master flag is also `True`.
 
-A separate `Pkcs11ProviderFactory` handles the PKCS#11 family. Only one PKCS#11
-backend can be active at a time. The active backend is selected through a Bazel
-`label_flag`:
+When a backend is disabled, **all its dependencies are excluded from the binary**
+— nothing is compiled or linked for that backend.
+
+## Score Provider Sub-Backends
+
+Score provider sub-backends live under `score_provider/<backend>/`. Each follows
+the three-target pattern:
+
+| Target | Purpose |
+|--------|---------|
+| `*_backend_adapter` | Full implementation (adapter + provider library) |
+| `*_backend_define` | Preprocessor define only (lightweight) |
+| `*_backend` | Conditional aggregate: define + adapter when enabled |
+
+The discovery header `score_provider/active_backends_list.hpp` lists all enabled
+sub-backends. The `ScoreProviderFactory` uses it to instantiate providers at
+startup.
+
+## PKCS#11 Implementation Selection
+
+Only one PKCS#11 library can be active at a time. The active library is selected
+via a `label_flag`:
 
 ```starlark
 # backend/BUILD
 label_flag(
     name = "pkcs11_backend",
-    build_setting_default = PKCS11_BACKEND_DEFAULT_LABEL,
+    build_setting_default = "//third_party/soft_hsm:softhsm_shared",
 )
 ```
 
-The default value comes from `PKCS11_BACKEND` in `backend_exports.bzl`. It can be
-overridden on the command line:
+Override at build time:
 
 ```bash
 bazel build //score/crypto/src/daemon:crypto_daemon \
-    --//score/crypto/src/backend:pkcs11_backend=//external/vendor_hsm:backend
+    --//score/crypto/src/backend:pkcs11_backend=//third_party/vendor_hsm:vendor_hsm
 ```
 
-Each PKCS#11 backend target provides:
-
-1. A `Pkcs11Config::ParseConfig(config)` implementation with backend-specific defaults
-2. The PKCS#11 library and headers for linking
-
-## Configuration (`backend_exports.bzl`)
-
-```starlark
-# Backend family flags
-ENABLE_PKCS11_BACKEND = True   # Enable/disable PKCS#11
-ENABLE_SCORE_BACKEND = True    # Enable/disable all score backends
-
-# Individual score backends (only if ENABLE_SCORE_BACKEND = True)
-ENABLE_BACKEND_OPENSSL = True
-ENABLE_BACKEND_PRIMULA = False
-
-# Active PKCS#11 backend (only if ENABLE_PKCS11_BACKEND = True)
-PKCS11_BACKEND = "softhsm"     # Options: "softhsm", "vendor_hsm", ...
-```
-
-## Adding a New Score Backend
-
-1. Implement the provider in `score_provider/<backend>/`
-2. Create an adapter in `backend/<backend>/`:
-   ```cpp
-   ProviderCreator GetProviderCreator() const override {
-       return {
-           .backend_id    = "<backend>",
-           .backend_name  = "<BACKEND>",
-           .provider_type = "SOFTWARE",  // or "HARDWARE", "SPECIALIZED"
-           .create_provider = []() { return std::make_unique<...>(); }
-       };
-   }
-   ```
-3. Add flags to `backend_exports.bzl` and update `backend_config.bzl`
-4. Update `score_provider/active_backends_list.hpp` (include + instantiate)
-
-## Adding a New PKCS#11 Backend
-
-Config parsing (`Pkcs11Config::ParseConfig(config)`) lives in `backend/pkcs11/` and is
-independent of which backend library is selected. Backend targets provide only
-the PKCS#11 library and headers.
-
-1. Add the backend name → library label mapping in `backend_config.bzl`:
-   ```starlark
-   def _pkcs11_backend_map():
-       return {
-           "softhsm": "//third_party/soft_hsm:softhsm_shared",
-           "<name>":  "//third_party/<name>:<name>",  # NEW
-       }
-   ```
-2. Select it in `backend_exports.bzl`:
-   ```starlark
-   PKCS11_BACKEND = "<name>"
-   ```
-   Or override at build time:
-   ```bash
-   bazel build //score/crypto/src/daemon:crypto_daemon \
-       --//score/crypto/src/backend:pkcs11_backend=//third_party/<name>:<name>
-   ```
+Config parsing (`Pkcs11Config::ParseConfig`) lives in `backend/pkcs11/` and is
+independent of the selected library.
 
 ## Common Configurations
 
-| Use Case | Config |
-|----------|--------|
-| **Software-only** | `ENABLE_PKCS11_BACKEND = False`<br/>`ENABLE_SCORE_BACKEND = True`<br/>`ENABLE_BACKEND_OPENSSL = True` |
-| **HSM-only** | `ENABLE_PKCS11_BACKEND = True`<br/>`ENABLE_SCORE_BACKEND = False`<br/>`PKCS11_BACKEND = "vendor_hsm"` |
-| **Hybrid** | Both families enabled |
+| Use Case | Flags |
+|----------|-------|
+| Software-only (no HSM) | *(defaults)* |
+| HSM-only | `--//score/crypto/src/backend:score_crypto_score_backend_enabled=False` |
+| OpenSSL disabled | `--//score/crypto/src/backend:score_crypto_openssl_enabled=False` |
+| Custom PKCS#11 library | `--//score/crypto/src/backend:pkcs11_backend=//third_party/vendor_hsm:vendor_hsm` |
 
-## Command-Line Overrides
+## Adding a New Score Provider Backend
 
-| What | Example |
-|------|---------|
-| PKCS#11 backend | `--//score/crypto/src/backend:pkcs11_backend=//external/vendor_hsm:backend` |
+1. Implement the provider under `score_provider/<backend>/`.
+2. Create `score_provider/<backend>/BUILD` using the three-target pattern
+   (see `score_provider/openssl/BUILD` as reference).
+3. Add a `bool_flag` + `config_setting` for the new flag in `backend/BUILD`.
+4. Add `*_backend_define` to `score_backend_headers.deps` in `score_provider/BUILD`.
+5. Add `*_backend` to `all_score_backends.deps` in `score_provider/BUILD`.
+6. Include and instantiate the adapter in `score_provider/active_backends_list.hpp`.
+
+Steps 4 and 5 are both in `score_provider/BUILD`; `backend/BUILD` only needs the
+new flag (step 3).
+
+## Adding a New PKCS#11 Backend Library
+
+No BUILD changes are needed for a named default — just point the `label_flag` at
+the new library target either in `build_setting_default` (for a permanent change)
+or on the command line (for a per-build override).
 
 ## Verification
 
-Check which backends are compiled into the daemon:
+Check which backend libraries are linked into the daemon:
 
 ```bash
 bazel query 'deps(//score/crypto/src/daemon:crypto_daemon)' | grep -E "openssl|softhsm"
 ```
 
-Check the effective PKCS#11 backend:
+Check the effective PKCS#11 backend for a given configuration:
 
 ```bash
 bazel cquery //score/crypto/src/backend:pkcs11_backend --output=build

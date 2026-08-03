@@ -25,12 +25,9 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 # Backend subdirectories (softhsm/, vendor_hsm/, etc.) provide only the
 # PKCS#11 library and headers — they do NOT own config parsing.
 #
-# To add a new PKCS#11 backend library:
-#   1. Add entry to pkcs11_backend_label() in backend/backend_config.bzl pointing
-#      to the library target (third_party or external)
-#   2. Set PKCS11_BACKEND = "<name>" in backend/backend_exports.bzl
-#   Or override at build time:
-#     --//score/crypto/src/backend:pkcs11_backend=//third_party/your_hsm:your_hsm
+# To use a different PKCS#11 library, override the label_flag at build time:
+#   --//score/crypto/src/backend:pkcs11_backend=//third_party/your_hsm:your_hsm
+# Or change the build_setting_default in backend/BUILD.
 cc_library(
     name = "pkcs11_config_parser",
     srcs = ["pkcs11_token_config_parser.cpp"],

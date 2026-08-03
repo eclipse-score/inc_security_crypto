@@ -12,11 +12,6 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load(
-    "//score/crypto/src/backend:backend_exports.bzl",
-    "ENABLE_PKCS11_BACKEND",
-    "ENABLE_SCORE_BACKEND",
-)
 
 cc_library(
     name = "provider_headers",
@@ -47,14 +42,26 @@ cc_library(
     name = "provider_manager_factory",
     srcs = ["src/provider_manager_factory.cpp"],
     hdrs = ["provider_manager_factory.hpp"],
-    implementation_deps = [
-        "//score/crypto/src/backend:pkcs11_backend_defines",
-        "//score/crypto/src/backend/score_provider:score_backend_defines",
-    ],
+    implementation_deps = select({
+        "//score/crypto/src/backend:score_backend_enabled": [
+            "//score/crypto/src/backend:score_backend_defines",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:pkcs11_enabled": [
+            "//score/crypto/src/backend:pkcs11_backend_defines",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
-               ":provider_headers",
-               ":provider_manager",
-           ] + (["//score/crypto/src/daemon/provider/score_provider:score_provider_factory"] if ENABLE_SCORE_BACKEND else []) +
-           (["//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_factory"] if ENABLE_PKCS11_BACKEND else []),
+        ":provider_headers",
+        ":provider_manager",
+    ] + select({
+        "//score/crypto/src/backend:score_backend_enabled": ["//score/crypto/src/daemon/provider/score_provider:score_provider_factory"],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:pkcs11_enabled": ["//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_factory"],
+        "//conditions:default": [],
+    }),
 )

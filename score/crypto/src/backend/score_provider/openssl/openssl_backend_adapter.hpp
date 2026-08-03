@@ -11,22 +11,21 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_BACKEND_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
-#define SCORE_CRYPTO_SRC_BACKEND_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
+#ifndef SCORE_CRYPTO_SRC_BACKEND_SCORE_PROVIDER_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
+#define SCORE_CRYPTO_SRC_BACKEND_SCORE_PROVIDER_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
 
 #include "score/crypto/src/daemon/provider/score_provider/score_backend_adapter.hpp"
 
-namespace score::crypto::backend::openssl
+namespace score::crypto::backend::score_provider::openssl
 {
 
 /// @brief OpenSSL backend adapter for score provider family
 ///
 /// Provides factory creation metadata for the OpenSSL crypto backend.
-/// This adapter is discovered at compile-time via backend/score_provider/active_backends_list.hpp
-/// (generated from backend/BUILD).
+/// This adapter is discovered at compile-time via
+/// backend/score_provider/active_backends_list.hpp.
 ///
 /// The OpenSSL backend implementation lives in:
-///   - daemon/provider/score_provider/openssl/provider_openssl.*
 ///   - daemon/provider/score_provider/openssl/provider_openssl.*
 ///   - daemon/provider/score_provider/openssl/operations/*
 ///
@@ -52,6 +51,6 @@ class OpenSSLBackendAdapter final : public daemon::provider::score_provider::IBa
     [[nodiscard]] daemon::provider::score_provider::ProviderCreator GetProviderCreator() const override;
 };
 
-}  // namespace score::crypto::backend::openssl
+}  // namespace score::crypto::backend::score_provider::openssl
 
-#endif  // SCORE_CRYPTO_SRC_BACKEND_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP
+#endif  // SCORE_CRYPTO_SRC_BACKEND_SCORE_PROVIDER_OPENSSL_OPENSSL_BACKEND_ADAPTER_HPP

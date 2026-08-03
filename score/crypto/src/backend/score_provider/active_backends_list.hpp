@@ -21,14 +21,14 @@
 
 // Include enabled backend adapters (controlled by BUILD file defines)
 #ifdef SCORE_BACKEND_OPENSSL_ENABLED
-#include "score/crypto/src/backend/openssl/openssl_backend_adapter.hpp"
+#include "score/crypto/src/backend/score_provider/openssl/openssl_backend_adapter.hpp"
 #endif
 
 #ifdef SCORE_BACKEND_PRIMULA_ENABLED
 #include "score/crypto/src/backend/primula/primula_backend_adapter.hpp"
 #endif
 
-namespace score::crypto::backend
+namespace score::crypto::backend::score_provider
 {
 
 /// @brief Get list of active score provider backends
@@ -69,6 +69,6 @@ inline std::vector<std::unique_ptr<daemon::provider::score_provider::IBackendPro
     return backends;
 }
 
-}  // namespace score::crypto::backend
+}  // namespace score::crypto::backend::score_provider
 
 #endif  // SCORE_CRYPTO_SRC_BACKEND_SCORE_PROVIDER_ACTIVE_BACKENDS_LIST_HPP

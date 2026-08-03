@@ -13,26 +13,28 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_test")
 
-# Verifies that the preprocessor defines emitted by the backend_defines targets
-# match the configuration declared in backend_exports.bzl:
+# Verifies that the preprocessor defines emitted by the backend targets reflect
+# the active bool_flag configuration:
 #
-#   ENABLE_PKCS11_BACKEND = True   → SCORE_CRYPTO_PKCS11_ENABLED is defined
-#   ENABLE_SCORE_BACKEND  = False  → SCORE_BACKEND_ENABLED is NOT defined
+#   (default)                                                              → SCORE_CRYPTO_PKCS11_ENABLED defined
+#   --//score/crypto/src/backend:score_crypto_pkcs11_enabled=False        → SCORE_CRYPTO_PKCS11_ENABLED NOT defined
+#   (default)                                                              → SCORE_BACKEND_ENABLED defined
+#   --//score/crypto/src/backend:score_crypto_score_backend_enabled=False → SCORE_BACKEND_ENABLED NOT defined
 #
 # Checks happen at compile time (wrong config → build failure) and are confirmed
 # at runtime via gtest assertions.
 #
-# If you change ENABLE_PKCS11_BACKEND or ENABLE_SCORE_BACKEND in
-# backend_exports.bzl, update the expected values in backend_config_check_test.cpp.
-#
 # Run with:
 #   bazel test //score/tests/backend_symbol_check:backend_config_check
+#   bazel test //score/tests/backend_symbol_check:backend_config_check \
+#       --//score/crypto/src/backend:score_crypto_pkcs11_enabled=False
 cc_test(
     name = "backend_config_check",
     srcs = ["backend_config_check_test.cpp"],
     deps = [
         "//score/crypto/src/backend:pkcs11_backend_defines",
-        "//score/crypto/src/backend/score_provider:score_backend_defines",
+        "//score/crypto/src/backend:score_backend_defines",
+        "//score/crypto/src/backend/score_provider/openssl:openssl_backend_define",
         "@googletest//:gtest_main",
     ],
 )

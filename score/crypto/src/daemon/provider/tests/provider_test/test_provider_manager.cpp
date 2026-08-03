@@ -86,16 +86,14 @@ class ProviderManagerTypeTest : public ::testing::Test
         m_mgr = std::make_shared<provider::ProviderManager>(config.GetProviderInitConfig());
 
         // Register SW_PROVIDER (ID 0)
-        m_mgr->RegisterProvider(
-            "SW_PROVIDER",
-            std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false),
-            common::CryptoProviderType::SOFTWARE);
+        m_mgr->RegisterProvider("SW_PROVIDER",
+                                std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false),
+                                common::CryptoProviderType::SOFTWARE);
 
         // Register HW_PROVIDER (ID 1)
-        m_mgr->RegisterProvider(
-            "HW_PROVIDER",
-            std::make_shared<ConfigurableStubProvider>("HW_PROVIDER", 1, false),
-            common::CryptoProviderType::HARDWARE);
+        m_mgr->RegisterProvider("HW_PROVIDER",
+                                std::make_shared<ConfigurableStubProvider>("HW_PROVIDER", 1, false),
+                                common::CryptoProviderType::HARDWARE);
 
         m_mgr->Initialize();
     }

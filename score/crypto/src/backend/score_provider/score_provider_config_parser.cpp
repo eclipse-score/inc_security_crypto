@@ -30,7 +30,7 @@ score::crypto::Expected<std::monostate, common::DaemonErrorCode> ScoreProviderCo
         return std::monostate{};
     }
 
-    auto backends = backend::GetActiveBackends();
+    auto backends = score::crypto::backend::score_provider::GetActiveBackends();
 
     for (auto& b : backends)
     {

@@ -28,7 +28,7 @@ ProviderFactoryResult ScoreProviderFactory::CreateAndRegister(ProviderManager& m
     ProviderFactoryResult result;
 
     // Get active backends to resolve providerImpl -> factory creator
-    auto backends = backend::GetActiveBackends();
+    auto backends = score::crypto::backend::score_provider::GetActiveBackends();
 
     for (const auto& entry : m_config.providers)
     {

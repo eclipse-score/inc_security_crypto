@@ -15,7 +15,7 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/provider_openssl.hpp"
 
-namespace score::crypto::backend::openssl
+namespace score::crypto::backend::score_provider::openssl
 {
 
 daemon::provider::score_provider::ProviderCreator OpenSSLBackendAdapter::GetProviderCreator() const
@@ -30,4 +30,4 @@ daemon::provider::score_provider::ProviderCreator OpenSSLBackendAdapter::GetProv
                            }};
 }
 
-}  // namespace score::crypto::backend::openssl
+}  // namespace score::crypto::backend::score_provider::openssl
