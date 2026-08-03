@@ -18,6 +18,7 @@ FMEA (Failure Modes and Effects Analysis)
 
 .. document:: IAV Primula FMEA
    :id: doc__iav_primula_fmea
+   :version: 1
    :status: draft
    :safety: QM
    :security: YES

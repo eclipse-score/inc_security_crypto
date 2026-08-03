@@ -18,6 +18,7 @@ DFA (Dependent Failure Analysis)
 
 .. document:: Crypto DFA
    :id: doc__crypto_dfa
+   :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES

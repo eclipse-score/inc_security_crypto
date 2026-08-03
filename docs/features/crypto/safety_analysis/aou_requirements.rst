@@ -17,6 +17,7 @@ AoU Feature Requirements
 
 .. document:: Crypto Feature AoU
    :id: doc__crypto_feat_aou
+   :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES

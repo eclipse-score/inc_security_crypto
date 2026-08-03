@@ -17,6 +17,7 @@ Component Architecture Documentation
 
 .. document:: Crypto Component Architecture
    :id: doc__crypto_comp_architecture
+   :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES

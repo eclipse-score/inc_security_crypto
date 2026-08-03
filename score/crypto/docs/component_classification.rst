@@ -19,6 +19,7 @@ Component Classification
 
 .. document:: Crypto Component Classification
    :id: doc__crypto_comp_class
+   :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES

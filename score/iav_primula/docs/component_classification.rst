@@ -19,6 +19,7 @@ Component Classification
 
 .. document:: IAV Primula Component Classification
    :id: doc__iav_primula_comp_class
+   :version: 1
    :status: draft
    :safety: QM
    :security: YES

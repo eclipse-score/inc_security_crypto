@@ -17,6 +17,7 @@ IAV Primula Requirements
 
 .. document:: IAV Primula Requirements
    :id: doc__iav_primula_requirements
+   :version: 1
    :status: draft
    :safety: QM
    :security: YES
@@ -31,6 +32,7 @@ Functional Requirements
 
 .. comp_req:: Provide hello message function
    :id: comp_req__iav_primula__provide_hello_message
+   :version: 1
    :reqtype: Functional
    :security: NO
    :safety: ASIL_B
@@ -49,6 +51,7 @@ Assumption of Use Requirements
 
 .. aou_req:: Integrate as Rust library API
    :id: aou_req__iav_primula__rust_lib_api
+   :version: 1
    :reqtype: Process
    :security: YES
    :safety: QM
@@ -62,6 +65,7 @@ Environmental Requirements
 
 .. aou_req:: Build environment supports Rust 2021
    :id: aou_req__iav_primula__rust2021_build_env
+   :version: 1
    :reqtype: Process
    :security: YES
    :safety: QM

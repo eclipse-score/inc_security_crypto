@@ -21,6 +21,7 @@ Crypto
 
 .. document:: Crypto
    :id: doc__mod_temp_crypto
+   :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES

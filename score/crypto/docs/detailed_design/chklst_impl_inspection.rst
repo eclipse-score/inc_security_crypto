@@ -14,6 +14,7 @@
 
 .. document:: Crypto Implementation Inspection Checklist
   :id: doc__crypto_impl_inspection
+  :version: 1
   :status: draft
   :safety: ASIL_B
   :security: YES

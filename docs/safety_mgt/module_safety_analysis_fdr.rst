@@ -18,6 +18,7 @@ Safety Analysis Checklist
 
 .. document:: [Your Module Name] Safety Analysis Checklist
   :id: doc__mod_temp_module_name_safety_analysis_fdr
+  :version: 1
   :status: draft
   :safety: ASIL_B
   :security: YES

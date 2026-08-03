@@ -43,6 +43,7 @@ Design Decisions
 
 .. dec_rec:: Central Data Node Manager
    :id: dec_rec__crypto__central_data_node_manager
+   :version: 1
    :status: accepted
    :context: doc__crypto_feat_architecture
    :decision: Extract state information into a central Data Manager component.

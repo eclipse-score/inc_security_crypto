@@ -10,20 +10,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-
-name: Documentation Cleanup
-
+name: PR Checks
 permissions:
-  contents: write
-  pages: write
-  id-token: write
-
+  contents: read
 on:
-  schedule:
-    - cron: '0 0 * * *' # Runs every day at midnight UTC
-
+  pull_request:
+    types: [opened, reopened, synchronize]
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches:
+      - main
 jobs:
-  docs-cleanup:
-    uses: eclipse-score/cicd-workflows/.github/workflows/docs-cleanup.yml@93aac16ada7d247bbb6ae926509ddea74cf5213a # v0.0.2
-    secrets:
-      token: ${{ secrets.GITHUB_TOKEN }}
+  common:
+    uses: eclipse-score/cicd-workflows/.github/workflows/on-pr.yml@on-pr/v0.0.0
+    with:
+      # TODO: For now, our clang-tidy execution is not clean
+      # Skip pre-commit checks, reactivate after fixing all clang-tidy issues
+      skip-pre-commit: true
