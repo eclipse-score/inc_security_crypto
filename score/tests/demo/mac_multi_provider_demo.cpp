@@ -54,8 +54,10 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <sstream>
-#include <vector>
+#include <string>
+#include <string_view>
 
 // Provider interfaces
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
@@ -63,6 +65,9 @@
 
 // Daemon config
 #include "score/crypto/src/daemon/config/inc/config.hpp"
+
+// Common types (includes span.hpp)
+#include "score/crypto/src/daemon/common/types.hpp"
 
 // OpenSSL provider
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
@@ -72,7 +77,6 @@
 // Key management
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
-#include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
 #include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
 
@@ -96,18 +100,23 @@ using InitializationParams = ::score::crypto::daemon::provider::handler::Initial
 // Helpers
 // ============================================================================
 
-static std::string hex(const uint8_t* data, std::size_t len)
+namespace
 {
-    std::ostringstream ss;
-    ss << std::hex << std::setfill('0');
+
+std::string hex(const uint8_t* data, std::size_t len)
+{
+    std::ostringstream stream;
+    stream << std::hex << std::setfill('0');
     for (std::size_t i = 0; i < len; ++i)
     {
-        ss << std::setw(2) << static_cast<unsigned>(data[i]);
+        stream << std::setw(2) << static_cast<unsigned>(data[i]);
     }
-    return ss.str();
+    return stream.str();
 }
 
-static constexpr const char* kTestMessage = "Score multi-provider crypto demo";
+constexpr std::string_view kTestMessage = "Score multi-provider crypto demo";
+
+}  // namespace
 
 // ============================================================================
 // Test Fixture — sets up an in-memory OpenSSL key infrastructure
@@ -140,10 +149,10 @@ class MacDemoTest : public ::testing::Test
     ///
     /// When @p key_handler is non-null it is provided via InitializationParams
     /// so the handler transitions directly to STREAM_INITIALIZED state (ready to compute MAC).
-    std::shared_ptr<OpenSslHmacHandler> MakeMacHandler(const km::IKeyHandler* key_handler = nullptr)
+    static std::shared_ptr<OpenSslHmacHandler> MakeMacHandler(const km::IKeyHandler* key_handler = nullptr)
     {
         auto executor = std::make_unique<MacExecutor>();
-        auto h = std::make_shared<OpenSslHmacHandler>(std::move(executor), "HMAC-SHA256");
+        auto handler = std::make_shared<OpenSslHmacHandler>(std::move(executor), "HMAC-SHA256");
         InitializationParams init_params{};
         if (key_handler != nullptr)
         {
@@ -152,12 +161,15 @@ class MacDemoTest : public ::testing::Test
             // bound key's provider so the handler's provider-id validation passes.
             init_params.provider_id = key_handler->GetProviderId();
         }
-        EXPECT_TRUE(h->InitializeContext(init_params).has_value()) << "OpenSslHmacHandler::InitializeContext failed";
-        return h;
+        EXPECT_TRUE(handler->InitializeContext(init_params).has_value())
+            << "OpenSslHmacHandler::InitializeContext failed";
+        return handler;
     }
 
     static std::shared_ptr<OpenSSL> m_provider;
     static km::IKeyFactory::Sptr m_key_factory;
+
+  protected:
     score::crypto::daemon::config::Config m_config;
 };
 
@@ -219,8 +231,8 @@ TEST_F(MacDemoTest, Demo2_EphemeralKeyMac)
     ASSERT_TRUE(init_result.has_value()) << "InitMac failed";
 
     // 2c. Compute MAC over the test message.
-    const auto* msg = reinterpret_cast<const uint8_t*>(kTestMessage);
-    const std::size_t msg_len = std::strlen(kTestMessage);
+    const auto* msg = reinterpret_cast<const uint8_t*>(kTestMessage.data());
+    const std::size_t msg_len = kTestMessage.size();
 
     auto update_result = mac->UpdateMac(score::cpp::span<const uint8_t>{msg, msg_len});
     ASSERT_TRUE(update_result.has_value()) << "UpdateMac failed";
@@ -264,9 +276,10 @@ TEST_F(MacDemoTest, Demo3_SlotDirectFileBackedKey)
     const std::string deploy_path =
         std::string{std::filesystem::temp_directory_path().string()} + "/demo_sw_hmac256_slot.kv";
     {
-        std::ofstream f(deploy_path);
-        f << "[key]\n"
-          << std::string{km::deployment_keys::kKeyPath} << "=score/tests/test_vectors/key_management/hmac_sha256.key\n";
+        std::ofstream deploy_file(deploy_path);
+        deploy_file << "[key]\n"
+                    << std::string{km::deployment_keys::kKeyPath}
+                    << "=score/tests/test_vectors/key_management/hmac_sha256.key\n";
     }
     slot.deployment_path = deploy_path;
     slot.deployment_format = "kv";
@@ -290,8 +303,8 @@ TEST_F(MacDemoTest, Demo3_SlotDirectFileBackedKey)
     auto init_result = mac->InitMac(std::nullopt);
     ASSERT_TRUE(init_result.has_value()) << "InitMac failed";
 
-    const auto* msg = reinterpret_cast<const uint8_t*>(kTestMessage);
-    const std::size_t msg_len = std::strlen(kTestMessage);
+    const auto* msg = reinterpret_cast<const uint8_t*>(kTestMessage.data());
+    const std::size_t msg_len = kTestMessage.size();
     ASSERT_TRUE(mac->UpdateMac(score::cpp::span<const uint8_t>{msg, msg_len}).has_value()) << "UpdateMac failed";
 
     constexpr std::size_t kHmacSha256Size = 32U;

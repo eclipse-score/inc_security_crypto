@@ -34,13 +34,18 @@ using ShmTransportType = score::crypto::daemon::mediator::operations::ShmTranspo
 class IShmDataNode : public data_manager::DataNode
 {
   public:
+    IShmDataNode(const IShmDataNode&) = default;
+    IShmDataNode& operator=(const IShmDataNode&) = default;
+    IShmDataNode(IShmDataNode&&) noexcept = default;
+    IShmDataNode& operator=(IShmDataNode&&) noexcept = default;
     ~IShmDataNode() override = default;
 
     /// @brief Returns the usable region size in bytes (for IPC response).
     [[nodiscard]] virtual std::size_t GetSize() const noexcept = 0;
 
+    static constexpr std::size_t kMaxNameLength = 64;
     /// @brief Returns the SHM name/path for client-side mapping (for IPC response).
-    [[nodiscard]] virtual score::crypto::FixedCapacityString<64> GetName() const noexcept = 0;
+    [[nodiscard]] virtual score::crypto::FixedCapacityString<kMaxNameLength> GetName() const noexcept = 0;
 
     /// @brief Returns the transport type (kPosixNamed, kPosixTypedMemory, etc).
     [[nodiscard]] virtual ShmTransportType GetTransportType() const noexcept = 0;

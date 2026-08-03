@@ -14,8 +14,6 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_TYPES_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_TYPES_HPP
 
-#include "score/span.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -26,6 +24,8 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+
+#include "score/span.hpp"
 
 namespace score::crypto::daemon::common
 {

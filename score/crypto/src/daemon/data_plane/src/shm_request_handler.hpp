@@ -17,8 +17,6 @@
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 
-#include <memory>
-
 namespace score::crypto::daemon::data_plane
 {
 

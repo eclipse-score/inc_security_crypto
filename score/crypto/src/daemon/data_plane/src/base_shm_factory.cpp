@@ -12,7 +12,12 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/data_plane/src/base_shm_factory.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/data_plane/i_shm_factory.hpp"
 #include "score/memory/shared/shared_memory_factory.h"
+
+#include <cstddef>
 
 namespace score::crypto::daemon::data_plane
 {
@@ -36,7 +41,7 @@ Expected<ShmResource, common::DaemonErrorCode> BaseShmFactory::Create(std::strin
     perm_map[score::os::Acl::Permission::kRead] = {uid};
     perm_map[score::os::Acl::Permission::kWrite] = {uid};
 
-    auto handle = ShmFactory::Create(std::string{name}, [](const auto&) noexcept {}, size, perm_map);
+    auto handle = ShmFactory::Create(std::string(name), [](const auto&) noexcept {}, size, perm_map);
     if (!handle)
     {
         return make_unexpected(common::DaemonErrorCode::kAllocationFailed);

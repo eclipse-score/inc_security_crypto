@@ -16,6 +16,8 @@
 
 #include "score/crypto/src/api/data_plane/i_shm_region_registry.hpp"
 
+#include <cstddef>
+#include <cstdint>
 #include <map>
 #include <mutex>
 
@@ -44,6 +46,8 @@ class ShmRegionRegistry final : public IShmRegionRegistry
 
     ShmRegionRegistry(const ShmRegionRegistry&) = delete;
     ShmRegionRegistry& operator=(const ShmRegionRegistry&) = delete;
+    ShmRegionRegistry(ShmRegionRegistry&&) = default;
+    ShmRegionRegistry& operator=(ShmRegionRegistry&&) = default;
 
     void Register(const RegionEntry& entry) override;
 

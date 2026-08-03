@@ -26,8 +26,6 @@
 #include "score/crypto/src/api/data_plane/i_shm_region_registry.hpp"
 
 #include <cstddef>
-#include <cstdint>
-#include <memory>
 
 namespace score
 {

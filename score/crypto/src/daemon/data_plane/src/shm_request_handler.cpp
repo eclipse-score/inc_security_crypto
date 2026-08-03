@@ -12,9 +12,9 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/data_plane/src/shm_request_handler.hpp"
-#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
-#include "score/crypto/src/daemon/data_plane/src/shm_data_node.hpp"
+#include "score/crypto/src/daemon/data_plane/i_shm_data_node.hpp"
 #include "score/mw/log/logging.h"
 
 namespace score::crypto::daemon::data_plane
@@ -50,11 +50,11 @@ control_plane::ControlResponse ShmRequestHandler::ForwardWithResolvedShm(control
                 builder.operation(op.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
                 return control_plane::ControlResponse{request.request_id, builder.build().value()};
             }
-            auto node_res = std::move(accessor_res).value().downCast<ShmDataNode>();
+            auto node_res = std::move(accessor_res).value().downCast<IShmDataNode>();
             if (!node_res.has_value())
             {
                 score::mw::log::LogError()
-                    << LOG_PREFIX << "downCast<ShmDataNode> failed for node_id=" << data_shm.node_id;
+                    << LOG_PREFIX << "downCast<IShmDataNode> failed for node_id=" << data_shm.node_id;
                 control_plane::protocol::OperationResponseBuilder builder;
                 builder.operation(op.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
                 return control_plane::ControlResponse{request.request_id, builder.build().value()};
