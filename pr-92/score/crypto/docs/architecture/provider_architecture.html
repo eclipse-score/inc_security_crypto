@@ -569,9 +569,9 @@ are registered with <code class="docutils literal notranslate"><span class="pre"
 bootstrapping sequence.</p>
 <figure class="align-center" id="id1">
 <p class="plantuml">
-<object data="../../../../_images/plantuml-d3b0ad0def8624b5476ff4e218ae8f6f6ed7e808.svg" type="image/svg+xml" style="width:4180px;height:1513px;background:#FFFFFF;"></object></p>
+<object data="../../../../_images/plantuml-bad18c12965b04aade6551794b08fc1b6dffe88d.svg" type="image/svg+xml" style="width:4356px;height:1513px;background:#FFFFFF;"></object></p>
 <figcaption>
-<p><span class="caption-number">Fig. 8 </span><span class="caption-text">Daemon Provider Architecture — Score and PKCS#11 families, handler hierarchy, and config visitor pattern.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+<p><span class="caption-number">Fig. 8 </span><span class="caption-text">Daemon Provider Architecture — Score and PKCS#11 families, handler hierarchy, and configuration flow.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <section id="provider-families">
@@ -616,8 +616,8 @@ separate config type and resolved at a different point during daemon startup.</p
 <li><p>Provider-family topology — build time
 The set of provider families that can exist in a given daemon binary is
 decided by compile-time flags (for example <code class="docutils literal notranslate"><span class="pre">SCORE_BACKEND_ENABLED</span></code> and
-<code class="docutils literal notranslate"><span class="pre">SCORE_CRYPTO_PKCS11_ENABLED</span></code>). <code class="docutils literal notranslate"><span class="pre">ProviderManagerFactory</span></code> registers a factory
-for every family that is compiled in.</p></li>
+<code class="docutils literal notranslate"><span class="pre">SCORE_CRYPTO_PKCS11_ENABLED</span></code>). <code class="docutils literal notranslate"><span class="pre">ProviderManagerFactory</span></code> creates the
+corresponding backend factory for every configured family that is compiled in.</p></li>
 <li><p>Provider-specific parameters — config file / defaults
 Each family parses its own parameters from the daemon configuration:</p>
 <ul class="simple">
@@ -625,22 +625,21 @@ Each family parses its own parameters from the daemon configuration:</p>
 holds one <code class="docutils literal notranslate"><span class="pre">ScoreProviderEntry</span></code> per score backend. An entry contains the
 provider name, the backend implementation tag (for example <code class="docutils literal notranslate"><span class="pre">&quot;openssl&quot;</span></code>),
 and the provider type (<code class="docutils literal notranslate"><span class="pre">SOFTWARE</span></code>, <code class="docutils literal notranslate"><span class="pre">HARDWARE</span></code>, <code class="docutils literal notranslate"><span class="pre">SPECIALIZED</span></code>).
-<code class="docutils literal notranslate"><span class="pre">ScoreProviderConfig::ParseConfig()</span></code> populates entries from the config
+<code class="docutils literal notranslate"><span class="pre">ScoreProviderConfig::ParseConfig(config)</span></code> populates entries from the config
 file; when no config is present it falls back to the active backends
 discovered at compile time.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Pkcs11Config</span></code> (<code class="docutils literal notranslate"><span class="pre">pkcs11/pkcs11_token_config.hpp</span></code>) holds one
 <code class="docutils literal notranslate"><span class="pre">Pkcs11TokenEntry</span></code> per token. An entry contains the token label, model,
 user PIN, provider name, provider type, and session cleanup strategy.
-<code class="docutils literal notranslate"><span class="pre">Pkcs11Config::ParseConfig()</span></code> reads these values from the daemon config.</p></li>
+<code class="docutils literal notranslate"><span class="pre">Pkcs11Config::ParseConfig(config)</span></code> reads these values from the daemon config.</p></li>
 </ul>
 </li>
 <li><p>Runtime enablement and type mapping — <code class="docutils literal notranslate"><span class="pre">ProviderInitConfig</span></code>
-After all factories have created and registered their providers, and after
-every provider has been initialized, <code class="docutils literal notranslate"><span class="pre">ProviderManager::Initialize()</span></code> loads
-<code class="docutils literal notranslate"><span class="pre">ProviderInitConfig</span></code> to decide:</p>
+After all factories have created and registered their providers,
+<code class="docutils literal notranslate"><span class="pre">ProviderManager::Initialize()</span></code> applies <code class="docutils literal notranslate"><span class="pre">ProviderInitConfig</span></code> to decide:</p>
 <ul class="simple">
-<li><p>Which registered providers are enabled. Disabled providers are shut down
-and removed from lookup tables.</p></li>
+<li><p>Which registered providers are eligible. Disabled providers are excluded
+before backend registration.</p></li>
 <li><p>Which provider is the default for each <code class="docutils literal notranslate"><span class="pre">CryptoProviderType</span></code>
 (<code class="docutils literal notranslate"><span class="pre">DEFAULT</span></code>, <code class="docutils literal notranslate"><span class="pre">SOFTWARE</span></code>, <code class="docutils literal notranslate"><span class="pre">HARDWARE</span></code>, <code class="docutils literal notranslate"><span class="pre">SPECIALIZED</span></code>).</p></li>
 </ul>
@@ -649,39 +648,49 @@ and removed from lookup tables.</p></li>
 runtime <code class="docutils literal notranslate"><span class="pre">ProviderId</span></code> assigned during registration. This keeps the
 configuration stable across restarts and independent of registration order.</p>
 <p>If the daemon config does not supply a <code class="docutils literal notranslate"><span class="pre">ProviderInitConfig</span></code>,
-<code class="docutils literal notranslate"><span class="pre">ProviderManager</span></code> creates a default one that enables every successfully
-initialized provider and selects defaults using the preference order
+<code class="docutils literal notranslate"><span class="pre">ProviderManager</span></code> creates a default one that enables every registered
+provider and selects defaults using the preference order
 <code class="docutils literal notranslate"><span class="pre">HARDWARE</span></code> → <code class="docutils literal notranslate"><span class="pre">SOFTWARE</span></code>.</p>
 </li>
 </ol>
+<p>Registration and availability are separate states. Registration assigns a
+stable <code class="docutils literal notranslate"><span class="pre">ProviderId</span></code> exactly once. <code class="docutils literal notranslate"><span class="pre">ProviderManager::Initialize()</span></code> makes
+an initial initialization attempt, but an individual provider may remain
+unavailable without preventing optional providers from being registered.
+A provider lookup retries initialization using the same <code class="docutils literal notranslate"><span class="pre">ProviderId</span></code> and
+serializes concurrent attempts. <code class="docutils literal notranslate"><span class="pre">IProvider::IsInitialized()</span></code> reports state
+only; it does not initialize the provider.</p>
 <section id="configuration-flow">
 <h4>Configuration flow<a class="headerlink" href="#configuration-flow" title="Link to this heading">#</a></h4>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Config::ParseConfig()
      │
-     ├── ScoreProviderConfig::ParseConfig()  ──► ScoreProviderEntry list
+     ├── ScoreProviderConfig::ParseConfig(config)  ──► ScoreProviderEntry list
      │
-     └── Pkcs11Config::ParseConfig()         ──► Pkcs11TokenEntry list
+     └── Pkcs11Config::ParseConfig(config)         ──► Pkcs11TokenEntry list
      │
 ProviderManagerFactory::Create(config)
      │
      ├── CreateScoreProviderFactory(config)
-     │      ScoreProviderConfig::Configure(ScoreProviderFactory)
+     │      ScoreProviderFactory(ScoreProviderFactoryConfig)
+     │      CreateAndRegister(manager) ──► ProviderId assigned once
      │
      ├── CreatePkcs11ProviderFactory(config)
-     │      Pkcs11Config::Configure(Pkcs11ProviderFactory)
+     │      Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig)
+     │      CreateAndRegister(manager) ──► ProviderId assigned once
      │
      └── provider_manager-&gt;Initialize()
             │
-            ├── CreateProviders()   ← factories create &amp; RegisterProvider()
-            ├── InitializeAll()     ← providers initialize
-            │
-            ├── ApplyEnablement(ProviderInitConfig.providers)
-            │      shut down / hide disabled providers
+            ├── InitializeAll()
+            │      provider-&gt;Initialize(context)
             │
             └── BuildTypeMappings(ProviderInitConfig.typeToProviderName)
-                   resolve names → runtime ProviderId
+              resolve registered names → runtime ProviderId
 </pre></div>
 </div>
+<p>On a later request, <code class="docutils literal notranslate"><span class="pre">ProviderManager::GetProvider(...)</span></code> checks
+<code class="docutils literal notranslate"><span class="pre">IsInitialized()</span></code> and retries <code class="docutils literal notranslate"><span class="pre">Initialize(context)</span></code> when necessary.
+Failed providers remain registered, but unavailable providers are not
+returned to callers.</p>
 </section>
 </section>
 </section>
@@ -801,7 +810,7 @@ ProviderManagerFactory::Create(config)
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./score/crypto/docs/architecture/provider_architecture.rst">
+    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main//home/runner/work/inc_security_crypto/inc_security_crypto/score/crypto/docs/architecture/provider_architecture.rst">
       <i class="fa-solid fa-pencil"></i>
       
       
