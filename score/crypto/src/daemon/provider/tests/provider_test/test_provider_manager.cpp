@@ -27,53 +27,12 @@
 namespace provider = score::crypto::daemon::provider;
 namespace common = score::crypto::daemon::common;
 
-// ---------------------------------------------------------------------------
-// Minimal IProvider stub — satisfies the pure-virtual interface so
-// RegisterProvider can accept non-null instances.
-// ---------------------------------------------------------------------------
 namespace
 {
-class StubProvider final : public provider::IProvider
+class ConfigurableStubProvider final : public provider::IProvider
 {
   public:
-    explicit StubProvider(const std::string& name, common::ProviderId id) : m_name{name}, m_id{id} {}
-
-    bool Initialize(const provider::ProviderInitContext& ctx) override
-    {
-        m_initialized = true;
-        return true;
-    }
-
-    void Shutdown() override
-    {
-        m_initialized = false;
-    }
-
-    [[nodiscard]] bool IsInitialized() const override
-    {
-        return m_initialized;
-    }
-
-    common::ProviderId GetProviderId() const override
-    {
-        return m_id;
-    }
-
-    const common::ProviderName& GetProviderName() const override
-    {
-        return m_name;
-    }
-
-  private:
-    std::string m_name;
-    common::ProviderId m_id;
-    bool m_initialized{true};
-};
-
-class FailingStubProvider final : public provider::IProvider
-{
-  public:
-    FailingStubProvider(const std::string& name, common::ProviderId id, bool fail_init)
+    ConfigurableStubProvider(const std::string& name, common::ProviderId id, bool fail_init)
         : m_name{name}, m_id{id}, m_fail_init{fail_init}
     {
     }
@@ -128,11 +87,17 @@ class ProviderManagerTypeTest : public ::testing::Test
 
         // Register SW_PROVIDER (ID 0)
         m_mgr->RegisterProvider(
-            "SW_PROVIDER", std::make_shared<StubProvider>("SW_PROVIDER", 0), common::CryptoProviderType::SOFTWARE);
+            "SW_PROVIDER",
+            std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false),
+            common::CryptoProviderType::SOFTWARE);
 
         // Register HW_PROVIDER (ID 1)
         m_mgr->RegisterProvider(
-            "HW_PROVIDER", std::make_shared<StubProvider>("HW_PROVIDER", 1), common::CryptoProviderType::HARDWARE);
+            "HW_PROVIDER",
+            std::make_shared<ConfigurableStubProvider>("HW_PROVIDER", 1, false),
+            common::CryptoProviderType::HARDWARE);
+
+        m_mgr->Initialize();
     }
 
     provider::ProviderManager::Sptr m_mgr;
@@ -207,8 +172,8 @@ TEST(ProviderManagerInitStateTest, FailedProviderRemainsRegisteredButUnavailable
     score::crypto::daemon::config::Config config;
     provider::ProviderManager mgr(config.GetProviderInitConfig());
 
-    auto ok_provider = std::make_shared<FailingStubProvider>("OK_PROVIDER", 0, false);
-    auto fail_provider = std::make_shared<FailingStubProvider>("FAIL_PROVIDER", 1, true);
+    auto ok_provider = std::make_shared<ConfigurableStubProvider>("OK_PROVIDER", 0, false);
+    auto fail_provider = std::make_shared<ConfigurableStubProvider>("FAIL_PROVIDER", 1, true);
 
     ASSERT_TRUE(mgr.RegisterProvider("OK_PROVIDER", ok_provider, common::CryptoProviderType::SOFTWARE));
     ASSERT_TRUE(mgr.RegisterProvider("FAIL_PROVIDER", fail_provider, common::CryptoProviderType::HARDWARE));
