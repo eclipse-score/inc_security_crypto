@@ -84,7 +84,6 @@ class MediatorImpl : public IMediator
     bool DeleteNodeAndRespond(
         const control_plane::ControlRequest& request,
         const control_plane::SingleOperationRequest& operation,
-        control_plane::protocol::DataNodeId node_id,
         score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
 
     bool HandleSingleOperation(const control_plane::ControlRequest& request,

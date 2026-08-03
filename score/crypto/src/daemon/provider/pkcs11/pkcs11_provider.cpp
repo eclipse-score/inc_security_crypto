@@ -87,8 +87,8 @@ bool Pkcs11Provider::Initialize(const ProviderInitContext& ctx)
     m_shm_factory = std::make_shared<data_plane::BaseShmFactory>();
 
     m_initialized = true;
-    score::mw::log::LogVerbose() << "[PKCS#11] Provider (ID: " << m_numeric_id << ", Name: " << m_provider_name
-                                 << ") initialised successfully";
+    score::mw::log::LogInfo() << "[PKCS#11] Provider (ID: " << m_numeric_id << ", Name: " << m_provider_name
+                              << ") initialised successfully";
     return true;
 }
 

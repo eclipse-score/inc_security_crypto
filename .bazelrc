@@ -37,12 +37,10 @@ common --credential_helper_timeout="60s"
 build:shared --incompatible_strict_action_env
 build:shared --sandbox_writable_path=/var/tmp
 build:shared --host_platform=@score_bazel_platforms//:x86_64-linux
+# Disable typedshm as it's not needed in this build
+build:shared --@score_baselibs//score/memory/shared/flags:use_typedshmd=False
 
 # Shared qnx configuration
-# Disable typedshmd. In score_baselibs 0.2.7 and 0.2.8 the use_typedshmd flag defaults to True,
-# which defines USE_TYPEDSHMD for the typedshm_wrapper:typedmemory target (pulled in transitively
-# we do not need typedshm for now, once upstream is fixed, we can remove this flag and use the default value)
-build:shared_qnx --@score_baselibs//score/memory/shared/flags:use_typedshmd=False
 build:shared_qnx --config=shared
 build:shared_qnx --copt=-D_QNX_SOURCE
 build:shared_qnx --copt=-DGRPC_POSIX_SOCKET

@@ -20,12 +20,11 @@
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/memory/shared/shared_memory_factory.h"
+#include "score/mw/log/logging.h"
 
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <memory>
-#include <string>
 #include <utility>
 
 namespace protocol = score::crypto::daemon::control_plane::protocol;
@@ -45,7 +44,7 @@ ShmMemoryFactory::ShmMemoryFactory(std::shared_ptr<IShmRegionRegistry> registry,
 }
 
 score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Create(const ShmRegionParams& region_params,
-                                                                                   bool is_pool)
+                                                                                   bool /*is_pool*/)
 {
     const std::uint64_t node_id = region_params.node_id;
     const std::size_t usable_size = static_cast<std::size_t>(region_params.size);
@@ -54,24 +53,18 @@ score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Crea
 
     if (transport_type != score::crypto::daemon::mediator::operations::ShmTransportType::kPosixNamed)
     {
-        score::mw::log::LogError() << "[ShmMemoryFactory] ERROR: unsupported transport_type="
-                                   << static_cast<int>(transport_type) << " (only kPosixNamed supported)";
         return score::crypto::make_unexpected(CryptoErrorCode::kUnsupportedOperation);
     }
 
     auto resource = score::memory::shared::SharedMemoryFactory::Open(region_params.token, /*is_read_write=*/true);
     if (resource == nullptr)
     {
-        score::mw::log::LogError() << "[ShmMemoryFactory] ERROR: SharedMemoryFactory::Open failed for '"
-                                   << region_params.token << "'";
         return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
     }
 
     void* addr = resource->getUsableBaseAddress();
     if (addr == nullptr)
     {
-        score::mw::log::LogError() << "[ShmMemoryFactory] ERROR: getUsableBaseAddress returned nullptr for '"
-                                   << region_params.token << "'";
         return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
     }
 
@@ -81,7 +74,6 @@ score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Crea
 
     if (m_registry == nullptr)
     {
-        score::mw::log::LogError() << "[ShmMemoryFactory] ERROR: registry is not available; cannot track SHM region";
         return score::crypto::make_unexpected(CryptoErrorCode::kUninitializedStack);
     }
 
@@ -102,8 +94,6 @@ score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Crea
                     ctrl_req.operation = destroy_req.value();
                     ctrl_req.data_node_id = connection->GetConnectionNodeId();
                     connection->SendRequest(ctrl_req);
-                    score::mw::log::LogVerbose()
-                        << "[ShmMemoryFactory] Sent SHM_DESTROY_OBJECT for node_id=" << node_id;
                 }
                 else
                 {
@@ -122,7 +112,6 @@ score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Crea
 
     if (!memory_result.has_value())
     {
-        score::mw::log::LogError() << "[ShmMemoryFactory] ERROR: failed to create ShmReadWriteMemory";
         return score::crypto::make_unexpected(static_cast<CryptoErrorCode>(*memory_result.error()));
     }
 

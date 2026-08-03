@@ -49,7 +49,10 @@ constexpr const char* kDaemonEndpoint = "unix:///tmp/crypto_daemon.sock";
 constexpr std::size_t kSha512DigestSize = 64U;
 constexpr int kNumThreads = 4;
 
-/// @brief Test parameters: execution mode and input sizes
+/// @brief Validates concurrent and sequential hash operations via pool and bulk SHM paths.
+/// disclaimer :  This is an early version and should actually be changed to google benchmark type of performance test.
+/// The test is parameterized: GetParam()==true  → tasks run in parallel threads
+///                             GetParam()==false → tasks run sequentially (no threads).
 struct ScalabilityTestParams
 {
     bool run_parallel;             ///< true → parallel threads, false → sequential

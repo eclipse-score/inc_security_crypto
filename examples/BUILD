@@ -17,9 +17,9 @@ cc_binary(
     name = "hashing_example",
     srcs = ["hashing_example.cpp"],
     deps = [
-        "//score/crypto/api:crypto_stack",
-        "//score/crypto/api/config:context_configs",
-        "//score/crypto/api/contexts:crypto_contexts",
+        "//score/crypto/src/api:crypto_stack",
+        "//score/crypto/src/api/config:context_configs",
+        "//score/crypto/src/api/contexts:crypto_contexts",
     ],
 )
 

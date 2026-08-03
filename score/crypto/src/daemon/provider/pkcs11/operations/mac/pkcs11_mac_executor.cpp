@@ -18,7 +18,6 @@
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
-#include "score/mw/log/logging.h"
 
 #include <vector>
 
@@ -30,8 +29,6 @@ using common::ResponseParameters;
 using common::StreamOperationState;
 using score::crypto::daemon::common::DaemonErrorCode;
 using ::score::crypto::daemon::provider::handler::handler_utils::CheckAndGetSpan;
-
-static constexpr std::string_view LOG_PREFIX = "[PKCS11_MAC_EXECUTOR]";
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -294,7 +291,6 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
     const CK_RV rv = m_functionList->C_SignInit(session, &mechanism, key_object);
     if (rv != CKR_OK)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "C_SignInit failed: rv=" << static_cast<unsigned long>(rv);
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmInitializationFailed);
     }
     return std::monostate{};
@@ -323,8 +319,6 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
     const CK_RV rv = m_functionList->C_SignUpdate(session, p, static_cast<CK_ULONG>(inputSpan.value().size()));
     if (rv != CKR_OK)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "C_SignUpdate failed: rv=" << static_cast<unsigned long>(rv);
-
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
     return std::monostate{};
@@ -356,7 +350,6 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         m_functionList->C_SignFinal(session, static_cast<CK_BYTE_PTR>(outputSpan.value().data()), &sig_len);
     if (rv != CKR_OK)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "C_SignFinal failed: rv=" << static_cast<unsigned long>(rv);
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
@@ -407,9 +400,6 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     CK_RV rv = m_functionList->C_SignUpdate(session, p, static_cast<CK_ULONG>(inputSpan.value().size()));
     if (rv != CKR_OK)
     {
-        score::mw::log::LogError() << LOG_PREFIX
-                                   << "C_SignUpdate (single-shot) failed: rv=" << static_cast<unsigned long>(rv);
-
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
@@ -417,8 +407,6 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     rv = m_functionList->C_SignFinal(session, static_cast<CK_BYTE_PTR>(outputSpan.value().data()), &sig_len);
     if (rv != CKR_OK)
     {
-        score::mw::log::LogError() << LOG_PREFIX
-                                   << "C_SignFinal (single-shot) failed: rv=" << static_cast<unsigned long>(rv);
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
@@ -476,9 +464,6 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     const CK_RV rv = m_functionList->C_SignFinal(session, computed.data(), &sig_len);
     if (rv != CKR_OK)
     {
-        score::mw::log::LogError() << LOG_PREFIX
-                                   << "C_SignFinal (verify) failed: rv=" << static_cast<unsigned long>(rv);
-
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
@@ -501,8 +486,6 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
     const CK_RV rv = m_functionList->C_VerifyInit(session, &mechanism, key_object);
     if (rv != CKR_OK)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "C_VerifyInit failed: rv=" << static_cast<unsigned long>(rv);
-
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmInitializationFailed);
     }
     return std::monostate{};
@@ -531,8 +514,6 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
     const CK_RV rv = m_functionList->C_VerifyUpdate(session, p, static_cast<CK_ULONG>(inputSpan.value().size()));
     if (rv != CKR_OK)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "C_VerifyUpdate failed: rv=" << static_cast<unsigned long>(rv);
-
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
     return std::monostate{};
@@ -558,7 +539,6 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     }
     if (rv != CKR_OK)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "C_VerifyFinal failed: rv=" << static_cast<unsigned long>(rv);
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
     ResponseParameters response;
@@ -611,8 +591,6 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     const CK_RV rv_upd = m_functionList->C_VerifyUpdate(session, p, static_cast<CK_ULONG>(inputSpan.value().size()));
     if (rv_upd != CKR_OK)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "C_VerifyUpdate (single-shot verify) failed: rv="
-                                   << static_cast<unsigned long>(rv_upd);
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 

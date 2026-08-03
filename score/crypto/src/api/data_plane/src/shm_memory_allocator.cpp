@@ -22,7 +22,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
+#include "score/mw/log/logging.h"
 #include <memory>
 
 namespace protocol = score::crypto::daemon::control_plane::protocol;
@@ -42,21 +42,18 @@ score::Result<std::unique_ptr<ShmMemoryAllocator>> ShmMemoryAllocator::Create(
 {
     if (!connection)
     {
-        score::mw::log::LogError() << "[SHM_ALLOCATOR] ERROR: Create called with null connection";
         return score::Result<std::unique_ptr<ShmMemoryAllocator>>{
             score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Connection is null")};
     }
 
     if (!factory)
     {
-        score::mw::log::LogError() << "[SHM_ALLOCATOR] ERROR: Create called with null factory";
         return score::Result<std::unique_ptr<ShmMemoryAllocator>>{
             score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Factory is null")};
     }
 
     if (!registry)
     {
-        score::mw::log::LogError() << "[SHM_ALLOCATOR] ERROR: Create called with null registry";
         return score::Result<std::unique_ptr<ShmMemoryAllocator>>{
             score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Registry is null")};
     }
@@ -77,9 +74,6 @@ ShmMemoryAllocator::ShmMemoryAllocator(ConstructorTag /* tag */,
 score::Result<IReadWriteMemory::Uptr> ShmMemoryAllocator::Allocate(std::size_t size,
                                                                    std::optional<ProviderType> provider_type)
 {
-    score::mw::log::LogVerbose() << "[SHM_ALLOCATOR] Allocate(size=" << size << ", provider_type="
-                                 << (provider_type.has_value() ? static_cast<int>(provider_type.value()) : -1)
-                                 << ") - [BULK PATH]";
     auto result = AllocateInternal(size, provider_type, std::nullopt);
     if (!result.has_value())
     {
@@ -90,9 +84,6 @@ score::Result<IReadWriteMemory::Uptr> ShmMemoryAllocator::Allocate(std::size_t s
 
 score::Result<IReadWriteMemory::Uptr> ShmMemoryAllocator::Allocate(std::size_t size, const CryptoResourceId& provider)
 {
-    score::mw::log::LogVerbose() << "[SHM_ALLOCATOR] Allocate(size=" << size << ", provider.id=" << provider.id
-                                 << ", provider.primary_provider=" << provider.primary_provider
-                                 << ") - [PROVIDER PATH]";
     const std::optional<std::uint16_t> provider_id =
         (provider.primary_provider != med_ops::SHM_WIRE_PROVIDER_ID_UNBOUND)
             ? std::optional<std::uint16_t>{provider.primary_provider}
@@ -120,8 +111,6 @@ score::crypto::Expected<IReadWriteMemory::Uptr, CryptoErrorCode> ShmMemoryAlloca
     std::optional<ProviderType> provider_type,
     std::optional<std::uint16_t> provider_id)
 {
-    score::mw::log::LogVerbose() << "[SHM_ALLOCATOR] AllocateInternal: size=" << size;
-
     // Encode provider hints as trailing wire params.
     // Sentinel values signal "absent" to the daemon:
     //   param(1): SHM_WIRE_PROVIDER_TYPE_ABSENT = no ProviderType hint (DEFAULT)
@@ -143,24 +132,20 @@ score::crypto::Expected<IReadWriteMemory::Uptr, CryptoErrorCode> ShmMemoryAlloca
 
     if (!request.has_value())
     {
-        score::mw::log::LogError() << "[SHM_ALLOCATOR] ERROR: Failed to build SHM_SETUP request";
         return score::crypto::make_unexpected(CryptoErrorCode::kInternalError);
     }
 
-    score::mw::log::LogVerbose() << "[SHM_ALLOCATOR] Sending SHM_SETUP request to daemon...";
     protocol::ControlRequest ctrl_req{};
     ctrl_req.operation = request.value();
     ctrl_req.data_node_id = m_connection_ptr->GetConnectionNodeId();
     auto send_res = m_connection_ptr->SendRequest(ctrl_req);
     if (!send_res.has_value())
     {
-        score::mw::log::LogError() << "[SHM_ALLOCATOR] ERROR: SendRequest failed for SHM_SETUP";
         return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
     }
     auto response = send_res.value().operation;
     if (response.operations.empty())
     {
-        score::mw::log::LogError() << "[SHM_ALLOCATOR] ERROR: SHM_SETUP response is empty";
         return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
     }
 
@@ -170,7 +155,6 @@ score::crypto::Expected<IReadWriteMemory::Uptr, CryptoErrorCode> ShmMemoryAlloca
     if (op_resp.result != protocol::OPERATION_RESULT_SUCCESS)
     {
         // Map daemon error to client error
-        score::mw::log::LogError() << "[SHM_ALLOCATOR] ERROR: Daemon returned error code";
         if (op_resp.result == static_cast<protocol::OperationResult>(CryptoErrorCode::kQuotaExceeded))
         {
             return score::crypto::make_unexpected(CryptoErrorCode::kQuotaExceeded);
@@ -186,7 +170,6 @@ score::crypto::Expected<IReadWriteMemory::Uptr, CryptoErrorCode> ShmMemoryAlloca
 
     if (!node_id_param.has_value() || !size_param.has_value() || !token_param.has_value())
     {
-        score::mw::log::LogError() << "[SHM_ALLOCATOR] ERROR: Missing required SHM_SETUP response parameters";
         return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
     }
 
@@ -204,7 +187,6 @@ score::crypto::Expected<IReadWriteMemory::Uptr, CryptoErrorCode> ShmMemoryAlloca
     {
         return score::crypto::make_unexpected(result.error());
     }
-    score::mw::log::LogVerbose() << "[SHM_ALLOCATOR] Successfully created and returned memory";
     return std::move(result).value().memory;
 }
 

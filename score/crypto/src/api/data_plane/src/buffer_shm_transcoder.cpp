@@ -18,7 +18,6 @@
 #include "score/crypto/src/daemon/common/types.hpp"
 
 #include <cstring>
-#include <iostream>
 
 namespace score
 {
@@ -72,16 +71,12 @@ score::crypto::Expected<TranscoderSpan, CryptoErrorCode> BufferShmTranscoder::Ac
     // inputs larger than the threshold must use SHM and are handled below.
     if (!is_output && data.size() <= kInBandThreshold)
     {
-        score::mw::log::LogVerbose() << "[BufferShmTranscoder] [Acquire] IN-BAND (size=" << data.size()
-                                     << " <= threshold)";
         return make_inband_span(data);
     }
 
     // From here on SHM is required: either an output buffer or an input larger than the threshold.
     if (m_registry == nullptr)
     {
-        score::mw::log::LogVerbose()
-            << "[BufferShmTranscoder] [Acquire] ERROR: Buffer requires SHM but no registry available";
         return score::crypto::make_unexpected(CryptoErrorCode::kOperationFailed);
     }
 
@@ -93,12 +88,8 @@ score::crypto::Expected<TranscoderSpan, CryptoErrorCode> BufferShmTranscoder::Ac
             const auto offset = m_registry->GetOffset(data);
             if (!offset.has_value())
             {
-                score::mw::log::LogVerbose()
-                    << "[BufferShmTranscoder] [Acquire] ERROR: Buffer in bulk SHM but offset lookup failed";
                 return score::crypto::make_unexpected(CryptoErrorCode::kInternalError);
             }
-            score::mw::log::LogVerbose() << "[BufferShmTranscoder] [Acquire] BULK SHM: node_id=" << node_id
-                                         << " offset=" << offset.value();
             TranscoderSpan tspan;
             tspan.set_kind(TranscoderSpan::Kind::kBulk);
             tspan.set_caller_span(make_span(data));
@@ -111,15 +102,12 @@ score::crypto::Expected<TranscoderSpan, CryptoErrorCode> BufferShmTranscoder::Ac
     // POOL SHM: Try pool allocation.
     if (m_pool_allocator == nullptr)
     {
-        score::mw::log::LogVerbose()
-            << "[BufferShmTranscoder] [Acquire] ERROR: Buffer not in bulk SHM and no pool allocator available";
         return score::crypto::make_unexpected(CryptoErrorCode::kOperationFailed);
     }
 
     auto pool_span = m_pool_allocator->Allocate(data.size());
     if (!pool_span.has_value())
     {
-        score::mw::log::LogVerbose() << "[BufferShmTranscoder] [Acquire] ERROR: Buffer pool allocation failed";
         return score::crypto::make_unexpected(CryptoErrorCode::kInsufficientBufferSize);
     }
 
@@ -128,7 +116,6 @@ score::crypto::Expected<TranscoderSpan, CryptoErrorCode> BufferShmTranscoder::Ac
     if (node_id == 0)
     {
         m_pool_allocator->Deallocate(pool_span.value());
-        score::mw::log::LogVerbose() << "[BufferShmTranscoder] [Acquire] ERROR: Buffer pool node_id invalid";
         return score::crypto::make_unexpected(CryptoErrorCode::kOperationFailed);
     }
 
@@ -139,8 +126,6 @@ score::crypto::Expected<TranscoderSpan, CryptoErrorCode> BufferShmTranscoder::Ac
     }
     const std::size_t offset = offset_result.value();
 
-    score::mw::log::LogVerbose() << "[BufferShmTranscoder] [Acquire] POOL RESERVE (slot): node_id=" << node_id
-                                 << " offset=" << offset << " bytes=" << data.size();
     TranscoderSpan tspan;
     tspan.set_kind(TranscoderSpan::Kind::kPool);
     tspan.set_caller_span(make_span(data));
@@ -161,8 +146,6 @@ void BufferShmTranscoder::AppendInputBuffer(proto::OperationRequestBuilder& buil
         {
             const std::size_t copy_size = std::min(tspan.caller_span().size(), tspan.pool_span().size());
             std::memcpy(tspan.pool_span().data(), tspan.caller_span().data(), copy_size);
-            score::mw::log::LogVerbose() << "[BufferShmTranscoder] [AppendInputBuffer] POOL copy " << copy_size
-                                         << " bytes heap->slot";
             builder.with_shm(tspan.obj_node_offset().node_id,
                              tspan.obj_node_offset().offset,
                              tspan.caller_span().size(),
@@ -222,8 +205,6 @@ score::Result<std::size_t> BufferShmTranscoder::ExtractOutputBuffer(TranscoderSp
                 return score::Result<std::size_t>{
                     score::unexpect, MakeError(CryptoErrorCode::kInsufficientBufferSize, "Output buffer too small")};
             }
-            score::mw::log::LogVerbose() << "[BufferShmTranscoder] [ExtractOutputBuffer] BULK SHM actual_size="
-                                         << actual_size << " (data already in caller buffer via SHM)";
             return actual_size;
         }
 
@@ -244,9 +225,6 @@ score::Result<std::size_t> BufferShmTranscoder::ExtractOutputBuffer(TranscoderSp
                     score::unexpect, MakeError(CryptoErrorCode::kInsufficientBufferSize, "Output buffer too small")};
             }
             std::memcpy(tspan.caller_span().data(), tspan.pool_span().data(), actual_size);
-            score::mw::log::LogVerbose() << "[BufferShmTranscoder] [ExtractOutputBuffer] POOL copy " << actual_size
-                                         << "/" << actual_size
-                                         << " bytes pool->caller (pool slot auto-released by ~TranscoderSpan)";
             return actual_size;
         }
 

@@ -138,7 +138,6 @@ score::Result<std::monostate> HashContextImpl::Init(std::optional<score::cpp::sp
                                   .build();
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR: Failed to build HASH_INIT request";
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build HASH_INIT request")};
     }
@@ -183,7 +182,6 @@ score::Result<std::monostate> HashContextImpl::Update(score::cpp::span<const uin
     auto control_request_result = builder.build();
     if (!control_request_result.has_value())
     {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR: Failed to build HASH_UPDATE request";
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build HASH_UPDATE request")};
     }
@@ -224,7 +222,6 @@ score::Result<std::size_t> HashContextImpl::Finalize(score::cpp::span<uint8_t> o
     auto control_request_result = builder.build();
     if (!control_request_result.has_value())
     {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR: Failed to build HASH_FINALIZE request";
         return score::Result<std::size_t>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build HASH_FINALIZE request")};
     }
@@ -275,7 +272,6 @@ score::Result<std::size_t> HashContextImpl::SingleShot(score::cpp::span<const ui
     auto control_request_result = builder.build();
     if (!control_request_result.has_value())
     {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR: Failed to build HASH_SS request";
         return score::Result<std::size_t>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build HASH_SS request")};
     }
@@ -307,7 +303,6 @@ score::Result<std::monostate> HashContextImpl::Reset()
                                   .build();
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR: Failed to build HASH_RESET request";
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build HASH_RESET request")};
     }

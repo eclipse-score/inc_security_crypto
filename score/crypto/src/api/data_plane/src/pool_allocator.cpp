@@ -17,7 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
+#include "score/mw/log/logging.h"
 #include <mutex>
 #include <utility>
 

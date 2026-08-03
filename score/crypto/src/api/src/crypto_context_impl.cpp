@@ -85,7 +85,6 @@ score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContex
     auto control_req_result = request_builder.build();
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: Failed to build CTX_CREATE request";
         return score::Result<std::unique_ptr<IHashContext>>{
             score::unexpect, MakeError(CryptoErrorCode::kContextCreationFailed, "Failed to build CTX_CREATE request")};
     }
@@ -99,7 +98,6 @@ score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContex
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR:" << validator.getError();
         return score::Result<std::unique_ptr<IHashContext>>{
             score::unexpect, MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE daemon response invalid")};
     }
@@ -107,7 +105,6 @@ score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContex
     auto ctx_id_result = validator.getParameterAt<std::uint64_t>(0, 0);
     if (!ctx_id_result.has_value())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: CTX_CREATE response has invalid context_id type";
         return score::Result<std::unique_ptr<IHashContext>>{
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE response has invalid context_id type")};
@@ -136,7 +133,6 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
 
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: Failed to build RESOURCE_RESOLVE request";
         return score::Result<CryptoResourceId>{
             score::unexpect, MakeError(CryptoErrorCode::kInternalError, "Failed to build RESOURCE_RESOLVE request")};
     }
@@ -148,7 +144,6 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR:" << validator.getError();
         return score::Result<CryptoResourceId>{
             score::unexpect, MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE daemon response invalid")};
     }
@@ -156,7 +151,6 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
     auto id_result = validator.getParameterAt<std::uint64_t>(0, 0);
     if (!id_result.has_value())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: RESOURCE_RESOLVE response missing resource_id";
         return score::Result<CryptoResourceId>{
             score::unexpect,
             MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE response missing resource_id")};
@@ -165,7 +159,6 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
     auto type_result = validator.getParameterAt<std::uint8_t>(0, 1);
     if (!type_result.has_value())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: RESOURCE_RESOLVE response missing type";
         return score::Result<CryptoResourceId>{
             score::unexpect, MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE response missing type")};
     }
@@ -173,7 +166,6 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
     auto persistence_result = validator.getParameterAt<bool>(0, 2);
     if (!persistence_result.has_value())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: RESOURCE_RESOLVE response missing persistence";
         return score::Result<CryptoResourceId>{
             score::unexpect,
             MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE response missing persistence")};
@@ -182,8 +174,6 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
     auto primary_provider = validator.getParameterAt<std::uint16_t>(0, 3);
     if (!primary_provider.has_value())
     {
-        score::mw::log::LogError()
-            << "[API][CryptoContextImpl] ERROR: RESOURCE_RESOLVE response missing primary_provider";
         return score::Result<CryptoResourceId>{
             score::unexpect,
             MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE response missing primary_provider")};
@@ -209,7 +199,6 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
 
     if (config.key.id == 0)
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: CreateMacContext invalid / missing key id";
         return score::Result<std::unique_ptr<IMacContext>>{
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "CreateMacContext invalid / missing key id")};
@@ -217,7 +206,6 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
 
     if (config.key.type != ResourceType::kKey && config.key.type != ResourceType::kKeySlot)
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: CreateMacContext invalid key type";
         return score::Result<std::unique_ptr<IMacContext>>{
             score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "CreateMacContext invalid key type")};
     }
@@ -248,7 +236,6 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
     auto control_req_result = request_builder.build();
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: Failed to build CTX_CREATE request for MAC";
         return score::Result<std::unique_ptr<IMacContext>>{
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "Failed to build CTX_CREATE request for MAC")};
@@ -263,7 +250,6 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR:" << validator.getError();
         return score::Result<std::unique_ptr<IMacContext>>{
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE MAC daemon response invalid")};
@@ -272,8 +258,6 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
     auto ctx_id_result = validator.getParameterAt<std::uint64_t>(0, 0);
     if (!ctx_id_result.has_value())
     {
-        score::mw::log::LogError()
-            << "[API][CryptoContextImpl] ERROR: CTX_CREATE MAC response has invalid context_id type";
         return score::Result<std::unique_ptr<IMacContext>>{
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE MAC response has invalid context_id type")};
@@ -310,7 +294,6 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
     auto control_req_result = request_builder.build();
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: Failed to build CTX_CREATE request for KEY_MGMT";
         return score::Result<std::unique_ptr<IKeyManagementContext>>{
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "Failed to build CTX_CREATE request for KEY_MGMT")};
@@ -323,7 +306,6 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR:" << validator.getError();
         return score::Result<std::unique_ptr<IKeyManagementContext>>{
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE KEY_MGMT daemon response invalid")};
@@ -332,8 +314,6 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
     auto ctx_id_result = validator.getParameterAt<std::uint64_t>(0, 0);
     if (!ctx_id_result.has_value())
     {
-        score::mw::log::LogError()
-            << "[API][CryptoContextImpl] ERROR: CTX_CREATE KEY_MGMT response has invalid context_id type";
         return score::Result<std::unique_ptr<IKeyManagementContext>>{
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed,
@@ -353,7 +333,6 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
 score::Result<AlgorithmCapabilities> CryptoContextImpl::QueryCapabilities(const AlgorithmId& /*algorithm*/)
 {
     // TODO: Implement algorithm capability query via daemon IPC
-    score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: QueryCapabilities(algorithm) not yet implemented";
     return score::Result<AlgorithmCapabilities>{
         score::unexpect,
         MakeError(CryptoErrorCode::kUnsupportedOperation, "QueryCapabilities(algorithm) not yet implemented")};
@@ -362,7 +341,6 @@ score::Result<AlgorithmCapabilities> CryptoContextImpl::QueryCapabilities(const 
 score::Result<SystemCapabilities> CryptoContextImpl::QueryCapabilities()
 {
     // TODO: Implement system capability query via daemon IPC
-    score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: QueryCapabilities() not yet implemented";
     return score::Result<SystemCapabilities>{
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "QueryCapabilities() not yet implemented")};
 }
@@ -370,7 +348,6 @@ score::Result<SystemCapabilities> CryptoContextImpl::QueryCapabilities()
 score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(uint16_t /*provider_id*/)
 {
     // TODO: Implement provider info query via daemon IPC
-    score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: GetProviderInfo not yet implemented";
     return score::Result<ProviderInfo>{
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "GetProviderInfo not yet implemented")};
 }
@@ -378,7 +355,6 @@ score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(uint16_t /*provid
 score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(const CryptoResourceId& /*resourceId*/)
 {
     // TODO: Implement provider info query via daemon IPC
-    score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: GetProviderInfo not yet implemented";
     return score::Result<ProviderInfo>{
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "GetProviderInfo not yet implemented")};
 }
@@ -390,7 +366,6 @@ score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(const CryptoResou
 score::Result<std::unique_ptr<IKeyObject>> CryptoContextImpl::GetKeyObject(const CryptoResourceId& /*id*/)
 {
     // TODO: Implement key object retrieval via daemon IPC
-    score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: GetKeyObject not yet implemented";
     return score::Result<std::unique_ptr<IKeyObject>>{
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "GetKeyObject not yet implemented")};
 }
@@ -398,7 +373,6 @@ score::Result<std::unique_ptr<IKeyObject>> CryptoContextImpl::GetKeyObject(const
 score::Result<std::unique_ptr<IKeySlotObject>> CryptoContextImpl::GetKeySlotObject(const CryptoResourceId& /*id*/)
 {
     // TODO: Implement key slot object retrieval via daemon IPC
-    score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: GetKeySlotObject not yet implemented";
     return score::Result<std::unique_ptr<IKeySlotObject>>{
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "GetKeySlotObject not yet implemented")};
 }

@@ -45,17 +45,13 @@ Expected<std::shared_ptr<ShmDataNode>, common::DaemonErrorCode> ShmDataNode::Cre
     const auto uid = control_plane::protocol::GetUidFromClientId(client_id);
     const auto name = GetShmName(uid);
 
-    score::mw::log::LogVerbose() << ::LOG_PREFIX << "[CREATE_BEGIN] client=" << client_id << " size=" << size;
-
     // 1. Validate inputs
     if (!registry)
     {
-        score::mw::log::LogError() << ::LOG_PREFIX << "[CREATE_FAILED] registry is null";
         return make_unexpected(common::DaemonErrorCode::kInternalError);
     }
     if (!factory)
     {
-        score::mw::log::LogError() << ::LOG_PREFIX << "[CREATE_FAILED] factory is null";
         return make_unexpected(common::DaemonErrorCode::kInternalError);
     }
 
@@ -69,8 +65,8 @@ Expected<std::shared_ptr<ShmDataNode>, common::DaemonErrorCode> ShmDataNode::Cre
     auto register_res = registry->Register(uid, size);
     if (!register_res.has_value())
     {
-        score::mw::log::LogVerbose() << ::LOG_PREFIX << "[CREATE_FAILED] Register quota failed: "
-                                     << static_cast<int>(register_res.error());
+        score::mw::log::LogError() << ::LOG_PREFIX << "[CREATE_FAILED] Register quota failed: "
+                                   << static_cast<int>(register_res.error());
         return make_unexpected(register_res.error());
     }
 
@@ -125,11 +121,6 @@ ShmDataNode::~ShmDataNode()
     {
         const auto uid = control_plane::protocol::GetUidFromClientId(m_client_id);
         registry->Unregister(uid, m_size);
-    }
-    else
-    {
-        score::mw::log::LogVerbose() << ::LOG_PREFIX
-                                     << "[DESTROY_WARNING] Registry already destroyed, quota not released";
     }
 }
 

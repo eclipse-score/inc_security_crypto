@@ -63,7 +63,7 @@ control_plane::ControlResponse ShmRequestHandler::ForwardWithResolvedShm(control
             if (data_shm.offset + data_shm.size > node->GetSize())
             {
                 score::mw::log::LogError()
-                    << LOG_PREFIX << " Requested shared memory location out of bounds for node_id=" << data_shm.node_id
+                    << LOG_PREFIX << "Requested shared memory location out of bounds for node_id=" << data_shm.node_id
                     << ": offset=" << data_shm.offset << ", size=" << data_shm.size
                     << ", node_size=" << node->GetSize();
                 control_plane::protocol::OperationResponseBuilder builder;

@@ -13,7 +13,6 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
-#include "score/mw/log/logging.h"
 #include <openssl/crypto.h>  // OPENSSL_cleanse
 #include <algorithm>
 
@@ -28,7 +27,6 @@ OpenSslKeyHandler::OpenSslKeyHandler(std::vector<std::uint8_t> key_bytes,
 
 OpenSslKeyHandler::~OpenSslKeyHandler()
 {
-    score::mw::log::LogVerbose() << "[OPENSSL_KEY_HANDLER] Release Key";
     static_cast<void>(Release());
 }
 

@@ -54,7 +54,7 @@ namespace
 ///
 /// Sends SHM_SETUP(is_pool=1), receives response, validates pool geometry, and returns
 /// the extracted parameters as a ShmSetupResponse for use by CreateCryptoStack.
-score::crypto::Expected<ShmSetupResponse, CryptoErrorCode> SetupDataPlane(
+score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
     std::shared_ptr<score::crypto::api::control_plane::IConnection> connection)
 {
     auto req = proto::OperationRequestBuilder()
@@ -66,7 +66,9 @@ score::crypto::Expected<ShmSetupResponse, CryptoErrorCode> SetupDataPlane(
                    .build();
     if (!req.has_value())
     {
-        return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
+        return score::Result<ShmSetupResponse>{score::unexpect,
+                                               MakeError(CryptoErrorCode::kAllocationFailed,
+                                                         "Failed to build SHM_SETUP request")};
     }
 
     proto::ControlRequest ctrl_req{};
@@ -79,7 +81,9 @@ score::crypto::Expected<ShmSetupResponse, CryptoErrorCode> SetupDataPlane(
     validator.expectOperation(med_ops::CreateShmObject()).expectSuccess();
     if (!validator.isValid())
     {
-        return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
+        return score::Result<ShmSetupResponse>{score::unexpect,
+                                               MakeError(CryptoErrorCode::kAllocationFailed,
+                                                         "SHM_SETUP daemon response invalid")};
     }
 
     // Extract and validate all required parameters.
@@ -93,7 +97,9 @@ score::crypto::Expected<ShmSetupResponse, CryptoErrorCode> SetupDataPlane(
     if (!node_id_param.has_value() || !size_param.has_value() || !token_param.has_value() ||
         !slot_size_param.has_value() || !total_quota_param.has_value())
     {
-        return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
+        return score::Result<ShmSetupResponse>{score::unexpect,
+                                               MakeError(CryptoErrorCode::kAllocationFailed,
+                                                         "SHM_SETUP response missing required parameters")};
     }
 
     // Extract pool geometry parameter values for validation.
@@ -103,27 +109,32 @@ score::crypto::Expected<ShmSetupResponse, CryptoErrorCode> SetupDataPlane(
     // Validate pool geometry parameter values.
     if (pool_geom.total_quota == 0)
     {
-        score::mw::log::LogError() << "[CryptoStackFactory] ERROR: Total quota configured as 0";
-        return score::crypto::make_unexpected(CryptoErrorCode::kInvalidArgument);
+        return score::Result<ShmSetupResponse>{score::unexpect,
+                                               MakeError(CryptoErrorCode::kInvalidArgument,
+                                                         "Total quota configured as 0")};
     }
 
     if (pool_geom.slot_size == 0)
     {
-        score::mw::log::LogError() << "[CryptoStackFactory] ERROR: Pool slot size configured as 0";
-        return score::crypto::make_unexpected(CryptoErrorCode::kInvalidArgument);
+        return score::Result<ShmSetupResponse>{score::unexpect,
+                                               MakeError(CryptoErrorCode::kInvalidArgument,
+                                                         "Pool slot size configured as 0")};
     }
 
     if (pool_size == 0)
     {
-        score::mw::log::LogError() << "[CryptoStackFactory] ERROR: Pool size configured as 0";
-        return score::crypto::make_unexpected(CryptoErrorCode::kInvalidArgument);
+        return score::Result<ShmSetupResponse>{score::unexpect,
+                                               MakeError(CryptoErrorCode::kInvalidArgument,
+                                                         "Pool size configured as 0")};
     }
 
     if (pool_size < pool_geom.slot_size)
     {
-        score::mw::log::LogError() << "[CryptoStackFactory] ERROR: Pool size (" << pool_size
-                                   << ") is smaller than slot size (" << pool_geom.slot_size << ")";
-        return score::crypto::make_unexpected(CryptoErrorCode::kInvalidArgument);
+        return score::Result<ShmSetupResponse>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kInvalidArgument,
+                      "Pool size (" + std::to_string(pool_size) + ") is smaller than slot size (" +
+                          std::to_string(pool_geom.slot_size) + ")")};
     }
 
     // Build and return ShmSetupResponse.

@@ -21,7 +21,6 @@
 #include <openssl/params.h>  // OSSL_PARAM
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
-#include "score/mw/log/logging.h"
 #include <cstring>
 
 namespace score::crypto::daemon::provider::score_provider::openssl::handler
@@ -135,7 +134,6 @@ OpenSslHmacHandler::InitializeContext(
     }
     if (!found)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "Unsupported algorithm:" << m_algorithm;
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
@@ -147,13 +145,11 @@ OpenSslHmacHandler::InitializeContext(
     m_mac = EVP_MAC_fetch(nullptr, "HMAC", nullptr);
     if (m_mac == nullptr)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "EVP_MAC_fetch(\"HMAC\") failed";
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
     }
     m_ctx = EVP_MAC_CTX_new(m_mac);
     if (m_ctx == nullptr)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "EVP_MAC_CTX_new failed";
         EVP_MAC_free(m_mac);
         m_mac = nullptr;
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
@@ -167,9 +163,6 @@ OpenSslHmacHandler::InitializeContext(
         // Provider-id check validates the key comes from the same provider (no dynamic_cast/RTTI).
         if (init_params.bound_key_handler->GetProviderId() != init_params.provider_id)
         {
-            score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: bound key is not an OpenSSL key handler"
-                                       << " (key provider_id=" << init_params.bound_key_handler->GetProviderId()
-                                       << ", expected=" << init_params.provider_id << ")";
             return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) — type tag verified above
@@ -180,7 +173,6 @@ OpenSslHmacHandler::InitializeContext(
         const uint8_t* key_bytes = openssl_key->GetRawKeyBytes(key_len);
         if (key_bytes == nullptr || key_len == 0U)
         {
-            score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: invalid key handle";
             return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
 
@@ -197,7 +189,6 @@ OpenSslHmacHandler::InitializeContext(
 {
     if (m_ctx == nullptr)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "InitMac: HMAC context not allocated";
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kStreamNotInitialized);
     }
@@ -206,8 +197,6 @@ OpenSslHmacHandler::InitializeContext(
     std::size_t key_len{0U};
     if (!GetBoundKeyMaterial(key_bytes, key_len))
     {
-        score::mw::log::LogError() << LOG_PREFIX
-                                   << "InitMac: no valid key material — call InitializeContext with a key first";
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kStreamNotInitialized);
     }
@@ -215,7 +204,6 @@ OpenSslHmacHandler::InitializeContext(
     const char* digest_name = GetDigestName();
     if (digest_name == nullptr)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "InitMac: unsupported digest for algorithm" << m_algorithm;
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
@@ -230,7 +218,6 @@ OpenSslHmacHandler::InitializeContext(
     const int rv = EVP_MAC_init(m_ctx, key_bytes, key_len, params);
     if (rv != 1)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "InitMac: EVP_MAC_init failed";
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kAlgorithmInitializationFailed);
     }
@@ -278,7 +265,6 @@ OpenSslHmacHandler::UpdateMac(const common::RequestParameter& dataToMac)
     const int rv = EVP_MAC_update(m_ctx, inputSpan.value().data(), inputSpan.value().size());
     if (rv != 1)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "EVP_MAC_update failed";
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }
@@ -349,7 +335,6 @@ OpenSslHmacHandler::FinalizeMacInternal(uint8_t* output_buf, std::size_t buf_len
     const int rv = EVP_MAC_final(m_ctx, output_buf, &hmac_len, buf_len);
     if (rv != 1)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "EVP_MAC_final failed";
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
     }

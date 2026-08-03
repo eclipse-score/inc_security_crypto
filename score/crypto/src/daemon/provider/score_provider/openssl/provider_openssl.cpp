@@ -47,8 +47,8 @@ bool OpenSSL::Initialize(const ProviderInitContext& ctx)
         m_initialized = false;
         return false;
     }
-    score::mw::log::LogDebug() << "[OpenSSL] Initialized successfully (ID:" << m_numeric_id
-                               << ", Name:" << m_provider_name << ")";
+    score::mw::log::LogInfo() << "[OpenSSL] Initialized successfully (ID: " << m_numeric_id
+                              << ", Name: " << m_provider_name << ")";
 
     // Create key factory.
     m_factory = std::make_shared<::score::crypto::daemon::provider::openssl::OpenSslKeyFactory>(m_numeric_id);

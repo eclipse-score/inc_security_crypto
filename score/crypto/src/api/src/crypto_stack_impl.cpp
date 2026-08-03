@@ -60,7 +60,6 @@ score::Result<ICryptoContext::Uptr> CryptoStackImpl::CreateCryptoContext()
 
     if (!m_connection)
     {
-        score::mw::log::LogError() << "[API][CryptoStackImpl] ERROR: Connection is not initialized";
         return score::Result<ICryptoContext::Uptr>{
             score::unexpect, MakeError(CryptoErrorCode::kConnectionFailed, "Connection is not initialized")};
     }
@@ -73,7 +72,6 @@ score::Result<IMemoryAllocator::Uptr> CryptoStackImpl::GetMemoryAllocator()
 {
     if (!m_connection)
     {
-        score::mw::log::LogError() << "[API][CryptoStackImpl] ERROR: Connection is not initialized";
         return score::Result<IMemoryAllocator::Uptr>{
             score::unexpect, MakeError(CryptoErrorCode::kConnectionFailed, "Connection is not initialized")};
     }

@@ -137,7 +137,6 @@ score::Result<std::monostate> MacContextImpl::Update(score::cpp::span<const uint
     auto control_request_result = builder.build();
     if (!control_request_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Failed to build MAC_UPDATE request";
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_UPDATE request")};
     }
@@ -177,7 +176,6 @@ score::Result<std::size_t> MacContextImpl::Finalize(score::cpp::span<uint8_t> ou
     auto control_request_result = builder.build();
     if (!control_request_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Failed to build MAC_FINALIZE request";
         return score::Result<std::size_t>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_FINALIZE request")};
     }
@@ -216,7 +214,6 @@ score::Result<bool> MacContextImpl::Verify(score::cpp::span<const uint8_t> mac)
     auto control_request_result = builder.build();
     if (!control_request_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Failed to build MAC_VERIFY request";
         return score::Result<bool>{score::unexpect,
                                    MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_VERIFY request")};
     }
@@ -239,7 +236,6 @@ score::Result<bool> MacContextImpl::Verify(score::cpp::span<const uint8_t> mac)
     auto verify_result = validator.getParameterAt<bool>(0, 0);
     if (!verify_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: MAC_VERIFY response has invalid parameter type";
         return score::Result<bool>{
             score::unexpect,
             MakeError(CryptoErrorCode::kOperationFailed, "MAC_VERIFY response has invalid parameter type")};
@@ -256,7 +252,6 @@ score::Result<std::monostate> MacContextImpl::Reset()
                                   .build();
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Failed to build MAC_RESET request";
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_RESET request")};
     }
@@ -328,7 +323,6 @@ score::Result<std::monostate> MacContextImpl::Init(std::optional<score::cpp::spa
                                   .build();
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Failed to build MAC_INIT request";
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_INIT request")};
     }

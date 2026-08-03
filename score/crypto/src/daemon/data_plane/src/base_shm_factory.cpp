@@ -13,7 +13,6 @@
 
 #include "score/crypto/src/daemon/data_plane/src/base_shm_factory.hpp"
 #include "score/memory/shared/shared_memory_factory.h"
-#include "score/mw/log/logging.h"
 
 namespace score::crypto::daemon::data_plane
 {
@@ -40,8 +39,6 @@ Expected<ShmResource, common::DaemonErrorCode> BaseShmFactory::Create(std::strin
     auto handle = ShmFactory::Create(std::string{name}, [](const auto&) noexcept {}, size, perm_map);
     if (!handle)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "SharedMemoryFactory::Create failed for name='" << name.data()
-                                   << "'";
         return make_unexpected(common::DaemonErrorCode::kAllocationFailed);
     }
 

@@ -15,8 +15,6 @@
 
 #include "score/mw/log/logging.h"
 
-#include <iostream>
-
 namespace score
 {
 
@@ -31,17 +29,14 @@ void ShmRegionRegistry::Register(const RegionEntry& entry)
     const auto it = m_regions.find(entry.node_id);
     if (it != m_regions.end())
     {
-        score::mw::log::LogVerbose() << "[SHM_REGISTRY] WARNING: node_id=" << entry.node_id
-                                     << " already registered, overwriting";
+        score::mw::log::LogWarn() << "[SHM_REGISTRY] node_id=" << entry.node_id
+                                  << " already registered, overwriting";
         it->second = entry;
     }
     else
     {
         m_regions.insert({entry.node_id, entry});
     }
-    score::mw::log::LogVerbose() << "[SHM_REGISTRY] Register: node_id=" << entry.node_id << " addr=0x" << std::hex
-                                 << entry.base_addr << std::dec << " size=" << entry.size
-                                 << " is_pool=" << entry.is_pool;
 }
 
 void ShmRegionRegistry::Unregister(std::uint64_t node_id)
