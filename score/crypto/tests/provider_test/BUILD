@@ -38,7 +38,7 @@ cc_test(
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_library",
         "//score/tests/utility",
-        "//third_party/soft_hsm:softhsm",
+        "//third_party/soft_hsm:softhsm_shared",
         "@googletest//:gtest",
     ],
 )
@@ -51,7 +51,7 @@ cc_test(
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_library",
-        "//third_party/soft_hsm:softhsm",
+        "//third_party/soft_hsm:softhsm_shared",
         "@googletest//:gtest",
     ],
 )

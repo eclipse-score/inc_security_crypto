@@ -66,11 +66,6 @@ int main(int argc, char** argv)
     }
 
     // Create and initialize the provider manager via factory.
-    // The factory handles:
-    // 1. Parsing provider configurations from backend implementations (ParseConfig)
-    // 2. Creating and configuring provider factories (Score/OpenSSL, PKCS#11)
-    // 3. Registering factories with the provider manager
-    // 4. Initializing all providers
     auto provider_manager_result = score::crypto::daemon::provider::ProviderManagerFactory::Create(config);
     if (!provider_manager_result.has_value())
     {

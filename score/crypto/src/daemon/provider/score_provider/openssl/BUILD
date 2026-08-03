@@ -30,7 +30,7 @@ cc_library(
 cc_library(
     name = "openssl_detail_headers",
     hdrs = ["detail/openssl_algorithm_info.hpp"],
-    implementation_deps = ["//third_party/openssl"],
+    implementation_deps = ["//third_party/openssl:openssl_shared"],
     visibility = ["//:__subpackages__"],
 )
 
@@ -70,7 +70,7 @@ cc_library(
         "provider_openssl.cpp",
     ],
     implementation_deps = [
-        "//third_party/openssl",
+        "//third_party/openssl:openssl_shared",
     ],
     includes = ["."],
     linkstatic = True,

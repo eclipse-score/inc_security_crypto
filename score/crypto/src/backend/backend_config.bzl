@@ -58,7 +58,7 @@ def backend_deps(enable_score_backend, enable_openssl, enable_primula):
 def _pkcs11_backend_map():
     """Return the mapping of PKCS#11 backend names to Bazel labels."""
     return {
-        "softhsm": "//third_party/soft_hsm:softhsm",
+        "softhsm": "//third_party/soft_hsm:softhsm_shared",
         # Future backends point directly to their library target, e.g.:
         # "vendor_hsm": "//third_party/vendor_hsm:vendor_hsm",
     }

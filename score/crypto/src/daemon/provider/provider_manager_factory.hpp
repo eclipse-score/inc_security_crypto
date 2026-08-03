@@ -31,15 +31,14 @@ namespace score::crypto::daemon::provider
  * @brief Factory for creating and initializing ProviderManager instances
  *
  * This factory encapsulates the complete setup of a ProviderManager:
- * 1. Discover active backends from compile-time list (backend/BUILD)
- * 2. Parse provider configurations
- * 3. Create provider factories for enabled backends
- * 4. Register factories with the provider manager
- * 5. Initialize all providers
+ * 1. Parse provider-specific configuration sections
+ * 2. Create provider factories for build-time enabled backends
+ * 3. Invoke CreateAndRegister on each factory to register providers
+ * 4. Call Initialize() on the manager to resolve type mappings and finalize setup
  *
- * Backend discovery uses dependency injection:
- * - Score backends: Compile-time list from backend/score_provider/active_backends_list.hpp
- * - PKCS#11 backend: Conditionally created based on configuration
+ * Backend availability is determined at build time via compile-time flags:
+ * - Score backend: enabled when SCORE_BACKEND_ENABLED is set
+ * - PKCS#11 backend: enabled when SCORE_CRYPTO_PKCS11_ENABLED is set
  *
  * Usage:
  * @code
@@ -57,13 +56,6 @@ class ProviderManagerFactory
     /**
      * @brief Create and initialize a fully configured ProviderManager
      *
-     * This method:
-     * - Discovers active score backends (compile-time)
-     * - Invokes ParseConfig() on each provider-specific config section
-     * - Creates and configures provider factories
-     * - Registers factories with the provider manager
-     * - Calls Initialize() on the provider manager
-     *
      * @param config The daemon configuration containing provider settings
      * @return Expected containing the initialized ProviderManager, or a daemon
      *         error code if provider configuration or initialization fails
@@ -77,30 +69,9 @@ class ProviderManagerFactory
     [[nodiscard]] static bool IsProviderAllowed(const std::string& provider_name,
                                                 const config::ProviderInitConfig& provider_config);
 
-    /**
-     * @brief Create score provider factory if backends enabled
-     *
-     * Discovers active backends from backend/score_provider/active_backends_list.hpp
-     * (controlled by backend/BUILD). Creates a single ScoreProviderFactory
-     * that handles all enabled score backends (OpenSSL, Primula, etc.).
-     *
-     * @param config Configuration containing score provider settings
-     * @return unique_ptr to ScoreProviderFactory if score backends enabled,
-     *         nullptr if ENABLE_SCORE_BACKEND = False
-     */
     [[nodiscard]] static score::crypto::Expected<std::unique_ptr<IProviderFactory>, common::DaemonErrorCode>
     CreateScoreProviderFactory(config::Config& config);
 
-    /**
-     * @brief Create PKCS#11 provider factory if configured
-     *
-     * Checks PKCS#11 configuration and creates factory only if
-     * PKCS#11 providers are configured in the config.
-     *
-     * @param config Configuration containing PKCS#11 settings
-     * @return unique_ptr to Pkcs11ProviderFactory if configured,
-     *         nullptr if PKCS#11 disabled or not configured
-     */
     [[nodiscard]] static score::crypto::Expected<std::unique_ptr<IProviderFactory>, common::DaemonErrorCode>
     CreatePkcs11ProviderFactory(config::Config& config);
 };

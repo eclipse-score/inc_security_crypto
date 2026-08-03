@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_foreign_cc//foreign_cc:defs.bzl", "configure_make")
 
 # OpenSSL build using rules_foreign_cc
@@ -127,7 +127,7 @@ configure_make(
 )
 
 cc_library(
-    name = "openssl",
+    name = "openssl_shared",
     linkstatic = False,
     visibility = ["//:__subpackages__"],
     deps = [":openssl_make"],

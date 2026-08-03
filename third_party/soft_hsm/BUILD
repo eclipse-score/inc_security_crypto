@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
 
 # SoftHSM build using rules_foreign_cc cmake
@@ -73,7 +73,7 @@ cmake(
     visibility = [
         "//third_party/soft_hsm:__pkg__",  # Internal wrappers
     ],
-    deps = ["//third_party/openssl"],
+    deps = ["//third_party/openssl:openssl_shared"],
 )
 
 # Extract PKCS#11 headers from SoftHSM source for public consumption
@@ -81,7 +81,6 @@ genrule(
     name = "extract_pkcs11_headers",
     srcs = ["@softhsm_source//:all"],
     outs = [
-        #        "include/cryptoki.h",
         "include/pkcs11.h",
     ],
     cmd = """
@@ -94,7 +93,7 @@ genrule(
 
 # Softhsm pkcs11 target for linking and header consumption
 cc_library(
-    name = "softhsm",
+    name = "softhsm_shared",
     hdrs = [":extract_pkcs11_headers"],
     includes = ["include"],
     linkstatic = False,

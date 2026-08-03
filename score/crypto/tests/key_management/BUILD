@@ -44,7 +44,7 @@ cc_test(
     deps = [
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_library",
-        "//third_party/openssl",
+        "//third_party/openssl:openssl_shared",
         "@googletest//:gtest_main",
     ],
 )
@@ -78,7 +78,7 @@ cc_test(
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_library",
         "//score/crypto/tests/softhsm:softhsm_test_fixture",
-        "//third_party/soft_hsm:softhsm",
+        "//third_party/soft_hsm:softhsm_shared",
         "@googletest//:gtest_main",
     ],
 )

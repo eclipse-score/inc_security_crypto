@@ -20,7 +20,7 @@ cc_library(
     includes = ["."],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//third_party/soft_hsm:softhsm",
+        "//third_party/soft_hsm:softhsm_shared",
         "@googletest//:gtest",
     ],
 )

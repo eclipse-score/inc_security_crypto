@@ -14,10 +14,8 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load(
     ":backend_exports.bzl",
-    "BACKEND_DEFINES",
     "ENABLE_PKCS11_BACKEND",
     "PKCS11_BACKEND_DEFAULT_LABEL",
-    "PKCS11_BACKEND_DEPS",
     "SCORE_BACKEND_DEPS",
 )
 

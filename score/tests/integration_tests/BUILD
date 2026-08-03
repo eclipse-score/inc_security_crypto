@@ -29,7 +29,7 @@ cc_binary(
     name = "init_softhsm_token",
     srcs = ["init_softhsm_token.cpp"],
     deps = [
-        "//third_party/soft_hsm:softhsm",
+        "//third_party/soft_hsm:softhsm_shared",
     ],
 )
 

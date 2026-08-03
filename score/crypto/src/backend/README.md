@@ -94,7 +94,7 @@ the PKCS#11 library and headers.
    ```starlark
    def _pkcs11_backend_map():
        return {
-           "softhsm": "//third_party/soft_hsm:softhsm",
+           "softhsm": "//third_party/soft_hsm:softhsm_shared",
            "<name>":  "//third_party/<name>:<name>",  # NEW
        }
    ```
