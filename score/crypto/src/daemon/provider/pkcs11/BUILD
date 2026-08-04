@@ -53,8 +53,8 @@ cc_library(
         "operations/key_management/pkcs11_key_management_handler.cpp",
         "operations/mac/pkcs11_mac_executor.cpp",
         "operations/mac/pkcs11_mac_handler.cpp",
-        "pkcs11_module.cpp",
-        "pkcs11_provider.cpp",
+        "src/pkcs11_module.cpp",
+        "src/pkcs11_provider.cpp",
     ],
     implementation_deps = [
         "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
@@ -78,6 +78,7 @@ cc_library(
 
 cc_library(
     name = "pkcs11_token_config",
+    srcs = ["src/pkcs11_token_config.cpp"],
     hdrs = ["pkcs11_token_config.hpp"],
     visibility = ["//:__subpackages__"],
     deps = [
@@ -89,7 +90,7 @@ cc_library(
 cc_library(
     name = "provider_pkcs11_factory",
     srcs = [
-        "pkcs11_provider_factory.cpp",
+        "src/pkcs11_provider_factory.cpp",
     ],
     hdrs = ["pkcs11_provider_factory.hpp"],
     implementation_deps = [

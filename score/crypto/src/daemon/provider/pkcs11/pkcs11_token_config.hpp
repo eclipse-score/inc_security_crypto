@@ -78,16 +78,10 @@ class Pkcs11Config
     Pkcs11Config() = default;
 
     /// @brief Add a token entry (called by parser or bootstrapper).
-    void AddTokenEntry(Pkcs11TokenEntry entry)
-    {
-        m_config.tokens.push_back(std::move(entry));
-    }
+    void AddTokenEntry(Pkcs11TokenEntry entry);
 
     /// @brief Get the complete factory configuration snapshot (read-only).
-    const Pkcs11ProviderFactoryConfig& GetConfig() const
-    {
-        return m_config;
-    }
+    const Pkcs11ProviderFactoryConfig& GetConfig() const;
 
     /// @brief Parse the configuration and populate the token information.
     ///

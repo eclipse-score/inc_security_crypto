@@ -73,16 +73,10 @@ class ScoreProviderConfig
     ScoreProviderConfig() = default;
 
     /// @brief Add a provider entry (called by parser or bootstrapper).
-    void AddProviderEntry(ScoreProviderEntry entry)
-    {
-        m_config.providers.push_back(std::move(entry));
-    }
+    void AddProviderEntry(ScoreProviderEntry entry);
 
     /// @brief Get the complete factory configuration snapshot (read-only).
-    const ScoreProviderFactoryConfig& GetConfig() const
-    {
-        return m_config;
-    }
+    const ScoreProviderFactoryConfig& GetConfig() const;
 
     /// @brief Parse configuration from backend implementations and populate provider entries.
     ///

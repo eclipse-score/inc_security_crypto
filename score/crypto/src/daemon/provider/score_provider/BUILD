@@ -25,9 +25,9 @@ cc_library(
     ],
 )
 
-# Score provider configuration (header-only entry struct + config class).
 cc_library(
     name = "score_provider_config",
+    srcs = ["src/score_provider_config.cpp"],
     hdrs = ["score_provider_config.hpp"],
     visibility = ["//:__subpackages__"],
     deps = [
