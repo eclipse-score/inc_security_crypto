@@ -25,7 +25,7 @@
 #include "score/crypto/src/api/data_plane/i_pool_allocator.hpp"
 #include "score/crypto/src/api/data_plane/i_shm_region_registry.hpp"
 
-#include <cstddef>
+#include <memory>
 
 namespace score
 {

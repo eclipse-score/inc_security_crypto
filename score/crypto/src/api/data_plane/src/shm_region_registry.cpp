@@ -13,7 +13,11 @@
 
 #include "score/crypto/src/api/data_plane/src/shm_region_registry.hpp"
 
-#include "score/mw/log/logging.h"
+#include "score/span.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <mutex>
 
 namespace score
 {
@@ -25,13 +29,11 @@ ShmRegionRegistry::ShmRegionRegistry(std::size_t total_quota) : m_total_quota{to
 
 void ShmRegionRegistry::Register(const RegionEntry& entry)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    const auto it = m_regions.find(entry.node_id);
-    if (it != m_regions.end())
+    const std::lock_guard<std::mutex> lock(m_mutex);
+    const auto iterator = m_regions.find(entry.node_id);
+    if (iterator != m_regions.end())
     {
-        score::mw::log::LogWarn() << "[SHM_REGISTRY] node_id=" << entry.node_id
-                                  << " already registered, overwriting";
-        it->second = entry;
+        iterator->second = entry;
     }
     else
     {
@@ -47,34 +49,34 @@ void ShmRegionRegistry::Unregister(std::uint64_t node_id)
 
 std::uint64_t ShmRegionRegistry::IdentifyNode(score::cpp::span<const uint8_t> data) const noexcept
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    const std::lock_guard<std::mutex> lock(m_mutex);
 
     const auto addr = reinterpret_cast<std::uintptr_t>(data.data());
     const std::size_t size = data.size();
 
-    for (const auto& kv : m_regions)
+    for (const auto& pair : m_regions)
     {
-        const RegionEntry& region = kv.second;
+        const RegionEntry& region = pair.second;
         if (addr >= region.base_addr && (addr - region.base_addr) + size <= region.size)
         {
             return region.node_id;
         }
     }
 
-    return 0;  // Not found - 0 is not a valid node_id
+    return 0;
 }
 
 score::crypto::Expected<std::size_t, CryptoErrorCode> ShmRegionRegistry::GetOffset(
     score::cpp::span<const uint8_t> data) const noexcept
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    const std::lock_guard<std::mutex> lock(m_mutex);
 
     const auto addr = reinterpret_cast<std::uintptr_t>(data.data());
     const std::size_t size = data.size();
 
-    for (const auto& kv : m_regions)
+    for (const auto& pair : m_regions)
     {
-        const RegionEntry& region = kv.second;
+        const RegionEntry& region = pair.second;
         if (addr >= region.base_addr && (addr - region.base_addr) + size <= region.size)
         {
             return static_cast<std::size_t>(addr - region.base_addr);
@@ -86,11 +88,11 @@ score::crypto::Expected<std::size_t, CryptoErrorCode> ShmRegionRegistry::GetOffs
 
 std::size_t ShmRegionRegistry::GetTotalRegisteredSize() const noexcept
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    const std::lock_guard<std::mutex> lock(m_mutex);
     std::size_t total = 0U;
-    for (const auto& kv : m_regions)
+    for (const auto& pair : m_regions)
     {
-        total += kv.second.size;
+        total += pair.second.size;
     }
     return total;
 }

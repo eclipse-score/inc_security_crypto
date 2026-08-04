@@ -65,7 +65,7 @@ class ShmRegionRegistry final : public IShmRegionRegistry
   private:
     mutable std::mutex m_mutex;
     /// Sorted by base address for O(log n) upper_bound containment checks.
-    std::map<std::uint64_t, RegionEntry> m_regions;
+    std::map<std::uint64_t, RegionEntry> m_regions{};
     const std::size_t m_total_quota{0U};
 };
 

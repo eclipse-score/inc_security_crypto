@@ -18,6 +18,8 @@
 #include "score/memory/shared/shared_memory_factory.h"
 
 #include <cstddef>
+#include <cstdint>
+#include <utility>
 
 namespace score::crypto::daemon::data_plane
 {

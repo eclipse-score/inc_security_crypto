@@ -12,9 +12,19 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/data_plane/src/shm_request_handler.hpp"
+
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
+#include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/data_plane/i_shm_data_node.hpp"
+
+#include "score/span.hpp"
+
+#include <cstdint>
+#include <memory>
+#include <utility>
+#include <variant>
+
 #include "score/mw/log/logging.h"
 
 namespace score::crypto::daemon::data_plane
@@ -33,12 +43,14 @@ control_plane::ControlResponse ShmRequestHandler::processRequest(control_plane::
 
 control_plane::ControlResponse ShmRequestHandler::ForwardWithResolvedShm(control_plane::ControlRequest& request)
 {
-    for (auto& op : request.operation.operations)
+    for (auto& operation : request.operation.operations)
     {
-        for (auto& param : op.parameters)
+        for (auto& param : operation.parameters)
         {
             if (!std::holds_alternative<common::DataShm>(param))
+            {
                 continue;
+            }
 
             const auto& data_shm = std::get<common::DataShm>(param);
 
@@ -47,7 +59,7 @@ control_plane::ControlResponse ShmRequestHandler::ForwardWithResolvedShm(control
             {
                 score::mw::log::LogError() << LOG_PREFIX << "getNodeAccessor failed for node_id=" << data_shm.node_id;
                 control_plane::protocol::OperationResponseBuilder builder;
-                builder.operation(op.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
+                builder.operation(operation.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
                 return control_plane::ControlResponse{request.request_id, builder.build().value()};
             }
             auto node_res = std::move(accessor_res).value().downCast<IShmDataNode>();
@@ -56,7 +68,7 @@ control_plane::ControlResponse ShmRequestHandler::ForwardWithResolvedShm(control
                 score::mw::log::LogError()
                     << LOG_PREFIX << "downCast<IShmDataNode> failed for node_id=" << data_shm.node_id;
                 control_plane::protocol::OperationResponseBuilder builder;
-                builder.operation(op.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
+                builder.operation(operation.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
                 return control_plane::ControlResponse{request.request_id, builder.build().value()};
             }
             auto& node = node_res.value();
@@ -67,18 +79,21 @@ control_plane::ControlResponse ShmRequestHandler::ForwardWithResolvedShm(control
                     << ": offset=" << data_shm.offset << ", size=" << data_shm.size
                     << ", node_size=" << node->GetSize();
                 control_plane::protocol::OperationResponseBuilder builder;
-                builder.operation(op.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
+                builder.operation(operation.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
                 return control_plane::ControlResponse{request.request_id, builder.build().value()};
             }
-            void* addr = static_cast<std::uint8_t*>(node->GetHandle()->getUsableBaseAddress()) + data_shm.offset;
+
+            const std::uint8_t* const base_addr =
+                static_cast<const std::uint8_t*>(node->GetHandle()->getUsableBaseAddress());
+            const std::uint8_t* const offset_addr = base_addr + data_shm.offset;
 
             if (data_shm.direction == common::ShmDirection::In)
             {
-                param = score::cpp::span<const uint8_t>{static_cast<const uint8_t*>(addr), data_shm.size};
+                param = score::cpp::span<const uint8_t>{offset_addr, data_shm.size};
             }
             else
             {
-                param = score::cpp::span<uint8_t>{static_cast<uint8_t*>(addr), data_shm.size};
+                param = score::cpp::span<uint8_t>{const_cast<std::uint8_t*>(offset_addr), data_shm.size};
             }
         }
     }

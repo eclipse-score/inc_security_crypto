@@ -17,10 +17,10 @@
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/common/i_memory.hpp"
 #include "score/crypto/src/common/types.hpp"
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace score::crypto::api::control_plane

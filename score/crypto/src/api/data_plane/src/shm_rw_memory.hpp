@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <variant>
 
 namespace score::crypto::api::control_plane
 {
@@ -104,7 +105,7 @@ class ShmReadWriteMemory final : public IReadWriteMemory
   private:
     std::uint64_t m_node_id;
     std::shared_ptr<void> m_handle;
-    score::cpp::span<uint8_t> m_span;
+    score::cpp::span<uint8_t> m_span{};
     std::weak_ptr<IShmRegionRegistry> m_registry;
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     DestroyRequestCallback m_destroy_callback;

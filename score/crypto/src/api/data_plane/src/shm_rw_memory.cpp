@@ -12,7 +12,14 @@
  ********************************************************************************/
 
 #include "score/crypto/src/api/data_plane/src/shm_rw_memory.hpp"
-#include <cassert>
+
+#include "score/crypto/src/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/api/data_plane/i_shm_region_registry.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <utility>
 
 namespace score
 {
@@ -33,7 +40,7 @@ score::Result<IReadWriteMemory::Uptr> ShmReadWriteMemory::Create(
         return score::Result<IReadWriteMemory::Uptr>{
             score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "SHM region data is null")};
     }
-    if (region.size() == 0U)
+    if (region.empty())
     {
         return score::Result<IReadWriteMemory::Uptr>{
             score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "SHM region size is zero")};

@@ -13,13 +13,19 @@
 
 #include "score/crypto/src/api/data_plane/src/pool_allocator.hpp"
 
+#include "score/crypto/src/api/data_plane/i_read_write_memory_factory.hpp"
 #include "score/crypto/src/api/data_plane/src/allocation_error.hpp"
+#include "score/crypto/src/common/types.hpp"
 
 #include <cstddef>
 #include <cstdint>
-#include "score/mw/log/logging.h"
+#include <functional>
+#include <iterator>
+#include <memory>
 #include <mutex>
 #include <utility>
+
+#include "score/mw/log/logging.h"
 
 namespace score
 {
@@ -64,7 +70,7 @@ PoolAllocator::PoolAllocator(ConstructorTag /* tag */, ShmCreateResult pool, std
       m_node_id{pool.node_id},
       m_pool_memory_ptr{std::move(pool.memory)},
       m_pool_memory{*m_pool_memory_ptr},
-      m_free_sectors(m_pool_memory.size() / slot_size,
+      m_free_sectors(m_pool_memory.get().size() / slot_size,
                      true)  // Preconditions guaranteed by Create(): pool.memory != null, slot_size > 0, pool_size >=
                             // slot_size. Division and dereference are safe.
 {
@@ -98,33 +104,38 @@ score::crypto::Expected<score::cpp::span<std::uint8_t>, AllocationError> PoolAll
 
     // Slot is reserved but left uninitialized; populating it (heap->slot copy) is the
     // caller's responsibility, done by IBufferTranscoder::AppendInputBuffer() for input spans.
-    return m_pool_memory.AsWritableSpan().subspan(start_sector_index.value() * m_chunk_size, size);
+    return m_pool_memory.get().AsWritableSpan().subspan(start_sector_index.value() * m_chunk_size, size);
 }
 
 void PoolAllocator::Deallocate(score::cpp::span<std::uint8_t> slot) noexcept
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
 
-    const auto* pool_begin = m_pool_memory.data();
-    const auto* pool_end = pool_begin + m_pool_memory.size();
-    if (slot.data() < pool_begin || (slot.data() + slot.size()) > pool_end)
+    const auto* const pool_begin = m_pool_memory.get().data();
+    const auto* const pool_end = std::next(pool_begin, static_cast<std::ptrdiff_t>(m_pool_memory.get().size()));
+    const auto* const slot_begin = slot.data();
+    const auto* const slot_end = std::next(slot_begin, static_cast<std::ptrdiff_t>(slot.size()));
+    const std::less<const std::uint8_t*> less;
+    if (less(slot_begin, pool_begin) || less(pool_end, slot_end))
     {
         score::mw::log::LogError() << "[PoolAllocator] ERROR: Deallocate called with a slot outside this pool";
         return;
     }
 
-    const auto offset = static_cast<std::size_t>(slot.data() - pool_begin);
+    const auto offset = static_cast<std::size_t>(std::distance(pool_begin, slot_begin));
     if (m_chunk_size == 0 || offset % m_chunk_size != 0)
     {
         score::mw::log::LogError() << "[PoolAllocator] ERROR: Deallocate called with misaligned offset";
         return;
     }
 
-    ReleaseChunks(offset, slot.size());
+    ReleaseChunks(ChunkRange{offset, slot.size()});
 }
 
-void PoolAllocator::ReleaseChunks(std::size_t offset, std::size_t size) noexcept
+void PoolAllocator::ReleaseChunks(ChunkRange range) noexcept
 {
+    const auto offset = range.offset;
+    const auto size = range.size;
     const std::size_t start_index = offset / m_chunk_size;
     const std::size_t count = (size + m_chunk_size - 1U) / m_chunk_size;
 
@@ -142,7 +153,7 @@ void PoolAllocator::ReleaseChunks(std::size_t offset, std::size_t size) noexcept
 }
 
 score::crypto::Expected<std::size_t, AllocationError> PoolAllocator::AllocateContiguousChunks(
-    std::size_t sectors_needed)
+    std::size_t sectors_needed) const
 {
     if (m_free_sectors.size() < sectors_needed)
     {
@@ -193,17 +204,20 @@ score::crypto::Expected<std::size_t, AllocationError> PoolAllocator::GetOffset(
         return score::crypto::make_unexpected(AllocationError::kInvalidArgument);
     }
 
-    const auto* pool_begin = m_pool_memory.data();
-    const auto* pool_end = pool_begin + m_pool_memory.size();
+    const auto* const pool_begin = m_pool_memory.get().data();
+    const auto* const pool_end = std::next(pool_begin, static_cast<std::ptrdiff_t>(m_pool_memory.get().size()));
 
     // Validate slot is within this pool's range
-    if (slot.data() < pool_begin || (slot.data() + slot.size()) > pool_end)
+    const auto* const slot_begin = slot.data();
+    const auto* const slot_end = std::next(slot_begin, static_cast<std::ptrdiff_t>(slot.size()));
+    const std::less<const std::uint8_t*> less;
+    if (less(slot_begin, pool_begin) || less(pool_end, slot_end))
     {
         score::mw::log::LogError() << "[PoolAllocator] ERROR: GetOffset called with slot outside this pool";
         return score::crypto::make_unexpected(AllocationError::kPoolNotInitialized);
     }
 
-    return static_cast<std::size_t>(slot.data() - pool_begin);
+    return static_cast<std::size_t>(std::distance(pool_begin, slot_begin));
 }
 
 }  // namespace crypto

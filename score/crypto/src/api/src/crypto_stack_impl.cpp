@@ -16,6 +16,9 @@
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/common/i_memory_allocator.hpp"
 #include "score/crypto/src/api/crypto_stack_factory.hpp"
+#include "score/crypto/src/api/data_plane/i_pool_allocator.hpp"
+#include "score/crypto/src/api/data_plane/i_read_write_memory_factory.hpp"
+#include "score/crypto/src/api/data_plane/i_shm_region_registry.hpp"
 #include "score/crypto/src/api/data_plane/src/buffer_shm_transcoder.hpp"
 #include "score/crypto/src/api/data_plane/src/shm_memory_allocator.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
@@ -24,8 +27,6 @@
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 
 #include "score/result/result.h"
-
-#include "score/mw/log/logging.h"
 
 #include <memory>
 #include <utility>

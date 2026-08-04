@@ -14,12 +14,14 @@
 #ifndef SCORE_CRYPTO_API_DATA_PLANE_SRC_POOL_ALLOCATOR_HPP
 #define SCORE_CRYPTO_API_DATA_PLANE_SRC_POOL_ALLOCATOR_HPP
 
+#include "score/crypto/src/api/common/i_memory.hpp"
 #include "score/crypto/src/api/data_plane/i_pool_allocator.hpp"
 #include "score/crypto/src/api/data_plane/i_read_write_memory_factory.hpp"
 #include "score/crypto/src/api/data_plane/src/allocation_error.hpp"
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -78,28 +80,34 @@ class PoolAllocator final : public IPoolAllocator
         score::cpp::span<const std::uint8_t> slot) const override;
 
   private:
+    struct ChunkRange
+    {
+        std::size_t offset;
+        std::size_t size;
+    };
+
     /// @brief Marks a range of sectors as free.
-    void ReleaseChunks(std::size_t offset, std::size_t size) noexcept;
+    void ReleaseChunks(ChunkRange range) noexcept;
 
     /// @brief Find @sectors_needed contiguous free sectors using first-fit algorithm.
     ///
     /// @return Index of the first sector in the run, or AllocationError::kFragmentationError if not found.
-    score::crypto::Expected<std::size_t, AllocationError> AllocateContiguousChunks(std::size_t sectors_needed);
+    score::crypto::Expected<std::size_t, AllocationError> AllocateContiguousChunks(std::size_t sectors_needed) const;
 
     const std::size_t m_chunk_size = 0;
     const std::uint64_t m_node_id = 0;  ///< DataNodeId assigned by daemon for this pool region.
 
     // Unique pointer for lifetime management (validated non-null by Create)
     IReadWriteMemory::Uptr
-        m_pool_memory_ptr;  ///< RAII owner; on_destroy triggers unmap + SHM_DESTROY_OBJECT + Unregister.
+        m_pool_memory_ptr{};  ///< RAII owner; on_destroy triggers unmap + SHM_DESTROY_OBJECT + Unregister.
 
-    // Reference for guaranteed non-null access (safe even if moved)
-    IReadWriteMemory& m_pool_memory;
+    // Reference wrapper for guaranteed non-null access (safe even if moved)
+    std::reference_wrapper<IReadWriteMemory> m_pool_memory;
 
     mutable std::mutex m_mutex;
 
     /// Bitmap: bit set (1) --> sector free; bit clear (0) --> sector occupied.
-    std::vector<bool> m_free_sectors;
+    std::vector<bool> m_free_sectors{};
 };
 
 }  // namespace crypto

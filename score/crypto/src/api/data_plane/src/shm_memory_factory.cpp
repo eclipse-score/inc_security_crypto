@@ -20,7 +20,7 @@
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/memory/shared/shared_memory_factory.h"
-#include "score/mw/log/logging.h"
+#include "score/span.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -81,7 +81,7 @@ score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Crea
     // owned by the ShmReadWriteMemory and passed in when the callback is invoked, so the callback does not
     // capture any factory state and stays valid even if this factory has been destroyed.
     DestroyRequestCallback destroy_callback =
-        [](std::uint64_t node_id, std::shared_ptr<score::crypto::api::control_plane::IConnection> connection) {
+        [](std::uint64_t node_id, const std::shared_ptr<score::crypto::api::control_plane::IConnection>& connection) {
             if (connection != nullptr)
             {
                 auto destroy_req = protocol::OperationRequestBuilder()

@@ -20,9 +20,9 @@
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 
+#include "score/mw/log/logging.h"
 #include <cstddef>
 #include <cstdint>
-#include "score/mw/log/logging.h"
 #include <memory>
 
 namespace protocol = score::crypto::daemon::control_plane::protocol;

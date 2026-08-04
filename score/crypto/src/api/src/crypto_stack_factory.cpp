@@ -66,9 +66,8 @@ score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
                    .build();
     if (!req.has_value())
     {
-        return score::Result<ShmSetupResponse>{score::unexpect,
-                                               MakeError(CryptoErrorCode::kAllocationFailed,
-                                                         "Failed to build SHM_SETUP request")};
+        return score::Result<ShmSetupResponse>{
+            score::unexpect, MakeError(CryptoErrorCode::kAllocationFailed, "Failed to build SHM_SETUP request")};
     }
 
     proto::ControlRequest ctrl_req{};
@@ -81,9 +80,8 @@ score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
     validator.expectOperation(med_ops::CreateShmObject()).expectSuccess();
     if (!validator.isValid())
     {
-        return score::Result<ShmSetupResponse>{score::unexpect,
-                                               MakeError(CryptoErrorCode::kAllocationFailed,
-                                                         "SHM_SETUP daemon response invalid")};
+        return score::Result<ShmSetupResponse>{
+            score::unexpect, MakeError(CryptoErrorCode::kAllocationFailed, "SHM_SETUP daemon response invalid")};
     }
 
     // Extract and validate all required parameters.
@@ -97,9 +95,9 @@ score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
     if (!node_id_param.has_value() || !size_param.has_value() || !token_param.has_value() ||
         !slot_size_param.has_value() || !total_quota_param.has_value())
     {
-        return score::Result<ShmSetupResponse>{score::unexpect,
-                                               MakeError(CryptoErrorCode::kAllocationFailed,
-                                                         "SHM_SETUP response missing required parameters")};
+        return score::Result<ShmSetupResponse>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kAllocationFailed, "SHM_SETUP response missing required parameters")};
     }
 
     // Extract pool geometry parameter values for validation.
@@ -109,23 +107,20 @@ score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
     // Validate pool geometry parameter values.
     if (pool_geom.total_quota == 0)
     {
-        return score::Result<ShmSetupResponse>{score::unexpect,
-                                               MakeError(CryptoErrorCode::kInvalidArgument,
-                                                         "Total quota configured as 0")};
+        return score::Result<ShmSetupResponse>{
+            score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Total quota configured as 0")};
     }
 
     if (pool_geom.slot_size == 0)
     {
-        return score::Result<ShmSetupResponse>{score::unexpect,
-                                               MakeError(CryptoErrorCode::kInvalidArgument,
-                                                         "Pool slot size configured as 0")};
+        return score::Result<ShmSetupResponse>{
+            score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Pool slot size configured as 0")};
     }
 
     if (pool_size == 0)
     {
-        return score::Result<ShmSetupResponse>{score::unexpect,
-                                               MakeError(CryptoErrorCode::kInvalidArgument,
-                                                         "Pool size configured as 0")};
+        return score::Result<ShmSetupResponse>{
+            score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Pool size configured as 0")};
     }
 
     if (pool_size < pool_geom.slot_size)

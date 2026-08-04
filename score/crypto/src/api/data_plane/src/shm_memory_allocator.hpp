@@ -15,11 +15,13 @@
 #define SCORE_CRYPTO_API_DATA_PLANE_SRC_SHM_MEMORY_ALLOCATOR_HPP
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/common/i_memory.hpp"
 #include "score/crypto/src/api/common/i_memory_allocator.hpp"
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/crypto/src/api/data_plane/i_read_write_memory_factory.hpp"
 #include "score/crypto/src/api/data_plane/i_shm_region_registry.hpp"
 #include "score/crypto/src/common/types.hpp"
+#include "score/result/result.h"
 
 #include <cstddef>
 #include <cstdint>

@@ -15,8 +15,8 @@
 #include "score/crypto/src/daemon/config/src/flatbuffer_config_parser.hpp"
 
 #include "score/mw/log/logging.h"
-#include <cstdlib>
 #include <sys/stat.h>
+#include <cstdlib>
 
 #include <map>
 #include <string>
