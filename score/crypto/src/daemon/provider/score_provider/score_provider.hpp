@@ -42,12 +42,9 @@ class ScoreProvider : public IProvider
     ScoreProvider& operator=(ScoreProvider&&) = delete;
 
     // --- IProvider lifecycle ---
-    bool Initialize(const ProviderInitContext& ctx) override;
+    bool Initialize(const ProviderInitContext& ctx) final;
     void Shutdown() override;
-    [[nodiscard]] bool IsInitialized() const override
-    {
-        return m_initialized;
-    }
+    [[nodiscard]] bool IsInitialized() const override;
     common::ProviderId GetProviderId() const override;
     const common::ProviderName& GetProviderName() const override;
 
@@ -55,6 +52,11 @@ class ScoreProvider : public IProvider
     std::shared_ptr<handler::ICryptoHandlerFactory> GetCryptoHandlerFactory() override;
 
   private:
+    /// Backend-specific initialisation hook called by Initialize() after base state is set.
+    /// Override in concrete providers to perform backend-specific startup work.
+    /// Return false to abort initialisation; base state is rolled back on failure.
+    [[nodiscard]] virtual bool InitialiseBackend(const ProviderInitContext& ctx);
+
     [[nodiscard]] virtual std::shared_ptr<handler::ICryptoHandlerFactory> CreateHandlerFactory() = 0;
 
     bool m_initialized{false};

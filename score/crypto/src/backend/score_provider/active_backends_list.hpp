@@ -25,7 +25,7 @@
 #endif
 
 #ifdef SCORE_BACKEND_PRIMULA_ENABLED
-#include "score/crypto/src/backend/primula/primula_backend_adapter.hpp"
+#include "score/crypto/src/backend/score_provider/primula/primula_backend_adapter.hpp"
 #endif
 
 namespace score::crypto::backend::score_provider

@@ -97,7 +97,7 @@ cc_library(
     hdrs = [":extract_pkcs11_headers"],
     includes = ["include"],
     linkstatic = False,
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [":soft_hsm_cmake"],
 )
 

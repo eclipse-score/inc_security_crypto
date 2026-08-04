@@ -104,6 +104,8 @@ score::crypto::Expected<std::shared_ptr<ProviderManager>, common::DaemonErrorCod
 
     if (!provider_manager->Initialize())
     {
+        score::mw::log::LogError() << "[ProviderManagerFactory] Failed to initialize provider manager. Shutting down.";
+        provider_manager->Shutdown();
         return score::crypto::make_unexpected(common::DaemonErrorCode::kInternalError);
     }
 

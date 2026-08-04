@@ -79,7 +79,7 @@ separate config type and resolved at a different point during daemon startup.
    ``score_crypto_pkcs11_enabled`` for the PKCS#11 provider family. Their
    corresponding config settings are exposed to the code as
    ``SCORE_BACKEND_ENABLED`` and ``SCORE_CRYPTO_PKCS11_ENABLED``. The Score
-   family also has the per-backend flag ``score_crypto_openssl_enabled``,
+   family also has the per-backend flag ``score_crypto_score_openssl_enabled``,
    exposed as ``SCORE_BACKEND_OPENSSL_ENABLED``, which controls whether the
    OpenSSL backend is included in the active Score backend list. A flag can be
    overridden at build time to exclude a family or backend from the daemon

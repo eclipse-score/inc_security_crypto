@@ -129,7 +129,7 @@ configure_make(
 cc_library(
     name = "openssl_shared",
     linkstatic = False,
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [":openssl_make"],
 )
 

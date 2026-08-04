@@ -15,32 +15,6 @@ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 # ============================================================================
-# Backend Architecture
-# ============================================================================
-#
-# Backend enable/disable is controlled via bool_flag targets:
-#
-#   Flag                              Default  Override (command line)
-#   ────────────────────────────────  ───────  ────────────────────────────────────────────────────────────
-#   score_crypto_pkcs11_enabled       True     --//score/crypto/src/backend:score_crypto_pkcs11_enabled=False
-#   score_crypto_score_backend_enabled True    --//score/crypto/src/backend:score_crypto_score_backend_enabled=False
-#   score_crypto_openssl_enabled      True     --//score/crypto/src/backend:score_crypto_openssl_enabled=False
-#   score_crypto_primula_enabled      False    --//score/crypto/src/backend:score_crypto_primula_enabled=True
-#
-# Score provider sub-backends live under score_provider/<backend>/ and each own
-# their enable/disable logic via a single-flag select() in their BUILD.
-# Adding a new score provider backend only requires touching score_provider/BUILD:
-#   1. Create score_provider/<backend>/BUILD with the three-target pattern
-#      (see score_provider/openssl/BUILD for reference).
-#   2. Add a bool_flag + config_setting for the new flag below (this file only).
-#   3. Add *_backend_define to score_backend_headers.deps in score_provider/BUILD.
-#   4. Add *_backend    to all_score_backends.deps in score_provider/BUILD.
-#
-# PKCS#11 implementation selection (which library backs the PKCS#11 interface):
-#   --//score/crypto/src/backend:pkcs11_backend=//external/vendor_hsm:backend
-# ============================================================================
-
-# ============================================================================
 # Enable / disable bool_flags
 # ============================================================================
 
@@ -57,13 +31,13 @@ bool_flag(
 )
 
 bool_flag(
-    name = "score_crypto_openssl_enabled",
+    name = "score_crypto_score_openssl_enabled",
     build_setting_default = True,
     visibility = ["//visibility:public"],
 )
 
 bool_flag(
-    name = "score_crypto_primula_enabled",
+    name = "score_crypto_score_primula_enabled",
     build_setting_default = False,
     visibility = ["//visibility:public"],
 )
@@ -75,25 +49,25 @@ bool_flag(
 config_setting(
     name = "pkcs11_enabled",
     flag_values = {":score_crypto_pkcs11_enabled": "True"},
-    visibility = ["//visibility:public"],
+    visibility = ["//:__subpackages__"],
 )
 
 config_setting(
     name = "score_backend_enabled",
     flag_values = {":score_crypto_score_backend_enabled": "True"},
-    visibility = ["//visibility:public"],
+    visibility = ["//:__subpackages__"],
 )
 
 config_setting(
     name = "openssl_enabled",
-    flag_values = {":score_crypto_openssl_enabled": "True"},
-    visibility = ["//visibility:public"],
+    flag_values = {":score_crypto_score_openssl_enabled": "True"},
+    visibility = ["//:__subpackages__"],
 )
 
 config_setting(
     name = "primula_enabled",
-    flag_values = {":score_crypto_primula_enabled": "True"},
-    visibility = ["//visibility:public"],
+    flag_values = {":score_crypto_score_primula_enabled": "True"},
+    visibility = ["//:__subpackages__"],
 )
 
 # ============================================================================
@@ -107,7 +81,7 @@ config_setting(
 # Only score_provider/backend (config parser) should consume this target.
 cc_library(
     name = "active_score_backends",
-    visibility = ["//visibility:public"],
+    visibility = ["//:__subpackages__"],
     deps = select({
         ":score_backend_enabled": [
             "//score/crypto/src/backend/score_provider:all_score_backends",
@@ -126,7 +100,7 @@ cc_library(
         ":score_backend_enabled": ["SCORE_BACKEND_ENABLED=1"],
         "//conditions:default": [],
     }),
-    visibility = ["//visibility:public"],
+    visibility = ["//:__subpackages__"],
 )
 
 # ============================================================================
@@ -140,6 +114,7 @@ cc_library(
 label_flag(
     name = "pkcs11_backend",
     build_setting_default = "//third_party/soft_hsm:softhsm_shared",
+    visibility = ["//visibility:public"],
 )
 
 # Lightweight: single define exposing whether PKCS#11 is compiled in.
@@ -151,14 +126,14 @@ cc_library(
         ":pkcs11_enabled": ["SCORE_CRYPTO_PKCS11_ENABLED=1"],
         "//conditions:default": [],
     }),
-    visibility = ["//visibility:public"],
+    visibility = ["//:__subpackages__"],
 )
 
 # PKCS#11 backend: selected library + fixed config parser.
 # Only provider_pkcs11_factory should consume this (via implementation_deps).
 cc_library(
     name = "active_pkcs11_backend",
-    visibility = ["//visibility:public"],
+    visibility = ["//:__subpackages__"],
     deps = select({
         ":pkcs11_enabled": [
             ":pkcs11_backend",

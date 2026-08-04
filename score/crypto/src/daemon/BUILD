@@ -35,7 +35,7 @@ cc_binary(
         ],
     }),
     linkstatic = True,
-    visibility = ["//score/tests:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/control_plane",
