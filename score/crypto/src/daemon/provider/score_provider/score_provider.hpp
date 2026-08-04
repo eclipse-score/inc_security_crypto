@@ -54,15 +54,12 @@ class ScoreProvider : public IProvider
     /// Lazy-creates the handler factory via CreateHandlerFactory().
     std::shared_ptr<handler::ICryptoHandlerFactory> GetCryptoHandlerFactory() override;
 
-  protected:
-    /// Override in concrete provider to construct the provider-specific handler factory.
+  private:
     [[nodiscard]] virtual std::shared_ptr<handler::ICryptoHandlerFactory> CreateHandlerFactory() = 0;
 
     bool m_initialized{false};
     common::ProviderId m_numeric_id{common::kInvalidProviderId};
     common::ProviderName m_provider_name{};
-
-  private:
     handler::ICryptoHandlerFactory::Sptr m_handler_factory;
 };
 

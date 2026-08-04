@@ -30,35 +30,34 @@ OpenSSL::~OpenSSL()
 
 bool OpenSSL::Initialize(const ProviderInitContext& ctx)
 {
-    if (m_initialized)
+    if (IsInitialized())
     {
         return true;
     }
-
-    // Base class stores ID and name.
-    ScoreProvider::Initialize(ctx);
 
     if (!OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_ADD_ALL_CIPHERS |
                                  OPENSSL_INIT_ADD_ALL_DIGESTS | OPENSSL_INIT_LOAD_CONFIG,
                              nullptr))
     {
         score::mw::log::LogError() << "[OpenSSL] Error: Failed to initialize OpenSSL";
-        m_initialized = false;
         return false;
     }
-    score::mw::log::LogDebug() << "[OpenSSL] Initialized successfully (ID:" << m_numeric_id
-                               << ", Name:" << m_provider_name << ")";
+
+    // Base class stores ID and name, marks initialized.
+    ScoreProvider::Initialize(ctx);
+
+    score::mw::log::LogDebug() << "[OpenSSL] Initialized successfully (ID:" << GetProviderId()
+                               << ", Name:" << GetProviderName() << ")";
 
     // Create key factory.
-    m_factory = std::make_shared<::score::crypto::daemon::provider::openssl::OpenSslKeyFactory>(m_numeric_id);
+    m_factory = std::make_shared<::score::crypto::daemon::provider::openssl::OpenSslKeyFactory>(GetProviderId());
 
-    m_initialized = true;
-    return m_initialized;
+    return true;
 }
 
 void OpenSSL::Shutdown()
 {
-    if (!m_initialized)
+    if (!IsInitialized())
     {
         return;
     }
