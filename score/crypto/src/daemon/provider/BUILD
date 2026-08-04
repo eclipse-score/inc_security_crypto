@@ -65,3 +65,19 @@ cc_library(
         "//conditions:default": [],
     }),
 )
+
+#-----------------------------------#
+# Unit tests for the provider manager
+#-----------------------------------#
+
+cc_test(
+    name = "provider_manager_unit_test",
+    srcs = ["src/provider_manager_test.cpp"],
+    deps = [
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider:provider_manager",
+        "@googletest//:gtest_main",
+    ],
+)

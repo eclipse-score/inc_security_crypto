@@ -55,16 +55,3 @@ cc_test(
         "@googletest//:gtest",
     ],
 )
-
-cc_test(
-    name = "test_provider_manager",
-    srcs = ["test_provider_manager.cpp"],
-    deps = [
-        "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/data_manager",
-        "//score/crypto/src/daemon/provider:provider_headers",
-        "//score/crypto/src/daemon/provider:provider_manager",
-        "//score/crypto/src/daemon/provider/handler:context_node",
-        "@googletest//:gtest_main",
-    ],
-)

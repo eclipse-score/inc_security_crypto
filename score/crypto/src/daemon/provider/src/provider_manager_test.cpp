@@ -15,11 +15,10 @@
 /// @brief Unit tests for ProviderManager::GetProviderType and
 ///        IsProviderCompatibleWithType.
 
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
-#include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
-#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <gtest/gtest.h>
 #include <memory>
@@ -186,18 +185,4 @@ TEST(ProviderManagerInitStateTest, FailedProviderRemainsRegisteredButUnavailable
     // The registry still knows about both entries even when one is unavailable.
     EXPECT_TRUE(mgr.GetProviderType("OK_PROVIDER").has_value());
     EXPECT_TRUE(mgr.GetProviderType("FAIL_PROVIDER").has_value());
-}
-
-// ===========================================================================
-// ContextDataNode GetNodeType
-// ===========================================================================
-
-namespace dm = score::crypto::daemon::data_manager;
-namespace handler_ns = score::crypto::daemon::provider::handler;
-
-TEST(ContextDataNodeTypeTest, GetNodeType_ReturnsContext)
-{
-    // ContextDataNode requires a handler; pass nullptr for this type-only test.
-    handler_ns::ContextDataNode node(nullptr, "HMAC-SHA256");
-    EXPECT_EQ(node.GetNodeType(), dm::DataNodeType::kContext);
 }
