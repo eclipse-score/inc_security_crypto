@@ -406,10 +406,7 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
 
     uint8_t* out_buf{nullptr};
     std::size_t out_buf_len{0U};
-    // Keep the output descriptor independent of the request container while the
-    // PKCS#11 implementation writes to the referenced output memory.
-    auto output_parameter = request[1];
-    auto e2 = handler::handler_utils::ExtractOutputBufferData(output_parameter, out_buf, out_buf_len);
+    auto e2 = handler::handler_utils::ExtractOutputBufferData(request[1], out_buf, out_buf_len);
     if (!e2.has_value())
     {
         return make_unexpected(e2.error());
