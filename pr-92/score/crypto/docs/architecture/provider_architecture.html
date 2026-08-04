@@ -615,9 +615,17 @@ separate config type and resolved at a different point during daemon startup.</p
 <ol class="arabic">
 <li><p>Provider-family topology — build time
 The set of provider families that can exist in a given daemon binary is
-decided by compile-time flags (for example <code class="docutils literal notranslate"><span class="pre">SCORE_BACKEND_ENABLED</span></code> and
-<code class="docutils literal notranslate"><span class="pre">SCORE_CRYPTO_PKCS11_ENABLED</span></code>). <code class="docutils literal notranslate"><span class="pre">ProviderManagerFactory</span></code> creates the
-corresponding backend factory for every configured family that is compiled in.</p></li>
+decided by compile-time bool flags. The master family flags are
+<code class="docutils literal notranslate"><span class="pre">score_crypto_score_backend_enabled</span></code> for the Score provider family and
+<code class="docutils literal notranslate"><span class="pre">score_crypto_pkcs11_enabled</span></code> for the PKCS#11 provider family. Their
+corresponding config settings are exposed to the code as
+<code class="docutils literal notranslate"><span class="pre">SCORE_BACKEND_ENABLED</span></code> and <code class="docutils literal notranslate"><span class="pre">SCORE_CRYPTO_PKCS11_ENABLED</span></code>. The Score
+family also has the per-backend flag <code class="docutils literal notranslate"><span class="pre">score_crypto_openssl_enabled</span></code>,
+exposed as <code class="docutils literal notranslate"><span class="pre">SCORE_BACKEND_OPENSSL_ENABLED</span></code>, which controls whether the
+OpenSSL backend is included in the active Score backend list. A flag can be
+overridden at build time to exclude a family or backend from the daemon
+binary. <code class="docutils literal notranslate"><span class="pre">ProviderManagerFactory</span></code> creates the corresponding backend factory
+for every configured family that is compiled in.</p></li>
 <li><p>Provider-specific parameters — config file / defaults
 Each family parses its own parameters from the daemon configuration:</p>
 <ul class="simple">
