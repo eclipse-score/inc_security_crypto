@@ -18,6 +18,7 @@ Safety Analysis Checklist
 
 .. document:: [Your Module Name] Safety Analysis Checklist
   :id: doc__mod_temp_module_name_safety_analysis_fdr
+  :version: 1
   :status: draft
   :safety: ASIL_B
   :security: YES
@@ -60,7 +61,7 @@ Please note that it is mandatory to fill in the "passed" column with "yes" or "n
         - Comment
 
       * - Gen 1
-        - Are the safety analysis performed according to the defined process and templates? See :need:`gd_req__saf_structure` and also :need:`doc__feature_name_fmea` and :need:`doc__feature_name_dfa`
+        - Are the safety analysis performed according to the defined process and templates? See :need:`gd_req__saf_structure` and also :need:`doc__crypto_feat_fmea` and :need:`doc__crypto_dfa`
         - [YES | NO ]
         - :need:`[[title]] <std_req__iso26262__analysis_841>`, :need:`[[title]] <std_req__iso26262__analysis_849>`, :need:`[[title]] <std_req__iso26262__analysis_8410>`, :need:`[[title]] <std_req__iso26262__analysis_748>`
         - <Rationale for result>

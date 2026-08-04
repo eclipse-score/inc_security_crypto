@@ -30,18 +30,18 @@ jobs:
         include:
           - bazel-config: x86_64-qnx
             bazel-test-target: >-
-              //score/... //tests/...
+              //score/...
             extra-bazel-test-flags: "--test_timeout=180,900,2700,10800" # Increase default test timeout by factor 3
           - bazel-config: aarch64-qnx
             bazel-test-target: >-
-              //score/... //tests/...
+              //score/...
             extra-bazel-test-flags: "--test_timeout=180,900,2700,10800" # Increase default test timeout by factor 3
     uses: eclipse-score/cicd-workflows/.github/workflows/qnx-build.yml@88cb460c47cb49efeb25cd7b73c8945dd1c5bce2
     permissions:
       contents: read
       pull-requests: read
     with:
-      bazel-target: "//score/... //tests/..."
+      bazel-target: "//score/... "
       bazel-config: ${{ matrix.bazel-config }}
       bazel-test-target: ${{ matrix.bazel-test-target }}
       extra-bazel-test-flags: ${{ matrix.extra-bazel-test-flags }}

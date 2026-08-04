@@ -15,6 +15,7 @@
 
 .. document:: IAV Primula Requirements Inspection Checklist
   :id: doc__iav_primula_req_inspection
+  :version: 1
   :status: draft
   :safety: QM
   :security: YES

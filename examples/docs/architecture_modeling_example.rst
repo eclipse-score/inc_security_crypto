@@ -26,6 +26,7 @@ Feature Architecture File
 
 .. feat:: Feature 1
    :id: feat__mtef
+   :version: 1
    :security: YES
    :safety: QM
    :status: valid
@@ -35,6 +36,7 @@ Feature Architecture File
 
 .. feat_arc_sta:: Feature 1 Static View
    :id: feat_arc_sta__example_feature__sta
+   :version: 1
    :security: YES
    :safety: QM
    :status: valid
@@ -52,6 +54,7 @@ Feature Architecture File
 
 .. logic_arc_int:: Logical Interface 1
    :id: logic_arc_int__example_feature__if_1
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -66,6 +69,7 @@ Feature Architecture File
 
 .. logic_arc_int:: Logical Interface 2
    :id: logic_arc_int__example_feature__if_2
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -80,6 +84,7 @@ Feature Architecture File
 
 .. logic_arc_int:: Logical Interface 3
    :id: logic_arc_int__example_feature__if_3
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -90,6 +95,7 @@ Feature Architecture File
 
 .. logic_arc_int_op:: Logical Operation 1
    :id: logic_arc_int_op__example_feature__op_1
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -97,6 +103,7 @@ Feature Architecture File
 
 .. logic_arc_int_op:: Logical Operation 2
    :id: logic_arc_int_op__example_feature__op_2
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -104,6 +111,7 @@ Feature Architecture File
 
 .. logic_arc_int_op:: Logical Operation 3
    :id: logic_arc_int_op__example_feature__op_3
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -111,6 +119,7 @@ Feature Architecture File
 
 .. logic_arc_int_op:: Logical Operation 4
    :id: logic_arc_int_op__example_feature__op_4
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -118,6 +127,7 @@ Feature Architecture File
 
 .. logic_arc_int_op:: Logical Operation 5
    :id: logic_arc_int_op__example_feature__op_5
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -125,6 +135,7 @@ Feature Architecture File
 
 .. logic_arc_int_op:: Logical Operation 6
    :id: logic_arc_int_op__example_feature__op_6
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -132,6 +143,7 @@ Feature Architecture File
 
 .. logic_arc_int_op:: Logical Operation 7
    :id: logic_arc_int_op__example_feature__op_7
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -139,6 +151,7 @@ Feature Architecture File
 
 .. logic_arc_int_op:: Logical Operation 8
    :id: logic_arc_int_op__example_feature__op_8
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -150,6 +163,7 @@ Module View File
 
 .. mod:: Module 1
    :id: mod__mtef_archex_module_1
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -159,6 +173,7 @@ Module View File
 
 .. mod_view_sta:: Module 1 Static View
    :id: mod_view_sta__example_feature__1
+   :version: 1
    :includes: comp__mod_temp_component_example_1, comp__mod_temp_component_example_2
 
    .. needarch::
@@ -169,6 +184,7 @@ Module View File
 
 .. mod:: Module 2
    :id: mod__mtef_archex_module_2
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -178,6 +194,7 @@ Module View File
 
 .. mod_view_sta:: Module 2 Static View
    :id: mod_view_sta__example_feature__2
+   :version: 1
    :includes: comp__mod_temp_component_example_3
 
    .. needarch::
@@ -191,6 +208,7 @@ Feature or Component Architecture File(s)
 
 .. comp:: Component 1
    :id: comp__mod_temp_component_example_1
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -202,6 +220,7 @@ Feature or Component Architecture File(s)
 
 .. comp:: Component 2
    :id: comp__mod_temp_component_example_2
+   :version: 1
    :security: YES
    :safety: ASIL_B
    :status: valid
@@ -212,6 +231,7 @@ Feature or Component Architecture File(s)
 
 .. comp:: Component 3
    :id: comp__mod_temp_component_example_3
+   :version: 1
    :security: YES
    :safety: QM
    :status: valid
@@ -222,9 +242,10 @@ Feature or Component Architecture File(s)
 
 .. comp_arc_sta:: Component 1 Static View
    :id: comp_arc_sta__example_feature__comp_1
+   :version: 1
    :status: valid
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :belongs_to: comp__mod_temp_component_example_1
    :fulfils: comp_req__example_feature__example_req
 
@@ -238,27 +259,30 @@ Feature or Component Architecture File(s)
 
 .. comp:: Component 1_1
    :id: comp__mod_temp_archex_sub_component_1
+   :version: 1
    :status: valid
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :uses: logic_arc_int__example_feature__if_2
    :implements: logic_arc_int__example_feature__if_1
    :belongs_to: feat__mtef
 
 .. comp:: Component 1_2
    :id: comp__mod_temp_archex_sub_component_2
+   :version: 1
    :status: valid
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :uses: logic_arc_int__example_feature__if_2
    :implements: logic_arc_int__example_feature__if_2
    :belongs_to: feat__mtef
 
 .. comp:: Component 1_3
    :id: comp__mod_temp_archex_sub_component_3
+   :version: 1
    :status: valid
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :belongs_to: feat__mtef
 
 
@@ -271,11 +295,13 @@ Requirements for the Example
 
 .. stkh_req:: Example Stkh Req
    :id: stkh_req__mtfn__example_req
+   :version: 1
    :reqtype: Functional
    :safety: ASIL_B
    :security: YES
    :rationale: needed for archdes example
    :status: valid
+   :valid_from: v1.0.0
 
    The platform shall provide the feature ....
 
@@ -283,17 +309,20 @@ Requirements for the Example
 
 .. feat_req:: Example Feature Req
    :id: feat_req__example_feature__example_req
+   :version: 1
    :reqtype: Functional
    :security: YES
    :safety: ASIL_B
    :derived_from: stkh_req__mtfn__example_req
    :status: valid
+   :valid_from: v1.0.0
    :satisfied_by: feat__mtef
 
    The feature shall provide the functionality to ....
 
 .. comp_req:: Example Component Req
    :id: comp_req__example_feature__example_req
+   :version: 1
    :reqtype: Functional
    :security: YES
    :safety: ASIL_B

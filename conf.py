@@ -22,8 +22,6 @@
 
 project = "Crypto Project"
 project_url = "https://eclipse-score.github.io/inc_security_crypto"
-project_prefix = "CRYPTO_"
-author = "S-CORE"
 version = "0.1"
 
 # -- General configuration ---------------------------------------------------
@@ -50,12 +48,8 @@ exclude_patterns = [
     ".venv_docs",
     "_build",
     "examples/README.md",
+    "score/tests/**",
 ]
-
-templates_path = ["templates"]
-
-# Enable numref
-numfig = True
 
 
 required_in_id = []

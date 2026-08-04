@@ -21,6 +21,7 @@ IAV Primula Component
 
 .. document:: IAV Primula Component
    :id: doc__iav_primula
+   :version: 1
    :status: draft
    :safety: QM
    :security: YES

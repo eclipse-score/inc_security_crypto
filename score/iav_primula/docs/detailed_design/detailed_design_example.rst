@@ -17,6 +17,7 @@ IAV Primula Detailed Design
 
 .. document:: IAV Primula Detailed Design
    :id: doc__iav_primula_detailed_design
+   :version: 1
    :status: draft
    :safety: QM
    :security: YES
