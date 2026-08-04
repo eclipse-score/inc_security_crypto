@@ -20,6 +20,10 @@ cc_library(
         "key_management/openssl_key_factory.hpp",
         "key_management/openssl_key_handler.hpp",
     ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/key_management:key_management_headers",
@@ -31,6 +35,10 @@ cc_library(
     name = "openssl_detail_headers",
     hdrs = ["detail/openssl_algorithm_info.hpp"],
     implementation_deps = ["//third_party/openssl:openssl_shared"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
 )
 
@@ -44,6 +52,10 @@ cc_library(
         "provider_openssl.hpp",
     ],
     includes = ["."],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         ":openssl_key_management_headers",
@@ -74,6 +86,10 @@ cc_library(
     ],
     includes = ["."],
     linkstatic = True,
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         ":openssl_detail_headers",

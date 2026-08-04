@@ -17,7 +17,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 # OpenSSL score-provider backend
 #
 # Enable/disable via bool_flag at build time (default: enabled):
-#   --//score/crypto/src/backend:score_crypto_openssl_enabled=False
+#   --//score/crypto/src/backend:score_crypto_score_openssl_enabled=False
 #
 # Three-target pattern (same pattern for every score-provider backend):
 #   openssl_backend_adapter  — full implementation, always compiled when enabled
@@ -36,6 +36,10 @@ cc_library(
     name = "openssl_backend_adapter",
     srcs = ["openssl_backend_adapter.cpp"],
     hdrs = ["openssl_backend_adapter.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//score/crypto/src/backend/score_provider:__pkg__"],
     deps = [
         "//score/crypto/src/daemon/provider/score_provider:score_backend_adapter",
@@ -47,9 +51,10 @@ cc_library(
 # No adapter deps — safe to use wherever only the define is needed.
 cc_library(
     name = "openssl_backend_define",
-    defines = select({
-        "//score/crypto/src/backend:openssl_enabled": ["SCORE_BACKEND_OPENSSL_ENABLED=1"],
-        "//conditions:default": [],
+    defines = ["SCORE_BACKEND_OPENSSL_ENABLED=1"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
     }),
     visibility = [
         "//score/crypto/src/backend:__pkg__",
@@ -58,13 +63,16 @@ cc_library(
     ],
 )
 
-# Conditional aggregate: define + adapter when openssl is enabled, empty otherwise.
-# Only active_score_backends should depend on this target.
+# Aggregate: define + adapter. Only active_score_backends should depend on this target.
 cc_library(
     name = "openssl_backend",
-    visibility = ["//score/crypto/src/backend/score_provider:__pkg__"],
-    deps = [":openssl_backend_define"] + select({
-        "//score/crypto/src/backend:openssl_enabled": [":openssl_backend_adapter"],
-        "//conditions:default": [],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
     }),
+    visibility = ["//score/crypto/src/backend/score_provider:__pkg__"],
+    deps = [
+        ":openssl_backend_adapter",
+        ":openssl_backend_define",
+    ],
 )

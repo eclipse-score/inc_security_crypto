@@ -18,6 +18,10 @@ cc_library(
     name = "score_handler_factory",
     srcs = ["src/score_handler_factory.cpp"],
     hdrs = ["score_handler_factory.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/common",

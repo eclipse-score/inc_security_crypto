@@ -18,6 +18,10 @@ cc_library(
     name = "score_provider",
     srcs = ["src/score_provider.cpp"],
     hdrs = ["score_provider.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/provider:provider_headers",
@@ -29,6 +33,10 @@ cc_library(
     name = "score_provider_config",
     srcs = ["src/score_provider_config.cpp"],
     hdrs = ["score_provider_config.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/common:common_types",
@@ -40,6 +48,10 @@ cc_library(
 cc_library(
     name = "score_backend_adapter",
     hdrs = ["score_backend_adapter.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/provider:provider_headers",
@@ -56,6 +68,10 @@ cc_library(
     implementation_deps = [
         "//score/crypto/src/backend/score_provider:backend",  # Selected Score backends
     ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         ":score_provider",

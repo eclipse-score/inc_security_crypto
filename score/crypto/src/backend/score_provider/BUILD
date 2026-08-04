@@ -22,6 +22,10 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 cc_library(
     name = "backend",
     srcs = ["score_provider_config_parser.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/backend:active_score_backends",
@@ -43,6 +47,10 @@ cc_library(
 cc_library(
     name = "score_backend_headers",
     hdrs = ["active_backends_list.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/daemon/provider/score_provider:score_backend_adapter",
@@ -56,6 +64,10 @@ cc_library(
 # The master enable/disable gate lives there; this target is unconditionally listed.
 cc_library(
     name = "all_score_backends",
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//score/crypto/src/backend:__pkg__"],
     deps = [
         "//score/crypto/src/backend/score_provider/openssl:openssl_backend",

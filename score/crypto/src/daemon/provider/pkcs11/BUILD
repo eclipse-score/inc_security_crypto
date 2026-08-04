@@ -35,6 +35,10 @@ cc_library(
         "pkcs11_session_guard.hpp",
     ],
     includes = ["."],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:pkcs11_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = [
         "//:__subpackages__",
     ],
@@ -61,6 +65,10 @@ cc_library(
     ],
     includes = ["."],
     linkstatic = True,
+    target_compatible_with = select({
+        "//score/crypto/src/backend:pkcs11_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         ":provider_pkcs11_headers",
@@ -80,6 +88,10 @@ cc_library(
     name = "pkcs11_token_config",
     srcs = ["src/pkcs11_token_config.cpp"],
     hdrs = ["pkcs11_token_config.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:pkcs11_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/common:common_types",
@@ -96,16 +108,13 @@ cc_library(
     implementation_deps = [
         "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
     ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:pkcs11_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         ":pkcs11_token_config",
         ":provider_pkcs11_library",
     ],
-)
-
-# Alias for convenience - the full target is the factory
-alias(
-    name = "pkcs11",
-    actual = ":provider_pkcs11_factory",
-    visibility = ["//:__subpackages__"],
 )

@@ -17,6 +17,10 @@ cc_test(
     name = "test_provider",
     srcs = ["test_provider.cpp"],
     data = ["//score/tests/test_vectors/hash:hash_test_vectors"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     deps = [
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/data_manager",
@@ -32,13 +36,17 @@ cc_test(
     name = "test_pkcs11_provider",
     srcs = ["test_pkcs11_provider.cpp"],
     data = ["//score/tests/test_vectors/hash:hash_test_vectors"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:pkcs11_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     deps = [
+        "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_library",
         "//score/tests/utility",
-        "//third_party/soft_hsm:softhsm_shared",
         "@googletest//:gtest",
     ],
 )
@@ -46,12 +54,16 @@ cc_test(
 cc_test(
     name = "test_pkcs11_multi_token",
     srcs = ["test_pkcs11_multi_token.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:pkcs11_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     deps = [
+        "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_library",
-        "//third_party/soft_hsm:softhsm_shared",
         "@googletest//:gtest",
     ],
 )

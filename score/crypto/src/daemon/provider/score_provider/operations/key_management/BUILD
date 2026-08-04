@@ -18,6 +18,10 @@ cc_library(
     name = "score_key_management_handler",
     srcs = ["src/score_key_management_handler.cpp"],
     hdrs = ["score_key_management_handler.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",

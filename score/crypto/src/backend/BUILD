@@ -59,14 +59,20 @@ config_setting(
 )
 
 config_setting(
-    name = "openssl_enabled",
-    flag_values = {":score_crypto_score_openssl_enabled": "True"},
+    name = "primula_enabled",
+    flag_values = {":score_crypto_score_primula_enabled": "True"},
     visibility = ["//:__subpackages__"],
 )
 
+# True only when both the master score-backend gate and the OpenSSL sub-backend
+# flag are enabled. Used in target_compatible_with so that disabling either flag
+# excludes OpenSSL targets from wildcard builds.
 config_setting(
-    name = "primula_enabled",
-    flag_values = {":score_crypto_score_primula_enabled": "True"},
+    name = "openssl_backend_active",
+    flag_values = {
+        ":score_crypto_score_backend_enabled": "True",
+        ":score_crypto_score_openssl_enabled": "True",
+    },
     visibility = ["//:__subpackages__"],
 )
 
