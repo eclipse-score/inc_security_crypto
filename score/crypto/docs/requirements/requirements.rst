@@ -86,5 +86,5 @@ Hints
     - Add other needed requirements for your feature
     - Set ``status`` to ``valid`` and start the review/merge process
 
-.. needextend:: is_external == False and "crypto" in id
+.. needextend:: "c.this_doc()"
    :+tags: crypto

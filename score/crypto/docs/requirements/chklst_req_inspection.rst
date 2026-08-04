@@ -20,6 +20,7 @@
   :safety: ASIL_B
   :security: YES
   :realizes: wp__requirements_inspect
+  :tags: crypto
 
 
 Requirement Inspection Checklist
