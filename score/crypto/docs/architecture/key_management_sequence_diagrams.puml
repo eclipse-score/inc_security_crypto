@@ -11,6 +11,7 @@ title Key Management — Sequence Diagrams
 == Daemon Startup ==
 
 participant "main()" as Main
+participant "ProviderManagerFactory" as PMF
 participant "DataManager" as DM
 participant "ProviderManager" as PM
 participant "KeyManagementModule" as KMM
@@ -19,10 +20,14 @@ participant "BasicHandlerChainFactory" as BHCF
 participant "MediatorImpl" as Med
 
 Main -> DM ** : make_shared<DataManager>()
-Main -> PM ** : make_shared<ProviderManager>(config.GetProviderInitConfig())
-Main -> PM : ScoreProviderFactory.CreateAndRegister(PM)
-Main -> PM : Pkcs11ProviderFactory.CreateAndRegister(PM)
-Main -> PM : Initialize()
+Main -> PMF : Create(config)
+activate PMF
+PMF -> PM ** : make_shared<ProviderManager>(config.GetProviderInitConfig())
+PMF -> PM : ScoreProviderFactory→CreateAndRegister(*pm)
+PMF -> PM : Pkcs11ProviderFactory→CreateAndRegister(*pm)
+PMF -> PM : Initialize()
+PMF --> Main : Expected<ProviderManager::Sptr>
+deactivate PMF
 
 Main -> KMM : Create(data_manager, provider_manager, key_config)
 activate KMM

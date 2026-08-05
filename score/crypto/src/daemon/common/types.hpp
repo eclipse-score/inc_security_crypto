@@ -171,7 +171,7 @@ inline CryptoProviderType CryptoProviderTypeFromString(const std::string& typeSt
     }
     else
     {
-        return CryptoProviderType::DEFAULT;
+        return CryptoProviderType::SPECIALIZED;  // Default to SPECIALIZED for unknown types
     }
 }
 
