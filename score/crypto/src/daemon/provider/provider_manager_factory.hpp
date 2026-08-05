@@ -37,8 +37,8 @@ namespace score::crypto::daemon::provider
  * 4. Call Initialize() on the manager to resolve type mappings and finalize setup
  *
  * Backend availability is determined at build time via compile-time flags:
- * - Score backend: enabled when SCORE_BACKEND_ENABLED is set
- * - PKCS#11 backend: enabled when SCORE_CRYPTO_PKCS11_ENABLED is set
+ * - Score backend: enabled when SCORE_CRYPTO_SCORE_BACKEND_ENABLED is set
+ * - PKCS#11 backend: enabled when SCORE_CRYPTO_PKCS11_BACKEND_ENABLED is set
  *
  * Usage:
  * @code

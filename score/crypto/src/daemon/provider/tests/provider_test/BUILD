@@ -37,7 +37,7 @@ cc_test(
     srcs = ["test_pkcs11_provider.cpp"],
     data = ["//score/tests/test_vectors/hash:hash_test_vectors"],
     target_compatible_with = select({
-        "//score/crypto/src/backend:pkcs11_enabled": [],
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     deps = [
@@ -55,7 +55,7 @@ cc_test(
     name = "test_pkcs11_multi_token",
     srcs = ["test_pkcs11_multi_token.cpp"],
     target_compatible_with = select({
-        "//score/crypto/src/backend:pkcs11_enabled": [],
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     deps = [

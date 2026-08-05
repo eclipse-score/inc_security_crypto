@@ -19,7 +19,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 # ============================================================================
 
 bool_flag(
-    name = "score_crypto_pkcs11_enabled",
+    name = "score_crypto_pkcs11_backend_enabled",
     build_setting_default = True,
     visibility = ["//visibility:public"],
 )
@@ -47,8 +47,8 @@ bool_flag(
 # ============================================================================
 
 config_setting(
-    name = "pkcs11_enabled",
-    flag_values = {":score_crypto_pkcs11_enabled": "True"},
+    name = "pkcs11_backend_enabled",
+    flag_values = {":score_crypto_pkcs11_backend_enabled": "True"},
     visibility = ["//:__subpackages__"],
 )
 
@@ -58,15 +58,19 @@ config_setting(
     visibility = ["//:__subpackages__"],
 )
 
+# True only when both the master score-backend gate and the score sub-backend
+# flag are enabled. Used in target_compatible_with so that disabling either flag
+# excludes sub-backend targets from wildcard builds.
+
 config_setting(
-    name = "primula_enabled",
-    flag_values = {":score_crypto_score_primula_enabled": "True"},
+    name = "primula_backend_active",
+    flag_values = {
+        ":score_crypto_score_backend_enabled": "True",
+        ":score_crypto_score_primula_enabled": "True",
+    },
     visibility = ["//:__subpackages__"],
 )
 
-# True only when both the master score-backend gate and the OpenSSL sub-backend
-# flag are enabled. Used in target_compatible_with so that disabling either flag
-# excludes OpenSSL targets from wildcard builds.
 config_setting(
     name = "openssl_backend_active",
     flag_values = {
@@ -103,7 +107,7 @@ cc_library(
 cc_library(
     name = "score_backend_defines",
     defines = select({
-        ":score_backend_enabled": ["SCORE_BACKEND_ENABLED=1"],
+        ":score_backend_enabled": ["SCORE_CRYPTO_SCORE_BACKEND_ENABLED=1"],
         "//conditions:default": [],
     }),
     visibility = ["//:__subpackages__"],
@@ -129,7 +133,7 @@ label_flag(
 cc_library(
     name = "pkcs11_backend_defines",
     defines = select({
-        ":pkcs11_enabled": ["SCORE_CRYPTO_PKCS11_ENABLED=1"],
+        ":pkcs11_backend_enabled": ["SCORE_CRYPTO_PKCS11_BACKEND_ENABLED=1"],
         "//conditions:default": [],
     }),
     visibility = ["//:__subpackages__"],
@@ -141,7 +145,7 @@ cc_library(
     name = "active_pkcs11_backend",
     visibility = ["//:__subpackages__"],
     deps = select({
-        ":pkcs11_enabled": [
+        ":pkcs11_backend_enabled": [
             ":pkcs11_backend",
             "//score/crypto/src/backend/pkcs11:pkcs11_config_parser",
         ],

@@ -32,7 +32,7 @@ cc_library(
     name = "pkcs11_config_parser",
     srcs = ["pkcs11_token_config_parser.cpp"],
     target_compatible_with = select({
-        "//score/crypto/src/backend:pkcs11_enabled": [],
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     visibility = ["//score/crypto/src/backend:__pkg__"],

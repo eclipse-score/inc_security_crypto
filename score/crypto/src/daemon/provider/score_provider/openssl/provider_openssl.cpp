@@ -40,8 +40,6 @@ bool OpenSSL::InitialiseBackend(const ProviderInitContext& /*ctx*/)
 
     m_factory = std::make_shared<::score::crypto::daemon::provider::openssl::OpenSslKeyFactory>(GetProviderId());
 
-    score::mw::log::LogDebug() << "[OpenSSL] Initialized successfully (ID:" << GetProviderId()
-                               << ", Name:" << GetProviderName() << ")";
     return true;
 }
 

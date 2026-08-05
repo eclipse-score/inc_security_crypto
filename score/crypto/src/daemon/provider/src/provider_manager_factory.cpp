@@ -14,11 +14,11 @@
 #include "score/crypto/src/daemon/provider/provider_manager_factory.hpp"
 #include "score/mw/log/logging.h"
 
-#if SCORE_BACKEND_ENABLED
+#if SCORE_CRYPTO_SCORE_BACKEND_ENABLED
 #include "score/crypto/src/daemon/provider/score_provider/score_provider_factory.hpp"
 #endif
 
-#if SCORE_CRYPTO_PKCS11_ENABLED
+#if SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
 #endif
 
@@ -115,7 +115,7 @@ score::crypto::Expected<std::shared_ptr<ProviderManager>, common::DaemonErrorCod
 score::crypto::Expected<std::unique_ptr<IProviderFactory>, common::DaemonErrorCode>
 ProviderManagerFactory::CreateScoreProviderFactory(config::Config& config)
 {
-#if SCORE_BACKEND_ENABLED
+#if SCORE_CRYPTO_SCORE_BACKEND_ENABLED
     auto& provider_config = config.GetScoreProviderConfig();
     auto parse_result = provider_config.ParseConfig(config);
     if (!parse_result.has_value())
@@ -150,7 +150,7 @@ ProviderManagerFactory::CreateScoreProviderFactory(config::Config& config)
 score::crypto::Expected<std::unique_ptr<IProviderFactory>, common::DaemonErrorCode>
 ProviderManagerFactory::CreatePkcs11ProviderFactory(config::Config& config)
 {
-#if SCORE_CRYPTO_PKCS11_ENABLED
+#if SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
     // Parse PKCS#11 configuration
     auto& pkcs11_config = config.GetPkcs11Config();
     auto parse_result = pkcs11_config.ParseConfig(config);

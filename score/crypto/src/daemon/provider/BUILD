@@ -48,7 +48,7 @@ cc_library(
         ],
         "//conditions:default": [],
     }) + select({
-        "//score/crypto/src/backend:pkcs11_enabled": [
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [
             "//score/crypto/src/backend:pkcs11_backend_defines",
         ],
         "//conditions:default": [],
@@ -61,7 +61,7 @@ cc_library(
         "//score/crypto/src/backend:score_backend_enabled": ["//score/crypto/src/daemon/provider/score_provider:score_provider_factory"],
         "//conditions:default": [],
     }) + select({
-        "//score/crypto/src/backend:pkcs11_enabled": ["//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_factory"],
+        "//score/crypto/src/backend:pkcs11_backend_enabled": ["//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_factory"],
         "//conditions:default": [],
     }),
 )

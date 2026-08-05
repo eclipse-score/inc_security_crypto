@@ -76,9 +76,9 @@ separate config type and resolved at a different point during daemon startup.
    The set of provider families that can exist in a given daemon binary is
    decided by compile-time bool flags. The master family flags are
    ``score_crypto_score_backend_enabled`` for the Score provider family and
-   ``score_crypto_pkcs11_enabled`` for the PKCS#11 provider family. Their
+   ``score_crypto_pkcs11_backend_enabled`` for the PKCS#11 provider family. Their
    corresponding config settings are exposed to the code as
-   ``SCORE_BACKEND_ENABLED`` and ``SCORE_CRYPTO_PKCS11_ENABLED``. The Score
+   ``SCORE_CRYPTO_SCORE_BACKEND_ENABLED`` and ``score_crypto_pkcs11_backend_enabled``. The Score
    family also has the per-backend flag ``score_crypto_score_openssl_enabled``,
    exposed as ``SCORE_BACKEND_OPENSSL_ENABLED``, which controls whether the
    OpenSSL backend is included in the active Score backend list. A flag can be
