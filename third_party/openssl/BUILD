@@ -141,7 +141,7 @@ genrule(
     name = "openssl_libcrypto_so_extract",
     srcs = [":openssl_make"],
     outs = ["libcrypto.so.3"],
-    cmd = "for f in $(locations :openssl_make); do case $$f in *libcrypto.so.3) cp $$f $@; break;; esac; done",
+    cmd = "set -e; found=0; for f in $(locations :openssl_make); do case $$f in *libcrypto.so.3) cp $$f $@; found=1; break;; esac; done; test $$found -eq 1 || { echo 'ERROR: libcrypto.so.3 not found in openssl_make outputs' >&2; exit 1; }",
     visibility = ["//visibility:private"],
 )
 
@@ -149,7 +149,7 @@ genrule(
     name = "openssl_libssl_so_extract",
     srcs = [":openssl_make"],
     outs = ["libssl.so.3"],
-    cmd = "for f in $(locations :openssl_make); do case $$f in *libssl.so.3) cp $$f $@; break;; esac; done",
+    cmd = "set -e; found=0; for f in $(locations :openssl_make); do case $$f in *libssl.so.3) cp $$f $@; found=1; break;; esac; done; test $$found -eq 1 || { echo 'ERROR: libssl.so.3 not found in openssl_make outputs' >&2; exit 1; }",
     visibility = ["//visibility:private"],
 )
 

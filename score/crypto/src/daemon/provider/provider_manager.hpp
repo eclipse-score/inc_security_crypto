@@ -298,6 +298,10 @@ class ProviderManager
     /// Vector for lookup by numeric ID: m_provider_by_id[numeric_id] = instance
     std::vector<std::shared_ptr<IProvider>> m_provider_by_id;
 
+    /// Parallel name lookup: m_name_by_id[numeric_id] = providerName (set at registration, never depends on
+    /// Initialize())
+    std::vector<common::ProviderName> m_name_by_id;
+
     /// Mapping of provider type to numeric provider ID for type-based lookups
     std::unordered_map<common::CryptoProviderType, common::ProviderId> m_typeToProviderId;
 

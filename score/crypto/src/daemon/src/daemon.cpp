@@ -69,7 +69,8 @@ int main(int argc, char** argv)
     auto provider_manager_result = score::crypto::daemon::provider::ProviderManagerFactory::Create(config);
     if (!provider_manager_result.has_value())
     {
-        score::mw::log::LogError() << "Failed to create provider manager";
+        score::mw::log::LogError() << "Failed to create provider manager"
+                                   << " (error code: " << static_cast<int>(provider_manager_result.error()) << ")";
         return 1;
     }
     auto provider_manager = std::move(*provider_manager_result);

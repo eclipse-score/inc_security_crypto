@@ -164,8 +164,9 @@ bool ProviderManager::RegisterProvider(const common::ProviderName& providerName,
     // Assign numeric ID: next index in m_provider_by_id
     common::ProviderId numeric_id = static_cast<common::ProviderId>(m_provider_by_id.size());
 
-    // Store the instance in the vector for O(1) numeric lookup
+    // Store the instance and name for O(1) numeric lookup
     m_provider_by_id.push_back(provider);
+    m_name_by_id.push_back(providerName);
 
     // Store the entry in the map for O(1) name lookup
     m_providers.emplace(providerName, ProviderEntry(providerName, numeric_id, provider, cryptoType));
@@ -192,7 +193,7 @@ std::shared_ptr<IProvider> ProviderManager::GetProvider(common::ProviderId provi
     {
         return nullptr;
     }
-    auto& provider_entry = const_cast<ProviderEntry&>(m_providers.at(m_provider_by_id[providerId]->GetProviderName()));
+    auto& provider_entry = const_cast<ProviderEntry&>(m_providers.at(m_name_by_id[providerId]));
     if (!EnsureProviderInitialized(provider_entry))
     {
         return nullptr;
@@ -226,7 +227,7 @@ std::shared_ptr<IProvider> ProviderManager::GetProvider(common::CryptoProviderTy
     {
         return nullptr;
     }
-    auto& provider_entry = const_cast<ProviderEntry&>(m_providers.at(m_provider_by_id[it->second]->GetProviderName()));
+    auto& provider_entry = const_cast<ProviderEntry&>(m_providers.at(m_name_by_id[it->second]));
     if (!EnsureProviderInitialized(provider_entry))
     {
         return nullptr;

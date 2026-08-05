@@ -101,16 +101,17 @@ cc_library(
     deps = [":soft_hsm_cmake"],
 )
 
-# Extract libsofthsm2.so from the cmake output directory into a
-# standalone declared file so that cc_import can reference it as a label
-# (cc_import's shared_library must be a source or declared generated file,
-# not an implicit path into a foreign_cc output tree).
+# Extract libsofthsm2.so from the foreign_cc output tree into a declared
+# output file so that the softhsm_so filegroup can expose it as a plain
+# file in Bazel runfiles (e.g. for tests that need the .so at runtime).
 genrule(
     name = "softhsm_so_extract",
     srcs = [":soft_hsm_cmake"],
     outs = ["libsofthsm2.so"],
     # $(locations :soft_hsm_cmake) expands to all cmake output paths; pick the .so.
-    cmd = "for f in $(locations :soft_hsm_cmake); do case $$f in *libsofthsm2.so) cp $$f $@; break;; esac; done",
+    # Exit immediately after copying so that a missing .so is a build error here,
+    # not a silent empty output that causes a confusing failure downstream.
+    cmd = "set -e; found=0; for f in $(locations :soft_hsm_cmake); do case $$f in *libsofthsm2.so) cp $$f $@; found=1; break;; esac; done; test $$found -eq 1 || { echo 'ERROR: libsofthsm2.so not found in soft_hsm_cmake outputs' >&2; exit 1; }",
     visibility = ["//visibility:private"],
 )
 
