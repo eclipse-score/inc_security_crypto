@@ -1033,6 +1033,7 @@ Return Type of IMemoryAllocator::Allocate()
 
 .. dec_rec:: Return Type of IMemoryAllocator::Allocate()
    :id: dec_rec__crypto__allocate_return_type
+   :version: 1
    :status: accepted
    :context: doc__crypto_architecture
    :decision: All overloads of ``IMemoryAllocator::Allocate()`` return ``score::mw::crypto::IReadWriteMemory`` rather than a score::baselibs memory type.
