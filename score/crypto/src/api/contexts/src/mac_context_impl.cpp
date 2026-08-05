@@ -128,8 +128,7 @@ score::Result<std::monostate> MacContextImpl::Update(score::cpp::span<const uint
     auto tspan_result = m_transcoder->Acquire(data);
     if (!tspan_result.has_value())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(tspan_result.error(), "Failed to acquire input buffer")};
+        return score::Result<std::monostate>{score::unexpect, tspan_result.error()};
     }
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendInputBuffer(builder, tspan);
@@ -151,9 +150,8 @@ score::Result<std::monostate> MacContextImpl::Update(score::cpp::span<const uint
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR:" << validator.getError();
-        return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "MAC_UPDATE daemon response invalid")};
+        return score::Result<std::monostate>{score::unexpect,
+                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     return std::monostate{};
@@ -167,8 +165,7 @@ score::Result<std::size_t> MacContextImpl::Finalize(score::cpp::span<uint8_t> ou
     auto tspan_result = m_transcoder->Acquire(output, /*is_output=*/true);
     if (!tspan_result.has_value())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(tspan_result.error(), "Failed to acquire output buffer")};
+        return score::Result<std::size_t>{score::unexpect, tspan_result.error()};
     }
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendOutputBuffer(builder, tspan);
@@ -190,9 +187,8 @@ score::Result<std::size_t> MacContextImpl::Finalize(score::cpp::span<uint8_t> ou
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR:" << validator.getError();
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "MAC_FINALIZE daemon response invalid")};
+        return score::Result<std::size_t>{score::unexpect,
+                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(tspan, validator);
@@ -206,7 +202,7 @@ score::Result<bool> MacContextImpl::Verify(score::cpp::span<const uint8_t> mac)
     auto tspan_result = m_transcoder->Acquire(mac);
     if (!tspan_result.has_value())
     {
-        return score::Result<bool>{score::unexpect, MakeError(tspan_result.error(), "Failed to acquire input buffer")};
+        return score::Result<bool>{score::unexpect, tspan_result.error()};
     }
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendInputBuffer(builder, tspan);
@@ -228,9 +224,7 @@ score::Result<bool> MacContextImpl::Verify(score::cpp::span<const uint8_t> mac)
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR:" << validator.getError();
-        return score::Result<bool>{score::unexpect,
-                                   MakeError(CryptoErrorCode::kOperationFailed, "MAC_VERIFY daemon response invalid")};
+        return score::Result<bool>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     auto verify_result = validator.getParameterAt<bool>(0, 0);
@@ -263,9 +257,8 @@ score::Result<std::monostate> MacContextImpl::Reset()
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR:" << validator.getError();
-        return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "MAC_RESET daemon response invalid")};
+        return score::Result<std::monostate>{score::unexpect,
+                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     return std::monostate{};

@@ -151,15 +151,14 @@ score::Result<std::monostate> HashContextImpl::Init(std::optional<score::cpp::sp
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR:" << validator.getError();
         // TODO(error-unification phase-4): Extract the specific CryptoErrorCode from the daemon
         // response (via validator.getErrorCode() or ControlResponseValidator extension) and
         // return it directly instead of the generic kOperationFailed. This gives callers
         // actionable error information (e.g. kStreamNotInitialized vs kAlgorithmExecutionFailed)
         // rather than a single catch-all code. Applies to all Init/Update/Finalize/SingleShot
         // operations in every context impl (hash, mac, cipher, key_mgmt).
-        return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "HASH_INIT daemon response invalid")};
+        return score::Result<std::monostate>{score::unexpect,
+                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     return std::monostate{};
@@ -173,8 +172,7 @@ score::Result<std::monostate> HashContextImpl::Update(score::cpp::span<const uin
     auto tspan_result = m_transcoder->Acquire(data);
     if (!tspan_result.has_value())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(tspan_result.error(), "Failed to acquire input buffer")};
+        return score::Result<std::monostate>{score::unexpect, tspan_result.error()};
     }
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendInputBuffer(builder, tspan);
@@ -197,9 +195,8 @@ score::Result<std::monostate> HashContextImpl::Update(score::cpp::span<const uin
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR:" << validator.getError();
-        return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "HASH_UPDATE daemon response invalid")};
+        return score::Result<std::monostate>{score::unexpect,
+                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     return std::monostate{};
@@ -213,8 +210,7 @@ score::Result<std::size_t> HashContextImpl::Finalize(score::cpp::span<uint8_t> o
     auto tspan_result = m_transcoder->Acquire(output, /*is_output=*/true);
     if (!tspan_result.has_value())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(tspan_result.error(), "Failed to acquire output buffer")};
+        return score::Result<std::size_t>{score::unexpect, tspan_result.error()};
     }
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendOutputBuffer(builder, tspan);
@@ -237,9 +233,8 @@ score::Result<std::size_t> HashContextImpl::Finalize(score::cpp::span<uint8_t> o
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR:" << validator.getError();
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "HASH_FINALIZE daemon response invalid")};
+        return score::Result<std::size_t>{score::unexpect,
+                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(tspan, validator);
@@ -254,8 +249,7 @@ score::Result<std::size_t> HashContextImpl::SingleShot(score::cpp::span<const ui
     auto input_tspan_result = m_transcoder->Acquire(input);
     if (!input_tspan_result.has_value())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(input_tspan_result.error(), "Failed to acquire input buffer")};
+        return score::Result<std::size_t>{score::unexpect, input_tspan_result.error()};
     }
     TranscoderSpan input_tspan = std::move(input_tspan_result.value());
     m_transcoder->AppendInputBuffer(builder, input_tspan);
@@ -263,8 +257,7 @@ score::Result<std::size_t> HashContextImpl::SingleShot(score::cpp::span<const ui
     auto output_tspan_result = m_transcoder->Acquire(output, /*is_output=*/true);
     if (!output_tspan_result.has_value())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(output_tspan_result.error(), "Failed to acquire output buffer")};
+        return score::Result<std::size_t>{score::unexpect, output_tspan_result.error()};
     }
     TranscoderSpan output_tspan = std::move(output_tspan_result.value());
     m_transcoder->AppendOutputBuffer(builder, output_tspan);
@@ -287,9 +280,8 @@ score::Result<std::size_t> HashContextImpl::SingleShot(score::cpp::span<const ui
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR:" << validator.getError();
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "HASH_SS daemon response invalid")};
+        return score::Result<std::size_t>{score::unexpect,
+                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(output_tspan, validator);
@@ -316,9 +308,8 @@ score::Result<std::monostate> HashContextImpl::Reset()
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][HashContextImpl] ERROR:" << validator.getError();
-        return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "HASH_RESET daemon response invalid")};
+        return score::Result<std::monostate>{score::unexpect,
+                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     return std::monostate{};

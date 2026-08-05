@@ -52,7 +52,7 @@ BufferShmTranscoder::BufferShmTranscoder(std::shared_ptr<IPoolAllocator> pool_al
 {
 }
 
-score::crypto::Expected<TranscoderSpan, CryptoErrorCode> BufferShmTranscoder::Acquire(
+score::crypto::Expected<TranscoderSpan, score::result::Error> BufferShmTranscoder::Acquire(
     score::cpp::span<const uint8_t> data,
     bool is_output)
 {
@@ -77,7 +77,8 @@ score::crypto::Expected<TranscoderSpan, CryptoErrorCode> BufferShmTranscoder::Ac
     // From here on SHM is required: either an output buffer or an input larger than the threshold.
     if (m_registry == nullptr)
     {
-        return score::crypto::make_unexpected(CryptoErrorCode::kOperationFailed);
+        return score::crypto::make_unexpected(
+            MakeError(CryptoErrorCode::kOperationFailed, "Buffer requires SHM but no registry available"));
     }
 
     // BULK SHM: Check if data is in a registered bulk region (but not in pool).
@@ -88,7 +89,8 @@ score::crypto::Expected<TranscoderSpan, CryptoErrorCode> BufferShmTranscoder::Ac
             const auto offset = m_registry->GetOffset(data);
             if (!offset.has_value())
             {
-                return score::crypto::make_unexpected(CryptoErrorCode::kInternalError);
+                return score::crypto::make_unexpected(
+                    MakeError(CryptoErrorCode::kInternalError, "Buffer in bulk SHM but offset lookup failed"));
             }
             TranscoderSpan tspan;
             tspan.set_kind(TranscoderSpan::Kind::kBulk);
@@ -102,13 +104,15 @@ score::crypto::Expected<TranscoderSpan, CryptoErrorCode> BufferShmTranscoder::Ac
     // POOL SHM: Try pool allocation.
     if (m_pool_allocator == nullptr)
     {
-        return score::crypto::make_unexpected(CryptoErrorCode::kOperationFailed);
+        return score::crypto::make_unexpected(
+            MakeError(CryptoErrorCode::kOperationFailed, "Buffer not in bulk SHM and no pool allocator available"));
     }
 
     auto pool_span = m_pool_allocator->Allocate(data.size());
     if (!pool_span.has_value())
     {
-        return score::crypto::make_unexpected(CryptoErrorCode::kInsufficientBufferSize);
+        return score::crypto::make_unexpected(
+            MakeError(CryptoErrorCode::kInsufficientBufferSize, "Buffer pool allocation failed"));
     }
 
     // Pool path: obtain node_id and offset directly from pool allocator (no registry lookup needed).
@@ -116,13 +120,15 @@ score::crypto::Expected<TranscoderSpan, CryptoErrorCode> BufferShmTranscoder::Ac
     if (node_id == 0)
     {
         m_pool_allocator->Deallocate(pool_span.value());
-        return score::crypto::make_unexpected(CryptoErrorCode::kOperationFailed);
+        return score::crypto::make_unexpected(
+            MakeError(CryptoErrorCode::kOperationFailed, "Buffer pool node_id invalid"));
     }
 
     const auto offset_result = m_pool_allocator->GetOffset(pool_span.value());
     if (!offset_result.has_value())
     {
-        return score::crypto::make_unexpected(CryptoErrorCode::kInternalError);
+        return score::crypto::make_unexpected(
+            MakeError(CryptoErrorCode::kInternalError, "Buffer pool GetOffset failed"));
     }
     const std::size_t offset = offset_result.value();
 

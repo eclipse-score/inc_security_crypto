@@ -152,10 +152,10 @@ class IBufferTranscoder
     /// @param is_output  Must be true for output buffers
     ///                   When true: forces SHM routing (bulk or pool), returns error if SHM unavailable.
     ///                   When false (default): allows in-band for small input buffers (≤32 bytes threshold).
-    /// @return TranscoderSpan on success, or CryptoErrorCode on failure (e.g., output buffer requires
+    /// @return TranscoderSpan on success, or Error with message on failure (e.g., output buffer requires
     ///         SHM but no registry/pool available).
-    virtual score::crypto::Expected<TranscoderSpan, CryptoErrorCode> Acquire(score::cpp::span<const uint8_t> data,
-                                                                             bool is_output = false) = 0;
+    virtual score::crypto::Expected<TranscoderSpan, score::result::Error> Acquire(score::cpp::span<const uint8_t> data,
+                                                                                  bool is_output = false) = 0;
 
     /// @brief attach a pre-acquired input span to @p builder.
     ///

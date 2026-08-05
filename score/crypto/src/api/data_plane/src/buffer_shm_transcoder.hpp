@@ -53,8 +53,8 @@ class BufferShmTranscoder final : public IBufferTranscoder
     BufferShmTranscoder(BufferShmTranscoder&&) = delete;
     BufferShmTranscoder& operator=(BufferShmTranscoder&&) = delete;
 
-    score::crypto::Expected<TranscoderSpan, CryptoErrorCode> Acquire(score::cpp::span<const uint8_t> data,
-                                                                     bool is_output = false) override;
+    score::crypto::Expected<TranscoderSpan, score::result::Error> Acquire(score::cpp::span<const uint8_t> data,
+                                                                          bool is_output = false) override;
 
     void AppendInputBuffer(score::crypto::daemon::control_plane::protocol::OperationRequestBuilder& builder,
                            TranscoderSpan& tspan) override;
