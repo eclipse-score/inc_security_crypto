@@ -564,7 +564,7 @@
 <span id="crypto-design-decisions"></span><h1>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h1>
 <section id="abi-compatibility-for-ipc-layer-deferred-post-stabilisation">
 <h2>ABI Compatibility for IPC Layer (Deferred Post-Stabilisation)<a class="headerlink" href="#abi-compatibility-for-ipc-layer-deferred-post-stabilisation" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-06ec545d">
+<div class="need_container docutils container" id="SNCB-0db8f4f3">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__no_abi_compatibility_ipc">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -583,8 +583,7 @@
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">ABI compatibility for the IPC layer between the crypto library and daemon is deferred until the API and wire format are stable. Once stable, a versioned wire format (FlatBuffers is the primary candidate) will be introduced to allow independent deployment of library and daemon versions.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -691,7 +690,7 @@ efficiently once the stack stabilises.</p>
 </section>
 <section id="cryptoresourceguard-lifetime-via-daemon-side-reference-counting">
 <h2>CryptoResourceGuard Lifetime via Daemon-Side Reference Counting<a class="headerlink" href="#cryptoresourceguard-lifetime-via-daemon-side-reference-counting" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-3ad8c78b">
+<div class="need_container docutils container" id="SNCB-0236850a">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__cry_res_grd_lifetime">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -710,8 +709,7 @@ efficiently once the stack stabilises.</p>
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">Transient key lifetime is managed exclusively in the daemon via reference counting. The guard holds a type-erased IPC release handle; Create*Context() increments the daemon ref-count atomically. The guard may be destroyed after Create*Context() returns. On client disconnect, the daemon bulk-frees all resources for that client.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -875,7 +873,7 @@ Memory cost is bounded by max concurrent keys (deployment-time constant).</p></l
 </section>
 <section id="shared-connection-anchor-for-persistent-resource-id-stability">
 <h2>Shared-Connection Anchor for Persistent Resource ID Stability<a class="headerlink" href="#shared-connection-anchor-for-persistent-resource-id-stability" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-19e4227b">
+<div class="need_container docutils container" id="SNCB-98745e50">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__conn_anchor_persistent_ids">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -894,8 +892,7 @@ Memory cost is bounded by max concurrent keys (deployment-time constant).</p></l
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">The IPC connection to the crypto daemon is the anchor for kPersistent resource IDs. All ICryptoStack instances within the same application share a single connection, ensuring that the same resource name always resolves to the same numeric CryptoResourceId regardless of which stack or context resolves it. ID assignment is on-demand per connection, and each application gets its own isolated connection with an independent ID namespace.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -1010,7 +1007,7 @@ the entire application lifetime even if the IDs are no longer used.</p></li>
 </section>
 <section id="algorithmid-as-fixedcapacitystring-64">
 <h2><code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code> as <code class="docutils literal notranslate"><span class="pre">FixedCapacityString&lt;64&gt;</span></code><a class="headerlink" href="#algorithmid-as-fixedcapacitystring-64" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-d1bf38e2">
+<div class="need_container docutils container" id="SNCB-56a90c4c">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__alg_id_fixed_cap_str">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1029,8 +1026,7 @@ the entire application lifetime even if the IDs are no longer used.</p></li>
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">``AlgorithmId`` is defined as ``FixedCapacityString&lt;64&gt;`` rather than a compile-time enum or std::string, providing open-set extensibility with deterministic stack allocation. 64 bytes covers the longest currently-known PQC identifier (e.g., &quot;SLH-DSA-SHA2-128s&quot;) with comfortable headroom. All constructors and assignments are noexcept.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -1105,7 +1101,7 @@ from untrusted input.</p></li>
 </section>
 <section id="synchronous-only-ipc-model">
 <h2>Synchronous-Only IPC Model<a class="headerlink" href="#synchronous-only-ipc-model" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-2abc7312">
+<div class="need_container docutils container" id="SNCB-408976ca">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__synchronous_ipc">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1124,8 +1120,7 @@ from untrusted input.</p></li>
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">All IPC calls between the client library and the crypto daemon are synchronous (blocking). No callback, future, or async-notify pattern is exposed in the V1 public API.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -1199,7 +1194,7 @@ key to the context when the async result is consumed.</p></li>
 </section>
 <section id="context-reset-for-streaming-context-reuse">
 <h2>Context <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> for Streaming Context Reuse<a class="headerlink" href="#context-reset-for-streaming-context-reuse" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-7546649e">
+<div class="need_container docutils container" id="SNCB-28053250">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__context_reset_reuse">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1218,8 +1213,7 @@ key to the context when the async result is consumed.</p></li>
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">``IStreamingContext`` exposes a ``Reset()`` method returning the context to</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -1291,7 +1285,7 @@ re-create continue to work unchanged.</p></li>
 </section>
 <section id="two-layer-per-call-timeout-with-daemon-side-enforcement">
 <h2>Two-Layer Per-Call Timeout with Daemon-Side Enforcement<a class="headerlink" href="#two-layer-per-call-timeout-with-daemon-side-enforcement" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-a5c2e9ca">
+<div class="need_container docutils container" id="SNCB-97e4b910">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__two_layer_timeout">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1310,8 +1304,7 @@ re-create continue to work unchanged.</p></li>
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">Two-layer timeout model selected for bounded behaviour at both layers.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -1393,7 +1386,7 @@ must be justified in the application’s safety case.</p></li>
 </section>
 <section id="keyoperationpermission-as-a-capability-bitmask">
 <h2><code class="docutils literal notranslate"><span class="pre">KeyOperationPermission</span></code> as a Capability Bitmask<a class="headerlink" href="#keyoperationpermission-as-a-capability-bitmask" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-d421f539">
+<div class="need_container docutils container" id="SNCB-07b2cd6e">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__key_op_permission_bitmask">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1412,8 +1405,7 @@ must be justified in the application’s safety case.</p></li>
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">Per-key usage restrictions are encoded as a ``KeyOperationPermission`` bitmask (named bit-flag capabilities: ``kEncrypt``, ``kDecrypt``, ``kSign``, ``kVerify``, ``kDerive``, ``kWrap``, ``kExport``, ``kGenerate``). The daemon enforces the bitmask at context creation time; operations not permitted by the key's bitmask return ``kKeyOperationNotPermitted``.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -1487,7 +1479,7 @@ callers can accidentally construct invalid combinations.</p></li>
 </section>
 <section id="unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split">
 <h2>Unified Cipher Context (No Encrypt/Decrypt or Symmetric/Asymmetric Split)<a class="headerlink" href="#unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-4e77ff8a">
+<div class="need_container docutils container" id="SNCB-971d602c">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__unified_enc_dec_contexts">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1506,8 +1498,7 @@ callers can accidentally construct invalid combinations.</p></li>
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">A single ``ICipherContext`` type is used for both encryption and decryption, with direction configured via ``CipherContextConfig``. Sign, verify, MAC, and AEAD are each separate context types under the ``IStreamingContext`` hierarchy. The algorithm identifier and key type determine whether the operation is symmetric or asymmetric at runtime. Separate ``SymmetricEncryptContext`` / ``AsymmetricEncryptContext`` types were rejected for increased complexity without benefit.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -1587,7 +1578,7 @@ to non-AEAD operations — <code class="docutils literal notranslate"><span clas
 </section>
 <section id="imemoryallocator-separated-from-icryptostack">
 <h2><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator</span></code> Separated from <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code><a class="headerlink" href="#imemoryallocator-separated-from-icryptostack" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-defd2c3d">
+<div class="need_container docutils container" id="SNCB-7cb5ce78">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__memory_allocator_separation">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1606,8 +1597,7 @@ to non-AEAD operations — <code class="docutils literal notranslate"><span clas
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">``IMemoryAllocator`` is a standalone interface independent of ``ICryptoStack``. It represents the data plane, can be injected into components that need only memory management, and enables isolated unit testing — none of which are possible if it is coupled to the control-plane ``ICryptoStack``.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -1684,7 +1674,7 @@ where a monolithic interface would require only one.</p></li>
 </section>
 <section id="control-plane-ipc-boundary-copy-with-daemon-internal-zero-copy-references">
 <h2>Control Plane IPC Boundary Copy with Daemon-Internal Zero-Copy References<a class="headerlink" href="#control-plane-ipc-boundary-copy-with-daemon-internal-zero-copy-references" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-2d3e344b">
+<div class="need_container docutils container" id="SNCB-7a425efd">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__ipc_boundary_copy">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1703,8 +1693,7 @@ where a monolithic interface would require only one.</p></li>
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">The control plane IPC layer on the daemon side shall create exactly one owning copy of all incoming request data at the deserialization boundary. All subsequent daemon-internal processing shall operate on non-owning references into that single owned copy. This prevents time-of-check-time-of-use (TOCTOU) attacks on control information while minimising memory copies within the daemon. The data plane is explicitly excluded — it carries only opaque data payloads and may use zero-copy transfer.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
@@ -1801,7 +1790,7 @@ operations — zero-copy is safe there by design.</p>
 </section>
 <section id="per-operation-parameter-structs-with-dual-overloads">
 <h2>Per-Operation Parameter Structs with Dual Overloads<a class="headerlink" href="#per-operation-parameter-structs-with-dual-overloads" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-666551e4">
+<div class="need_container docutils container" id="SNCB-21c3b89d">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__per_op_params">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1820,8 +1809,7 @@ operations — zero-copy is safe there by design.</p>
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">Key management operations (``GenerateKey``, ``DeriveKey``, ``AgreeKey``, ``UnwrapKey``, ``ImportKey``, ``WrapKey``) are encapsulated in dedicated fluent-builder parameter structs. Dual overloads support both ephemeral keys (returning ``CryptoResourceGuard``) and direct-to-slot writes (returning ``bool``). KDF configuration is represented as a structured ``KdfParameters`` type rather than opaque byte spans, providing type safety and extensibility.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
