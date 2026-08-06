@@ -38,11 +38,11 @@
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
@@ -658,7 +658,7 @@ injects the shared <code class="docutils literal notranslate"><span class="pre">
 <p>The following diagram shows the key class relationships:</p>
 <figure class="align-center" id="id4">
 <p class="plantuml">
-<object data="../../../../_images/plantuml-032bfbb79111e73c50b2bcdaf6d854dbe2c63b6d.svg" type="image/svg+xml" style="width:7055px;height:2736px;background:#FFFFFF;"></object></p>
+<object data="../../../../_images/plantuml-124887584cfbdb90b70645bbefa0014d30283376.svg" type="image/svg+xml" style="width:6993px;height:2736px;background:#FFFFFF;"></object></p>
 <figcaption>
 <p><span class="caption-number">Fig. 9 </span><span class="caption-text">Key Management — Class Diagram</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
 </figcaption>
@@ -671,7 +671,7 @@ key generation, key load with deduplication, MAC context creation with key
 binding, MAC streaming, and crash cleanup:</p>
 <figure class="align-center" id="id5">
 <p class="plantuml">
-<object data="../../../../_images/plantuml-815bf013a128c09d122b242c867e82e945fc6e29.svg" type="image/svg+xml" style="width:5010px;height:734px;background:#FFFFFF;"></object></p>
+<object data="../../../../_images/plantuml-49f0559ee67a4c55f7082af12bdd70d0631ebccd.svg" type="image/svg+xml" style="width:5105px;height:792px;background:#FFFFFF;"></object></p>
 <figcaption>
 <p><span class="caption-number">Fig. 10 </span><span class="caption-text">Key Management — Sequence Diagrams</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
 </figcaption>
@@ -1086,17 +1086,19 @@ propagating a cryptic PKCS#11 error code.</p>
 PKCS#11 library (e.g. multiple SoftHSM slots).  Each <code class="docutils literal notranslate"><span class="pre">Pkcs11TokenEntry</span></code>
 in <code class="docutils literal notranslate"><span class="pre">Pkcs11Config</span></code> becomes a separate <code class="docutils literal notranslate"><span class="pre">Pkcs11Provider</span></code> instance that
 shares the <code class="docutils literal notranslate"><span class="pre">Pkcs11Module</span></code> (and thus <code class="docutils literal notranslate"><span class="pre">C_Initialize</span></code> is called once).</p>
-<p>The visitor pattern drives configuration:</p>
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">config</span><span class="p">.</span><span class="n">GetPkcs11Config</span><span class="p">().</span><span class="n">PopulateDefaults</span><span class="p">();</span>
-<span class="k">auto</span><span class="w"> </span><span class="n">factory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">Pkcs11ProviderFactory</span><span class="o">&gt;</span><span class="p">();</span>
-<span class="n">config</span><span class="p">.</span><span class="n">GetPkcs11Config</span><span class="p">().</span><span class="n">Configure</span><span class="p">(</span><span class="o">*</span><span class="n">factory</span><span class="p">);</span><span class="w">  </span><span class="c1">// visitor call</span>
-<span class="n">manager</span><span class="p">.</span><span class="n">RegisterFactory</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">factory</span><span class="p">));</span>
+<p>The provider-specific factory configuration snapshot drives initialization:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="w">  </span><span class="n">Pkcs11ProviderFactoryConfig</span><span class="w"> </span><span class="n">factory_config</span><span class="p">{</span>
+<span class="w">    </span><span class="n">config</span><span class="p">.</span><span class="n">GetPkcs11Config</span><span class="p">().</span><span class="n">GetConfig</span><span class="p">()};</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">factory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">Pkcs11ProviderFactory</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">factory_config</span><span class="p">));</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">factory</span><span class="o">-&gt;</span><span class="n">CreateAndRegister</span><span class="p">(</span><span class="n">manager</span><span class="p">);</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">Pkcs11Config::Configure()</span></code> converts each <code class="docutils literal notranslate"><span class="pre">Pkcs11TokenEntry</span></code> to a
-<code class="docutils literal notranslate"><span class="pre">Pkcs11ProviderConfig</span></code> and calls <code class="docutils literal notranslate"><span class="pre">factory.SetTokenConfigs()</span></code>; the
-entire mapping logic lives in <code class="docutils literal notranslate"><span class="pre">pkcs11_token_config.cpp</span></code> and does not
-leak into <code class="docutils literal notranslate"><span class="pre">daemon.cpp</span></code> or <code class="docutils literal notranslate"><span class="pre">config.hpp</span></code>.</p>
+<p>The factory converts each <code class="docutils literal notranslate"><span class="pre">Pkcs11TokenEntry</span></code> to a
+<code class="docutils literal notranslate"><span class="pre">Pkcs11ProviderConfig</span></code>; the mapping logic remains inside the PKCS#11
+factory implementation and does not leak into <code class="docutils literal notranslate"><span class="pre">daemon.cpp</span></code> or
+<code class="docutils literal notranslate"><span class="pre">config.hpp</span></code>. The complete snapshot also allows additional factory-wide
+options to be added without introducing order-dependent setter calls.</p>
 <p>Each provider has its own session pool, its own <code class="docutils literal notranslate"><span class="pre">TokenAuthGuard</span></code>, and
 its own <code class="docutils literal notranslate"><span class="pre">Pkcs11KeyStore</span></code>.  Login state, sessions, and key registrations
 are fully isolated between tokens.</p>

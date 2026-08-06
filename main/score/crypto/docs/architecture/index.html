@@ -38,11 +38,11 @@
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
@@ -559,7 +559,7 @@
                   
   <section id="component-architecture">
 <span id="component-architecture-template"></span><h1>Component Architecture<a class="headerlink" href="#component-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-d222eed7">
+<div class="need_container docutils container" id="SNCB-fa62b279">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_architecture">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -602,7 +602,7 @@
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-cb0c6db2">
+<div class="need_container docutils container" id="SNCB-84697a1a">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_workproduct table" id="wp__cmpt_request_dummy">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -777,7 +777,7 @@ with fluent builders; new optional fields never break existing callers</p></li>
    <span class="nc">:implements:</span>
 </pre></div>
 </div>
-<a class="reference internal image-reference" href="../../../../_images/component_overview.png"><img alt="../../../../_images/component_overview.png" class="align-center" height="1556" src="../../../../_images/component_overview.png" width="1150" />
+<a class="reference internal image-reference" href="../../../../_images/component_overview.png"><img alt="../../../../_images/component_overview.png" class="align-center" height="1786" src="../../../../_images/component_overview.png" width="1324" />
 </a>
 </section>
 <section id="provider-layer">
@@ -790,42 +790,37 @@ Exposes <code class="docutils literal notranslate"><span class="pre">GetCryptoHa
 Lifecycle is managed by <code class="docutils literal notranslate"><span class="pre">ProviderManager</span></code>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">IProviderFactory</span></code></dt><dd><p>A pure-virtual factory interface with a single method
-<code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">CreateAndRegister(ProviderManager&amp;)</span></code>.
+<code class="docutils literal notranslate"><span class="pre">ProviderFactoryResult</span> <span class="pre">CreateAndRegister(ProviderManager&amp;)</span></code>.
 Concrete implementations encapsulate the construction and registration of one or more
-related <code class="docutils literal notranslate"><span class="pre">IProvider</span></code> instances.  Factories are registered externally
-(daemon bootstrapper) via <code class="docutils literal notranslate"><span class="pre">ProviderManager::RegisterFactory()</span></code> and called in
-registration order during <code class="docutils literal notranslate"><span class="pre">ProviderManager::Initialize()</span></code>.</p>
+related <code class="docutils literal notranslate"><span class="pre">IProvider</span></code> instances. <code class="docutils literal notranslate"><span class="pre">ProviderManagerFactory</span></code> invokes backend
+factories independently and records each structured result; <code class="docutils literal notranslate"><span class="pre">ProviderManager</span></code>
+does not own concrete factories.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ScoreProviderFactory</span></code></dt><dd><p>Top-level factory for the <strong>score interface family</strong>.  Accepts a vector of
-<code class="docutils literal notranslate"><span class="pre">ScoreProviderEntry</span></code> configs (default: single OpenSSL entry).
-<code class="docutils literal notranslate"><span class="pre">CreateAndRegister()</span></code> iterates configs and delegates to the appropriate
-internal factory (e.g. <code class="docutils literal notranslate"><span class="pre">OpenSSLProviderFactory</span></code>).</p>
+<code class="docutils literal notranslate"><span class="pre">ScoreProviderEntry</span></code> values in a complete <code class="docutils literal notranslate"><span class="pre">ScoreProviderFactoryConfig</span></code>
+snapshot (default: single OpenSSL entry).
+<code class="docutils literal notranslate"><span class="pre">CreateAndRegister()</span></code> resolves each configured implementation tag against
+the active compile-time backend adapters and registers the resulting provider
+under its configured name and type.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">OpenSSLProviderFactory</span></code></dt><dd><p>Internal factory used by <code class="docutils literal notranslate"><span class="pre">ScoreProviderFactory</span></code>.  Constructs
-<code class="docutils literal notranslate"><span class="pre">score::openssl::OpenSSL</span></code> and registers it as <code class="docutils literal notranslate"><span class="pre">CryptoProviderType::SOFTWARE</span></code>
-under the <code class="docutils literal notranslate"><span class="pre">common::kProviderNameOpenSSL</span></code> name.  No per-instance configuration required.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">Pkcs11ProviderFactory</span></code></dt><dd><p>Accepts an injected <code class="docutils literal notranslate"><span class="pre">std::vector&lt;Pkcs11ProviderConfig&gt;</span></code> via
-<code class="docutils literal notranslate"><span class="pre">SetTokenConfigs()</span></code> (the acceptor side of the visitor pattern) or
-through its explicit vector constructor.  The daemon bootstrapper does
-not build configs directly; it delegates to <code class="docutils literal notranslate"><span class="pre">Pkcs11Config::Configure()</span></code>:</p>
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">config</span><span class="p">.</span><span class="n">GetPkcs11Config</span><span class="p">().</span><span class="n">PopulateDefaults</span><span class="p">();</span>
-<span class="k">auto</span><span class="w"> </span><span class="n">factory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">Pkcs11ProviderFactory</span><span class="o">&gt;</span><span class="p">();</span>
-<span class="n">config</span><span class="p">.</span><span class="n">GetPkcs11Config</span><span class="p">().</span><span class="n">Configure</span><span class="p">(</span><span class="o">*</span><span class="n">factory</span><span class="p">);</span>
-<span class="n">manager</span><span class="p">.</span><span class="n">RegisterFactory</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">factory</span><span class="p">));</span>
+<dt><code class="docutils literal notranslate"><span class="pre">Pkcs11ProviderFactory</span></code></dt><dd><p>Accepts a complete <code class="docutils literal notranslate"><span class="pre">Pkcs11ProviderFactoryConfig</span></code> snapshot containing the
+parsed <code class="docutils literal notranslate"><span class="pre">Pkcs11TokenEntry</span></code> values. The daemon bootstrapper passes this
+snapshot when constructing the factory:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="w">  </span><span class="n">Pkcs11ProviderFactoryConfig</span><span class="w"> </span><span class="n">factory_config</span><span class="p">{</span>
+<span class="w">     </span><span class="n">config</span><span class="p">.</span><span class="n">GetPkcs11Config</span><span class="p">().</span><span class="n">GetConfig</span><span class="p">()};</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">factory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">Pkcs11ProviderFactory</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">     </span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">factory_config</span><span class="p">));</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">factory</span><span class="o">-&gt;</span><span class="n">CreateAndRegister</span><span class="p">(</span><span class="n">manager</span><span class="p">);</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">CreateAndRegister</span></code> creates a single shared <code class="docutils literal notranslate"><span class="pre">Pkcs11Module</span></code> (so
 <code class="docutils literal notranslate"><span class="pre">C_Initialize</span></code> is invoked exactly once regardless of token count),
 then constructs and registers one <code class="docutils literal notranslate"><span class="pre">Pkcs11Provider</span></code> per entry as
 <code class="docutils literal notranslate"><span class="pre">CryptoProviderType::HARDWARE</span></code>.</p>
-<p><strong>Visitor pattern</strong> — <code class="docutils literal notranslate"><span class="pre">Pkcs11Config::Configure()</span></code> is the visitor:
-it iterates the <code class="docutils literal notranslate"><span class="pre">Pkcs11TokenEntry</span></code> list, converts each entry to a
-<code class="docutils literal notranslate"><span class="pre">Pkcs11ProviderConfig</span></code> (filling labels, PIN, cleanup strategy), and
-calls <code class="docutils literal notranslate"><span class="pre">factory.SetTokenConfigs()</span></code>.
-This keeps the <code class="docutils literal notranslate"><span class="pre">Pkcs11TokenEntry</span> <span class="pre">→</span> <span class="pre">Pkcs11ProviderConfig</span></code> conversion
-entirely within the PKCS#11 subsystem
-(<code class="docutils literal notranslate"><span class="pre">score/crypto/daemon/provider/pkcs11/pkcs11_token_config.*</span></code>).</p>
+<p>The factory performs the <code class="docutils literal notranslate"><span class="pre">Pkcs11TokenEntry</span></code> to
+<code class="docutils literal notranslate"><span class="pre">Pkcs11ProviderConfig</span></code> conversion internally (filling labels, PIN, and
+cleanup strategy). This keeps the conversion within the PKCS#11 subsystem
+and keeps PKCS#11 implementation details out of the daemon bootstrapper.</p>
 <p><strong>Multi-token coexistence</strong>: multiple <code class="docutils literal notranslate"><span class="pre">Pkcs11TokenEntry</span></code> entries in
 <code class="docutils literal notranslate"><span class="pre">Pkcs11Config</span></code> produce one <code class="docutils literal notranslate"><span class="pre">Pkcs11Provider</span></code> per token.
 All providers from the same factory share a single <code class="docutils literal notranslate"><span class="pre">Pkcs11Module</span></code>
@@ -838,8 +833,10 @@ different trust domains within the same process.</p>
 <a class="reference internal" href="key_management_details.html#pkcs11-session-management"><span class="std std-ref">PKCS#11 Session Management</span></a> in the key management details.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ProviderManager</span></code></dt><dd><p>Aggregates all registered providers and routes requests by <code class="docutils literal notranslate"><span class="pre">ProviderId</span></code> or
-<code class="docutils literal notranslate"><span class="pre">CryptoProviderType</span></code>.  After all factories have been called, <code class="docutils literal notranslate"><span class="pre">Initialize()</span></code>
-applies the daemon configuration and calls <code class="docutils literal notranslate"><span class="pre">Initialize()</span></code> on every provider.</p>
+<code class="docutils literal notranslate"><span class="pre">CryptoProviderType</span></code>. <code class="docutils literal notranslate"><span class="pre">ProviderManagerFactory</span></code> registers providers first.
+<code class="docutils literal notranslate"><span class="pre">ProviderManager::Initialize()</span></code> then makes the initial initialization pass and
+builds type mappings. Provider lookups retry unavailable providers under
+synchronization, using the original stable <code class="docutils literal notranslate"><span class="pre">ProviderId</span></code>.</p>
 </dd>
 </dl>
 </section>
