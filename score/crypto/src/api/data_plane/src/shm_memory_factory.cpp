@@ -43,8 +43,7 @@ ShmMemoryFactory::ShmMemoryFactory(std::shared_ptr<IShmRegionRegistry> registry,
 {
 }
 
-score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Create(const ShmRegionParams& region_params,
-                                                                                   bool /*is_pool*/)
+score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Create(const ShmRegionParams& region_params)
 {
     const std::uint64_t node_id = region_params.node_id;
     const std::size_t usable_size = static_cast<std::size_t>(region_params.size);

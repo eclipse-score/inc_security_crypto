@@ -81,13 +81,9 @@ class IReadWriteMemoryFactory
     /// @brief Open the SHM region described by @p region_params, register it, and return a ShmCreateResult.
     ///
     /// @param region_params  Core SHM region parameters (node_id, size, token, transport_type).
-    /// @param is_pool        Forwarded to IShmRegionRegistry::Register(). True for pool regions,
-    ///                       false (default) for bulk regions.
-    ///
     /// Note: The returned IReadWriteMemory (ShmRwMemory) holds a weak_ptr to the registry and
     /// unregisters itself automatically in its destructor.
-    virtual score::crypto::Expected<ShmCreateResult, CryptoErrorCode> Create(const ShmRegionParams& region_params,
-                                                                             bool is_pool = false) = 0;
+    virtual score::crypto::Expected<ShmCreateResult, CryptoErrorCode> Create(const ShmRegionParams& region_params) = 0;
 
   protected:
     IReadWriteMemoryFactory() = default;

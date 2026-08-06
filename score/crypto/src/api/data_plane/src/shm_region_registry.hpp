@@ -27,12 +27,11 @@ namespace score
 namespace crypto
 {
 
-/// @brief Concrete IShmRegionRegistry backed by a sorted interval map.
+/// @brief Concrete IShmRegionRegistry implementation.
 ///
-/// Manages all mapped SHM regions — both bulk (registered by ShmMemoryAllocator)
-/// and pool (registered by PoolAllocator) — in a single sorted map keyed by the
-/// region base address.  Identify() uses upper_bound + step-back for O(log n)
-/// containment queries, matching the prior ShmMemoryAllocator::m_mapped_regions
+/// Tracks all mapped SHM regions — both bulk (registered by ShmMemoryAllocator)
+/// and pool (registered by PoolAllocator). The current implementation performs
+/// an O(n) scan over all registered regions in IdentifyNode() / GetOffset().
 /// approach but extended to both region types.
 ///
 /// Thread safety: all public methods are serialized under m_mutex.

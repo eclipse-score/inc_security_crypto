@@ -72,28 +72,55 @@ control_plane::ControlResponse ShmRequestHandler::ForwardWithResolvedShm(control
                 return control_plane::ControlResponse{request.request_id, builder.build().value()};
             }
             auto& node = node_res.value();
-            if (data_shm.offset + data_shm.size > node->GetSize())
+            if (data_shm.direction != common::ShmDirection::In && data_shm.direction != common::ShmDirection::InOut)
             {
                 score::mw::log::LogError()
-                    << LOG_PREFIX << "Requested shared memory location out of bounds for node_id=" << data_shm.node_id
-                    << ": offset=" << data_shm.offset << ", size=" << data_shm.size
-                    << ", node_size=" << node->GetSize();
+                    << LOG_PREFIX << "Invalid shared memory direction for node_id=" << data_shm.node_id;
                 control_plane::protocol::OperationResponseBuilder builder;
                 builder.operation(operation.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
                 return control_plane::ControlResponse{request.request_id, builder.build().value()};
             }
 
-            const std::uint8_t* const base_addr =
-                static_cast<const std::uint8_t*>(node->GetHandle()->getUsableBaseAddress());
-            const std::uint8_t* const offset_addr = base_addr + data_shm.offset;
+            const auto node_size = node->GetSize();
+            if (data_shm.offset > node_size || data_shm.size > node_size - data_shm.offset)
+            {
+                score::mw::log::LogError()
+                    << LOG_PREFIX << "Requested shared memory location out of bounds for node_id=" << data_shm.node_id
+                    << ": offset=" << data_shm.offset << ", size=" << data_shm.size << ", node_size=" << node_size;
+                control_plane::protocol::OperationResponseBuilder builder;
+                builder.operation(operation.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
+                return control_plane::ControlResponse{request.request_id, builder.build().value()};
+            }
+
+            auto* handle = node->GetHandle();
+            if (handle == nullptr)
+            {
+                score::mw::log::LogError()
+                    << LOG_PREFIX << "Shared memory handle is null for node_id=" << data_shm.node_id;
+                control_plane::protocol::OperationResponseBuilder builder;
+                builder.operation(operation.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
+                return control_plane::ControlResponse{request.request_id, builder.build().value()};
+            }
+
+            auto* base_address = handle->getUsableBaseAddress();
+            if (base_address == nullptr)
+            {
+                score::mw::log::LogError()
+                    << LOG_PREFIX << "Shared memory usable base address is null for node_id=" << data_shm.node_id;
+                control_plane::protocol::OperationResponseBuilder builder;
+                builder.operation(operation.operationId).return_error(common::DaemonErrorCode::kInvalidMemoryRegion);
+                return control_plane::ControlResponse{request.request_id, builder.build().value()};
+            }
+
+            auto* addr = static_cast<std::uint8_t*>(base_address) + data_shm.offset;
 
             if (data_shm.direction == common::ShmDirection::In)
             {
-                param = score::cpp::span<const uint8_t>{offset_addr, data_shm.size};
+                param = score::cpp::span<const uint8_t>{addr, data_shm.size};
             }
             else
             {
-                param = score::cpp::span<uint8_t>{const_cast<std::uint8_t*>(offset_addr), data_shm.size};
+                param = score::cpp::span<uint8_t>{addr, data_shm.size};
             }
         }
     }

@@ -234,7 +234,7 @@ score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& con
     auto shm_factory = std::make_shared<ShmMemoryFactory>(registry, connection);
 
     // Create and map the pool SHM region (pass only region params, not pool geometry).
-    auto pool_create = shm_factory->Create(shm_setup.region, /*is_pool=*/true);
+    auto pool_create = shm_factory->Create(shm_setup.region);
     if (!pool_create.has_value())
     {
         return score::Result<ICryptoStack::Uptr>{

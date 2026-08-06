@@ -40,8 +40,7 @@ class ShmMemoryFactory final : public IReadWriteMemoryFactory
     ShmMemoryFactory(ShmMemoryFactory&&) = delete;
     ShmMemoryFactory& operator=(ShmMemoryFactory&&) = delete;
 
-    score::crypto::Expected<ShmCreateResult, CryptoErrorCode> Create(const ShmRegionParams& region_params,
-                                                                     bool is_pool = false) override;
+    score::crypto::Expected<ShmCreateResult, CryptoErrorCode> Create(const ShmRegionParams& region_params) override;
 
   private:
     std::shared_ptr<IShmRegionRegistry> m_registry;

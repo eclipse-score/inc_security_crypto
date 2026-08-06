@@ -389,11 +389,19 @@ daemon::common::RequestParameters GrpcControlServiceAdapter::ExtractRequestParam
                     static_cast<const score::crypto::ipc::control::DataShm*>(static_cast<const void*>(fb_param));
                 if (fb_shm)
                 {
+                    const auto dir = fb_shm->direction();
+                    if (dir != score::crypto::ipc::control::ShmDirection_In &&
+                        dir != score::crypto::ipc::control::ShmDirection_InOut)
+                    {
+                        score::mw::log::LogError()
+                            << "[GrpcControlServiceAdapter] ERROR - Invalid SHM direction: " << static_cast<int>(dir);
+                        break;
+                    }
                     daemon::common::DataShm shm{};
                     shm.node_id = fb_shm->node_id();
                     shm.offset = static_cast<std::size_t>(fb_shm->offset());
                     shm.size = static_cast<std::size_t>(fb_shm->size());
-                    shm.direction = static_cast<daemon::common::ShmDirection>(fb_shm->direction());
+                    shm.direction = static_cast<daemon::common::ShmDirection>(dir);
                     parameters.emplace_back(std::move(shm));
                 }
                 break;

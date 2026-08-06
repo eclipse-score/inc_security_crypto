@@ -220,8 +220,8 @@ TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
 
     // =========================================================================
     // [2/3] POOL — SHA-512, 100-byte heap message
-    //   Input  100B > 32-byte threshold  =>  copied into 4KB pool SHM slot
-    //   Output  64B > 32-byte threshold  =>  copied from 4KB pool SHM slot
+    //   Input  100B > 32-byte threshold  =>  copied into pool SHM slot
+    //   Output  64B > 32-byte threshold  =>  copied from pool SHM slot
     // =========================================================================
     std::cout << "\n[2/3] POOL Transport Path (SHA-512, 100-byte heap message):\n";
 

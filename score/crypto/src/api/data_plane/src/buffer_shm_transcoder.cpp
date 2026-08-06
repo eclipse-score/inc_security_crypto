@@ -67,21 +67,8 @@ score::crypto::Expected<TranscoderSpan, score::result::Error> BufferShmTranscode
         return tspan;
     };
 
-    // Small input buffers can always use in-band transport. Output buffers and
-    // inputs larger than the threshold must use SHM and are handled below.
-    if (!is_output && data.size() <= kInBandThreshold)
-    {
-        return make_inband_span(data);
-    }
-
-    // From here on SHM is required: either an output buffer or an input larger than the threshold.
-    if (m_registry == nullptr)
-    {
-        return score::crypto::make_unexpected(
-            MakeError(CryptoErrorCode::kOperationFailed, "Buffer requires SHM but no registry available"));
-    }
-
     // BULK SHM: Check if data is in a registered bulk region (but not in pool).
+    if (m_registry != nullptr)
     {
         const std::uint64_t node_id = m_registry->IdentifyNode(data);
         if ((node_id != 0) && ((m_pool_allocator == nullptr) || (node_id != m_pool_allocator->GetNodeId())))
@@ -99,6 +86,20 @@ score::crypto::Expected<TranscoderSpan, score::result::Error> BufferShmTranscode
             tspan.obj_node_offset().offset = offset.value();
             return tspan;
         }
+    }
+
+    // Small input buffers can use in-band transport after bulk SHM detection.
+    // Output buffers and larger inputs must use SHM and are handled below.
+    if (!is_output && data.size() <= kInBandThreshold)
+    {
+        return make_inband_span(data);
+    }
+
+    // From here on SHM is required: either an output buffer or an input larger than the threshold.
+    if (m_registry == nullptr)
+    {
+        return score::crypto::make_unexpected(
+            MakeError(CryptoErrorCode::kOperationFailed, "Buffer requires SHM but no registry available"));
     }
 
     // POOL SHM: Try pool allocation.
