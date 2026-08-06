@@ -20,7 +20,6 @@
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_context.hpp"
 
-#include <cryptoki.h>
 #include <pkcs11.h>
 
 #include <cstddef>

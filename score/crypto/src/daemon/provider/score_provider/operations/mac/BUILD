@@ -24,6 +24,10 @@ cc_library(
         "mac_executor.hpp",
         "score_mac_handler.hpp",
     ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/common",

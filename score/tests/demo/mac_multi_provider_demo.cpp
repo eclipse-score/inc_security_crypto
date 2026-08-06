@@ -270,7 +270,7 @@ TEST_F(MacDemoTest, Demo3_SlotDirectFileBackedKey)
     slot.slot_name = "demo/sw-hmac-256";
     slot.algorithm = "HMAC-SHA256";
     // Config-time: populate provider names; runtime would populate provider_ids via ResolveProviderIds
-    slot.provider_names = {common::kProviderNameOpenSSL};
+    slot.provider_names = {"OPENSSL"};
     slot.provider_ids = {0};  // 0 = OpenSSL (typical registration order)
     // Write a temporary deployment descriptor pointing to the test key file.
     const std::string deploy_path =
@@ -332,7 +332,7 @@ TEST_F(MacDemoTest, Demo4_ProviderDirectCapabilityPattern)
     std::cout << "\n=== Demo 4: Direct IProvider Capability Pattern (MISRA-safe) ===\n";
 
     // Simulate the ProviderManager lookup used in the real daemon.
-    ProviderManager mgr(m_config);
+    ProviderManager mgr(m_config.GetProviderInitConfig());
     mgr.RegisterProvider("OPENSSL", m_provider, common::CryptoProviderType::SOFTWARE);
 
     // Retrieve the provider via ProviderManager.

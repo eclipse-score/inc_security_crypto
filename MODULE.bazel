@@ -233,6 +233,8 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 """,
+    patch_args = ["-p1"],
+    patches = ["//third_party/openssl:openssl_qnx_target.patch"],
     sha256 = "b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e",
     strip_prefix = "openssl-3.6.1",
     urls = ["https://www.openssl.org/source/openssl-3.6.1.tar.gz"],
@@ -277,6 +279,9 @@ bazel_dep(name = "score_platform", version = "0.6.2")
 
 # s-core baselibs
 bazel_dep(name = "score_baselibs", version = "0.2.7")
+
+# Build settings utilities (bool_flag, string_flag, etc.)
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
 
 # Testing
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")

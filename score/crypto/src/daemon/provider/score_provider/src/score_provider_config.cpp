@@ -13,26 +13,17 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/score_provider_config.hpp"
 
-#include "score/crypto/src/daemon/provider/score_provider/score_provider_factory.hpp"
-
 namespace score::crypto::daemon::provider::score_provider
 {
 
-void ScoreProviderConfig::PopulateDefaults()
+void ScoreProviderConfig::AddProviderEntry(ScoreProviderEntry entry)
 {
-    if (!m_providers.empty())
-    {
-        return;  // Entries already present (from config file or test fixture).
-    }
-    ScoreProviderEntry openssl{};
-    openssl.providerName = "OPENSSL";
-    openssl.providerImpl = "openssl";
-    m_providers.push_back(std::move(openssl));
+    m_config.providers.push_back(std::move(entry));
 }
 
-void ScoreProviderConfig::Configure(ScoreProviderFactory& factory) const
+const ScoreProviderFactoryConfig& ScoreProviderConfig::GetConfig() const
 {
-    factory.SetConfigs(m_providers);
+    return m_config;
 }
 
 }  // namespace score::crypto::daemon::provider::score_provider

@@ -42,23 +42,26 @@ class ScoreProvider : public IProvider
     ScoreProvider& operator=(ScoreProvider&&) = delete;
 
     // --- IProvider lifecycle ---
-    bool Initialize(const ProviderInitContext& ctx) override;
+    bool Initialize(const ProviderInitContext& ctx) final;
     void Shutdown() override;
+    [[nodiscard]] bool IsInitialized() const override;
     common::ProviderId GetProviderId() const override;
     const common::ProviderName& GetProviderName() const override;
 
     /// Lazy-creates the handler factory via CreateHandlerFactory().
     std::shared_ptr<handler::ICryptoHandlerFactory> GetCryptoHandlerFactory() override;
 
-  protected:
-    /// Override in concrete provider to construct the provider-specific handler factory.
+  private:
+    /// Backend-specific initialisation hook called by Initialize() after base state is set.
+    /// Override in concrete providers to perform backend-specific startup work.
+    /// Return false to abort initialisation; base state is rolled back on failure.
+    [[nodiscard]] virtual bool InitialiseBackend(const ProviderInitContext& ctx);
+
     [[nodiscard]] virtual std::shared_ptr<handler::ICryptoHandlerFactory> CreateHandlerFactory() = 0;
 
     bool m_initialized{false};
     common::ProviderId m_numeric_id{common::kInvalidProviderId};
     common::ProviderName m_provider_name{};
-
-  private:
     handler::ICryptoHandlerFactory::Sptr m_handler_factory;
 };
 

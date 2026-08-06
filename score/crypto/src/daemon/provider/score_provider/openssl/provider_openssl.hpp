@@ -39,7 +39,6 @@ class OpenSSL final : public ::score::crypto::daemon::provider::score_provider::
     OpenSSL& operator=(OpenSSL&&) = delete;
 
     // --- IProvider lifecycle (OpenSSL-specific) ---
-    bool Initialize(const ProviderInitContext& ctx) override;
     void Shutdown() override;
 
     // --- Key management capability ---
@@ -51,12 +50,14 @@ class OpenSSL final : public ::score::crypto::daemon::provider::score_provider::
     // --- SHM capability ---
     std::shared_ptr<data_plane::IShmFactory> GetShmFactory() override;
 
-  protected:
+  private:
+    /// Performs OpenSSL-specific startup: calls OPENSSL_init_crypto and creates the key factory.
+    [[nodiscard]] bool InitialiseBackend(const ProviderInitContext& ctx) override;
+
     /// Creates the OpenSSL-specific handler factory.
     [[nodiscard]] std::shared_ptr<::score::crypto::daemon::provider::handler::ICryptoHandlerFactory>
     CreateHandlerFactory() override;
 
-  private:
     std::shared_ptr<key_management::IKeyFactory> m_factory;
     std::shared_ptr<key_management::KeyManagementService> m_keyManagementService;
     std::shared_ptr<data_plane::IShmFactory> m_shm_factory;

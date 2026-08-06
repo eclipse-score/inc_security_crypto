@@ -23,7 +23,6 @@
 #include "score/crypto/src/daemon/provider/pkcs11/operations/factory/pkcs11_handler_factory.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
-#include <cryptoki.h>
 #include <pkcs11.h>
 
 #include <cstdint>
@@ -80,6 +79,10 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
 
     [[nodiscard]] bool Initialize(const ProviderInitContext& ctx) override;
     void Shutdown() override;
+    [[nodiscard]] bool IsInitialized() const override
+    {
+        return m_initialized;
+    }
     [[nodiscard]] common::ProviderId GetProviderId() const override;
     [[nodiscard]] const common::ProviderName& GetProviderName() const override;
 

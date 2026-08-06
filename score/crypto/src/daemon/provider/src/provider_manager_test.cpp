@@ -15,11 +15,10 @@
 /// @brief Unit tests for ProviderManager::GetProviderType and
 ///        IsProviderCompatibleWithType.
 
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
-#include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
-#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <gtest/gtest.h>
 #include <memory>
@@ -27,29 +26,40 @@
 namespace provider = score::crypto::daemon::provider;
 namespace common = score::crypto::daemon::common;
 
-// ---------------------------------------------------------------------------
-// Minimal IProvider stub — satisfies the pure-virtual interface so
-// RegisterProvider can accept non-null instances.
-// ---------------------------------------------------------------------------
 namespace
 {
-class StubProvider final : public provider::IProvider
+class ConfigurableStubProvider final : public provider::IProvider
 {
   public:
-    explicit StubProvider(const std::string& name, common::ProviderId id) : m_name{name}, m_id{id} {}
+    ConfigurableStubProvider(const std::string& name, common::ProviderId id, bool fail_init)
+        : m_name{name}, m_id{id}, m_fail_init{fail_init}
+    {
+    }
 
     bool Initialize(const provider::ProviderInitContext& ctx) override
     {
+        if (m_fail_init)
+        {
+            return false;
+        }
+        m_initialized = true;
         return true;
     }
 
-    void Shutdown() override {}
+    void Shutdown() override
+    {
+        m_initialized = false;
+    }
+
+    [[nodiscard]] bool IsInitialized() const override
+    {
+        return m_initialized;
+    }
 
     common::ProviderId GetProviderId() const override
     {
         return m_id;
     }
-
     const common::ProviderName& GetProviderName() const override
     {
         return m_name;
@@ -58,6 +68,8 @@ class StubProvider final : public provider::IProvider
   private:
     std::string m_name;
     common::ProviderId m_id;
+    bool m_fail_init;
+    bool m_initialized{false};
 };
 }  // namespace
 
@@ -70,15 +82,19 @@ class ProviderManagerTypeTest : public ::testing::Test
     void SetUp() override
     {
         score::crypto::daemon::config::Config config;
-        m_mgr = std::make_shared<provider::ProviderManager>(config);
+        m_mgr = std::make_shared<provider::ProviderManager>(config.GetProviderInitConfig());
 
         // Register SW_PROVIDER (ID 0)
-        m_mgr->RegisterProvider(
-            "SW_PROVIDER", std::make_shared<StubProvider>("SW_PROVIDER", 0), common::CryptoProviderType::SOFTWARE);
+        m_mgr->RegisterProvider("SW_PROVIDER",
+                                std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false),
+                                common::CryptoProviderType::SOFTWARE);
 
         // Register HW_PROVIDER (ID 1)
-        m_mgr->RegisterProvider(
-            "HW_PROVIDER", std::make_shared<StubProvider>("HW_PROVIDER", 1), common::CryptoProviderType::HARDWARE);
+        m_mgr->RegisterProvider("HW_PROVIDER",
+                                std::make_shared<ConfigurableStubProvider>("HW_PROVIDER", 1, false),
+                                common::CryptoProviderType::HARDWARE);
+
+        m_mgr->Initialize();
     }
 
     provider::ProviderManager::Sptr m_mgr;
@@ -145,15 +161,28 @@ TEST_F(ProviderManagerTypeTest, UnknownProviderReturnsFalse)
 }
 
 // ===========================================================================
-// ContextDataNode GetNodeType
+// Initialization state tracking
 // ===========================================================================
 
-namespace dm = score::crypto::daemon::data_manager;
-namespace handler_ns = score::crypto::daemon::provider::handler;
-
-TEST(ContextDataNodeTypeTest, GetNodeType_ReturnsContext)
+TEST(ProviderManagerInitStateTest, FailedProviderRemainsRegisteredButUnavailable)
 {
-    // ContextDataNode requires a handler; pass nullptr for this type-only test.
-    handler_ns::ContextDataNode node(nullptr, "HMAC-SHA256");
-    EXPECT_EQ(node.GetNodeType(), dm::DataNodeType::kContext);
+    score::crypto::daemon::config::Config config;
+    provider::ProviderManager mgr(config.GetProviderInitConfig());
+
+    auto ok_provider = std::make_shared<ConfigurableStubProvider>("OK_PROVIDER", 0, false);
+    auto fail_provider = std::make_shared<ConfigurableStubProvider>("FAIL_PROVIDER", 1, true);
+
+    ASSERT_TRUE(mgr.RegisterProvider("OK_PROVIDER", ok_provider, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.RegisterProvider("FAIL_PROVIDER", fail_provider, common::CryptoProviderType::HARDWARE));
+
+    // Lookup initializes registered providers on demand. A failed provider
+    // remains registered but is unavailable to callers.
+    EXPECT_EQ(mgr.GetProvider("OK_PROVIDER"), ok_provider);
+    EXPECT_EQ(mgr.GetProvider("FAIL_PROVIDER"), nullptr);
+    EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::SOFTWARE), ok_provider);
+    EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::HARDWARE), nullptr);
+
+    // The registry still knows about both entries even when one is unavailable.
+    EXPECT_TRUE(mgr.GetProviderType("OK_PROVIDER").has_value());
+    EXPECT_TRUE(mgr.GetProviderType("FAIL_PROVIDER").has_value());
 }

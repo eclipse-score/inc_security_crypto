@@ -82,6 +82,11 @@ class IProvider
     /// @brief Shutdown the provider and release all resources.
     virtual void Shutdown() = 0;
 
+    /// @brief Return whether the provider has been successfully initialized.
+    ///
+    /// @return true if Initialize() returned success, false otherwise
+    [[nodiscard]] virtual bool IsInitialized() const = 0;
+
     /// @brief Return the provider's unique numeric identifier.
     /// @return ProviderId (uint16_t) assigned by ProviderManager
     virtual common::ProviderId GetProviderId() const = 0;

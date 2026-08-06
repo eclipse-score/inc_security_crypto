@@ -15,7 +15,7 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_PROVIDER_FACTORY_HPP
 
 #include "score/crypto/src/daemon/provider/i_provider_factory.hpp"
-#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_token_config.hpp"
 
 #include <vector>
 
@@ -25,16 +25,20 @@ namespace score::crypto::daemon::provider::pkcs11
 /**
  * @brief Factory that creates and registers PKCS#11 token providers.
  *
- * Token configuration is supplied externally via SetTokenConfigs() (the acceptor
- * side of the Pkcs11Config visitor pattern) or the explicit vector constructor.
- * The daemon bootstrapper delegates config setup to Pkcs11Config::Configure():
+ * Token configuration is supplied as one complete Pkcs11ProviderFactoryConfig
+ * snapshot. This prevents partially configured or order-dependent factories
+ * when additional factory-wide options are added.
  *
  * @code
- *   config.GetPkcs11Config().PopulateDefaults();
- *   auto factory = std::make_unique<Pkcs11ProviderFactory>();
- *   config.GetPkcs11Config().Configure(*factory);
- *   manager.RegisterFactory(std::move(factory));
+ *   Pkcs11ProviderFactoryConfig factory_config{token_entries};
+ *   auto factory = std::make_unique<Pkcs11ProviderFactory>(std::move(factory_config));
+ *   auto result = factory->CreateAndRegister(manager);
  * @endcode
+ *
+ * The factory accepts plain-data Pkcs11TokenEntry objects and converts them to
+ * the internal Pkcs11ProviderConfig type in the implementation file.  This keeps
+ * pkcs11.h (and CK_* types) out of this header so that provider_manager_factory
+ * does not transitively depend on the PKCS#11 C API.
  *
  * All configured tokens share a single Pkcs11Module so that C_Initialize is
  * called only once for the linked PKCS#11 library, regardless of how many
@@ -43,21 +47,7 @@ namespace score::crypto::daemon::provider::pkcs11
 class Pkcs11ProviderFactory final : public IProviderFactory
 {
   public:
-    /// Construct with default (empty) token configuration.
-    Pkcs11ProviderFactory() = default;
-
-    /// Construct with externally supplied token configurations.
-    ///
-    /// Called by Pkcs11Config::Configure() via SetTokenConfigs(), or directly
-    /// in tests that need to inject specific PKCS#11 provider configs.
-    explicit Pkcs11ProviderFactory(std::vector<Pkcs11ProviderConfig> configs);
-
-    /// @brief Accept a token-config vector pushed by Pkcs11Config::Configure().
-    ///
-    /// This is the "acceptor" side of the visitor pattern: Pkcs11Config
-    /// (the visitor) converts its Pkcs11TokenEntry list to Pkcs11ProviderConfigs
-    /// and hands them to the factory via this method.
-    void SetTokenConfigs(std::vector<Pkcs11ProviderConfig> configs);
+    explicit Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig config);
 
     ~Pkcs11ProviderFactory() override = default;
 
@@ -73,11 +63,11 @@ class Pkcs11ProviderFactory final : public IProviderFactory
      * @param manager  The ProviderManager to register providers into.
      * @return true on full success.
      */
-    bool CreateAndRegister(ProviderManager& manager) override;
+    ProviderFactoryResult CreateAndRegister(ProviderManager& manager) override;
 
   private:
     /// Token configurations injected at construction (empty = no providers registered).
-    std::vector<Pkcs11ProviderConfig> m_injected_configs;
+    Pkcs11ProviderFactoryConfig m_config;
 };
 
 }  // namespace score::crypto::daemon::provider::pkcs11

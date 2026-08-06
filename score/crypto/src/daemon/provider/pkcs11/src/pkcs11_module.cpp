@@ -107,19 +107,21 @@ std::uint32_t TokenAuthGuard::GetActiveUserHandlerCount() const noexcept
 // ModuleGuard
 // ============================================================================
 
-ModuleGuard::ModuleGuard() noexcept : m_initialized{false} {}
+ModuleGuard::ModuleGuard() noexcept : m_functionList{nullptr}, m_initialized{false} {}
 
 ModuleGuard::~ModuleGuard()
 {
     if (m_initialized)
     {
-        static_cast<void>(C_Finalize(nullptr));
+        static_cast<void>(m_functionList->C_Finalize(nullptr));
         m_initialized = false;
     }
 }
 
-ModuleGuard::ModuleGuard(ModuleGuard&& other) noexcept : m_initialized{other.m_initialized}
+ModuleGuard::ModuleGuard(ModuleGuard&& other) noexcept
+    : m_functionList{other.m_functionList}, m_initialized{other.m_initialized}
 {
+    other.m_functionList = nullptr;
     other.m_initialized = false;
 }
 
@@ -129,23 +131,32 @@ ModuleGuard& ModuleGuard::operator=(ModuleGuard&& other) noexcept
     {
         if (m_initialized)
         {
-            static_cast<void>(C_Finalize(nullptr));
+            static_cast<void>(m_functionList->C_Finalize(nullptr));
         }
+        m_functionList = other.m_functionList;
         m_initialized = other.m_initialized;
+        other.m_functionList = nullptr;
         other.m_initialized = false;
     }
     return *this;
 }
 
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ModuleGuard::Initialize(
+    CK_FUNCTION_LIST* functionList,
     CK_C_INITIALIZE_ARGS* initArgs) noexcept
 {
+    if (functionList == nullptr)
+    {
+        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUninitializedStack);
+    }
+
     if (m_initialized)
     {
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAlreadyInitialized);
     }
 
-    const CK_RV rv = C_Initialize(static_cast<CK_VOID_PTR>(initArgs));
+    m_functionList = functionList;
+    const CK_RV rv = m_functionList->C_Initialize(static_cast<CK_VOID_PTR>(initArgs));
     if (rv == CKR_CRYPTOKI_ALREADY_INITIALIZED)
     {
         // Library was already initialised by another Pkcs11Module instance in this process.
@@ -275,7 +286,7 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
     }
 
     // Initialize the PKCS#11 module with optional init args
-    const auto initResult = m_moduleGuard.Initialize(initArgs);
+    const auto initResult = m_moduleGuard.Initialize(m_functionList, initArgs);
     if (!initResult.has_value())
     {
         return initResult;

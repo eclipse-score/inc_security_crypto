@@ -104,21 +104,25 @@ class IPCConfig
  * @brief Provider configuration - contains metadata for adding a new provider
  *
  * This structure holds the necessary information to create and initialize a
- * provider. Providers are identified by their ProviderId and can be categorized
+ * provider. Providers are identified by their ProviderName and can be categorized
  * by CryptoProviderType. The actual provider instance creation is handled by
  * the factory implementation, which can be easily extended to support new
  * provider types.
  */
 struct ProviderConfig
 {
-    common::ProviderId providerId;          ///< Unique provider identifier
+    common::ProviderName providerName;      ///< Human-readable provider identifier
     common::CryptoProviderType cryptoType;  ///< Functional category
-    bool enabled;                           ///< Whether this provider should be initialized
+    bool enabled{true};                     ///< Whether this provider should be used
+    bool required{false};                   ///< Whether startup must provide this provider
     ResourceQuotaPolicy quota_policy{};     ///< Per-provider quota policy override
 
     ProviderConfig() = default;
-    ProviderConfig(const common::ProviderId& id, common::CryptoProviderType cryptoType, bool enabled = true)
-        : providerId(id), cryptoType(cryptoType), enabled(enabled)
+    ProviderConfig(const common::ProviderName& name,
+                   common::CryptoProviderType cryptoType,
+                   bool enabled = true,
+                   bool required = false)
+        : providerName(name), cryptoType(cryptoType), enabled(enabled), required(required)
     {
     }
 };
@@ -133,9 +137,9 @@ struct ProviderConfig
 struct ProviderInitConfig
 {
     std::vector<ProviderConfig> providers;  ///< List of providers to initialize
-    std::unordered_map<common::CryptoProviderType, common::ProviderId>
-        typeToProviderId;  ///< Mapping of provider types to their default
-                           ///< ProviderId
+    std::unordered_map<common::CryptoProviderType, common::ProviderName>
+        typeToProviderName;  ///< Mapping of provider types to their default
+                             ///< provider name
 
     ProviderInitConfig() = default;
 
@@ -151,11 +155,11 @@ struct ProviderInitConfig
     /**
      * @brief Set the default provider for a specific crypto provider type
      * @param cryptoType The functional category
-     * @param providerId The provider ID to use for this type
+     * @param providerName The provider name to use for this type
      */
-    void SetDefaultProviderForType(common::CryptoProviderType cryptoType, const common::ProviderId& providerId)
+    void SetDefaultProviderForType(common::CryptoProviderType cryptoType, const common::ProviderName& providerName)
     {
-        typeToProviderId[cryptoType] = providerId;
+        typeToProviderName[cryptoType] = providerName;
     }
 };
 

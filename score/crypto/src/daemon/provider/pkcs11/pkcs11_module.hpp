@@ -17,7 +17,6 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 
-#include <cryptoki.h>
 #include <pkcs11.h>
 
 #include <cstddef>
@@ -183,6 +182,7 @@ struct Pkcs11ProviderConfig
     std::string userPin{};
 
     std::string providerName{};
+    std::string providerType{};               ///< Provider type string (e.g., "HARDWARE", "SOFTWARE")
     std::uint32_t maxRoSessionsOverride{0U};  ///< 0 = read from C_GetTokenInfo.ulMaxSessionCount
     std::uint32_t maxRwSessionsOverride{0U};  ///< 0 = read from C_GetTokenInfo.ulMaxRwSessionCount
     Pkcs11SessionCleanupStrategy cleanupStrategy{Pkcs11SessionCleanupStrategy::kSoftCleanup};
@@ -213,16 +213,19 @@ class ModuleGuard final
     ModuleGuard(ModuleGuard&& other) noexcept;
     ModuleGuard& operator=(ModuleGuard&& other) noexcept;
 
-    /// @brief Calls C_Initialize with the given init args.
+    /// @brief Calls C_Initialize through the supplied function list.
+    /// @param functionList  Function list obtained from C_GetFunctionList().
     /// @param initArgs  Optional CK_C_INITIALIZE_ARGS (thread-safety flags, mutex callbacks, etc.).
     ///                  Pass nullptr for library-default behaviour (single-threaded / OS locking).
     [[nodiscard]] Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Initialize(
+        CK_FUNCTION_LIST* functionList,
         CK_C_INITIALIZE_ARGS* initArgs = nullptr) noexcept;
 
     /// @brief Returns true if C_Initialize succeeded.
     [[nodiscard]] bool IsInitialized() const noexcept;
 
   private:
+    CK_FUNCTION_LIST* m_functionList;
     bool m_initialized;
 };
 

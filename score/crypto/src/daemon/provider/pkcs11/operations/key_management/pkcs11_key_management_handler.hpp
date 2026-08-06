@@ -22,7 +22,6 @@
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 
-#include <cryptoki.h>
 #include <pkcs11.h>
 
 #include <cstdint>

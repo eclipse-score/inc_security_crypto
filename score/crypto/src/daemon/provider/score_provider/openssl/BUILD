@@ -20,6 +20,10 @@ cc_library(
         "key_management/openssl_key_factory.hpp",
         "key_management/openssl_key_handler.hpp",
     ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/key_management:key_management_headers",
@@ -30,14 +34,17 @@ cc_library(
 cc_library(
     name = "openssl_detail_headers",
     hdrs = ["detail/openssl_algorithm_info.hpp"],
-    implementation_deps = ["//third_party/openssl"],
+    implementation_deps = ["//third_party/openssl:openssl_shared"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
 )
 
 cc_library(
     name = "provider_openssl_headers",
     hdrs = [
-        "openssl_provider_factory.hpp",
         "operations/factory/openssl_handler_factory.hpp",
         "operations/hash/openssl_hash_handler.hpp",
         "operations/key_management/openssl_key_management_handler.hpp",
@@ -45,6 +52,10 @@ cc_library(
         "provider_openssl.hpp",
     ],
     includes = ["."],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         ":openssl_key_management_headers",
@@ -71,10 +82,14 @@ cc_library(
         "provider_openssl.cpp",
     ],
     implementation_deps = [
-        "//third_party/openssl",
+        "//third_party/openssl:openssl_shared",
     ],
     includes = ["."],
     linkstatic = True,
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         ":openssl_detail_headers",
@@ -87,16 +102,5 @@ cc_library(
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
-    ],
-)
-
-cc_library(
-    name = "provider_openssl_factory",
-    srcs = ["openssl_provider_factory.cpp"],
-    hdrs = ["openssl_provider_factory.hpp"],
-    visibility = ["//:__subpackages__"],
-    deps = [
-        ":provider_openssl_library",
-        "//score/crypto/src/daemon/provider:provider_headers",
     ],
 )

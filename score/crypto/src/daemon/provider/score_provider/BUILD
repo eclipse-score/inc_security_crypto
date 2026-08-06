@@ -18,6 +18,10 @@ cc_library(
     name = "score_provider",
     srcs = ["src/score_provider.cpp"],
     hdrs = ["score_provider.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/provider:provider_headers",
@@ -25,26 +29,53 @@ cc_library(
     ],
 )
 
-# Score provider configuration (header-only entry struct + config class).
 cc_library(
     name = "score_provider_config",
+    srcs = ["src/score_provider_config.cpp"],
     hdrs = ["score_provider_config.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+    ],
+)
+
+# Backend adapter interface (used by backend adapters to register with score provider).
+cc_library(
+    name = "score_backend_adapter",
+    hdrs = ["score_backend_adapter.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/daemon/provider:provider_headers",
+    ],
 )
 
 # Top-level factory for the score interface family.
 cc_library(
     name = "score_provider_factory",
     srcs = [
-        "src/score_provider_config.cpp",
         "src/score_provider_factory.cpp",
     ],
     hdrs = ["score_provider_factory.hpp"],
+    implementation_deps = [
+        "//score/crypto/src/backend/score_provider:backend",  # Selected Score backends
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:score_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     visibility = ["//:__subpackages__"],
     deps = [
         ":score_provider",
         ":score_provider_config",
         "//score/crypto/src/daemon/provider:provider_headers",
-        "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_factory",
     ],
 )

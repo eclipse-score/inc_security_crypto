@@ -14,15 +14,21 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_TOKEN_CONFIG_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_PKCS11_TOKEN_CONFIG_HPP
 
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
+
+namespace score::crypto::daemon::config
+{
+class Config;
+}
 
 namespace score::crypto::daemon::provider::pkcs11
 {
-
-// Forward declaration — Configure() is implemented in pkcs11_token_config.cpp
-// to keep this header free of PKCS#11 C API types (pkcs11_module.hpp).
-class Pkcs11ProviderFactory;
 
 /// @brief Plain-data configuration entry for one PKCS#11 token.
 ///
@@ -39,8 +45,17 @@ struct Pkcs11TokenEntry
     std::string userPin{};
     /// Provider name used to register and look up this provider in ProviderManager.
     std::string providerName{};
+    /// Provider Type used to register this provider in ProviderManager (HARDWARE or SOFTWARE).
+    std::string providerType{"HARDWARE"};
+    /// Cleanup strategy for session objects (soft vs hard cleanup).
     /// true = kHardCleanup (re-open session after every handler), false = kSoftCleanup.
     bool useHardCleanup{true};
+};
+
+/// @brief Complete configuration snapshot consumed by Pkcs11ProviderFactory.
+struct Pkcs11ProviderFactoryConfig
+{
+    std::vector<Pkcs11TokenEntry> tokens;
 };
 
 /// @brief Aggregates the ordered list of PKCS#11 token entries for the daemon.
@@ -49,16 +64,13 @@ struct Pkcs11TokenEntry
 /// top-level Config class holds one instance (via a type alias in the config
 /// namespace) so that config.hpp does not need to define PKCS#11 structures.
 ///
-/// @par Visitor pattern
-/// Configure() acts as a "visitor" that pushes the token entries into a
-/// Pkcs11ProviderFactory. The conversion from Pkcs11TokenEntry to
-/// Pkcs11ProviderConfig lives entirely within the PKCS#11 subsystem.
-/// Typical bootstrapper usage:
+/// The provider manager bootstrapper parses this configuration and passes a
+/// complete Pkcs11ProviderFactoryConfig snapshot to the factory. Typical usage:
 /// @code
-///   config.GetPkcs11Config().PopulateDefaults();
-///   auto factory = std::make_unique<Pkcs11ProviderFactory>();
-///   config.GetPkcs11Config().Configure(*factory);
-///   manager.RegisterFactory(std::move(factory));
+///   Pkcs11ProviderFactoryConfig factory_config{
+///       config.GetPkcs11Config().GetConfig()};
+///   auto factory = std::make_unique<Pkcs11ProviderFactory>(std::move(factory_config));
+///   auto result = factory->CreateAndRegister(manager);
 /// @endcode
 class Pkcs11Config
 {
@@ -66,33 +78,19 @@ class Pkcs11Config
     Pkcs11Config() = default;
 
     /// @brief Add a token entry (called by parser or bootstrapper).
-    void AddTokenEntry(Pkcs11TokenEntry entry)
-    {
-        m_tokens.push_back(std::move(entry));
-    }
+    void AddTokenEntry(Pkcs11TokenEntry entry);
 
-    /// @brief Get all registered token entries (read-only).
-    const std::vector<Pkcs11TokenEntry>& GetTokenEntries() const
-    {
-        return m_tokens;
-    }
+    /// @brief Get the complete factory configuration snapshot (read-only).
+    const Pkcs11ProviderFactoryConfig& GetConfig() const;
 
-    /// @brief Populate production default token entries when no config was loaded.
+    /// @brief Parse the configuration and populate the token information.
     ///
-    /// Adds a SoftHSM entry with standard test credentials.  No-op if any
-    /// token entries are already present (e.g. loaded from file or test fixture).
-    void PopulateDefaults();
-
-    /// @brief Visit @p factory: convert each token entry and configure the factory.
-    ///
-    /// Converts each Pkcs11TokenEntry to a Pkcs11ProviderConfig and calls
-    /// factory.SetTokenConfigs().  Implemented out-of-line in
-    /// pkcs11_token_config.cpp so that this header remains free of
-    /// PKCS#11 C API types.
-    void Configure(Pkcs11ProviderFactory& factory) const;
+    /// This method parses the pkcs11 configuration and populates the token information.
+    /// @return Empty value on success, or a daemon error if parsing fails.
+    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ParseConfig(config::Config& config);
 
   private:
-    std::vector<Pkcs11TokenEntry> m_tokens;
+    Pkcs11ProviderFactoryConfig m_config;
 };
 
 }  // namespace score::crypto::daemon::provider::pkcs11

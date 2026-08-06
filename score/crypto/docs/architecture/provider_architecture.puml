@@ -18,14 +18,12 @@ package "Configuration (config/)" <<Rectangle>> #FFF8DC {
 
     class ScoreProviderConfig {
         +AddProviderEntry(entry)
-        +PopulateDefaults()
-        +Configure(factory : ScoreProviderFactory&)
+        +GetConfig() : const ScoreProviderFactoryConfig&
     }
 
     class Pkcs11Config {
         +AddTokenEntry(entry)
-        +PopulateDefaults()
-        +Configure(factory : Pkcs11ProviderFactory&)
+        +GetConfig() : const Pkcs11ProviderFactoryConfig&
     }
 
     Config *-- ScoreProviderConfig
@@ -38,23 +36,23 @@ package "Configuration (config/)" <<Rectangle>> #FFF8DC {
 package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
 
     interface IProviderFactory {
-        +CreateAndRegister(manager : ProviderManager&) : bool
+        +CreateAndRegister(manager : ProviderManager&) : ProviderFactoryResult
     }
 
     class ProviderManager {
-        +RegisterFactory(factory : unique_ptr<IProviderFactory>)
         +Initialize() : bool
         +RegisterProvider(name, provider, type) : bool
+        +IsProviderRegistered(name) : bool
         +GetProvider(id) : IProvider::Sptr
     }
 
     interface IProvider {
-        +Initialize() : Result<void>
-        +Shutdown() : Result<void>
+        +Initialize(context : ProviderInitContext) : bool
+        +Shutdown() : void
+        +IsInitialized() : bool
         +CreateHandlerFactory() : unique_ptr<ICryptoHandlerFactory>
     }
 
-    ProviderManager *-- IProviderFactory : 0..n
     ProviderManager *-- IProvider : 1..n
     IProviderFactory ..> ProviderManager : registers into
 
@@ -83,31 +81,26 @@ package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
     package "Score Provider Family (score_provider/)" <<Rectangle>> #E8F5E9 {
 
         class ScoreProviderFactory {
-            -m_configs : vector<ScoreProviderEntry>
-            +SetConfigs(configs)
-            +CreateAndRegister(manager) : bool
+            -m_config : ScoreProviderFactoryConfig
+            +ScoreProviderFactory(config : ScoreProviderFactoryConfig)
+            +CreateAndRegister(manager) : ProviderFactoryResult
         }
         ScoreProviderFactory .up.|> IProviderFactory
-        ScoreProviderConfig ..> ScoreProviderFactory : Configure() calls SetConfigs()
-
-        class OpenSSLProviderFactory {
-            +CreateAndRegister(manager) : bool
-        }
-        ScoreProviderFactory ..> OpenSSLProviderFactory : delegates to
+        ScoreProviderConfig ..> ScoreProviderFactory : supplies config snapshot
 
         abstract class ScoreProvider {
-            +Initialize() : Result<void>
-            +Shutdown() : Result<void>
+            #m_provider_name : ProviderName
+            #m_numeric_id : ProviderId
+            +Initialize(ctx : ProviderInitContext) : bool
+            +Shutdown() : void
+            +GetProviderName() : const ProviderName&
             #CreateHandlerFactory() : unique_ptr<ICryptoHandlerFactory>
         }
         ScoreProvider .up.|> IProvider
 
         class OpenSSL {
-            +Initialize() : Result<void>
-            +Shutdown() : Result<void>
         }
         OpenSSL --|> ScoreProvider
-        OpenSSLProviderFactory ..> OpenSSL : creates
 
         package "operations/ (base handlers + executors)" <<Rectangle>> #D5F0D5 {
 
@@ -169,17 +162,49 @@ package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
     }
 
     ' ====================================================================
+    ' BACKEND ADAPTER LAYER  (backend/score_provider/)
+    ' ====================================================================
+    package "Backend Adapters (backend/score_provider/)" <<Rectangle>> #FFF3E0 {
+
+        interface IBackendProviderAdapter {
+            +GetProviderCreator() : ProviderCreator
+        }
+
+        class ProviderCreator <<struct>> {
+            +backend_id : string
+            +backend_name : string
+            +provider_type : string
+            +create_provider : function<unique_ptr<IProvider>()>
+        }
+
+        class OpenSSLBackendAdapter {
+            +GetProviderCreator() : ProviderCreator
+        }
+        OpenSSLBackendAdapter .up.|> IBackendProviderAdapter
+        IBackendProviderAdapter ..> ProviderCreator : returns
+
+        note bottom of IBackendProviderAdapter
+          GetActiveBackends() (active_backends_list.hpp)
+          returns enabled adapters at compile time
+          via preprocessor flags (SCORE_BACKEND_*_ENABLED).
+        end note
+    }
+
+    ScoreProviderFactory ..> IBackendProviderAdapter : discovers via GetActiveBackends()
+    OpenSSLBackendAdapter ..> OpenSSL : instantiates via create_provider()
+
+    ' ====================================================================
     ' PKCS#11 PROVIDER FAMILY
     ' ====================================================================
     package "PKCS#11 Provider Family (pkcs11/)" <<Rectangle>> #E3F2FD {
 
         class Pkcs11ProviderFactory {
-            -m_configs : vector<Pkcs11ProviderConfig>
-            +SetTokenConfigs(configs)
-            +CreateAndRegister(manager) : bool
+            -m_config : Pkcs11ProviderFactoryConfig
+            +Pkcs11ProviderFactory(config : Pkcs11ProviderFactoryConfig)
+            +CreateAndRegister(manager) : ProviderFactoryResult
         }
         Pkcs11ProviderFactory .up.|> IProviderFactory
-        Pkcs11Config ..> Pkcs11ProviderFactory : Configure() calls SetTokenConfigs()
+        Pkcs11Config ..> Pkcs11ProviderFactory : supplies config snapshot
 
         class Pkcs11Provider
         Pkcs11Provider .up.|> IProvider

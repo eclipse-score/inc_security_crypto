@@ -37,3 +37,47 @@ cc_library(
         ":provider_headers",
     ],
 )
+
+cc_library(
+    name = "provider_manager_factory",
+    srcs = ["src/provider_manager_factory.cpp"],
+    hdrs = ["provider_manager_factory.hpp"],
+    implementation_deps = select({
+        "//score/crypto/src/backend:score_backend_enabled": [
+            "//score/crypto/src/backend:score_backend_defines",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [
+            "//score/crypto/src/backend:pkcs11_backend_defines",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":provider_headers",
+        ":provider_manager",
+    ] + select({
+        "//score/crypto/src/backend:score_backend_enabled": ["//score/crypto/src/daemon/provider/score_provider:score_provider_factory"],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": ["//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_factory"],
+        "//conditions:default": [],
+    }),
+)
+
+#-----------------------------------#
+# Unit tests for the provider manager
+#-----------------------------------#
+
+cc_test(
+    name = "provider_manager_unit_test",
+    srcs = ["src/provider_manager_test.cpp"],
+    deps = [
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider:provider_manager",
+        "@googletest//:gtest_main",
+    ],
+)

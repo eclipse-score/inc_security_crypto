@@ -36,9 +36,9 @@ constexpr std::string_view LOG_PREFIX = "[KM_SERVICE] ";
 KeyManagementService::KeyManagementService(data_manager::IDataManager::Sptr data_manager,
                                            provider::ProviderManager::Sptr provider_manager,
                                            SlotRegistry::Sptr slot_registry)
-    : m_data_manager{std::move(data_manager)},
-      m_provider_manager{std::move(provider_manager)},
-      m_slot_registry{std::move(slot_registry)}
+    : m_provider_manager{std::move(provider_manager)},
+      m_slot_registry{std::move(slot_registry)},
+      m_data_manager{std::move(data_manager)}
 {
     if (!m_data_manager || !m_provider_manager || !m_slot_registry)
     {

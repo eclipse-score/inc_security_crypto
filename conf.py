@@ -49,6 +49,7 @@ exclude_patterns = [
     "_build",
     "examples/README.md",
     "score/tests/**",
+    "score/crypto/src/backend/README.md",  # developer-only README
 ]
 
 

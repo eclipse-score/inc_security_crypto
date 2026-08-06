@@ -19,16 +19,14 @@
 
 #include <memory>
 #include <thread>
+#include <utility>
 
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/basic_handler_chain_factory.hpp"
 #include "score/crypto/src/daemon/control_plane/i_control_server.h"
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"
 #include "score/crypto/src/daemon/key_management/key_management_module.hpp"
-#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
-#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
-#include "score/crypto/src/daemon/provider/provider_manager.hpp"
-#include "score/crypto/src/daemon/provider/score_provider/score_provider_factory.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager_factory.hpp"
 #include "score/crypto/src/ipc/grpc_adapter/grpc_control_server.h"
 #include "score/crypto/src/ipc/ipc_config.h"
 
@@ -67,28 +65,15 @@ int main(int argc, char** argv)
         score::mw::log::LogError() << "Warning: Could not parse config file (may not exist)";
     }
 
-    auto provider_manager = std::make_shared<score::crypto::daemon::provider::ProviderManager>(config);
-
-    // Wire provider factories — each factory encapsulates construction and registration
-    // of one or more providers.  Factories are called in order during Initialize().
-
-    // Score provider factory (OpenSSL software provider)
-    config.GetScoreProviderConfig().PopulateDefaults();
-    auto score_factory = std::make_unique<score::crypto::daemon::provider::score_provider::ScoreProviderFactory>();
-    config.GetScoreProviderConfig().Configure(*score_factory);
-    provider_manager->RegisterFactory(std::move(score_factory));
-
-    // Populate production PKCS#11 default tokens (SoftHSM) unless the config
-    // file already supplied entries.
-    config.GetPkcs11Config().PopulateDefaults();
-
-    // Pkcs11Config visits the factory: converts Pkcs11TokenEntry entries to
-    // Pkcs11ProviderConfig and calls factory.SetTokenConfigs() internally.
-    auto pkcs11_factory = std::make_unique<score::crypto::daemon::provider::pkcs11::Pkcs11ProviderFactory>();
-    config.GetPkcs11Config().Configure(*pkcs11_factory);
-    provider_manager->RegisterFactory(std::move(pkcs11_factory));
-
-    provider_manager->Initialize();
+    // Create and initialize the provider manager via factory.
+    auto provider_manager_result = score::crypto::daemon::provider::ProviderManagerFactory::Create(config);
+    if (!provider_manager_result.has_value())
+    {
+        score::mw::log::LogError() << "Failed to create provider manager"
+                                   << " (error code: " << static_cast<int>(provider_manager_result.error()) << ")";
+        return 1;
+    }
+    auto provider_manager = std::move(*provider_manager_result);
 
     // Create data manager
     auto data_manager = std::make_shared<score::crypto::daemon::data_manager::DataManager>();

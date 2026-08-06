@@ -18,7 +18,7 @@ cc_binary(
     name = "init_softhsm_token",
     srcs = ["init_softhsm_token.cpp"],
     deps = [
-        "//third_party/soft_hsm:libsofthsm_shared",
+        "//third_party/soft_hsm:softhsm_shared",
     ],
 )
 
@@ -96,8 +96,8 @@ py_itf_test(
         "//score/crypto/src/daemon:crypto_daemon",
         "//score/tests/config:logging.json",
         "//third_party/grpc:libgrpc_shared",
-        "//third_party/openssl:openssl_shared",
-        "//third_party/soft_hsm:soft_hsm_cmake",
+        "//third_party/openssl:openssl_so",
+        "//third_party/soft_hsm:softhsm_so",
     ],
     plugins = [
         "itf.plugins.docker",

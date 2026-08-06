@@ -118,48 +118,42 @@ through two complementary abstractions:
 
 ``IProviderFactory``
    A pure-virtual factory interface with a single method
-   ``bool CreateAndRegister(ProviderManager&)``.
+   ``ProviderFactoryResult CreateAndRegister(ProviderManager&)``.
    Concrete implementations encapsulate the construction and registration of one or more
-   related ``IProvider`` instances.  Factories are registered externally
-   (daemon bootstrapper) via ``ProviderManager::RegisterFactory()`` and called in
-   registration order during ``ProviderManager::Initialize()``.
+   related ``IProvider`` instances. ``ProviderManagerFactory`` invokes backend
+   factories independently and records each structured result; ``ProviderManager``
+   does not own concrete factories.
 
 ``ScoreProviderFactory``
    Top-level factory for the **score interface family**.  Accepts a vector of
-   ``ScoreProviderEntry`` configs (default: single OpenSSL entry).
-   ``CreateAndRegister()`` iterates configs and delegates to the appropriate
-   internal factory (e.g. ``OpenSSLProviderFactory``).
-
-``OpenSSLProviderFactory``
-   Internal factory used by ``ScoreProviderFactory``.  Constructs
-   ``score::openssl::OpenSSL`` and registers it as ``CryptoProviderType::SOFTWARE``
-   under the ``common::kProviderNameOpenSSL`` name.  No per-instance configuration required.
+   ``ScoreProviderEntry`` values in a complete ``ScoreProviderFactoryConfig``
+   snapshot (default: single OpenSSL entry).
+   ``CreateAndRegister()`` resolves each configured implementation tag against
+   the active compile-time backend adapters and registers the resulting provider
+   under its configured name and type.
 
 ``Pkcs11ProviderFactory``
-   Accepts an injected ``std::vector<Pkcs11ProviderConfig>`` via
-   ``SetTokenConfigs()`` (the acceptor side of the visitor pattern) or
-   through its explicit vector constructor.  The daemon bootstrapper does
-   not build configs directly; it delegates to ``Pkcs11Config::Configure()``:
+   Accepts a complete ``Pkcs11ProviderFactoryConfig`` snapshot containing the
+   parsed ``Pkcs11TokenEntry`` values. The daemon bootstrapper passes this
+   snapshot when constructing the factory:
 
    .. code-block:: cpp
 
-      config.GetPkcs11Config().PopulateDefaults();
-      auto factory = std::make_unique<Pkcs11ProviderFactory>();
-      config.GetPkcs11Config().Configure(*factory);
-      manager.RegisterFactory(std::move(factory));
+        Pkcs11ProviderFactoryConfig factory_config{
+           config.GetPkcs11Config().GetConfig()};
+        auto factory = std::make_unique<Pkcs11ProviderFactory>(
+           std::move(factory_config));
+      auto result = factory->CreateAndRegister(manager);
 
    ``CreateAndRegister`` creates a single shared ``Pkcs11Module`` (so
    ``C_Initialize`` is invoked exactly once regardless of token count),
    then constructs and registers one ``Pkcs11Provider`` per entry as
    ``CryptoProviderType::HARDWARE``.
 
-   **Visitor pattern** — ``Pkcs11Config::Configure()`` is the visitor:
-   it iterates the ``Pkcs11TokenEntry`` list, converts each entry to a
-   ``Pkcs11ProviderConfig`` (filling labels, PIN, cleanup strategy), and
-   calls ``factory.SetTokenConfigs()``.
-   This keeps the ``Pkcs11TokenEntry → Pkcs11ProviderConfig`` conversion
-   entirely within the PKCS#11 subsystem
-   (``score/crypto/daemon/provider/pkcs11/pkcs11_token_config.*``).
+   The factory performs the ``Pkcs11TokenEntry`` to
+   ``Pkcs11ProviderConfig`` conversion internally (filling labels, PIN, and
+   cleanup strategy). This keeps the conversion within the PKCS#11 subsystem
+   and keeps PKCS#11 implementation details out of the daemon bootstrapper.
 
    **Multi-token coexistence**: multiple ``Pkcs11TokenEntry`` entries in
    ``Pkcs11Config`` produce one ``Pkcs11Provider`` per token.
@@ -175,8 +169,10 @@ through two complementary abstractions:
 
 ``ProviderManager``
    Aggregates all registered providers and routes requests by ``ProviderId`` or
-   ``CryptoProviderType``.  After all factories have been called, ``Initialize()``
-   applies the daemon configuration and calls ``Initialize()`` on every provider.
+   ``CryptoProviderType``. ``ProviderManagerFactory`` registers providers first.
+   ``ProviderManager::Initialize()`` then makes the initial initialization pass and
+   builds type mappings. Provider lookups retry unavailable providers under
+   synchronization, using the original stable ``ProviderId``.
 
 Dynamic Architecture
 --------------------

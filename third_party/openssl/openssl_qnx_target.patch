@@ -1,0 +1,42 @@
+diff --git a/Configurations/10-main.conf b/Configurations/10-main.conf
+index 0000000..0000000 100644
+--- a/Configurations/10-main.conf
++++ b/Configurations/10-main.conf
+@@ -668,7 +668,37 @@ my %targets = (
+ #### Variety of LINUX:-)
+ ####
+ # *-generic* is endian-neutral target, but ./config is free to
+ # throw in -D[BL]_ENDIAN, whichever appropriate...
++    "qnx-x86_64" => {
++        inherit_from     => [ "BASE_unix" ],
++        cppflags          => add("-D_QNX_SOURCE"),
++        ex_libs           => "",
++        bn_ops            => "SIXTY_FOUR_BIT_LONG RC4_CHAR",
++        asm_arch          => "x86_64",
++        perlasm_scheme    => "elf",
++        thread_scheme     => "(unknown)",
++        dso_scheme        => "dlfcn",
++        shared_target     => "linux-shared",
++        shared_cflag      => "-fPIC",
++        shared_ldflag     => "-shared",
++        shared_sonameflag => "",
++        shared_extension  => ".so.\$(SHLIB_VERSION_NUMBER)",
++    },
++    "qnx-aarch64" => {
++        inherit_from     => [ "BASE_unix" ],
++        cppflags          => add("-D_QNX_SOURCE"),
++        ex_libs           => "",
++        bn_ops            => "SIXTY_FOUR_BIT_LONG RC4_CHAR",
++        asm_arch          => "aarch64",
++        perlasm_scheme    => "linux64",
++        thread_scheme     => "(unknown)",
++        dso_scheme        => "dlfcn",
++        shared_target     => "linux-shared",
++        shared_cflag      => "-fPIC",
++        shared_ldflag     => "-shared",
++        shared_sonameflag => "",
++        shared_extension  => ".so.\$(SHLIB_VERSION_NUMBER)",
++    },
+     "linux-generic32" => {
+         inherit_from     => [ "BASE_unix" ],
+         CC               => "gcc",
