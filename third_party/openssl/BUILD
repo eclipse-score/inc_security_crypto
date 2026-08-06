@@ -23,16 +23,8 @@ configure_make(
     configure_command = "Configure",  # OpenSSL uses Configure, not configure
     configure_in_place = False,  # Avoid path conflicts with QCC
     configure_options = select({
-        # OpenSSL's Configure auto-detects the host (build) machine, not the
-        # target. Without an explicit target it always picks linux-x86_64 on a
-        # typical CI host and injects -m64 and other x86_64-specific flags.
-        # QNX has no target entry in OpenSSL's Configurations/10-main.conf
-        # at all (no qnx-*, nto-*, or aarch64-unknown-nto-qnx* target exists),
-        # so in all cross-compilation cases we pass the closest Linux target
-        # to get the correct ABI and architecture flags. The QNX-specific
-        # cross-compilation is handled transparently via the toolchain.
-        "//platforms:is_qnx_aarch64": ["linux-aarch64"],
-        "//platforms:is_qnx_x86_64": ["linux-x86_64"],
+        "//platforms:is_qnx_aarch64": ["qnx-aarch64"],  #Patched openssl main.conf
+        "//platforms:is_qnx_x86_64": ["qnx-x86_64"],  #Patched openssl main.conf
         "//platforms:is_linux_aarch64": ["linux-aarch64"],
         "//conditions:default": [],
     }) + [
