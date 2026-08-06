@@ -19,7 +19,7 @@ index 0000000..0000000 100644
 +        shared_target     => "linux-shared",
 +        shared_cflag      => "-fPIC",
 +        shared_ldflag     => "-shared",
-+        shared_sonameflag => "-Wl,-soname,",
++        shared_sonameflag => "",
 +        shared_extension  => ".so.\$(SHLIB_VERSION_NUMBER)",
 +    },
 +    "qnx-aarch64" => {
@@ -34,7 +34,7 @@ index 0000000..0000000 100644
 +        shared_target     => "linux-shared",
 +        shared_cflag      => "-fPIC",
 +        shared_ldflag     => "-shared",
-+        shared_sonameflag => "-Wl,-soname,",
++        shared_sonameflag => "",
 +        shared_extension  => ".so.\$(SHLIB_VERSION_NUMBER)",
 +    },
      "linux-generic32" => {
