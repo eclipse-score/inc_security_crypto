@@ -147,6 +147,39 @@ class IProvider
     {
         return nullptr;
     }
+
+    // -----------------------------------------------------------------------
+    // Capability advertisement
+    // -----------------------------------------------------------------------
+
+    /// @brief Report the functional capabilities this provider offers.
+    ///
+    /// The default derives the capability set directly from the capability
+    /// accessors above — the single source of truth — so a provider that
+    /// returns a non-null factory automatically advertises the matching
+    /// capability. Providers whose capability cannot be inferred from an
+    /// accessor (e.g. a backend that offers certificate operations only through
+    /// an extension) override this to declare the correct set.
+    ///
+    /// Used by ProviderManager::GetProviderForCapability() to pick a default
+    /// provider for a functional area rather than by hardware/software category.
+    [[nodiscard]] virtual common::ProviderCapability GetProviderCapabilities()
+    {
+        common::ProviderCapability caps = common::ProviderCapability::kNone;
+        if (GetCryptoHandlerFactory() != nullptr)
+        {
+            caps |= common::ProviderCapability::kCrypto;
+        }
+        if (GetKeyFactory() != nullptr)
+        {
+            caps |= common::ProviderCapability::kKeyManagement;
+        }
+        if (GetCertFactory() != nullptr)
+        {
+            caps |= common::ProviderCapability::kCertManagement;
+        }
+        return caps;
+    }
 };
 
 }  // namespace score::crypto::daemon::provider
