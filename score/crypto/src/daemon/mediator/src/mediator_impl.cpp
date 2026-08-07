@@ -329,12 +329,6 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         return false;
     }
 
-    score::mw::log::LogDebug() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
-                               << "] selected provider: name='" << provider->GetProviderName()
-                               << "' id=" << provider->GetProviderId()
-                               << std::string_view{has_key_binding ? " (key-affinity resolved)"
-                                                                   : " (type-based selection)"};
-
     auto crypto_ops = provider->GetCryptoHandlerFactory();
     if (crypto_ops == nullptr)
     {
