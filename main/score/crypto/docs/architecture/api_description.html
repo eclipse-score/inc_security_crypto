@@ -495,6 +495,7 @@
 <li class="toctree-l2"><a class="reference internal" href="key_management_details.html">Key Management Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
 <li class="toctree-l2"><a class="reference internal" href="design_decisions.html">Design Decisions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_plane_architecture.html">Data Plane Architecture</a></li>
 </ul>
 </details></li>
 </ul>
@@ -696,13 +697,17 @@ to detect that the resource is still referenced by an active context — call
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">ICryptoStack::GetMemoryAllocator()</span></code> returns a <code class="docutils literal notranslate"><span class="pre">Result&lt;IMemoryAllocator::Uptr&gt;</span></code>
 transferring ownership of the allocator to the caller.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator::Allocate(size)</span></code> allocates shared memory with <code class="docutils literal notranslate"><span class="pre">kDefault</span></code>
-type. The daemon tracks allocations against a per-application quota
+<li><p><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator::Allocate(size)</span></code> / <code class="docutils literal notranslate"><span class="pre">Allocate(size,</span> <span class="pre">provider_type)</span></code>
+allocates shared memory. When <code class="docutils literal notranslate"><span class="pre">provider_type</span></code> is <code class="docutils literal notranslate"><span class="pre">std::nullopt</span></code> (the
+default) the daemon selects default shared memory. Passing a <code class="docutils literal notranslate"><span class="pre">ProviderType</span></code>
+value (e.g., <code class="docutils literal notranslate"><span class="pre">kHardware</span></code>) requests memory compatible with that provider
+category. The daemon tracks allocations against a per-application quota
 (configurable, overridable per app).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator::Allocate(size,</span> <span class="pre">kProviderCompatible,</span> <span class="pre">providerHandle)</span></code>
-allocates memory directly usable by a specific provider (e.g., DMA-capable
-for hardware/TEE), enabling the zero-copy path.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">IReadWriteMemoryRegion</span></code> provides <code class="docutils literal notranslate"><span class="pre">AsSpan()</span></code> and <code class="docutils literal notranslate"><span class="pre">AsWritableSpan()</span></code> for
+<li><p><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator::Allocate(size,</span> <span class="pre">provider)</span></code> allocates memory directly
+usable by a specific resolved provider instance (identified by a
+<code class="docutils literal notranslate"><span class="pre">CryptoResourceId</span></code> of type <code class="docutils literal notranslate"><span class="pre">kProvider</span></code>), enabling the zero-copy path for
+hardware/TEE providers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">IReadWriteMemory</span></code> provides <code class="docutils literal notranslate"><span class="pre">AsSpan()</span></code> and <code class="docutils literal notranslate"><span class="pre">AsWritableSpan()</span></code> for
 passing data to operation contexts.</p></li>
 <li><p>Memory regions are shared between library and daemon, so operation data does
 not traverse the IPC serialization path.</p></li>
@@ -714,15 +719,16 @@ the quota.</p></li>
 <h2>Zero-Copy Path<a class="headerlink" href="#zero-copy-path" title="Link to this heading">#</a></h2>
 <p>When provider-compatible memory is used, the data path avoids all copies:</p>
 <ol class="arabic simple">
+<li><p>Application resolves a provider handle: <code class="docutils literal notranslate"><span class="pre">ResolveResource(&quot;MyHSM&quot;,</span> <span class="pre">kProvider)</span></code></p></li>
 <li><p>Application allocates provider-compatible memory via
-<code class="docutils literal notranslate"><span class="pre">Allocate(size,</span> <span class="pre">kProviderCompatible,</span> <span class="pre">providerHandle)</span></code></p></li>
+<code class="docutils literal notranslate"><span class="pre">Allocate(size,</span> <span class="pre">providerResourceId)</span></code></p></li>
 <li><p>Application writes data into the region</p></li>
 <li><p>Application passes <code class="docutils literal notranslate"><span class="pre">region.AsSpan()</span></code> to an operation context</p></li>
 <li><p>Daemon forwards the same physical memory to the target provider</p></li>
 <li><p>No copies occur end-to-end</p></li>
 </ol>
-<p>For non-compatible memory or when <code class="docutils literal notranslate"><span class="pre">kDefault</span></code> is used, the daemon copies
-data into an internal provider-compatible buffer transparently.</p>
+<p>For default allocation (<code class="docutils literal notranslate"><span class="pre">Allocate(size)</span></code> or <code class="docutils literal notranslate"><span class="pre">Allocate(size,</span> <span class="pre">std::nullopt)</span></code>)
+the daemon copies data into an internal provider-compatible buffer transparently.</p>
 </section>
 <section id="base-class-hierarchy">
 <h2>Base Class Hierarchy<a class="headerlink" href="#base-class-hierarchy" title="Link to this heading">#</a></h2>

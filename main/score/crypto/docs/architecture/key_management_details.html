@@ -495,6 +495,7 @@
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Key Management Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
 <li class="toctree-l2"><a class="reference internal" href="design_decisions.html">Design Decisions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data_plane_architecture.html">Data Plane Architecture</a></li>
 </ul>
 </details></li>
 </ul>
@@ -671,7 +672,7 @@ key generation, key load with deduplication, MAC context creation with key
 binding, MAC streaming, and crash cleanup:</p>
 <figure class="align-center" id="id5">
 <p class="plantuml">
-<object data="../../../../_images/plantuml-49f0559ee67a4c55f7082af12bdd70d0631ebccd.svg" type="image/svg+xml" style="width:5105px;height:792px;background:#FFFFFF;"></object></p>
+<object data="../../../../_images/plantuml-d607593d45126171b2f9b6e3a00253ecd3b5d956.svg" type="image/svg+xml" style="width:5105px;height:792px;background:#FFFFFF;"></object></p>
 <figcaption>
 <p><span class="caption-number">Fig. 10 </span><span class="caption-text">Key Management — Sequence Diagrams</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
 </figcaption>
@@ -921,7 +922,7 @@ on subsequent updates) and calls <code class="docutils literal notranslate"><spa
 <li><p><code class="docutils literal notranslate"><span class="pre">MacExecutor</span></code> validates <code class="docutils literal notranslate"><span class="pre">STREAM_INITIALIZED/ACTIVE</span> <span class="pre">→</span> <span class="pre">IDLE</span></code> transition.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">OpenSslHmacHandler::FinalizeMac</span></code> → <code class="docutils literal notranslate"><span class="pre">EVP_MAC_final(m_ctx,</span> <span class="pre">output,</span>
 <span class="pre">&amp;hmac_len,</span> <span class="pre">buf_len)</span></code> writes the 32-byte HMAC-SHA256 tag into the
-client-provided <code class="docutils literal notranslate"><span class="pre">VirtualMemoryBuffer</span></code>.</p></li>
+client-provided shared-memory buffer.</p></li>
 </ol>
 </section>
 <section id="step-5-release-resources">
