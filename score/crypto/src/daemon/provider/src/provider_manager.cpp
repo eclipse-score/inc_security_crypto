@@ -80,30 +80,65 @@ void ProviderManager::RecordFactoryResult(const std::string& factoryName, Provid
 common::ProviderName ProviderManager::ResolveDefaultProviderName(
     const std::vector<common::CryptoProviderType>& preferenceOrder)
 {
-    std::unordered_map<common::CryptoProviderType, common::ProviderName> byType;
-    common::ProviderName anyName;
-    for (const auto& [name, entry] : m_providers)
+    // Prefer providers that initialized successfully so the default maps to a
+    // usable provider whenever one exists — InitializeAll() has already run by
+    // the time Initialize() calls this. Registered-but-failed providers are kept
+    // as a fallback only: if none initialized yet (e.g. all temporarily
+    // unavailable at startup), the default still resolves to a registered name
+    // so it can be retried on a later lookup via EnsureProviderInitialized().
+    std::unordered_map<common::CryptoProviderType, common::ProviderName> initializedByType;
+    std::unordered_map<common::CryptoProviderType, common::ProviderName> registeredByType;
+    common::ProviderName anyInitializedName;
+    common::ProviderName anyRegisteredName;
+
+    // Iterate in numeric-id (registration) order for deterministic selection.
+    for (common::ProviderId id = 0; id < m_provider_by_id.size(); ++id)
     {
+        const auto& entry = m_providers.at(m_name_by_id[id]);
         if (!entry.instance)
         {
             continue;
         }
-        byType.emplace(entry.cryptoType, name);
-        if (anyName.empty())
+        registeredByType.emplace(entry.cryptoType, entry.name);
+        if (anyRegisteredName.empty())
         {
-            anyName = name;
+            anyRegisteredName = entry.name;
+        }
+        if (entry.instance->IsInitialized())
+        {
+            initializedByType.emplace(entry.cryptoType, entry.name);
+            if (anyInitializedName.empty())
+            {
+                anyInitializedName = entry.name;
+            }
         }
     }
 
+    // First choice: preferred type among successfully-initialized providers.
     for (const auto& preferred : preferenceOrder)
     {
-        auto it = byType.find(preferred);
-        if (it != byType.end())
+        const auto it = initializedByType.find(preferred);
+        if (it != initializedByType.end())
         {
             return it->second;
         }
     }
-    return anyName;
+    if (!anyInitializedName.empty())
+    {
+        return anyInitializedName;
+    }
+
+    // Fallback: nothing initialized yet — resolve to a registered provider so a
+    // temporarily-unavailable provider can still be retried on later lookups.
+    for (const auto& preferred : preferenceOrder)
+    {
+        const auto it = registeredByType.find(preferred);
+        if (it != registeredByType.end())
+        {
+            return it->second;
+        }
+    }
+    return anyRegisteredName;
 }
 
 bool ProviderManager::BuildTypeMappings(
@@ -233,6 +268,44 @@ std::shared_ptr<IProvider> ProviderManager::GetProvider(common::CryptoProviderTy
         return nullptr;
     }
     return provider_entry.instance;
+}
+
+std::shared_ptr<IProvider> ProviderManager::GetProviderForCapability(
+    common::ProviderCapability capability,
+    const std::vector<common::CryptoProviderType>& preferenceOrder) const
+{
+    std::unordered_map<common::CryptoProviderType, std::shared_ptr<IProvider>> byType;
+    std::shared_ptr<IProvider> firstCapable;
+
+    // Iterate in numeric-id order so the fallback selection is deterministic.
+    for (common::ProviderId id = 0; id < m_provider_by_id.size(); ++id)
+    {
+        auto& entry = const_cast<ProviderEntry&>(m_providers.at(m_name_by_id[id]));
+        if (!EnsureProviderInitialized(entry))
+        {
+            continue;
+        }
+        if (!common::HasCapability(entry.instance->GetProviderCapabilities(), capability))
+        {
+            continue;
+        }
+        // First capable provider of each category wins; earlier ids take priority.
+        byType.emplace(entry.cryptoType, entry.instance);
+        if (!firstCapable)
+        {
+            firstCapable = entry.instance;
+        }
+    }
+
+    for (const auto& preferred : preferenceOrder)
+    {
+        const auto it = byType.find(preferred);
+        if (it != byType.end())
+        {
+            return it->second;
+        }
+    }
+    return firstCapable;
 }
 
 bool ProviderManager::SetDefaultProviderForType(common::CryptoProviderType cryptoType, common::ProviderId providerId)
