@@ -13,9 +13,9 @@
 
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 
-#include "score/mw/log/logging.h"
+#include "score/crypto/src/daemon/common/storage/file_io.hpp"
 
-#include <fstream>
+#include <sstream>
 
 namespace score::crypto::daemon::common::storage
 {
@@ -24,29 +24,21 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
     const std::string& path,
     const DeploymentDescriptor& descriptor)
 {
-    std::ofstream file(path, std::ios::trunc);
-    if (!file.is_open())
-    {
-        score::mw::log::LogError() << kLogPrefix << "Cannot open for writing: " << path;
-        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
-    }
-
+    std::ostringstream oss;
     for (const auto& [section, entries] : descriptor.sections)
     {
-        file << '[' << section << ']' << '\n';
+        oss << '[' << section << ']' << '\n';
         for (const auto& [key, value] : entries)
         {
-            file << key << " = " << value << '\n';
+            oss << key << " = " << value << '\n';
         }
-        file << '\n';
+        oss << '\n';
     }
 
-    if (!file.good())
-    {
-        score::mw::log::LogError() << kLogPrefix << "Write failed for: " << path;
-        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
-    }
-    return std::monostate{};
+    const std::string content = oss.str();
+    const auto bytes = score::crypto::span<const std::uint8_t>{
+        reinterpret_cast<const std::uint8_t*>(content.data()), content.size()};
+    return WriteFile(path, bytes);
 }
 
 }  // namespace score::crypto::daemon::common::storage
