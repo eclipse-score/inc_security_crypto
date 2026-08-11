@@ -1,5 +1,17 @@
 /********************************************************************************
  * Copyright (c) 2026 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ ********************************************************************************/
+/********************************************************************************
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 #ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_STORAGE_FILE_IO_HPP
@@ -24,8 +36,8 @@ namespace score::crypto::daemon::common::storage
 /// @return Byte vector on success; kResourceNotAllocated if the file cannot be
 ///         opened, kInvalidArgument if size is out of range, kInternalError on
 ///         a partial read.
-[[nodiscard]] score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode>
-ReadFile(const std::string& path, std::size_t max_size);
+[[nodiscard]] score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> ReadFile(const std::string& path,
+                                                                                           std::size_t max_size);
 
 /// Write @p data to @p path atomically via a temporary file and rename.
 ///
@@ -36,8 +48,9 @@ ReadFile(const std::string& path, std::size_t max_size);
 /// @return std::monostate on success; kInvalidArgument if path or data is
 ///         empty, kInternalError if the directory cannot be created,
 ///         kPersistFailed on write or rename failure.
-[[nodiscard]] score::crypto::Expected<std::monostate, DaemonErrorCode>
-WriteFile(const std::string& path, score::crypto::span<const std::uint8_t> data);
+[[nodiscard]] score::crypto::Expected<std::monostate, DaemonErrorCode> WriteFile(
+    const std::string& path,
+    score::crypto::span<const std::uint8_t> data);
 
 }  // namespace score::crypto::daemon::common::storage
 
