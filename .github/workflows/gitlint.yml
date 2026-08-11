@@ -25,7 +25,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run Gitlint Action
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'dependabot/') }}
         uses: ./.github/actions/gitlint
         with:
           pr-number: ${{ github.event.number }}
