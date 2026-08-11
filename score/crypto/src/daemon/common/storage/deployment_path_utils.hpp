@@ -40,5 +40,4 @@ namespace score::crypto::daemon::common::storage
 
 }  // namespace score::crypto::daemon::common::storage
 
-
 #endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_STORAGE_DEPLOYMENT_PATH_UTILS_HPP
