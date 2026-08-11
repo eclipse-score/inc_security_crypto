@@ -19,7 +19,7 @@ API Dynamic Architecture
 
 
 .. code-block:: rst
-   
+
    .. comp_arc_dyn:: Dynamic View
       :id: comp_arc_dyn__crypto__dynamic_view
       :security: YES
@@ -208,7 +208,7 @@ Certificate Verification
 
    // Resolve certificate and verification trust store
    auto cert = ctx->ResolveResource("DeviceCert", ResourceType::kCertSlot).value();
-   auto anchor = ctx->ResolveResource("RootCA", ResourceType::kVerificationTrustStore).value();
+   auto anchor = ctx->ResolveResource("RootCA", ResourceType::kCertificateTrustStore).value();
 
    // Verify using builder-style context
    CertificateVerificationContextConfig verify_cfg;

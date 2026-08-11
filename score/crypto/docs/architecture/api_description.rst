@@ -40,8 +40,8 @@ The API uses a two-phase resource identification model:
 
    struct CryptoResourceId {
        uint64_t id;                   // daemon-assigned, unique per session
-       ResourceType type;             // kProvider, kKeySlot, kCertSlot, kVerificationTrustStore,
-                                      // kKey, kCertificate, kCrl, kSecureObject, kDataObject
+       ResourceType type;             // kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,
+                                      // kKey, kCertificate, kSecureObject, kDataObject
        ResourcePersistence persistence; // kPersistent or kEphemeral
        uint16_t primary_provider;     // owning device/provider index (0 = unbound)
    };
