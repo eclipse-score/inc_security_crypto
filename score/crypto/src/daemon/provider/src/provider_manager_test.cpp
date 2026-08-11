@@ -211,15 +211,13 @@ provider::ProviderManager::Sptr MakeCapabilityManager()
     mgr->RegisterProvider(
         "SW_PROVIDER",
         std::make_shared<ConfigurableStubProvider>(
-            "SW_PROVIDER", 0, false,
-            common::ProviderCapability::kCrypto | common::ProviderCapability::kCertManagement),
+            "SW_PROVIDER", 0, false, common::ProviderCapability::kCrypto | common::ProviderCapability::kCertManagement),
         common::CryptoProviderType::SOFTWARE);
 
     mgr->RegisterProvider(
         "HW_PROVIDER",
         std::make_shared<ConfigurableStubProvider>(
-            "HW_PROVIDER", 1, false,
-            common::ProviderCapability::kCrypto | common::ProviderCapability::kKeyManagement),
+            "HW_PROVIDER", 1, false, common::ProviderCapability::kCrypto | common::ProviderCapability::kKeyManagement),
         common::CryptoProviderType::HARDWARE);
 
     mgr->Initialize();
@@ -240,15 +238,15 @@ TEST(ProviderManagerCapabilityTest, PreferenceOrderPicksAmongCapableProviders)
 {
     auto mgr = MakeCapabilityManager();
     // Both providers offer crypto; preference decides which is returned.
-    auto sw_first = mgr->GetProviderForCapability(
-        common::ProviderCapability::kCrypto,
-        {common::CryptoProviderType::SOFTWARE, common::CryptoProviderType::HARDWARE});
+    auto sw_first =
+        mgr->GetProviderForCapability(common::ProviderCapability::kCrypto,
+                                      {common::CryptoProviderType::SOFTWARE, common::CryptoProviderType::HARDWARE});
     ASSERT_NE(sw_first, nullptr);
     EXPECT_EQ(sw_first->GetProviderName(), "SW_PROVIDER");
 
-    auto hw_first = mgr->GetProviderForCapability(
-        common::ProviderCapability::kCrypto,
-        {common::CryptoProviderType::HARDWARE, common::CryptoProviderType::SOFTWARE});
+    auto hw_first =
+        mgr->GetProviderForCapability(common::ProviderCapability::kCrypto,
+                                      {common::CryptoProviderType::HARDWARE, common::CryptoProviderType::SOFTWARE});
     ASSERT_NE(hw_first, nullptr);
     EXPECT_EQ(hw_first->GetProviderName(), "HW_PROVIDER");
 }
@@ -257,10 +255,10 @@ TEST(ProviderManagerCapabilityTest, ReturnsNullWhenNoProviderOffersCapability)
 {
     score::crypto::daemon::config::Config config;
     provider::ProviderManager mgr(config.GetProviderInitConfig());
-    mgr.RegisterProvider("SW_PROVIDER",
-                         std::make_shared<ConfigurableStubProvider>(
-                             "SW_PROVIDER", 0, false, common::ProviderCapability::kCrypto),
-                         common::CryptoProviderType::SOFTWARE);
+    mgr.RegisterProvider(
+        "SW_PROVIDER",
+        std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false, common::ProviderCapability::kCrypto),
+        common::CryptoProviderType::SOFTWARE);
     mgr.Initialize();
 
     EXPECT_EQ(mgr.GetProviderForCapability(common::ProviderCapability::kCertManagement), nullptr);
@@ -271,9 +269,8 @@ TEST(ProviderManagerCapabilityTest, FallsBackToCapableProviderOutsidePreference)
     auto mgr = MakeCapabilityManager();
     // Key management is only on HW; a SOFTWARE-only preference still finds it
     // via the lowest-id capable fallback rather than returning nullptr.
-    auto key_prov =
-        mgr->GetProviderForCapability(common::ProviderCapability::kKeyManagement,
-                                      {common::CryptoProviderType::SOFTWARE});
+    auto key_prov = mgr->GetProviderForCapability(common::ProviderCapability::kKeyManagement,
+                                                  {common::CryptoProviderType::SOFTWARE});
     ASSERT_NE(key_prov, nullptr);
     EXPECT_EQ(key_prov->GetProviderName(), "HW_PROVIDER");
 }

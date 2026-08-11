@@ -36,8 +36,8 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
     }
 
     const std::string content = oss.str();
-    const auto bytes = score::crypto::span<const std::uint8_t>{
-        reinterpret_cast<const std::uint8_t*>(content.data()), content.size()};
+    const auto bytes =
+        score::crypto::span<const std::uint8_t>{reinterpret_cast<const std::uint8_t*>(content.data()), content.size()};
     return WriteFile(path, bytes);
 }
 

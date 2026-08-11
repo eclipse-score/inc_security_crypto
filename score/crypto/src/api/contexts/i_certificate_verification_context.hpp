@@ -101,8 +101,7 @@ class ICertificateVerificationContext : public IContext
     /// @param certs Span of certificate handles to treat as trust anchors
     ///        (type = kCertificate or kCertSlot)
     /// @return std::monostate on success, error if any handle is invalid
-    virtual score::Result<std::monostate> SetTrustedCertificates(
-        score::cpp::span<const CryptoResourceId> certs) = 0;
+    virtual score::Result<std::monostate> SetTrustedCertificates(score::cpp::span<const CryptoResourceId> certs) = 0;
 
     /// @brief Selects the chain termination rule for trust-store verification.
     ///
@@ -128,7 +127,7 @@ class ICertificateVerificationContext : public IContext
     ///        (type = kCertificate or kCertSlot)
     /// @return std::monostate on success, or an error if a handle is invalid
     virtual score::Result<std::monostate> SetAdditionalCertificates(
-      score::cpp::span<const CryptoResourceId> certificates) = 0;
+        score::cpp::span<const CryptoResourceId> certificates) = 0;
 
     // ---- OCSP (not yet active — IPC implementation pending) ----
 #if 0
