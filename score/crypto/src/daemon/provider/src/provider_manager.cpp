@@ -271,6 +271,22 @@ std::shared_ptr<IProvider> ProviderManager::GetProvider(common::CryptoProviderTy
 }
 
 std::shared_ptr<IProvider> ProviderManager::GetProviderForCapability(
+    common::ProviderCapability capability) const
+{
+    using Cap = common::ProviderCapability;
+    using Cat = common::CryptoProviderType;
+    // Per-capability defaults: cert operations are software-first; everything else hardware-first.
+    static const std::unordered_map<Cap, std::vector<Cat>> kDefaultPref{
+        {Cap::kCertManagement, {Cat::SOFTWARE, Cat::HARDWARE}},
+        {Cap::kKeyManagement,  {Cat::HARDWARE, Cat::SOFTWARE}},
+        {Cap::kCrypto,         {Cat::HARDWARE, Cat::SOFTWARE}},
+    };
+    static const std::vector<Cat> kFallback{Cat::HARDWARE, Cat::SOFTWARE};
+    const auto it = kDefaultPref.find(capability);
+    return GetProviderForCapability(capability, it != kDefaultPref.end() ? it->second : kFallback);
+}
+
+std::shared_ptr<IProvider> ProviderManager::GetProviderForCapability(
     common::ProviderCapability capability,
     const std::vector<common::CryptoProviderType>& preferenceOrder) const
 {

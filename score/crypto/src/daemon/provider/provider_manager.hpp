@@ -165,25 +165,33 @@ class ProviderManager
      *
      * Filters registered providers to those that are initialized and advertise
      * @p capability (via IProvider::GetProviderCapabilities()), then chooses
-     * among them by @p preferenceOrder over CryptoProviderType. Falls back to
-     * the lowest-id capable provider when none match the preference.
+     * among them using the per-capability default preference order defined in
+     * ProviderManager. Falls back to the lowest-id capable provider when no
+     * preferred-category provider is found.
      *
-     * This is the capability-aware counterpart to GetProvider(CryptoProviderType):
-     * callers that need a functional area (e.g. certificate operations) but do
-     * not care which specific provider serves it use this instead of the
-     * category-only default, so a DEFAULT provider that lacks the capability is
-     * never returned. Most certificate callers rely on this default resolution;
-     * clients that must pin a specific provider resolve it by name/ID instead.
+     * Per-capability defaults: kCertManagement → SOFTWARE first (parsing/verification
+     * are inherently software); kKeyManagement and kCrypto → HARDWARE first.
+     *
+     * @param capability  The functional capability the provider must offer.
+     * @return The selected provider, or nullptr if none offers the capability.
+     */
+    [[nodiscard]] std::shared_ptr<IProvider> GetProviderForCapability(
+        common::ProviderCapability capability) const;
+
+    /**
+     * @brief Select the preferred initialized provider with an explicit category order.
+     *
+     * Same as GetProviderForCapability(capability) but lets the caller override
+     * the preference order. Use this overload only when testing ordering behavior
+     * or when a specific call site needs a non-default preference.
      *
      * @param capability      The functional capability the provider must offer.
-     * @param preferenceOrder Category priority among capable providers. Defaults
-     *        to HARDWARE → SOFTWARE; certificate callers pass SOFTWARE first.
+     * @param preferenceOrder Category priority among capable providers.
      * @return The selected provider, or nullptr if none offers the capability.
      */
     [[nodiscard]] std::shared_ptr<IProvider> GetProviderForCapability(
         common::ProviderCapability capability,
-        const std::vector<common::CryptoProviderType>& preferenceOrder = {common::CryptoProviderType::HARDWARE,
-                                                                          common::CryptoProviderType::SOFTWARE}) const;
+        const std::vector<common::CryptoProviderType>& preferenceOrder) const;
 
     /**
      * @brief Set a provider as default for a specific crypto provider type

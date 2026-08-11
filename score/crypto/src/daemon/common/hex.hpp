@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_HEX_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_HEX_HPP
 
-#include "score/crypto/common/types.hpp"
+#include "score/crypto/src/common/types.hpp"
 
 #include <cctype>
 #include <cstdint>
