@@ -24,7 +24,8 @@ namespace score::crypto::daemon::common::storage
 /// @brief Writes a DeploymentDescriptor to a key=value text file.
 ///
 /// Produces the same section/key=value format that KvDeploymentLoader can read back.
-/// Existing file content is replaced (opened with std::ios::trunc).
+/// Writes atomically via a temporary sibling file and rename — the existing file
+/// is preserved until the new content is fully flushed.
 class KvDeploymentWriter final : public IDeploymentWriter
 {
   public:
@@ -32,8 +33,6 @@ class KvDeploymentWriter final : public IDeploymentWriter
         const std::string& path,
         const DeploymentDescriptor& descriptor) override;
 
-  private:
-    static constexpr std::string_view kLogPrefix = "[KV_DEPLOYMENT_WRITER_COMMON] ";
 };
 
 }  // namespace score::crypto::daemon::common::storage
