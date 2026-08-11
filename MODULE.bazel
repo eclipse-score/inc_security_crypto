@@ -282,6 +282,9 @@ bazel_dep(name = "score_baselibs", version = "0.2.7")
 # Build settings utilities (bool_flag, string_flag, etc.)
 bazel_dep(name = "bazel_skylib", version = "1.9.2")
 
+# s-core communication
+bazel_dep(name = "score_communication", version = "0.3.0")
+
 # Testing
 bazel_dep(name = "googletest", version = "1.18.0")
 

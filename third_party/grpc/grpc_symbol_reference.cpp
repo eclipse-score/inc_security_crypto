@@ -40,7 +40,8 @@ namespace score::crypto::ipc::internal
 void* ForceServerSymbols()
 {
     // These will never be called, but create references the linker needs
-    static bool initialized = false;
+    // Use volatile to prevent compiler optimizations from removing the code
+    static volatile bool initialized = false;
     if (initialized)
     {
         // Create references to server APIs
@@ -53,7 +54,7 @@ void* ForceServerSymbols()
 // Force inclusion of client-side symbols
 void* ForceClientSymbols()
 {
-    static bool initialized = false;
+    static volatile bool initialized = false;
     if (initialized)
     {
         // Create references to client APIs
