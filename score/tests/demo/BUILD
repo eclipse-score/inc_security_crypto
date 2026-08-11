@@ -28,6 +28,7 @@ cc_test(
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_library",
         "//score/crypto/src/daemon/provider/score_provider/operations/mac:score_mac_handler",
+        "//third_party/openssl:openssl_shared",
         "@googletest//:gtest_main",
     ],
 )
