@@ -27,6 +27,9 @@ on:
         required: false
         default: "main"
         type: string
+  push:
+    branches:
+      - copilot/fix-common-pr-checks-job
 
 jobs:
   update-lockfile:
@@ -38,7 +41,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
         with:
-          ref: ${{ inputs.branch }}
+          ref: ${{ inputs.branch || 'main' }}
           token: ${{ secrets.SCORE_APPROVALS_PAT }}
 
       - name: Setup Bazel with shared caching
