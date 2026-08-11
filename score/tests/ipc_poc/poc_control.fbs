@@ -1,0 +1,131 @@
+// =============================================================================
+//  C O P Y R I G H T
+// -----------------------------------------------------------------------------
+//  Copyright (c) 2026 by ETAS GmbH. All rights reserved.
+//
+//  The reproduction, distribution and utilization of this file as
+//  well as the communication of its contents to others without express
+//  authorization is prohibited. Offenders will be held liable for the
+//  payment of damages. All rights reserved in the event of the grant
+//  of a patent, utility model or design.
+// =============================================================================
+
+namespace score.crypto.ipc.control;
+
+// Basic Operation Structures
+
+union OperationParameter {
+  NoParam,
+
+  ValueBool,
+  ValueUint8,
+  ValueUint16,
+  ValueUint32,
+  ValueUint64,
+
+  DataBufferInBand,
+  DataBufferDataPlane,
+
+  String,
+}
+
+table SingleOperationRequest {
+  operation_id: OperationIdentifier;
+  parameter: [OperationParameter];
+}
+
+table SingleOperationResponse {
+  operation_id: OperationIdentifier;
+  result: OperationResult;
+  parameter: [OperationParameter];
+}
+
+table OperationIdentifier {
+  operation_actor: uint16;
+  operation_action: uint16;
+}
+
+table OperationResult {
+  val: uint32;
+}
+
+// Operation Parameter
+
+table NoParam {
+}
+
+table ValueBool {
+  val: bool;
+}
+
+table ValueUint8 {
+  val: uint8;
+}
+
+table ValueUint16 {
+  val: uint16;
+}
+
+table ValueUint32 {
+  val: uint32;
+}
+
+table ValueUint64 {
+  val: uint64;
+}
+
+table String {
+  val: string;
+}
+
+table DataBufferInBand {
+  val: [uint8];
+}
+
+table DataBufferDataPlane {
+  // TODO: Whatever is needed here
+}
+
+// Operation batching to allow transfer of multiple operations in a single IPC interaction
+
+table OperationRequestBatch {
+  operations: [SingleOperationRequest];
+}
+
+table OperationResponseBatch {
+  operations: [SingleOperationResponse];
+}
+
+// IPC messages
+table ControlRequest {
+  // Identifier to match a Response to a Request
+  // Obsolete in sync GRPC
+  request_id: uint64;
+
+  // Identifier of the client
+  // Goal is an authentic identifier of the caller
+  // Currently implemented as (PID | UID)
+  // with INSECURE retrieval and transfer in the GRPC based implementation
+  client_id: uint64;
+
+  // Identifier of state-full DataNodes in the DataNodeManager
+  // Binds API side elements to DataNodes
+  // The concrete type of DataNode depends on the context of use
+  // e.g. session or hashContext
+  data_node_id: uint64;
+
+  // OperationRequest
+  operation_batch: OperationRequestBatch;
+}
+
+table ControlResponse {
+  // Identifier to match a Response to a Request
+  // Obsolete in sync GRPC
+  request_id: uint64;
+
+  operation_batch: OperationResponseBatch;
+}
+
+// ControlRequest is the natural entry point for the serialised payload.
+// Use flatbuffers::GetSizePrefixedRoot<ControlResponse> for the response.
+root_type ControlRequest;
