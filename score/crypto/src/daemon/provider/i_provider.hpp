@@ -154,31 +154,18 @@ class IProvider
 
     /// @brief Report the functional capabilities this provider offers.
     ///
-    /// The default derives the capability set directly from the capability
-    /// accessors above — the single source of truth — so a provider that
-    /// returns a non-null factory automatically advertises the matching
-    /// capability. Providers whose capability cannot be inferred from an
-    /// accessor (e.g. a backend that offers certificate operations only through
-    /// an extension) override this to declare the correct set.
+    /// Concrete providers MUST override this and return their full capability set
+    /// explicitly. The default returns kNone so an unoverridden provider is never
+    /// selected by GetProviderForCapability() — a silent miss is always preferable
+    /// to a mis-routed operation. Derivation from accessor returns is intentionally
+    /// avoided: as capability entry points evolve, heuristic derivation becomes
+    /// incorrect.
     ///
     /// Used by ProviderManager::GetProviderForCapability() to pick a default
     /// provider for a functional area rather than by hardware/software category.
     [[nodiscard]] virtual common::ProviderCapability GetProviderCapabilities()
     {
-        common::ProviderCapability caps = common::ProviderCapability::kNone;
-        if (GetCryptoHandlerFactory() != nullptr)
-        {
-            caps |= common::ProviderCapability::kCrypto;
-        }
-        if (GetKeyFactory() != nullptr)
-        {
-            caps |= common::ProviderCapability::kKeyManagement;
-        }
-        if (GetCertFactory() != nullptr)
-        {
-            caps |= common::ProviderCapability::kCertManagement;
-        }
-        return caps;
+        return common::ProviderCapability::kNone;
     }
 };
 
