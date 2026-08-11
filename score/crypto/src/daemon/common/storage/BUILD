@@ -32,6 +32,17 @@ cc_library(
 )
 
 cc_library(
+    name = "file_io",
+    srcs = ["file_io.cpp"],
+    hdrs = ["file_io.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+    ],
+)
+
+cc_library(
     name = "kv_deployment",
     srcs = [
         "kv/kv_deployment_loader.cpp",
@@ -44,6 +55,7 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":deployment_iface",
+        ":file_io",
         "@score_baselibs//score/mw/log",
     ],
 )
