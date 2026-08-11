@@ -32,6 +32,11 @@ on:
         required: false
         default: "main"
         type: string
+  push:
+    branches:
+      - main
+      - "dependabot/**"
+      - "copilot/**"
 
 jobs:
   update-lockfile:
@@ -43,7 +48,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
         with:
-          ref: ${{ inputs.branch || 'main' }}
+          ref: ${{ inputs.branch || github.ref_name }}
           token: ${{ secrets.SCORE_APPROVALS_PAT }}
 
       - name: Setup Bazel with shared caching
