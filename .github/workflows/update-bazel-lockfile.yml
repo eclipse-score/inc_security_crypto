@@ -1,0 +1,62 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
+
+# Regenerates MODULE.bazel.lock by running `bazel mod deps --lockfile_mode=update`
+# and commits the result back to the target branch.
+#
+# Trigger manually via workflow_dispatch whenever the lockfile becomes stale
+# (e.g. after a Bazel rule version bump by Dependabot).
+
+name: Update Bazel Lockfile
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to update the lockfile on"
+        required: false
+        default: "main"
+        type: string
+
+jobs:
+  update-lockfile:
+    runs-on: ${{ vars.runner_labels_ghub_standard_x64 && fromJSON(vars.runner_labels_ghub_standard_x64) || vars.REPO_RUNNER_LABELS && fromJSON(vars.REPO_RUNNER_LABELS) || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ inputs.branch }}
+          token: ${{ secrets.SCORE_APPROVALS_PAT }}
+
+      - name: Setup Bazel with shared caching
+        uses: eclipse-score/cicd-actions/setup-bazel-cache@212bbf86267e9381da9d2daf962d12f6feafbc90
+        with:
+          unique-cache-name: ${{ github.job }}
+
+      - name: Regenerate MODULE.bazel.lock
+        run: bazel mod deps --lockfile_mode=update
+
+      - name: Commit and push updated lockfile
+        run: |
+          git config user.name "eclipse-score-bot"
+          git config user.email "187756813+eclipse-score-bot@users.noreply.github.com"
+          git add MODULE.bazel.lock
+          if git diff --cached --quiet; then
+            echo "MODULE.bazel.lock is already up to date, nothing to commit."
+          else
+            git commit -m "chore(bazel): update MODULE.bazel.lock"
+            git push
+          fi
