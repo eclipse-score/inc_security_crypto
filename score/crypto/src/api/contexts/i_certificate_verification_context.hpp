@@ -84,11 +84,11 @@ class ICertificateVerificationContext : public IContext
     /// @brief Sets the system trust store to use for certificate chain verification.
     ///
     /// The trust store is a manifest-configured named group of persistent certificate
-    /// slots. Resolve it by name with ResourceType::kVerificationTrustStore.
+    /// slots. Resolve it by name with ResourceType::kCertificateTrustStore.
     /// Empty slots in the store are silently skipped at verification time.
     ///
     /// @param trust_store Handle to the verification trust store
-    ///        (type = kVerificationTrustStore)
+    ///        (type = kCertificateTrustStore)
     /// @return std::monostate on success, error if handle is invalid
     virtual score::Result<std::monostate> SetVerificationTrustStore(const CryptoResourceId& trust_store) = 0;
 

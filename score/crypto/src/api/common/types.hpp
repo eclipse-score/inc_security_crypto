@@ -60,12 +60,12 @@ enum class ResourceType : uint8_t
     kProvider,                ///< Crypto provider / device
     kKeySlot,                 ///< Persistent key storage slot
     kCertSlot,                ///< Persistent certificate storage slot
-    kVerificationTrustStore,  ///< Named group of trusted CA certificates used for certificate chain
+    kCertificateTrustStore,   ///< Named group of trusted CA certificates used for certificate chain
                               ///< verification.
     kKey,                     ///< Key material (generated / loaded / derived / imported)
-    kCertificate,             ///< Parsed or stored certificate object
-    kCrl,                     ///< Certificate Revocation List — shares the same numeric id
-                              ///< as the issuer certificate resource (differentiated by type field)
+    kCertificate,             ///< Parsed or stored certificate object.
+                              ///< CRLs are not a resource type: they are co-located with the
+                              ///< issuer's certificate slot and never independently resolvable.
     kSecureObject,            ///< Secure storage entry
     kDataObject               ///< Generic data blob
 };
