@@ -307,7 +307,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     // To add a new scope: add one entry to kScopeCapability.
     static const std::unordered_map<std::string_view, common::ProviderCapability> kScopeCapability{
         {"CERT", common::ProviderCapability::kCertManagement},
-        {"KEY",  common::ProviderCapability::kKeyManagement},
+        {"KEY", common::ProviderCapability::kKeyManagement},
     };
     common::ProviderCapability required_capability = common::ProviderCapability::kNone;
     const auto colon_pos = context_type.find(':');
@@ -334,8 +334,8 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         }
         provider = m_provider_manager->GetProvider(resolved_id_res.value());
     }
-    else if (required_capability != common::ProviderCapability::kNone
-             && requested_provider_type == common::CryptoProviderType::DEFAULT)
+    else if (required_capability != common::ProviderCapability::kNone &&
+             requested_provider_type == common::CryptoProviderType::DEFAULT)
     {
         provider = m_provider_manager->GetProviderForCapability(required_capability);
     }
@@ -435,10 +435,10 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         return false;
     }
 
-    const std::string_view provider_selection =
-        has_key_binding                                          ? " (key-affinity resolved)"
-        : required_capability != common::ProviderCapability::kNone ? " (capability-based selection)"
-                                                                 : " (type-based selection)";
+    const std::string_view provider_selection = has_key_binding ? " (key-affinity resolved)"
+                                                : required_capability != common::ProviderCapability::kNone
+                                                    ? " (capability-based selection)"
+                                                    : " (type-based selection)";
     score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
                                  << "] selected provider: name='" << provider->GetProviderName()
                                  << "' id=" << provider->GetProviderId() << provider_selection

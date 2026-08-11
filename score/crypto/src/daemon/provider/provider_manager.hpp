@@ -175,8 +175,7 @@ class ProviderManager
      * @param capability  The functional capability the provider must offer.
      * @return The selected provider, or nullptr if none offers the capability.
      */
-    [[nodiscard]] std::shared_ptr<IProvider> GetProviderForCapability(
-        common::ProviderCapability capability) const;
+    [[nodiscard]] std::shared_ptr<IProvider> GetProviderForCapability(common::ProviderCapability capability) const;
 
     /**
      * @brief Select the preferred initialized provider with an explicit category order.

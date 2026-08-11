@@ -57,17 +57,17 @@ using AlgorithmId = FixedCapacityString<64>;
 /// kKeySlot and kCertSlot identify only persistent storage locations.
 enum class ResourceType : uint8_t
 {
-    kProvider,                ///< Crypto provider / device
-    kKeySlot,                 ///< Persistent key storage slot
-    kCertSlot,                ///< Persistent certificate storage slot
-    kCertificateTrustStore,   ///< Named group of trusted CA certificates used for certificate chain
-                              ///< verification.
-    kKey,                     ///< Key material (generated / loaded / derived / imported)
-    kCertificate,             ///< Parsed or stored certificate object.
-                              ///< CRLs are not a resource type: they are co-located with the
-                              ///< issuer's certificate slot and never independently resolvable.
-    kSecureObject,            ///< Secure storage entry
-    kDataObject               ///< Generic data blob
+    kProvider,               ///< Crypto provider / device
+    kKeySlot,                ///< Persistent key storage slot
+    kCertSlot,               ///< Persistent certificate storage slot
+    kCertificateTrustStore,  ///< Named group of trusted CA certificates used for certificate chain
+                             ///< verification.
+    kKey,                    ///< Key material (generated / loaded / derived / imported)
+    kCertificate,            ///< Parsed or stored certificate object.
+                             ///< CRLs are not a resource type: they are co-located with the
+                             ///< issuer's certificate slot and never independently resolvable.
+    kSecureObject,           ///< Secure storage entry
+    kDataObject              ///< Generic data blob
 };
 
 /// @brief Persistence classification of a crypto resource.
@@ -304,7 +304,7 @@ inline constexpr bool HasPermission(KeyOperationPermission granted, KeyOperation
 struct CertificateSlotInfo
 {
     CertificateSlotState state{CertificateSlotState::kEmpty};
-    bool has_crl{false}; ///< Whether a CRL is currently associated with the slot
+    bool has_crl{false};  ///< Whether a CRL is currently associated with the slot
 };
 
 /// @brief Information about a key slot and its contents.
