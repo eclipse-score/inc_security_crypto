@@ -237,14 +237,14 @@ class ICertificateManagementContext : public IContext
     /// The certificate is assigned to a trust-store-managed slot. This is a
     /// write operation and requires trust-store write access.
     virtual score::Result<std::monostate> AddCertificateToTrustStore(const CryptoResourceId& trust_store,
-                                      const CryptoResourceId& cert) = 0;
+                                                                     const CryptoResourceId& cert) = 0;
 
     /// @brief Removes a certificate from a persistent trust store by SHA-256 fingerprint.
     ///
     /// This changes trust-store deployment state and requires write access.
     virtual score::Result<std::monostate> RemoveCertificateFromTrustStore(
-      const CryptoResourceId& trust_store,
-      score::cpp::span<const uint8_t> certificate_fingerprint) = 0;
+        const CryptoResourceId& trust_store,
+        score::cpp::span<const uint8_t> certificate_fingerprint) = 0;
 
   protected:
     ICertificateManagementContext() = default;

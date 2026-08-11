@@ -32,7 +32,6 @@ class KvDeploymentWriter final : public IDeploymentWriter
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Write(
         const std::string& path,
         const DeploymentDescriptor& descriptor) override;
-
 };
 
 }  // namespace score::crypto::daemon::common::storage

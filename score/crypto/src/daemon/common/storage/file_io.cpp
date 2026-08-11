@@ -1,5 +1,17 @@
 /********************************************************************************
  * Copyright (c) 2026 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ ********************************************************************************/
+/********************************************************************************
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 #include "score/crypto/src/daemon/common/storage/file_io.hpp"
@@ -10,8 +22,8 @@
 namespace score::crypto::daemon::common::storage
 {
 
-score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode>
-ReadFile(const std::string& path, std::size_t max_size)
+score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> ReadFile(const std::string& path,
+                                                                             std::size_t max_size)
 {
     std::ifstream input(path, std::ios::binary);
     if (!input)
@@ -28,8 +40,8 @@ ReadFile(const std::string& path, std::size_t max_size)
     return data;
 }
 
-score::crypto::Expected<std::monostate, DaemonErrorCode>
-WriteFile(const std::string& path, score::crypto::span<const std::uint8_t> data)
+score::crypto::Expected<std::monostate, DaemonErrorCode> WriteFile(const std::string& path,
+                                                                   score::crypto::span<const std::uint8_t> data)
 {
     if (path.empty() || data.empty())
         return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
@@ -42,8 +54,7 @@ WriteFile(const std::string& path, score::crypto::span<const std::uint8_t> data)
         std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
         if (!output)
             return score::crypto::make_unexpected(DaemonErrorCode::kPersistFailed);
-        output.write(reinterpret_cast<const char*>(data.data()),
-                     static_cast<std::streamsize>(data.size()));
+        output.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
         output.flush();
         if (!output)
             return score::crypto::make_unexpected(DaemonErrorCode::kPersistFailed);
