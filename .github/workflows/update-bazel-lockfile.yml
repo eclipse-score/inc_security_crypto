@@ -14,8 +14,13 @@
 # Regenerates MODULE.bazel.lock by running `bazel mod deps --lockfile_mode=update`
 # and commits the result back to the target branch.
 #
-# Trigger manually via workflow_dispatch whenever the lockfile becomes stale
-# (e.g. after a Bazel rule version bump by Dependabot).
+# Trigger manually via workflow_dispatch whenever the lockfile becomes stale.
+#
+# Common use cases:
+#   1. Fix a stale lockfile on main after a Bazel rule version bump:
+#      Leave `branch` as the default "main".
+#   2. Fix the lockfile on a Dependabot PR branch so it can pass CI:
+#      Set `branch` to the Dependabot branch name, e.g. "dependabot/github_actions/..."
 
 name: Update Bazel Lockfile
 
@@ -27,9 +32,6 @@ on:
         required: false
         default: "main"
         type: string
-  push:
-    branches:
-      - copilot/fix-common-pr-checks-job
 
 jobs:
   update-lockfile:

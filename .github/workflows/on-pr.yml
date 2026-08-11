@@ -28,4 +28,4 @@ jobs:
       # TODO: For now, our clang-tidy execution is not clean
       # Skip pre-commit checks, reactivate after fixing all clang-tidy issues
       skip-pre-commit: true
-      skip-bzlmod-lock: ${{ startsWith(github.head_ref, 'dependabot/') }}
+      skip-bzlmod-lock: false
