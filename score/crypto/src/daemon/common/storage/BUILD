@@ -39,6 +39,7 @@ cc_library(
     deps = [
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
+        "@score_baselibs//score/filesystem",
     ],
 )
 
