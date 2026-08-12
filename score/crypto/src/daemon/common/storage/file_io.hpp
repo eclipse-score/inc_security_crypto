@@ -52,6 +52,20 @@ namespace score::crypto::daemon::common::storage
     const std::string& path,
     score::crypto::span<const std::uint8_t> data);
 
+/// Return true if @p path refers to an existing regular file.
+///
+/// Returns false for directories, symlinks to non-existent targets, and any
+/// other non-regular-file entries. Errors resolve to false.
+[[nodiscard]] bool FileExists(const std::string& path);
+
+/// Remove the file at @p path.
+///
+/// Idempotent: returns success if the file does not exist.
+///
+/// @return std::monostate on success or if the file was already absent;
+///         kInvalidArgument if path is empty, kPersistFailed on a filesystem error.
+[[nodiscard]] score::crypto::Expected<std::monostate, DaemonErrorCode> RemoveFile(const std::string& path);
+
 }  // namespace score::crypto::daemon::common::storage
 
 #endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_STORAGE_FILE_IO_HPP
