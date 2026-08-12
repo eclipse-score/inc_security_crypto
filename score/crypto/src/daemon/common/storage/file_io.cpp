@@ -68,4 +68,21 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WriteFile(const std::st
     return std::monostate{};
 }
 
+bool FileExists(const std::string& path)
+{
+    std::error_code ec;
+    return std::filesystem::is_regular_file(path, ec);
+}
+
+score::crypto::Expected<std::monostate, DaemonErrorCode> RemoveFile(const std::string& path)
+{
+    if (path.empty())
+        return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    if (ec)
+        return score::crypto::make_unexpected(DaemonErrorCode::kPersistFailed);
+    return std::monostate{};
+}
+
 }  // namespace score::crypto::daemon::common::storage
