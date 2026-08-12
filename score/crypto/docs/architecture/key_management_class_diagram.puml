@@ -184,7 +184,7 @@ package "Slot Management" <<Rectangle>> #F0F8FF {
 }
 
 ' ====================================================================
-' SLOT DEPLOYMENT  (slot/deployment/)
+' SLOT DEPLOYMENT  (slot/ façades → daemon/common/storage/ implementations)
 ' ====================================================================
 package "Slot Deployment" <<Rectangle>> #E8F0FE {
 
@@ -230,7 +230,7 @@ package "Slot Deployment" <<Rectangle>> #E8F0FE {
     class KvDeploymentWriter {
         + Write(path : string, info : SlotDeploymentInfo) : Expected<monostate, DaemonErrorCode>
         .. writes [metadata] then [key] sections ..
-        .. opens with ios::trunc ..
+        .. delegates to file_io::WriteFile (atomic temp→rename) ..
     }
 }
 
