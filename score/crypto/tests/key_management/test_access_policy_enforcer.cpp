@@ -27,7 +27,7 @@ class AccessPolicyEnforcerTest : public ::testing::Test
         m_slot_config.slot_name = "test/hmac-sha256";
         m_slot_config.algorithm = "HMAC-SHA256";
         // Config-time: populate provider names (strings from configuration)
-        m_slot_config.provider_names = {score::crypto::daemon::common::kProviderNameOpenSSL};
+        m_slot_config.provider_names = {"OPENSSL"};
         // Test setup: simulate resolved provider IDs (would normally be done by ResolveProviderIds)
         m_slot_config.provider_ids = {0};  // 0 = OpenSSL, assigned by ProviderManager
         m_slot_config.allowed_operations = score::crypto::KeyOperationPermission::kMac;

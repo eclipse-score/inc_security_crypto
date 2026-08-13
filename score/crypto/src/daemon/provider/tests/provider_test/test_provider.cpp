@@ -128,13 +128,13 @@ TEST_F(ProviderHashTest, PerformSHA256SingleShotHashOperation)
     auto input_buffer = tests::utility::read_bin("score/tests/test_vectors/hash/input_hello_world.bin");
     ASSERT_FALSE(input_buffer.empty());
 
-    // Create input parameter as VirtualMemoryBufferConst
-    common::VirtualMemoryBufferConst inputBuf{input_buffer.data(), input_buffer.size()};
+    // Create input parameter as span<const uint8_t>
+    score::cpp::span<const uint8_t> inputBuf{input_buffer.data(), input_buffer.size()};
 
     // Create output buffer for hash result (SHA256 produces 32 bytes)
     constexpr std::size_t kSha256DigestLen{32U};
     std::vector<uint8_t> output_buffer(kSha256DigestLen);
-    common::VirtualMemoryBuffer outputBuf{output_buffer.data(), output_buffer.size()};
+    score::cpp::span<uint8_t> outputBuf{output_buffer.data(), output_buffer.size()};
 
     // Step 4: Create operation request for single-shot hash
     common::RequestParameters op_request;
@@ -196,7 +196,7 @@ TEST_F(ProviderHashTest, PerformSHA256StreamingHashOperation)
     // Update with first chunk
     const std::string chunk1 = "Hello, ";
     std::vector<uint8_t> chunk1_buffer(chunk1.begin(), chunk1.end());
-    common::VirtualMemoryBufferConst chunk1Buf{chunk1_buffer.data(), chunk1_buffer.size()};
+    score::cpp::span<const uint8_t> chunk1Buf{chunk1_buffer.data(), chunk1_buffer.size()};
 
     // Update operation
     common::RequestParameters update_op1;
@@ -210,7 +210,7 @@ TEST_F(ProviderHashTest, PerformSHA256StreamingHashOperation)
     // Update with second chunk
     const std::string chunk2 = "World!";
     std::vector<uint8_t> chunk2_buffer(chunk2.begin(), chunk2.end());
-    common::VirtualMemoryBufferConst chunk2Buf{chunk2_buffer.data(), chunk2_buffer.size()};
+    score::cpp::span<const uint8_t> chunk2Buf{chunk2_buffer.data(), chunk2_buffer.size()};
 
     common::RequestParameters update_op2;
     update_op2 = {chunk2Buf};
@@ -223,7 +223,7 @@ TEST_F(ProviderHashTest, PerformSHA256StreamingHashOperation)
     // Finalize hash
     constexpr std::size_t kSha256DigestLen{32U};
     std::vector<uint8_t> output_buffer(kSha256DigestLen);
-    common::VirtualMemoryBuffer outputBuf{output_buffer.data(), output_buffer.size()};
+    score::cpp::span<uint8_t> outputBuf{output_buffer.data(), output_buffer.size()};
 
     common::RequestParameters finalize_op;
     finalize_op = {outputBuf};

@@ -16,7 +16,6 @@ try-import %workspace%/user.bazelrc
 
 build --per_file_copt=external/score_baselibs.*/.*@-Wno-deprecated-declarations
 common --@score_baselibs//score/json:base_library=nlohmann # TODO : https://github.com/eclipse-score/baselibs/issues/57
-
 build --java_language_version=17
 build --tool_java_language_version=17
 build --java_runtime_version=remotejdk_17
@@ -38,6 +37,8 @@ common --credential_helper_timeout="60s"
 build:shared --incompatible_strict_action_env
 build:shared --sandbox_writable_path=/var/tmp
 build:shared --host_platform=@score_bazel_platforms//:x86_64-linux
+# Disable typedshm as it's not needed in this build
+build:shared --@score_baselibs//score/memory/shared/flags:use_typedshmd=False
 
 # Shared qnx configuration
 build:shared_qnx --config=shared

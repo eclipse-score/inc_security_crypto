@@ -15,21 +15,10 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
 load("@score_itf//:defs.bzl", "py_itf_test")
 
 cc_binary(
-    name = "control_client_app",
-    srcs = ["control_client_app.cpp"],
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
-    deps = [
-        "//score/crypto/src/api:operations",
-        "//score/crypto/src/api/control_plane:control_plane_impl",
-        "@googletest//:gtest",
-    ],
-)
-
-cc_binary(
     name = "init_softhsm_token",
     srcs = ["init_softhsm_token.cpp"],
     deps = [
-        "//third_party/soft_hsm:libsofthsm_shared",
+        "//third_party/soft_hsm:softhsm_shared",
     ],
 )
 
@@ -64,6 +53,18 @@ cc_binary(
 )
 
 cc_binary(
+    name = "hash_performance_test",
+    srcs = ["hash_performance_test.cpp"],
+    data = ["//score/tests/test_vectors/hash:hash_test_vectors"],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "//score/tests/utility",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
     name = "score_demo",
     srcs = ["score_demo.cpp"],
     data = [
@@ -86,7 +87,7 @@ py_itf_test(
         "--log-level=WARNING",
     ],
     data = [
-        ":control_client_app",
+        ":hash_performance_test",
         ":init_softhsm_token",
         ":score_api_hash_example",
         ":score_api_mac_example",
@@ -95,10 +96,17 @@ py_itf_test(
         "//score/crypto/src/daemon:crypto_daemon",
         "//score/tests/config:logging.json",
         "//third_party/grpc:libgrpc_shared",
-        "//third_party/openssl:openssl_shared",
-        "//third_party/soft_hsm:soft_hsm_cmake",
+        "//third_party/openssl:openssl_so",
+        "//third_party/soft_hsm:softhsm_so",
     ],
     plugins = [
         "itf.plugins.docker",
     ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }) + select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
 )

@@ -138,7 +138,7 @@ class ICryptoContext
         const KeyManagementContextConfig& config) = 0;
 
     // The following factory methods are declared but not yet active.
-    // Each is implemented in score/crypto/api/future/contexts/
+    // Each is implemented in score/crypto/src/api/future/contexts/
     // and will be moved here together with its IPC implementation.
 
     // virtual score::Result<std::unique_ptr<ICipherContext>> CreateCipherContext(
@@ -216,7 +216,7 @@ class ICryptoContext
     virtual score::Result<std::unique_ptr<IKeySlotObject>> GetKeySlotObject(const CryptoResourceId& id) = 0;
 
     // FUTURE: Uncomment when the corresponding object interface is promoted
-    //         from score/crypto/api/future/objects/.
+    //         from score/crypto/src/api/future/objects/.
     // ICertificateObject is the unified certificate view — used for both
     // ephemeral (ParseCertificate result) and persistent (loaded from slot)
     // certificates. Always has a valid GetId().

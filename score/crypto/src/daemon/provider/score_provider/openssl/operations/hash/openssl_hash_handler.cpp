@@ -40,6 +40,7 @@ using common::DaemonErrorCode;
 using common::RequestParameters;
 using common::ResponseParameters;
 using common::StreamOperationState;
+using ::score::crypto::daemon::provider::handler::handler_utils::CheckAndGetSpan;
 
 // Static array initialization
 static constexpr const char* SUPPORTED_ALGORITHMS[] = {"SHA256", "SHA384", "SHA512", "SHA224", "SHA1", "MD5"};
@@ -151,17 +152,13 @@ Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::InitHash(
     // If initial data is provided, process it (OpenSSL-specific)
     if (initialDataOrIV.has_value())
     {
-        const uint8_t* buffer = nullptr;
-        size_t size = 0;
-
-        const auto result = ::score::crypto::daemon::provider::handler::handler_utils::ExtractBufferData(
-            initialDataOrIV.value(), buffer, size);
-        if (!result.has_value())
+        const auto inputSpan = CheckAndGetSpan<const uint8_t>(initialDataOrIV.value());
+        if (!inputSpan.has_value())
         {
-            return result;
+            return make_unexpected(inputSpan.error());
         }
 
-        if (EVP_DigestUpdate(mCurrentStreamContext, buffer, size) != 1)
+        if (EVP_DigestUpdate(mCurrentStreamContext, inputSpan.value().data(), inputSpan.value().size()) != 1)
         {
             return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
         }
@@ -178,18 +175,13 @@ Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::UpdateHash(const c
         return make_unexpected(DaemonErrorCode::kStreamNotInitialized);
     }
 
-    // Extract and update with data (OpenSSL-specific)
-    const uint8_t* buffer = nullptr;
-    size_t size = 0;
-
-    const auto result =
-        ::score::crypto::daemon::provider::handler::handler_utils::ExtractBufferData(dataToHash, buffer, size);
-    if (!result.has_value())
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(dataToHash);
+    if (!inputSpan.has_value())
     {
-        return result;
+        return make_unexpected(inputSpan.error());
     }
 
-    if (EVP_DigestUpdate(mCurrentStreamContext, buffer, size) != 1)
+    if (EVP_DigestUpdate(mCurrentStreamContext, inputSpan.value().data(), inputSpan.value().size()) != 1)
     {
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
@@ -198,7 +190,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::UpdateHash(const c
 }
 
 Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::FinalizeHash(
-    std::optional<common::RequestParameter> hashOutput,
+    common::RequestParameter hashOutput,
     const std::optional<common::RequestParameter> finalDataToHash)
 {
     if (mCurrentStreamContext == nullptr)
@@ -209,17 +201,14 @@ Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::Finali
     // Process final data if provided (OpenSSL-specific)
     if (finalDataToHash.has_value())
     {
-        const uint8_t* buffer = nullptr;
-        size_t size = 0;
-
-        const auto result = ::score::crypto::daemon::provider::handler::handler_utils::ExtractBufferData(
-            finalDataToHash.value(), buffer, size);
-        if (!result.has_value())
+        const auto inputSpan = CheckAndGetSpan<const uint8_t>(finalDataToHash.value());
+        if (!inputSpan.has_value())
         {
-            return make_unexpected(result.error());
+            CleanupStreamContext();
+            return make_unexpected(inputSpan.error());
         }
 
-        if (EVP_DigestUpdate(mCurrentStreamContext, buffer, size) != 1)
+        if (EVP_DigestUpdate(mCurrentStreamContext, inputSpan.value().data(), inputSpan.value().size()) != 1)
         {
             CleanupStreamContext();
             return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
@@ -234,36 +223,21 @@ Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::Finali
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
-    // Resolve output buffer: validate size if caller-provided, else allocate internally
-    unsigned char* outputBuf = nullptr;
-    auto allocateOutputBuffer = !hashOutput.has_value();
-    if (!allocateOutputBuffer)
+    // Extract and validate the caller-provided SHM output buffer
+    const auto outputSpan = CheckAndGetSpan<uint8_t>(hashOutput);
+    if (!outputSpan.has_value())
     {
-        common::RequestParameter& outputRef = hashOutput.value();
-        uint8_t* outputBuffer = nullptr;
-        size_t outputSize = 0;
-        const auto result = ::score::crypto::daemon::provider::handler::handler_utils::ExtractOutputBufferData(
-            outputRef, outputBuffer, outputSize);
-        if (!result.has_value())
-        {
-            CleanupStreamContext();
-            return make_unexpected(result.error());
-        }
-        if (outputSize < digestSize)
-        {
-            CleanupStreamContext();
-            return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
-        }
-        outputBuf = outputBuffer;
+        CleanupStreamContext();
+        return make_unexpected(outputSpan.error());
     }
-    else
+    if (outputSpan.value().size() < digestSize)
     {
-        AllocateOutputBuffer(digestSize);
-        outputBuf = mOutputBuffer.data();
+        CleanupStreamContext();
+        return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
     }
 
     unsigned int digestLen = 0;
-    if (EVP_DigestFinal_ex(mCurrentStreamContext, outputBuf, &digestLen) != 1)
+    if (EVP_DigestFinal_ex(mCurrentStreamContext, outputSpan.value().data(), &digestLen) != 1)
     {
         CleanupStreamContext();
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
@@ -273,23 +247,17 @@ Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::Finali
     CleanupStreamContext();
 
     common::ResponseParameters response;
-    if (allocateOutputBuffer)
-    {
-        response.push_back(common::OwnedBuffer{std::move(mOutputBuffer)});
-    }
-    else
-    {
-        response.push_back(common::VirtualMemoryBufferConst{outputBuf, digestLen});
-    }
-
+    response.push_back(static_cast<uint64_t>(digestLen));
     return response;
 }
 
 Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::SingleShotHash(
     const common::RequestParameter& dataToHash,
-    std::optional<common::RequestParameter> outputHash,
+    common::RequestParameter outputHash,
     std::optional<common::RequestParameter> initializationVector)
 {
+    (void)initializationVector;
+
     if (m_algorithm.empty())
     {
         return make_unexpected(DaemonErrorCode::kInsufficientParameters);
@@ -310,71 +278,36 @@ Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::Single
     unsigned int digestSize = EVP_MD_size(md);
 
     // Extract input data
-    const uint8_t* inputBuffer = nullptr;
-    size_t inputSize = 0;
-
-    const auto inputResult = ::score::crypto::daemon::provider::handler::handler_utils::ExtractBufferData(
-        dataToHash, inputBuffer, inputSize);
-    if (!inputResult.has_value())
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(dataToHash);
+    if (!inputSpan.has_value())
     {
-        return make_unexpected(inputResult.error());
+        return make_unexpected(inputSpan.error());
     }
 
-    // Determine output destination
-    unsigned char* outputBuf = nullptr;
-    unsigned int digestLen = 0;
-
-    auto allocateOutputBuffer = !outputHash.has_value();
-    if (!allocateOutputBuffer)
+    // Extract and validate the caller-provided SHM output buffer
+    const auto outputSpan = CheckAndGetSpan<uint8_t>(outputHash);
+    if (!outputSpan.has_value())
     {
-        common::RequestParameter& outputRef = outputHash.value();
-        uint8_t* outputBuffer = nullptr;
-        size_t outputSize = 0;
-
-        const auto outputResult = ::score::crypto::daemon::provider::handler::handler_utils::ExtractOutputBufferData(
-            outputRef, outputBuffer, outputSize);
-        if (!outputResult.has_value())
-        {
-            return make_unexpected(outputResult.error());
-        }
-
-        if (outputSize < digestSize)
-        {
-            return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
-        }
-
-        outputBuf = outputBuffer;
+        return make_unexpected(outputSpan.error());
     }
-    else
+
+    if (outputSpan.value().size() < digestSize)
     {
-        AllocateOutputBuffer(digestSize);
-        outputBuf = mOutputBuffer.data();
+        return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
     }
 
     // Single OpenSSL call: handles context creation, init, update, final, and cleanup internally
-    if (EVP_Digest(inputBuffer, inputSize, outputBuf, &digestLen, md, nullptr) != 1)
+    unsigned int digestLen = 0;
+    if (EVP_Digest(
+            inputSpan.value().data(), inputSpan.value().size(), outputSpan.value().data(), &digestLen, md, nullptr) !=
+        1)
     {
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
     common::ResponseParameters response;
-    if (allocateOutputBuffer)
-    {
-        response.push_back(common::OwnedBuffer{std::move(mOutputBuffer)});
-    }
-    else
-    {
-        response.push_back(common::VirtualMemoryBufferConst{outputBuf, digestLen});
-    }
-
+    response.push_back(static_cast<uint64_t>(digestLen));
     return response;
-}
-
-void OpenSslHashHandler::AllocateOutputBuffer(size_t size)
-{
-    mOutputBuffer.clear();
-    mOutputBuffer.resize(size);
-    score::mw::log::LogDebug() << "[HASH_HANDLER] Output buffer allocated with size:" << size;
 }
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

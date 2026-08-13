@@ -58,11 +58,12 @@ inline constexpr OperationAction MAC_UPDATE = 2;
 
 // MAC_FINALIZE
 // Request:  data_node_id = context_id,
-//           param[0]: optional DataBuffer — output buffer for MAC tag (This can only be a resolved SHM region)
+//           param[0]: optional DataBuffer — output buffer for MAC tag (modified in-place, must be SHM region)
 //           param[1]: optional DataBuffer — final data chunk to include
 // Response: status_code (SUCCESS/error)
-//           param[0]: DataBuffer — computed MAC tag bytes
-// Effect:   Calls FinalizeMac(), computes final MAC, clears stream context, transitions state → IDLE
+//           param[0]: uint64_t — MAC tag length in bytes (MAC bytes written to request param[0])
+// Effect:   Calls FinalizeMac(), computes final MAC into param[0] buffer, clears stream context, transitions state →
+// IDLE
 inline constexpr OperationAction MAC_FINALIZE = 3;
 
 // MAC_VERIFY

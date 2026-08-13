@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_API_SRC_CRYPTO_CONTEXT_IMPL_HPP
 
 #include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
@@ -40,8 +41,10 @@ class CryptoContextImpl final : public ICryptoContext
 {
   public:
     /// @brief Constructs a crypto context with an established connection.
-    /// @param connection Shared ownership of the connection (which contains the DataNodeId)
-    CryptoContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection);
+    /// @param connection  Shared ownership of the connection (which contains the DataNodeId)
+    /// @param transcoder  Session-shared buffer transcoder.
+    CryptoContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
+                      std::shared_ptr<IBufferTranscoder> transcoder);
 
     ~CryptoContextImpl() override;
 
@@ -72,6 +75,7 @@ class CryptoContextImpl final : public ICryptoContext
 
   private:
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
+    std::shared_ptr<IBufferTranscoder> m_transcoder;
 };
 
 }  // namespace crypto

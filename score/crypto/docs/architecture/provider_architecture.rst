@@ -25,7 +25,7 @@ bootstrapping sequence.
 
 .. uml:: provider_architecture.puml
    :align: center
-   :caption: Daemon Provider Architecture — Score and PKCS#11 families, handler hierarchy, and config visitor pattern.
+   :caption: Daemon Provider Architecture — Score and PKCS#11 families, handler hierarchy, and configuration flow.
    :alt: UML class diagram of the provider architecture.
 
 Provider Families
@@ -66,6 +66,102 @@ integer constants (``HASH_INIT``, ``HASH_UPDATE``, ``HASH_FINALIZE``,
 Both provider families include these headers directly — the constants are not
 specific to any algorithm family or provider.
 
+Provider Configuration
+~~~~~~~~~~~~~~~~~~~~~~
+
+Provider configuration is split into three layers. Each layer is owned by a
+separate config type and resolved at a different point during daemon startup.
+
+1. Provider-family topology — build time
+   The set of provider families that can exist in a given daemon binary is
+   decided by compile-time bool flags. The master family flags are
+   ``score_crypto_score_backend_enabled`` for the Score provider family and
+   ``score_crypto_pkcs11_backend_enabled`` for the PKCS#11 provider family. Their
+   corresponding config settings are exposed to the code as
+   ``SCORE_CRYPTO_SCORE_BACKEND_ENABLED`` and ``SCORE_CRYPTO_PKCS11_BACKEND_ENABLED``. The Score
+   family also has the per-backend flag ``score_crypto_score_openssl_enabled``,
+   exposed as ``SCORE_BACKEND_OPENSSL_ENABLED``, which controls whether the
+   OpenSSL backend is included in the active Score backend list. A flag can be
+   overridden at build time to exclude a family or backend from the daemon
+   binary. ``ProviderManagerFactory`` creates the corresponding backend factory
+   for every configured family that is compiled in.
+
+2. Provider-specific parameters — config file / defaults
+   Each family parses its own parameters from the daemon configuration:
+
+   - ``ScoreProviderConfig`` (``score_provider/score_provider_config.hpp``)
+     holds one ``ScoreProviderEntry`` per score backend. An entry contains the
+     provider name, the backend implementation tag (for example ``"openssl"``),
+     and the provider type (``SOFTWARE``, ``HARDWARE``, ``SPECIALIZED``).
+     ``ScoreProviderConfig::ParseConfig(config)`` populates entries from the config
+     file; when no config is present it falls back to the active backends
+     discovered at compile time.
+
+   - ``Pkcs11Config`` (``pkcs11/pkcs11_token_config.hpp``) holds one
+     ``Pkcs11TokenEntry`` per token. An entry contains the token label, model,
+     user PIN, provider name, provider type, and session cleanup strategy.
+     ``Pkcs11Config::ParseConfig(config)`` reads these values from the daemon config.
+
+3. Runtime enablement and type mapping — ``ProviderInitConfig``
+   After all factories have created and registered their providers,
+   ``ProviderManager::Initialize()`` applies ``ProviderInitConfig`` to decide:
+
+   - Which registered providers are eligible. Disabled providers are excluded
+     before backend registration.
+   - Which provider is the default for each ``CryptoProviderType``
+     (``DEFAULT``, ``SOFTWARE``, ``HARDWARE``, ``SPECIALIZED``).
+
+   ``ProviderInitConfig`` identifies providers by their stable
+   ``ProviderName`` (for example ``"OPENSSL"`` or ``"hsm_slot_1"``), not by the
+   runtime ``ProviderId`` assigned during registration. This keeps the
+   configuration stable across restarts and independent of registration order.
+
+   If the daemon config does not supply a ``ProviderInitConfig``,
+   ``ProviderManager`` creates a default one that enables every registered
+   provider and selects defaults using the preference order
+   ``HARDWARE`` → ``SOFTWARE``.
+
+Registration and availability are separate states. Registration assigns a
+stable ``ProviderId`` exactly once. ``ProviderManager::Initialize()`` makes
+an initial initialization attempt, but an individual provider may remain
+unavailable without preventing optional providers from being registered.
+A provider lookup retries initialization using the same ``ProviderId`` and
+serializes concurrent attempts. ``IProvider::IsInitialized()`` reports state
+only; it does not initialize the provider.
+
+Configuration flow
+^^^^^^^^^^^^^^^^^^
+
+.. code-block:: text
+
+   Config::ParseConfig()
+        │
+        ├── ScoreProviderConfig::ParseConfig(config)  ──► ScoreProviderEntry list
+        │
+        └── Pkcs11Config::ParseConfig(config)         ──► Pkcs11TokenEntry list
+        │
+   ProviderManagerFactory::Create(config)
+        │
+        ├── CreateScoreProviderFactory(config)
+        │      ScoreProviderFactory(ScoreProviderFactoryConfig)
+        │      CreateAndRegister(manager) ──► ProviderId assigned once
+        │
+        ├── CreatePkcs11ProviderFactory(config)
+        │      Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig)
+        │      CreateAndRegister(manager) ──► ProviderId assigned once
+        │
+        └── provider_manager->Initialize()
+               │
+               ├── InitializeAll()
+               │      provider->Initialize(context)
+               │
+               └── BuildTypeMappings(ProviderInitConfig.typeToProviderName)
+                 resolve registered names → runtime ProviderId
+
+On a later request, ``ProviderManager::GetProvider(...)`` checks
+``IsInitialized()`` and retries ``Initialize(context)`` when necessary.
+Failed providers remain registered, but unavailable providers are not
+returned to callers.
 
 Directory Layout
 ----------------
@@ -73,6 +169,10 @@ Directory Layout
 .. code-block:: text
 
    provider/
+   ├── i_provider.hpp                     ← IProvider interface
+   ├── i_provider_factory.hpp             ← IProviderFactory interface
+   ├── provider_manager.hpp/.cpp          ← Provider registry & lifecycle
+   ├── provider_manager_factory.hpp/.cpp  ← Build-time factory wiring
    ├── handler/
    │   ├── i_handler.hpp                  ← Handler interface
    │   ├── i_crypto_handler_factory.hpp   ← Factory interface
@@ -91,18 +191,24 @@ Directory Layout
    ├── score_provider/
    │   ├── score_provider_config.hpp/.cpp ← Config / visitor
    │   ├── score_provider_factory.hpp/.cpp
-   │   ├── score_provider.hpp/.cpp        ← Abstract base provider
-   │   ├── operations/
-   │   │   ├── hash/                      ← ScoreHashHandler + HashExecutor
-   │   │   ├── mac/                       ← ScoreMacHandler + MacExecutor
-   │   │   ├── key_management/            ← ScoreKeyManagementHandler
-   │   │   └── factory/                   ← ScoreHandlerFactory
+   │   ├── score_provider.hpp             ← Abstract base provider
+   │   ├── score_backend_adapter.hpp      ← Backend adapter interface
+   │   ├── operations/                    ← Score*Handler + *Executor bases
+   │   │   ├── hash/
+   │   │   ├── mac/
+   │   │   ├── key_management/
+   │   │   └── factory/
    │   └── openssl/                       ← OpenSSL concrete provider
    │       ├── provider_openssl.hpp/.cpp
-   │       ├── openssl_provider_factory.hpp/.cpp
    │       ├── operations/                ← OpenSsl*Handler implementations
    │       ├── key_management/            ← OpenSslKeyHandler, OpenSslKeyFactory
    │       └── detail/
-   ├── pkcs11/                            ← PKCS#11 provider family
-   └── src/
-       └── provider_manager.cpp
+   └── pkcs11/                            ← PKCS#11 provider family
+       ├── pkcs11_token_config.hpp/.cpp   ← Token config / visitor
+       ├── pkcs11_provider_factory.hpp/.cpp
+       ├── pkcs11_provider.hpp/.cpp
+       ├── pkcs11_module.hpp/.cpp
+       ├── pkcs11_session_guard.hpp
+       ├── operations/
+       ├── key_management/
+       └── detail/

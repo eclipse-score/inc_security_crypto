@@ -41,7 +41,7 @@ class ConnectionHandler : public IRequestHandler
     ConnectionHandler(const ConnectionHandler&) = delete;
     ConnectionHandler& operator=(const ConnectionHandler&) = delete;
 
-    ControlResponse processRequest(const ControlRequest& request) override;
+    ControlResponse processRequest(ControlRequest& request) override;
 
   private:
     std::unique_ptr<IRequestHandler> m_next_request_handler;

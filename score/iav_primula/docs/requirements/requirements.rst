@@ -75,5 +75,5 @@ Environmental Requirements
    The component shall be built in an environment that supports Rust edition
    2021, consistent with the component BUILD definition.
 
-.. needextend:: is_external == False and "iav_primula" in id
+.. needextend:: "c.this_doc()"
    :+tags: iav_primula

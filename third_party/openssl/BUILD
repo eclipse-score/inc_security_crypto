@@ -23,20 +23,12 @@ configure_make(
     configure_command = "Configure",  # OpenSSL uses Configure, not configure
     configure_in_place = False,  # Avoid path conflicts with QCC
     configure_options = select({
-        # OpenSSL's Configure auto-detects the host (build) machine, not the
-        # target. Without an explicit target it always picks linux-x86_64 on a
-        # typical CI host and injects -m64 and other x86_64-specific flags.
-        # QNX has no target entry in OpenSSL's Configurations/10-main.conf
-        # at all (no qnx-*, nto-*, or aarch64-unknown-nto-qnx* target exists),
-        # so in all cross-compilation cases we pass the closest Linux target
-        # to get the correct ABI and architecture flags. The QNX-specific
-        # cross-compilation is handled transparently via the toolchain.
-        "//platforms:is_qnx_aarch64": ["linux-aarch64"],
-        "//platforms:is_qnx_x86_64": ["linux-x86_64"],
+        "//platforms:is_qnx_aarch64": ["qnx-aarch64"],  #Patched openssl main.conf
+        "//platforms:is_qnx_x86_64": ["qnx-x86_64"],  #Patched openssl main.conf
         "//platforms:is_linux_aarch64": ["linux-aarch64"],
         "//conditions:default": [],
     }) + [
-        "no-shared",
+        "shared",  # Build shared libraries (libcrypto.so, libssl.so)
         "no-asm",  # Disable assembly optimizations to avoid GCC inline assembly issues
         "no-threads",  # Disable threading to avoid pthread requirement on QNX
         "no-makedepend",  # Disable dependency generation that causes QCC issues
@@ -108,31 +100,58 @@ configure_make(
         "//conditions:default": {},
     }),
     lib_source = "@openssl_source//:all",
+    out_include_dir = "include",
     out_lib_dir = "lib",
-    out_static_libs = [
-        "libcrypto.a",
-        "libssl.a",
+    out_shared_libs = [
+        "libcrypto.so",
+        "libcrypto.so.3",
+        "libssl.so",
+        "libssl.so.3",
     ],
     tags = ["no-sandbox"],
     targets = [
         "build_libs",
         "install_dev",
     ],
-    visibility = ["//third_party/openssl:__subpackages__"],
+    visibility = [
+        "//third_party/openssl:__subpackages__",
+    ],
 )
 
 cc_library(
-    name = "openssl",
-    visibility = ["//:__subpackages__"],
+    name = "openssl_shared",
+    linkstatic = False,
+    visibility = ["//visibility:public"],
     deps = [":openssl_make"],
 )
 
-cc_shared_library(
-    name = "openssl_shared",
-    shared_lib_name = "libopenssl.so.3",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":openssl",
-        ":openssl_make",
+# Extract the versioned .so files from the cmake output so they can be used
+# as plain data files in runfiles (e.g. py_itf_test copying into Docker).
+# cc_library (openssl) handles compile-time headers and dynamic linking;
+# these genrules serve only the data= / file-copy use case.
+genrule(
+    name = "openssl_libcrypto_so_extract",
+    srcs = [":openssl_make"],
+    outs = ["libcrypto.so.3"],
+    cmd = "set -e; found=0; for f in $(locations :openssl_make); do case $$f in *libcrypto.so.3) cp $$f $@; found=1; break;; esac; done; test $$found -eq 1 || { echo 'ERROR: libcrypto.so.3 not found in openssl_make outputs' >&2; exit 1; }",
+    visibility = ["//visibility:private"],
+)
+
+genrule(
+    name = "openssl_libssl_so_extract",
+    srcs = [":openssl_make"],
+    outs = ["libssl.so.3"],
+    cmd = "set -e; found=0; for f in $(locations :openssl_make); do case $$f in *libssl.so.3) cp $$f $@; found=1; break;; esac; done; test $$found -eq 1 || { echo 'ERROR: libssl.so.3 not found in openssl_make outputs' >&2; exit 1; }",
+    visibility = ["//visibility:private"],
+)
+
+# Single public target for all consumers that need the OpenSSL .so files as
+# data (runfiles). Mirrors the pattern used for softhsm_so.
+filegroup(
+    name = "openssl_so",
+    srcs = [
+        ":openssl_libcrypto_so_extract",
+        ":openssl_libssl_so_extract",
     ],
+    visibility = ["//:__subpackages__"],
 )

@@ -54,8 +54,10 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <sstream>
-#include <vector>
+#include <string>
+#include <string_view>
 
 // Provider interfaces
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
@@ -63,6 +65,9 @@
 
 // Daemon config
 #include "score/crypto/src/daemon/config/inc/config.hpp"
+
+// Common types (includes span.hpp)
+#include "score/crypto/src/daemon/common/types.hpp"
 
 // OpenSSL provider
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
@@ -72,7 +77,6 @@
 // Key management
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
-#include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
 #include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
 
@@ -96,18 +100,23 @@ using InitializationParams = ::score::crypto::daemon::provider::handler::Initial
 // Helpers
 // ============================================================================
 
-static std::string hex(const uint8_t* data, std::size_t len)
+namespace
 {
-    std::ostringstream ss;
-    ss << std::hex << std::setfill('0');
+
+std::string hex(const uint8_t* data, std::size_t len)
+{
+    std::ostringstream stream;
+    stream << std::hex << std::setfill('0');
     for (std::size_t i = 0; i < len; ++i)
     {
-        ss << std::setw(2) << static_cast<unsigned>(data[i]);
+        stream << std::setw(2) << static_cast<unsigned>(data[i]);
     }
-    return ss.str();
+    return stream.str();
 }
 
-static constexpr const char* kTestMessage = "Score multi-provider crypto demo";
+constexpr std::string_view kTestMessage = "Score multi-provider crypto demo";
+
+}  // namespace
 
 // ============================================================================
 // Test Fixture — sets up an in-memory OpenSSL key infrastructure
@@ -140,10 +149,10 @@ class MacDemoTest : public ::testing::Test
     ///
     /// When @p key_handler is non-null it is provided via InitializationParams
     /// so the handler transitions directly to STREAM_INITIALIZED state (ready to compute MAC).
-    std::shared_ptr<OpenSslHmacHandler> MakeMacHandler(const km::IKeyHandler* key_handler = nullptr)
+    static std::shared_ptr<OpenSslHmacHandler> MakeMacHandler(const km::IKeyHandler* key_handler = nullptr)
     {
         auto executor = std::make_unique<MacExecutor>();
-        auto h = std::make_shared<OpenSslHmacHandler>(std::move(executor), "HMAC-SHA256");
+        auto handler = std::make_shared<OpenSslHmacHandler>(std::move(executor), "HMAC-SHA256");
         InitializationParams init_params{};
         if (key_handler != nullptr)
         {
@@ -152,12 +161,15 @@ class MacDemoTest : public ::testing::Test
             // bound key's provider so the handler's provider-id validation passes.
             init_params.provider_id = key_handler->GetProviderId();
         }
-        EXPECT_TRUE(h->InitializeContext(init_params).has_value()) << "OpenSslHmacHandler::InitializeContext failed";
-        return h;
+        EXPECT_TRUE(handler->InitializeContext(init_params).has_value())
+            << "OpenSslHmacHandler::InitializeContext failed";
+        return handler;
     }
 
     static std::shared_ptr<OpenSSL> m_provider;
     static km::IKeyFactory::Sptr m_key_factory;
+
+  protected:
     score::crypto::daemon::config::Config m_config;
 };
 
@@ -219,25 +231,28 @@ TEST_F(MacDemoTest, Demo2_EphemeralKeyMac)
     ASSERT_TRUE(init_result.has_value()) << "InitMac failed";
 
     // 2c. Compute MAC over the test message.
-    const auto* msg = reinterpret_cast<const uint8_t*>(kTestMessage);
-    const std::size_t msg_len = std::strlen(kTestMessage);
+    const auto* msg = reinterpret_cast<const uint8_t*>(kTestMessage.data());
+    const std::size_t msg_len = kTestMessage.size();
 
-    auto update_result = mac->UpdateMac(common::VirtualMemoryBufferConst{msg, msg_len});
+    auto update_result = mac->UpdateMac(score::cpp::span<const uint8_t>{msg, msg_len});
     ASSERT_TRUE(update_result.has_value()) << "UpdateMac failed";
     std::cout << "[PASS] UpdateMac succeeded\n";
 
     // 2d. Finalize and get the MAC tag.
-    auto final_result = mac->FinalizeMac(std::nullopt, std::nullopt);  // Handler allocates buffer
+    constexpr std::size_t kHmacSha256Size = 32U;
+    std::vector<std::uint8_t> macBuffer(kHmacSha256Size);
+    common::RequestParameter macOutput = score::cpp::span<uint8_t>{macBuffer.data(), macBuffer.size()};
+    auto final_result = mac->FinalizeMac(macOutput, std::nullopt);
     ASSERT_TRUE(final_result.has_value()) << "FinalizeMac failed";
 
-    // Extract the OwnedBuffer from the ResponseParameters variant
+    // Extract the size from response (new protocol: response contains uint64_t, data is in macBuffer)
     const auto& response = final_result.value();
     ASSERT_EQ(response.size(), 1U) << "Expected single response parameter";
     const auto& param = response[0];
-    ASSERT_TRUE(std::holds_alternative<common::OwnedBuffer>(param)) << "Expected OwnedBuffer in response";
-    const auto& tag = std::get<common::OwnedBuffer>(param);
-    ASSERT_EQ(tag.size(), 32U) << "Expected 32-byte HMAC-SHA256 tag";
-    std::cout << "[PASS] FinalizeMac succeeded. Tag (hex): " << hex(tag.data(), tag.size()) << "\n";
+    ASSERT_TRUE(std::holds_alternative<std::uint64_t>(param)) << "Expected uint64_t size in response";
+    const auto actual_size = static_cast<std::size_t>(std::get<std::uint64_t>(param));
+    ASSERT_EQ(actual_size, kHmacSha256Size) << "Expected 32-byte HMAC-SHA256 tag";
+    std::cout << "[PASS] FinalizeMac succeeded. Tag (hex): " << hex(macBuffer.data(), actual_size) << "\n";
 
     // Cleanup.
     static_cast<void>(key_handler->Release());
@@ -255,15 +270,16 @@ TEST_F(MacDemoTest, Demo3_SlotDirectFileBackedKey)
     slot.slot_name = "demo/sw-hmac-256";
     slot.algorithm = "HMAC-SHA256";
     // Config-time: populate provider names; runtime would populate provider_ids via ResolveProviderIds
-    slot.provider_names = {common::kProviderNameOpenSSL};
+    slot.provider_names = {"OPENSSL"};
     slot.provider_ids = {0};  // 0 = OpenSSL (typical registration order)
     // Write a temporary deployment descriptor pointing to the test key file.
     const std::string deploy_path =
         std::string{std::filesystem::temp_directory_path().string()} + "/demo_sw_hmac256_slot.kv";
     {
-        std::ofstream f(deploy_path);
-        f << "[key]\n"
-          << std::string{km::deployment_keys::kKeyPath} << "=score/tests/test_vectors/key_management/hmac_sha256.key\n";
+        std::ofstream deploy_file(deploy_path);
+        deploy_file << "[key]\n"
+                    << std::string{km::deployment_keys::kKeyPath}
+                    << "=score/tests/test_vectors/key_management/hmac_sha256.key\n";
     }
     slot.deployment_path = deploy_path;
     slot.deployment_format = "kv";
@@ -287,20 +303,23 @@ TEST_F(MacDemoTest, Demo3_SlotDirectFileBackedKey)
     auto init_result = mac->InitMac(std::nullopt);
     ASSERT_TRUE(init_result.has_value()) << "InitMac failed";
 
-    const auto* msg = reinterpret_cast<const uint8_t*>(kTestMessage);
-    const std::size_t msg_len = std::strlen(kTestMessage);
-    ASSERT_TRUE(mac->UpdateMac(common::VirtualMemoryBufferConst{msg, msg_len}).has_value()) << "UpdateMac failed";
+    const auto* msg = reinterpret_cast<const uint8_t*>(kTestMessage.data());
+    const std::size_t msg_len = kTestMessage.size();
+    ASSERT_TRUE(mac->UpdateMac(score::cpp::span<const uint8_t>{msg, msg_len}).has_value()) << "UpdateMac failed";
 
-    auto final_result = mac->FinalizeMac(std::nullopt, std::nullopt);
+    constexpr std::size_t kHmacSha256Size = 32U;
+    std::vector<std::uint8_t> macBuffer(kHmacSha256Size);
+    common::RequestParameter macOutput = score::cpp::span<uint8_t>{macBuffer.data(), macBuffer.size()};
+    auto final_result = mac->FinalizeMac(macOutput, std::nullopt);
     ASSERT_TRUE(final_result.has_value()) << "FinalizeMac failed";
 
     const auto& response = final_result.value();
     ASSERT_EQ(response.size(), 1U) << "Expected single response parameter";
     const auto& param = response[0];
-    ASSERT_TRUE(std::holds_alternative<common::OwnedBuffer>(param)) << "Expected OwnedBuffer in response";
-    const auto& tag = std::get<common::OwnedBuffer>(param);
-    ASSERT_EQ(tag.size(), 32U) << "Expected 32-byte HMAC-SHA256 tag";
-    std::cout << "[PASS] MAC computed for file-backed key. Tag (hex): " << hex(tag.data(), tag.size()) << "\n";
+    ASSERT_TRUE(std::holds_alternative<std::uint64_t>(param)) << "Expected uint64_t size in response";
+    const auto actual_size = static_cast<std::size_t>(std::get<std::uint64_t>(param));
+    ASSERT_EQ(actual_size, kHmacSha256Size) << "Expected 32-byte HMAC-SHA256 tag";
+    std::cout << "[PASS] MAC computed for file-backed key. Tag (hex): " << hex(macBuffer.data(), actual_size) << "\n";
 
     static_cast<void>(key_handler->Release());
 }
@@ -313,7 +332,7 @@ TEST_F(MacDemoTest, Demo4_ProviderDirectCapabilityPattern)
     std::cout << "\n=== Demo 4: Direct IProvider Capability Pattern (MISRA-safe) ===\n";
 
     // Simulate the ProviderManager lookup used in the real daemon.
-    ProviderManager mgr(m_config);
+    ProviderManager mgr(m_config.GetProviderInitConfig());
     mgr.RegisterProvider("OPENSSL", m_provider, common::CryptoProviderType::SOFTWARE);
 
     // Retrieve the provider via ProviderManager.

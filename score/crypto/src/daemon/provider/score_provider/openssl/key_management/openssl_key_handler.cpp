@@ -13,9 +13,7 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
-#include "score/mw/log/logging.h"
 #include <openssl/crypto.h>  // OPENSSL_cleanse
-#include <algorithm>
 
 namespace score::crypto::daemon::provider::openssl
 {
@@ -28,7 +26,6 @@ OpenSslKeyHandler::OpenSslKeyHandler(std::vector<std::uint8_t> key_bytes,
 
 OpenSslKeyHandler::~OpenSslKeyHandler()
 {
-    score::mw::log::LogDebug() << "[OPENSSL_KEY_HANDLER] Release Key";
     static_cast<void>(Release());
 }
 
@@ -77,8 +74,8 @@ OpenSslKeyHandler::Export() const
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
 
-    key_management::SecureKeyBytes out(m_key_bytes.size());
-    std::copy(m_key_bytes.begin(), m_key_bytes.end(), out.bytes.begin());
+    key_management::SecureKeyBytes out;
+    out.bytes.assign(m_key_bytes.begin(), m_key_bytes.end());
     return out;
 }
 

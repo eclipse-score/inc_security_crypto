@@ -23,17 +23,6 @@ cc_binary(
     ],
 )
 
-cc_binary(
-    name = "memory_allocator_example",
-    srcs = ["memory_allocator_example.cpp"],
-    deps = [
-        "//score/crypto/src/api:crypto_stack",
-        "//score/crypto/src/api/common:crypto_common",
-        "//score/crypto/src/api/config:context_configs",
-        "//score/crypto/src/api/contexts:crypto_contexts",
-    ],
-)
-
 # =============================================================================
 # FUTURE: Examples below depend on APIs not yet in scope.
 # =============================================================================

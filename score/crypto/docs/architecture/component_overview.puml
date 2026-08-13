@@ -1,29 +1,45 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
 @startuml Component Overview
 title __Architecture overview__
 
 set namespaceSeparator ::
+top to bottom direction
+skinparam nodesep 2
+skinparam ranksep 72
 
 ' ====================================================================
 ' CLIENT SIDE
 ' ====================================================================
 package "Client Library (score::crypto)" <<Rectangle>> {
-    interface api::ICryptoStack {
+    interface "api::ICryptoStack" as CryptoStack {
         +CreateCryptoContext() : ICryptoContext
     }
-    interface api::ICryptoContext {
+    interface "api::ICryptoContext" as CryptoContext {
         +ResolveResource(...) : CryptoResourceId
         +CreateHashContext(...) : IHashContext
         +CreateCipherContext(...) : ICipherContext
         +...()
     }
-    api::ICryptoStack ..> api::ICryptoContext : creates
+    CryptoStack ..> CryptoContext : creates
 }
 
 ' ====================================================================
 ' IPC TRANSPORT
 ' ====================================================================
 package "IPC (score::crypto::ipc)" <<Rectangle>> {
-    class ipc::GrpcControlServer {
+    class "ipc::GrpcControlServer" as GrpcControlServer {
         +Start(socket_path)
         +Stop()
         +WaitForTermination()
@@ -36,140 +52,174 @@ package "IPC (score::crypto::ipc)" <<Rectangle>> {
 package "Daemon (score::crypto::daemon)" <<Rectangle>> {
 
     ' --- Control Plane ---
-    package "control_plane/" <<Rectangle>> #F5F5F5 {
+    package control_plane <<Rectangle>> #F5F5F5 {
 
-        interface control_plane::IControlServer {
+        interface "control_plane::IControlServer" as ControlServer {
             +Start(socket_path)
             +Stop()
             +WaitForTermination()
         }
 
-        interface control_plane::IHandlerChainFactory {
+        interface "control_plane::IHandlerChainFactory" as HandlerChainFactory {
             +CreateRequestHandler() : IRequestHandler
         }
 
-        interface control_plane::IRequestHandler {
+        interface "control_plane::IRequestHandler" as RequestHandler {
             +processRequest(request) : ControlResponse
         }
 
-        class control_plane::BasicHandlerChainFactory {
+        class "control_plane::BasicHandlerChainFactory" as BasicHandlerChainFactory {
             +CreateRequestHandler() : IRequestHandler
         }
 
-        class control_plane::ConnectionHandler {
-            -m_next : IRequestHandler
+        class "control_plane::ConnectionHandler" as ConnectionHandler {
             +processRequest(request) : ControlResponse
         }
 
-        ipc::GrpcControlServer .up.|> control_plane::IControlServer
-        ipc::GrpcControlServer *-- control_plane::IHandlerChainFactory : owns
-        control_plane::BasicHandlerChainFactory .up.|> control_plane::IHandlerChainFactory
-        control_plane::ConnectionHandler .up.|> control_plane::IRequestHandler
-        control_plane::BasicHandlerChainFactory ..> control_plane::ConnectionHandler : creates
+        GrpcControlServer .up.|> ControlServer
+        GrpcControlServer *-- HandlerChainFactory : owns
+        BasicHandlerChainFactory .up.|> HandlerChainFactory
+        ConnectionHandler .up.|> RequestHandler
+        BasicHandlerChainFactory ..> ConnectionHandler : creates
     }
 
     ' --- Mediator ---
-    package "mediator/" <<Rectangle>> #F0F0FF {
-        interface mediator::IMediator {
+    package mediator <<Rectangle>> #F0F0FF {
+        interface "mediator::IMediator" as Mediator {
             +processRequest(request) : ControlResponse
         }
-        class mediator::MediatorImpl {
+        class "mediator::MediatorImpl" as MediatorImpl {
             +processRequest(request) : ControlResponse
         }
-        mediator::IMediator .up.|> control_plane::IRequestHandler
-        mediator::MediatorImpl .up.|> mediator::IMediator
-        control_plane::ConnectionHandler *-- mediator::IMediator : delegates to
+        Mediator .up.|> RequestHandler
+        MediatorImpl .up.|> Mediator
+        ConnectionHandler *-- Mediator : delegates to
     }
 
     ' --- Data Manager ---
-    package "data_manager/" <<Rectangle>> #FFF8DC {
-        interface data_manager::IDataManager {
+    package data_manager <<Rectangle>> #FFF8DC {
+        interface "data_manager::IDataManager" as DataManager {
             +GetNode(...) : DataNode
             +CreateNode(...) : DataNodeId
         }
-        mediator::MediatorImpl o-- data_manager::IDataManager
+        MediatorImpl o-- DataManager
     }
 
+    ' --- Data Plane ---
+    package "data_plane/" <<Rectangle>> #FFE8CC [[data_plane_architecture.html]] {
+        class data_plane::ShmRegistry {
+        }
+        class data_plane::BaseShmFactory {
+        }
+        note "Client: ShmMemoryAllocator,\nPoolAllocator,\nBufferShmTranscoder\n\n**Click for class diagrams**" as dp_note
+    }
+    mediator::MediatorImpl o-- data_plane::ShmRegistry : IShmRegistry
+
     ' --- Key Management ---
-    package "key_management/" <<Rectangle>> #F0FFF0 {
-        class key_management::KeyManagementModule {
+    package key_management <<Rectangle>> #F0FFF0 {
+        class "key_management::KeyManagementModule" as KeyManagementModule {
             +{static} Create(...) : Sptr
             +GetService() : KeyManagementService::Sptr
         }
-        class key_management::KeyManagementService {
+        class "key_management::KeyManagementService" as KeyManagementService {
             +ResolveKeySlot(...) : Expected<DataNodeId>
             +RegisterKeyMaterial(...)
             +BindKeyToContext(...)
         }
-        key_management::KeyManagementModule *-- key_management::KeyManagementService
-        mediator::MediatorImpl o-- key_management::KeyManagementService
+        KeyManagementModule *-- KeyManagementService
+        MediatorImpl o-- KeyManagementService
     }
 
     ' --- Provider ---
-    package "provider/" <<Rectangle>> #E8F5E9 {
+    package provider <<Rectangle>> #E8F5E9 {
 
-        interface provider::IProvider {
-            +Initialize() : Result<void>
-            +Shutdown() : Result<void>
+        interface "provider::IProvider" as Provider {
+            +Initialize(context : ProviderInitContext) : bool
+            +Shutdown() : void
+            +IsInitialized() : bool
         }
 
-        interface provider::IProviderFactory {
-            +CreateAndRegister(manager) : bool
+        interface "provider::IProviderFactory" as ProviderFactory {
+            +CreateAndRegister(manager : ProviderManager&) : ProviderFactoryResult
         }
 
-        class provider::ProviderManager {
-            +RegisterFactory(factory)
+        class "provider::ProviderManagerFactory" as ProviderManagerFactory {
+            +{static} Create(config : Config&) : Expected<ProviderManager::Sptr, DaemonErrorCode>
+        }
+        note right of ProviderManagerFactory : Internally instantiates and wires\nconcrete provider factories based\non build configuration.
+
+        class "provider::ProviderManager" as ProviderManager {
             +Initialize() : bool
             +RegisterProvider(name, provider, type) : bool
+            +IsProviderRegistered(name) : bool
             +GetProvider(id) : IProvider::Sptr
         }
 
-        ' --- Config visitor ---
-        class provider::score_provider::ScoreProviderConfig {
-            +PopulateDefaults()
-            +Configure(factory : ScoreProviderFactory&)
+        package backend <<Rectangle>> #E0F2F1 {
+            package backend_score_provider {
+                class "ActiveBackends" as BackendActiveBackends {
+                    +GetActiveBackends() : vector<IBackendProviderAdapter>
+                }
+            }
+            package backend_pkcs11 {
+                class "SelectedBackend" as BackendSelectedBackend {
+                    <<Bazel label_flag>>
+                }
+            }
         }
 
-        class provider::score_provider::ScoreProviderFactory {
-            -m_configs : vector<ScoreProviderEntry>
-            +SetConfigs(configs)
-            +CreateAndRegister(manager) : bool
+        package provider_score_provider {
+            class "ScoreProviderConfig" as ScoreProviderConfigNode {
+                +GetConfig()
+            }
+
+            class "ScoreProviderFactory" as ScoreProviderFactoryNode {
+                +ScoreProviderFactory(config)
+                +CreateAndRegister(manager) : bool
+            }
         }
 
-        class provider::score_provider::openssl::OpenSSLProviderFactory {
-            +CreateAndRegister(manager) : bool
+        package provider_pkcs11 {
+            class "Pkcs11Config" as Pkcs11ConfigNode {
+                +GetConfig()
+            }
+
+            class "Pkcs11ProviderFactory" as Pkcs11ProviderFactoryNode {
+                +Pkcs11ProviderFactory(config)
+                +CreateAndRegister(manager) : bool
+            }
         }
 
-        class provider::pkcs11::Pkcs11Config {
-            +PopulateDefaults()
-            +Configure(factory : Pkcs11ProviderFactory&)
-        }
-
-        class provider::pkcs11::Pkcs11ProviderFactory {
-            -m_configs : vector<Pkcs11ProviderConfig>
-            +SetTokenConfigs(configs)
-            +CreateAndRegister(manager) : bool
-        }
-
-        provider::score_provider::ScoreProviderConfig ..> provider::score_provider::ScoreProviderFactory : Configure() → SetConfigs()
-        provider::score_provider::ScoreProviderFactory .up.|> provider::IProviderFactory
-        provider::score_provider::openssl::OpenSSLProviderFactory .up.- provider::score_provider::ScoreProviderFactory : delegates
-
-        provider::pkcs11::Pkcs11Config ..> provider::pkcs11::Pkcs11ProviderFactory : Configure() → SetTokenConfigs()
-        provider::pkcs11::Pkcs11ProviderFactory .up.|> provider::IProviderFactory
-
-        provider::ProviderManager *-- provider::IProviderFactory : 0..n
-        provider::ProviderManager *-- provider::IProvider : 1..n
+        ProviderManager *-- Provider : 1..n
+        ScoreProviderFactoryNode .up.|> ProviderFactory
+        Pkcs11ProviderFactoryNode .up.|> ProviderFactory
+        ScoreProviderConfigNode ..> ScoreProviderFactoryNode : supplies config snapshot
+        Pkcs11ConfigNode ..> Pkcs11ProviderFactoryNode : supplies config snapshot
+        ScoreProviderFactoryNode ..> BackendActiveBackends : resolves providerImpl
+        BackendSelectedBackend ..> Pkcs11ProviderFactoryNode : linked backend
+        ProviderManagerFactory ..> ProviderManager : creates, registers, initializes
+        ProviderManagerFactory ..> ScoreProviderFactoryNode : conditionally creates
+        ProviderManagerFactory ..> Pkcs11ProviderFactoryNode : conditionally creates
+        ProviderManagerFactory ..> ScoreProviderConfigNode : parses/configures
+        ProviderManagerFactory ..> Pkcs11ConfigNode : parses/configures
     }
 
-    mediator::MediatorImpl o-- provider::ProviderManager
-    key_management::KeyManagementModule o-- provider::ProviderManager
+    MediatorImpl o-- ProviderManager
+    KeyManagementModule o-- ProviderManager
+
+    ' Keep the daemon layers readable on portrait-oriented output.
+    ControlServer -[hidden]down- Mediator
+    Mediator -[hidden]down- DataManager
+    DataManager -[hidden]down- KeyManagementModule
+    KeyManagementModule -[hidden]down- ProviderManager
 }
 
 ' ====================================================================
 ' CROSS-BOUNDARY CONNECTIONS
 ' ====================================================================
-api::ICryptoStack ..> ipc::GrpcControlServer : IPC (Unix socket / gRPC)
+CryptoStack ..> GrpcControlServer : IPC (Unix socket / gRPC)
+CryptoStack -[hidden]down- GrpcControlServer
+GrpcControlServer -[hidden]down- ControlServer
 
 legend right
   **Not shown:** Logging, session node cleanup,

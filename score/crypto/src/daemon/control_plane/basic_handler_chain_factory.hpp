@@ -18,6 +18,7 @@
 #include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/daemon/data_plane/i_shm_registry.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 #include <memory>
@@ -29,7 +30,7 @@ namespace score::crypto::daemon::control_plane
  * @class BasicHandlerChainFactory
  * @brief Concrete factory implementation for creating request handler chains.
  *
- * Shares thread-safe components: IDataManager, ProviderManager
+ * Shares thread-safe components: IDataManager, ProviderManager, IShmRegistry
  */
 class BasicHandlerChainFactory : public IHandlerChainFactory
 {
@@ -40,6 +41,7 @@ class BasicHandlerChainFactory : public IHandlerChainFactory
      * @param data_manager Thread-safe shared data manager (shared across threads)
      * @param provider_manager Shared provider manager (shared across threads)
      * @param config Configuration reference (must outlive factory)
+     * @param km_service Optional key management service
      */
     BasicHandlerChainFactory(std::shared_ptr<data_manager::IDataManager> data_manager,
                              std::shared_ptr<provider::ProviderManager> provider_manager,
@@ -68,6 +70,7 @@ class BasicHandlerChainFactory : public IHandlerChainFactory
   private:
     std::shared_ptr<data_manager::IDataManager> m_data_manager;     // Shared across threads
     std::shared_ptr<provider::ProviderManager> m_provider_manager;  // Shared across threads
+    data_plane::IShmRegistry::Sptr m_shm_registry;                  // Shared across threads
     const config::Config& m_config;
     key_management::KeyManagementService::Sptr m_km_service;  // Shared across threads
 };

@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/provider_openssl.hpp"
+#include "score/crypto/src/daemon/data_plane/src/base_shm_factory.hpp"
 #include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/factory/openssl_handler_factory.hpp"
@@ -28,42 +29,31 @@ OpenSSL::~OpenSSL()
     Shutdown();
 }
 
-bool OpenSSL::Initialize(const ProviderInitContext& ctx)
+bool OpenSSL::InitialiseBackend(const ProviderInitContext& /*ctx*/)
 {
-    if (m_initialized)
-    {
-        return true;
-    }
-
-    // Base class stores ID and name.
-    ScoreProvider::Initialize(ctx);
-
     if (!OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_ADD_ALL_CIPHERS |
                                  OPENSSL_INIT_ADD_ALL_DIGESTS | OPENSSL_INIT_LOAD_CONFIG,
                              nullptr))
     {
         score::mw::log::LogError() << "[OpenSSL] Error: Failed to initialize OpenSSL";
-        m_initialized = false;
         return false;
     }
-    score::mw::log::LogDebug() << "[OpenSSL] Initialized successfully (ID:" << m_numeric_id
-                               << ", Name:" << m_provider_name << ")";
+    m_factory = std::make_shared<::score::crypto::daemon::provider::openssl::OpenSslKeyFactory>(GetProviderId());
 
-    // Create key factory.
-    m_factory = std::make_shared<::score::crypto::daemon::provider::openssl::OpenSslKeyFactory>(m_numeric_id);
+    m_shm_factory = std::make_shared<data_plane::BaseShmFactory>();
 
-    m_initialized = true;
-    return m_initialized;
+    return true;
 }
 
 void OpenSSL::Shutdown()
 {
-    if (!m_initialized)
+    if (!IsInitialized())
     {
         return;
     }
 
     m_factory.reset();
+    m_shm_factory.reset();
     m_keyManagementService.reset();
 
     // Clean up OpenSSL resources
@@ -87,6 +77,11 @@ std::shared_ptr<key_management::IKeyFactory> OpenSSL::GetKeyFactory()
     const ::score::crypto::daemon::key_management::KeySlotConfig& /*config*/)
 {
     return std::make_shared<key_management::FileBackedSlotHandler>(m_factory);
+}
+
+std::shared_ptr<::score::crypto::daemon::data_plane::IShmFactory> OpenSSL::GetShmFactory()
+{
+    return m_shm_factory;
 }
 
 void OpenSSL::SetKeyManagementService(std::shared_ptr<key_management::KeyManagementService> service)

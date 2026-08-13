@@ -26,6 +26,7 @@ using common::RequestParameters;
 using common::ResponseParameters;
 using common::StreamOperationState;
 using score::crypto::daemon::common::DaemonErrorCode;
+using ::score::crypto::daemon::provider::handler::handler_utils::CheckAndGetSpan;
 
 Pkcs11HashExecutor::Pkcs11HashExecutor(const Pkcs11Module& module) noexcept
     : m_module{module},
@@ -169,16 +170,16 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    auto* bufIn = std::get_if<common::VirtualMemoryBufferConst>(&request[0]);
-    if (!bufIn || bufIn->data == nullptr || bufIn->size == 0)
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    if (!inputSpan.has_value())
     {
-        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
+        return make_unexpected(inputSpan.error());
     }
 
     // MISRA C++:2023 Rule 8.2.3 deviation — PKCS#11 C API (C_DigestUpdate) requires non-const pPart.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    auto* data = const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(bufIn->data));
-    const CK_RV rv = m_functionList->C_DigestUpdate(session, data, static_cast<CK_ULONG>(bufIn->size));
+    auto* data = const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(inputSpan.value().data()));
+    const CK_RV rv = m_functionList->C_DigestUpdate(session, data, static_cast<CK_ULONG>(inputSpan.value().size()));
     if (rv != CKR_OK)
     {
         return make_unexpected(Pkcs11Module::MapErrorReturn(rv));
@@ -197,25 +198,24 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    auto* bufInOut = std::get_if<common::VirtualMemoryBuffer>(&request[0]);
-    if (!bufInOut || bufInOut->data == nullptr || bufInOut->size == 0)
+    const auto outputSpan = CheckAndGetSpan<uint8_t>(request[0]);
+    if (!outputSpan.has_value())
     {
-        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
+        return make_unexpected(outputSpan.error());
     }
 
     // TODO: The OpenSSL HashHandler as well as the general HashHandler operation does support an additional
     // final data chunk. Not sure if this shall / can be supported for PKCS#11
 
-    auto digestLen = static_cast<CK_ULONG>(bufInOut->size);
-    const CK_RV rv = m_functionList->C_DigestFinal(session, bufInOut->data, &digestLen);
+    auto digestLen = static_cast<CK_ULONG>(outputSpan.value().size());
+    const CK_RV rv = m_functionList->C_DigestFinal(session, outputSpan.value().data(), &digestLen);
     if (rv != CKR_OK)
     {
         return make_unexpected(Pkcs11Module::MapErrorReturn(rv));
     }
 
-    // Update size to actual digest length and add to output
     ResponseParameters response;
-    response.push_back(common::VirtualMemoryBufferConst{bufInOut->data, static_cast<std::size_t>(digestLen)});
+    response.push_back(static_cast<std::uint64_t>(digestLen));
     return response;
 }
 
@@ -224,23 +224,23 @@ Pkcs11HashExecutor::ExecuteDigestSingleShot(const CK_SESSION_HANDLE session,
                                             CK_MECHANISM& mechanism,
                                             RequestParameters& request) noexcept
 {
-    if (request.empty())
+    if (request.size() < 2U)
     {
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
     // Extract input buffer
-    auto* inputBuf = std::get_if<common::VirtualMemoryBufferConst>(&request[0]);
-    if (!inputBuf || inputBuf->data == nullptr || inputBuf->size == 0)
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    if (!inputSpan.has_value())
     {
-        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
+        return make_unexpected(inputSpan.error());
     }
 
     // Extract output buffer parameters
-    auto* outputBuf = std::get_if<common::VirtualMemoryBuffer>(&request[1]);
-    if (!outputBuf || outputBuf->data == nullptr || outputBuf->size == 0)
+    const auto outputSpan = CheckAndGetSpan<uint8_t>(request[1]);
+    if (!outputSpan.has_value())
     {
-        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
+        return make_unexpected(outputSpan.error());
     }
 
     // For PKCS#11 v2.40: C_DigestInit + C_Digest (two-step single-shot)
@@ -262,20 +262,19 @@ Pkcs11HashExecutor::ExecuteDigestSingleShot(const CK_SESSION_HANDLE session,
         return make_unexpected(Pkcs11Module::MapErrorReturn(initRv));
     }
 
-    auto digestLen = static_cast<CK_ULONG>(outputBuf->size);
+    auto digestLen = static_cast<CK_ULONG>(outputSpan.value().size());
     // MISRA C++:2023 Rule 8.2.3 deviation — PKCS#11 C API (C_Digest) requires non-const pData.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    auto* inputData = const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(inputBuf->data));
+    auto* inputData = const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(inputSpan.value().data()));
     const CK_RV digestRv = m_functionList->C_Digest(
-        session, inputData, static_cast<CK_ULONG>(inputBuf->size), outputBuf->data, &digestLen);
+        session, inputData, static_cast<CK_ULONG>(inputSpan.value().size()), outputSpan.value().data(), &digestLen);
     if (digestRv != CKR_OK)
     {
         return make_unexpected(Pkcs11Module::MapErrorReturn(digestRv));
     }
 
-    // Update size to actual digest length and add to output
     ResponseParameters response;
-    response.push_back(common::VirtualMemoryBufferConst{outputBuf->data, static_cast<std::size_t>(digestLen)});
+    response.push_back(static_cast<std::uint64_t>(digestLen));
     return response;
 }
 

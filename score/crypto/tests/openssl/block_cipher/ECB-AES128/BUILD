@@ -24,7 +24,7 @@ cc_test(
     ],
     deps = [
         "//score/tests/utility",
-        "//third_party/openssl",
+        "//third_party/openssl:openssl_shared",
         "@googletest//:gtest",
     ],
 )

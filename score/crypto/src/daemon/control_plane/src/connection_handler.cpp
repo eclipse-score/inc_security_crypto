@@ -35,7 +35,7 @@ ConnectionHandler::ConnectionHandler(std::unique_ptr<IRequestHandler> next_reque
     (void)config;  // For future use
 }
 
-ControlResponse ConnectionHandler::processRequest(const ControlRequest& request)
+ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
 {
     score::mw::log::LogDebug() << "[CONTROL_HANDLER] Received request - Request ID:" << request.request_id
                                << ", Client Id ID:" << request.client_id << ", UID:" << request.uid

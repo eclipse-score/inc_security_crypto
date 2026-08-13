@@ -1,3 +1,16 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
 ﻿@startuml key_management_class_diagram
 !theme plain
 skinparam linetype ortho
@@ -254,24 +267,15 @@ package "OpenSSL Provider" <<Rectangle>> #FFFDE7 {
 package "PKCS#11 Provider" <<Rectangle>> #E8F5E9 {
 
     class Pkcs11Config {
-        - m_tokens : vector<Pkcs11TokenEntry>
         --
         + AddTokenEntry(entry)
-        + GetTokenEntries() : const vector<Pkcs11TokenEntry>&
-        + PopulateDefaults()
-        .. no-op when entries already present ..
-        + Configure(factory : Pkcs11ProviderFactory&)
-        .. visitor: converts TokenEntry → ProviderConfig ..
-        .. calls factory.SetTokenConfigs() ..
+        + GetConfig() : const Pkcs11ProviderFactoryConfig&
     }
 
     class Pkcs11ProviderFactory {
-        - m_injected_configs : vector<Pkcs11ProviderConfig>
+        - m_config : Pkcs11ProviderFactoryConfig
         --
-        + Pkcs11ProviderFactory()
-        + Pkcs11ProviderFactory(configs : vector<Pkcs11ProviderConfig>)
-        + SetTokenConfigs(configs : vector<Pkcs11ProviderConfig>)
-        .. acceptor side of Pkcs11Config visitor ..
+        + Pkcs11ProviderFactory(config : Pkcs11ProviderFactoryConfig)
         + CreateAndRegister(manager) : bool
         .. shared Pkcs11Module; one Pkcs11Provider per config ..
     }

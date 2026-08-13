@@ -48,11 +48,11 @@ class OpenSslHashHandler final
         const std::optional<common::RequestParameter> initialDataOrIV) override;
     Expected<std::monostate, common::DaemonErrorCode> UpdateHash(const common::RequestParameter& dataToHash) override;
     Expected<common::ResponseParameters, common::DaemonErrorCode> FinalizeHash(
-        std::optional<common::RequestParameter> hashOutput,
+        common::RequestParameter hashOutput,
         const std::optional<common::RequestParameter> finalDataToHash) override;
     Expected<common::ResponseParameters, common::DaemonErrorCode> SingleShotHash(
         const common::RequestParameter& dataToHash,
-        std::optional<common::RequestParameter> outputHash,
+        common::RequestParameter outputHash,
         std::optional<common::RequestParameter> initializationVector) override;
 
     /// @brief Check if the given algorithm is supported by this handler.
@@ -62,14 +62,10 @@ class OpenSslHashHandler final
     // OpenSSL-specific stream context management
     EVP_MD_CTX* mCurrentStreamContext;
 
-    // Output buffer - handler owns allocation and lifecycle
-    std::vector<uint8_t> mOutputBuffer;
-
     // Helper methods (OpenSSL provider-specific)
     const EVP_MD* GetEVPMD(const std::string& algorithm) const;
     Expected<std::monostate, common::DaemonErrorCode> ValidateAlgorithm(const std::string& algorithm) const;
     void CleanupStreamContext();
-    void AllocateOutputBuffer(size_t size);
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_COMMON_I_MEMORY_REGION_HPP
-#define SCORE_CRYPTO_SRC_API_COMMON_I_MEMORY_REGION_HPP
+#ifndef SCORE_CRYPTO_API_COMMON_I_MEMORY_HPP
+#define SCORE_CRYPTO_API_COMMON_I_MEMORY_HPP
 
 #include "score/result/result.h"
 #include "score/span.hpp"
@@ -26,7 +26,7 @@ namespace score
 namespace crypto
 {
 
-/// @brief Immutable view into an allocated shared memory region (data plane).
+/// @brief Immutable view into an allocated shared memory (data plane).
 ///
 /// Represents a read-only window into shared memory managed by the daemon.
 /// Used as input to all operation contexts. The underlying memory is shared
@@ -34,70 +34,73 @@ namespace crypto
 ///
 /// Destruction releases the shared memory segment back to the daemon's pool
 /// and decrements the per-application quota.
-class IReadOnlyMemoryRegion
+class IReadOnlyMemory
 {
   public:
-    using Uptr = std::unique_ptr<IReadOnlyMemoryRegion>;
+    using Uptr = std::unique_ptr<IReadOnlyMemory>;
 
-    virtual ~IReadOnlyMemoryRegion() = default;
+    virtual ~IReadOnlyMemory() = default;
 
-    IReadOnlyMemoryRegion(const IReadOnlyMemoryRegion&) = delete;
-    IReadOnlyMemoryRegion& operator=(const IReadOnlyMemoryRegion&) = delete;
-    IReadOnlyMemoryRegion(IReadOnlyMemoryRegion&&) = default;
-    IReadOnlyMemoryRegion& operator=(IReadOnlyMemoryRegion&&) = default;
+    IReadOnlyMemory(const IReadOnlyMemory&) = delete;
+    IReadOnlyMemory& operator=(const IReadOnlyMemory&) = delete;
+    IReadOnlyMemory(IReadOnlyMemory&&) = default;
+    IReadOnlyMemory& operator=(IReadOnlyMemory&&) = default;
 
-    /// @brief Returns a pointer to the beginning of the memory region.
+    /// @brief Returns a pointer to the beginning of the shared memory.
     virtual const uint8_t* data() const noexcept = 0;
 
-    /// @brief Returns the size of the memory region in bytes.
+    /// @brief Returns the size of the shared memory in bytes.
     virtual std::size_t size() const noexcept = 0;
 
-    /// @brief Returns an immutable span over the memory region.
+    /// @brief Returns an immutable span over the shared memory.
     /// @note Convenience wrapper: equivalent to span{data(), size()}.
     virtual score::cpp::span<const uint8_t> AsSpan() const noexcept = 0;
 
   protected:
-    IReadOnlyMemoryRegion() = default;
+    IReadOnlyMemory() = default;
 };
 
-/// @brief Mutable view into an allocated shared memory region (data plane).
+/// @brief Mutable view into an allocated shared memory (data plane).
 ///
-/// Extends IReadOnlyMemoryRegion with write access. Used for both writing
+/// Extends IReadOnlyMemory with write access. Used for both writing
 /// input data into shared memory and receiving output from operations.
 /// The underlying memory is shared between library and daemon.
 ///
 /// Destruction releases the shared memory segment back to the daemon's pool
 /// and decrements the per-application quota.
-class IReadWriteMemoryRegion : public IReadOnlyMemoryRegion
+class IReadWriteMemory : public IReadOnlyMemory
 {
   public:
-    using Uptr = std::unique_ptr<IReadWriteMemoryRegion>;
+    using Uptr = std::unique_ptr<IReadWriteMemory>;
 
-    ~IReadWriteMemoryRegion() override = default;
+    ~IReadWriteMemory() override = default;
 
-    IReadWriteMemoryRegion(const IReadWriteMemoryRegion&) = delete;
-    IReadWriteMemoryRegion& operator=(const IReadWriteMemoryRegion&) = delete;
-    IReadWriteMemoryRegion(IReadWriteMemoryRegion&&) = default;
-    IReadWriteMemoryRegion& operator=(IReadWriteMemoryRegion&&) = default;
+    IReadWriteMemory(const IReadWriteMemory&) = delete;
+    IReadWriteMemory& operator=(const IReadWriteMemory&) = delete;
+    IReadWriteMemory(IReadWriteMemory&&) = default;
+    IReadWriteMemory& operator=(IReadWriteMemory&&) = default;
 
-    /// @brief Returns a mutable pointer to the beginning of the memory region.
+    /// @brief Returns a const pointer to the beginning of the shared memory.
+    virtual const uint8_t* data() const noexcept = 0;
+
+    /// @brief Returns a mutable pointer to the beginning of the shared memory.
     virtual uint8_t* data() noexcept = 0;
 
-    /// @brief Returns a mutable span over the memory region.
+    /// @brief Returns a mutable span over the shared memory.
     virtual score::cpp::span<uint8_t> AsWritableSpan() noexcept = 0;
 
-    /// @brief Resizes the memory region.
+    /// @brief Resizes the shared memory.
     /// @param new_size The desired size in bytes
     /// @return std::monostate on success, error if the new size exceeds quota or is invalid
     /// @note May invalidate previously obtained pointers/spans.
     virtual score::Result<std::monostate> Resize(std::size_t new_size) = 0;
 
   protected:
-    IReadWriteMemoryRegion() = default;
+    IReadWriteMemory() = default;
 };
 
 }  // namespace crypto
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_COMMON_I_MEMORY_REGION_HPP
+#endif  // SCORE_CRYPTO_API_COMMON_I_MEMORY_HPP

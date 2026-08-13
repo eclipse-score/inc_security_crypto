@@ -53,7 +53,7 @@ user.bazelrc
 .ruff_cache
 
 # docs:incremental and docs:ide_support build artifacts
-/_build
+_build
 
 # Vale - editorial style guide
 .vale.ini
@@ -74,7 +74,7 @@ compile_commands.json
 .cache/
 
 # ubCode / ubc auto-generated config
-/ubproject.toml
+ubproject.toml
 
 # Devcontainer
 .devcontainer/devcontainer-lock.json

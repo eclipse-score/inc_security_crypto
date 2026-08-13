@@ -47,13 +47,48 @@ namespace mac_ops = ::score::crypto::daemon::provider::handler::mac_handler_oper
 
 MacContextImpl::MacContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                uint64_t context_id,
-                               AlgorithmId algorithm)
-    : m_connection(std::move(connection)), m_context_id(context_id), m_algorithm(algorithm)
+                               AlgorithmId algorithm,
+                               std::shared_ptr<IBufferTranscoder> transcoder)
+    : m_connection(std::move(connection)),
+      m_context_id(context_id),
+      m_algorithm(algorithm),
+      m_transcoder(std::move(transcoder))
 {
+}
+
+MacContextImpl::MacContextImpl(MacContextImpl&& other) noexcept
+    : m_connection(std::move(other.m_connection)),
+      m_context_id(std::exchange(other.m_context_id, 0)),
+      m_algorithm(other.m_algorithm),
+      m_transcoder(std::move(other.m_transcoder))
+{
+}
+
+MacContextImpl& MacContextImpl::operator=(MacContextImpl&& other) noexcept
+{
+    if (this != &other)
+    {
+        CloseContext();
+        m_connection = std::move(other.m_connection);
+        m_context_id = std::exchange(other.m_context_id, 0);
+        m_algorithm = other.m_algorithm;
+        m_transcoder = std::move(other.m_transcoder);
+    }
+    return *this;
 }
 
 MacContextImpl::~MacContextImpl()
 {
+    CloseContext();
+}
+
+void MacContextImpl::CloseContext() noexcept
+{
+    if (m_context_id == 0)
+    {
+        return;
+    }
+
     if (!m_connection)
     {
         score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Connection is not initialized during destruction";
@@ -87,28 +122,36 @@ MacContextImpl::~MacContextImpl()
 
 score::Result<std::monostate> MacContextImpl::Update(score::cpp::span<const uint8_t> data)
 {
-    auto control_req_result = proto::ControlRequestBuilder()
-                                  .forDataNodeId(m_context_id)
-                                  .operation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_UPDATE})
-                                  .with_in_data_buffer(data)
-                                  .build();
-    if (!control_req_result.has_value())
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_UPDATE});
+
+    auto tspan_result = m_transcoder->Acquire(data);
+    if (!tspan_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Failed to build MAC_UPDATE request";
+        return score::Result<std::monostate>{score::unexpect, tspan_result.error()};
+    }
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendInputBuffer(builder, tspan);
+
+    auto control_request_result = builder.build();
+    if (!control_request_result.has_value())
+    {
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_UPDATE request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    proto::ControlRequest control_req{};
+    control_req.operation = control_request_result.value();
+    control_req.data_node_id = m_context_id;
+    auto control_response_res = m_connection->SendRequest(control_req);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_UPDATE}).expectSuccess();
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR:" << validator.getError();
-        return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "MAC_UPDATE daemon response invalid")};
+        return score::Result<std::monostate>{score::unexpect,
+                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     return std::monostate{};
@@ -116,88 +159,77 @@ score::Result<std::monostate> MacContextImpl::Update(score::cpp::span<const uint
 
 score::Result<std::size_t> MacContextImpl::Finalize(score::cpp::span<uint8_t> output)
 {
-    auto control_req_result = proto::ControlRequestBuilder()
-                                  .forDataNodeId(m_context_id)
-                                  .operation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_FINALIZE})
-                                  .build();
-    if (!control_req_result.has_value())
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_FINALIZE});
+
+    auto tspan_result = m_transcoder->Acquire(output, /*is_output=*/true);
+    if (!tspan_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Failed to build MAC_FINALIZE request";
+        return score::Result<std::size_t>{score::unexpect, tspan_result.error()};
+    }
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendOutputBuffer(builder, tspan);
+
+    auto control_request_result = builder.build();
+    if (!control_request_result.has_value())
+    {
         return score::Result<std::size_t>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_FINALIZE request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    proto::ControlRequest control_req{};
+    control_req.operation = control_request_result.value();
+    control_req.data_node_id = m_context_id;
+    auto control_response_res = m_connection->SendRequest(control_req);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_FINALIZE}).expectSuccess();
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR:" << validator.getError();
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "MAC_FINALIZE daemon response invalid")};
+        return score::Result<std::size_t>{score::unexpect,
+                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
-    auto mac_result = validator.getParameterAt<proto::DataBufferReturn>(0, 0);
-    if (!mac_result.has_value())
-    {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: MAC_FINALIZE response has invalid parameter type";
-        return score::Result<std::size_t>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kOperationFailed, "MAC_FINALIZE response has invalid parameter type")};
-    }
-
-    const auto& mac_data = mac_result.value();
-    auto bytes_to_copy = std::min(mac_data.size(), output.size());
-    std::memcpy(output.data(), mac_data.data(), bytes_to_copy);
-
-    // TODO: Consider if we should just abort here and not write anything to the output buffer
-    // We may also be able to get the required out size as soon as we have created the ctx
-    // at least a sub-set of operations / algorithms.
-    if (bytes_to_copy < mac_data.size())
-    {
-        score::mw::log::LogError()
-            << "[API][MacContextImpl] ERROR: Output buffer too small for full MAC tag, truncated copy performed";
-        return score::Result<std::size_t>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kInsufficientBufferSize,
-                      "ERROR: Output buffer too small for full MAC tag, truncated copy performed")};
-    }
-
-    return bytes_to_copy;
+    return m_transcoder->ExtractOutputBuffer(tspan, validator);
 }
 
 score::Result<bool> MacContextImpl::Verify(score::cpp::span<const uint8_t> mac)
 {
-    auto control_req_result = proto::ControlRequestBuilder()
-                                  .forDataNodeId(m_context_id)
-                                  .operation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_VERIFY})
-                                  .with_in_data_buffer(mac)
-                                  .build();
-    if (!control_req_result.has_value())
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_VERIFY});
+
+    auto tspan_result = m_transcoder->Acquire(mac);
+    if (!tspan_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Failed to build MAC_VERIFY request";
+        return score::Result<bool>{score::unexpect, tspan_result.error()};
+    }
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendInputBuffer(builder, tspan);
+
+    auto control_request_result = builder.build();
+    if (!control_request_result.has_value())
+    {
         return score::Result<bool>{score::unexpect,
                                    MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_VERIFY request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    proto::ControlRequest control_req{};
+    control_req.operation = control_request_result.value();
+    control_req.data_node_id = m_context_id;
+    auto control_response_res = m_connection->SendRequest(control_req);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_VERIFY}).expectSuccess();
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR:" << validator.getError();
-        return score::Result<bool>{score::unexpect,
-                                   MakeError(CryptoErrorCode::kOperationFailed, "MAC_VERIFY daemon response invalid")};
+        return score::Result<bool>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     auto verify_result = validator.getParameterAt<bool>(0, 0);
     if (!verify_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: MAC_VERIFY response has invalid parameter type";
         return score::Result<bool>{
             score::unexpect,
             MakeError(CryptoErrorCode::kOperationFailed, "MAC_VERIFY response has invalid parameter type")};
@@ -214,7 +246,6 @@ score::Result<std::monostate> MacContextImpl::Reset()
                                   .build();
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Failed to build MAC_RESET request";
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_RESET request")};
     }
@@ -226,9 +257,8 @@ score::Result<std::monostate> MacContextImpl::Reset()
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR:" << validator.getError();
-        return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "MAC_RESET daemon response invalid")};
+        return score::Result<std::monostate>{score::unexpect,
+                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     return std::monostate{};
@@ -286,7 +316,6 @@ score::Result<std::monostate> MacContextImpl::Init(std::optional<score::cpp::spa
                                   .build();
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: Failed to build MAC_INIT request";
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_INIT request")};
     }

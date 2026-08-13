@@ -25,6 +25,8 @@
 #include <variant>
 #include <vector>
 
+#include "score/span.hpp"
+
 namespace score::crypto::daemon::common
 {
 
@@ -43,10 +45,6 @@ using ProviderName = std::string;
 using ProviderId = std::uint16_t;
 
 constexpr ProviderId kInvalidProviderId = std::numeric_limits<ProviderId>::max();
-
-// Predefined Provider Names (configuration-time identifiers)
-const ProviderName kProviderNameOpenSSL{"OPENSSL"};
-const ProviderName kProviderNameSoftHSM{"SOFTHSM"};
 
 using OperationActor = uint16_t;
 using OperationAction = uint16_t;
@@ -67,23 +65,25 @@ struct NoParam
 {
 };
 
-/// Non-owning read-only virtual memory buffer
-struct VirtualMemoryBufferConst
+// ============================================================================
+// Shared Memory parameter types for SHM request handler
+// ============================================================================
+
+enum class ShmDirection : std::uint8_t
 {
-    const uint8_t* data;
-    std::size_t size;
+    In = 0,     ///< Daemon reads from this region
+    InOut = 1,  ///< Daemon both reads and writes
 };
 
-// TODO: Physical contiguous memory buffers (can be derived from these buffer types, once needed)
-// But we still want to maintain separate types in terms of constness
-
-/// Non-owning mutable virtual memory buffer
-struct VirtualMemoryBuffer
+/// @brief Backend-agnostic shared memory parameter for crypto operations.
+/// The daemon resolves node_id via its internal region map
+struct DataShm
 {
-    uint8_t* data;
-    std::size_t size;
+    std::uint64_t node_id{0};  ///< Daemon-assigned DataNodeId — opaque region handle.
+    std::size_t offset{0};     ///< Byte offset within the region.
+    std::size_t size{0};       ///< Number of bytes to access.
+    ShmDirection direction{ShmDirection::In};
 };
-
 // ============================================================================
 // Owning buffer types
 // ============================================================================
@@ -110,22 +110,23 @@ using RequestParameter = std::variant<NoParam,
                                       std::uint16_t,
                                       std::uint32_t,
                                       std::uint64_t,
-                                      VirtualMemoryBufferConst,  // Indicates input buffer
-                                      VirtualMemoryBuffer,       // Indicates output buffer
+                                      score::cpp::span<const uint8_t>,  // input buffer
+                                      score::cpp::span<uint8_t>,        // output buffer
+                                      DataShm,
                                       std::string_view>;
 
 /// Output parameter variant:
 // - Always owning on the lib side, since we need to take ownership when returning from the IPC
-// - Owning and non-owning on daemon side, depending on the useage
+// - Owning and non-owning on daemon side, depending on the usage
 //   - Requests are non-owning. (IPC owns the data)
-//   - Responses may be owning, if buffers where created during the operation
+//   - Responses may be owning, if buffers were created during the operation
 using ResponseParameter = std::variant<NoParam,
                                        bool,
                                        std::uint8_t,
                                        std::uint16_t,
                                        std::uint32_t,
                                        std::uint64_t,
-                                       VirtualMemoryBufferConst,  // Indicates buffer with data to be returned
+                                       score::cpp::span<const uint8_t>,  // buffer with data to be returned
                                        OwnedString,
                                        OwnedBuffer>;
 
@@ -154,6 +155,30 @@ enum class CryptoProviderType : std::uint8_t
     SOFTWARE,     ///< Software-based crypto provider
     SPECIALIZED,  ///< Specialized provider for specific operations
 };
+
+inline CryptoProviderType CryptoProviderTypeFromString(const std::string& typeStr)
+{
+    if (typeStr == "DEFAULT")
+    {
+        return CryptoProviderType::DEFAULT;
+    }
+    else if (typeStr == "HARDWARE")
+    {
+        return CryptoProviderType::HARDWARE;
+    }
+    else if (typeStr == "SOFTWARE")
+    {
+        return CryptoProviderType::SOFTWARE;
+    }
+    else if (typeStr == "SPECIALIZED")
+    {
+        return CryptoProviderType::SPECIALIZED;
+    }
+    else
+    {
+        return CryptoProviderType::SPECIALIZED;  // Default to SPECIALIZED for unknown types
+    }
+}
 
 }  // namespace score::crypto::daemon::common
 

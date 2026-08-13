@@ -27,10 +27,22 @@ bool ScoreProvider::Initialize(const ProviderInitContext& ctx)
 
     m_numeric_id = ctx.numeric_id;
     m_provider_name = ctx.name;
-    m_initialized = true;
 
+    if (!InitialiseBackend(ctx))
+    {
+        m_numeric_id = common::kInvalidProviderId;
+        m_provider_name = {};
+        return false;
+    }
+
+    m_initialized = true;
     score::mw::log::LogDebug() << "[ScoreProvider] Initialized (ID:" << m_numeric_id << ", Name:" << m_provider_name
                                << ")";
+    return true;
+}
+
+bool ScoreProvider::InitialiseBackend(const ProviderInitContext& /*ctx*/)
+{
     return true;
 }
 
@@ -42,6 +54,11 @@ void ScoreProvider::Shutdown()
     }
     m_handler_factory.reset();
     m_initialized = false;
+}
+
+bool ScoreProvider::IsInitialized() const
+{
+    return m_initialized;
 }
 
 common::ProviderId ScoreProvider::GetProviderId() const

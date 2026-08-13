@@ -19,12 +19,16 @@ cc_test(
     data = [
         "//score/tests/test_vectors/key_management:key_management_test_vectors",
     ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     deps = [
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_library",
         "//score/crypto/src/daemon/provider/score_provider/operations/mac:score_mac_handler",
-        "//third_party/openssl",
+        "//third_party/openssl:openssl_shared",
         "@googletest//:gtest_main",
     ],
 )

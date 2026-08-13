@@ -17,6 +17,7 @@
 #include "score/crypto/src/api/contexts/i_mac_context.hpp"
 
 #include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 
@@ -42,11 +43,20 @@ class MacContextImpl final : public IMacContext
     /// @param connection Shared connection for IPC communication
     /// @param context_id Daemon-assigned context identifier (from CTX_CREATE response)
     /// @param algorithm Algorithm name (e.g., "HMAC-SHA256") for MAC size queries
+    /// @param transcoder Stack-shared buffer-routing abstraction (pool/bulk/in-band).
+    ///                   Shared with all other contexts in the same CryptoStack.
+    ///                   When non-null, handles transparent copying via pool SHM.
     MacContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                    uint64_t context_id,
-                   AlgorithmId algorithm);
+                   AlgorithmId algorithm,
+                   std::shared_ptr<IBufferTranscoder> transcoder = nullptr);
 
     ~MacContextImpl() override;
+
+    MacContextImpl(const MacContextImpl&) = delete;
+    MacContextImpl& operator=(const MacContextImpl&) = delete;
+    MacContextImpl(MacContextImpl&&) noexcept;
+    MacContextImpl& operator=(MacContextImpl&&) noexcept;
 
     // -- IStreamingContext --
     score::Result<std::monostate> Init(std::optional<score::cpp::span<const uint8_t>> iv) override;
@@ -62,9 +72,12 @@ class MacContextImpl final : public IMacContext
     std::size_t GetMacSize() const noexcept override;
 
   private:
+    void CloseContext() noexcept;
+
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     score::crypto::daemon::control_plane::protocol::DataNodeId m_context_id;
     AlgorithmId m_algorithm;
+    std::shared_ptr<IBufferTranscoder> m_transcoder;
 };
 
 }  // namespace crypto

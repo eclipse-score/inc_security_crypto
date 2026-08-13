@@ -54,7 +54,7 @@ class DummyRequestHandlerNode : public score::crypto::daemon::control_plane::IRe
     DummyRequestHandlerNode() = default;
 
     score::crypto::daemon::control_plane::protocol::ControlResponse processRequest(
-        const score::crypto::daemon::control_plane::protocol::ControlRequest& request) override
+        score::crypto::daemon::control_plane::protocol::ControlRequest& request) override
     {
         score::crypto::daemon::control_plane::protocol::ControlResponse response;
         response.request_id = request.request_id;

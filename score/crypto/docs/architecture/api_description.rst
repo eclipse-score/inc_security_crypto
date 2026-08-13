@@ -173,13 +173,17 @@ The data plane is architecturally independent of the IPC control plane:
 
 - ``ICryptoStack::GetMemoryAllocator()`` returns a ``Result<IMemoryAllocator::Uptr>``
   transferring ownership of the allocator to the caller.
-- ``IMemoryAllocator::Allocate(size)`` allocates shared memory with ``kDefault``
-  type. The daemon tracks allocations against a per-application quota
+- ``IMemoryAllocator::Allocate(size)`` / ``Allocate(size, provider_type)``
+  allocates shared memory. When ``provider_type`` is ``std::nullopt`` (the
+  default) the daemon selects default shared memory. Passing a ``ProviderType``
+  value (e.g., ``kHardware``) requests memory compatible with that provider
+  category. The daemon tracks allocations against a per-application quota
   (configurable, overridable per app).
-- ``IMemoryAllocator::Allocate(size, kProviderCompatible, providerHandle)``
-  allocates memory directly usable by a specific provider (e.g., DMA-capable
-  for hardware/TEE), enabling the zero-copy path.
-- ``IReadWriteMemoryRegion`` provides ``AsSpan()`` and ``AsWritableSpan()`` for
+- ``IMemoryAllocator::Allocate(size, provider)`` allocates memory directly
+  usable by a specific resolved provider instance (identified by a
+  ``CryptoResourceId`` of type ``kProvider``), enabling the zero-copy path for
+  hardware/TEE providers.
+- ``IReadWriteMemory`` provides ``AsSpan()`` and ``AsWritableSpan()`` for
   passing data to operation contexts.
 - Memory regions are shared between library and daemon, so operation data does
   not traverse the IPC serialization path.
@@ -191,15 +195,16 @@ Zero-Copy Path
 
 When provider-compatible memory is used, the data path avoids all copies:
 
-1. Application allocates provider-compatible memory via
-   ``Allocate(size, kProviderCompatible, providerHandle)``
-2. Application writes data into the region
-3. Application passes ``region.AsSpan()`` to an operation context
-4. Daemon forwards the same physical memory to the target provider
-5. No copies occur end-to-end
+1. Application resolves a provider handle: ``ResolveResource("MyHSM", kProvider)``
+2. Application allocates provider-compatible memory via
+   ``Allocate(size, providerResourceId)``
+3. Application writes data into the region
+4. Application passes ``region.AsSpan()`` to an operation context
+5. Daemon forwards the same physical memory to the target provider
+6. No copies occur end-to-end
 
-For non-compatible memory or when ``kDefault`` is used, the daemon copies
-data into an internal provider-compatible buffer transparently.
+For default allocation (``Allocate(size)`` or ``Allocate(size, std::nullopt)``)
+the daemon copies data into an internal provider-compatible buffer transparently.
 
 Base Class Hierarchy
 --------------------

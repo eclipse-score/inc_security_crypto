@@ -15,6 +15,7 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/data_plane/src/base_shm_factory.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_factory.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_slot_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
@@ -83,9 +84,11 @@ bool Pkcs11Provider::Initialize(const ProviderInitContext& ctx)
     // in GetCryptoHandlerFactory() after SetKeyManagementService() has been called.
     // This avoids circular dependencies where the factory needs the service.
 
+    m_shm_factory = std::make_shared<data_plane::BaseShmFactory>();
+
     m_initialized = true;
-    score::mw::log::LogDebug() << "[PKCS#11] Provider (ID:" << m_numeric_id << ", Name:" << m_provider_name
-                               << ") initialised successfully";
+    score::mw::log::LogInfo() << "[PKCS#11] Provider (ID: " << m_numeric_id << ", Name: " << m_provider_name
+                              << ") initialised successfully";
     return true;
 }
 
@@ -134,7 +137,7 @@ bool Pkcs11Provider::AutodiscoverSlot() noexcept
     if (!result.has_value())
     {
         score::mw::log::LogError() << "[PKCS#11] Error: Failed to find slot for token '" << m_config.tokenLabel
-                                   << "' (error:" << static_cast<int>(result.error()) << ")";
+                                   << "' (error: " << static_cast<int>(result.error()) << ")";
         return false;
     }
 
@@ -156,7 +159,7 @@ bool Pkcs11Provider::QuerySessionLimits() noexcept
     const CK_RV rv = m_module->GetFunctionList()->C_GetTokenInfo(m_config.slotId, &tokenInfo);
     if (rv != CKR_OK)
     {
-        score::mw::log::LogError() << "[PKCS#11] Error: C_GetTokenInfo failed on slot" << m_config.slotId
+        score::mw::log::LogError() << "[PKCS#11] Error: C_GetTokenInfo failed on slot " << m_config.slotId
                                    << " (rv=" << static_cast<unsigned long>(rv) << ")";
         return false;
     }
@@ -182,8 +185,8 @@ bool Pkcs11Provider::SeedSessionPool() noexcept
     const auto result = seedSession->Open(*m_module, m_config.slotId, Pkcs11SessionType::ReadOnly);
     if (!result.has_value())
     {
-        score::mw::log::LogError() << "[PKCS#11] Error: Failed to open initial session on slot" << m_config.slotId
-                                   << " (error" << static_cast<int>(result.error()) << ")";
+        score::mw::log::LogError() << "[PKCS#11] Error: Failed to open initial session on slot " << m_config.slotId
+                                   << " (error " << static_cast<int>(result.error()) << ")";
         return false;
     }
     m_roPool.push_back(PooledSession{std::move(seedSession), false});
@@ -202,6 +205,7 @@ void Pkcs11Provider::Shutdown()
     }
 
     m_handlerFactory.reset();
+    m_shm_factory.reset();
 
     // Close all pooled sessions (RAII via SessionGuard destructors).
     m_roPool.clear();
@@ -419,6 +423,11 @@ std::shared_ptr<key_management::IKeySlotHandler> Pkcs11Provider::GetKeySlotHandl
         m_key_store = std::make_shared<Pkcs11KeyStore>(shared_from_this(), m_module);
     }
     return std::make_shared<Pkcs11KeySlotHandler>(shared_from_this(), m_module, m_key_store);
+}
+
+std::shared_ptr<::score::crypto::daemon::data_plane::IShmFactory> Pkcs11Provider::GetShmFactory()
+{
+    return m_shm_factory;
 }
 
 }  // namespace score::crypto::daemon::provider::pkcs11

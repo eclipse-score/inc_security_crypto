@@ -17,7 +17,6 @@
 #include "score/crypto/src/daemon/mediator/i_mediator.hpp"
 
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
@@ -52,10 +51,7 @@ struct OperationExecutionContext
 class MediatorImpl : public IMediator
 {
   public:
-    MediatorImpl(data_manager::IDataManager::Sptr data_manager,
-                 provider::ProviderManager::Sptr provider_manager,
-                 const config::Config& config,
-                 key_management::KeyManagementService::Sptr km_service = nullptr);
+    explicit MediatorImpl(MediatorDependencies deps);
 
     MediatorImpl(const MediatorImpl&) = delete;
     MediatorImpl& operator=(const MediatorImpl&) = delete;
@@ -65,15 +61,10 @@ class MediatorImpl : public IMediator
 
     ~MediatorImpl() override = default;
     score::crypto::daemon::control_plane::ControlResponse processRequest(
-        const score::crypto::daemon::control_plane::ControlRequest& request) override;
+        score::crypto::daemon::control_plane::ControlRequest& request) override;
 
   private:
     bool HandleContextCreationOperation(
-        const score::crypto::daemon::control_plane::ControlRequest& request,
-        const control_plane::SingleOperationRequest& operation,
-        score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
-
-    bool HandleContextCloseOperation(
         const score::crypto::daemon::control_plane::ControlRequest& request,
         const control_plane::SingleOperationRequest& operation,
         score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
@@ -83,6 +74,17 @@ class MediatorImpl : public IMediator
     bool ExecuteOperation(const OperationExecutionContext& exec_ctx,
                           const std::shared_ptr<score::crypto::daemon::provider::handler::Handler>& handler,
                           score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
+
+    /// @brief Shared node-deletion helper used by both CTX_CLOSE and SHM_DESTROY_OBJECT.
+    ///
+    /// Deletes @p node_id from the data manager and writes the response. Deletion is
+    /// idempotent: a missing node means the desired end-state already holds and is
+    /// reported as success (mirrors ConnectionHandler's connection-close handling).
+    /// @return Always true; the caller can return the value directly.
+    bool DeleteNodeAndRespond(
+        const control_plane::ControlRequest& request,
+        const control_plane::SingleOperationRequest& operation,
+        score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
 
     bool HandleSingleOperation(const control_plane::ControlRequest& request,
                                const control_plane::SingleOperationRequest& operation,
@@ -107,6 +109,9 @@ class MediatorImpl : public IMediator
     bool HandleMediatorOperation(const control_plane::ControlRequest& request,
                                  const control_plane::SingleOperationRequest& operation,
                                  control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleShmCreateObject(const control_plane::ControlRequest& request,
+                               const control_plane::SingleOperationRequest& operation,
+                               control_plane::protocol::OperationResponseBuilder& responseBuilder);
     bool ForwardSingleOperation(const control_plane::ControlRequest& request,
                                 const control_plane::SingleOperationRequest& operation,
                                 control_plane::protocol::OperationResponseBuilder& responseBuilder);

@@ -1,3 +1,16 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
 @startuml typical_usage_sequence
 
 'TODO: Update the diagram to reflect the latest API design and interaction patterns, including any new features or changes in the flow.
@@ -29,11 +42,21 @@ Lib --> App : Result<IMemoryAllocator::Uptr>
 deactivate Lib
 
 App -> Lib : IMemoryAllocator::Allocate(size)
+note right : provider_type = nullopt (default shared memory implementation)
 activate Lib
 Lib -> Daemon : allocate shared memory
-Daemon --> Lib : IReadWriteMemoryRegion
-Lib --> App : Result<IReadWriteMemoryRegion::Uptr>
+Daemon --> Lib : IReadWriteMemory
+Lib --> App : Result<IReadWriteMemory::Uptr>
 deactivate Lib
+
+alt provider-compatible (zero-copy)
+App -> Lib : IMemoryAllocator::Allocate(size, providerResourceId)
+activate Lib
+Lib -> Daemon : allocate provider-compatible SHM
+Daemon --> Lib : IReadWriteMemory
+Lib --> App : Result<IReadWriteMemory::Uptr>
+deactivate Lib
+end
 
 App -> App : write data to region
 

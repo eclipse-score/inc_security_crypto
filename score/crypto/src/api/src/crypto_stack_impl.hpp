@@ -15,6 +15,10 @@
 #define SCORE_CRYPTO_SRC_API_SRC_CRYPTO_STACK_IMPL_HPP
 
 #include "score/crypto/src/api/crypto_stack_factory.hpp"
+#include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
+#include "score/crypto/src/api/data_plane/i_pool_allocator.hpp"
+#include "score/crypto/src/api/data_plane/i_read_write_memory_factory.hpp"
+#include "score/crypto/src/api/data_plane/i_shm_region_registry.hpp"
 #include "score/crypto/src/api/i_crypto_stack.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
@@ -36,10 +40,16 @@ class CryptoStackImpl final : public ICryptoStack
 {
   public:
     /// @brief Constructs a crypto stack with an established connection.
-    /// @param config Stack configuration with connection endpoint
-    /// @param connection Established connection to the crypto daemon (with DataNodeId already set)
+    /// @param config         Stack configuration with connection endpoint.
+    /// @param connection     Established connection to the crypto daemon.
+    /// @param factory        SHM read-write memory factory (bulk path).
+    /// @param pool_allocator Pre-built pool allocator (created by the factory via SHM_SETUP).
+    /// @param registry       Shared SHM region registry (seeded with total_quota by the factory).
     explicit CryptoStackImpl(const CryptoStackConfig& config,
-                             std::shared_ptr<score::crypto::api::control_plane::IConnection> connection);
+                             std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
+                             IReadWriteMemoryFactory::Sptr factory,
+                             std::shared_ptr<IPoolAllocator> pool_allocator,
+                             std::shared_ptr<IShmRegionRegistry> registry);
 
     ~CryptoStackImpl() override;
 
@@ -55,6 +65,9 @@ class CryptoStackImpl final : public ICryptoStack
   private:
     CryptoStackConfig m_config;
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
+    std::shared_ptr<IBufferTranscoder> m_transcoder;
+    IReadWriteMemoryFactory::Sptr m_shm_factory;
+    std::shared_ptr<IShmRegionRegistry> m_shm_registry;
 };
 
 }  // namespace crypto

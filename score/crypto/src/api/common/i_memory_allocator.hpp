@@ -14,12 +14,13 @@
 #ifndef SCORE_CRYPTO_SRC_API_COMMON_I_MEMORY_ALLOCATOR_HPP
 #define SCORE_CRYPTO_SRC_API_COMMON_I_MEMORY_ALLOCATOR_HPP
 
-#include "score/crypto/src/api/common/i_memory_region.hpp"
+#include "score/crypto/src/api/common/i_memory.hpp"
 #include "score/crypto/src/api/common/types.hpp"
 #include "score/result/result.h"
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 
 namespace score
 {
@@ -50,22 +51,22 @@ class IMemoryAllocator
     IMemoryAllocator(IMemoryAllocator&&) = default;
     IMemoryAllocator& operator=(IMemoryAllocator&&) = default;
 
-    /// @brief Allocates shared memory with kDefault type.
-    /// @param size Number of bytes to allocate
-    /// @return Writable memory region on success, error on failure
-    /// @note Daemon tracks this against per-application quota.
-    virtual score::Result<IReadWriteMemoryRegion::Uptr> Allocate(std::size_t size) = 0;
+    /// @brief Allocates shared memory, optionally targeting a specific provider type.
+    /// @param size          Number of bytes to allocate.
+    /// @param provider_type Optional provider-category hint. std::nullopt selects the default shared memory
+    /// implementation.
+    /// @return Writable memory object on success, error on failure.
+    /// @note The allocated memory is not initialized.
+    virtual score::Result<IReadWriteMemory::Uptr> Allocate(
+        std::size_t size,
+        std::optional<ProviderType> provider_type = std::nullopt) = 0;
 
-    /// @brief Allocates provider-compatible shared memory.
-    /// @param size Number of bytes to allocate
-    /// @param type Memory type (kDefault or kProviderCompatible)
-    /// @param provider Resolved provider handle for provider-compatible allocation
-    /// @return Writable memory region on success, error on failure
-    /// @note Enables zero-copy path from application to crypto device when
-    ///       kProviderCompatible is used with the correct provider.
-    virtual score::Result<IReadWriteMemoryRegion::Uptr> Allocate(std::size_t size,
-                                                                 MemoryType type,
-                                                                 const CryptoResourceId& provider) = 0;
+    /// @brief Allocates shared memory compatible with a specific resolved provider instance.
+    /// @param size     Number of bytes to allocate.
+    /// @param provider Resolved resource handle identifying the target provider.
+    /// @return Writable memory object on success, error on failure.
+    /// @note The allocated memory is not initialized.
+    virtual score::Result<IReadWriteMemory::Uptr> Allocate(std::size_t size, const CryptoResourceId& provider) = 0;
 
     /// @brief Returns the maximum allocation permitted for this application.
     /// @return Quota in bytes (daemon-configured, overridable per app)

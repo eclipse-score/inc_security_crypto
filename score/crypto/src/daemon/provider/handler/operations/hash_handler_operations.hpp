@@ -57,20 +57,21 @@ inline constexpr OperationAction HASH_UPDATE = 2;
 
 // HASH_FINALIZE
 // Request:  data_node_id = context_id,
-//           param[0]: optional DataBuffer — output buffer for hash digest
+//           param[0]: optional DataBuffer — output buffer for hash digest (modified in-place)
 //           param[1]: optional DataBuffer — final data chunk to include
 // Response: status_code (SUCCESS/error)
-//           param[0]: DataBuffer — computed hash digest bytes
-// Effect:   Calls FinalizeHash(), computes final hash, clears stream context, transitions state → IDLE
+//           param[0]: uint64_t — digest length in bytes (hash bytes written to request param[0])
+// Effect:   Calls FinalizeHash(), computes final hash into param[0] buffer, clears stream context, transitions state →
+// IDLE
 inline constexpr OperationAction HASH_FINALIZE = 3;
 
 // HASH_SS (Single-Shot Hash)
 // Request:  data_node_id = context_id,
 //           param[0]: DataBuffer — data to hash
-//           param[1]: optional DataBuffer — output buffer for hash digest
+//           param[1]: optional DataBuffer — output buffer for hash digest (modified in-place)
 //           param[2]: optional DataBuffer — initialization vector (unused for hash)
 // Response: status_code (SUCCESS/error)
-//           param[0]: DataBuffer — computed hash digest bytes
+//           param[0]: uint64_t — digest length in bytes (hash bytes written to request param[1])
 // Effect:   Calls SingleShotHash(), requires IDLE state, performs init+update+finalize in one call
 inline constexpr OperationAction HASH_SS = 4;
 

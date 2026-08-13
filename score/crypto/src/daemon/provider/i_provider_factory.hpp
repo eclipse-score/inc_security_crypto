@@ -14,19 +14,48 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_I_PROVIDER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_I_PROVIDER_FACTORY_HPP
 
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+
+#include <cstddef>
+#include <string>
+#include <vector>
+
 namespace score::crypto::daemon::provider
 {
 
 // Forward declaration — avoids a circular include with provider_manager.hpp.
 class ProviderManager;
 
+enum class ProviderFailureReason
+{
+    kFactoryCreationFailed,
+    kProviderUnavailable,
+    kProviderRegistrationFailed,
+    kProviderInitializationFailed,
+    kRequiredProviderUnavailable,
+    kDefaultProviderUnavailable
+};
+
+struct ProviderFailure
+{
+    std::string factoryName;
+    std::string providerName;
+    ProviderFailureReason reason;
+    common::DaemonErrorCode error{common::DaemonErrorCode::kInternalError};
+};
+
+struct ProviderFactoryResult
+{
+    std::size_t registeredCount{0U};
+    std::vector<ProviderFailure> failures;
+};
+
 /**
  * @brief Abstract factory interface for creating and registering providers.
  *
  * Each concrete factory encapsulates the construction and registration of one
  * or more related providers into a ProviderManager.  Factories are registered
- * externally (e.g. in daemon main()) via ProviderManager::RegisterFactory()
- * and called once during ProviderManager::Initialize().
+ * by the daemon bootstrapper and called once during startup.
  *
  * This decouples ProviderManager from concrete provider types: the manager
  * never includes provider_openssl.hpp or pkcs11_provider.hpp; instead, the
@@ -49,12 +78,12 @@ class IProviderFactory
      * The implementation is responsible for constructing provider instances and
      * calling ProviderManager::RegisterProvider() for each one.  If any step
      * fails (module initialisation, provider construction, registration) the
-     * method must return false immediately without partially registering.
+     * method records individual failures and continues where possible.
      *
      * @param manager  The ProviderManager to register providers into.
-     * @return true if all providers were created and registered successfully.
+     * @return the number of registered providers and any per-provider failures.
      */
-    virtual bool CreateAndRegister(ProviderManager& manager) = 0;
+    virtual ProviderFactoryResult CreateAndRegister(ProviderManager& manager) = 0;
 
   protected:
     IProviderFactory() = default;

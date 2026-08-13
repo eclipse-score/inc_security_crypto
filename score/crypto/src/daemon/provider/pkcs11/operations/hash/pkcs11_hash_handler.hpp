@@ -21,7 +21,6 @@
 #include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_executor.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 
-#include <cryptoki.h>
 #include <pkcs11.h>
 
 #include <cstdint>
@@ -98,7 +97,6 @@ class Pkcs11HashHandler final : public handler::Handler
     Pkcs11Provider* m_provider;        ///< Non-owning; used for ReleaseSession on destruction
     common::AlgorithmId m_algorithm;
     common::StreamOperationState m_state;
-    std::vector<std::uint8_t> m_outputBuffer;
 };
 
 }  // namespace score::crypto::daemon::provider::pkcs11

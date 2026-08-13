@@ -15,8 +15,8 @@
 #include "score/crypto/src/daemon/config/src/flatbuffer_config_parser.hpp"
 
 #include "score/mw/log/logging.h"
-#include <cstdlib>
 #include <sys/stat.h>
+#include <cstdlib>
 
 #include <map>
 #include <string>
@@ -87,18 +87,18 @@ bool Config::ParseConfig()
     auto config_file_path = std::getenv(CRYPTO_CONFIG_FILE_ENV.data());
     if (config_file_path)
     {
+        const std::string_view config_path{config_file_path};
         struct stat st_cfg;
         if (::stat(config_file_path, &st_cfg) != 0)
         {
-            score::mw::log::LogError() << "[CONFIG] Configuration file does not exist:" << config_file_path;
+            score::mw::log::LogError() << "[CONFIG] Configuration file does not exist:" << config_path;
             return false;
         }
-        score::mw::log::LogDebug() << "[CONFIG] Parsing configuration from:" << config_file_path;
+        score::mw::log::LogDebug() << "[CONFIG] Parsing configuration from:" << config_path;
         auto result = FlatBufferConfigParser::ParseFromFile(config_file_path, m_key);
         if (!result.has_value())
         {
-            score::mw::log::LogError() << "[CONFIG] Failed to parse FlatBuffers configuration file: "
-                                       << config_file_path;
+            score::mw::log::LogError() << "[CONFIG] Failed to parse FlatBuffers configuration file: " << config_path;
             return false;
         }
         return true;

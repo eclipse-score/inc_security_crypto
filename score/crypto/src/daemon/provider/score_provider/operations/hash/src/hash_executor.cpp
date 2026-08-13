@@ -100,10 +100,10 @@ Expected<ResponseParameters, DaemonErrorCode> HashExecutor::Execute(ScoreHashHan
 Expected<std::monostate, DaemonErrorCode> HashExecutor::ExecuteInit(ScoreHashHandler& handler,
                                                                     RequestParameters& request)
 {
-    std::optional<common::VirtualMemoryBufferConst> initialDataOrIV;
+    std::optional<score::cpp::span<const uint8_t>> initialDataOrIV;
     if (!request.empty())
     {
-        if (auto* buf = std::get_if<common::VirtualMemoryBufferConst>(&request[0]))
+        if (auto* buf = std::get_if<score::cpp::span<const uint8_t>>(&request[0]))
         {
             initialDataOrIV.emplace(*buf);
         }
@@ -119,7 +119,7 @@ Expected<std::monostate, DaemonErrorCode> HashExecutor::ExecuteUpdate(ScoreHashH
         return make_unexpected(DaemonErrorCode::kInsufficientParameters);
     }
 
-    auto* buf = std::get_if<common::VirtualMemoryBufferConst>(&request[0]);
+    auto* buf = std::get_if<score::cpp::span<const uint8_t>>(&request[0]);
     if (buf == nullptr)
     {
         return make_unexpected(DaemonErrorCode::kInvalidDataType);
@@ -131,60 +131,59 @@ Expected<std::monostate, DaemonErrorCode> HashExecutor::ExecuteUpdate(ScoreHashH
 Expected<ResponseParameters, DaemonErrorCode> HashExecutor::ExecuteFinalize(ScoreHashHandler& handler,
                                                                             RequestParameters& request)
 {
-    std::optional<common::VirtualMemoryBuffer> output;
-    if (!request.empty())
-    {
-        if (auto* buf = std::get_if<common::VirtualMemoryBuffer>(&request[0]))
-        {
-            output.emplace(*buf);
-        }
-    }
-
-    std::optional<common::VirtualMemoryBufferConst> finalData;
-    if (request.size() > 1)
-    {
-        if (auto* buf = std::get_if<common::VirtualMemoryBufferConst>(&request[1]))
-        {
-            finalData.emplace(*buf);
-        }
-    }
-
-    return handler.FinalizeHash(output, finalData);
-}
-
-Expected<ResponseParameters, DaemonErrorCode> HashExecutor::ExecuteSingleShot(ScoreHashHandler& handler,
-                                                                              RequestParameters& request)
-{
     if (request.empty())
     {
         return make_unexpected(DaemonErrorCode::kInsufficientParameters);
     }
 
-    auto* data = std::get_if<common::VirtualMemoryBufferConst>(&request[0]);
+    auto* outputBuf = std::get_if<score::cpp::span<uint8_t>>(&request[0]);
+    if (outputBuf == nullptr || outputBuf->data() == nullptr || outputBuf->size() == 0)
+    {
+        return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
+    }
+
+    std::optional<score::cpp::span<const uint8_t>> finalData;
+    if (request.size() > 1)
+    {
+        if (auto* buf = std::get_if<score::cpp::span<const uint8_t>>(&request[1]))
+        {
+            finalData.emplace(*buf);
+        }
+    }
+
+    return handler.FinalizeHash(*outputBuf, finalData);
+}
+
+Expected<ResponseParameters, DaemonErrorCode> HashExecutor::ExecuteSingleShot(ScoreHashHandler& handler,
+                                                                              RequestParameters& request)
+{
+    if (request.size() < 2U)
+    {
+        return make_unexpected(DaemonErrorCode::kInsufficientParameters);
+    }
+
+    auto* data = std::get_if<score::cpp::span<const uint8_t>>(&request[0]);
     if (data == nullptr)
     {
         return make_unexpected(DaemonErrorCode::kInvalidDataType);
     }
 
-    std::optional<common::VirtualMemoryBuffer> output;
-    if (request.size() > 1)
+    auto* outputBuf = std::get_if<score::cpp::span<uint8_t>>(&request[1]);
+    if (outputBuf == nullptr || outputBuf->data() == nullptr || outputBuf->size() == 0)
     {
-        if (auto* buf = std::get_if<common::VirtualMemoryBuffer>(&request[1]))
-        {
-            output.emplace(*buf);
-        }
+        return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
     }
 
-    std::optional<common::VirtualMemoryBufferConst> iv;
+    std::optional<score::cpp::span<const uint8_t>> iv;
     if (request.size() > 2)
     {
-        if (auto* buf = std::get_if<common::VirtualMemoryBufferConst>(&request[2]))
+        if (auto* buf = std::get_if<score::cpp::span<const uint8_t>>(&request[2]))
         {
             iv.emplace(*buf);
         }
     }
 
-    return handler.SingleShotHash(*data, output, iv);
+    return handler.SingleShotHash(*data, *outputBuf, iv);
 }
 
 Expected<std::monostate, DaemonErrorCode> HashExecutor::ExecuteReset(ScoreHashHandler& handler,

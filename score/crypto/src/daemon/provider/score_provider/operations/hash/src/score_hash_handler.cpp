@@ -61,7 +61,7 @@ Expected<std::monostate, DaemonErrorCode> ScoreHashHandler::UpdateHash(const com
 }
 
 Expected<ResponseParameters, DaemonErrorCode> ScoreHashHandler::FinalizeHash(
-    std::optional<common::RequestParameter> /*hashOutput*/,
+    common::RequestParameter /*hashOutput*/,
     const std::optional<common::RequestParameter> /*finalDataToHash*/)
 {
     return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
@@ -69,7 +69,7 @@ Expected<ResponseParameters, DaemonErrorCode> ScoreHashHandler::FinalizeHash(
 
 Expected<ResponseParameters, DaemonErrorCode> ScoreHashHandler::SingleShotHash(
     const common::RequestParameter& /*dataToHash*/,
-    std::optional<common::RequestParameter> /*outputHash*/,
+    common::RequestParameter /*outputHash*/,
     std::optional<common::RequestParameter> /*iv*/)
 {
     return make_unexpected(DaemonErrorCode::kUnsupportedOperation);

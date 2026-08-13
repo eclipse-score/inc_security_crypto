@@ -12,7 +12,6 @@
 # *******************************************************************************
 
 load("@score_docs_as_code//:docs.bzl", "docs")
-load("@score_tooling//:defs.bzl", "copyright_checker", "use_format_targets")
 
 docs(
     data = [
@@ -21,19 +20,14 @@ docs(
     source_dir = ".",
 )
 
-copyright_checker(
-    name = "copyright",
-    srcs = [
-        # ".github",
-        "docs",
-        "score",
-        "third_party",
-        "//:BUILD",
-        "//:MODULE.bazel",
-    ],
-    config = "@score_tooling//cr_checker/resources:config",
-    template = "@score_tooling//cr_checker/resources:templates",
-    visibility = ["//visibility:public"],
+# bazel run //:shellcheck
+alias(
+    name = "shellcheck",
+    actual = "@score_devcontainer//tools:shellcheck",
 )
 
-use_format_targets()
+# bazel run //:actionlint
+alias(
+    name = "actionlint",
+    actual = "@score_devcontainer//tools:actionlint",
+)
