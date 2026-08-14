@@ -17,8 +17,6 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
-# i_certificate_object.hpp and i_cert_slot_object.hpp moved to
-# //score/crypto/src/api/objects:cert_objects (active).
 
 # cc_library(
 #     name = "future_crypto_objects",

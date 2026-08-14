@@ -225,12 +225,13 @@ package "Slot Deployment" <<Rectangle>> #E8F0FE {
         + Load(path : string) : Expected<SlotDeploymentInfo, DaemonErrorCode>
         .. parses [metadata] / [key] key=value sections ..
         .. blank lines and # comments ignored ..
+        .. delegates to file_io::ReadFile (score::filesystem) ..
     }
 
     class KvDeploymentWriter {
         + Write(path : string, info : SlotDeploymentInfo) : Expected<monostate, DaemonErrorCode>
         .. writes [metadata] then [key] sections ..
-        .. delegates to file_io::WriteFile (atomic temp→rename) ..
+        .. delegates to file_io::WriteFile (atomic write via score::filesystem) ..
     }
 }
 
