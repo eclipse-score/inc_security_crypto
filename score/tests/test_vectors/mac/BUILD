@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-# Bazel filegroup for hash operation test vectors
+load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
 
 filegroup(
     name = "mac_test_vectors",
@@ -19,5 +19,16 @@ filegroup(
         "*.bin",
         "*.key",
     ]),
+    visibility = ["//visibility:public"],
+)
+
+pkg_files(
+    name = "mac_test_vectors_pkg",
+    srcs = glob([
+        "*.bin",
+        "*.key",
+    ]),
+    # preserve test_vectors/mac/ folders
+    strip_prefix = strip_prefix.from_root("score/tests"),
     visibility = ["//visibility:public"],
 )

@@ -51,6 +51,12 @@ using tests::utility::print_success;
 
 namespace
 {
+#ifdef __QNXNTO__
+constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
+#else
+constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
+#endif
+
 const std::string kAlgHmacSha256 = "HMAC-SHA256";
 const std::size_t kHmacSha256MacSize = 32;
 
@@ -61,8 +67,13 @@ const std::string kSlotOpenSSL = "HMAC_SHA256_IntegrationTestKey_OpenSSL";
 const std::string kSlotPKCS11 = "HMAC_SHA256_IntegrationTestKey";
 
 // Test data
-const std::string kTestDataPath = "/opt/crypto/tests/test_vectors/mac/input_hello_world.bin";
-const std::string kExpectedMacPath = "/opt/crypto/tests/test_vectors/mac/hmac_sha256_hello_world.bin";
+const auto kTestVectorsDir = []() {
+    const char* dir = std::getenv("TEST_VECTORS_DIR");
+    return std::string{dir != nullptr ? dir : "/opt/crypto/share/test_vectors"};
+}();
+
+const std::string kTestDataPath = kTestVectorsDir + "/mac/input_hello_world.bin";
+const std::string kExpectedMacPath = kTestVectorsDir + "/mac/hmac_sha256_hello_world.bin";
 
 // =========================================================================
 // Utility: Compute and display MAC
@@ -79,7 +90,7 @@ score::Result<std::vector<uint8_t>> ComputeMacWithProvider(const std::string& sl
     print_colored("[Setup] Connecting to daemon");
 
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock");
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
     // Note: In the future a default endpoint will be configured, making an explicit
     // selection obsolete.
     auto stack_result = CreateCryptoStack(stack_config);

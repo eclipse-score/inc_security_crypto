@@ -75,7 +75,10 @@ Pkcs11MacHandler::~Pkcs11MacHandler()
     {
         m_executor->Abort(m_op_session, m_ctx.operation_mode);
     }
-    // Release the key lock (for session objects) before returning m_session to pool.
+    if (m_resolved_key.in_use != nullptr)
+    {
+        m_resolved_key.in_use->store(false, std::memory_order_release);
+    }
     m_resolved_key = {};
     if (m_provider != nullptr && m_session != CK_INVALID_HANDLE)
     {
@@ -148,7 +151,7 @@ Pkcs11MacHandler::InitializeContext(const handler::InitializationParams& init_pa
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) - type tag verified above
         const auto* pkcs11_key = static_cast<const Pkcs11KeyHandler*>(init_params.bound_key_handler);
 
-        // Resolve the key: for session objects tries to acquire the key's mutex
+        // Resolve the key: for session objects CAS-acquires the in-use flag
         // (non-blocking); returns kResourceBusy if the key is already in use by
         // another handler.  For token objects runs C_FindObjects on m_session.
         Pkcs11KeyStore::ResolvedKey resolved = pkcs11_key->ResolveObject(m_session);
@@ -180,7 +183,7 @@ Pkcs11MacHandler::InitializeContext(const handler::InitializationParams& init_pa
             }
         }
 
-        m_resolved_key = std::move(resolved);  // keeps the mutex locked for session objects
+        m_resolved_key = std::move(resolved);  // holds in-use flag for session objects
         m_state = StreamOperationState::STREAM_INITIALIZED;
         m_init_params = init_params;  // Saved so Reset() can restore the key binding.
     }
@@ -194,16 +197,17 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
     {
         m_executor->Abort(m_op_session, m_ctx.operation_mode);
     }
-    // Release the key lock before calling InitializeContext so that it can
-    // re-acquire it cleanly (avoids self-deadlock on the same mutex).
+    if (m_resolved_key.in_use != nullptr)
+    {
+        m_resolved_key.in_use->store(false, std::memory_order_release);
+    }
     m_resolved_key = {};
     m_op_session = CK_INVALID_HANDLE;
     m_ctx.key_object = CK_INVALID_HANDLE;
     m_ctx.session = CK_INVALID_HANDLE;
     m_state = StreamOperationState::IDLE;
 
-    // Re-run InitializeContext with the saved params to restore the key binding
-    // and return to STREAM_INITIALIZED, matching the OpenSSL handler Reset() semantics.
+    // Re-run InitializeContext with the saved params to restore the key binding.
     return InitializeContext(m_init_params);
 }
 

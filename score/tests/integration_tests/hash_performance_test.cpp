@@ -45,7 +45,11 @@ using tests::utility::print_hex;
 
 namespace
 {
-constexpr const char* kDaemonEndpoint = "unix:///tmp/crypto_daemon.sock";
+#ifdef __QNXNTO__
+constexpr auto kDaemonEndpoint = "unix:///opt/crypto_daemon.sock";
+#else
+constexpr auto kDaemonEndpoint = "unix:///tmp/crypto_daemon.sock";
+#endif
 constexpr std::size_t kSha512DigestSize = 64U;
 constexpr int kNumThreads = 4;
 
