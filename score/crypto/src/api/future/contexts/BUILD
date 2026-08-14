@@ -62,9 +62,6 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #     ],
 # )
 
-# i_certificate_management_context.hpp and i_certificate_verification_context.hpp
-# moved to //score/crypto/src/api/contexts:cert_contexts (active).
-
 # -- CSR --
 # cc_library(
 #     name = "csr_generation_context",

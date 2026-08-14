@@ -36,7 +36,6 @@ namespace crypto
 
 /// @brief Interface for certificate lifecycle management operations.
 ///
-/// Mirrors the structure of IKeyManagementContext for certificates:
 /// - **Parse** raw bytes into a daemon-backed ICertificateObject with an
 ///   ephemeral resource ID.
 /// - **SaveCertificate** copies an ephemeral certificate to a persistent slot
@@ -45,7 +44,6 @@ namespace crypto
 /// - **Export / convert** using a two-call pattern: query the required buffer
 ///   size first, then fill the caller-supplied span.
 /// - **Slot management** and **trust store management** are co-located here.
-/// - CRL, OCSP, and CSR operations are defined in future/ and not yet active.
 ///
 /// **ParseCertificate lifecycle**:
 /// @code
@@ -213,10 +211,6 @@ class ICertificateManagementContext : public IContext
     /// @param cert_slot Handle to the slot whose CRL should be removed (type = kCertSlot)
     /// @return std::monostate on success, error if no CRL is present or access is denied
     virtual score::Result<std::monostate> DeleteCrl(const CryptoResourceId& cert_slot) = 0;
-
-    /// @brief Bulk-deletes expired CRLs across all certificate slots.
-    /// @return Number of CRLs deleted
-    virtual score::Result<std::size_t> DeleteExpiredCrls() = 0;
 #endif  // CRL management
 
     // ---- OCSP (not yet active — IPC implementation pending) ----

@@ -13,9 +13,9 @@
 
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_loader.hpp"
 
+#include "score/crypto/src/daemon/common/storage/file_io.hpp"
 #include "score/mw/log/logging.h"
 
-#include <fstream>
 #include <sstream>
 #include <string>
 
@@ -41,18 +41,22 @@ namespace
 score::crypto::Expected<DeploymentDescriptor, score::crypto::daemon::common::DaemonErrorCode> KvDeploymentLoader::Load(
     const std::string& path)
 {
-    std::ifstream file(path);
-    if (!file.is_open())
+    constexpr std::size_t kMaxDescriptorSize = 64U * 1024U;
+    auto read_result = ReadFile(path, kMaxDescriptorSize);
+    if (!read_result.has_value())
     {
         score::mw::log::LogError() << kLogPrefix << "Cannot open: " << path;
-        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
+        return score::crypto::make_unexpected(read_result.error());
     }
+
+    const auto& bytes = read_result.value();
+    std::istringstream stream{std::string{reinterpret_cast<const char*>(bytes.data()), bytes.size()}};
 
     DeploymentDescriptor descriptor;
     std::string current_section;
     std::string line;
 
-    while (std::getline(file, line))
+    while (std::getline(stream, line))
     {
         const std::string trimmed = Trim(line);
         if (trimmed.empty() || trimmed[0] == '#')

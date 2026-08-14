@@ -64,8 +64,6 @@ enum class ResourceType : uint8_t
                              ///< verification.
     kKey,                    ///< Key material (generated / loaded / derived / imported)
     kCertificate,            ///< Parsed or stored certificate object.
-                             ///< CRLs are not a resource type: they are co-located with the
-                             ///< issuer's certificate slot and never independently resolvable.
     kSecureObject,           ///< Secure storage entry
     kDataObject              ///< Generic data blob
 };
