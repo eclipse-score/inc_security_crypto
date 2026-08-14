@@ -44,7 +44,7 @@ key_management::ProviderKeyHandle Pkcs11KeyStore::Register(CK_SESSION_HANDLE ses
     sk.session = session;
     sk.object = object;
     sk.is_token_object = false;
-    sk.op_mutex = std::make_shared<std::mutex>();
+    sk.op_in_use = std::make_shared<std::atomic<bool>>(false);
     m_keys[opaque_id] = std::move(sk);
     return key_management::ProviderKeyHandle{
         .opaque_id = opaque_id,
@@ -77,12 +77,13 @@ key_management::ProviderKeyHandle Pkcs11KeyStore::RegisterTokenObject(const Sear
 Pkcs11KeyStore::ResolvedKey Pkcs11KeyStore::ResolveObject(uint64_t opaque_id,
                                                           CK_SESSION_HANDLE handler_session) noexcept
 {
-    // For session objects: try to acquire the per-key mutex (non-blocking).
-    // Returns a contended ResolvedKey if another handler already holds the lock;
-    // the caller surfaces kResourceBusy immediately.\n    //
+    // For session objects: CAS the per-key in-use flag (non-blocking).
+    // Returns a contended ResolvedKey if another handler already holds the flag;
+    // the caller surfaces kResourceBusy immediately.
+    //
     // For token objects: run C_FindObjects on handler_session (outside m_map_mutex
     // to avoid holding it during a potentially blocking HSM call).
-    std::shared_ptr<std::mutex> op_mtx;
+    std::shared_ptr<std::atomic<bool>> op_flag;
     bool is_token = false;
     CK_SESSION_HANDLE creating_session = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE stored_object = CK_INVALID_HANDLE;
@@ -100,7 +101,7 @@ Pkcs11KeyStore::ResolvedKey Pkcs11KeyStore::ResolveObject(uint64_t opaque_id,
         {
             creating_session = it->second.session;
             stored_object = it->second.object;
-            op_mtx = it->second.op_mutex;
+            op_flag = it->second.op_in_use;
         }
         else
         {
@@ -110,11 +111,10 @@ Pkcs11KeyStore::ResolvedKey Pkcs11KeyStore::ResolveObject(uint64_t opaque_id,
 
     if (!is_token)
     {
-        // Try to acquire the per-key mutex without blocking.  If another handler
-        // is already using this session key, return a contended sentinel so the
-        // caller can immediately surface kResourceBusy instead of deadlocking.
-        std::unique_lock<std::mutex> key_lock{*op_mtx, std::try_to_lock};
-        if (!key_lock.owns_lock())
+        // CAS the flag from false→true without blocking. No thread ownership:
+        // any thread may later release by store(false, release).
+        bool expected = false;
+        if (!op_flag->compare_exchange_strong(expected, true, std::memory_order_acquire))
         {
             ResolvedKey contended{};
             contended.contended = true;
@@ -123,7 +123,7 @@ Pkcs11KeyStore::ResolvedKey Pkcs11KeyStore::ResolveObject(uint64_t opaque_id,
         ResolvedKey resolved{};
         resolved.session = creating_session;
         resolved.object = stored_object;
-        resolved.lock = std::move(key_lock);
+        resolved.in_use = op_flag;
         return resolved;
     }
 

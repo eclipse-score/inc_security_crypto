@@ -28,6 +28,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
 
@@ -36,6 +37,12 @@ using tests::utility::print_hex;
 
 namespace
 {
+
+#ifdef __QNXNTO__
+constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
+#else
+constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
+#endif
 
 // Parameterized Test Data
 struct HashTestData
@@ -79,7 +86,7 @@ TEST_P(ParameterizedHashTest, HashingTest)
 
     // 1. Create the crypto stack and connect to the daemon
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock");
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
 
     auto stack_result = CreateCryptoStack(stack_config);
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
@@ -181,7 +188,7 @@ TEST_P(ParameterizedHashTest, HashingTest)
 TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
 {
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock")
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint)
         .SetDefaultOperationTimeout(std::chrono::milliseconds{500});
 
     auto stack_result = CreateCryptoStack(stack_config);
@@ -308,10 +315,17 @@ TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
 
 const std::string kAlgSha256 = "SHA256";
 const std::size_t kSha256DigestSize = 32;
-const std::string kInDataPath = "/opt/crypto/tests/test_vectors/hash/input_hello_world.bin";
-const std::string kSha256OutDataPath = "/opt/crypto/tests/test_vectors/hash/sha256_hello_world.bin";
-const std::string kInDataPathAlternative = "/opt/crypto/tests/test_vectors/hash/input_complete_data.bin";
-const std::string kSha256OutDataPathAlternative = "/opt/crypto/tests/test_vectors/hash/sha256_complete_data.bin";
+
+// Falls back to the Linux install path when TEST_VECTORS_DIR is unset
+const auto kTestVectorsDir = []() {
+    const char* dir = std::getenv("TEST_VECTORS_DIR");
+    return std::string{dir != nullptr ? dir : "/opt/crypto/share/test_vectors"};
+}();
+
+const std::string kInDataPath = kTestVectorsDir + "/hash/input_hello_world.bin";
+const std::string kSha256OutDataPath = kTestVectorsDir + "/hash/sha256_hello_world.bin";
+const std::string kInDataPathAlternative = kTestVectorsDir + "/hash/input_complete_data.bin";
+const std::string kSha256OutDataPathAlternative = kTestVectorsDir + "/hash/sha256_complete_data.bin";
 
 // TODO: Daemon expects SHA256 here we planned to use SHA-256
 // Either we find the common standard or allow variations, which we would need to re-map

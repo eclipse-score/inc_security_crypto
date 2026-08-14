@@ -50,6 +50,12 @@ using tests::utility::print_hex;
 namespace
 {
 
+#ifdef __QNXNTO__
+constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
+#else
+constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
+#endif
+
 // =========================================================================
 // Parameterized Test Data
 // =========================================================================
@@ -248,7 +254,7 @@ TEST_P(GeneratedKeyMacTest, MacGenerationAndVerificationTest)
     // 1. Create the crypto stack and connect to the daemon
     // =========================================================================
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock");
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
 
     auto stack_result = CreateCryptoStack(stack_config);
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
@@ -406,7 +412,7 @@ TEST_P(KeySlotMacTest, MacWithKeySlotTest)
     // 1. Create the crypto stack and connect to the daemon
     // =========================================================================
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock");
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
 
     auto stack_result = CreateCryptoStack(stack_config);
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
@@ -520,12 +526,16 @@ const std::string kAlgHmacSha256 = "HMAC-SHA256";
 const std::string kKeyAlgHmacSha256 = "HMAC-SHA256";
 const std::size_t kHmacSha256MacSize = 32;
 
-const std::string kMacInDataPath = "/opt/crypto/tests/test_vectors/mac/input_hello_world.bin";
-const std::string kMacInDataPathAlternative = "/opt/crypto/tests/test_vectors/mac/input_complete_data.bin";
+const auto kTestVectorsDir = []() {
+    const char* dir = std::getenv("TEST_VECTORS_DIR");
+    return std::string{dir != nullptr ? dir : "/opt/crypto/share/test_vectors"};
+}();
 
-const std::string kMacHmacSha256OutDataPath = "/opt/crypto/tests/test_vectors/mac/hmac_sha256_hello_world.bin";
-const std::string kMacHmacSha256OutDataPathAlternative =
-    "/opt/crypto/tests/test_vectors/mac/hmac_sha256_complete_data.bin";
+const std::string kMacInDataPath = kTestVectorsDir + "/mac/input_hello_world.bin";
+const std::string kMacInDataPathAlternative = kTestVectorsDir + "/mac/input_complete_data.bin";
+
+const std::string kMacHmacSha256OutDataPath = kTestVectorsDir + "/mac/hmac_sha256_hello_world.bin";
+const std::string kMacHmacSha256OutDataPathAlternative = kTestVectorsDir + "/mac/hmac_sha256_complete_data.bin";
 
 const std::string kHmacSha256KeySlotNameOpenSSL = "HMAC_SHA256_IntegrationTestKey_OpenSSL";
 const std::string kHmacSha256KeySlotName = "HMAC_SHA256_IntegrationTestKey";

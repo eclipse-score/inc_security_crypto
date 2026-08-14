@@ -9,7 +9,7 @@
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
-        "deployment_path": "/opt/crypto/deploy/test_hmac_sha256.kv",
+        "deployment_path": "/opt/crypto/etc/test_hmac_sha256.kv",
         "deployment_format": "kv"
       },
       {
@@ -19,7 +19,7 @@
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
-        "deployment_path" : "/opt/crypto/deploy/test_aes256_cmac.kv",
+        "deployment_path" : "/opt/crypto/etc/test_aes256_cmac.kv",
         "deployment_format" : "kv"
       },
       {
@@ -29,7 +29,7 @@
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
-        "deployment_path" : "/opt/crypto/deploy/test_pkcs11_hmac.kv",
+        "deployment_path" : "/opt/crypto/etc/test_pkcs11_hmac.kv",
         "deployment_format" : "kv"
       },
       {
@@ -39,7 +39,7 @@
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
-        "deployment_path" : "/opt/crypto/deploy/integration_openssl_hmac.kv",
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_hmac.kv",
         "deployment_format" : "kv"
       },
       {
@@ -49,7 +49,7 @@
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
-        "deployment_path" : "/opt/crypto/deploy/integration_softhsm_hmac.kv",
+        "deployment_path" : "/opt/crypto/etc/integration_softhsm_hmac.kv",
         "deployment_format" : "kv"
       }
     ],

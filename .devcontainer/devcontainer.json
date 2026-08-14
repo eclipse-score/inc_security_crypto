@@ -7,13 +7,14 @@
         }
     },
     "remoteUser": "${localEnv:USER}",
+    "containerUser": "${localEnv:USER}",
 
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     },
 
     // Create empty folder in case mandatory mount points are missing.
-    "initializeCommand": "mkdir -p ${localEnv:HOME}/.cache/bazel ${localEnv:HOME}/.qnx/license",
+    "initializeCommand": "mkdir -p ${localEnv:HOME}/.cache/bazel ${localEnv:HOME}/.qnx/license && (HOST_GID=$(stat -c '%g' /dev/kvm 2>/dev/null) && echo HOST_KVM_GID=$HOST_GID || echo HOST_KVM_GID=NONE) > .devcontainer/.env",
 
     "mounts": [
         {
@@ -44,9 +45,11 @@
 
     ],
     "onCreateCommand": {
-        "update certificates": "sudo apt update && sudo apt install -y --no-install-recommends ca-certificates-java openjdk-17-jre-headless && sudo update-ca-certificates",
-        "add user to kvm group": "KVM_GID=$(stat -c '%g' /dev/kvm) && (getent group kvm > /dev/null 2>&1 || sudo groupadd -g $KVM_GID kvm) && sudo usermod -aG kvm $(whoami)"
+        "update certificates": "sudo apt update && sudo apt install -y --no-install-recommends ca-certificates-java openjdk-17-jre-headless && sudo update-ca-certificates"
     },
 
-    "runArgs": ["--network", "host"]
+    "runArgs": [
+        "--device=/dev/kvm",
+        "--network", "host"
+    ]
 }

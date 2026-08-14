@@ -11,8 +11,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
-load("@score_itf//:defs.bzl", "py_itf_test")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//score/tests/bazel:integration.bzl", "integration_test")
 
 cc_binary(
     name = "init_pkcs11_token",
@@ -78,35 +78,34 @@ cc_binary(
     ],
 )
 
-py_itf_test(
-    name = "integration_test_docker",
+integration_test(
+    name = "integration_test",
     size = "small",
     srcs = ["integration_test.py"],
-    args = [
-        "--docker-image=ubuntu:24.04",
-        "--log-level=WARNING",
-    ],
-    data = [
+    binaries = [
         ":init_pkcs11_token",
         ":score_api_hash_example",
         ":score_api_mac_example",
-        ":score_demo",
         ":hash_performance_test",
-        "//score/crypto/src/api/control_plane",
+        ":score_demo",
         "//score/crypto/src/daemon:crypto_daemon",
+    ],
+    configs = [
         "//score/tests/config:logging.json",
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    file_pkgs = [
+        "//score/tests/test_vectors/hash:hash_test_vectors_pkg",
+        "//score/tests/test_vectors/mac:mac_test_vectors_pkg",
+    ],
+    libraries = [
+        "//score/crypto/src/api/control_plane",
         "//third_party/grpc:libgrpc_shared",
         "//third_party/openssl:openssl_so",
         "//third_party/soft_hsm:softhsm_so",
     ],
-    plugins = [
-        "itf.plugins.docker",
+    deps = [
+        "//score/tests:common_fixtures",
+        "//score/tests/utility/process_runner",
     ],
-    target_compatible_with = select({
-        "//score/crypto/src/backend:openssl_backend_active": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }) + select({
-        "//score/crypto/src/backend:pkcs11_backend_enabled": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
 )

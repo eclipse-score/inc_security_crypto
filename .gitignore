@@ -78,6 +78,8 @@ ubproject.toml
 
 # Devcontainer
 .devcontainer/devcontainer-lock.json
+.env
+
 # Ignore C++ native build directory
 /cpp/build/*
 

@@ -19,10 +19,10 @@
 
 #include <pkcs11.h>
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -58,10 +58,10 @@ struct SearchTemplate
 ///
 /// ### Key lifecycle — session objects (GenerateKey / ImportKey)
 ///   - Register:       opaque_id ← session + object handle (creating session kept open)
-///   - ResolveObject:  returns the creating session + object handle + exclusive mutex lock.
-///                     The lock serializes concurrent use: only one handler may hold the
-///                     creating session at a time.  Per PKCS#11 §4.10 a session object's
-///                     handle is only valid in the session that created it.
+///   - ResolveObject:  returns the creating session + object handle; sets an atomic in-use
+///                     flag that serializes concurrent access — only one handler may hold
+///                     the creating session at a time.  Per PKCS#11 §4.10 a session
+///                     object's handle is only valid in the session that created it.
 ///   - Release:        C_DestroyObject + return session to RW pool + erase entry
 ///
 /// ### Key lifecycle — token objects (LoadKey)
@@ -112,21 +112,19 @@ class Pkcs11KeyStore
     /// Result of resolving a PKCS#11 key for use in a crypto operation.
     ///
     /// For session-object keys: `session` is the **creating** session (the only
-    /// session on which the handle is valid per PKCS#11 §4.10); `lock` is held
-    /// exclusively until the caller drops this struct, serializing concurrent
-    /// handlers that reference the same session key.
+    /// session on which the handle is valid per PKCS#11 §4.10); `in_use` is the
+    /// key's atomic flag held exclusively, serializing concurrent handlers.
     ///
     /// For token-object keys: `session` is the handler's own session (from the
-    /// pool); `lock` is empty because token handles are valid on any session.
+    /// pool); `in_use` is null because token handles are valid on any session.
     struct ResolvedKey
     {
         CK_SESSION_HANDLE session{CK_INVALID_HANDLE};
         CK_OBJECT_HANDLE object{CK_INVALID_HANDLE};
-        /// Non-empty only for session objects — holds m_op_mutex exclusively.
-        std::optional<std::unique_lock<std::mutex>> lock;
-        /// True when the key was found but its mutex could not be acquired because
-        /// another handler is already using it (try_lock failed).  Callers should
-        /// return kResourceBusy rather than kInvalidArgument in this case.
+        /// Non-null for session objects; call store(false, release) to release from any thread.
+        std::shared_ptr<std::atomic<bool>> in_use;
+        /// True when CAS failed — the key is already in use by another handler.
+        /// Callers should return kResourceBusy rather than kInvalidArgument.
         bool contended{false};
 
         [[nodiscard]] bool IsValid() const noexcept
@@ -138,13 +136,12 @@ class Pkcs11KeyStore
     /// Resolve a PKCS#11 key for use on a crypto handler session.
     ///
     /// For session-object keys (GenerateKey / ImportKey): returns the creating
-    /// session + stored object handle + an exclusive lock on the key's mutex.
-    /// The lock is held until the returned ResolvedKey is destroyed, ensuring
+    /// session + stored object handle; sets the key's atomic in-use flag, ensuring
     /// only one handler at a time drives the creating session.
     ///
     /// For token-object keys (LoadKey): re-runs C_FindObjects on handler_session
     /// using the stored SearchTemplate, returning a session-local handle with no
-    /// lock.  Multiple handlers may resolve the same token key concurrently.
+    /// in-use flag.  Multiple handlers may resolve the same token key concurrently.
     ///
     /// Returns an invalid ResolvedKey if opaque_id is not found, handler_session
     /// is invalid (for token keys), the module is gone, or C_FindObjects finds nothing.
@@ -178,10 +175,9 @@ class Pkcs11KeyStore
         /// Populated for token objects; used by ResolveObject() to locate
         /// the key via C_FindObjects on an arbitrary handler session.
         SearchTemplate token_search;
-        /// Serializes concurrent handler access to the creating session for session
-        /// objects.  shared_ptr so the mutex is stable even if the map rehashes.
-        /// Null for token objects (no serialization needed).
-        std::shared_ptr<std::mutex> op_mutex;
+        /// Exclusive-use flag for session objects; CAS-acquired, store(false) to release.
+        /// Null for token objects. shared_ptr for address stability across map rehashes.
+        std::shared_ptr<std::atomic<bool>> op_in_use;
     };
 
     std::weak_ptr<Pkcs11Provider> m_provider;
