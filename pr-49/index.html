@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Module Template Documentation &#8212; Crypto Project  documentation</title>
+    <title>Crypto Documentation &#8212; Crypto Project  documentation</title>
   
   
   
@@ -38,10 +38,10 @@
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/modern.css?v=803738c0" />
   
@@ -213,8 +213,8 @@
 
 
 <li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="score/component_example/docs/index.html">
-    [Your Component Name]
+  <a class="nav-link dropdown-item nav-internal" href="score/crypto/docs/index.html">
+    Crypto
   </a>
 </li>
 
@@ -222,13 +222,6 @@
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="score/iav_primula/docs/index.html">
     IAV Primula Component
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="score/crypto/daemon/data_manager/docs/index.html">
-    Data Manager
   </a>
 </li>
 
@@ -403,8 +396,8 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="score/component_example/docs/index.html">
-    [Your Component Name]
+  <a class="nav-link nav-internal" href="score/crypto/docs/index.html">
+    Crypto
   </a>
 </li>
 
@@ -412,13 +405,6 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="score/iav_primula/docs/index.html">
     IAV Primula Component
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="score/crypto/daemon/data_manager/docs/index.html">
-    Data Manager
   </a>
 </li>
 
@@ -515,172 +501,35 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="module-template-documentation">
-<h1>Module Template Documentation<a class="headerlink" href="#module-template-documentation" title="Link to this heading">#</a></h1>
-<p>This documentation describes the structure, usage and configuration of the Bazel-based C++/Rust module template according to the <a class="reference external" href="https://eclipse-score.github.io/score/main/contribute/general/folder.html#module-folder-structure">SCORE module folder structure</a> and the <a class="reference external" href="https://eclipse-score.github.io/process_description/main/general_concepts/score_building_blocks_concept.html">SCORE building blocks concept</a>.</p>
+  <section id="crypto-documentation">
+<h1>Crypto Documentation<a class="headerlink" href="#crypto-documentation" title="Link to this heading">#</a></h1>
+<p>This documentation describes the structure, usage, and configuration of the Crypto module in this repository, following the <a class="reference external" href="https://eclipse-score.github.io/score/main/contribute/general/folder.html#module-folder-structure">SCORE module folder structure</a> and the <a class="reference external" href="https://eclipse-score.github.io/process_description/main/general_concepts/score_building_blocks_concept.html">SCORE building blocks concept</a>.</p>
 <nav class="contents local" id="table-of-contents">
 <p class="topic-title">Table of Contents</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#overview" id="id1">Overview</a></p></li>
-<li><p><a class="reference internal" href="#module-layout" id="id2">Module Layout</a></p></li>
-<li><p><a class="reference internal" href="#module-folder-structure-single-feature-variant" id="id3">Module Folder Structure (Single-Feature Variant)</a></p></li>
-<li><p><a class="reference internal" href="#module-documentation" id="id4">Module Documentation</a></p></li>
-<li><p><a class="reference internal" href="#component-documentation" id="id5">Component Documentation</a></p></li>
-<li><p><a class="reference internal" href="#architecture-modeling-example" id="id6">Architecture Modeling Example</a></p></li>
+<li><p><a class="reference internal" href="#module-documentation" id="id2">Module Documentation</a></p></li>
+<li><p><a class="reference internal" href="#component-documentation" id="id3">Component Documentation</a></p></li>
+<li><p><a class="reference internal" href="#architecture-modeling-reference" id="id4">Architecture Modeling Reference</a></p></li>
 </ul>
 </nav>
 <section id="overview">
 <h2><a class="toc-backref" href="#id1" role="doc-backlink">Overview</a><a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>This repository provides a standardized setup for projects using <strong>C++</strong> or <strong>Rust</strong> and <strong>Bazel</strong> as a build system.
-It integrates best practices for build, test, CI/CD and documentation.
-It also provides an example for the documentation of an module with all necessary artifacts for safety and security management, verification and release management.
-It also provides the component architecture template snippets in <a class="reference internal" href="score/component_example/docs/architecture/component_architecture.html"><span class="doc">Component Architecture Documentation</span></a>.
-It also provides an example of documenting detailed design in <a class="reference internal" href="score/component_example/docs/detailed_design/detailed_design_example.html"><span class="doc">Example: Detailed Design</span></a>.</p>
-</section>
-<section id="module-layout">
-<h2><a class="toc-backref" href="#id2" role="doc-backlink">Module Layout</a><a class="headerlink" href="#module-layout" title="Link to this heading">#</a></h2>
-<p>The module template includes the following top-level structure:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt;module_name&gt;/                      # Root folder of the module, subfolder only if more than one module exists in the repository
-├── .github/
-│   └── workflows/                  # CI/CD pipelines
-├── docs/                           # Global documentation of the module
-│   ├── features/                   # Feature documentation and architecture
-│   │   └── &lt;feature_name&gt;/         # Feature folder parts for each feature which should be in module documentation
-│   │       ├── architecture/       # Feature architecture [wp__feature_arch] and of architecture review [wp__sw_arch_verification]
-│   │       ├── safety_analysis/    # Feature safety analysis artifacts ([wp__feature_fmea], [wp__feature_dfa], [wp__requirements_feat_aou])
-│   │       ├── safety_planning/    # Feature safety planning artifacts
-│   │       ├── security_analysis/  # Feature security analysis artifacts [wp__feature_security_analysis]
-│   │       └── security_planning/  # Feature security planning artifacts
-│   ├── manuals/                    # Module manual, integration manual, table of assumptions of use
-│   │   |                           #   safety manual [wp__module_safety_manual],
-│   │   |                           #   needs table of [wp__requirements_feat_aou]
-│   │   |                           #   security manual [wp__module_security_manual]
-│   │   │                           # Additional optional user centric documentation (e.g. configuration guide,
-│   │   │                           #   examples user guide, APIs &amp; usage, performance analysis)
-│   │   ├── config/                 # Configuration guide (optional)
-│   │   ├── examples/               # Examples user guide (optional)
-│   │   ├── api_description/        # API detail description (optional)
-│   │   └── performance/            # Performance analysis (optional)
-│   ├── release/                    # Module release note [wp__module_sw_release_note]
-│   ├── safety_mgt/                 # Module safety plan [wp__module_safety_plan],
-│   │                               #   module safety package [wp__module_safety_package],
-│   │                               #   formal document and safety analysis reviews [wp__fdr_reports]
-│   ├── security_mgt/               # Module security plan [wp__module_security_plan],
-│   │                               #   module security package [wp__module_security_package],
-│   │                               #   formal document reviews [wp__fdr_reports_security],
-│   │                               #   module SW bill of material [wp__sw_module_sbom]
-│   └── verification_report/        # Module verification report,
-│                                   #   module verifications [wp__verification_module_ver_report],
-├── examples/                       # Usage examples for the module / features
-├── score/                          # Components of the module
-│   ├── tests/                      # Module-level tests (e.g., feature integration tests, system tests) [wp__verification_feat_int_test]
-│   └── &lt;component_name&gt;/           # Component folder for each component of the module
-│       ├── docs/                   # Documentation of the component
-│       │   ├── architecture/       # Component architecture [wp__component_arch]
-│       │   │                       #   (only if lower level components exist)
-|       |   |                       #   architecture review [wp__sw_arch_verification],
-│       │   ├── detailed_design/    # Detailed design [wp__sw_implementation]
-│       │   │                       #   code inspection [wp__sw_implementation_inspection]
-│       │   ├── requirements/       # Component requirements [wp__requirements_comp],[wp__requirements_inspect]
-│       │   ├── safety_analysis/    # Safety analysis [wp__sw_component_fmea], [wp__sw_component_dfa], [wp__requirements_comp_aou]
-|       |   |                       # Component classification [wp__sw_component_class] for pre-existing software
-│       │   │                       #   (only if component architecture exists)
-│       │   ├── security_analysis/  # Security analysis [wp__sw_component_security_analysis]
-│       │   │                       #   (only if component architecture exists)
-│       │   └── manuals/            # User documentation (of a single component, e.g., user manual of a library component, optional)
-│       ├── src/                    # Source files, include files, unit tests [wp__verification_sw_unit_test],
-│       │   └── &lt;lower_level_comp&gt;/ # Lower level component (follows &lt;component_name&gt; structure)
-│       └── tests/                  # Component-level tests (e.g., integration or complex unit tests) [wp__verification_comp_int_test]
-├── MODULE.bazel                    # Bazel module definition
-├── BUILD                           # Root build rules
-├── project_config.bzl              # Project metadata used by Bazel macros
-└── README.md                       # Entry point of the repository
-</pre></div>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The feature-specific subfolder under <code class="docutils literal notranslate"><span class="pre">docs/features/&lt;feature_name&gt;/</span></code> is only necessary
-if more than one feature is implemented in the module.</p>
-</div>
-</section>
-<section id="module-folder-structure-single-feature-variant">
-<h2><a class="toc-backref" href="#id3" role="doc-backlink">Module Folder Structure (Single-Feature Variant)</a><a class="headerlink" href="#module-folder-structure-single-feature-variant" title="Link to this heading">#</a></h2>
-<p>The following variant keeps the same structure but removes the additional
-feature-name nesting under <code class="docutils literal notranslate"><span class="pre">docs/features/</span></code>. In this case, the <code class="docutils literal notranslate"><span class="pre">features/</span></code>
-subfolder is optional and omitted. This variant is intended for modules that only implement a single feature, to avoid unnecessary nesting.
-For identification of the single feature, the repository name or module name should replicate the feature name.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>&lt;module_name&gt;/                      # Root folder of the module, subfolder only if more than one module exists in the repository
-├── .github/
-│   └── workflows/                  # CI/CD pipelines
-├── docs/                           # Global documentation of the module and the single feature
-│   ├── architecture/               # Feature architecture [wp__feature_arch] and of architecture review [wp__sw_arch_verification]
-│   ├── safety_analysis/            # Feature safety analysis artifacts ([wp__feature_fmea], [wp__feature_dfa], [wp__requirements_feat_aou])
-│   ├── safety_planning/            # Feature safety planning artifacts
-│   ├── security_analysis/          # Feature security analysis artifacts [wp__feature_security_analysis]
-│   ├── security_planning/          # Feature security planning artifacts
-│   ├── manuals/                    # Module manual, integration manual, table of assumptions of use,
-│   │   |                           #   safety manual [wp__module_safety_manual],
-│   │   |                           #   needs table of [wp__requirements_feat_aou]
-│   │   |                           #   security manual [wp__module_security_manual]
-│   │   |                           # Additional optional user centric documentation (e.g. configuration guide,
-│   │   |                           #   examples user guide, APIs &amp; usage, performance analysis)
-│   │   ├── config/                 # Configuration guide (optional)
-│   │   ├── examples/               # Examples user guide (optional)
-│   │   ├── api_description/        # APIs detail description (optional)
-│   │   └── performance/            # Performance analysis (optional)
-│   ├── release/                    # Module release note [wp__module_sw_release_note]
-│   ├── safety_mgt/                 # Module safety plan [wp__module_safety_plan],
-│   │                               #   module safety package [wp__module_safety_package],
-│   │                               #   formal document and safety analysis reviews [wp__fdr_reports]
-│   ├── security_mgt/               # Module security plan [wp__module_security_plan],
-│   │                               #   module security package [wp__module_security_package],
-│   │                               #   formal document reviews [wp__fdr_reports_security],
-│   │                               #   module SW bill of material [wp__sw_module_sbom]
-│   └── verification_report/        # Module verification report,
-│                                   #   module verifications [wp__verification_module_ver_report],
-├── examples/                       # Usage examples for the module / features
-├── score/                          # Components of the module
-│   ├── tests/                      # Module-level tests (e.g., feature integration tests, system tests) [wp__verification_feat_int_test]
-│   └── &lt;component_name&gt;/           # Component folder for each component of the module
-│       ├── docs/                   # Documentation of the component
-│       │   ├── architecture/       # Component architecture [wp__component_arch]
-│       │   │                       #   (only if lower level components exist)
-|       |   |                       #   architecture review [wp__sw_arch_verification],
-│       │   ├── detailed_design/    # Detailed design [wp__sw_implementation]
-│       │   │                       #   code inspection [wp__sw_implementation_inspection]
-│       │   ├── requirements/       # Component requirements [wp__requirements_comp],[wp__requirements_inspect]
-│       │   ├── safety_analysis/    # Safety analysis [wp__sw_component_fmea], [wp__sw_component_dfa], [wp__requirements_comp_aou]
-|       |   |                       # Component classification [wp__sw_component_class] for pre-existing software
-│       │   │                       #   (only if component architecture exists)
-│       │   ├── security_analysis/  # Security analysis [wp__sw_component_security_analysis]
-│       │   │                       #   (only if component architecture exists)
-│       │   └── manuals/            # User documentation (of a single component, e.g., user manual of a library component, optional)
-│       ├── src/                    # Source files, include files, unit tests [wp__verification_sw_unit_test],
-│       │   └── &lt;lower_level_comp&gt;/ # Lower level component (follows &lt;component_name&gt; structure)
-│       └── tests/                  # Component-level tests (e.g., integration or complex unit tests) [wp__verification_comp_int_test]
-├── MODULE.bazel                    # Bazel module definition
-├── BUILD                           # Root build rules
-├── project_config.bzl              # Project metadata used by Bazel macros
-└── README.md                       # Entry point of the repository
-</pre></div>
-</div>
+<p>This repository documents the Crypto module implementation, including its build, test, documentation, safety and security management, verification, and release workflows.
+It provides the documentation artifacts needed for the Crypto module, including the component architecture documentation in <a class="reference internal" href="score/crypto/docs/architecture/component_architecture.html"><span class="doc">Component Architecture Documentation</span></a> and the detailed design documentation in <a class="reference internal" href="score/crypto/docs/detailed_design/detailed_design_example.html"><span class="doc">Example: Detailed Design</span></a>.</p>
 </section>
 <section id="module-documentation">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">Module Documentation</a><a class="headerlink" href="#module-documentation" title="Link to this heading">#</a></h2>
-<p>&lt;Brief description of the module and the implemented feature(s).&gt;</p>
-<p>&lt;Module sphinx documentation template snippets for the module. The directives and their parameters
-should be updated according to the module and it’s components. Further documentation of the module
-and the implemented feature(s) should be added in the respective sections of the documentation
-(e.g., feature architecture, safety analysis, security analysis, manuals, etc.) following the provided
-templates and guidelines.&gt;</p>
-<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span><span class="p">..</span> <span class="ow">mod</span><span class="p">::</span> Module Name
-   <span class="nc">:id:</span> mod__module_name
-   <span class="nc">:includes:</span> comp__component_name_template
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Module Documentation</a><a class="headerlink" href="#module-documentation" title="Link to this heading">#</a></h2>
+<p>The Crypto module provides a cryptographic middleware stack for automotive ECUs, including client-side APIs, a crypto daemon, provider integration, and supporting safety and security documentation.</p>
+<p>The sections below provide the module-level documentation structure for these Crypto-specific artifacts, and additional content should be added in the relevant sections for feature architecture, safety analysis, security analysis, manuals, and related work products.</p>
+<div class="highlight-rst notranslate"><div class="highlight"><pre><span></span><span class="p">..</span> <span class="ow">mod</span><span class="p">::</span> Crypto Module
+   <span class="nc">:id:</span> mod__crypto_module
+   <span class="nc">:includes:</span> comp__crypto_component
 
 
-<span class="p">..</span> <span class="ow">mod_view_sta</span><span class="p">::</span> Module Name Static View
-   <span class="nc">:id:</span> mod_view_sta__feature_name__module_name
-   <span class="nc">:includes:</span> comp__component_name_template
+<span class="p">..</span> <span class="ow">mod_view_sta</span><span class="p">::</span> Crypto Module Static View
+   <span class="nc">:id:</span> mod_view_sta__crypto__module
+   <span class="nc">:includes:</span> comp__crypto_component
 
 <span class="p">   ..</span> <span class="ow">needarch</span><span class="p">::</span>
       <span class="nc">:scale:</span> 50
@@ -702,43 +551,38 @@ templates and guidelines.&gt;</p>
 </div>
 </section>
 <section id="component-documentation">
-<h2><a class="toc-backref" href="#id5" role="doc-backlink">Component Documentation</a><a class="headerlink" href="#component-documentation" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Component Documentation</a><a class="headerlink" href="#component-documentation" title="Link to this heading">#</a></h2>
 <p>For documentation of individual components within this module:</p>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="score/component_example/docs/index.html">[Your Component Name]</a></li>
+<li class="toctree-l1"><a class="reference internal" href="score/crypto/docs/index.html">Crypto</a></li>
 <li class="toctree-l1"><a class="reference internal" href="score/iav_primula/docs/index.html">IAV Primula Component</a></li>
-<li class="toctree-l1"><a class="reference internal" href="score/crypto/daemon/data_manager/docs/index.html">Data Manager</a></li>
 </ul>
 </div>
 </section>
-<section id="architecture-modeling-example">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">Architecture Modeling Example</a><a class="headerlink" href="#architecture-modeling-example" title="Link to this heading">#</a></h2>
-<p>An example of modeling architecture in Sphinx Needs can be found in</p>
+<section id="architecture-modeling-reference">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Architecture Modeling Reference</a><a class="headerlink" href="#architecture-modeling-reference" title="Link to this heading">#</a></h2>
+<p>A reference for modeling the Crypto architecture in Sphinx Needs can be found in</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="examples/docs/architecture_modeling_example.html">Example model of architectural design</a></li>
 </ul>
 </div>
-<p>Please note, that is not a template for architecture documentation, but an example of how to use Sphinx Needs for architecture modeling. The architecture documentation of the components and features of the module should follow the provided templates and guidelines.</p>
+<p>Please note that this is a reference model for using Sphinx Needs for architecture modeling, not the canonical architecture documentation for the Crypto module. The actual architecture documentation of the Crypto components and features should follow the provided guidance and module-specific content.</p>
 </section>
 </section>
 <section id="quick-start-building-and-testing">
 <span id="quick-start-building-testing"></span><h1>Quick Start - Building and Testing<a class="headerlink" href="#quick-start-building-and-testing" title="Link to this heading">#</a></h1>
 <p>To build the entire module:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span>build<span class="w"> </span>//src/...
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span>build<span class="w"> </span>//score/...
 </pre></div>
 </div>
 <p>To run all tests:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//...
-</pre></div>
-</div>
-<p>To run only unit tests:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//src/...
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//score/...
 </pre></div>
 </div>
 <p>To run only component or feature integration tests:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//tests/...
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//score/...
 </pre></div>
 </div>
 <section id="module-build-configuration">
@@ -793,13 +637,11 @@ See <a class="reference external" href="https://eclipse-score.github.io/score/ma
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Module Template Documentation</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Crypto Documentation</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-layout">Module Layout</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-folder-structure-single-feature-variant">Module Folder Structure (Single-Feature Variant)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-documentation">Module Documentation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#component-documentation">Component Documentation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture-modeling-example">Architecture Modeling Example</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture-modeling-reference">Architecture Modeling Reference</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start-building-and-testing">Quick Start - Building and Testing</a><ul class="pst-show_toc_level nav section-nav flex-column">
@@ -814,7 +656,7 @@ See <a class="reference external" href="https://eclipse-score.github.io/score/ma
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./index.rst">
+    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main//home/runner/work/inc_security_crypto/inc_security_crypto/index.rst">
       <i class="fa-solid fa-pencil"></i>
       
       
