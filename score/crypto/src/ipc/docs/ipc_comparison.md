@@ -132,4 +132,4 @@ configuration model.
 **Production implementation follow-up:**
 
 The formal implementation of ``IConnection`` and ``IControlServer`` interfaces
-replacing the gRPC adapter is still pending will be taken up. See the [message-passing POC and QNX usage overview](../../../../tests/ipc_poc/message_passing_overview.md) for more detailed follow up tasks.
+replacing the gRPC adapter is still pending will be taken up.

@@ -21,7 +21,7 @@ Selection of LoLa Message Passing as IPC
 .. dec_rec:: Selection of LoLa Message Passing as IPC
   :id: dec_rec__crypto__lola_message_passing_ipc
   :version: 1
-  :status: draft
+  :status: proposed
   :context: doc__crypto_architecture
   :decision: Use LoLa Message Passing, implemented with the score::message_passing API, as the crypto daemon control-plane IPC transport.
 
@@ -190,9 +190,9 @@ Two-Phase Request/Reply Acknowledgement and Notify Completion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. dec_rec:: Two-Phase Request/Reply Acknowledgement and Notify Completion
-  :id: dec_rec__crypto__two_phase_request_reply_notify
+  :id: dec_rec__crypto__two_phase_ipc_interaction
   :version: 1
-  :status: draft
+  :status: proposed
   :context: doc__crypto_architecture
   :decision: Use SendWithCallback for a non-blocking request acknowledgement and Notify for the independently produced operation response.
 
@@ -223,20 +223,18 @@ Decision
 
 The protocol is defined as follows:
 
-1. The client assigns a unique non-zero ``request_id``, inserts a pending-call
-  record, and calls ``SendWithCallback`` with the FlatBuffer ``ControlRequest``.
-2. The server validates the request and copies the complete request into the
-  application work queue.
-3. The server calls ``Reply`` with a minimal acknowledgement carrying the
-  ``request_id``. After the acknowledgement attempt, it wakes a worker. A
-  successful acknowledgement means the request was admitted to the work queue.
-4. A server worker performs the operation and calls ``Notify`` on the same
-   ``IServerConnection`` with a ``ControlResponse`` carrying the original
-   ``request_id`` and the result payload.
-5. The client ``NotifyCallback`` routes the response by ``request_id`` and
-   signals the waiting application thread. The application waits with a
-   bounded timeout and retires the pending-call record after completion or
-   timeout.
+1. The client assigns a unique non-zero ``request_id``, inserts a pending-call record, and calls
+   ``SendWithCallback`` with the FlatBuffer ``ControlRequest``.
+2. The server validates the request and copies the complete request into the application work
+   queue.
+3. The server calls ``Reply`` with a minimal acknowledgement carrying the ``request_id``. After
+   the acknowledgement attempt, it wakes a worker. A successful acknowledgement means the request
+   was admitted to the work queue.
+4. A server worker performs the operation and calls ``Notify`` on the same ``IServerConnection``
+   with a ``ControlResponse`` carrying the original ``request_id`` and the result payload.
+5. The client ``NotifyCallback`` routes the response by ``request_id`` and signals the waiting
+   application thread. The application waits with a bounded timeout and retires the pending-call
+   record after completion or timeout.
 
 The acknowledgement is an acceptance signal, not the operation result. The
 transport does not automatically retry requests. An accepted request is
@@ -298,7 +296,7 @@ connection, the server callback also serializes all requests until work is
 complete.
 
 Long-Running SendWithCallback Reply
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The server could defer ``Reply`` until the worker has finished and return the
 final response through ``ReplyCallback``. This preserves a single response
@@ -328,3 +326,9 @@ timeout, and preserves one connection per client process. The request ID and
 pending-call lifecycle are deliberate complexity: they are required to obtain
 bounded, concurrent operation completion from a shared connection without
 using broadcast communication or shared writable memory.
+
+Reference
+~~~~~~~~~
+
+.. include:: ipc_comparison.md
+  :parser: myst_parser.sphinx_
