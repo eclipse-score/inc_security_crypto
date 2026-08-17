@@ -1,0 +1,882 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>DAR — IPC Mechanism for score-crypto Daemon &#8212; Crypto Project  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../../_static/styles/theme.css?digest=7f76b32a3354e82990f2" rel="stylesheet" />
+<link href="../../../../../_static/styles/pydata-sphinx-theme.css?digest=7f76b32a3354e82990f2" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/css/score.css?v=bb63a8e1" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/css/score_needs.css?v=82a1844f" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/css/score_design.css?v=8048e6ee" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../../../_static/scripts/fontawesome.js?digest=7f76b32a3354e82990f2"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=7f76b32a3354e82990f2" />
+<link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=7f76b32a3354e82990f2" />
+
+    <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../../../../../_static/documentation_options.js?v=7f41d439"></script>
+    <script src="../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script src="../../../../../_static/sphinx-data-viewer/jsonview.bundle.js?v=18cd53c5"></script>
+    <script src="../../../../../_static/sphinx-data-viewer/jsonview_loader.js?v=f7ff7e7d"></script>
+    <script src="../../../../../_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
+    <script src="../../../../../_static/sphinx-needs/libs/html/datatables_loader.js?v=a2cae175"></script>
+    <script src="../../../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/src/ipc/docs/ipc_comparison';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.17.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.1" />
+  
+    
+    <script src="../../../../../_static/searchtools.js"></script>
+    <script src="../../../../../_static/language_data.js"></script>
+    <script src="../../../../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Eclipse S-CORE</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/index.html">
+    Crypto Documentation
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/manuals/index.html">
+    Manuals
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/release/release_note.html">
+    Release Note
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/safety_mgt/index.html">
+    Safety Management
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../../docs/security_mgt/index.html">
+    Security Management
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../../docs/verification_report/module_verification_report.html">
+    Verification Report
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../docs/index.html">
+    Crypto
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../iav_primula/docs/index.html">
+    IAV Primula Component
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../../examples/docs/architecture_modeling_example.html">
+    Example model of architectural design
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/eclipse-score" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/index.html">
+    Crypto Documentation
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/manuals/index.html">
+    Manuals
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/release/release_note.html">
+    Release Note
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/safety_mgt/index.html">
+    Safety Management
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/security_mgt/index.html">
+    Security Management
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../docs/verification_report/module_verification_report.html">
+    Verification Report
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../docs/index.html">
+    Crypto
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../iav_primula/docs/index.html">
+    IAV Primula Component
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../../examples/docs/architecture_modeling_example.html">
+    Example model of architectural design
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/eclipse-score" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">DAR — IPC Mechanism for score-crypto Daemon</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <!-- ----------------------------------------------------------------------------
+  Copyright (c) 2026 Contributors to the Eclipse Foundation
+
+  See the NOTICE file(s) distributed with this work for additional
+  information regarding copyright ownership.
+
+  This program and the accompanying materials are made available under the
+  terms of the Apache License Version 2.0 which is available at
+  https://www.apache.org/licenses/LICENSE-2.0
+
+  SPDX-License-Identifier: Apache-2.0
+----------------------------------------------------------------------------- -->
+<section id="dar-ipc-mechanism-for-score-crypto-daemon">
+<h1>DAR — IPC Mechanism for score-crypto Daemon<a class="headerlink" href="#dar-ipc-mechanism-for-score-crypto-daemon" title="Link to this heading">#</a></h1>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p></p></th>
+<th class="head"><p></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Status</strong></p></td>
+<td><p>Draft</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Date</strong></p></td>
+<td><p>2026-08-13</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Author</strong></p></td>
+<td><p>ETAS</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Context</strong></p></td>
+<td><p>score-crypto daemon IPC transport selection</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr class="docutils" />
+<section id="problem-statement">
+<h2>1. Problem Statement<a class="headerlink" href="#problem-statement" title="Link to this heading">#</a></h2>
+<p>The score-crypto daemon requires an IPC transport to serve cryptographic operations to client processes. The current implementation uses gRPC. The target deployment environment is automotive ECUs with strict functional-safety requirements (ISO 26262), potentially running mixed ASIL-level workloads, possibly across VM boundaries. A replacement or continuation decision is needed.</p>
+</section>
+<hr class="docutils" />
+<section id="requirements">
+<h2>2. Requirements<a class="headerlink" href="#requirements" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>ID</p></th>
+<th class="head"><p>Requirement</p></th>
+<th class="head"><p>Rationale</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>R1</p></td>
+<td><p>Suitability for ASIL-B use</p></td>
+<td><p>The library must be designed and documented to support deterministic and bounded execution and resource behavior, controlled heap/allocation use on ASIL-relevant paths, suitable isolation for the deployment, and appropriate quality artifacts such as requirements/design traceability, analysis, verification, and compliance or qualification evidence.</p></td>
+</tr>
+<tr class="row-odd"><td><p>R2</p></td>
+<td><p>Bounded timeout on every call</p></td>
+<td><p>WCET must be provable. A stalled QM server must never indefinitely block an ASIL-B client thread.</p></td>
+</tr>
+<tr class="row-even"><td><p>R3</p></td>
+<td><p>Resilience to server crash / connection loss</p></td>
+<td><p>If the server process dies or the connection is lost, the client must receive a typed error. The client must not block indefinitely or silently operate on a dead connection.</p></td>
+</tr>
+<tr class="row-odd"><td><p>R4</p></td>
+<td><p>Authentic peer identification</p></td>
+<td><p>Server must be able to identify the calling process via an OS-enforced mechanism, not a client-supplied value.</p></td>
+</tr>
+<tr class="row-even"><td><p>R5</p></td>
+<td><p>Minimal or zero configuration</p></td>
+<td><p>The IPC usage should require minimal configuration and be fully configurable programmatically.</p></td>
+</tr>
+<tr class="row-odd"><td><p>R6</p></td>
+<td><p>Flexible server-side threading model</p></td>
+<td><p>The IPC transport must not impose a threading model. The server must be free to choose single-thread, fixed pool, or per-request threads.</p></td>
+</tr>
+<tr class="row-even"><td><p>R7</p></td>
+<td><p>Concurrent calls from one process</p></td>
+<td><p>Multiple threads in one client process must be able to issue independent calls simultaneously.</p></td>
+</tr>
+<tr class="row-odd"><td><p>R8</p></td>
+<td><p>Multiple concurrent client processes</p></td>
+<td><p>Multiple independent processes must each be able to connect and call the server simultaneously.</p></td>
+</tr>
+<tr class="row-even"><td><p>R9</p></td>
+<td><p>One-to-one communication</p></td>
+<td><p>Each request maps to exactly one response. No broadcast, no fan-out.</p></td>
+</tr>
+<tr class="row-odd"><td><p>R10</p></td>
+<td><p>Low latency</p></td>
+<td><p>IPC overhead should be low. Data throughput is not a priority, since crypto provides a separate data plane for transfer of bigger data elements.</p></td>
+</tr>
+<tr class="row-even"><td><p>R11</p></td>
+<td><p>Inter-VM communication</p></td>
+<td><p>The mechanism must either natively support inter-VM communication on a safety hypervisor, or have a minimal and safe migration path to do so. Crypto has an IPC / connection abstraction which allows the usage of different IPC / connection mechanisms.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="options-considered">
+<h2>3. Options Considered<a class="headerlink" href="#options-considered" title="Link to this heading">#</a></h2>
+<section id="option-a-grpc-over-unix-domain-socket-current">
+<h3>Option A — gRPC over Unix Domain Socket (current)<a class="headerlink" href="#option-a-grpc-over-unix-domain-socket-current" title="Link to this heading">#</a></h3>
+<p>gRPC using FlatBuffers serialisation, connected via <code class="docutils literal notranslate"><span class="pre">unix://</span></code> channel. In production use in the repo today via <code class="docutils literal notranslate"><span class="pre">GrpcControlClient</span></code> / <code class="docutils literal notranslate"><span class="pre">GrpcControlServer</span></code>.</p>
+</section>
+<section id="option-b-lola-full-soa-abstraction-synchronous-method">
+<h3>Option B — LoLa Full SOA Abstraction (synchronous Method)<a class="headerlink" href="#option-b-lola-full-soa-abstraction-synchronous-method" title="Link to this heading">#</a></h3>
+<p>S-CORE <code class="docutils literal notranslate"><span class="pre">mw::com</span></code> LoLa binding, synchronous Method call. Single <code class="docutils literal notranslate"><span class="pre">Execute(IpcBuffer)</span> <span class="pre">→</span> <span class="pre">IpcBuffer</span></code> method over shared memory. Evaluated in the synchronous LoLa prototype.</p>
+</section>
+<section id="option-c-lola-full-soa-abstraction-asynchronous-method-event">
+<h3>Option C — LoLa Full SOA Abstraction (asynchronous Method + Event)<a class="headerlink" href="#option-c-lola-full-soa-abstraction-asynchronous-method-event" title="Link to this heading">#</a></h3>
+<p>S-CORE <code class="docutils literal notranslate"><span class="pre">mw::com</span></code> LoLa binding, two-phase protocol: Phase 1 — short blocking Method call returns a ticket; Phase 2 — result delivered via a broadcast Event. Evaluated in the asynchronous LoLa prototype.</p>
+</section>
+<section id="option-d-lola-message-passing-abstraction-sendwithcallback-notify">
+<h3>Option D — LoLa Message Passing Abstraction (SendWithCallback + Notify)<a class="headerlink" href="#option-d-lola-message-passing-abstraction-sendwithcallback-notify" title="Link to this heading">#</a></h3>
+<p>The platform-independent message-passing abstraction uses the S-CORE
+<code class="docutils literal notranslate"><span class="pre">score::message_passing</span></code> API with <code class="docutils literal notranslate"><span class="pre">SendWithCallback</span></code> / <code class="docutils literal notranslate"><span class="pre">Reply</span></code> / <code class="docutils literal notranslate"><span class="pre">Notify</span></code>
+primitives. The transport backend is OS-specific and provided by the framework:
+Unix domain socket on Linux, QNX message passing on QNX. The application code is
+OS-agnostic. Evaluated in the low-level message-passing prototype.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="decision-matrix">
+<h2>4. Decision Matrix<a class="headerlink" href="#decision-matrix" title="Link to this heading">#</a></h2>
+<p>Options C and D use a two-phase protocol (enqueue + async response); R2 applies to both phases independently. For Options A and B, which are single-phase, R2 describes a single blocking call.</p>
+<p>The matrix describes target library and architecture capabilities, not completed
+production guarantees. <code class="docutils literal notranslate"><span class="pre">✅</span></code> means the option appears capable of meeting the
+requirement architecturally; <code class="docutils literal notranslate"><span class="pre">⚠️</span></code> means the result depends on a wrapper,
+backend, configuration, or follow-up implementation; <code class="docutils literal notranslate"><span class="pre">❌</span></code> means an identified
+architectural mismatch; and <code class="docutils literal notranslate"><span class="pre">❓</span></code> means it was not evaluated. The POCs provide
+feasibility evidence for selected points, while the production implementation
+must validate the remaining requirements.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Requirement</p></th>
+<th class="head"><p>Option A — gRPC</p></th>
+<th class="head"><p>Option B — LoLa Full SOA (sync)</p></th>
+<th class="head"><p>Option C — LoLa Full SOA (async)</p></th>
+<th class="head"><p>Option D — LoLa Message Passing Abstraction</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>R1</strong> ASIL-B suitability</p></td>
+<td><p>❌ general-purpose gRPC uses framework-managed threads and dynamic runtime resources; the library does not provide an ASIL-oriented deterministic resource profile or safety qualification artifacts</p></td>
+<td><p>✅ the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use and ASIL-B deployment</p></td>
+<td><p>✅ the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use and ASIL-B deployment, including its method/event model</p></td>
+<td><p>✅ the message-passing library design supports fixed resource bounds, preallocation, and pool/monotonic allocation; the communication module documents safety-oriented quality tooling and ASIL-B qualification</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>R2</strong> Bounded timeout</p></td>
+<td><p>⚠️ current adapter uses a blocking call without a configured deadline; deadline-based or async gRPC was not analyzed</p></td>
+<td><p>❌ single-phase blocking call — blocks indefinitely if server stalls</p></td>
+<td><p>⚠️ Phase 2 (response event): <code class="docutils literal notranslate"><span class="pre">wait_for()</span></code> indicated in POC; Phase 1 (enqueue): ❌ <code class="docutils literal notranslate"><span class="pre">DoCall()</span></code> holds caller’s thread inside LoLa framework with no timeout API — requires framework change</p></td>
+<td><p>⚠️ <code class="docutils literal notranslate"><span class="pre">SendWithCallback()</span></code> is non-blocking by design and can support an application-level timeout; mandatory timeout API and typed error handling remain production work, and server-side <code class="docutils literal notranslate"><span class="pre">Notify()</span></code> bounds are backend-dependent</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>R3</strong> Server crash / connection loss</p></td>
+<td><p>❓ not analysed in POC</p></td>
+<td><p>❓ not analysed in POC</p></td>
+<td><p>❓ not analysed in POC</p></td>
+<td><p>⚠️ transport disconnect was observed in the POC; typed propagation to all pending calls and cleanup policy remain production work</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>R4</strong> Authentic peer identification</p></td>
+<td><p>❌ no authentication mechanism</p></td>
+<td><p>⚠️ config specifies which UIDs may use a service instance — non-listed UIDs are rejected at runtime by the framework; no API to actively query the connected UID</p></td>
+<td><p>⚠️ config specifies which UIDs may use a service instance — non-listed UIDs are rejected at runtime by the framework; no API to actively query the connected UID</p></td>
+<td><p>✅ <code class="docutils literal notranslate"><span class="pre">score::message_passing</span></code> exposes an API to retrieve kernel-provided peer credentials from an active connection</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>R5</strong> Minimal config</p></td>
+<td><p>✅ socket path only</p></td>
+<td><p>❌ LoLa requires service-oriented configuration for the service, instance, method/event identifiers, application identity, and safety-relevant properties; configuration must be provided consistently to the participating applications and composed with any other <code class="docutils literal notranslate"><span class="pre">mw::com</span></code> services used in the same process</p></td>
+<td><p>❌ LoLa requires service-oriented configuration for the service, instance, method/event identifiers, application identity, and safety-relevant properties; configuration must be provided consistently to the participating applications and composed with any other <code class="docutils literal notranslate"><span class="pre">mw::com</span></code> services used in the same process</p></td>
+<td><p>⚠️ service identifier only, but worst-case buffer sizes must be configured explicitly: max client processes (N), max concurrent threads per client (T), and max payload size — all must be set to system-wide upper bounds at compile/startup time</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>R6</strong> Flexible server threading</p></td>
+<td><p>⚠️ gRPC owns an internal thread pool; handler is called on gRPC threads. Flexible configuration of that pool may not be sufficient for the required threading model, while a complete replacement of it may be feasible but was not evaluated</p></td>
+<td><p>⚠️ skeleton thread processes one call at a time and blocks until the handler returns; handler may dispatch to a pool internally but must block the skeleton on the result — skeleton is always occupied during work</p></td>
+<td><p>✅ flexible threading model can be built on top — POC demonstrates a server-side thread pool receiving work via the Phase 1 callback and completing it independently</p></td>
+<td><p>✅ <code class="docutils literal notranslate"><span class="pre">Reply()</span></code> callable from any thread at any time — server fully controls threading</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>R7</strong> Concurrent calls / same process</p></td>
+<td><p>✅ channel is thread-safe, no external mechanism needed</p></td>
+<td><p>⚠️ concurrent calls depend on the LoLa proxy and method queue configuration; the service abstraction does not make the required parallelism transparent to the application</p></td>
+<td><p>⚠️ concurrent calls depend on the LoLa proxy, method queue, and event subscription configuration; the service abstraction does not make the required parallelism transparent to the application</p></td>
+<td><p>⚠️ the library supports concurrent use, while request-ID assignment, pending-call tracking, and response multiplexing must be implemented above the library; sufficient resource configuration is also needed</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>R8</strong> Multiple client processes</p></td>
+<td><p>✅ works out of the box</p></td>
+<td><p>⚠️ supported through the service-oriented deployment model, but requires consistent application/service configuration across participating processes — see R5</p></td>
+<td><p>⚠️ supported through the service-oriented deployment model, but requires consistent application/service configuration across participating processes — see R5</p></td>
+<td><p>✅ the library supports one server communicating with multiple client processes through independent client/server sessions; sufficient connection and queue resource configuration is needed</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>R9</strong> One-to-one</p></td>
+<td><p>✅ each call gets exactly one response</p></td>
+<td><p>✅ each call gets exactly one response</p></td>
+<td><p>⚠️ response is a broadcast event — requires one skeleton instance per client to prevent cross-client response leakage</p></td>
+<td><p>✅ each call gets exactly one response</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>R10</strong> Latency</p></td>
+<td><p>❌ indicative POC measurement ~430 µs (full request + response)</p></td>
+<td><p>❓ not measured</p></td>
+<td><p>⚠️ indicative POC measurement ~130 µs (lowest measured value, but still significant IPC overhead)</p></td>
+<td><p>⚠️ indicative POC measurement ~160 µs (second-lowest measured value, but still significant IPC overhead)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>R11</strong> Inter-VM</p></td>
+<td><p>⚠️ gRPC supports network channels, but the current adapter hardcodes Unix-domain endpoints; an endpoint/configuration change and validation of the inter-VM transport and peer-authentication model are required</p></td>
+<td><p>⚠️ current LoLa binding is SHM-only (single-kernel); the service-oriented architecture could in principle support a network binding without changing the service API, but no such binding exists today</p></td>
+<td><p>⚠️ current LoLa binding is SHM-only (single-kernel); the service-oriented architecture could in principle support a network binding without changing the service API, but no such binding exists today</p></td>
+<td><p>❌ current <code class="docutils literal notranslate"><span class="pre">score::message_passing</span></code> backends are local Unix-domain socket and QNX message passing; the library provides no inter-VM transport. A new framework backend would be required.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Note:</strong> R1 and R2 are hard safety blockers — any ❌ on these disqualifies an option for safety use regardless of performance on other requirements. Options A, B, and C all carry at least one ❌ on R1 or R2.</p>
+<p><strong>POC note:</strong> The LoLa POCs generated per-client configuration and used unique
+application identifiers to exercise multiple clients. These are prototype
+workarounds and should not be interpreted as the library’s fundamental
+configuration model.</p>
+</section>
+<hr class="docutils" />
+<section id="analysis">
+<h2>5. Analysis<a class="headerlink" href="#analysis" title="Link to this heading">#</a></h2>
+<p><strong>Option B (LoLa Full SOA, synchronous)</strong> meets the R1 library-capability assessment: the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use. It fails R2 (timeout): there is no two-phase workaround available — the single blocking call holds the caller’s thread until the handler returns with no escape path. The synchronous prototype was only validated in-process (skeleton and proxy on separate threads within a single test binary); cross-process concurrency was not tested. The config burden is high and would compound if LoLa is used elsewhere in the same process.</p>
+<p><strong>Option C (LoLa Full SOA, asynchronous)</strong> meets the R1 library-capability assessment: the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use, including its method/event model. Its indicative POC latency of approximately 130 microseconds is the lowest measured value, but still represents significant IPC overhead and should remain a warning rather than an unqualified pass. It fails partially on R2: Phase 2 timeout is implemented and flexible server threading is achievable, but Phase 1 timeout requires a LoLa framework change — it cannot be fixed in application code. On server crash, Phase 2 never fires and the client hangs until the application-level timeout expires; the crash itself is not detected independently. The broadcast-event response model requires one skeleton instance per client, adding complexity and config overhead. Notably, LoLa’s service-oriented architecture is transport-agnostic by design; a future network binding could enable inter-VM communication without application-level changes — a meaningful long-term advantage that does not resolve the current safety gaps.</p>
+<p><strong>Option A (gRPC)</strong> fails R1 for the stated ASIL-B use because the general-purpose library uses framework-managed threads and dynamic resources and does not provide an ASIL-oriented deterministic resource profile or safety qualification artifacts. The current adapter also does not configure a deadline; deadline-based and asynchronous gRPC were not analyzed. It handles server crash via gRPC status errors but cannot distinguish a crashed server from a hung one without a configured deadline. Peer authentication requires a PKI (no <code class="docutils literal notranslate"><span class="pre">SO_PEERCRED</span></code> equivalent). It remains the strongest option for inter-VM, because gRPC provides network channel support, but the current adapter hardcodes Unix-domain endpoints and requires endpoint/configuration changes before that path is available. It is appropriate for QM-to-QM communication where safety certification is not required.</p>
+<p><strong>Option D (LoLa Message Passing Abstraction)</strong> meets the R1 library-capability assessment: its design supports fixed resource bounds, preallocation, and pool/monotonic allocation, and the communication module documents safety-oriented quality tooling and ASIL-B qualification. Its indicative POC latency of approximately 160 microseconds is the second-lowest measured value, but still represents significant IPC overhead and should remain a warning rather than an unqualified pass. The application code is OS-agnostic; the framework provides the OS-specific transport backend (Unix domain socket on Linux, QNX message passing on QNX). The low-level message-passing prototype provides feasibility evidence for the intended skeleton: non-blocking <code class="docutils literal notranslate"><span class="pre">SendWithCallback</span></code> / <code class="docutils literal notranslate"><span class="pre">Reply</span></code> decoupling, application-level <code class="docutils literal notranslate"><span class="pre">request_id</span></code> multiplexing for concurrent threads, application-level bounded waiting, and detection of server death via socket EOF. Typed error propagation, mandatory timeout APIs, and backend-specific bounded-notification behavior remain implementation work. The selected library does not support inter-VM communication: its current backends are local, and a new framework backend would be required. The <code class="docutils literal notranslate"><span class="pre">IConnection</span></code> abstraction may provide a migration direction, but this has not been demonstrated and is not evidence of current library support.</p>
+</section>
+<hr class="docutils" />
+<section id="decision">
+<h2>6. Decision<a class="headerlink" href="#decision" title="Link to this heading">#</a></h2>
+<p><strong>Option D — LoLa Message Passing Abstraction</strong> is selected as the IPC transport for the score-crypto daemon, using <code class="docutils literal notranslate"><span class="pre">score::message_passing</span></code> as its current implementation basis.</p>
+</section>
+<hr class="docutils" />
+<section id="consequences">
+<h2>7. Consequences<a class="headerlink" href="#consequences" title="Link to this heading">#</a></h2>
+<p><strong>Accepted trade-offs:</strong></p>
+<ul class="simple">
+<li><p>Indicative POC measurements show ~160 µs for message_passing, ~130 µs for LoLa Full SOA (async), and ~430 µs for gRPC. These figures are not a controlled benchmark and must be validated with the proper implementation using a common platform, payload, concurrency, warm-up, and measurement method. The observed gap between LoLa Full SOA and message_passing is partly attributed to configuration: the LoLa Full SOA asynchronous prototype was measured with QM-only settings, whereas the message_passing prototype was configured for mixed usage (<code class="docutils literal notranslate"><span class="pre">truly_async=true</span></code>). Configuring message_passing for QM-only reduced its observed round-trip to ~140 µs; the remaining difference was not analyzed. Throughput would be higher with LoLa Full SOA due to shared memory, but this is not a control-plane requirement: larger data transfers are expected to use a dedicated data plane.</p></li>
+<li><p>The selected library does not currently support inter-VM communication. The existing <code class="docutils literal notranslate"><span class="pre">IConnection</span></code> abstraction may guide a second, dedicated IPC mechanism, but that migration path has not been demonstrated and remains separate follow-up work.</p></li>
+</ul>
+<p><strong>Production implementation follow-up:</strong></p>
+<p>The formal implementation of <code class="docutils literal notranslate"><span class="pre">IConnection</span></code> and <code class="docutils literal notranslate"><span class="pre">IControlServer</span></code> interfaces
+replacing the gRPC adapter is still pending will be taken up.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#problem-statement">1. Problem Statement</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#requirements">2. Requirements</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#options-considered">3. Options Considered</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-a-grpc-over-unix-domain-socket-current">Option A — gRPC over Unix Domain Socket (current)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-b-lola-full-soa-abstraction-synchronous-method">Option B — LoLa Full SOA Abstraction (synchronous Method)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-c-lola-full-soa-abstraction-asynchronous-method-event">Option C — LoLa Full SOA Abstraction (asynchronous Method + Event)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-d-lola-message-passing-abstraction-sendwithcallback-notify">Option D — LoLa Message Passing Abstraction (SendWithCallback + Notify)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#decision-matrix">4. Decision Matrix</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#analysis">5. Analysis</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#decision">6. Decision</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#consequences">7. Consequences</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main//home/runner/work/inc_security_crypto/inc_security_crypto/score/crypto/src/ipc/docs/ipc_comparison.md">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../../../_static/scripts/bootstrap.js?digest=7f76b32a3354e82990f2"></script>
+<script defer src="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=7f76b32a3354e82990f2"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.17.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
