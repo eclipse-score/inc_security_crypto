@@ -233,12 +233,29 @@ class ICertificateManagementContext : public IContext
     virtual score::Result<std::monostate> AddCertificateToTrustStore(const CryptoResourceId& trust_store,
                                                                      const CryptoResourceId& cert) = 0;
 
+    /// @brief Removes a certificate from a persistent trust store by cert handle.
+    ///
+    /// The certificate must be loaded in the daemon (ephemeral or slot-loaded).
+    /// The daemon resolves the SHA-256 fingerprint internally from the handle.
+    ///
+    /// Normal path: caller has the cert already parsed or loaded from a slot.
+    ///
+    /// @param trust_store Handle to the trust store (type = kCertificateTrustStore)
+    /// @param cert        Handle to the certificate to remove (type = kCertificate or kCertSlot)
+    virtual score::Result<std::monostate> RemoveCertificateFromTrustStore(const CryptoResourceId& trust_store,
+                                                                          const CryptoResourceId& cert) = 0;
+
     /// @brief Removes a certificate from a persistent trust store by SHA-256 fingerprint.
     ///
-    /// This changes trust-store deployment state and requires write access.
+    /// The certificate does not need to be loaded in the daemon. Use this when
+    /// the fingerprint is known from an external source (security bulletin, policy
+    /// document, trust-store listing) without the cert bytes being available.
+    ///
+    /// @param trust_store        Handle to the trust store (type = kCertificateTrustStore)
+    /// @param sha256_fingerprint 32-byte SHA-256 fingerprint of the certificate to remove
     virtual score::Result<std::monostate> RemoveCertificateFromTrustStore(
         const CryptoResourceId& trust_store,
-        score::cpp::span<const uint8_t> certificate_fingerprint) = 0;
+        score::cpp::span<const uint8_t> sha256_fingerprint) = 0;
 
   protected:
     ICertificateManagementContext() = default;
