@@ -196,7 +196,9 @@ enum class ProviderCapability : std::uint8_t
     kNone = 0x00U,            ///< No functional capability advertised
     kCrypto = 0x01U,          ///< Symmetric cipher / hash / MAC handlers (GetCryptoHandlerFactory)
     kKeyManagement = 0x02U,   ///< Key generation / storage (GetKeyFactory / GetKeySlotHandler)
-    kCertManagement = 0x04U,  ///< Certificate parse / verify / CSR (GetCertFactory)
+    kCertManagement = 0x04U,  ///< Certificate parsing / verification (GetCertParser).
+                              ///  Does NOT imply cert-slot storage — slot handlers are
+                              ///  selected by name (slot.storage_backend), not by this bit.
 };
 
 /// @brief Bitwise OR for combining provider capabilities.
