@@ -68,7 +68,6 @@ The provider exposes these headers through:
 ## Minimal Example Provider (own_pkcs11)
 
 This example shows how to add a minimal custom PKCS#11 header provider.
-It is intentionally simple and mirrors the SoftHSM/HSE structure.
 
 Directory:
 
@@ -126,7 +125,7 @@ No changes to the dynloader are required.
 - The dynloader is backend-agnostic.
 - Providers supply PKCS#11 headers in a normalized layout.
 - SoftHSM is the default provider.
-- HSE and custom providers can be selected via a build flag.
+- Custom providers can be selected via a build flag.
 - `PKCS11_LIB` *must* be supplied via `--copt=-DPKCS11_LIB=<path>`.
 - Adding new providers is simple and does not require modifying the dynloader.
 

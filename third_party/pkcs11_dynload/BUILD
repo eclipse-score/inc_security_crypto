@@ -15,7 +15,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//third_party/pkcs11_dynload:provider.bzl", "pkcs11_header_provider")
 
 # Provides the PKCS#11 header via the generic provider abstraction.
-# Supports multiple backends (e.g., SoftHSM, Cryptoki, HSE) without hard‑coding one.
+# Supports multiple backends without hard‑coding one.
 # Builds the PKCS#11 dynloader that loads the active module at runtime.
 # The selected header provider is controlled by the pkcs11_header_source setting.
 # This file contains only the dynloader and provider wiring, not backend logic.
@@ -48,11 +48,7 @@ genrule(
 
 # ------------------------------------------------------------------------------
 # Build setting selecting which PKCS#11 header provider to use.
-# Default = SoftHSM. Other providers (e.g., HSE) may override this.
-#
-# Example override for an assumed header provider pkcs11_hse:
-#   bazel build //third_party/pkcs11_dynload:pkcs11_dynload_shared \
-#       --//third_party/pkcs11_dynload:pkcs11_header_source=//third_party/pkcs11_hse:pkcs11_hse_header
+# Default = SoftHSM. Other providers may override this.
 # ------------------------------------------------------------------------------
 label_flag(
     name = "pkcs11_header_source",
@@ -62,7 +58,7 @@ label_flag(
 
 # ------------------------------------------------------------------------------
 # SoftHSM implementation of the PKCS#11 header provider abstraction.
-# Other providers (e.g., HSE) implement the same interface in their own BUILD.
+# Other providers implement the same interface in their own BUILD.
 # ------------------------------------------------------------------------------
 pkcs11_header_provider(
     name = "soft_hsm_header",

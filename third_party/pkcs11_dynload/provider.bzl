@@ -12,10 +12,10 @@
 # *******************************************************************************
 
 # This module defines a tiny PKCS#11 header provider abstraction.
-# Each PKCS#11 backend (SoftHSM, HSE, vendor modules, etc.) implements
-# `pkcs11_header_provider(...)` to expose its pkcs11.h header in a uniform way.
-# The dynloader depends only on the selected provider (via a label_flag),
-# and therefore does not need to know which backend is chosen.
+# Each PKCS#11 backend implements `pkcs11_header_provider(...)` to expose
+# its pkcs11.h header in a uniform way. The dynloader depends only on the
+# selected provider (via a label_flag), and therefore does not need to know
+# which backend is chosen.
 
 Pkcs11HeaderInfo = provider(fields = ["hdrs", "includes"])
 
