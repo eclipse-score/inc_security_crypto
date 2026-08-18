@@ -123,7 +123,7 @@ void ConfigDrivenSlotCatalog::Load(SlotRegistry& registry)
     score::mw::log::LogDebug() << LOG_PREFIX << "Loaded" << entries.size() << " slot(s) from configuration.";
 
     // Register per-application resource ID mappings.
-    for (const auto& mapping : m_key_config.GetAppResourceEntries())
+    for (const auto& mapping : m_key_config.GetAppKeySlotEntries())
     {
         registry.RegisterAppResource(mapping.uid, mapping.app_resource_id, mapping.slot_name);
     }
