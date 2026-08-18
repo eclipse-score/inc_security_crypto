@@ -24,6 +24,5 @@ cc_test(
         "//score/tests/utility",
         "//third_party/soft_hsm:softhsm_shared",
         "@googletest//:gtest",
-        "@googletest//:gtest_main",
     ],
 )
