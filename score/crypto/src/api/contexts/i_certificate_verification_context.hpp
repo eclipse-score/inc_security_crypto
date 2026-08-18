@@ -72,13 +72,13 @@ class ICertificateVerificationContext : public IContext
     /// @brief Sets the leaf certificate to verify.
     /// @param cert Handle to the certificate to verify
     /// @return std::monostate on success, error if cert handle is invalid
-    /// @note Mutually exclusive with SetCertificateChain().
+    /// @note Replaces any previously set certificate or chain on this context.
     virtual score::Result<std::monostate> SetCertificate(const CryptoResourceId& cert) = 0;
 
     /// @brief Sets a certificate chain to verify (leaf first).
     /// @param chain Ordered chain of certificate handles (leaf first, root last)
     /// @return std::monostate on success, error if any handle is invalid
-    /// @note Mutually exclusive with SetCertificate().
+    /// @note Replaces any previously set certificate or chain on this context.
     virtual score::Result<std::monostate> SetCertificateChain(score::cpp::span<const CryptoResourceId> chain) = 0;
 
     /// @brief Sets the system trust store to use for certificate chain verification.
