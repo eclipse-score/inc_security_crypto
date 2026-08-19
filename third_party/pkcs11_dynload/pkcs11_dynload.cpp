@@ -13,6 +13,7 @@
 
 #include "score/mw/log/logging.h"
 
+#include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -121,6 +122,7 @@ CK_RV C_GetFunctionList(CK_FUNCTION_LIST **functionList) noexcept
 {
     // Thread-safe by C++11: local static initialization is guaranteed to be atomic and executed only once.
     static Pkcs11Dynload pkcs11Lib;
+    assert(functionList != nullptr);
     *functionList = pkcs11Lib.getFunctionList();
     return pkcs11Lib.getRv();
 }
