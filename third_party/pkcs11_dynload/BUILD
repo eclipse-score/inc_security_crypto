@@ -80,15 +80,13 @@ cc_library(
 # ------------------------------------------------------------------------------
 # PKCS#11 dynloader implementation.
 #
-# This library loads a PKCS#11 module at runtime via dlopen(). The absolute path
-# to the module is provided through the Bazel build setting `--define pkcs11_lib=...`.
+# This library loads a PKCS#11 module at runtime via dlopen(). The absolute
+# module path is provided via the Bazel build setting `--define pkcs11_lib=...`
+# and written into the generated header `pkcs11_lib_path.h`. This avoids fragile 
+# preprocessor string escaping. The build fails if `pkcs11_lib` is not defined.
 #
-# A genrule generates `pkcs11_lib_path.h`, which contains:
-#
-#     static const char* kPkcs11LibPath = "<path>";
-#
-# The build fails if `pkcs11_lib` is not defined. This avoids fragile preprocessor
-# string escaping.
+# On Linux, dlopen/dlsym require linking against libdl. On QNX, libdl is part
+# of libc and must not be linked explicitly.
 # ------------------------------------------------------------------------------
 
 genrule(
@@ -109,6 +107,11 @@ cc_library(
     srcs = ["pkcs11_dynload.cpp"],
     hdrs = [":pkcs11_lib_path"],
     includes = ["."],
+    linkopts = select({
+        "//platforms:is_qnx_aarch64": [],
+        "//platforms:is_qnx_x86_64": [],
+        "//conditions:default": ["-ldl"],
+    }),
     linkstatic = False,
     visibility = ["//visibility:public"],
     deps = [
