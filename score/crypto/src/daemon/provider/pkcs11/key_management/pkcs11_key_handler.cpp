@@ -13,8 +13,21 @@
 
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/key_management/resolved_key.hpp"
+
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 
 #include "score/mw/log/logging.h"
+
+#include <pkcs11.h>
+
+#include <atomic>
+#include <memory>
+#include <utility>
+#include <variant>
 
 namespace score::crypto::daemon::provider::pkcs11
 {
@@ -67,12 +80,13 @@ std::pair<CK_SESSION_HANDLE, CK_OBJECT_HANDLE> Pkcs11KeyHandler::GetSessionKey()
     return key_store->Lookup(m_key_handle.opaque_id);
 }
 
-Pkcs11KeyStore::ResolvedKey Pkcs11KeyHandler::ResolveObject(CK_SESSION_HANDLE handler_session) const noexcept
+score::crypto::Expected<ResolvedKey, score::crypto::daemon::common::DaemonErrorCode> Pkcs11KeyHandler::ResolveObject(
+    CK_SESSION_HANDLE handler_session) const noexcept
 {
     auto key_store = m_key_store.lock();
     if (key_store == nullptr)
     {
-        return {};
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
     return key_store->ResolveObject(m_key_handle.opaque_id, handler_session);
 }

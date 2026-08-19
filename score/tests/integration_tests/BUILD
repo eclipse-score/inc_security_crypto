@@ -17,18 +17,29 @@ load("//score/tests/bazel:integration.bzl", "integration_test")
 cc_binary(
     name = "init_pkcs11_token",
     srcs = ["init_pkcs11_token.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     deps = [
         "//score/crypto/src/backend:active_pkcs11_backend",
     ],
 )
 
 cc_binary(
-    name = "score_api_hash_example",
-    srcs = ["score_api_hash_example.cpp"],
+    name = "score_api_hash_test",
+    srcs = ["score_api_hash_test.cpp"],
     data = [
         "//score/tests/test_vectors/config:integration_test_config",
         "//score/tests/test_vectors/hash:hash_test_vectors",
     ],
+    defines = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": ["SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:openssl_backend_active": ["SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }),
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
@@ -38,12 +49,19 @@ cc_binary(
 )
 
 cc_binary(
-    name = "score_api_mac_example",
-    srcs = ["score_api_mac_example.cpp"],
+    name = "score_api_mac_test",
+    srcs = ["score_api_mac_test.cpp"],
     data = [
         "//score/tests/test_vectors/config:integration_test_config",
         "//score/tests/test_vectors/mac:mac_test_vectors",
     ],
+    defines = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": ["SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:openssl_backend_active": ["SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }),
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
@@ -71,6 +89,13 @@ cc_binary(
         "//score/tests/test_vectors/config:integration_test_config",
         "//score/tests/test_vectors/mac:mac_test_vectors",
     ],
+    defines = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": ["SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:openssl_backend_active": ["SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }),
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
@@ -83,17 +108,23 @@ integration_test(
     size = "small",
     srcs = ["integration_test.py"],
     binaries = [
-        ":init_pkcs11_token",
-        ":score_api_hash_example",
-        ":score_api_mac_example",
+        ":score_api_hash_test",
+        ":score_api_mac_test",
         ":hash_performance_test",
         ":score_demo",
         "//score/crypto/src/daemon:crypto_daemon",
-    ],
+    ] + select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [":init_pkcs11_token"],
+        "//conditions:default": [],
+    }),
     configs = [
         "//score/tests/config:logging.json",
         "//score/tests/test_vectors/config:integration_test_config",
     ],
+    extra_args = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": ["--pkcs11-backend-enabled"],
+        "//conditions:default": [],
+    }),
     file_pkgs = [
         "//score/tests/test_vectors/hash:hash_test_vectors_pkg",
         "//score/tests/test_vectors/mac:mac_test_vectors_pkg",

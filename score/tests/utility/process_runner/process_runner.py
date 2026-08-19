@@ -160,3 +160,20 @@ class ProcessRunner:
             logger.error(f"Failed to read log file: {output.decode()}")
             return ""
         return output.decode()
+
+
+def run_test_app(
+    target: _Target, target_os: str, binary: Path, env: dict[str, str]
+) -> None:
+    """Run an application on the target and assert success."""
+    test_app = ProcessRunner(
+        target,
+        binary,
+        Path(f"/tmp/{binary.name}.log"),
+        target_os=target_os,
+        env=env,
+    )
+    exit_code = test_app.run()
+    log = test_app.get_log_contents()
+    logger.info(f"{binary.name} output:\n{log}")
+    assert exit_code == 0, f"{binary.name} failed with exit code {exit_code}."

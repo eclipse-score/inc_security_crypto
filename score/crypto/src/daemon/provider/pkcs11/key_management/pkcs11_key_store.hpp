@@ -14,18 +14,22 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP
 
+#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/key_management/resolved_key.hpp"
 
 #include <pkcs11.h>
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "score/crypto/src/common/types.hpp"
@@ -109,43 +113,24 @@ class Pkcs11KeyStore
                                                                         const std::string& algorithm,
                                                                         std::size_t key_size) noexcept;
 
-    /// Result of resolving a PKCS#11 key for use in a crypto operation.
-    ///
-    /// For session-object keys: `session` is the **creating** session (the only
-    /// session on which the handle is valid per PKCS#11 §4.10); `in_use` is the
-    /// key's atomic flag held exclusively, serializing concurrent handlers.
-    ///
-    /// For token-object keys: `session` is the handler's own session (from the
-    /// pool); `in_use` is null because token handles are valid on any session.
-    struct ResolvedKey
-    {
-        CK_SESSION_HANDLE session{CK_INVALID_HANDLE};
-        CK_OBJECT_HANDLE object{CK_INVALID_HANDLE};
-        /// Non-null for session objects; call store(false, release) to release from any thread.
-        std::shared_ptr<std::atomic<bool>> in_use;
-        /// True when CAS failed — the key is already in use by another handler.
-        /// Callers should return kResourceBusy rather than kInvalidArgument.
-        bool contended{false};
-
-        [[nodiscard]] bool IsValid() const noexcept
-        {
-            return object != CK_INVALID_HANDLE && session != CK_INVALID_HANDLE;
-        }
-    };
-
     /// Resolve a PKCS#11 key for use on a crypto handler session.
     ///
-    /// For session-object keys (GenerateKey / ImportKey): returns the creating
-    /// session + stored object handle; sets the key's atomic in-use flag, ensuring
-    /// only one handler at a time drives the creating session.
+    /// For session-object keys (GenerateKey / ImportKey): atomically acquires the
+    /// per-key in-use flag and returns a ResolvedKey that releases it on destruction.
+    /// Returns kResourceBusy if the key is already held by another handler.
     ///
     /// For token-object keys (LoadKey): re-runs C_FindObjects on handler_session
-    /// using the stored SearchTemplate, returning a session-local handle with no
-    /// in-use flag.  Multiple handlers may resolve the same token key concurrently.
+    /// using the stored SearchTemplate.  Multiple handlers may hold the same token
+    /// key concurrently (no exclusion flag).
     ///
-    /// Returns an invalid ResolvedKey if opaque_id is not found, handler_session
-    /// is invalid (for token keys), the module is gone, or C_FindObjects finds nothing.
-    [[nodiscard]] ResolvedKey ResolveObject(uint64_t opaque_id, CK_SESSION_HANDLE handler_session) noexcept;
+    /// Error codes:
+    ///   kInvalidResourceId — opaque_id not found in the key map
+    ///   kResourceBusy      — session key already in use (session objects only)
+    ///   kInvalidArgument   — handler_session is invalid (token objects only)
+    ///   kInternalError     — module gone or C_FindObjects failure
+    [[nodiscard]] score::crypto::Expected<ResolvedKey, score::crypto::daemon::common::DaemonErrorCode> ResolveObject(
+        uint64_t opaque_id,
+        CK_SESSION_HANDLE handler_session) noexcept;
 
     /// Look up the (session, object_handle) pair for a daemon-opaque key ID.
     ///
@@ -175,9 +160,9 @@ class Pkcs11KeyStore
         /// Populated for token objects; used by ResolveObject() to locate
         /// the key via C_FindObjects on an arbitrary handler session.
         SearchTemplate token_search;
-        /// Exclusive-use flag for session objects; CAS-acquired, store(false) to release.
-        /// Null for token objects. shared_ptr for address stability across map rehashes.
-        std::shared_ptr<std::atomic<bool>> op_in_use;
+        /// Exclusive-use flag for session objects; acquired via test_and_set, cleared to release.
+        /// Null for token objects. shared_ptr keeps the flag alive while ResolvedKey holds it.
+        std::shared_ptr<std::atomic_flag> op_in_use;
     };
 
     std::weak_ptr<Pkcs11Provider> m_provider;

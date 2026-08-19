@@ -16,7 +16,7 @@ import pytest
 import logging
 import time
 
-from score.tests.utility.process_runner import ProcessRunner
+from score.tests.utility.process_runner import ProcessRunner, run_test_app
 
 # Reduce urllib3 logging noise
 logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -36,16 +36,22 @@ class TestCryptoDaemon:
     SOFTHSM_CONF_PATH = "/tmp/softhsm2.conf"
 
     @pytest.fixture(autouse=True, scope="class")
-    def softhsm_token(self, target, deploy, install_dir, make_process):
+    def softhsm_token(self, request, target, target_os, deploy, install_dir):
+        if not request.config.getoption("--pkcs11-backend-enabled"):
+            yield
+            return
+
         token_dir = Path(f"{install_dir}/share/tmp_token")
         token_label = "SoftHSM"
         so_pin = "12345678"
         user_pin = "1234"
 
         logger.info("Initialising SoftHSM token via init_pkcs11_token")
-        handler = make_process(
+        handler = ProcessRunner(
+            target,
             Path(f"{install_dir}/bin/init_pkcs11_token"),
             Path("/tmp/init_pkcs11_token.log"),
+            target_os=target_os,
             env={"LD_LIBRARY_PATH": f"{install_dir}/lib"},
             args=[
                 "--token-dir",
@@ -81,11 +87,13 @@ class TestCryptoDaemon:
             token_dir.rmdir()
 
     @pytest.fixture(scope="class")
-    def daemon(self, target, make_process, install_dir):
+    def daemon(self, target, target_os, install_dir):
         """Start the crypto daemon, then teardown after test."""
-        daemon: ProcessRunner = make_process(
+        daemon: ProcessRunner = ProcessRunner(
+            target,
             Path(f"{install_dir}/bin/crypto_daemon"),
             Path("/tmp/crypto_daemon.log"),
+            target_os=target_os,
             env={
                 "SOFTHSM2_CONF": self.SOFTHSM_CONF_PATH,
                 "CRYPTO_CONFIG_FILE": f"{install_dir}/etc/integration_test_config.bin",
@@ -124,66 +132,50 @@ class TestCryptoDaemon:
             f"Unix domain socket {socket_path} was not created within {max_wait} seconds"
         )
 
-    def test_score_api_hash_example(self, target, daemon, install_dir, make_process):
+    def test_score_api_hash(self, target, target_os, daemon, install_dir):
         """Test SCORE HASH API."""
-        test_app_name = "score_api_hash_example"
-        test_app: ProcessRunner = make_process(
-            Path(f"{install_dir}/bin/{test_app_name}"),
-            Path(f"/tmp/{test_app_name}.log"),
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_api_hash_test"),
             env={
                 "LD_LIBRARY_PATH": f"{install_dir}/lib",
                 "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
             },
         )
-        exit_code = test_app.run()
-        log = test_app.get_log_contents()
-        logger.info(f"{test_app_name} output:\n{log}")
-        assert exit_code == 0, f"{test_app_name} failed with exit code {exit_code}."
 
-    def test_score_api_mac_example(self, target, daemon, install_dir, make_process):
+    def test_score_api_mac(self, target, target_os, daemon, install_dir):
         """Test SCORE KeyGeneration and MAC API."""
-        test_app_name = "score_api_mac_example"
-        test_app: ProcessRunner = make_process(
-            Path(f"{install_dir}/bin/{test_app_name}"),
-            Path(f"/tmp/{test_app_name}.log"),
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_api_mac_test"),
             env={
                 "LD_LIBRARY_PATH": f"{install_dir}/lib",
                 "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
             },
         )
-        exit_code = test_app.run()
-        log = test_app.get_log_contents()
-        logger.info(f"{test_app_name} output:\n{log}")
-        assert exit_code == 0, f"{test_app_name} failed with exit code {exit_code}."
 
-    def test_hash_performance_test(self, target, daemon, install_dir, make_process):
+    def test_hash_performance_test(self, target, target_os, daemon, install_dir):
         """Test concurrent and sequential hash operations."""
-        test_app_name = "hash_performance_test"
-        test_app: ProcessRunner = make_process(
-            Path(f"{install_dir}/bin/{test_app_name}"),
-            Path(f"/tmp/{test_app_name}.log"),
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/hash_performance_test"),
             env={
                 "LD_LIBRARY_PATH": f"{install_dir}/lib",
                 "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
             },
         )
-        exit_code = test_app.run()
-        log = test_app.get_log_contents()
-        logger.info(f"{test_app_name} output:\n{log}")
-        assert exit_code == 0, f"{test_app_name} failed with exit code {exit_code}."
 
-    def test_score_demo(self, target, daemon, install_dir, make_process):
+    def test_score_demo(self, target, target_os, daemon, install_dir):
         """Test SCORE Demo."""
-        test_app_name = "score_demo"
-        test_app = make_process(
-            Path(f"{install_dir}/bin/{test_app_name}"),
-            Path(f"/tmp/{test_app_name}.log"),
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_demo"),
             env={
                 "LD_LIBRARY_PATH": f"{install_dir}/lib",
                 "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
             },
         )
-        exit_code = test_app.run()
-        log = test_app.get_log_contents()
-        logger.info(f"{test_app_name} output:\n{log}")
-        assert exit_code == 0, f"{test_app_name} failed with exit code {exit_code}."

@@ -11,6 +11,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-from score.tests.utility.process_runner.process_runner import ProcessRunner
+from score.tests.utility.process_runner.process_runner import (
+    ProcessRunner,
+    run_test_app,
+)
 
-__all__ = ["ProcessRunner"]
+__all__ = ["ProcessRunner", "run_test_app"]

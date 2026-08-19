@@ -15,15 +15,20 @@
 #define SCORE_CRYPTO_SRC_DAEMON_CONFIG_INC_CONFIG_HPP
 
 #include "score/crypto/src/daemon/common/types.hpp"
+#ifdef SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_token_config.hpp"
+#endif
+#ifdef SCORE_CRYPTO_SCORE_BACKEND_ENABLED
 #include "score/crypto/src/daemon/provider/score_provider/score_provider_config.hpp"
+#endif
 
 #include <array>
 #include <cstdint>
 #include <map>
-#include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 // TODO: Need to move the individual configs into their respective components (dependency inversion)
@@ -35,6 +40,13 @@ namespace score::crypto::daemon::config
 // Configuration environment variable and default paths
 /// @brief Environment variable name for specifying the configuration file path
 constexpr std::string_view CRYPTO_CONFIG_FILE_ENV = "CRYPTO_CONFIG_FILE";
+
+constexpr uint16_t SERVER_PORT_DEFAULT = 50051;  ///< Default server port for IPC communication
+
+constexpr uint32_t MAX_SESSIONS = 100U;                      ///< Maximum number of concurrent sessions allowed
+constexpr uint32_t MAX_EPHEMERAL_KEYS_PER_CONNECTION = 32U;  ///< Per-connection ephemeral key limit
+constexpr uint32_t MAX_LOADED_KEYS_PER_CONNECTION = 16U;     ///< Per-connection loaded-from-slot key limit
+constexpr uint64_t MAX_TOTAL_KEY_MATERIAL_BYTES = 4UL * 1024U * 1024U;  ///< Global 4 MiB cap
 
 /// @brief Default configuration file paths (in order of preference)
 const std::array<std::string_view, 1> DEFAULT_CONFIG_PATHS = {
@@ -55,9 +67,9 @@ const std::array<std::string_view, 1> DEFAULT_CONFIG_PATHS = {
 /// Owned by daemon configuration, not by individual key slots.
 struct ResourceQuotaPolicy
 {
-    uint32_t max_ephemeral_keys_per_connection{32U};            ///< Per-connection ephemeral key limit
-    uint32_t max_loaded_keys_per_connection{16U};               ///< Per-connection loaded-from-slot key limit
-    uint64_t max_total_key_material_bytes{4U * 1024U * 1024U};  ///< Global 4 MiB cap
+    uint32_t max_ephemeral_keys_per_connection{MAX_EPHEMERAL_KEYS_PER_CONNECTION};
+    uint32_t max_loaded_keys_per_connection{MAX_LOADED_KEYS_PER_CONNECTION};
+    uint64_t max_total_key_material_bytes{MAX_TOTAL_KEY_MATERIAL_BYTES};
 };
 
 /**
@@ -97,7 +109,7 @@ class IPCConfig
   private:
     uint32_t m_num_ipc_threads = 4;
     std::string m_server_address = "0.0.0.0";
-    uint16_t m_server_port = 50051;
+    uint16_t m_server_port = SERVER_PORT_DEFAULT;
 };
 
 /**
@@ -111,11 +123,13 @@ class IPCConfig
  */
 struct ProviderConfig
 {
-    common::ProviderName providerName;      ///< Human-readable provider identifier
-    common::CryptoProviderType cryptoType;  ///< Functional category
-    bool enabled{true};                     ///< Whether this provider should be used
-    bool required{false};                   ///< Whether startup must provide this provider
-    ResourceQuotaPolicy quota_policy{};     ///< Per-provider quota policy override
+    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
+    common::ProviderName providerName;        ///< Human-readable provider identifier
+    common::CryptoProviderType cryptoType{};  ///< Functional category
+    bool enabled{true};                       ///< Whether this provider should be used
+    bool required{false};                     ///< Whether startup must provide this provider
+    ResourceQuotaPolicy quota_policy{};       ///< Per-provider quota policy override
+    // NOLINTEND(misc-non-private-member-variables-in-classes)
 
     ProviderConfig() = default;
     ProviderConfig(const common::ProviderName& name,
@@ -136,10 +150,12 @@ struct ProviderConfig
  */
 struct ProviderInitConfig
 {
+    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
     std::vector<ProviderConfig> providers;  ///< List of providers to initialize
     std::unordered_map<common::CryptoProviderType, common::ProviderName>
         typeToProviderName;  ///< Mapping of provider types to their default
                              ///< provider name
+    // NOLINTEND(misc-non-private-member-variables-in-classes)
 
     ProviderInitConfig() = default;
 
@@ -199,7 +215,7 @@ class GeneralConfig
 
   private:
     std::string m_log_level = "info";
-    uint32_t m_max_sessions = 100;
+    uint32_t m_max_sessions = MAX_SESSIONS;
     ResourceQuotaPolicy m_quota_policy{};
 };
 
@@ -309,17 +325,21 @@ class KeyConfig
     std::string m_manifest_path;
 };
 
+#ifdef SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
 /// @brief Type alias: PKCS#11 config is owned by the pkcs11 provider subsystem.
 ///
 /// config.hpp exposes it under the config namespace for backward-compatible use;
 /// the full definition lives in pkcs11_token_config.hpp.
 using Pkcs11Config = ::score::crypto::daemon::provider::pkcs11::Pkcs11Config;
+#endif
 
+#ifdef SCORE_CRYPTO_SCORE_BACKEND_ENABLED
 /// @brief Type alias: Score-provider config is owned by the score_provider subsystem.
 ///
 /// config.hpp exposes it under the config namespace for consistent access;
 /// the full definition lives in score_provider_config.hpp.
 using ScoreProviderConfig = ::score::crypto::daemon::provider::score_provider::ScoreProviderConfig;
+#endif
 
 /**
  * @brief Certificate management configuration section (placeholder for future)
@@ -412,14 +432,20 @@ class Config
     {
         return m_certificate;
     }
+
+#ifdef SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
     const Pkcs11Config& GetPkcs11Config() const
     {
         return m_pkcs11;
     }
+#endif
+
+#ifdef SCORE_CRYPTO_SCORE_BACKEND_ENABLED
     const ScoreProviderConfig& GetScoreProviderConfig() const
     {
         return m_score_provider;
     }
+#endif
 
     // Non-const access for main()/parsers (can modify)
     IPCConfig& GetIPCConfig()
@@ -442,14 +468,20 @@ class Config
     {
         return m_certificate;
     }
+
+#ifdef SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
     Pkcs11Config& GetPkcs11Config()
     {
         return m_pkcs11;
     }
+#endif
+
+#ifdef SCORE_CRYPTO_SCORE_BACKEND_ENABLED
     ScoreProviderConfig& GetScoreProviderConfig()
     {
         return m_score_provider;
     }
+#endif
 
   private:
     IPCConfig m_ipc;
@@ -458,8 +490,12 @@ class Config
     GeneralConfig m_general;
     KeyConfig m_key;
     CertificateConfig m_certificate;
+#ifdef SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
     Pkcs11Config m_pkcs11;
+#endif
+#ifdef SCORE_CRYPTO_SCORE_BACKEND_ENABLED
     ScoreProviderConfig m_score_provider;
+#endif
 
     // Helper methods
     std::string GetEnvVar(const char* name, const std::map<std::string, std::string>& env) const;
