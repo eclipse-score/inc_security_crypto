@@ -50,8 +50,8 @@ public:
     Pkcs11Dynload& operator=(const Pkcs11Dynload&) = delete;
     Pkcs11Dynload(Pkcs11Dynload&&) = delete;
     Pkcs11Dynload& operator=(Pkcs11Dynload&&) = delete;
-    CK_FUNCTION_LIST* getFunctionList() const { return functionList; }
-    CK_RV getRv() const { return rv; }
+    CK_FUNCTION_LIST* GetFunctionList() const { return moduleGetFunctionList; }
+    CK_RV GetRv() const { return rv; }
 
 private:
     /// @brief Resolve PKCS#11 module path
@@ -66,7 +66,7 @@ private:
     std::string libPath{kPkcs11LibPath};
     void* pkcs11Handle{nullptr};
     CK_RV rv{CKR_GENERAL_ERROR};
-    CK_FUNCTION_LIST* functionList{nullptr};
+    CK_FUNCTION_LIST* moduleGetFunctionList{nullptr};
 };
 
 Pkcs11Dynload::Pkcs11Dynload(void)
@@ -97,10 +97,10 @@ Pkcs11Dynload::Pkcs11Dynload(void)
          return;
     }
 
-    rv = C_GetFunctionList(&functionList);
+    rv = C_GetFunctionList(&moduleGetFunctionList);
     if (rv != CKR_OK) {
          score::mw::log::LogError() << "PKCS#11 module does not export function list";
-         functionList = nullptr;
+         moduleGetFunctionList = nullptr;
          // Do not dlclose(): module may have initialized global state during dlopen().
          return;
     }
@@ -129,6 +129,6 @@ CK_RV C_GetFunctionList(CK_FUNCTION_LIST **functionList) noexcept
     // Thread-safe by C++11: local static initialization is guaranteed to be atomic and executed only once.
     static Pkcs11Dynload pkcs11Lib;
     assert(functionList != nullptr);
-    *functionList = pkcs11Lib.getFunctionList();
-    return pkcs11Lib.getRv();
+    *functionList = pkcs11Lib.GetFunctionList();
+    return pkcs11Lib.GetRv();
 }
