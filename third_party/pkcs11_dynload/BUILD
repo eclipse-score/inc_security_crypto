@@ -12,7 +12,6 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("//third_party/pkcs11_dynload:provider.bzl", "pkcs11_header_provider")
 
 # Provides the PKCS#11 header via the generic provider abstraction.
 # Supports multiple backends without hard‑coding one.
@@ -46,10 +45,18 @@ genrule(
     visibility = ["//visibility:private"],
 )
 
+cc_library(
+    name = "soft_hsm_header",
+    hdrs = [":extract_pkcs11_headers"],
+    includes = ["include"],
+    visibility = ["//visibility:private"],
+)
+
 # ------------------------------------------------------------------------------
 # Build setting selecting which PKCS#11 header provider to use.
 # Default = SoftHSM. Other providers may override this.
 # ------------------------------------------------------------------------------
+
 label_flag(
     name = "pkcs11_header_source",
     build_setting_default = "//third_party/pkcs11_dynload:soft_hsm_header",
@@ -57,32 +64,11 @@ label_flag(
 )
 
 # ------------------------------------------------------------------------------
-# SoftHSM implementation of the PKCS#11 header provider abstraction.
-# Other providers implement the same interface in their own BUILD.
-# ------------------------------------------------------------------------------
-pkcs11_header_provider(
-    name = "soft_hsm_header",
-    hdrs = [":extract_pkcs11_headers"],
-)
-
-# ------------------------------------------------------------------------------
-# Dynload includes: consume ONLY the selected PKCS#11 header provider.
-# This keeps dynload fully decoupled from specific PKCS#11 backends.
-# ------------------------------------------------------------------------------
-cc_library(
-    name = "pkcs11_dynload_includes",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":pkcs11_header_source",
-    ],
-)
-
-# ------------------------------------------------------------------------------
 # PKCS#11 dynloader implementation.
 #
 # This library loads a PKCS#11 module at runtime via dlopen(). The absolute
 # module path is provided via the Bazel build setting `--define pkcs11_lib=...`
-# and written into the generated header `pkcs11_lib_path.h`. This avoids fragile 
+# and written into the generated header `pkcs11_lib_path.h`. This avoids fragile
 # preprocessor string escaping. The build fails if `pkcs11_lib` is not defined.
 #
 # On Linux, dlopen/dlsym require linking against libdl. On QNX, libdl is part
@@ -115,7 +101,7 @@ cc_library(
     linkstatic = False,
     visibility = ["//visibility:public"],
     deps = [
-        ":pkcs11_dynload_includes",
+        ":pkcs11_header_source",
         "@score_baselibs//score/mw/log",
     ],
 )
