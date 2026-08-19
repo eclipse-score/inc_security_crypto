@@ -6,13 +6,6 @@ pkcs11.h header set. The header set is chosen through a Bazel label_flag,
 allowing different PKCS11 backends to supply their own headers without
 modifying the dynloader.
 
-The dynloader itself does not depend on any specific PKCS11 backend.
-Instead, it consumes a single build setting:
-
-    --//third_party/pkcs11_dynload:pkcs11_header_source=<target>
-
-This keeps PKCS11 integration modular and easy to extend.
-
 ## Mandatory pkcs11_lib Definition
 
 The dynloader requires the definition of pkcs11_lib. pkcs11_lib must contain
@@ -42,7 +35,7 @@ The PKCS11 header used for compilation is selected via:
 
 The default provider is SoftHSM:
 
-    --//third_party/pkcs11_dynload:pkcs11_header_source=//third_party/pkcs11_dynload:soft_hsm_headers
+    --//third_party/pkcs11_dynload:pkcs11_header_source=//third_party/pkcs11_dynload:soft_hsm_header
 
 This selects a cc_library that exposes a normalized pkcs11.h.
 
@@ -60,7 +53,7 @@ into a normalized include layout:
 The provider is a simple cc_library:
 
     cc_library(
-        name = "soft_hsm_headers",
+        name = "soft_hsm_header",
         hdrs = [":extract_pkcs11_headers"],
         includes = ["include"],
     )
@@ -106,3 +99,17 @@ Usage:
 - The PKCS11 module path must always be provided via --define pkcs11_lib=...
 - Adding new header providers does not require modifying the dynloader.
 
+## Assumptions of Use
+
+The PKCS11 dynloader operates under the following assumptions:
+
+The selected pkcs11.h header matches the PKCS11 module that will be loaded at runtime.
+The header provider and the module path must refer to the same PKCS11 implementation.
+Using mismatched headers and modules may result in undefined behavior, missing symbols,
+or runtime errors.
+
+The operating system platform provides integrity and authenticity mechanisms for the
+specified PKCS11 module. The dynloader assumes that the PKCS11 shared library file is
+protected by the platform's security model (for example: filesystem permissions,
+package management, signed modules, or other integrity controls). The dynloader does
+not perform additional verification of the module's origin or integrity.
