@@ -22,6 +22,7 @@ def integration_test(
         configs = [],
         file_pkgs = [],
         deps = [],
+        extra_args = [],
         **kwargs):
     """Creates two integration test targets (py_itf_test).
 
@@ -44,6 +45,7 @@ def integration_test(
         configs: List of configuration files to be packaged into the deployment tarball (etc/).
         file_pkgs: List of additional pkg files to be packaged into the deployment tarball (share/).
         deps: List of dependencies for the test target.
+        extra_args: List of additional command-line arguments to be passed to the test script.
         **kwargs: Additional keyword arguments to be passed to the py_itf_test rule.
     """
 
@@ -83,8 +85,8 @@ def integration_test(
         ],
     )
 
-    marged_data = kwargs.pop("data", []) + [":deployment"]
-    marged_tags = kwargs.pop("tags", []) + ["itf"]
+    merged_data = kwargs.pop("data", []) + [":deployment"]
+    merged_tags = kwargs.pop("tags", []) + ["itf"]
 
     py_itf_test(
         name = name,
@@ -94,14 +96,15 @@ def integration_test(
             "--docker-image=ubuntu:24.04",
             "--log-level=INFO",
             "--keep-target",
-        ],
-        data = marged_data,
+            "--deployment-tar=$(location :deployment)",
+        ] + extra_args,
+        data = merged_data,
         plugins = ["@score_itf//score/itf/plugins:docker_plugin"],
         target_compatible_with = select({
             "@platforms//os:linux": [],
             "//conditions:default": ["@platforms//:incompatible"],
         }),
-        tags = marged_tags,
+        tags = merged_tags,
         **kwargs
     )
 
@@ -114,11 +117,12 @@ def integration_test(
             "--qemu-config=$(location //score/tests/environment/qemu:qemu_config.json)",
             "--log-level=INFO",
             "--keep-target",
-        ],
+            "--deployment-tar=$(location :deployment)",
+        ] + extra_args,
         data = [
             "//score/tests/environment/qemu:qnx_x86_64_ifs",
             "//score/tests/environment/qemu:qemu_config.json",
-        ] + marged_data,
+        ] + merged_data,
         plugins = ["@score_itf//score/itf/plugins:qemu_plugin"],
         target_compatible_with = select({
             "@platforms//os:qnx": [],
@@ -126,6 +130,6 @@ def integration_test(
         }),
         tags = [
             "exclusive",  # The QEMU plugin uses a hardcoded port so we can only run one test at a time.
-        ] + marged_tags,
+        ] + merged_tags,
         **kwargs
     )

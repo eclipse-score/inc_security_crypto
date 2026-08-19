@@ -14,11 +14,13 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_MAC_PKCS11_MAC_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_MAC_PKCS11_MAC_HANDLER_HPP
 
+#include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
-#include "score/crypto/src/daemon/provider/handler/operations/mac_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/key_management/resolved_key.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_context.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_executor.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
@@ -26,11 +28,9 @@
 #include <pkcs11.h>
 
 #include <cstddef>
-#include <cstdint>
 #include <memory>
-#include <string>
 #include <string_view>
-#include <vector>
+#include <variant>
 
 namespace score::crypto::daemon::provider::pkcs11
 {
@@ -114,9 +114,9 @@ class Pkcs11MacHandler final : public handler::Handler
     /// Session actually used for C_Sign* calls.  For session-object keys this is
     /// the creating session (from ResolvedKey); for token keys it is m_session.
     CK_SESSION_HANDLE m_op_session{CK_INVALID_HANDLE};
-    /// Holds the per-key mutex lock while a session-object key is bound.  Empty
-    /// for token keys.  Released (and re-acquired) on Reset().
-    Pkcs11KeyStore::ResolvedKey m_resolved_key;
+    /// Holds the session-object in-use flag while a key is bound; null for token keys.
+    /// Automatically released (flag cleared) when the handler is destroyed or Reset().
+    ResolvedKey m_resolved_key;
     common::AlgorithmId m_algorithm;
     common::StreamOperationState m_state{common::StreamOperationState::IDLE};
     handler::InitializationParams m_init_params;  ///< saved for Reset()

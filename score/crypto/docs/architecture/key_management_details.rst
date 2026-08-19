@@ -461,8 +461,8 @@ Session acquisition:
    the session is acquired, ensuring ``C_Login`` is called once per
    module-slot pair.
 
-Session key pinning
-~~~~~~~~~~~~~~~~~~~
+Session key pinning and operation borrow
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 PKCS#11 v2.40 §5.7 states that **session objects** (``CKA_TOKEN=false``) are
 destroyed when the session that created them is closed.  They are visible to
@@ -471,10 +471,23 @@ open.
 
 This means ``GenerateKey`` and ``ImportKey`` must **not** release the session
 used to call ``C_GenerateKey`` / ``C_CreateObject``.  The session handle is
-stored alongside the key object handle in ``Pkcs11KeyStore``.
+stored alongside the key object handle in ``Pkcs11KeyStore::SessionKey``.
 
 Token objects (``CKA_TOKEN=true``) loaded via ``C_FindObjects`` do not have
 this constraint — their lifetime is independent of any session.
+
+**ResolvedKey — RAII borrow for a single operation**
+
+Because a session key is tied to its creating session, only one handler at a
+time may use that session for a cryptographic operation.  Concurrent use would
+interleave state on the same session handle, corrupting results.
+
+``Pkcs11KeyStore::ResolveObject`` returns a ``ResolvedKey`` that holds the
+borrowed (session, object) pair for the duration of one operation.  For
+session keys the borrow is exclusive — a second caller receives
+``kResourceBusy`` immediately rather than blocking.  Token keys carry no such
+restriction and may be borrowed concurrently.  The borrow is released
+automatically when the ``ResolvedKey`` goes out of scope.
 
 Thread-safe login state
 ~~~~~~~~~~~~~~~~~~~~~~~

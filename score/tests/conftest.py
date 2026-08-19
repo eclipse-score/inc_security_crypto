@@ -16,9 +16,22 @@ import pytest
 import logging
 
 from pathlib import Path
-from score.tests.utility.process_runner import ProcessRunner
 
 logger = logging.getLogger(__name__)
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--deployment-tar",
+        required=True,
+        help="Runfiles-relative path to the Bazel-generated deployment tarball.",
+    )
+    parser.addoption(
+        "--pkcs11-backend-enabled",
+        action="store_true",
+        default=False,
+        help="Enable PKCS#11-dependent integration-test setup.",
+    )
 
 
 def _absolute_path(rel_path: Path) -> Path:
@@ -49,18 +62,6 @@ def target_os(target):
     return output.decode().strip()
 
 
-@pytest.fixture(scope="session")
-def make_process(target, target_os):
-    """Factory that creates ProcessRunner instances bound to the current target and OS."""
-
-    def _make(binary, log_file, env=None, args=None):
-        return ProcessRunner(
-            target, binary, log_file, target_os=target_os, env=env, args=args
-        )
-
-    return _make
-
-
 @pytest.fixture(scope="class")
 def install_dir(request):
     """Determine the installation directory for the test session.
@@ -83,7 +84,7 @@ def install_dir(request):
 
 
 @pytest.fixture(autouse=True, scope="class")
-def deploy(target, install_dir):
+def deploy(target, install_dir, request):
     """Deploy the deployment tarball content to the target and clean up afterward."""
 
     # Ensure install_dir not be a root folder, since we will be removing it after the test session.
@@ -91,9 +92,8 @@ def deploy(target, install_dir):
         f"install_dir must have at least two levels of directories: {install_dir}"
     )
 
-    tar_name = "deployment.tar"
-    host_dir = _absolute_path(Path("score/tests/integration_tests"))
-    host_tar = host_dir / tar_name
+    host_tar = _absolute_path(Path(request.config.getoption("--deployment-tar")))
+    tar_name = host_tar.name
     target_tar = f"{install_dir}/{tar_name}"
     logger.info(f"Deploying {tar_name} to {target_tar}.")
 

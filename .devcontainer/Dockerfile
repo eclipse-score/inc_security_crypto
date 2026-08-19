@@ -44,7 +44,6 @@ RUN --mount=type=bind,source=.env,target=/tmp/.env \
 
 # Phase 3: Install virtualization tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        qemu-system-x86 \
         iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
