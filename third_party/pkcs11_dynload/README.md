@@ -12,17 +12,16 @@ Instead, it consumes a single build setting:
 
 This keeps the dynloader modular, hermetic, and easy to extend.
 
-## Mandatory PKCS11_LIB Definition
+## Mandatory pkcs11_lib Definition
 
-The dynloader requires the preprocessor macro `PKCS11_LIB` to be defined
-at build time. `PKCS11_LIB` must contain the absolute path to the PKCS#11
-module that should be loaded at runtime.
+The dynloader requires the definition of pkcs11_lib. pkcs11_lib  must contain the 
+absolute path to the PKCS#11 module that should be loaded at runtime.
 
 Example:
 
-    --copt=-DPKCS11_LIB=/usr/lib/softhsm/libsofthsm2.so
+    --define pkcs11_lib="/usr/lib/softhsm/libsofthsm2.so" 
 
-No default value is provided in the BUILD file. 
+The build will fail without a --define of pkcs11_lib. 
 
 
 ## Provider Abstraction
@@ -44,13 +43,14 @@ include layout.
 
 ## Selecting a Provider
 
-SoftHSM (@softhsm_source) is the default provider.
+SoftHSM (@softhsm_source) is the default provider. It does not imply a default PKCS#11 module path. 
+The module path must always be provided explicitly via --define pkcs11_lib=... .
 
 To override the provider:
 
     bazel build //third_party/pkcs11_dynload:pkcs11_dynload_shared \
         --//third_party/pkcs11_dynload:pkcs11_header_source=//third_party/own_pkcs11:own_header \
-        --copt=-DPKCS11_LIB=/usr/lib/softhsm/libsofthsm2.so
+        --define pkcs11_lib="/path/to/own_pkcs11.so"
 
 ## SoftHSM Provider (Default)
 
@@ -96,29 +96,7 @@ BUILD file:
 Usage:
 
     --//third_party/pkcs11_dynload:pkcs11_header_source=//third_party/own_pkcs11:own_header \
-    --copt=-DPKCS11_LIB=/path/to/your/pkcs11/module.so
-
-## Adding a New Provider
-
-To add another PKCS#11 backend:
-
-1. Create a directory under `third_party/`.
-2. Add the backend’s PKCS#11 headers.
-3. Normalize them into `include/`.
-4. Implement:
-
-       pkcs11_header_provider(
-           name = "<backend>_header",
-           hdrs = [":copy_<backend>_pkcs11_headers"],
-           includes = ["include"],
-       )
-
-5. Select it via:
-
-       --//third_party/pkcs11_dynload:pkcs11_header_source=//third_party/<backend>:<backend>_header \
-       --copt=-DPKCS11_LIB=/path/to/<backend>/module.so
-
-No changes to the dynloader are required.
+    --define pkcs11_lib="/path/to/own_pkcs11.so"
 
 ## Summary
 
@@ -126,7 +104,7 @@ No changes to the dynloader are required.
 - Providers supply PKCS#11 headers in a normalized layout.
 - SoftHSM is the default provider.
 - Custom providers can be selected via a build flag.
-- `PKCS11_LIB` *must* be supplied via `--copt=-DPKCS11_LIB=<path>`.
+- There must be a --define pkcs11_lib="/path/to/own_pkcs11.so".
 - Adding new providers is simple and does not require modifying the dynloader.
 
 This pattern keeps PKCS#11 integration modular, maintainable, and easy to extend.

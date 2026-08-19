@@ -20,23 +20,17 @@
 #include <dlfcn.h>
 
 #include <pkcs11.h>
-
-#ifndef PKCS11_LIB
-#error "PKCS11_LIB must be provided by Bazel via -DPKCS11_LIB"
-#endif
-
-// Implements ISO C preprocessor stringification (C11 §6.10.3.2) to obtain a proper string literal.
-// This avoids manual quoting and escaping in build tooling, ensuring PKCS11_LIB expands safely and predictably.
-#define STRINGIFY(x) #x
-#define EXPANDTOSTRING(x) STRINGIFY(x)
+#include <pkcs11_lib_path.h>
 
 /// @brief Dynamic loader for PKCS#11 modules
 ///
 /// This helper encapsulates the dynamic loading of a PKCS#11 provider
 /// (typically SoftHSM or a hardware-backed implementation). The loader:
 ///
-/// - Determines the module path either from PKCS11_LIB_OVERRIDE or the
-///   Bazel-provided PKCS11_LIB compile-time define.
+/// - Determines the module path either from the Bazel‑generated
+///   kPkcs11LibPath (pkcs11_lib) or, if enabled, the PKCS11_LIB_OVERRIDE
+///   environment variable. The override exists strictly for debugging and
+///   test scenarios.
 /// - Loads the shared library via dlopen() with RTLD_NOW | RTLD_LOCAL to
 ///   ensure symbol resolution is strict and isolated.
 /// - Retrieves the PKCS#11 function list through C_GetFunctionList and
@@ -60,7 +54,16 @@ public:
     CK_RV getRv() const { return rv; }
 
 private:
-    std::string libPath{EXPANDTOSTRING(PKCS11_LIB)};
+    /// @brief Resolve PKCS#11 module path
+    ///
+    /// The module path is generated at build time via `pkcs11_lib_path.h`,
+    /// which defines `kPkcs11LibPath` based on the Bazel build setting
+    /// `--define pkcs11_lib=...`.
+    ///
+    /// An optional environment override (`PKCS11_LIB_OVERRIDE`) may be enabled
+    /// for testing. In normal builds, `kPkcs11LibPath` is the authoritative
+    /// module location.
+    std::string libPath{kPkcs11LibPath};
     void* pkcs11Handle{nullptr};
     CK_RV rv{CKR_GENERAL_ERROR};
     CK_FUNCTION_LIST* functionList{nullptr};
@@ -71,6 +74,7 @@ Pkcs11Dynload::Pkcs11Dynload(void)
     score::mw::log::LogInfo() << "PkcsDynload called";
 
 #ifdef ALLOW_PKCS11_LIB_OVERRIDE
+    // must be used for testing and debug purposes only
     const char* env = std::getenv("PKCS11_LIB_OVERRIDE");
     if (env && std::strlen(env)) libPath=env;
 #endif

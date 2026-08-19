@@ -80,13 +80,34 @@ cc_library(
 # ------------------------------------------------------------------------------
 # PKCS#11 dynloader implementation.
 #
-# This library loads a PKCS#11 module at runtime via dlopen(). The path to the
-# module is provided through the preprocessor macro PKCS11_LIB, which *must* be
-# defined by the build caller (e.g. via --copt=-DPKCS11_LIB=/usr/lib/softhsm/libsofthsm2.so).
-# -----------------------------------------------------------------------------
+# This library loads a PKCS#11 module at runtime via dlopen(). The absolute path
+# to the module is provided through the Bazel build setting `--define pkcs11_lib=...`.
+#
+# A genrule generates `pkcs11_lib_path.h`, which contains:
+#
+#     static const char* kPkcs11LibPath = "<path>";
+#
+# The build fails if `pkcs11_lib` is not defined. This avoids fragile preprocessor
+# string escaping.
+# ------------------------------------------------------------------------------
+
+genrule(
+    name = "pkcs11_lib_path",
+    outs = ["include/pkcs11_lib_path.h"],
+    cmd = """
+        if [ -z "$(pkcs11_lib)" ]; then \
+            echo "ERROR: pkcs11_lib not set" >&2; \
+            exit 1; \
+        fi
+        echo '#pragma once' > $@
+        echo 'static const char* kPkcs11LibPath = "$(pkcs11_lib)";' >> $@
+    """,
+)
+
 cc_library(
     name = "pkcs11_dynload_shared",
     srcs = ["pkcs11_dynload.cpp"],
+    hdrs = [":pkcs11_lib_path"],
     includes = ["."],
     linkstatic = False,
     visibility = ["//visibility:public"],
