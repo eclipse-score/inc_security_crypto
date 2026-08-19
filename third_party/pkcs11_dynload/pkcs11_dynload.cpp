@@ -91,15 +91,17 @@ Pkcs11Dynload::Pkcs11Dynload(void)
     using GetFunctionListFn = CK_RV (*)(CK_FUNCTION_LIST_PTR_PTR);
     GetFunctionListFn C_GetFunctionList = reinterpret_cast<GetFunctionListFn>(dlsym(pkcs11Handle, "C_GetFunctionList"));
     if (!C_GetFunctionList) {
-         score::mw::log::LogError() << "Could not get function list";
+         score::mw::log::LogError() << "PKCS#11 module does not export function list";
          rv = CKR_FUNCTION_NOT_SUPPORTED;
+         // Do not dlclose(): module may have initialized global state during dlopen().
          return;
     }
 
     rv = C_GetFunctionList(&functionList);
     if (rv != CKR_OK) {
-         score::mw::log::LogError() << "Could not get function list";
+         score::mw::log::LogError() << "PKCS#11 module does not export function list";
          functionList = nullptr;
+         // Do not dlclose(): module may have initialized global state during dlopen().
          return;
     }
 }
