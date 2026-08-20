@@ -92,7 +92,7 @@ cc_library(
     name = "pkcs11_dynload_shared",
     srcs = ["pkcs11_dynload.cpp"],
     hdrs = [":pkcs11_lib_path"],
-    includes = ["."],
+    includes = ["include"],
     linkopts = select({
         "//platforms:is_qnx_aarch64": [],
         "//platforms:is_qnx_x86_64": [],
