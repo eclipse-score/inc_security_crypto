@@ -70,14 +70,15 @@
 #include <thread>
 #include <vector>
 
-#include "flatbuffers/flatbuffers.h"
 #include "score/mw/com/impl/proxy_base.h"
 #include "score/mw/com/runtime.h"
 #include "score/mw/com/runtime_configuration.h"
 #include "score/mw/com/types.h"
+#include "score/tests/utility/runtime_measurement.hpp"
 #include "score/tests/ipc_poc/async_control_interface.h"
 #include "score/tests/ipc_poc/ipc_buffer.h"
-#include "score/tests/ipc_poc/poc_control_generated.h"
+#include "score/tests/ipc_poc/poc_helper.hpp"
+#include "score/tests/utility/process_resource_measurement.hpp"
 
 // ---------------------------------------------------------------------------
 // Global parameters (set before fork; never mutated after)
@@ -88,6 +89,9 @@ static int g_call_count = 2;          // NOLINT(cppcoreguidelines-avoid-non-cons
 static int g_client_threads = 2;      // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static int g_server_threads = 8;      // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static int g_sleep_milliseconds = 0;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static bool g_random_wait = false;    // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+static void Log(const std::string& line);
 
 // ---------------------------------------------------------------------------
 // Config generation
@@ -95,6 +99,8 @@ static int g_sleep_milliseconds = 0;  // NOLINT(cppcoreguidelines-avoid-non-cons
 
 namespace score::crypto::ipc::control
 {
+
+namespace helper = score::crypto::ipc::poc_helper;
 
 /// Returns the shared "serviceTypes" JSON block (without trailing comma).
 static std::string ServiceTypesJson()
@@ -223,7 +229,7 @@ static void SetupConfigs(const int client_count)
         f << json.str();
     }
 
-    std::printf("[SetupConfigs] wrote producer + %d consumer config(s)\n", client_count);
+    Log("[SetupConfigs] wrote producer + " + std::to_string(client_count) + " consumer config(s)");
 }
 
 }  // namespace score::crypto::ipc::control
@@ -233,9 +239,15 @@ static void SetupConfigs(const int client_count)
 // ---------------------------------------------------------------------------
 
 static std::mutex g_log_mutex;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static constexpr bool kEnableVerboseOutput{false};
+static constexpr bool kEnableLatencyVerbose{false};
 
 static void Log(const std::string& line)
 {
+    if (!kEnableVerboseOutput)
+    {
+        return;
+    }
     std::lock_guard<std::mutex> lk(g_log_mutex);
     std::cout << line << "\n";
 }
@@ -247,86 +259,24 @@ static void Log(const std::string& line)
 namespace score::crypto::ipc::control
 {
 
-/// Serialise a ControlResponse carrying a single String result.
-static IpcBuffer BuildControlResponse(const std::uint64_t request_id, const std::string& combined)
-{
-    flatbuffers::FlatBufferBuilder fbb(512);
-
-    auto str_val = fbb.CreateString(combined);
-    auto str_tbl = CreateString(fbb, str_val);
-
-    std::vector<uint8_t> resp_param_types{OperationParameter_String};
-    std::vector<flatbuffers::Offset<void>> resp_param_values{str_tbl.Union()};
-
-    auto resp_op = CreateSingleOperationResponse(fbb,
-                                                 CreateOperationIdentifier(fbb, 0U, 0U),
-                                                 CreateOperationResult(fbb, 0U),
-                                                 fbb.CreateVector(resp_param_types),
-                                                 fbb.CreateVector(resp_param_values));
-
-    auto resp_batch = CreateOperationResponseBatch(fbb, fbb.CreateVector({resp_op}));
-    fbb.FinishSizePrefixed(CreateControlResponse(fbb, request_id, resp_batch));
-    return PackFlatBuffer(fbb.GetBufferPointer(), fbb.GetSize());
-}
-
 /// Deserialise a ControlRequest and produce a ControlResponse: result = "<str>_<uint64>".
 static IpcBuffer ProcessRequest(const IpcBuffer& request_buf)
 {
-    flatbuffers::Verifier verifier{reinterpret_cast<const uint8_t*>(request_buf.payload.data()),
-                                   GetPayloadSize(request_buf)};
-
-    if (!VerifySizePrefixedControlRequestBuffer(verifier))
+    helper::Response workload_response;
+    if (!helper::ProcessRequestBuffer(request_buf, workload_response))
     {
         std::cerr << "[server/worker] FlatBuffer verification failed\n";
         return IpcBuffer{};
     }
 
-    const auto* req = flatbuffers::GetSizePrefixedRoot<ControlRequest>(request_buf.payload.data());
-    if (req == nullptr || req->operation_batch() == nullptr || req->operation_batch()->operations() == nullptr ||
-        req->operation_batch()->operations()->size() == 0U)
-    {
-        return IpcBuffer{};
-    }
-
-    const auto* op = req->operation_batch()->operations()->Get(0U);
-    if (op == nullptr || op->parameter() == nullptr)
-    {
-        return IpcBuffer{};
-    }
-
-    std::string str_value;
-    std::uint64_t uint64_value = 0U;
-
-    for (flatbuffers::uoffset_t i = 0U; i < op->parameter()->size(); ++i)
-    {
-        const auto ptype = static_cast<OperationParameter>(op->parameter_type()->Get(i));
-        if (ptype == OperationParameter_String)
-        {
-            const auto* s = reinterpret_cast<const String*>(op->parameter()->Get(i));
-            if (s != nullptr && s->val() != nullptr)
-            {
-                str_value = s->val()->str();
-            }
-        }
-        else if (ptype == OperationParameter_ValueUint64)
-        {
-            const auto* v = reinterpret_cast<const ValueUint64*>(op->parameter()->Get(i));
-            if (v != nullptr)
-            {
-                uint64_value = v->val();
-            }
-        }
-    }
-
-    const std::string combined = str_value + "_" + std::to_string(uint64_value);
-
     {
         std::stringstream ss;
-        ss << "[server/worker] ticket=" << req->request_id() << " -> combined=\"" << combined << "\"";
+          ss << "[server/worker] ticket=" << workload_response.request_id << " -> combined=\""
+              << workload_response.string_value << "\"";
         Log(ss.str());
     }
 
-    return BuildControlResponse(req->request_id(), combined);
+    return helper::BuildResponseBuffer(workload_response);
 }
 
 // ---------------------------------------------------------------------------
@@ -345,6 +295,7 @@ struct WorkItem
 /// Blocks until all client processes have exited (waitpid).
 static int RunServer(const std::vector<pid_t>& child_pids)
 {
+    score::crypto::daemon::common::RuntimeMeasurement latency_measurement{kEnableLatencyVerbose};
     using score::mw::com::InstanceSpecifier;
 
     const int client_count = static_cast<int>(child_pids.size());
@@ -394,11 +345,16 @@ static int RunServer(const std::vector<pid_t>& child_pids)
     }
 
     const int worker_count = g_server_threads;
+    const auto resources_before_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
     std::vector<std::thread> workers;
     workers.reserve(static_cast<std::size_t>(worker_count));
+    helper::ThreadStartBarrier worker_start_barrier{static_cast<std::size_t>(worker_count)};
     for (int widx = 0; widx < worker_count; ++widx)
     {
+        score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement thread_scope{
+            latency_measurement, "POC::Async::ServerThreadCreation"};
         workers.emplace_back([&, widx]() {
+            worker_start_barrier.ArriveAndWait();
             while (true)
             {
                 std::unique_lock<std::mutex> lk(queue_mutex);
@@ -455,6 +411,11 @@ static int RunServer(const std::vector<pid_t>& child_pids)
             }
         });
     }
+    worker_start_barrier.WaitForAll();
+    const auto resources_after_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+    tests::utility::PrintProcessResourceDelta(
+        "poc_async_server_thread_creation", resources_before_thread_creation, resources_after_thread_creation);
+    worker_start_barrier.Release();
     Log("[server] started " + std::to_string(worker_count) + " worker thread(s)");
 
     // ------------------------------------------------------------------
@@ -465,18 +426,18 @@ static int RunServer(const std::vector<pid_t>& child_pids)
         // Capture skel_idx by value so each handler knows its instance index.
         auto reg_result = skeletons[skel_idx].request.RegisterHandler([&, skel_idx](std::uint64_t& result,
                                                                                     const IpcBuffer& req_buf) {
-            const auto* req = flatbuffers::GetSizePrefixedRoot<ControlRequest>(req_buf.payload.data());
+            helper::Request request;
+            const bool parse_ok = helper::ParseRequestBuffer(req_buf, request);
+            const std::uint64_t ticket = parse_ok ? request.request_id : 0U;
 
             std::stringstream ss1;
-            ss1 << "[server/handler] instance=" << skel_idx << " req ptr=" << req;
+            ss1 << "[server/handler] instance=" << skel_idx << " ticket=" << ticket;
             Log(ss1.str());
 
-            const std::uint64_t ticket = (req != nullptr) ? req->request_id() : 0U;
-
-            if (req == nullptr || ticket == 0U)
+            if (!parse_ok || ticket == 0U)
             {
                 std::stringstream ss_err;
-                ss_err << "[server/handler] instance=" << skel_idx << " WARNING: req=" << req << " ticket=" << ticket
+                ss_err << "[server/handler] instance=" << skel_idx << " WARNING: ticket=" << ticket
                        << " — FlatBuffer parse failed or zero request_id;"
                           " response will never match a pending client call";
                 Log(ss_err.str());
@@ -589,6 +550,7 @@ struct PendingCall
 
 static bool RunClient(const int client_index, const int call_count, const int thread_count)
 {
+    score::crypto::daemon::common::RuntimeMeasurement latency_measurement{kEnableLatencyVerbose};
     using score::mw::com::InstanceSpecifier;
     using score::mw::com::SamplePtr;
     using score::mw::com::impl::ProxyBase;
@@ -678,6 +640,8 @@ static bool RunClient(const int client_index, const int call_count, const int th
     proxies.reserve(static_cast<std::size_t>(thread_count));
     for (int t = 0; t < thread_count; ++t)
     {
+        score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement connection_scope{
+            latency_measurement, "POC::Async::ClientConnectionSetup"};
         auto proxy_result = AsyncControlProxy::Create(handles.value()[0]);
         if (!proxy_result.has_value())
         {
@@ -696,9 +660,14 @@ static bool RunClient(const int client_index, const int call_count, const int th
         proxies.push_back(std::move(proxy_result.value()));
     }
 
+    const auto resources_before_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+    helper::ThreadStartBarrier thread_start_barrier{static_cast<std::size_t>(proxies.size())};
     for (int t = 0; t < static_cast<int>(proxies.size()); ++t)
     {
+        score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement thread_scope{
+            latency_measurement, "POC::Async::ClientThreadCreation"};
         threads.emplace_back([&, t]() {
+            thread_start_barrier.ArriveAndWait();
             auto& proxy = proxies[static_cast<std::size_t>(t)];
 
             // Within a single thread calls are sequential, so at most one
@@ -726,37 +695,10 @@ static bool RunClient(const int client_index, const int call_count, const int th
                             return;
                         }
 
-                        const auto* resp = flatbuffers::GetSizePrefixedRoot<ControlResponse>(sample->payload.data());
-                        if (resp == nullptr)
-                        {
-                            std::cerr << "[receive handler] GetSizePrefixedRoot returned nullptr"
-                                         " — pending call will time out\n";
-                            return;
-                        }
-
-                        const std::uint64_t ticket = resp->request_id();
-
-                        // Extract the result BEFORE taking the lock so the critical
-                        // section stays short.
-                        std::string result_value;
-                        bool ok = false;
-                        if (resp->operation_batch() != nullptr && resp->operation_batch()->operations() != nullptr &&
-                            resp->operation_batch()->operations()->size() > 0U)
-                        {
-                            const auto* op = resp->operation_batch()->operations()->Get(0U);
-                            if (op != nullptr && op->parameter() != nullptr && op->parameter()->size() > 0U &&
-                                op->parameter_type() != nullptr &&
-                                static_cast<OperationParameter>(op->parameter_type()->Get(0U)) ==
-                                    OperationParameter_String)
-                            {
-                                const auto* str = reinterpret_cast<const String*>(op->parameter()->Get(0U));
-                                if (str != nullptr && str->val() != nullptr)
-                                {
-                                    result_value = str->val()->str();
-                                    ok = true;
-                                }
-                            }
-                        }
+                        helper::Response parsed_response;
+                        const bool ok = helper::ParseResponseBuffer(*sample, parsed_response);
+                        const std::uint64_t ticket = parsed_response.request_id;
+                        const std::string result_value = parsed_response.string_value;
 
                         if (!ok)
                         {
@@ -828,20 +770,14 @@ static bool RunClient(const int client_index, const int call_count, const int th
             // Wait till setup is done on server side
             // std::this_thread::sleep_for(std::chrono::seconds(3));
 
-            auto times = std::vector<std::chrono::nanoseconds>(call_count);
-
             for (int c = 0; c < call_count; ++c)
             {
-                auto start = std::chrono::system_clock::now();
+                {
+                score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement latency_scope{
+                    latency_measurement, "POC::Async::RoundTrip"};
 
-                const std::string str_param = "client" + std::to_string(client_index + 1);
-                const std::uint64_t uint64_param = static_cast<std::uint64_t>(c + 1);
-                // Unique ticket encodes client, thread and call indices.
-                const std::uint64_t request_id = static_cast<std::uint64_t>(client_index + 1) * 100'000ULL +
-                                                 static_cast<std::uint64_t>(t + 1) * 1'000ULL +
-                                                 static_cast<std::uint64_t>(c + 1);
-
-                const std::string expected = str_param + "_" + std::to_string(uint64_param);
+                const auto workload_request = helper::CreateRequest(client_index, t, c);
+                const auto request_id = workload_request.request_id;
 
                 // Set up the pending state BEFORE sending so the receive handler
                 // can never miss the response even on a very fast server.
@@ -871,41 +807,20 @@ static bool RunClient(const int client_index, const int call_count, const int th
                         }
                         auto& arg = std::get<0>(alloc_result.value());
 
-                        // Build the FlatBuffer and write directly into the SHM-backed slot.
+                        if (!helper::BuildRequestInto(*arg, workload_request))
                         {
-                            flatbuffers::FlatBufferBuilder fbb(512);
-
-                            auto str_val = fbb.CreateString(str_param);
-                            auto str_tbl = CreateString(fbb, str_val);
-                            auto u64_tbl = CreateValueUint64(fbb, uint64_param);
-
-                            std::vector<uint8_t> param_types{OperationParameter_String, OperationParameter_ValueUint64};
-                            std::vector<flatbuffers::Offset<void>> param_values{str_tbl.Union(), u64_tbl.Union()};
-
-                            auto op_id = CreateOperationIdentifier(fbb, /*actor=*/1U, /*action=*/1U);
-                            auto single_op = CreateSingleOperationRequest(
-                                fbb, op_id, fbb.CreateVector(param_types), fbb.CreateVector(param_values));
-                            auto batch = CreateOperationRequestBatch(fbb, fbb.CreateVector({single_op}));
-                            fbb.FinishSizePrefixed(CreateControlRequest(fbb,
-                                                                        request_id,
-                                                                        /*client_id=*/0U,
-                                                                        /*data_node_id=*/0U,
-                                                                        batch));
-
-                            if (!PackFlatBufferInto(*arg, fbb.GetBufferPointer(), fbb.GetSize()))
-                            {
-                                Log("[client " + std::to_string(client_index) + "/thread " + std::to_string(t) +
-                                    "] PackFlatBufferInto failed");
-                                ++failures;
-                                phase1_failed = true;
-                                break;
-                            }
+                            Log("[client " + std::to_string(client_index) + "/thread " + std::to_string(t) +
+                                "] PackFlatBufferInto failed");
+                            ++failures;
+                            phase1_failed = true;
+                            break;
                         }
 
                         {
                             std::stringstream ss;
                             ss << "[client " << client_index << "/thread " << t << "] -> request_id=" << request_id
-                               << " str=\"" << str_param << "\" uint64=" << uint64_param
+                               << " str=\"" << workload_request.string_value << "\" uint64="
+                               << workload_request.uint64_value
                                << " (Phase 1: short-lived call)";
                             Log(ss.str());
                         }
@@ -970,11 +885,13 @@ static bool RunClient(const int client_index, const int call_count, const int th
                     continue;
                 }
 
-                if (!pending.ok || pending.result_value != expected)
+                if (!pending.ok ||
+                    !helper::Matches(workload_request, helper::Response{ticket, pending.result_value}))
                 {
                     std::ostringstream oss;
                     oss << "[client " << client_index << "/thread " << t << "] MISMATCH ticket=" << ticket
-                        << ": expected=\"" << expected << "\" got=\"" << pending.result_value << "\"";
+                        << ": expected=\"" << helper::ProcessRequest(workload_request).string_value
+                        << "\" got=\"" << pending.result_value << "\"";
                     Log(oss.str());
                     ++failures;
                     continue;
@@ -987,49 +904,9 @@ static bool RunClient(const int client_index, const int call_count, const int th
                     Log(ss.str());
                 }
 
-                auto end = std::chrono::system_clock::now();
-                auto elapsed = end - start;
-                times[c] = elapsed;
-
                 // std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-            }
-
-            auto sum = std::accumulate(times.begin(), times.end(), std::chrono::duration<double>::zero());
-
-            for (int c = 0; c < call_count; ++c)
-            {
-                std::ostringstream oss;
-                oss << "[client " << client_index << "/thread " << t << "] call " << (c + 1) << "/" << call_count
-                    << ": " << std::chrono::duration_cast<std::chrono::microseconds>(times[c]).count() << " us";
-                Log(oss.str());
-            }
-
-            if (failures == 0)
-            {
-                std::ostringstream oss;
-                oss << "- [client " + std::to_string(client_index) + "/thread " + std::to_string(t) + "] completed " +
-                           std::to_string(call_count) + " calls with " +
-                           std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(sum).count()) +
-                           " us elapsed, average " +
-                           std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(sum).count() /
-                                          call_count) +
-                           " us per call";
-                Log(oss.str());
-            }
-
-            if (failures == 0)
-            {
-                auto c = call_count - 1;
-                auto s = sum - times[0];
-
-                std::ostringstream oss;
-                oss << "SKIP FIRST [client " + std::to_string(client_index) + "/thread " + std::to_string(t) +
-                           "] completed " + std::to_string(c) + " calls with " +
-                           std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(s).count()) +
-                           " us elapsed, average " +
-                           std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(s).count() / c) +
-                           " us per call";
-                Log(oss.str());
+                }
+                helper::WaitAfterCall(g_random_wait);
             }
 
             proxy.response.UnsetReceiveHandler();
@@ -1038,6 +915,12 @@ static bool RunClient(const int client_index, const int call_count, const int th
             total_failures.fetch_add(failures, std::memory_order_relaxed);
         });
     }
+
+    thread_start_barrier.WaitForAll();
+    const auto resources_after_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+    tests::utility::PrintProcessResourceDelta(
+        "poc_async_client_thread_creation", resources_before_thread_creation, resources_after_thread_creation);
+    thread_start_barrier.Release();
 
     for (auto& th : threads)
     {
@@ -1064,71 +947,39 @@ static bool RunClient(const int client_index, const int call_count, const int th
 
 int main(int argc, char** argv)
 {
-    // Parse optional flags.
-    const std::string kClientPrefix{"--client_count="};
-    const std::string kCallPrefix{"--call_count="};
-    const std::string kClientThreadsPrefix{"--client_threads="};
-    const std::string kServerThreadsPrefix{"--server_threads="};
-    const std::string kSleepPrefix{"--sleep_milliseconds="};
-    for (int i = 1; i < argc; ++i)
+    score::crypto::ipc::poc_helper::PocArguments defaults;
+    defaults.client_count = g_client_count;
+    defaults.call_count = g_call_count;
+    defaults.client_threads = g_client_threads;
+    defaults.server_threads = g_server_threads;
+    defaults.sleep_milliseconds = g_sleep_milliseconds;
+    std::string parse_error;
+    const auto parsed_arguments = score::crypto::ipc::poc_helper::ParseArguments(argc, argv, parse_error, defaults);
+    if (!parsed_arguments.has_value())
     {
-        const std::string arg{argv[i]};
-        try
-        {
-            if (arg.rfind(kClientPrefix, 0) == 0)
-            {
-                g_client_count = std::stoi(arg.substr(kClientPrefix.size()));
-            }
-            else if (arg.rfind(kCallPrefix, 0) == 0)
-            {
-                g_call_count = std::stoi(arg.substr(kCallPrefix.size()));
-            }
-            else if (arg.rfind(kClientThreadsPrefix, 0) == 0)
-            {
-                g_client_threads = std::stoi(arg.substr(kClientThreadsPrefix.size()));
-            }
-            else if (arg.rfind(kServerThreadsPrefix, 0) == 0)
-            {
-                g_server_threads = std::stoi(arg.substr(kServerThreadsPrefix.size()));
-            }
-            else if (arg.rfind(kSleepPrefix, 0) == 0)
-            {
-                g_sleep_milliseconds = std::stoi(arg.substr(kSleepPrefix.size()));
-            }
-        }
-        catch (const std::exception& ex)
-        {
-            std::fprintf(stderr, "[main] invalid argument '%s': %s\n", argv[i], ex.what());
-            return 1;
-        }
-    }
-    if (g_client_count < 1)
-    {
-        std::fprintf(stderr, "[main] --client_count must be >= 1\n");
+        std::fprintf(stderr, "[main] %s\n", parse_error.c_str());
         return 1;
     }
-    if (g_call_count < 1)
-    {
-        std::fprintf(stderr, "[main] --call_count must be >= 1\n");
-        return 1;
-    }
-    if (g_client_threads < 1)
-    {
-        std::fprintf(stderr, "[main] --client_threads must be >= 1\n");
-        return 1;
-    }
-    if (g_server_threads < 1)
-    {
-        std::fprintf(stderr, "[main] --server_threads must be >= 1\n");
-        return 1;
-    }
+    g_client_count = parsed_arguments->client_count;
+    g_call_count = parsed_arguments->call_count;
+    g_client_threads = parsed_arguments->client_threads;
+    g_server_threads = parsed_arguments->server_threads;
+    g_sleep_milliseconds = parsed_arguments->sleep_milliseconds;
+    g_random_wait = parsed_arguments->random_wait;
 
-    std::printf("[main] client_count=%d  call_count=%d  client_threads=%d  server_threads=%d  sleep_milliseconds=%d\n",
-                g_client_count,
-                g_call_count,
-                g_client_threads,
-                g_server_threads,
-                g_sleep_milliseconds);
+    std::cout << score::crypto::ipc::poc_helper::SettingsSummary(
+                     "poc_async",
+                     g_client_count,
+                     g_call_count,
+                     g_client_threads,
+                     g_server_threads,
+                     g_random_wait)
+              << '\n'
+              << std::flush;
+    Log("[main] client_count=" + std::to_string(g_client_count) + "  call_count=" +
+        std::to_string(g_call_count) + "  client_threads=" + std::to_string(g_client_threads) +
+        "  server_threads=" + std::to_string(g_server_threads) +
+        "  sleep_milliseconds=" + std::to_string(g_sleep_milliseconds));
 
     score::crypto::ipc::control::SetupConfigs(g_client_count);
 

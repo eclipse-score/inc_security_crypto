@@ -19,52 +19,39 @@
 // removed once confidence has been gained in the proper implementation.
 // =============================================================================
 
-/// POC: SendWithCallback-ack + Notify async model — one shared connection per client process
+/// POC: Send + immediate Notify model — one shared connection per client process
 ///
 /// This replicates the functionality of poc_async.cpp using only the low-level
 /// score::message_passing API, without any score::mw elements.
 ///
-/// Communication model (two phases, mirroring poc_async's method+event approach):
+/// Communication model:
 ///
-///   Phase 1 — SendWithCallback for non-blocking acknowledgment:
-///     The client thread calls SendWithCallback() with a ControlRequest and a
-///     ReplyCallback.  The call enqueues the message and returns immediately
-///     (non-blocking, ASIL-B safe).  The server's sent_with_reply_callback
-///     enqueues the work, calls Reply() with the client-assigned request_id as an ack,
-///     and then returns.  The engine thread fires ReplyCallback
-///     on the client side when the ack arrives.  The calling thread waits on an
-///     application-level CV with a timeout — if the server stalls, the thread is
-///     unblocked by the timeout rather than hanging forever inside the library.
+///   Phase 1 — Send for non-blocking request submission:
+///     The client thread calls Send() with a ControlRequest.  The call enqueues
+///     the message and returns immediately.  The server's sent_callback
+///     validates and enqueues the work, then returns without sending a reply.
 ///
-///   Phase 2 — Server Notify (analogous to the Response event):
-///     A server pool worker dequeues the request, does the work, and calls
-///     Notify() on the IServerConnection.  The ControlResponse payload carries
-///     the original request_id.  The client's NotifyCallback routes by
-///     request_id and wakes the waiting thread.
+///   Phase 2 — Immediate Server Notify:
+///     The server callback queues the request and immediately calls Notify().
+///     The notification confirms queue admission and carries the response
+///     derived from the request.  The worker pool then processes the queued
+///     request independently; its result is not part of the measured path.
 ///
-/// Why the two-phase approach is needed:
-///   The REQUEST/REPLY protocol serializes per connection: the server does not
-///   process the next REQUEST until Reply() has been called on the current one.
-///   With multiple threads sharing one connection, their SendWithCallback() calls
-///   are serialized at the protocol level.  By calling Reply() immediately in
-///   the callback (before the actual work), the serialization window is minimal,
-///   By enqueueing the work and then calling Reply() immediately in the callback
-///   (before the actual work), the serialization window is minimal,
-///   so request throughput is still high while the pool workers run concurrently.
-///   NOTIFY messages go from server to client independently, so they do not
-///   block incoming requests.
+/// Send() avoids the per-connection REQUEST/REPLY serialization window.  This
+/// variant also removes worker execution from the client wait: NOTIFY confirms
+/// admission immediately after queueing rather than completion of the work.
 ///
-/// Why SendWithCallback instead of SendWaitReply:
+/// Why Send instead of SendWaitReply:
 ///   SendWaitReply() blocks the calling thread inside the library with no timeout.
 ///   A misbehaving QM server (slow callback, scheduling starvation without crash)
-///   would hold an ASIL-B thread blocked indefinitely.  SendWithCallback() is
-///   non-blocking; the library guarantees the calling thread is never held inside
-///   the IPC layer.  The application-level wait_for() provides the safety timeout.
+///   would hold an ASIL-B thread blocked indefinitely.  Send() is non-blocking
+///   when the client send queue is enabled.  The application-level wait_for()
+///   provides the terminal notification timeout.
 ///
 /// Connection model:
 ///   One IClientConnection per client process (shared by all threads).
 ///   The request_id in the FlatBuffer payload is used to route each Notify
-///   back to the thread that issued the corresponding SendWithCallback.
+///   back to the thread that issued the corresponding Send.
 ///   Because Notify() is point-to-point (reaches only this connection's client),
 ///   no cross-client leakage occurs — unlike poc_async's broadcast events which
 ///   required one skeleton instance per client.
@@ -73,10 +60,10 @@
 /// children=clients.
 ///
 /// Usage:
-///   bazel run //tests/score_com_poc:poc_low_level
-///   bazel run //tests/score_com_poc:poc_low_level -- --client_count=3 --call_count=5
-///   bazel run //tests/score_com_poc:poc_low_level -- --client_count=3 --call_count=5 --client_threads=4
-///   bazel run //tests/score_com_poc:poc_low_level -- --client_count=3 --call_count=5 --server_threads=2
+///   bazel run //score/tests/ipc_poc:poc_low_level_no_reply_notify_in_thread
+///   bazel run //score/tests/ipc_poc:poc_low_level_no_reply_notify_in_thread -- --client_count=3 --call_count=5
+///   bazel run //score/tests/ipc_poc:poc_low_level_no_reply_notify_in_thread -- --client_count=3 --call_count=5 --client_threads=4
+///   bazel run //score/tests/ipc_poc:poc_low_level_no_reply_notify_in_thread -- --client_count=3 --call_count=5 --server_threads=2
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -157,7 +144,7 @@ namespace score::crypto::ipc::control
 
 namespace helper = score::crypto::ipc::poc_helper;
 
-static constexpr std::string_view kServiceIdentifier{"score_crypto_poc_ll"};
+static constexpr std::string_view kServiceIdentifier{"score_crypto_poc_ll_no_reply_notify_in_thread"};
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -213,8 +200,8 @@ struct ServerParams
 struct ClientParams
 {
     /// Maximum number of threads in this process that may have concurrent
-    /// in-flight requests.  Sizes both max_async_replies and max_queued_sends
-    /// in the client config so that T concurrent SendWithCallback() calls can
+    /// in-flight requests.  Sizes max_queued_sends in the client config so that
+    /// T concurrent Send() calls can
     /// be in-flight simultaneously without getting ENOBUFS.
     std::uint32_t max_concurrent_threads;  // T
 };
@@ -229,12 +216,12 @@ static score::message_passing::ServiceProtocolConfig MakeProtocolConfig(const Se
         p.identifier,
         // max_send_size: upper bound for a client→server ControlRequest FlatBuffer.
         /*max_send_size=*/p.max_payload_bytes,
-        // max_reply_size: upper bound for the ack ControlResponse sent by Reply().
+        // No REQUEST/REPLY messages are used by this POC.
         // The ack only carries request_id and an empty operation batch, so it is much
         // smaller than max_payload_bytes in practice.  Using the same value keeps both
         // sides in sync without a second size constant; the slight over-allocation in the
         // client receive buffer is acceptable.
-        /*max_reply_size=*/p.max_payload_bytes,
+        /*max_reply_size=*/0U,
         // max_notify_size: upper bound for the full ControlResponse sent by Notify().
         // Must be at least as large as the largest response payload the server produces.
         /*max_notify_size=*/p.max_payload_bytes,
@@ -264,7 +251,7 @@ static score::message_passing::IServerFactory::ServerConfig MakeServerConfig(con
         /*pre_alloc_connections=*/n,
 
         // Per-connection NOTIFY queue depth on the server side (QNX).
-        // Each in-flight SendWithCallback() on the client side will eventually receive one
+        // Each in-flight Send() on the client side will eventually receive one
         // Notify() from the server.  With T threads sharing one connection, up to T
         // Notify() calls may be queued before the client drains them.
         // If this queue overflows, Notify() returns ENOBUFS on QNX — the response is
@@ -281,18 +268,17 @@ static score::message_passing::IClientFactory::ClientConfig MakeClientConfig(con
     return score::message_passing::IClientFactory::ClientConfig{
         // One async-reply slot per concurrent thread: each in-flight SendWithCallback()
         // holds one slot until its ReplyCallback fires.  Must be >= T.
-        /*max_async_replies=*/t,
+        /*max_async_replies=*/0U,
 
-        // SendWithCallback() with truly_async=true always queues into the send queue
-        // before the engine thread picks it up.  One slot per concurrent thread.
+        // Send() with truly_async=true always queues into the send queue before
+        // the engine thread picks it up.  One slot per concurrent thread.
         // Must be >= T; shared pool with max_async_replies.
         /*max_queued_sends=*/t,
 
-        // Serialize SEND (fire-and-forget) delivery relative to REQUEST/REPLY messages.
-        // This POC never calls Send(), so ordering across message types is irrelevant.
+        // This POC uses only SEND, so cross-type ordering is irrelevant.
         /*fully_ordered=*/false,
 
-        // Route SendWithCallback() through the engine's background thread so the
+        // Route Send() through the engine's background thread so the
         // calling thread is never held inside the IPC layer (non-blocking guarantee).
         // Required when max_queued_sends > 0.  Mandatory for safety clients sending
         // to QM servers where the server callback duration is not bounded.
@@ -309,18 +295,6 @@ static score::message_passing::IClientFactory::ClientConfig MakeClientConfig(con
 // ---------------------------------------------------------------------------
 // FlatBuffer helpers
 // ---------------------------------------------------------------------------
-
-/// Builds a minimal ControlResponse carrying only request_id and no operation
-/// payload.  Used as the immediate ack sent by Reply() in the
-/// sent_with_reply_callback so the client's ReplyCallback fires quickly.
-static std::vector<std::uint8_t> BuildAcknowledgeReply(const std::uint64_t request_id)
-{
-    flatbuffers::FlatBufferBuilder fbb(128);
-    auto empty_batch = CreateOperationResponseBatch(
-        fbb, fbb.CreateVector(std::vector<flatbuffers::Offset<SingleOperationResponse>>{}));
-    fbb.FinishSizePrefixed(CreateControlResponse(fbb, request_id, empty_batch));
-    return std::vector<std::uint8_t>(fbb.GetBufferPointer(), fbb.GetBufferPointer() + fbb.GetSize());
-}
 
 static std::vector<std::uint8_t> ProcessRequestBytes(const std::uint64_t request_id,
                                                      score::cpp::span<const std::uint8_t> message)
@@ -356,6 +330,7 @@ struct WorkItem
     std::shared_ptr<bool> alive;  // per-connection lifetime token; set to false by disconnect_cb
     std::uint64_t request_id;
     std::vector<std::uint8_t> request_bytes;
+    std::chrono::steady_clock::time_point queued_at;
 };
 
 static int RunServer(const std::vector<pid_t>& child_pids)
@@ -419,9 +394,8 @@ static int RunServer(const std::vector<pid_t>& child_pids)
     // queue again.
     //
     // connect_cb and disconnect_cb use [&] capture and access live_conn directly
-    // by reference — no heap allocation needed.  sent_with_reply_cb accesses it
-    // via SentWithReplyCtx (a shared_ptr-boxed struct required for the 32-byte
-    // callback limit), which holds a LiveConnections& into the same frame.
+    // by reference — no heap allocation needed.  sent_cb accesses it via
+    // SentCtx, which holds a LiveConnections& into the same frame.
     // ------------------------------------------------------------------
     struct LiveConnections
     {
@@ -433,12 +407,8 @@ static int RunServer(const std::vector<pid_t>& child_pids)
     LiveConnections live_conn;
 
     // ------------------------------------------------------------------
-    // Thread pool: workers dequeue requests, do the work, and call
-    // Notify() on the stored IServerConnection*.
-    // Notify() is thread-safe and safe to call from a pool thread.
-    // Multiple concurrent Notify() calls on the same connection are
-    // serialized by the library; the NotifyCallback on the client side
-    // routes by request_id so ordering does not matter.
+    // Thread pool: workers dequeue requests and do the work.  Notify() is sent
+    // directly from the server callback after queue admission.
     // ------------------------------------------------------------------
     std::mutex queue_mutex;
     std::condition_variable queue_cv;
@@ -473,6 +443,8 @@ static int RunServer(const std::vector<pid_t>& child_pids)
                 work_queue.pop();
                 lk.unlock();
 
+                latency_measurement.RecordElapsed("POC::LowLevel::QueueToProcessingStart", item.queued_at);
+
                 if (g_sleep_milliseconds > 0)
                 {
                     Log("[server/worker " + std::to_string(w) + "] simulating work, sleeping " +
@@ -480,46 +452,9 @@ static int RunServer(const std::vector<pid_t>& child_pids)
                     std::this_thread::sleep_for(std::chrono::milliseconds(g_sleep_milliseconds));
                 }
 
-                auto response_bytes = ProcessRequestBytes(
+                ProcessRequestBytes(
                     item.request_id,
                     score::cpp::span<const std::uint8_t>{item.request_bytes.data(), item.request_bytes.size()});
-
-                // Guard against use-after-free: check the alive token under live_conn->mutex,
-                // which disconnect_cb also holds when it flips the flag to false.
-                // Notify() is called under the same lock so no window exists between the check
-                // and the call.  This protects the raw connection pointer, but the transport
-                // call itself is not guaranteed to return within a bounded time; see the
-                // LiveConnections note above.
-                std::lock_guard<std::mutex> live_lk(live_conn.mutex);
-                if (!*item.alive)
-                {
-                    LogErr("[server/worker " + std::to_string(w) +
-                           "] Notify() skipped — connection already disconnected "
-                           "(request_id=" +
-                           std::to_string(item.request_id) + ")");
-                    continue;
-                }
-
-                std::ostringstream notify_log;
-                notify_log << "[server/worker " << w << "] Calling Notify() for request_id=" << item.request_id
-                           << " with " << response_bytes.size() << " bytes";
-                Log(notify_log.str());
-
-                auto notify_result = item.conn->Notify(
-                    score::cpp::span<const std::uint8_t>{response_bytes.data(), response_bytes.size()});
-
-                if (!notify_result.has_value())
-                {
-                    // ENOBUFS: max_queued_notifies was too small — response dropped,
-                    // client will hang until its timeout expires.
-                    LogErr("[server/worker " + std::to_string(w) + "] Notify() failed for request_id=" +
-                           std::to_string(item.request_id) + " — check max_queued_notifies >= max_threads_per_client");
-                }
-                else
-                {
-                    Log("[server/worker " + std::to_string(w) +
-                        "] Notify() succeeded for request_id=" + std::to_string(item.request_id));
-                }
             }
         });
     }
@@ -607,18 +542,18 @@ static int RunServer(const std::vector<pid_t>& child_pids)
 
     // Box the captured references into a heap struct so the lambda fits
     // in the 32-byte inline capacity of score::cpp::callback<>.
-    struct SentWithReplyCtx
+    struct SentCtx
     {
         std::mutex& queue_mutex;
         std::condition_variable& queue_cv;
         std::queue<WorkItem>& work_queue;
         LiveConnections& live_conn;
     };
-    auto swr_ctx = std::make_shared<SentWithReplyCtx>(SentWithReplyCtx{queue_mutex, queue_cv, work_queue, live_conn});
+    auto sent_ctx = std::make_shared<SentCtx>(SentCtx{queue_mutex, queue_cv, work_queue, live_conn});
 
-    auto sent_with_reply_cb =
-        [swr_ctx](score::message_passing::IServerConnection& conn,
-                  score::cpp::span<const std::uint8_t> message) -> score::cpp::expected_blank<score::os::Error> {
+    auto sent_cb =
+        [sent_ctx](score::message_passing::IServerConnection& conn,
+                   score::cpp::span<const std::uint8_t> message) -> score::cpp::expected_blank<score::os::Error> {
         // Read the client-assigned request_id from the FlatBuffer.
         // The client guarantees it is non-zero and unique within its process.
         helper::Request workload_request;
@@ -639,9 +574,9 @@ static int RunServer(const std::vector<pid_t>& child_pids)
         // entry must exist in alive_map.
         std::shared_ptr<bool> alive;
         {
-            std::lock_guard<std::mutex> live_lk(swr_ctx->live_conn.mutex);
-            auto it = swr_ctx->live_conn.alive_map.find(&conn);
-            if (it != swr_ctx->live_conn.alive_map.end())
+            std::lock_guard<std::mutex> live_lk(sent_ctx->live_conn.mutex);
+            auto it = sent_ctx->live_conn.alive_map.find(&conn);
+            if (it != sent_ctx->live_conn.alive_map.end())
             {
                 alive = it->second;
             }
@@ -653,44 +588,35 @@ static int RunServer(const std::vector<pid_t>& child_pids)
             return score::cpp::make_unexpected(score::os::Error::createFromErrno(ENOENT));
         }
 
-        // Enqueue the full work for the pool worker before acknowledging the
-        // request.  A successful acknowledgement therefore means the work is
-        // admitted to the application queue.
+        const auto response_bytes = helper::BuildResponseBytes(helper::ProcessRequest(workload_request));
+        std::lock_guard<std::mutex> live_lk(sent_ctx->live_conn.mutex);
+        auto notify_result = conn.Notify(
+            score::cpp::span<const std::uint8_t>{response_bytes.data(), response_bytes.size()});
+        if (!notify_result.has_value())
+        {
+            LogErr("[server/handler] Notify() failed for request_id=" + std::to_string(request_id) +
+                   " — check max_queued_notifies >= max_threads_per_client");
+            return notify_result;
+        }
+
+        // Enqueue the full work for the pool worker before notifying the client.
         std::vector<std::uint8_t> bytes(message.begin(), message.end());
+
         {
-            std::lock_guard<std::mutex> lk(swr_ctx->queue_mutex);
-            swr_ctx->work_queue.push({&conn, alive, request_id, std::move(bytes)});
+            std::lock_guard<std::mutex> lk(sent_ctx->queue_mutex);
+            sent_ctx->work_queue.push(
+                {&conn, alive, request_id, std::move(bytes), std::chrono::steady_clock::now()});
         }
 
-        // Reply immediately as ack to end the REQUEST/REPLY window.  The worker
-        // is woken only after this call so completion cannot normally race ahead
-        // of a successful acknowledgement.
-        // This allows the next REQUEST from any thread sharing this connection
-        // to be processed without waiting for the actual work to complete.
-        // The ack payload is minimal — the client already knows its request_id.
-        auto ack_bytes = BuildAcknowledgeReply(request_id);
-        auto reply_result = conn.Reply(score::cpp::span<const std::uint8_t>{ack_bytes.data(), ack_bytes.size()});
-        if (!reply_result.has_value())
-        {
-            // We should still wake up the worker
-            // TODO: But maybe we need to invalidate the added workqueue element,
-            // such that is shall not be processed
-            swr_ctx->queue_cv.notify_one();
+        sent_ctx->queue_cv.notify_one();
 
-            LogErr("[server/handler] Reply() (ack) failed for request_id=" + std::to_string(request_id));
-            return score::cpp::make_unexpected(reply_result.error());
-        }
-
-        swr_ctx->queue_cv.notify_one();
-
-        Log("[server/handler] REQUEST received, ack request_id=" + std::to_string(request_id) +
-            " sent, request queued");
+        Log("[server/handler] SEND received, request_id=" + std::to_string(request_id) + " queued");
         return {};
     };
 
-    // Pass sent_with_reply_cb as the REQUEST/REPLY callback (4th arg).
-    // The 3rd (fire-and-forget) arg is left empty — we no longer use Send().
-    auto start_result = server->StartListening(connect_cb, disconnect_cb, /*sent_cb=*/{}, sent_with_reply_cb);
+    // Use the fire-and-forget callback for ingress; queue admission is notified
+    // directly from the callback.
+    auto start_result = server->StartListening(connect_cb, disconnect_cb, sent_cb, /*sent_with_reply_cb=*/{});
     if (!start_result.has_value())
     {
         LogErr("[server] StartListening failed");
@@ -732,7 +658,7 @@ static int RunServer(const std::vector<pid_t>& child_pids)
 
     const auto resources_after_workload = tests::utility::CaptureProcessResourceSnapshot();
     tests::utility::PrintProcessResourceDelta(
-        "poc_low_level_server_workload", resources_after_thread_creation, resources_after_workload);
+        "poc_low_level_no_reply_notify_in_thread_server_workload", resources_after_thread_creation, resources_after_workload);
     server->StopListening();
     Log("[server] shutdown complete.");
     return overall_status;
@@ -775,7 +701,7 @@ static bool RunClient(const int client_index, const int call_count, const int th
     // echo them back without any server-side ID assignment.
     //
     // Pending-call map: each in-flight request inserts its shared PendingCall
-    // BEFORE calling SendWithCallback(), keyed by its pre-assigned id.
+    // BEFORE calling Send(), keyed by its pre-assigned id.
     // NotifyCallback looks up by id — the entry is always present because
     // the insert happens before the send, eliminating the gap that previously
     // required a generation counter and two-phase wait.
@@ -789,9 +715,9 @@ static bool RunClient(const int client_index, const int call_count, const int th
 
     // ------------------------------------------------------------------
     // Create ONE shared connection for the whole process.
-    // All threads share it — SendWithCallback() is safe to call concurrently
-    // because truly_async=true routes all sends through the library's
-    // background thread without blocking the caller.
+    // All threads share it — Send() is safe to call concurrently because
+    // truly_async=true routes all sends through the library's background thread
+    // without blocking the caller.
     // ------------------------------------------------------------------
     decltype(client_factory.Create(protocol_config, client_config)) client;
 
@@ -801,12 +727,21 @@ static bool RunClient(const int client_index, const int call_count, const int th
     // a single pointer — sizeof(void*) == 8 bytes.
     struct ConnectionState
     {
+        ConnectionState(
+            std::mutex& pending_map_mutex_in,
+            std::unordered_map<std::uint64_t, std::shared_ptr<PendingCall>>& pending_map_in)
+            : pending_map_mutex{pending_map_mutex_in}, pending_map{pending_map_in}
+        {
+        }
+
         std::promise<void> ready_promise;
         std::promise<void> stopped_promise;
         std::atomic<bool> ready_set{false};
         std::atomic<bool> stopped_set{false};
+        std::mutex& pending_map_mutex;
+        std::unordered_map<std::uint64_t, std::shared_ptr<PendingCall>>& pending_map;
     };
-    auto conn_state = std::make_shared<ConnectionState>();
+    auto conn_state = std::make_shared<ConnectionState>(pending_map_mutex, pending_map);
     auto ready_future = conn_state->ready_promise.get_future();
     auto stopped_future = conn_state->stopped_promise.get_future();
 
@@ -848,11 +783,29 @@ static bool RunClient(const int client_index, const int call_count, const int th
                 {
                     conn_state->stopped_promise.set_value();
                 }
+                std::vector<std::shared_ptr<PendingCall>> pending_calls;
+                {
+                    std::lock_guard<std::mutex> map_lk(conn_state->pending_map_mutex);
+                    for (const auto& entry : conn_state->pending_map)
+                    {
+                        pending_calls.push_back(entry.second);
+                    }
+                    conn_state->pending_map.clear();
+                }
+                for (const auto& pending : pending_calls)
+                {
+                    {
+                        std::lock_guard<std::mutex> call_lk(pending->mutex);
+                        pending->ok = false;
+                        pending->ready = true;
+                    }
+                    pending->cv.notify_one();
+                }
             }
         },
         // NotifyCallback — runs on the library's engine thread.
-        // Runs sequentially with ReplyCallback, so the PendingCall is always
-        // already in pending_map when a Notify arrives (no early-notify map needed).
+        // The PendingCall is inserted before Send(), so the entry is available
+        // when a Notify arrives.
         // MUST NOT call any blocking message_passing operation (doc §Client
         // Connection callbacks).  Only parse the payload, look up the pending
         // call by request_id, and signal the condition variable.
@@ -869,7 +822,7 @@ static bool RunClient(const int client_index, const int call_count, const int th
             }
 
             // Look up and signal the waiting thread.
-            // The entry was inserted before SendWithCallback() so it is always
+            // The entry was inserted before Send() so it is always
             // present when Notify arrives.  A missing entry means the call already
             // timed out and was erased by the calling thread — discard silently.
             std::lock_guard<std::mutex> map_lk(notify_ctx->pending_map_mutex);
@@ -957,47 +910,17 @@ static bool RunClient(const int client_index, const int call_count, const int th
                 {
                     std::ostringstream ss;
                           ss << "[client " << client_index << "/thread " << t
-                              << "] -> SendWithCallback() str=\"" << workload_request.string_value
+                              << "] -> Send() str=\"" << workload_request.string_value
                               << "\" uint64=" << workload_request.uint64_value << " request_id=" << request_id;
                     Log(ss.str());
                 }
 
-                // ReplyCallback is kept minimal: it only signals the waiting thread
-                // on send failure.  On success the ack is ignored — the client
-                // already knows its request_id and waits only for the Notify.
-                // Box captures into a heap struct to stay within the 32-byte inline
-                // capacity of score::cpp::callback<>.
-                struct ReplyCtx
-                {
-                    std::shared_ptr<PendingCall> pending;
-                    std::shared_ptr<std::vector<std::uint8_t>> request_buffer;  // keep buffer alive
-                    int client_index;
-                    int thread_index;
-                };
-                auto reply_ctx = std::make_shared<ReplyCtx>(ReplyCtx{pending, request_buffer, client_index, t});
-
-                auto reply_callback =
-                    [reply_ctx](
-                        score::cpp::expected<score::cpp::span<const std::uint8_t>, score::os::Error> ack_expected) {
-                        if (!ack_expected.has_value())
-                        {
-                            std::ostringstream ss;
-                            ss << "[client " << reply_ctx->client_index << "/thread " << reply_ctx->thread_index
-                               << "] ReplyCallback: ack failed: " << ack_expected.error();
-                            LogErr(ss.str());
-                            std::lock_guard<std::mutex> call_lk(reply_ctx->pending->mutex);
-                            reply_ctx->pending->ok = false;
-                            reply_ctx->pending->ready = true;
-                            reply_ctx->pending->cv.notify_one();
-                        }
-                    };
-
-                auto send_result = client->SendWithCallback(request_span, std::move(reply_callback));
+                auto send_result = client->Send(request_span);
                 if (!send_result.has_value())
                 {
                     std::ostringstream ss;
                     ss << "[client " << client_index << "/thread " << t
-                       << "] SendWithCallback() failed: " << send_result.error();
+                       << "] Send() failed: " << send_result.error();
                     LogErr(ss.str());
                     std::lock_guard<std::mutex> map_lk(pending_map_mutex);
                     pending_map.erase(request_id);
@@ -1015,8 +938,8 @@ static bool RunClient(const int client_index, const int call_count, const int th
                     });
                 }
 
-                // Retire: erase from map. The shared state remains alive until all
-                // deferred ReplyCallback and NotifyCallback instances release it.
+                // Retire: erase from map. The shared state remains alive until a
+                // deferred NotifyCallback releases it.
                 {
                     std::lock_guard<std::mutex> map_lk(pending_map_mutex);
                     pending_map.erase(request_id);
@@ -1072,7 +995,7 @@ static bool RunClient(const int client_index, const int call_count, const int th
     }
     const auto resources_after_workload = tests::utility::CaptureProcessResourceSnapshot();
     tests::utility::PrintProcessResourceDelta(
-        "poc_low_level_client_workload", resources_after_thread_creation, resources_after_workload);
+        "poc_low_level_no_reply_notify_in_thread_client_workload", resources_after_thread_creation, resources_after_workload);
 
     client->Stop();
     if (stopped_future.wait_for(std::chrono::seconds(30)) != std::future_status::ready)
@@ -1120,7 +1043,7 @@ int main(int argc, char** argv)
     g_random_wait = parsed_arguments->random_wait;
 
     std::cout << score::crypto::ipc::poc_helper::SettingsSummary(
-                     "poc_low_level",
+                     "poc_low_level_no_reply_notify_in_thread",
                      g_client_count,
                      g_call_count,
                      g_client_threads,

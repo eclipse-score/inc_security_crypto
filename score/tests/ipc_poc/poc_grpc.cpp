@@ -19,190 +19,138 @@
 // removed once confidence has been gained in the proper implementation.
 // =============================================================================
 
-/// POC: gRPC round-trip benchmark — standalone, no daemon or crypto specifics
+/// POC: standalone gRPC round-trip benchmark.
 ///
-/// Mirrors poc_low_level.cpp in structure:
-///   - fork model: parent = server, children = clients
-///   - same CLI flags:  --client_count, --call_count, --client_threads,
-///                      --server_threads (accepted but unused — gRPC controls
-///                      its own thread pool), --sleep_milliseconds
-///   - same per-thread timings and "SKIP FIRST" summary output
-///
-/// Communication model:
-///   Each client thread calls GrpcControlClient::SendRequest() synchronously.
-///   The call is blocking: one request in → one response out.  No ticket map
-///   or correlation logic is needed because ordering is guaranteed by gRPC.
-///
-///   The server's EchoRequestHandler concatenates the two input parameters
-///   ("<string>_<uint64>") and returns the result as an OwnedString in the
-///   response, mirroring what poc_low_level does with its FlatBuffer echo.
-///
-/// Handler chain:
-///   EchoHandlerFactory → EchoRequestHandler
-///   No daemon, no data_manager, no crypto, no config.
-///
-/// Note on --server_threads:
-///   GrpcControlServer currently hard-codes MIN/MAX_POLLERS = 1.  The flag
-///   is accepted for CLI parity with the other POCs but has no effect on the
-///   actual gRPC thread count.
-///
-/// Usage:
-///   bazel run //tests/score_com_poc:poc_grpc
-///   bazel run //tests/score_com_poc:poc_grpc -- --client_count=3 --call_count=5
-///   bazel run //tests/score_com_poc:poc_grpc -- --client_count=3 --call_count=5 --client_threads=4
-///   bazel run //tests/score_com_poc:poc_grpc -- --sleep_milliseconds=50
+/// This POC uses the generated service from poc_control.fbs directly. It does
+/// not use the production daemon control-plane adapter or daemon conversions.
 
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include <atomic>
-#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
 #include <thread>
-#include <variant>
 #include <vector>
 
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
-#include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
-#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
-#include "score/crypto/src/ipc/grpc_adapter/grpc_control_client.h"
-#include "score/crypto/src/ipc/grpc_adapter/grpc_control_server.h"
+#include "flatbuffers/grpc.h"
+#include "grpcpp/grpcpp.h"
+#include "score/tests/utility/runtime_measurement.hpp"
+#include "score/tests/ipc_poc/poc_control.grpc.fb.h"
+#include "score/tests/ipc_poc/poc_control_generated.h"
+#include "score/tests/ipc_poc/poc_helper.hpp"
+#include "score/tests/utility/process_resource_measurement.hpp"
 
 // ---------------------------------------------------------------------------
 // Global parameters (set before fork; never mutated after)
 // ---------------------------------------------------------------------------
 
-static int g_client_count = 20;       // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static int g_call_count = 20;         // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static int g_client_threads = 20;     // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static int g_server_threads = 8;      // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static int g_sleep_milliseconds = 0;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_client_count = 1;       // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_call_count = 1;         // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_client_threads = 1;     // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_server_threads = 1;     // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_sleep_milliseconds = 0; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static bool g_random_wait = false;   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
-// ---------------------------------------------------------------------------
-// Shared logging helper
-// ---------------------------------------------------------------------------
-
-static std::mutex g_log_mutex;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static std::mutex g_log_mutex; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static constexpr bool kEnableVerboseOutput{false};
+static constexpr bool kEnableLatencyVerbose{false};
 
 static void Log(const std::string& line)
 {
-    std::lock_guard<std::mutex> lk(g_log_mutex);
+    if (!kEnableVerboseOutput)
+    {
+        return;
+    }
+    std::lock_guard<std::mutex> lock{g_log_mutex};
     std::cout << line << "\n";
 }
 
-// ---------------------------------------------------------------------------
-// Echo handler — concatenates "<string>_<uint64>" and returns it
-// No daemon, no data_manager, no config
-// ---------------------------------------------------------------------------
+static void LogErr(const std::string& line)
+{
+    std::lock_guard<std::mutex> lock{g_log_mutex};
+    std::cerr << "[ERROR] " << line << "\n";
+}
 
 namespace score::crypto::poc::grpc
 {
 
-namespace proto = daemon::control_plane::protocol;
+namespace control = score::crypto::ipc::control;
+namespace helper = score::crypto::ipc::poc_helper;
 
-class EchoRequestHandler : public daemon::control_plane::IRequestHandler
+class PocControlService final : public control::PocControlService::Service
 {
   public:
-    daemon::control_plane::ControlResponse processRequest(daemon::control_plane::ControlRequest& request) override
+    ::grpc::Status Execute(::grpc::ServerContext* /*context*/,
+                           const flatbuffers::grpc::Message<control::ControlRequest>* request,
+                           flatbuffers::grpc::Message<control::ControlResponse>* response) override
     {
-        proto::ControlResponse response;
-        response.request_id = request.request_id;
-
-        if (request.operation.operations.empty())
+        const auto* request_root = request->GetRoot();
+        helper::Request workload_request;
+        if (!helper::ParseRequestRoot(request_root, workload_request))
         {
-            return response;
+            return ::grpc::Status{::grpc::StatusCode::INVALID_ARGUMENT, "Invalid request"};
         }
 
-        const auto& op = request.operation.operations[0];
-
-        // Extract string (arrives as string_view into the FlatBuffer — safe here, we copy it)
-        std::string str_value;
-        if (!op.parameters.empty() && std::holds_alternative<std::string_view>(op.parameters[0]))
-        {
-            str_value = std::string(std::get<std::string_view>(op.parameters[0]));
-        }
-
-        // Extract uint64
-        std::uint64_t uint64_value = 0U;
-        if (op.parameters.size() >= 2 && std::holds_alternative<std::uint64_t>(op.parameters[1]))
-        {
-            uint64_value = std::get<std::uint64_t>(op.parameters[1]);
-        }
+        const auto workload_response = helper::ProcessRequest(workload_request);
 
         if (g_sleep_milliseconds > 0)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(g_sleep_milliseconds));
         }
 
-        const std::string combined = str_value + "_" + std::to_string(uint64_value);
+        Log("[server] request_id=" + std::to_string(workload_response.request_id) + " -> combined=\"" +
+            workload_response.string_value + "\"");
 
-        {
-            std::ostringstream ss;
-            ss << "[server/handler] request_id=" << request.request_id << " -> combined=\"" << combined << "\"";
-            Log(ss.str());
-        }
-
-        // Return combined string as OwnedString and the uint64 echo.
-        // OperationResponseBuilder has no return_value_string(), so we push the
-        // OwnedString directly into the last operation's parameters after build().
-        proto::OperationResponseBuilder builder;
-        builder.operation(op.operationId).return_success().return_value_uint64(uint64_value);
-
-        auto built = builder.build();
-        if (built.has_value())
-        {
-            if (!built.value().operations.empty())
-            {
-                built.value().operations.back().parameters.push_back(proto::OwnedString{combined});
-            }
-            response.operation = std::move(built.value());
-        }
-
-        return response;
+        flatbuffers::grpc::MessageBuilder builder;
+        builder.Finish(helper::CreateResponseTable(builder, workload_response));
+        *response = builder.GetMessage<control::ControlResponse>();
+        return ::grpc::Status::OK;
     }
 };
-
-class EchoHandlerFactory : public daemon::control_plane::IHandlerChainFactory
-{
-  public:
-    std::unique_ptr<daemon::control_plane::IRequestHandler> CreateRequestHandler() override
-    {
-        return std::make_unique<EchoRequestHandler>();
-    }
-};
-
-// ---------------------------------------------------------------------------
-// Server
-// ---------------------------------------------------------------------------
 
 static int RunServer(const std::string& socket_path, const std::vector<pid_t>& child_pids)
 {
-    auto factory = std::make_unique<EchoHandlerFactory>();
-    ipc::GrpcControlServer server(std::move(factory));
+    const auto resources_before_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+    score::crypto::daemon::common::RuntimeMeasurement setup_measurement{kEnableLatencyVerbose};
+    ::unlink(socket_path.c_str());
 
-    std::thread server_thread([&server, &socket_path]() {
-        server.Start(socket_path);
-        server.WaitForTermination();
-    });
+    PocControlService service;
+    ::grpc::ServerBuilder builder;
+    builder.AddListeningPort("unix:" + socket_path, ::grpc::InsecureServerCredentials());
+    builder.RegisterService(&service);
+    builder.SetSyncServerOption(::grpc::ServerBuilder::SyncServerOption::MIN_POLLERS, g_server_threads);
+    builder.SetSyncServerOption(::grpc::ServerBuilder::SyncServerOption::MAX_POLLERS, g_server_threads);
+    score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement thread_scope{
+        setup_measurement, "POC::Grpc::ServerThreadCreation"};
+    auto server = builder.BuildAndStart();
+    if (!server)
+    {
+        LogErr("Failed to start standalone gRPC server on " + socket_path);
+        return 1;
+    }
+    const auto resources_after_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+    tests::utility::PrintProcessResourceDelta(
+        "poc_grpc_server_thread_creation", resources_before_thread_creation, resources_after_thread_creation);
 
-    Log("[server] started on " + socket_path + " — waiting for all clients to finish...");
+    Log("[server] started on " + socket_path + " - waiting for all clients to finish...");
 
     int overall_status = 0;
-    for (std::size_t i = 0U; i < child_pids.size(); ++i)
+    for (std::size_t index = 0U; index < child_pids.size(); ++index)
     {
-        int wstatus = 0;
-        const pid_t pid = ::waitpid(-1, &wstatus, 0);
+        int wait_status = 0;
+        const pid_t pid = ::waitpid(-1, &wait_status, 0);
         if (pid > 0)
         {
-            const bool ok = WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 0;
-            std::ostringstream ss;
-            ss << "[server] child pid=" << pid << (ok ? " exited OK" : " FAILED");
-            Log(ss.str());
+            const bool ok = WIFEXITED(wait_status) && WEXITSTATUS(wait_status) == 0;
+            std::ostringstream message;
+            message << "[server] child pid=" << pid << (ok ? " exited OK" : " FAILED");
+            (ok ? Log : LogErr)(message.str());
             if (!ok)
             {
                 overall_status = 1;
@@ -210,306 +158,174 @@ static int RunServer(const std::string& socket_path, const std::vector<pid_t>& c
         }
     }
 
-    server.Stop();
-    if (server_thread.joinable())
-    {
-        server_thread.join();
-    }
-
+    const auto resources_after_workload = tests::utility::CaptureProcessResourceSnapshot();
+    tests::utility::PrintProcessResourceDelta(
+        "poc_grpc_server_workload", resources_after_thread_creation, resources_after_workload);
+    server->Shutdown();
+    server->Wait();
+    ::unlink(socket_path.c_str());
     Log("[server] shutdown complete.");
     return overall_status;
 }
-
-// ---------------------------------------------------------------------------
-// Client
-// ---------------------------------------------------------------------------
 
 static bool RunClient(const std::string& socket_path,
                       const int client_index,
                       const int call_count,
                       const int thread_count)
 {
-    // Give the server time to bind before the first connection attempt.
+    const auto resources_before_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+
+    score::crypto::daemon::common::RuntimeMeasurement latency_measurement{kEnableLatencyVerbose};
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    // One gRPC channel shared by all threads — gRPC channels are thread-safe.
-    // SendRequest() blocks the calling thread until the response arrives;
-    // multiple threads can issue concurrent calls without extra synchronization.
-    ipc::GrpcControlClient client(socket_path);
-
+    std::unique_ptr<control::PocControlService::Stub> stub;
+    {
+        score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement connection_scope{
+            latency_measurement, "POC::Grpc::ClientConnectionSetup"};
+        const auto channel = ::grpc::CreateChannel("unix:" + socket_path, ::grpc::InsecureChannelCredentials());
+        stub = control::PocControlService::NewStub(channel);
+    }
     std::atomic<int> total_failures{0};
     std::vector<std::thread> threads;
     threads.reserve(static_cast<std::size_t>(thread_count));
 
-    for (int t = 0; t < thread_count; ++t)
+    helper::ThreadStartBarrier thread_start_barrier{static_cast<std::size_t>(thread_count)};
+
+    for (int thread_index = 0; thread_index < thread_count; ++thread_index)
     {
-        threads.emplace_back([&, t]() {
+        score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement thread_scope{
+            latency_measurement, "POC::Grpc::ClientThreadCreation"};
+        threads.emplace_back([&, thread_index]() {
+            thread_start_barrier.ArriveAndWait();
             int failures = 0;
-            auto times = std::vector<std::chrono::nanoseconds>(call_count);
-
-            for (int c = 0; c < call_count; ++c)
+            for (int call = 0; call < call_count; ++call)
             {
-                auto start_time = std::chrono::system_clock::now();
-
-                const std::string str_param = "client" + std::to_string(client_index + 1);
-                const std::uint64_t uint64_param = static_cast<std::uint64_t>(c + 1);
-                const std::string expected_combined = str_param + "_" + std::to_string(uint64_param);
-
-                // operationActor encodes the client index so the server log is readable.
-                const daemon::common::OperationIdentifier opId{
-                    /*operationActor=*/static_cast<std::uint16_t>(client_index + 1),
-                    /*operationAction=*/1U,
-                };
-
-                auto requestResult = proto::ControlRequestBuilder()
-                                         .forDataNodeId(0)
-                                         .operation(opId)
-                                         .with_in_string(str_param)
-                                         .with_in_val_uint64(uint64_param)
-                                         .build();
-
-                if (!requestResult.has_value())
+                bool valid = false;
                 {
-                    std::ostringstream ss;
-                    ss << "[client " << client_index << "/thread " << t << "] build() failed for call " << c;
-                    Log(ss.str());
+                score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement latency_scope{
+                    latency_measurement, "POC::Grpc::RoundTrip"};
+
+                const auto workload_request = helper::CreateRequest(client_index, thread_index, call);
+
+                flatbuffers::grpc::MessageBuilder builder;
+                builder.Finish(helper::CreateRequestTable(builder, workload_request));
+                const auto request = builder.GetMessage<control::ControlRequest>();
+
+                ::grpc::ClientContext context;
+                flatbuffers::grpc::Message<control::ControlResponse> response;
+                const auto status = stub->Execute(&context, request, &response);
+                if (!status.ok())
+                {
+                    LogErr("[client " + std::to_string(client_index) + "/thread " + std::to_string(thread_index) +
+                           "] Execute() failed: " + status.error_message());
                     ++failures;
                     continue;
                 }
 
+                const auto* response_root = response.GetRoot();
+                std::string received;
+                helper::Response workload_response;
+                valid = helper::ParseResponseRoot(response_root, workload_response) &&
+                    workload_response.request_id == workload_request.request_id &&
+                    workload_response.string_value == helper::ProcessRequest(workload_request).string_value;
+                if (valid)
                 {
-                    std::ostringstream ss;
-                    ss << "[client " << client_index << "/thread " << t << "] -> SendRequest() str=\"" << str_param
-                       << "\" uint64=" << uint64_param;
-                    Log(ss.str());
+                    received = workload_response.string_value;
                 }
 
-                // Synchronous blocking call — no ticket map needed.
-                // GrpcControlClient overwrites request_id internally; the response
-                // request_id matches the auto-generated one used on the wire.
-                auto responseResult = client.SendRequest(requestResult.value());
-
-                if (!responseResult.has_value())
+                if (!valid || !helper::Matches(workload_request, workload_response))
                 {
-                    std::ostringstream ss;
-                    ss << "[client " << client_index << "/thread " << t << "] SendRequest() failed for call " << c;
-                    Log(ss.str());
+                    LogErr("[client " + std::to_string(client_index) + "/thread " + std::to_string(thread_index) +
+                           "] response mismatch: expected=\"" + helper::ProcessRequest(workload_request).string_value +
+                           "\" got=\"" + received + "\"");
                     ++failures;
-                    continue;
                 }
-
-                const auto& resp = responseResult.value();
-
-                // Validate: one operation, success result, uint64 echo matches, combined string matches.
-                bool ok = !resp.operation.operations.empty() &&
-                          resp.operation.operations[0].result == proto::OPERATION_RESULT_SUCCESS;
-
-                std::string got_combined;
-                if (ok)
-                {
-                    const auto& params = resp.operation.operations[0].parameters;
-                    // param[0] = uint64 echo
-                    auto u64 = resp.operation.operations[0].getParameter<std::uint64_t>(0);
-                    ok = u64.has_value() && (u64.value() == uint64_param);
-
-                    // param[1] = combined OwnedString
-                    if (ok && params.size() >= 2)
-                    {
-                        auto str = resp.operation.operations[0].getParameter<proto::OwnedString>(1);
-                        if (str.has_value())
-                        {
-                            got_combined = str.value();
-                            ok = (got_combined == expected_combined);
-                        }
-                        else
-                        {
-                            ok = false;
-                        }
-                    }
                 }
-
-                if (!ok)
-                {
-                    std::ostringstream ss;
-                    ss << "[client " << client_index << "/thread " << t << "] MISMATCH or error for call " << c
-                       << ": expected combined=\"" << expected_combined << "\" got=\"" << got_combined << "\"";
-                    Log(ss.str());
-                    ++failures;
-                    continue;
-                }
-
-                {
-                    std::ostringstream ss;
-                    ss << "[client " << client_index << "/thread " << t << "] <- OK combined=\"" << got_combined
-                       << "\"";
-                    Log(ss.str());
-                }
-
-                auto end_time = std::chrono::system_clock::now();
-                times[c] = end_time - start_time;
+                helper::WaitAfterCall(g_random_wait && valid);
             }
-
-            // Per-call timings
-            for (int c = 0; c < call_count; ++c)
-            {
-                std::ostringstream oss;
-                oss << "[client " << client_index << "/thread " << t << "] call " << (c + 1) << "/" << call_count
-                    << ": " << std::chrono::duration_cast<std::chrono::microseconds>(times[c]).count() << " us";
-                Log(oss.str());
-            }
-
-            // Summary
-            if (failures == 0)
-            {
-                auto sum = std::chrono::duration<double>::zero();
-                for (int c = 0; c < call_count; ++c)
-                {
-                    sum += times[c];
-                }
-
-                std::ostringstream oss;
-                oss << "- [client " << client_index << "/thread " << t << "] completed " << call_count << " calls with "
-                    << std::chrono::duration_cast<std::chrono::microseconds>(sum).count() << " us elapsed, average "
-                    << std::chrono::duration_cast<std::chrono::microseconds>(sum).count() / call_count
-                    << " us per call";
-                Log(oss.str());
-
-                if (call_count > 1)
-                {
-                    auto s = sum - times[0];
-                    std::ostringstream oss2;
-                    oss2 << "SKIP FIRST [client " << client_index << "/thread " << t << "] completed "
-                         << (call_count - 1) << " calls with "
-                         << std::chrono::duration_cast<std::chrono::microseconds>(s).count() << " us elapsed, average "
-                         << std::chrono::duration_cast<std::chrono::microseconds>(s).count() / (call_count - 1)
-                         << " us per call";
-                    Log(oss2.str());
-                }
-            }
-
             total_failures.fetch_add(failures, std::memory_order_relaxed);
         });
     }
 
-    for (auto& th : threads)
+    thread_start_barrier.WaitForAll();
+    const auto resources_after_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+    tests::utility::PrintProcessResourceDelta(
+        "poc_grpc_client_thread_creation", resources_before_thread_creation, resources_after_thread_creation);
+    thread_start_barrier.Release();
+
+    for (auto& thread : threads)
     {
-        th.join();
+        thread.join();
     }
+    const auto resources_after_workload = tests::utility::CaptureProcessResourceSnapshot();
+    tests::utility::PrintProcessResourceDelta(
+        "poc_grpc_client_workload", resources_after_thread_creation, resources_after_workload);
 
     const int total = call_count * thread_count;
     const int failures = total_failures.load();
     const int success = total - failures;
-    std::ostringstream ss;
-    ss << "[client " << client_index << "] Results: " << success << "/" << total << " calls succeeded, " << failures
-       << "/" << total << " calls failed (" << thread_count << " thread(s) x " << call_count << " call(s))";
-    Log(ss.str());
-
+    Log("[client " + std::to_string(client_index) + "] Results: " + std::to_string(success) + "/" +
+        std::to_string(total) + " calls succeeded, " + std::to_string(failures) + "/" + std::to_string(total) +
+        " calls failed");
     return failures == 0;
 }
 
-}  // namespace score::crypto::poc::grpc
-
-// ---------------------------------------------------------------------------
-// main — fork before any gRPC setup for a clean per-process state
-// ---------------------------------------------------------------------------
+} // namespace score::crypto::poc::grpc
 
 int main(int argc, char** argv)
 {
-    const std::string kClientPrefix{"--client_count="};
-    const std::string kCallPrefix{"--call_count="};
-    const std::string kClientThreadsPrefix{"--client_threads="};
-    const std::string kServerThreadsPrefix{"--server_threads="};
-    const std::string kSleepPrefix{"--sleep_milliseconds="};
-
-    for (int i = 1; i < argc; ++i)
+    score::crypto::ipc::poc_helper::PocArguments defaults;
+    defaults.client_count = g_client_count;
+    defaults.call_count = g_call_count;
+    defaults.client_threads = g_client_threads;
+    defaults.server_threads = g_server_threads;
+    defaults.sleep_milliseconds = g_sleep_milliseconds;
+    std::string parse_error;
+    const auto parsed_arguments = score::crypto::ipc::poc_helper::ParseArguments(argc, argv, parse_error, defaults);
+    if (!parsed_arguments.has_value())
     {
-        const std::string arg{argv[i]};
-        try
-        {
-            if (arg.rfind(kClientPrefix, 0) == 0)
-                g_client_count = std::stoi(arg.substr(kClientPrefix.size()));
-            else if (arg.rfind(kCallPrefix, 0) == 0)
-                g_call_count = std::stoi(arg.substr(kCallPrefix.size()));
-            else if (arg.rfind(kClientThreadsPrefix, 0) == 0)
-                g_client_threads = std::stoi(arg.substr(kClientThreadsPrefix.size()));
-            else if (arg.rfind(kServerThreadsPrefix, 0) == 0)
-                g_server_threads = std::stoi(arg.substr(kServerThreadsPrefix.size()));
-            else if (arg.rfind(kSleepPrefix, 0) == 0)
-                g_sleep_milliseconds = std::stoi(arg.substr(kSleepPrefix.size()));
-        }
-        catch (const std::exception& ex)
-        {
-            std::fprintf(stderr, "[main] invalid argument '%s': %s\n", argv[i], ex.what());
-            return 1;
-        }
-    }
-
-    if (g_client_count < 1)
-    {
-        std::fprintf(stderr, "[main] --client_count must be >= 1\n");
+        std::fprintf(stderr, "[main] %s\n", parse_error.c_str());
         return 1;
     }
-    if (g_call_count < 1)
-    {
-        std::fprintf(stderr, "[main] --call_count must be >= 1\n");
-        return 1;
-    }
-    if (g_client_threads < 1)
-    {
-        std::fprintf(stderr, "[main] --client_threads must be >= 1\n");
-        return 1;
-    }
-    if (g_server_threads < 1)
-    {
-        std::fprintf(stderr, "[main] --server_threads must be >= 1\n");
-        return 1;
-    }
+    g_client_count = parsed_arguments->client_count;
+    g_call_count = parsed_arguments->call_count;
+    g_client_threads = parsed_arguments->client_threads;
+    g_server_threads = parsed_arguments->server_threads;
+    g_sleep_milliseconds = parsed_arguments->sleep_milliseconds;
+    g_random_wait = parsed_arguments->random_wait;
 
-    std::printf(
-        "[main] client_count=%d  call_count=%d  client_threads=%d"
-        "  server_threads=%d (note: gRPC manages its own pool)  sleep_milliseconds=%d\n",
-        g_client_count,
-        g_call_count,
-        g_client_threads,
-        g_server_threads,
-        g_sleep_milliseconds);
-
-    // Unique socket per run to avoid collisions between concurrent bazel invocations.
-    const std::string socket_path = "/tmp/score_poc_grpc_" + std::to_string(::getpid()) + ".sock";
-
-    std::fflush(nullptr);
-
+    std::cout << score::crypto::ipc::poc_helper::SettingsSummary(
+                     "poc_grpc",
+                     g_client_count,
+                     g_call_count,
+                     g_client_threads,
+                     g_server_threads,
+                     g_random_wait)
+              << '\n'
+              << std::flush;
+    const std::string socket_path = " score_poc_grpc_" + std::to_string(::getpid()) + ".sock";
     std::vector<pid_t> child_pids;
-    int my_client_index = -1;
-
-    for (int i = 0; i < g_client_count; ++i)
+    int client_index = -1;
+    for (int index = 0; index < g_client_count; ++index)
     {
         const pid_t pid = ::fork();
         if (pid < 0)
         {
             std::perror("[main] fork");
-            for (const pid_t cpid : child_pids)
-            {
-                ::kill(cpid, SIGTERM);
-            }
             return 1;
         }
         if (pid == 0)
         {
-            my_client_index = i;
+            client_index = index;
             break;
         }
         child_pids.push_back(pid);
     }
 
-    if (my_client_index == -1)
+    if (client_index < 0)
     {
         return score::crypto::poc::grpc::RunServer(socket_path, child_pids);
     }
-    else
-    {
-        const bool ok =
-            score::crypto::poc::grpc::RunClient(socket_path, my_client_index, g_call_count, g_client_threads);
-        return ok ? 0 : 1;
-    }
+    const bool ok = score::crypto::poc::grpc::RunClient(socket_path, client_index, g_call_count, g_client_threads);
+    return ok ? 0 : 1;
 }

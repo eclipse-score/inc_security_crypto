@@ -126,6 +126,10 @@ table ControlResponse {
   operation_batch: OperationResponseBatch;
 }
 
+rpc_service PocControlService {
+  Execute(ControlRequest): ControlResponse;
+}
+
 // ControlRequest is the natural entry point for the serialised payload.
 // Use flatbuffers::GetSizePrefixedRoot<ControlResponse> for the response.
 root_type ControlRequest;
