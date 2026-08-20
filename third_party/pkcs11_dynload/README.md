@@ -56,6 +56,7 @@ The provider is a simple cc_library:
         name = "soft_hsm_header",
         hdrs = [":extract_pkcs11_headers"],
         includes = ["include"],
+        visibility = ["//visibility:private"],
     )
 
 This makes SoftHSM the default header source without hard-coding any backend
@@ -82,6 +83,7 @@ Example BUILD file:
         name = "own_pkcs11_header",
         hdrs = [":copy_own_pkcs11_header"],
         includes = ["include"],
+        visibility = ["//visibility:private"],
     )
 
 Usage:
@@ -107,6 +109,9 @@ The selected pkcs11.h header matches the PKCS11 module that will be loaded at ru
 The header provider and the module path must refer to the same PKCS11 implementation.
 Using mismatched headers and modules may result in undefined behavior, missing symbols,
 or runtime errors.
+
+The dynloader assumes that the PKCS11 module path provided via pkcs11_lib is the
+effective and final module that will be loaded at runtime.
 
 The operating system platform provides integrity and authenticity mechanisms for the
 specified PKCS11 module. The dynloader assumes that the PKCS11 shared library file is
