@@ -224,11 +224,12 @@ The application-level flow and state model are the same on both platforms. The i
     - Or bring out the admission call to allow custom behaviour
 - Use proper state machines for connection state, pending request state and work item state
 - Use base-libs thread pools
-- Job cancellation is not implemented.
-  - Define cancellation and shutdown behavior for queued and in-flight work, client disconnects, server termination, and worker teardown.
-  - Define typed timeout, connection-loss, cancellation, and delivery errors, including cleanup of pending request state and handling of late notifications.
-  - We propably need a stop / cancel token in the workitems, however if we can actually cancel a running request depends on actual processors of the requests
-  - Need to also think how to properly give preference to "cancel requests" and if they need to be handled differently than normal ones
+- Job cancellation is implemented as cooperative cancellation.
+    - The client sends a cancellation request but keeps the original pending request until a final completion notification arrives.
+    - Queued work can produce a final cancelled response; running work receives a stop token and its handler result remains authoritative.
+    - If cancellation cannot be resolved before the deadline or connection loss, the client returns the typed `kOperationCancelledMayExecute` outcome.
+    - Cancellation and shutdown behavior for queued and in-flight work, client disconnects, server termination, and worker teardown is implemented, but provider-level interruption remains handler-dependent.
+    - Need to also think how to properly give preference to "cancel requests" and if they need to be handled differently than normal ones
 - Bound the application work queue and define admission behavior when it is full. A request must not be acknowledged unless admission and the associated resource reservation have succeeded.
 - Define authenticated peer identity, endpoint permissions, authorization, and behavior for rejected or reconnecting clients.
 - If acknowledgement delivery fails after queue admission, either cancel the queued work or expose the resulting "may have executed" outcome and define retry rules, especially for non-idempotent operations.

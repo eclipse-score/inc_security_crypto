@@ -14,6 +14,12 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
+    name = "runtime_measurement",
+    hdrs = ["runtime_measurement.hpp"],
+    visibility = ["//score:__subpackages__"],
+)
+
+cc_library(
     name = "utility",
     srcs = ["test_utility.cpp"],
     hdrs = ["test_utility.hpp"],
@@ -21,4 +27,11 @@ cc_library(
     deps = [
         "@googletest//:gtest",
     ],
+)
+
+cc_library(
+    name = "process_resource_measurement",
+    srcs = ["process_resource_measurement.cpp"],
+    hdrs = ["process_resource_measurement.hpp"],
+    visibility = ["//score:__subpackages__"],
 )

@@ -40,6 +40,9 @@ includes deterministic and bounded execution and resource behavior, controlled
 heap/allocation use on ASIL-relevant paths, suitable isolation for the
 deployment, and appropriate quality artifacts such as requirements and design
 traceability, analysis, verification, and compliance or qualification evidence.
+The safety-relevant deployment target for this decision is QNX. Linux support
+is retained for development, testing, and non-safety or QM deployments; Linux
+backend limitations are not acceptance blockers for the QNX safety target.
 It must also provide bounded client-side waiting, allow concurrent calls from
 multiple client processes and threads, expose the identity of the peer, avoid
 imposing the daemon's worker-thread model, and keep the application protocol
@@ -131,13 +134,15 @@ LoLa Message Passing
 
 The message-passing abstraction exposes platform-independent client and server
 factories while keeping the operating-system transport behind the IPC layer.
-Using ``SendWithCallback`` with ``Reply`` and ``Notify`` separates request
-acceptance from operation completion. A shared connection per client process
-supports concurrent client threads through explicit request identifiers and a
-server-side worker pool, without scaling connections as ``N * T``. The design
-requires explicit bounds for client processes, in-flight requests, payload size,
-and transport queues, but preserves process isolation and the daemon's freedom
-to choose its worker model.
+Using ``Send`` with ``Notify`` separates request submission from operation
+completion without the per-connection REQUEST/REPLY serialization window. A
+shared connection per client process supports concurrent client threads through
+explicit request identifiers and a server-side worker pool, without scaling
+connections as ``N * T``. Server-side validation or work-queue submission
+failure is reported through a negative ``Notify`` result. The design requires
+explicit bounds for client processes, in-flight requests, payload size, and
+transport queues, but preserves process isolation and the daemon's freedom to
+choose its worker model.
 
 Comparison Summary
 ******************
@@ -162,12 +167,12 @@ and inter-VM support.
   delivery requires additional per-client instances and response routing.
 * **LoLa Message Passing** provides platform-independent client and server
   factories, process-isolating transport, kernel-provided peer credentials,
-  and a server-controlled worker model can be added easily. ``SendWithCallback``
-  followed by ``Reply`` and ``Notify`` supports concurrent calls over one
-  connection per client process, with application-level request identifiers
-  for response routing. It requires explicit resource bounds and a typed
-  timeout and connection-loss contract. It does not provide inter-VM
-  communication.
+  and a server-controlled worker model. ``Send`` followed by ``Notify`` supports
+  concurrent calls over one connection per client process, with application-
+  level request identifiers for response routing. A negative ``Notify`` result
+  reports server-side validation or work-queue submission failure. It requires
+  explicit resource bounds and a typed timeout and connection-loss contract. It
+  does not provide inter-VM communication.
 
 LoLa Message Passing is selected because it best satisfies the ASIL-B,
 bounded-client-waiting, peer-identity, concurrency, and server-threading goals
@@ -186,76 +191,76 @@ and a typed error contract. The lack of inter-VM communication is accepted,
 the control-plane IPC abstraction can potentially be used to offer a separate
 inter-VM transport in the future.
 
-Two-Phase Request/Reply Acknowledgement and Notify Completion
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Send and Notify Completion
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. dec_rec:: Two-Phase Request/Reply Acknowledgement and Notify Completion
-  :id: dec_rec__crypto__two_phase_ipc_interaction
+.. dec_rec:: Send and Notify Completion
+  :id: dec_rec__crypto__send_notify_ipc_interaction
   :version: 1
   :status: proposed
   :context: doc__crypto_architecture
-  :decision: Use SendWithCallback for a non-blocking request acknowledgement and Notify for the independently produced operation response.
+  :decision: Use Send for non-blocking request submission and Notify for the operation result or a negative server-side submission result.
 
   .. :affects: comp__crypto
 
-The selected IPC protocol uses two phases: an immediate ``Reply`` acknowledgement
-for the accepted request, followed by a ``Notify`` message containing the
-operation result.
+The selected IPC protocol uses a non-blocking ``Send`` request followed by a
+point-to-point ``Notify`` message containing either the operation result or a
+negative result when server-side validation or work-queue submission fails.
 
 Context
 *******
 
-Using LoLa Message Passing, the REQUEST/REPLY protocol serializes requests on one
-connection: the server does not process the next request on that connection until
-the current request has received a ``Reply``. A client process may nevertheless
-have many threads issuing independent operations, and the server must be able to
-process those operations concurrently.
+Using LoLa Message Passing, the selected ``Send`` path avoids the per-connection
+REQUEST/REPLY serialization window. A client process may have many threads
+issuing independent operations, and the server must be able to process those
+operations concurrently.
 
 Using a single long-running request callback would keep the shared connection
-occupied for the duration of the cryptographic operation. Using
-``SendWaitReply`` would additionally block the client thread inside the IPC
-library and does not provide the application with a timeout escape if the
-server stalls. The selected communication model therefore separates request
-acceptance from operation completion.
+occupied for the duration of the cryptographic operation. The selected
+communication model returns from the ``Send`` callback after validation and
+work-queue submission, then performs the operation in a worker and sends the
+terminal result with ``Notify``. The client uses an application-level timeout;
+it does not wait indefinitely inside the IPC library.
 
 Decision
 ********
 
 The protocol is defined as follows:
 
-1. The client assigns a unique non-zero ``request_id``, inserts a pending-call record, and calls
-   ``SendWithCallback`` with the FlatBuffer ``ControlRequest``.
-2. The server validates the request and copies the complete request into the application work
-   queue.
-3. The server calls ``Reply`` with a minimal acknowledgement carrying the ``request_id``. After
-   the acknowledgement attempt, it wakes a worker. A successful acknowledgement means the request
-   was admitted to the work queue.
-4. A server worker performs the operation and calls ``Notify`` on the same ``IServerConnection``
-   with a ``ControlResponse`` carrying the original ``request_id`` and the result payload.
-5. The client ``NotifyCallback`` routes the response by ``request_id`` and signals the waiting
-   application thread. The application waits with a bounded timeout and retires the pending-call
-   record after completion or timeout.
+1. The client assigns a unique non-zero ``request_id``, inserts a pending-call
+   record, and calls ``Send`` with the FlatBuffer ``ControlRequest``.
+2. The server validates the request and copies the complete request into the
+   application work queue. If validation or queue submission fails, the server
+   sends a negative ``Notify`` result carrying the request ID when it can be
+   recovered from the request.
+3. A server worker performs the operation and calls ``Notify`` on the same
+   ``IServerConnection`` with a ``ControlResponse`` carrying the original
+   ``request_id`` and the result payload.
+4. The client ``NotifyCallback`` routes the response by ``request_id`` and
+   signals the waiting application thread. The application waits with a
+   bounded timeout and retires the pending-call record after completion, error,
+   or timeout.
 
-The acknowledgement is an acceptance signal, not the operation result. The
-transport does not automatically retry requests. An accepted request is
-attempted once; if the operation result is not observed because of a timeout or
-delivery failure, the outcome is unknown to the caller. The application may
-explicitly retry when the operation semantics allow it. ``ReplyCallback`` is
-used to observe send or acknowledgement failure; the client does not complete
-the operation merely because the acknowledgement arrived.
+The ``Send`` call confirms only that the request was accepted by the client-side
+send path; it is not an immediate admission acknowledgement. The transport
+does not automatically retry requests. If a result or negative ``Notify`` is
+not observed because of a timeout or delivery failure, the outcome is unknown
+to the caller. The application may explicitly retry when the operation
+semantics allow it. A malformed request for which the server cannot recover a
+request ID cannot be correlated to a pending call and must be handled through
+the connection-error or timeout path.
 
 Consequences
 ************
 
 **Positive:**
 
-* The server releases the per-connection REQUEST/REPLY serialization window
-  before doing the potentially slow operation. Subsequent requests can be
-  accepted while earlier requests execute in the worker pool.
-* ``SendWithCallback`` returns without holding the caller inside the IPC
-  operation. A production wrapper can use a mandatory application-level
-  ``wait_for`` to provide a bounded wait for the final response and report a
-  typed timeout.
+* ``Send`` avoids the per-connection REQUEST/REPLY serialization window before
+  the potentially slow operation. Subsequent requests can be accepted while
+  earlier requests execute in the worker pool.
+* ``Send`` returns without holding the caller inside the IPC operation. A
+  production wrapper can use a mandatory application-level ``wait_for`` to
+  provide a bounded wait for the final response and report a typed timeout.
 * One connection can be shared by all threads in a client process. The
   application-level ``request_id`` protocol provides deterministic response
   demultiplexing without requiring one connection per thread.
@@ -270,17 +275,21 @@ Consequences
 * The protocol and implementation are more complex than a single synchronous
   call. Pending-call state, request identifiers, response parsing, timeout
   cleanup, and late-notification handling are required.
-* The acknowledgement does not prove that the operation completed; callers
-  must handle both acknowledgement failure and final-notification timeout.
-* Queue capacities must cover the configured concurrency. Client async-reply
-  and send queues and the server notify queue must be sized consistently.
-  An undersized queue can reject a send or drop a notification.
+* ``Send`` does not provide an immediate admission acknowledgement; callers
+  must handle negative ``Notify`` results and final-notification timeouts.
+* Queue capacities must cover the configured concurrency. The client send queue and server
+  notify queue must still be sized consistently. An undersized queue can reject
+  a send or drop a notification.
 * A worker may finish after the client has timed out. The server must detect a
   disconnected connection or safely skip the notification, and the client
   must discard late notifications for retired request identifiers.
-* ``Notify`` can still be transport-dependent in its blocking behaviour.
-  Bounded notification semantics require support from the transport or an
-  additional connection lease abstraction.
+* ``Notify`` has backend-dependent blocking behaviour. The QNX backend used by
+  the safety target provides bounded preallocated notification capacity and
+  reports exhaustion as ``ENOBUFS``; queue sizing and the resulting failure
+  handling remain part of the QNX production configuration. The Linux backend
+  may block in the socket layer, which is an accepted limitation for
+  development, testing, and non-safety or QM deployments and must not be used
+  as evidence for a Linux safety deployment.
 
 Alternatives Considered
 ***********************
@@ -318,14 +327,13 @@ point-to-point message on the existing client connection.
 Justification for the Decision
 ******************************
 
-Immediate acknowledgement is the smallest operation that satisfies the
-low-level protocol's serialization rule while allowing the server to dispatch
-work independently. The separate ``Notify`` completion keeps the client
-thread out of the IPC library's blocking path, enables an explicit application
-timeout, and preserves one connection per client process. The request ID and
-pending-call lifecycle are deliberate complexity: they are required to obtain
-bounded, concurrent operation completion from a shared connection without
-using broadcast communication or shared writable memory.
+``Send`` plus ``Notify`` is selected because it avoids the request/reply
+serialization window and the client-side acknowledgement queue while allowing
+the server to dispatch work independently. The ``Notify`` completion keeps the
+client thread out of the IPC library's blocking path, enables an explicit
+application timeout, and preserves one connection per client process. A
+negative ``Notify`` communicates server-side submission failure when the
+request ID is available.
 
 Reference
 ~~~~~~~~~
