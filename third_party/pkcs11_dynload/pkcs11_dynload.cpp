@@ -124,7 +124,7 @@ Pkcs11Dynload::~Pkcs11Dynload(void)
 /// The returned CK_FUNCTION_LIST pointer and CK_RV status originate from the
 /// dynamically loaded PKCS#11 module.
 
-CK_RV C_GetFunctionList(CK_FUNCTION_LIST **functionList) noexcept
+CK_RV C_GetFunctionList(CK_FUNCTION_LIST **functionList)
 {
     // Thread-safe by C++11: local static initialization is guaranteed to be atomic and executed only once.
     static Pkcs11Dynload pkcs11Lib;
