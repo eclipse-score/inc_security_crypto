@@ -13,7 +13,6 @@
 
 #include "score/mw/log/logging.h"
 
-#include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -42,6 +41,8 @@
 /// initialization. All callers obtain the same function list and return
 /// code via C_GetFunctionList(), matching the PKCS#11 API contract.
 
+namespace {
+
 struct Pkcs11Dynload {
 public:
     Pkcs11Dynload();
@@ -69,7 +70,7 @@ private:
     CK_FUNCTION_LIST* moduleGetFunctionList{nullptr};
 };
 
-Pkcs11Dynload::Pkcs11Dynload(void)
+Pkcs11Dynload::Pkcs11Dynload()
 {
     score::mw::log::LogInfo() << "PkcsDynload called";
 
@@ -89,8 +90,9 @@ Pkcs11Dynload::Pkcs11Dynload(void)
     }
 
     using GetFunctionListFn = CK_RV (*)(CK_FUNCTION_LIST_PTR_PTR);
-    GetFunctionListFn C_GetFunctionList = reinterpret_cast<GetFunctionListFn>(dlsym(pkcs11Handle, "C_GetFunctionList"));
-    if (!C_GetFunctionList) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto C_GetFunctionList = reinterpret_cast<GetFunctionListFn>(dlsym(pkcs11Handle, "C_GetFunctionList"));
+    if (C_GetFunctionList == nullptr) {
          score::mw::log::LogError() << "PKCS#11 module does not export function list";
          rv = CKR_FUNCTION_NOT_SUPPORTED;
          // Do not dlclose(): module may have initialized global state during dlopen().
@@ -106,10 +108,12 @@ Pkcs11Dynload::Pkcs11Dynload(void)
     }
 }
 
-Pkcs11Dynload::~Pkcs11Dynload(void)
+} // anonymous namespace
+
+Pkcs11Dynload::~Pkcs11Dynload()
 {
     score::mw::log::LogInfo() << "~PkcsDynload called";
-    // Never dlclose() a PKCS#11 module — many keep global state or threads alive and 
+    // Never dlclose() a PKCS#11 module — many keep global state or threads alive and
     // unloading causes undefined behavior.
 }
 
@@ -124,11 +128,14 @@ Pkcs11Dynload::~Pkcs11Dynload(void)
 /// The returned CK_FUNCTION_LIST pointer and CK_RV status originate from the
 /// dynamically loaded PKCS#11 module.
 
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 CK_RV C_GetFunctionList(CK_FUNCTION_LIST **functionList)
 {
     // Thread-safe by C++11: local static initialization is guaranteed to be atomic and executed only once.
     static Pkcs11Dynload pkcs11Lib;
-    assert(functionList != nullptr);
+    if (functionList == nullptr) {
+        return CKR_ARGUMENTS_BAD;
+    }
     *functionList = pkcs11Lib.GetFunctionList();
     return pkcs11Lib.GetRv();
 }
