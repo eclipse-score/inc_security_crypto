@@ -15,8 +15,8 @@
 AoU Component Requirements
 ===========================
 
-.. document:: Crypto Component Security AoU
-   :id: doc__crypto_comp_security_aou
+.. document:: Crypto Component AoU
+   :id: doc__crypto_comp_aou
    :version: 1
    :status: draft
    :safety: ASIL_B
@@ -32,35 +32,21 @@ Component AoU
 
 .. code-block:: rst
 
-   .. aou_req:: pkcs11_dynload: pkcs11.h compatiblity
-      :id: aou_req__mod_temp_crypto__pkcs11_h_compatibity
+   .. aou_req:: Next Title
+      :id: aou_req__mod_temp_crypto__next_title
       :reqtype: Process
       :security: YES
       :safety: ASIL_B
-      :status: valid
+      :status: invalid
 
-      If pkcs11_dynload is used as backend for the pkcs11 provider, the selected pkcs11.h header 
-      shall match the pkcs11 module that will be loaded at runtime.
+      The Component User shall do xyz to use the component safely/securely
 
-   .. aou_req:: pkcs11_dynload: No use of ALLOW_PKCS11_LIB_OVERRIDE
-      :id: aou_req__mod_temp_crypto__no_allow_pkcs11_lib_override
+   .. aou_req:: Another Title
+      :id: aou_req__mod_temp_crypto__another
       :reqtype: Process
       :security: YES
       :safety: ASIL_B
-      :status: valid
+      :status: invalid
       :tags: environment
 
-      If pkcs11_dynload is used as backend for the pkcs11 provider, the PKCS1111_OVERRIDE mechanism
-      shall not be used. The pkcs11 module path provided via pkcs11_lib shall be the effective and final 
-      module that will be loaded at runtime.
-
-   .. aou_req:: pkcs11_dynload: Integrity and authenticity of the pkcs11 module
-      :id: aou_req__mod_temp_crypto__integrity_authenticity_pkcs11_module
-      :reqtype: Process
-      :security: YES
-      :safety: ASIL_B
-      :status: valid
-      :tags: environment
-
-      If pkcs11_dynload is used as backend for the pkcs11 provider, the operating system platform shall
-      provide integrity and authenticity mechanisms for the specified pkcs11 module.
+      The Component shall only be used in a xyz environment to ensure its proper functioning.
