@@ -25,7 +25,7 @@ AoU Component Requirements
 
 
 This page contains Assumption of Use requirement snippets that belong to the
-template repository.
+crypto repository.
 
 Component AoU
 -------------
@@ -33,7 +33,7 @@ Component AoU
 .. code-block:: rst
 
    .. aou_req:: Next Title
-      :id: aou_req__mod_temp_crypto__next_title
+      :id: aou_req__mod_temp_crypto__sec_next_title
       :reqtype: Process
       :security: YES
       :safety: ASIL_B
@@ -42,7 +42,7 @@ Component AoU
       The Component User shall do xyz to use the component safely/securely
 
    .. aou_req:: Another Title
-      :id: aou_req__mod_temp_crypto__another
+      :id: aou_req__mod_temp_crypto__sec_another
       :reqtype: Process
       :security: YES
       :safety: ASIL_B

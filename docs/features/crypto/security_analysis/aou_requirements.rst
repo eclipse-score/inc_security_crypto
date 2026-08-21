@@ -12,11 +12,11 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-AoU Component Requirements
-===========================
+AoU Feature Requirements
+========================
 
-.. document:: Crypto Component Security AoU
-   :id: doc__crypto_comp_security_aou
+.. document:: Crypto Feature Security AoU
+   :id: doc__crypto_sec_feat_aou
    :version: 1
    :status: draft
    :safety: ASIL_B
@@ -25,15 +25,15 @@ AoU Component Requirements
 
 
 This page contains Assumption of Use requirement snippets that belong to the
-template repository.
+crypto repository.
 
-Component AoU
--------------
+Feature AoU
+-----------
 
 .. code-block:: rst
 
    .. aou_req:: pkcs11_dynload: pkcs11.h compatiblity
-      :id: aou_req__mod_temp_crypto__pkcs11_h_compatibity
+      :id: aou_req__crypto__sec_pkcs11_h_compatibility
       :reqtype: Process
       :security: YES
       :safety: ASIL_B
@@ -43,7 +43,7 @@ Component AoU
       shall match the pkcs11 module that will be loaded at runtime.
 
    .. aou_req:: pkcs11_dynload: No use of ALLOW_PKCS11_LIB_OVERRIDE
-      :id: aou_req__mod_temp_crypto__no_allow_pkcs11_lib_override
+      :id: aou_req__crypto__sec_no_allow_pkcs11_lib_override
       :reqtype: Process
       :security: YES
       :safety: ASIL_B
@@ -51,11 +51,13 @@ Component AoU
       :tags: environment
 
       If pkcs11_dynload is used as backend for the pkcs11 provider, the PKCS1111_OVERRIDE mechanism
-      shall not be used. The pkcs11 module path provided via pkcs11_lib shall be the effective and final 
-      module that will be loaded at runtime.
+      shall not be used for series. The pkcs11 module path provided via pkcs11_lib shall be the effective
+      and final module that will be loaded at runtime.
+      Hint: This option is introduced only for internal use of testing and is not recommended to be used 
+      for a series project
 
    .. aou_req:: pkcs11_dynload: Integrity and authenticity of the pkcs11 module
-      :id: aou_req__mod_temp_crypto__integrity_authenticity_pkcs11_module
+      :id: aou_req__crypto__sec_integrity_authenticity_pkcs11_module
       :reqtype: Process
       :security: YES
       :safety: ASIL_B
