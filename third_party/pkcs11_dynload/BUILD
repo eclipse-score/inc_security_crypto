@@ -98,7 +98,6 @@ cc_library(
         "//platforms:is_qnx_x86_64": [],
         "//conditions:default": ["-ldl"],
     }),
-    linkstatic = False,
     visibility = ["//visibility:public"],
     deps = [
         ":pkcs11_header_source",
