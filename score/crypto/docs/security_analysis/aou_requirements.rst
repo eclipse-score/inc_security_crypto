@@ -30,21 +30,21 @@ crypto repository.
 Component AoU
 -------------
 
-   .. aou_req:: Next Title
-      :id: aou_req__mod_temp_crypto__sec_next_title
-      :reqtype: Process
-      :security: YES
-      :safety: ASIL_B
-      :status: invalid
+.. aou_req:: Next Title
+   :id: aou_req__mod_temp_crypto__sec_next_title
+   :reqtype: Process
+   :security: YES
+   :safety: ASIL_B
+   :status: invalid
 
-      The Component User shall do xyz to use the component safely/securely
+   The Component User shall do xyz to use the component safely/securely
 
-   .. aou_req:: Another Title
-      :id: aou_req__mod_temp_crypto__sec_another
-      :reqtype: Process
-      :security: YES
-      :safety: ASIL_B
-      :status: invalid
-      :tags: environment
+.. aou_req:: Another Title
+   :id: aou_req__mod_temp_crypto__sec_another
+   :reqtype: Process
+   :security: YES
+   :safety: ASIL_B
+   :status: invalid
+   :tags: environment
 
-      The Component shall only be used in a xyz environment to ensure its proper functioning.
+   The Component shall only be used in a xyz environment to ensure its proper functioning.
