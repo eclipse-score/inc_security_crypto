@@ -31,11 +31,13 @@ template repository.
 Feature AoU
 -----------
 
+.. code-block:: rst
+
    .. aou_req:: Some Other Title
       :id: aou_req__feature_name__some_other_title
       :reqtype: Process
       :security: YES
       :safety: ASIL_B
-      :status: valid
+      :status: invalid
 
       The Feature User shall do xyz to use the feature safely.
