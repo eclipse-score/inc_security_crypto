@@ -30,8 +30,6 @@ crypto repository.
 Component AoU
 -------------
 
-.. code-block:: rst
-
    .. aou_req:: Next Title
       :id: aou_req__mod_temp_crypto__sec_next_title
       :reqtype: Process
