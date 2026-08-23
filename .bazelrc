@@ -101,11 +101,13 @@ test:aarch64-qnx --test_timeout=180,900,2700,10800 # Increase default test timeo
 build --output_groups=+rules_lint_human
 build:lint --@aspect_rules_lint//lint:fail_on_violation=true
 build:lint --config=per-x86_64-linux
+
+# Test settings
 test --test_output=errors
 
 # Run Cargo build.rs scripts locally so openssl-sys can access host license files
 build:aarch64-qnx --strategy=CargoBuildScriptRun=local
-common --lockfile_mode=update
+common --lockfile_mode=error
 
 # Valeo - Force Bazel to use the company's approved x86_64 compiler by default on Linux
 build --config=x86_64-linux
