@@ -12,6 +12,8 @@
 # *******************************************************************************
 
 load("@score_docs_as_code//:docs.bzl", "docs")
+load("@rules_uv//uv:pip.bzl", "pip_compile")
+load("@rules_uv//uv:venv.bzl", "create_venv")
 
 docs(
     data = [
@@ -30,4 +32,16 @@ alias(
 alias(
     name = "actionlint",
     actual = "@score_devcontainer//tools:actionlint",
+)
+
+pip_compile(
+    name = "requirements",
+    requirements_in = "//:requirements.in",
+    requirements_txt = "//:requirements.txt",
+)
+
+create_venv(
+    name = "venv",
+    destination_folder = ".venv_test",
+    requirements_txt = "//:requirements.txt",
 )

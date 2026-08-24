@@ -11,12 +11,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-from pathlib import Path
-import pytest
 import logging
 import time
+from pathlib import Path
 
-from score.tests.utility.process_runner import ProcessRunner, run_test_app
+import pytest
+
+from score.tests.utility.process_runner import ProcessRunner, Target, run_test_app
 
 # Reduce urllib3 logging noise
 logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -36,7 +37,7 @@ class TestCryptoDaemon:
     SOFTHSM_CONF_PATH = "/tmp/softhsm2.conf"
 
     @pytest.fixture(autouse=True, scope="class")
-    def softhsm_token(self, request, target, target_os, deploy, install_dir):
+    def softhsm_token(self, request: pytest.FixtureRequest, target: Target, target_os: str, deploy: None, install_dir: str):
         if not request.config.getoption("--pkcs11-backend-enabled"):
             yield
             return
@@ -86,8 +87,14 @@ class TestCryptoDaemon:
                 item.unlink()
             token_dir.rmdir()
 
-    @pytest.fixture(scope="class")
-    def daemon(self, target, target_os, install_dir):
+    @pytest.fixture(autouse=True, scope="class")
+    def daemon(
+        self,
+        target: Target,
+        target_os: str,
+        install_dir: str,
+        softhsm_token: None,
+    ):
         """Start the crypto daemon, then teardown after test."""
         daemon: ProcessRunner = ProcessRunner(
             target,
@@ -109,9 +116,7 @@ class TestCryptoDaemon:
         log_contents = daemon.get_log_contents()
         logger.info(f"crypto_daemon log contents:\n{log_contents}")
 
-    def test_daemon_control_socket_creation(
-        self, target, daemon, install_dir, target_os
-    ):
+    def test_daemon_control_socket_creation(self, target: Target, target_os: str):
         """Test that crypto_daemon creates socket and handles SIGTERM."""
         tmp_dir = "/opt" if target_os == "QNX" else "/tmp"
         socket_path = f"{tmp_dir}/crypto_daemon.sock"
@@ -119,7 +124,7 @@ class TestCryptoDaemon:
         socket_found = False
 
         for i in range(max_wait * 10):  # Check every 100ms
-            exit_code, output = target.execute(f"test -S {socket_path}")
+            exit_code, _output = target.execute(f"test -S {socket_path}")
             if exit_code == 0:
                 socket_found = True
                 logger.info(
@@ -132,7 +137,7 @@ class TestCryptoDaemon:
             f"Unix domain socket {socket_path} was not created within {max_wait} seconds"
         )
 
-    def test_score_api_hash(self, target, target_os, daemon, install_dir):
+    def test_score_api_hash(self, target: Target, target_os: str, install_dir: str):
         """Test SCORE HASH API."""
         run_test_app(
             target,
@@ -144,7 +149,7 @@ class TestCryptoDaemon:
             },
         )
 
-    def test_score_api_mac(self, target, target_os, daemon, install_dir):
+    def test_score_api_mac(self, target: Target, target_os: str, install_dir: str):
         """Test SCORE KeyGeneration and MAC API."""
         run_test_app(
             target,
@@ -156,7 +161,7 @@ class TestCryptoDaemon:
             },
         )
 
-    def test_hash_performance_test(self, target, target_os, daemon, install_dir):
+    def test_hash_performance_test(self, target: Target, target_os: str, install_dir: str):
         """Test concurrent and sequential hash operations."""
         run_test_app(
             target,
@@ -168,7 +173,7 @@ class TestCryptoDaemon:
             },
         )
 
-    def test_score_demo(self, target, target_os, daemon, install_dir):
+    def test_score_demo(self, target: Target, target_os: str, install_dir: str):
         """Test SCORE Demo."""
         run_test_app(
             target,
