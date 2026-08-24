@@ -13,7 +13,8 @@
 
 from score.tests.utility.process_runner.process_runner import (
     ProcessRunner,
+    Target,
     run_test_app,
 )
 
-__all__ = ["ProcessRunner", "run_test_app"]
+__all__ = ["ProcessRunner", "Target", "run_test_app"]

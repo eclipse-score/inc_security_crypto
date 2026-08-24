@@ -24,10 +24,12 @@ logger = logging.getLogger(__name__)
 _STARTUP_POLL_INTERVAL_S: float = 0.5
 
 
-class _Target(Protocol):
-    """Minimal interface expected from an ITF target plugin (Docker, QEMU, …)."""
+class Target(Protocol):
+    """Interface required from an ITF target plugin (Docker, QEMU, ...)."""
 
     def execute(self, cmd: str) -> tuple[int, bytes]: ...
+
+    def upload(self, local_path: str, remote_path: str) -> None: ...
 
 
 class ProcessRunner:
@@ -50,7 +52,7 @@ class ProcessRunner:
 
     def __init__(
         self,
-        target: _Target,
+        target: Target,
         binary: Path,
         log_file: Path,
         target_os: str,
@@ -163,7 +165,7 @@ class ProcessRunner:
 
 
 def run_test_app(
-    target: _Target, target_os: str, binary: Path, env: dict[str, str]
+    target: Target, target_os: str, binary: Path, env: dict[str, str]
 ) -> None:
     """Run an application on the target and assert success."""
     test_app = ProcessRunner(

@@ -11,16 +11,21 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-import os
-import pytest
 import logging
-
+import os
+from collections.abc import Generator
 from pathlib import Path
+from typing import cast
+
+import pytest
+from _pytest.mark import Mark
+
+from score.tests.utility.process_runner import Target
 
 logger = logging.getLogger(__name__)
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser):
     parser.addoption(
         "--deployment-tar",
         required=True,
@@ -56,14 +61,14 @@ def _absolute_path(rel_path: Path) -> Path:
 
 
 @pytest.fixture(scope="session")
-def target_os(target):
+def target_os(target: Target) -> str:
     """Return the OS name of the target, as reported by `uname -s`."""
     _, output = target.execute("uname -s")
     return output.decode().strip()
 
 
 @pytest.fixture(scope="class")
-def install_dir(request):
+def install_dir(request: pytest.FixtureRequest) -> str:
     """Determine the installation directory for the test session.
 
     The default is derived from the Bazel target name, but can be overridden by
@@ -72,19 +77,21 @@ def install_dir(request):
 
     # Convert Bazel target to a path-like string for install_dir, e.g. //foo/bar:baz -> foo/bar_baz
     bazel_target = os.environ.get("TEST_TARGET", "local")
-    bazel_target_as_path = bazel_target.lstrip("//").replace(":", "_")
+    bazel_target_as_path = bazel_target.removeprefix("//").replace(":", "_")
     install_dir = f"/opt/{bazel_target_as_path}"
 
     # If the test class has an @pytest.mark.install_dir decorator, override the default install_dir.
-    marker = request.node.get_closest_marker("install_dir")
+    marker = cast(Mark | None, request.node.get_closest_marker("install_dir"))
     if marker:
-        install_dir = marker.args[0]
+        install_dir = cast(str, marker.args[0])
 
     return install_dir
 
 
 @pytest.fixture(autouse=True, scope="class")
-def deploy(target, install_dir, request):
+def deploy(
+    target: Target, install_dir: str, request: pytest.FixtureRequest
+) -> Generator[None, None, None]:
     """Deploy the deployment tarball content to the target and clean up afterward."""
 
     # Ensure install_dir not be a root folder, since we will be removing it after the test session.
@@ -92,7 +99,8 @@ def deploy(target, install_dir, request):
         f"install_dir must have at least two levels of directories: {install_dir}"
     )
 
-    host_tar = _absolute_path(Path(request.config.getoption("--deployment-tar")))
+    deployment_tar = cast(str, request.config.getoption("--deployment-tar"))
+    host_tar = _absolute_path(Path(deployment_tar))
     tar_name = host_tar.name
     target_tar = f"{install_dir}/{tar_name}"
     logger.info(f"Deploying {tar_name} to {target_tar}.")

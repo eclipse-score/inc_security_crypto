@@ -1,0 +1,8 @@
+# Mirrored from score_itf 0.5.0 requirements.in.
+# Update manually when the upstream ITF requirements change.
+docker==7.1.0
+pytest==9.0.3
+paramiko==4.0.0
+typing-extensions==4.15.0
+pydantic==2.10.6
+pytest-mock==3.14.0

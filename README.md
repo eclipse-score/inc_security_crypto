@@ -125,8 +125,11 @@ Note: Run the `docker pull` command from a VS Code Terminal associated with the 
 The template integrates **tools and linters** from **centralized repositories** to ensure consistency across projects.
 
 - **C++:** `clang-tidy`, `cppcheck`, `Google Test`
+- **Python:** `ruff`
 - **Rust:** `clippy`, `rustfmt`, `Rust Unit Tests`
 - **CI/CD:** GitHub Actions for automated builds and tests
+
+Generate the Bazel-managed `.venv_test` environment with `bazel run //:venv` and use `.venv_test/bin/python` as the VS Code Python interpreter.
 
 ---
 
