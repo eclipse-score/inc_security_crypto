@@ -15,17 +15,6 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
 load("@score_itf//:defs.bzl", "py_itf_test")
 
 cc_binary(
-    name = "control_client_app",
-    srcs = ["control_client_app.cpp"],
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
-    deps = [
-        "//score/crypto/src/api:operations",
-        "//score/crypto/src/api/control_plane:control_plane_impl",
-        "@googletest//:gtest",
-    ],
-)
-
-cc_binary(
     name = "init_pkcs11_token",
     srcs = ["init_pkcs11_token.cpp"],
     deps = [
@@ -98,7 +87,6 @@ py_itf_test(
         "--log-level=WARNING",
     ],
     data = [
-        ":control_client_app",
         ":init_pkcs11_token",
         ":score_api_hash_example",
         ":score_api_mac_example",

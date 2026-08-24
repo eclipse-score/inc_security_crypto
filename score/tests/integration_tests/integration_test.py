@@ -178,9 +178,6 @@ class TestCryptoDaemon:
             Path("score/crypto/src/daemon/crypto_daemon"): Path(
                 "/opt/crypto/bin/crypto_daemon"
             ),
-            Path("score/tests/integration_tests/control_client_app"): Path(
-                "/opt/crypto/bin/control_client_app"
-            ),
             Path("score/tests/integration_tests/init_pkcs11_token"): Path(
                 "/opt/crypto/bin/init_pkcs11_token"
             ),
