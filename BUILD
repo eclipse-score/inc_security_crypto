@@ -15,7 +15,7 @@ load("@score_docs_as_code//:docs.bzl", "docs")
 
 docs(
     data = [
-        "@score_process//:needs_json",
+        "@score_process_description//:needs_json",
     ],
     source_dir = ".",
 )

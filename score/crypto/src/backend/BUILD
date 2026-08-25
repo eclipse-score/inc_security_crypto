@@ -152,3 +152,15 @@ cc_library(
         "//conditions:default": [],
     }),
 )
+
+# ============================================================================
+# Valeo Custom Compile Toggles
+# ============================================================================
+
+config_setting(
+    name = "rust_cryptoki_selected",
+    flag_values = {
+        ":pkcs11_backend": "//score/cryptoki:cryptoki_cdylib_wrapped",
+    },
+    visibility = ["//visibility:public"],
+)

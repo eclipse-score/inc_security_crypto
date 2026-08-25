@@ -31,6 +31,10 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 cc_library(
     name = "pkcs11_config_parser",
     srcs = ["pkcs11_token_config_parser.cpp"],
+    defines = select({
+        "//score/crypto/src/backend:rust_cryptoki_selected": ["USE_RUST_PKCS11=1"],
+        "//conditions:default": [],
+    }),
     target_compatible_with = select({
         "//score/crypto/src/backend:pkcs11_backend_enabled": [],
         "//conditions:default": ["@platforms//:incompatible"],

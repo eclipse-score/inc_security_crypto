@@ -1,0 +1,12 @@
+diff -urN a/score/mw/log/rust/score_log_bridge/src/ffi.rs b/score/mw/log/rust/score_log_bridge/src/ffi.rs
+--- a/score/mw/log/rust/score_log_bridge/src/ffi.rs
++++ b/score/mw/log/rust/score_log_bridge/src/ffi.rs
+@@ -101,1 +101,1 @@
+-        let mut data = [0; _];
++        let mut data = [0; 4];
+@@ -130,1 +130,1 @@
+-            str::from_utf8_unchecked(slice)
++            core::str::from_utf8_unchecked(slice)
+@@ -215,1 +215,1 @@
+-        Self { _private: [0; _] }
++        Self { _private: [0; 24] }

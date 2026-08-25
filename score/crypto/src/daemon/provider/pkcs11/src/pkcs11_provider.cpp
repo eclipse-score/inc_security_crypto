@@ -23,6 +23,9 @@
 
 #include "score/mw/log/logging.h"
 
+#include <cstdlib>
+#include <vector>
+
 namespace score::crypto::daemon::provider::pkcs11
 {
 

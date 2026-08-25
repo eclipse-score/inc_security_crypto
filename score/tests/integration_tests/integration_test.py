@@ -174,102 +174,108 @@ class TestCryptoDaemon:
         init_softhsm_token helper binary (no package installation required)."""
 
         logger.info("Setup container: uploading files")
-        _docker_upload(
-            docker,
-            {
-                Path("score/crypto/src/daemon/crypto_daemon"): Path(
-                    "/opt/crypto/bin/crypto_daemon"
-                ),
-                Path("score/tests/integration_tests/init_softhsm_token"): Path(
-                    "/opt/crypto/bin/init_softhsm_token"
-                ),
-                Path("score/tests/integration_tests/score_api_hash_example"): Path(
-                    "/opt/crypto/bin/score_api_hash_example"
-                ),
-                Path("score/tests/integration_tests/hash_performance_test"): Path(
-                    "/opt/crypto/bin/hash_performance_test"
-                ),
-                Path("score/tests/integration_tests/score_api_mac_example"): Path(
-                    "/opt/crypto/bin/score_api_mac_example"
-                ),
-                Path("score/tests/integration_tests/score_demo"): Path(
-                    "/opt/crypto/bin/score_demo"
-                ),
-                Path("third_party/grpc/libgrpc++.so.1"): Path(
-                    "/opt/crypto/lib/libgrpc++.so.1"
-                ),
-                Path("third_party/openssl/libcrypto.so.3"): Path(
-                    "/opt/crypto/lib/libcrypto.so.3"
-                ),
-                Path("third_party/openssl/libssl.so.3"): Path(
-                    "/opt/crypto/lib/libssl.so.3"
-                ),
-                Path("third_party/soft_hsm/libsofthsm2.so"): Path(
-                    "/opt/crypto/lib/libsofthsm2.so"
-                ),
-                Path(
-                    "score/tests/test_vectors/config/integration_test_config.bin"
-                ): Path(self.CRYPTO_CONFIG_PATH),
-                Path("score/tests/test_vectors/hash/input_hello_world.bin"): Path(
-                    "/opt/crypto/tests/test_vectors/hash/input_hello_world.bin"
-                ),
-                Path("score/tests/test_vectors/hash/sha256_hello_world.bin"): Path(
-                    "/opt/crypto/tests/test_vectors/hash/sha256_hello_world.bin"
-                ),
-                Path("score/tests/test_vectors/hash/input_complete_data.bin"): Path(
-                    "/opt/crypto/tests/test_vectors/hash/input_complete_data.bin"
-                ),
-                Path("score/tests/test_vectors/hash/sha256_complete_data.bin"): Path(
-                    "/opt/crypto/tests/test_vectors/hash/sha256_complete_data.bin"
-                ),
-                Path("score/tests/test_vectors/mac/input_hello_world.bin"): Path(
-                    "/opt/crypto/tests/test_vectors/mac/input_hello_world.bin"
-                ),
-                Path("score/tests/test_vectors/mac/input_complete_data.bin"): Path(
-                    "/opt/crypto/tests/test_vectors/mac/input_complete_data.bin"
-                ),
-                Path("score/tests/test_vectors/mac/hmac_sha256_hello_world.bin"): Path(
-                    "/opt/crypto/tests/test_vectors/mac/hmac_sha256_hello_world.bin"
-                ),
-                Path(
-                    "score/tests/test_vectors/mac/hmac_sha256_complete_data.bin"
-                ): Path(
-                    "/opt/crypto/tests/test_vectors/mac/hmac_sha256_complete_data.bin"
-                ),
-                Path("score/tests/test_vectors/mac/key_aes_256.key"): Path(
-                    "/opt/crypto/tests/test_vectors/mac/key_aes_256.key"
-                ),
-                Path(
-                    "score/tests/test_vectors/config/integration_openssl_hmac.kv"
-                ): Path("/opt/crypto/deploy/integration_openssl_hmac.kv"),
-                Path(
-                    "score/tests/test_vectors/config/integration_softhsm_hmac.kv"
-                ): Path("/opt/crypto/deploy/integration_softhsm_hmac.kv"),
-                Path("score/tests/config/logging.json"): Path(
-                    "/opt/crypto/config/logging.json"
-                ),
-            },
-        )
+        file_map = {
+            Path("score/crypto/src/daemon/crypto_daemon"): Path(
+                "/opt/crypto/bin/crypto_daemon"
+            ),
+            Path("score/tests/integration_tests/init_pkcs11_token"): Path(
+                "/opt/crypto/bin/init_pkcs11_token"
+            ),
+            Path("score/tests/integration_tests/score_api_hash_example"): Path(
+                "/opt/crypto/bin/score_api_hash_example"
+            ),
+            Path("score/tests/integration_tests/score_api_mac_example"): Path(
+                "/opt/crypto/bin/score_api_mac_example"
+            ),
+            Path("score/tests/integration_tests/score_demo"): Path(
+                "/opt/crypto/bin/score_demo"
+            ),
+            Path("score/tests/integration_tests/hash_performance_test"): Path(
+                "/opt/crypto/bin/hash_performance_test"
+            ),
+            Path("third_party/grpc/libgrpc++.so.1"): Path(
+                "/opt/crypto/lib/libgrpc++.so.1"
+            ),
+            Path("third_party/openssl/libcrypto.so.3"): Path(
+                "/opt/crypto/lib/libcrypto.so.3"
+            ),
+            Path("third_party/openssl/libssl.so.3"): Path(
+                "/opt/crypto/lib/libssl.so.3"
+            ),
+            Path("third_party/soft_hsm/libsofthsm2.so"): Path(
+                "/opt/crypto/lib/libsofthsm2.so"
+            ),
+            Path("score/tests/test_vectors/config/integration_test_config.bin"): Path(
+                self.CRYPTO_CONFIG_PATH
+            ),
+            Path("score/tests/test_vectors/hash/input_hello_world.bin"): Path(
+                "/opt/crypto/tests/test_vectors/hash/input_hello_world.bin"
+            ),
+            Path("score/tests/test_vectors/hash/sha256_hello_world.bin"): Path(
+                "/opt/crypto/tests/test_vectors/hash/sha256_hello_world.bin"
+            ),
+            Path("score/tests/test_vectors/hash/input_complete_data.bin"): Path(
+                "/opt/crypto/tests/test_vectors/hash/input_complete_data.bin"
+            ),
+            Path("score/tests/test_vectors/hash/sha256_complete_data.bin"): Path(
+                "/opt/crypto/tests/test_vectors/hash/sha256_complete_data.bin"
+            ),
+            Path("score/tests/test_vectors/mac/input_hello_world.bin"): Path(
+                "/opt/crypto/tests/test_vectors/mac/input_hello_world.bin"
+            ),
+            Path("score/tests/test_vectors/mac/input_complete_data.bin"): Path(
+                "/opt/crypto/tests/test_vectors/mac/input_complete_data.bin"
+            ),
+            Path("score/tests/test_vectors/mac/hmac_sha256_hello_world.bin"): Path(
+                "/opt/crypto/tests/test_vectors/mac/hmac_sha256_hello_world.bin"
+            ),
+            Path("score/tests/test_vectors/mac/hmac_sha256_complete_data.bin"): Path(
+                "/opt/crypto/tests/test_vectors/mac/hmac_sha256_complete_data.bin"
+            ),
+            Path("score/tests/test_vectors/mac/key_aes_256.key"): Path(
+                "/opt/crypto/tests/test_vectors/mac/key_aes_256.key"
+            ),
+            Path("score/tests/test_vectors/config/integration_openssl_hmac.kv"): Path(
+                "/opt/crypto/deploy/integration_openssl_hmac.kv"
+            ),
+            Path("score/tests/test_vectors/config/integration_softhsm_hmac.kv"): Path(
+                "/opt/crypto/deploy/integration_softhsm_hmac.kv"
+            ),
+            Path("score/tests/config/logging.json"): Path("/opt/crypto/config/logging.json"),
+        }
+
+        # Upload the Rust CryptoKi provider only if compiled by Bazel
+        rust_lib = Path("score/cryptoki/libcryptoki.so")
+        if rust_lib.is_file():
+            file_map[rust_lib] = Path("/opt/crypto/lib/libcryptoki.so")
+
+        _docker_upload(docker, file_map)
 
         # Initialise SoftHSM token using the purpose-built helper binary.
         # Import the MAC test key so that KeySlotMacTest can load it from the
         # SoftHSM token at integration-test time.
-        logger.info("Initialising SoftHSM token via init_softhsm_token")
+        logger.info("Initialising SoftHSM token via init_pkcs11_token")
+
+        # Select token parameters based on compiled PKCS#11 backend
+        is_rust_mode = rust_lib.is_file()
+        token_label = "ValeoCryptokiToken" if is_rust_mode else self.SOFTHSM_TOKEN_LABEL
+        so_pin = "so-pin" if is_rust_mode else self.SOFTHSM_SO_PIN
+
         exit_code, output = docker.exec_run(
             f"sh -c 'LD_LIBRARY_PATH=/opt/crypto/lib:$LD_LIBRARY_PATH "
-            f"/opt/crypto/bin/init_softhsm_token"
+            f"/opt/crypto/bin/init_pkcs11_token"
             f" --token-dir {self.SOFTHSM_TOKEN_DIR}"
             f" --config-path {self.SOFTHSM_CONF_PATH}"
-            f" --token-label {self.SOFTHSM_TOKEN_LABEL}"
-            f" --so-pin {self.SOFTHSM_SO_PIN}"
+            f" --token-label {token_label}"
+            f" --so-pin {so_pin}"
             f" --user-pin {self.SOFTHSM_USER_PIN}"
             f" --import-key-file /opt/crypto/tests/test_vectors/mac/key_aes_256.key"
             f" --import-key-label integration_test_hmac'"
         )
         assert exit_code == 0, (
-            f"init_softhsm_token failed (exit {exit_code}):\n{output.decode()}"
+            f"init_pkcs11_token failed (exit {exit_code}):\n{output.decode()}"
         )
-        logger.info(f"init_softhsm_token output: {output.decode().strip()}")
+        logger.info(f"init_pkcs11_token output: {output.decode().strip()}")
 
     @pytest.fixture
     def daemon(self, docker):

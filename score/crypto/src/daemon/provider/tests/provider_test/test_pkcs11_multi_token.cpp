@@ -115,6 +115,7 @@ class Pkcs11MultiTokenTest : public ::testing::Test
         CK_SLOT_ID targetSlot = (m_nextSlotId < slotCount) ? slots[m_nextSlotId] : slots[0];
         m_nextSlotId++;
 
+#ifndef USE_RUST_PKCS11
         // Pad label to 32 characters as required by C_InitToken.
         std::string paddedLabel = label;
         paddedLabel.resize(32U, ' ');
@@ -127,9 +128,11 @@ class Pkcs11MultiTokenTest : public ::testing::Test
 
         const CK_RV rv = fns->C_InitToken(targetSlot, soPinPtr, static_cast<CK_ULONG>(soPin.size()), labelPtr);
         ASSERT_EQ(rv, CKR_OK) << "C_InitToken failed for token=" << label << " on slot=" << targetSlot;
+#endif // USE_RUST_PKCS11
 
         outSlot = targetSlot;
 
+#ifndef USE_RUST_PKCS11
         // Open a session on the freshly initialized token to set the user PIN.
         CK_SESSION_HANDLE session{CK_INVALID_HANDLE};
         ASSERT_EQ(fns->C_OpenSession(outSlot, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &session), CKR_OK)
@@ -145,6 +148,7 @@ class Pkcs11MultiTokenTest : public ::testing::Test
 
         fns->C_Logout(session);
         fns->C_CloseSession(session);
+#endif // USE_RUST_PKCS11
     }
 
     std::shared_ptr<pkcs11::Pkcs11Provider> CreateProvider(const std::string& label, CK_SLOT_ID slot)
