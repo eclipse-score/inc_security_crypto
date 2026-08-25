@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "description": "Certificate-management test certificate inventory. Public certificates are checked in; private keys are generated locally and are not committed.",
+  "certificates": [
+    {
+      "name": "certificate",
+      "certificate_path": "certificate.pem",
+      "private_key_path": "private/certificate.key.pem",
+      "purpose": "Initial CA certificate for file-backed slot and trust-store tests",
+      "subject": "/CN=cert-management-test/O=Eclipse",
+      "key_algorithm": "RSA-2048",
+      "validity_days": 3650,
+      "snapshot": {
+        "not_before": "2026-08-24T22:20:18Z",
+        "not_after": "2036-08-21T22:20:18Z",
+        "sha256_fingerprint": "3E7A581BCAAB80F73535B10968F8C3E68517194B6A404CE5F58AACABE0A62D0C"
+      }
+    },
+    {
+      "name": "certificate_updated",
+      "certificate_path": "certificate_updated.pem",
+      "private_key_path": "private/certificate_updated.key.pem",
+      "purpose": "Replacement CA certificate used to test slot updates and trust-store anchor invalidation",
+      "subject": "/CN=cert-management-updated/O=Eclipse",
+      "key_algorithm": "RSA-2048",
+      "validity_days": 3650,
+      "snapshot": {
+        "not_before": "2026-08-24T22:20:18Z",
+        "not_after": "2036-08-21T22:20:18Z",
+        "sha256_fingerprint": "2324A755EB36B44DF2495504AF85A8ED3FE89A8328F01788905DB3A0E1EAED7E"
+      }
+    }
+  ]
+}
