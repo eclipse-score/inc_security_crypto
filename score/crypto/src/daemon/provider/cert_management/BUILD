@@ -10,10 +10,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-# *******************************************************************************
-# Copyright (c) 2026 Contributors to the Eclipse Foundation
-# SPDX-License-Identifier: Apache-2.0
-# *******************************************************************************
+
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
