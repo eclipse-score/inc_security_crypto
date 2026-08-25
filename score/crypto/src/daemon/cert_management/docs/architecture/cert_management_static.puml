@@ -1,0 +1,70 @@
+@startuml
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+package "cert_management" {
+  package "core" {
+    [CertManagementService]
+    [CertRegistry]
+  }
+  package "interfaces" {
+    interface ICertSlotHandler
+    interface ITrustStoreHandler
+    interface ICertParser
+    [CertObject]
+  }
+  package "nodes" {
+    [CertSlotDataNode]
+    [CertDataNode]
+    [TrustStoreDataNode]
+  }
+  package "slot" {
+    [CertSlotRegistry]
+    [ConfigDrivenSlotCatalog]
+    [FileBackedSlotHandler]
+    [CrlHandler]
+  }
+  package "truststore" {
+    [TrustStoreManager]
+    [TrustStoreHandler]
+    [ConfigDrivenTrustStoreCatalog]
+  }
+  package "policy" {
+    [AccessPolicyEnforcer]
+  }
+}
+
+package "daemon/common" {
+  [DataManager]
+  [Shared Deployment Storage]
+}
+
+package "provider" {
+  [OpenSslCertParser]
+  [Provider Context Handlers]
+}
+
+[CertManagementService] --> [CertRegistry]
+[CertManagementService] --> [CertSlotRegistry]
+[CertManagementService] --> [TrustStoreManager]
+[CertManagementService] --> [DataManager]
+[CertManagementService] --> [AccessPolicyEnforcer]
+[CertManagementService] ..> [CertSlotDataNode] : creates
+[CertManagementService] ..> [CertDataNode] : creates
+[CertManagementService] ..> [TrustStoreDataNode] : creates
+
+[ConfigDrivenSlotCatalog] --> [CertSlotRegistry]
+[ConfigDrivenTrustStoreCatalog] --> [TrustStoreManager]
+[TrustStoreManager] --> [CertSlotRegistry]
+[TrustStoreManager] --> [TrustStoreHandler]
+[TrustStoreManager] --> ICertSlotHandler
+[TrustStoreHandler] ..|> ITrustStoreHandler
+[FileBackedSlotHandler] ..|> ICertSlotHandler
+[FileBackedSlotHandler] --> [CrlHandler]
+[FileBackedSlotHandler] --> ICertParser
+[FileBackedSlotHandler] --> [Shared Deployment Storage]
+[OpenSslCertParser] ..|> ICertParser
+[OpenSslCertParser] --> [CertObject]
+[Provider Context Handlers] --> [CertObject]
+
+@enduml
