@@ -503,7 +503,8 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::RemoveMember(T
         if (current_fp.size() != fingerprint.size() ||
             !std::equal(current_fp.begin(), current_fp.end(), fingerprint.begin()))
             continue;
-        static_cast<void>(resolved->handler->ClearSlot(*resolved->cfg));
+        if (const auto cleared = resolved->handler->ClearSlot(*resolved->cfg); !cleared)
+            return score::crypto::make_unexpected(cleared.error());
         // Cert bytes gone — evict from shared cache and clear from handler.
         m_slot_cert_cache.erase(resolved->slot.index);
         m_member_states[id][resolved->slot.index].enabled = false;
