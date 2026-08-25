@@ -16,7 +16,7 @@ AoU Component Requirements
 ===========================
 
 .. document:: Crypto Component AoU
-   :id: doc__crypto_comp_aou
+   :id: doc__crypto_sec_comp_aou
    :version: 1
    :status: draft
    :safety: ASIL_B

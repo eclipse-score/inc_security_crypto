@@ -33,6 +33,7 @@ Feature AoU
 
 .. aou_req:: pkcs11_dynload: pkcs11.h compatiblity
    :id: aou_req__crypto__sec_pkcs11_h_compatibility
+   :version: 1
    :reqtype: Process
    :security: YES
    :safety: ASIL_B
@@ -42,7 +43,8 @@ Feature AoU
    shall match the pkcs11 module that will be loaded at runtime.
 
 .. aou_req:: pkcs11_dynload: No use of ALLOW_PKCS11_LIB_OVERRIDE
-   :id: aou_req__crypto__sec_no_allow_pkcs11_lib_override
+   :id: aou_req__crypto__sec_no_pkcs11_lib_override
+   :version: 1
    :reqtype: Process
    :security: YES
    :safety: ASIL_B
@@ -56,7 +58,8 @@ Feature AoU
    for a series project
 
 .. aou_req:: pkcs11_dynload: Integrity and authenticity of the pkcs11 module
-   :id: aou_req__crypto__sec_integrity_authenticity_pkcs11_module
+   :id: aou_req__crypto__sec_integ_auth_pkcs11_mod
+   :version: 1
    :reqtype: Process
    :security: YES
    :safety: ASIL_B
