@@ -10,10 +10,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
-/********************************************************************************
- * Copyright (c) 2026 Contributors to the Eclipse Foundation
- * SPDX-License-Identifier: Apache-2.0
- ********************************************************************************/
+
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_SLOT_FILE_BACKED_SLOT_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_SLOT_FILE_BACKED_SLOT_HANDLER_HPP
 
