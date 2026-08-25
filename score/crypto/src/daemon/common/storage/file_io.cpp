@@ -57,7 +57,7 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WriteFile(const std::st
     }
 
     score::filesystem::FileFactory factory{};
-    auto stream_result = factory.AtomicUpdate(target_path, std::ios::binary | std::ios::trunc);
+    auto stream_result = factory.AtomicUpdate(target_path, std::ios::out | std::ios::binary | std::ios::trunc);
     if (!stream_result.has_value())
         return score::crypto::make_unexpected(DaemonErrorCode::kPersistFailed);
 
