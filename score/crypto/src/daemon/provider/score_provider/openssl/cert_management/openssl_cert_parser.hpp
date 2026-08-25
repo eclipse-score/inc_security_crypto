@@ -10,10 +10,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
-/********************************************************************************
- * Copyright (c) 2026 Contributors to the Eclipse Foundation
- * SPDX-License-Identifier: Apache-2.0
- ********************************************************************************/
+
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_CERT_MANAGEMENT_OPENSSL_CERT_PARSER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_CERT_MANAGEMENT_OPENSSL_CERT_PARSER_HPP
 
