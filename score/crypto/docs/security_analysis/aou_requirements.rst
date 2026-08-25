@@ -32,6 +32,7 @@ Component AoU
 
 .. aou_req:: Next Title
    :id: aou_req__mod_temp_crypto__sec_next_title
+   :version: 1
    :reqtype: Process
    :security: YES
    :safety: ASIL_B
@@ -41,6 +42,7 @@ Component AoU
 
 .. aou_req:: Another Title
    :id: aou_req__mod_temp_crypto__sec_another
+   :version: 1
    :reqtype: Process
    :security: YES
    :safety: ASIL_B
