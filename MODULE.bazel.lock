@@ -1357,21 +1357,28 @@
     },
     "@@aspect_tools_telemetry+//:extension.bzl%telemetry": {
       "general": {
-        "bzlTransitiveDigest": "cl5A2O84vDL6Tt+Qga8FCj1DUDGqn+e7ly5rZ+4xvcc=",
-        "usagesDigest": "YrfZ4bJpm8TElVj7Cl9MuPxrvXtxG3i75iLf1pGcdG8=",
+        "bzlTransitiveDigest": "XVKR7Fz0TpsBTBIjxfUrpsRKdh9a5XZHQEJmfRGJOD8=",
+        "usagesDigest": "4eYfYGZkkZZem5Ss/tvRTn4oYAhl3RAUYpmiLLQszC0=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
-        "envVariables": {},
+        "envVariables": {
+          "ASPECT_TOOLS_TELEMETRY_TEST": null
+        },
         "generatedRepoSpecs": {
           "aspect_tools_telemetry_report": {
             "repoRuleId": "@@aspect_tools_telemetry+//:extension.bzl%tel_repository",
             "attributes": {
               "deps": {
-                "aspect_rules_lint": "2.7.2",
-                "aspect_tools_telemetry": "0.3.3"
-              }
+                "aspect_rules_lint": "2.8.0",
+                "aspect_tools_telemetry": "0.5.0"
+              },
+              "last_notice": 0
             }
           }
+        },
+        "moduleExtensionMetadata": {
+          "useAllRepos": "NO",
+          "reproducible": false
         },
         "recordedRepoMappingEntries": [
           [
@@ -11674,5 +11681,9 @@
       }
     }
   },
-  "facts": {}
+  "facts": {
+    "@@aspect_tools_telemetry+//:extension.bzl%telemetry": {
+      "notice_version": "2"
+    }
+  }
 }
