@@ -50,6 +50,7 @@ exclude_patterns = [
     "examples/README.md",
     "score/tests/**",
     "score/crypto/src/backend/README.md",  # developer-only README
+    "score/cryptoki/README.md",  # developer-only README
 ]
 
 
