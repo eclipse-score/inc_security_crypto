@@ -124,6 +124,47 @@ TEST_F(FileBackedSlotHandlerTest, StoresLoadsAndClearsCrl)
     EXPECT_FALSE(m_handler->HasCrl(m_slot));
 }
 
+// Storing a new certificate must invalidate any existing CRL: the CRL was
+// issued for the previous CA key and is meaningless for the new cert.
+// After StoreCertificate, HasCrl() must return false even though a CRL was
+// stored before the update.
+TEST_F(FileBackedSlotHandlerTest, StoreCertificate_ClearsExistingCrl)
+{
+    cert::CertChainMetadata metadata;
+    metadata.subject_canonical = "CN=file-test";
+    metadata.issuer_canonical = "CN=file-test";
+    auto certificate = std::make_shared<cert::CertObject>(
+        std::move(metadata), std::vector<std::uint8_t>{1U, 2U, 3U}, score::crypto::FormatType::kDer);
+
+    // Store a CRL first so the slot has one.
+    const std::vector<std::uint8_t> crl_bytes{7U, 8U, 9U};
+    ASSERT_TRUE(m_handler
+                    ->StoreCrl(m_slot,
+                               score::crypto::span<const std::uint8_t>{crl_bytes.data(), crl_bytes.size()},
+                               score::crypto::FormatType::kDer)
+                    .has_value());
+    ASSERT_TRUE(m_handler->HasCrl(m_slot));
+
+    // Storing a new cert must invalidate the stale CRL.
+    // crl_path is preserved in the descriptor (for future StoreCrl re-use)
+    // but the CRL file is removed, so HasCrl() must return false.
+    ASSERT_TRUE(m_handler->StoreCertificate(m_slot, *certificate).has_value());
+
+    EXPECT_FALSE(m_handler->HasCrl(m_slot));  // file gone → FileExists false
+    EXPECT_FALSE(std::filesystem::exists(m_crl));
+
+    // crl_path is preserved in the descriptor so a subsequent StoreCrl re-uses
+    // the same on-disk location without having to recompute it.
+    const std::vector<std::uint8_t> new_crl{0xAAU, 0xBBU};
+    ASSERT_TRUE(m_handler
+                    ->StoreCrl(m_slot,
+                               score::crypto::span<const std::uint8_t>{new_crl.data(), new_crl.size()},
+                               score::crypto::FormatType::kDer)
+                    .has_value());
+    EXPECT_TRUE(m_handler->HasCrl(m_slot));
+    EXPECT_TRUE(std::filesystem::exists(m_crl));
+}
+
 // A freshly-configured slot with no stored CRL must report HasCrl() == false
 // without any prior store call.  This baseline is separate from the
 // StoresLoadsAndClearsCrl flow so that a regression in the empty-state

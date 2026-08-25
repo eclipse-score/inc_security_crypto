@@ -118,6 +118,18 @@ score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCerti
     auto result = file_io::WriteFile(path, bytes);
     if (!result)
         return result;
+    // Clear any stale CRL: it was issued for the previous CA key and is no longer
+    // valid for the incoming certificate.  Preserve crl_path so that a future
+    // StoreCrl call re-uses the same location — this is essential for backends
+    // (e.g. PKCS#11) where cert_path is absent and the CRL path cannot be
+    // re-derived from the certificate file.  File removal is best-effort; a
+    // stale CRL file will be overwritten by the next StoreCrl.
+    const auto old_crl_path = descriptor->Get("crl", "crl_path");
+    if (!old_crl_path.empty())
+        static_cast<void>(file_io::RemoveFile(old_crl_path));
+    descriptor->RemoveSection("crl");
+    if (!old_crl_path.empty())
+        descriptor->Set("crl", "crl_path", old_crl_path);
     descriptor->Set("certificate", "cert_format", cert.GetFormat() == score::crypto::FormatType::kDer ? "der" : "pem");
     descriptor->Set("certificate_metadata", "subject", std::string(cert.GetSubject()));
     descriptor->Set("certificate_metadata", "issuer", std::string(cert.GetIssuer()));
@@ -133,13 +145,19 @@ score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::ClearSlot(
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
     const auto cert = descriptor->Get("certificate", "cert_path");
-    if (!cert.empty())
-        file_io::RemoveFile(cert);
+    if (!cert.empty() && file_io::FileExists(cert))
+    {
+        if (const auto rm = file_io::RemoveFile(cert); !rm)
+            return rm;
+    }
     // Preserve crl_path so a future StoreCrl re-uses the same location.
     // Only the file and volatile metadata (format, next_update) are discarded.
     const auto crl_path = descriptor->Get("crl", "crl_path");
-    if (!crl_path.empty())
-        file_io::RemoveFile(crl_path);
+    if (!crl_path.empty() && file_io::FileExists(crl_path))
+    {
+        if (const auto rm = file_io::RemoveFile(crl_path); !rm)
+            return rm;
+    }
     descriptor->RemoveSection("crl");
     if (!crl_path.empty())
         descriptor->Set("crl", "crl_path", crl_path);
