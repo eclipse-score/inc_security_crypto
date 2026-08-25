@@ -99,7 +99,7 @@ score::crypto::Expected<std::monostate, Error> CrlHandler::ClearCrl(const CertSl
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
     const auto path = descriptor->Get("crl", "crl_path");
-    if (!path.empty())
+    if (!path.empty() && file_io::FileExists(path))
     {
         auto remove_result = file_io::RemoveFile(path);
         if (!remove_result)
