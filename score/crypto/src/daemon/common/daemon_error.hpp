@@ -94,6 +94,7 @@ enum class DaemonErrorCode : std::uint32_t
     kCertificateParsingFailed = 0x0901,
     kCsrGenerationFailed = 0x0902,
     kOcspError = 0x0903,
+    kTrustStoreCapacityExceeded = 0x0904,  ///< All exclusive-mutable slots in the trust store are occupied
 
     // ---- Provider ----
     kProviderNotAvailable = 0x0A01,
@@ -224,6 +225,8 @@ inline score::crypto::CryptoErrorCode ToCryptoErrorCode(DaemonErrorCode code) no
             return C::kCsrGenerationFailed;
         case DaemonErrorCode::kOcspError:
             return C::kOcspError;
+        case DaemonErrorCode::kTrustStoreCapacityExceeded:
+            return C::kQuotaExceeded;
         // ---- Provider ----
         case DaemonErrorCode::kProviderNotAvailable:
             return C::kProviderNotAvailable;
