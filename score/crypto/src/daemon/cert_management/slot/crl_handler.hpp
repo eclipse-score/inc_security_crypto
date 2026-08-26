@@ -72,6 +72,10 @@ class CrlHandler final
     [[nodiscard]] score::crypto::Expected<std::int64_t, common::DaemonErrorCode> GetCrlNextUpdate(
         const CertSlotConfig& slot) const;
 
+    /// Return the format (DER or PEM) recorded in the descriptor's [crl] crl_format key.
+    /// Returns kDer when the key is absent or the descriptor cannot be loaded.
+    [[nodiscard]] score::crypto::FormatType GetCrlFormat(const CertSlotConfig& slot) const;
+
   private:
     static std::string FormatName(score::crypto::FormatType format);
 };

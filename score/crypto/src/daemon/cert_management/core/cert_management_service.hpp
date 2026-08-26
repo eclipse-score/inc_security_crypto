@@ -13,14 +13,17 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_CORE_CERT_MANAGEMENT_SERVICE_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_CORE_CERT_MANAGEMENT_SERVICE_HPP
 
+#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/daemon/cert_management/core/cert_registry.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/nodes/cert_data_node.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 
+#include <cstdint>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 namespace score::crypto::daemon::cert_management
 {
@@ -100,6 +103,14 @@ class CertManagementService final
         data_manager::ClientId client_id,
         data_manager::DataNodeId cert_node_id);
 
+    /// Look up a CertDataNode by node_id and return the underlying CertEntry.
+    ///
+    /// Use instead of ResolveCertForOperation when the session CRL association
+    /// (CertEntry::GetSessionCrl) is also needed — e.g. in HandleTrustStoreAdd.
+    score::crypto::Expected<std::shared_ptr<CertEntry>, common::DaemonErrorCode> ResolveCertEntryForOperation(
+        data_manager::ClientId client_id,
+        data_manager::DataNodeId cert_node_id);
+
     /// Look up a TrustStoreDataNode by node_id and return the trust store handle.
     score::crypto::Expected<TrustStoreHandle, common::DaemonErrorCode> ResolveTrustStoreForOperation(
         data_manager::ClientId client_id,
@@ -109,6 +120,22 @@ class CertManagementService final
     ///
     /// Called after a successful StoreCertificate to keep trust store anchors current.
     void NotifySlotCertChanged(CertSlotHandle slot_handle);
+
+    // -----------------------------------------------------------------------
+    // CRL helpers — called by the cert management executor
+    // -----------------------------------------------------------------------
+
+    /// Attach a session-scoped CRL to an ephemeral or slot-loaded certificate.
+    ///
+    /// The CRL bytes must be pre-validated by the caller (signature, issuer match,
+    /// validity). This stores the bytes in-memory on the CertEntry; they are not
+    /// written to disk. Subsequent SaveCertificate / AddCertificateToTrustStore
+    /// with with_crl=true will propagate from this in-memory association.
+    score::crypto::Expected<std::monostate, common::DaemonErrorCode> AttachSessionCrl(
+        data_manager::ClientId client_id,
+        data_manager::DataNodeId cert_node_id,
+        std::vector<uint8_t> crl_bytes,
+        score::crypto::FormatType format);
 
   private:
     data_manager::IDataManager::Sptr m_data_manager;
