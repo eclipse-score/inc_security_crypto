@@ -539,4 +539,201 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
     EXPECT_EQ((*after_ack)[0]->GetFingerprint().size(), 32U);
 }
 
+// ---------------------------------------------------------------------------
+// AddMember — CRL propagation: non-empty crl_bytes are stored to the exclusive
+// slot alongside the certificate.
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, AddMember_WithCrlBytes_StoresAndPersistsCrl)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    static_cast<void>(registry->RegisterSlot(MakeSlotConfig("empty-anchor", m_empty_slot_kv)));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "mutable-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.members.push_back(
+        cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_id = manager.ResolveByName("mutable-store");
+
+    auto cert = ParseCert(m_root_cert);
+    ASSERT_NE(cert, nullptr);
+
+    const std::vector<std::uint8_t> crl{0xC0U, 0xC1U, 0xC2U};
+    const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
+
+    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA, crl_span, score::crypto::FormatType::kDer).has_value());
+
+    // Verify via a fresh handler: cert and CRL are both on disk.
+    cert::FileBackedSlotHandler fresh_handler{m_parser};
+    const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
+    ASSERT_TRUE(fresh_handler.LoadCertificate(cfg).has_value());
+    ASSERT_TRUE(fresh_handler.HasCrl(cfg));
+    const auto loaded_crl = fresh_handler.LoadCrl(cfg);
+    ASSERT_TRUE(loaded_crl.has_value());
+    EXPECT_EQ(*loaded_crl, crl);
+    EXPECT_EQ(fresh_handler.GetCrlFormat(cfg), score::crypto::FormatType::kDer);
+}
+
+// ---------------------------------------------------------------------------
+// AddMember — upsert semantics: if the cert is already an exclusive member and
+// crl_bytes is non-empty, the CRL is stored/updated without re-adding the cert.
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, AddMember_ExistingExclusiveMember_UpsertsCrl)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    static_cast<void>(registry->RegisterSlot(MakeSlotConfig("empty-anchor", m_empty_slot_kv)));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "mutable-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.members.push_back(
+        cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_id = manager.ResolveByName("mutable-store");
+
+    auto cert = ParseCert(m_root_cert);
+    ASSERT_NE(cert, nullptr);
+
+    // First add: cert only, no CRL.
+    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA).has_value());
+    {
+        cert::FileBackedSlotHandler fh{m_parser};
+        const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
+        EXPECT_FALSE(fh.HasCrl(cfg));
+    }
+
+    // Second add: same cert, with CRL — upsert path.
+    const std::vector<std::uint8_t> crl{0xAAU, 0xBBU, 0xCCU};
+    const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
+    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA, crl_span, score::crypto::FormatType::kDer).has_value());
+
+    cert::FileBackedSlotHandler fresh_handler{m_parser};
+    const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
+    ASSERT_TRUE(fresh_handler.HasCrl(cfg));
+    const auto loaded_crl = fresh_handler.LoadCrl(cfg);
+    ASSERT_TRUE(loaded_crl.has_value());
+    EXPECT_EQ(*loaded_crl, crl);
+}
+
+// ---------------------------------------------------------------------------
+// AddMember — dedup: cert already present as a shared-static member with CRL
+// bytes supplied → kUnsupportedOperation (trust store does not own shared slots).
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, AddMember_SharedStaticMember_WithCrl_ReturnsUnsupportedOperation)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    static_cast<void>(registry->RegisterSlot(MakeSlotConfig("root-anchor", m_root_slot_kv)));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "mixed-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_id = manager.ResolveByName("mixed-store");
+
+    // Parse the same cert that is already the shared-static member.
+    auto cert = ParseCert(m_root_cert);
+    ASSERT_NE(cert, nullptr);
+
+    const std::vector<std::uint8_t> crl{0x01U, 0x02U};
+    const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
+
+    const auto result = manager.AddMember(ts_id, cert, kClientA, crl_span, score::crypto::FormatType::kDer);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+}
+
+// ---------------------------------------------------------------------------
+// AddMember — dedup covers ALL member types: cert already in shared-static slot
+// is found before exclusive slots are searched; no exclusive slot is consumed.
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, AddMember_DeduplicationChecksAllMemberTypes)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    static_cast<void>(registry->RegisterSlot(MakeSlotConfig("root-anchor", m_root_slot_kv)));
+    static_cast<void>(registry->RegisterSlot(MakeSlotConfig("empty-anchor", m_empty_slot_kv)));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "mixed-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
+    ts_cfg.members.push_back(
+        cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_id = manager.ResolveByName("mixed-store");
+
+    // Parse the same cert that is already the shared-static member.
+    auto cert = ParseCert(m_root_cert);
+    ASSERT_NE(cert, nullptr);
+
+    // AddMember without CRL: dedup on shared-static → idempotent success.
+    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA).has_value());
+
+    // The exclusive slot must still be empty — not consumed by AddMember.
+    cert::FileBackedSlotHandler fresh_handler{m_parser};
+    const auto exclusive_cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
+    const auto state = fresh_handler.GetSlotState(exclusive_cfg);
+    ASSERT_TRUE(state.has_value());
+    EXPECT_EQ(*state, score::crypto::CertificateSlotState::kEmpty);
+}
+
+// ---------------------------------------------------------------------------
+// ImportCrlForMember — writes CRL to the exclusive slot holding the given cert.
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, ImportCrlForMember_WritesToExclusiveSlot)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    static_cast<void>(registry->RegisterSlot(MakeSlotConfig("empty-anchor", m_empty_slot_kv)));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "mutable-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.members.push_back(
+        cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_id = manager.ResolveByName("mutable-store");
+
+    auto cert = ParseCert(m_root_cert);
+    ASSERT_NE(cert, nullptr);
+
+    // First add the cert without CRL.
+    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA).has_value());
+
+    // Now import a CRL for that member by fingerprint.
+    const auto fp_span = cert->GetFingerprint();
+    const std::vector<std::uint8_t> crl{0xD0U, 0xD1U, 0xD2U};
+    const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
+
+    ASSERT_TRUE(manager.ImportCrlForMember(ts_id, fp_span, crl_span, score::crypto::FormatType::kDer).has_value());
+
+    // Verify persistence: fresh handler must read the CRL.
+    cert::FileBackedSlotHandler fresh_handler{m_parser};
+    const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
+    ASSERT_TRUE(fresh_handler.HasCrl(cfg));
+    const auto loaded_crl = fresh_handler.LoadCrl(cfg);
+    ASSERT_TRUE(loaded_crl.has_value());
+    EXPECT_EQ(*loaded_crl, crl);
+}
+
 }  // namespace

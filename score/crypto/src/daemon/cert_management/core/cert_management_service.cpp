@@ -207,6 +207,27 @@ score::crypto::Expected<CertObject::Sptr, Error> CertManagementService::ResolveC
     return entry->GetCertObject();
 }
 
+score::crypto::Expected<std::shared_ptr<CertEntry>, Error> CertManagementService::ResolveCertEntryForOperation(
+    data_manager::ClientId client_id,
+    data_manager::DataNodeId cert_node_id)
+{
+    if (!m_data_manager)
+        return score::crypto::make_unexpected(Error::kInternalError);
+
+    auto acc_res = m_data_manager->getNodeAccessor(client_id, cert_node_id);
+    if (!acc_res.has_value())
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+
+    auto typed_res = std::move(acc_res).value().downCast<CertDataNode>();
+    if (!typed_res.has_value())
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+
+    auto entry = typed_res.value()->GetCertEntry();
+    if (!entry)
+        return score::crypto::make_unexpected(Error::kInternalError);
+    return entry;
+}
+
 score::crypto::Expected<TrustStoreHandle, Error> CertManagementService::ResolveTrustStoreForOperation(
     data_manager::ClientId client_id,
     data_manager::DataNodeId ts_node_id)
@@ -232,6 +253,36 @@ void CertManagementService::NotifySlotCertChanged(CertSlotHandle slot_handle)
     const auto memberships = m_trust_stores->GetMembershipsForSlot(slot_handle);
     for (const auto ts_id : memberships)
         m_trust_stores->NotifySlotChanged(ts_id, slot_handle);
+}
+
+// ---------------------------------------------------------------------------
+// CRL helpers
+// ---------------------------------------------------------------------------
+
+score::crypto::Expected<std::monostate, Error> CertManagementService::AttachSessionCrl(
+    data_manager::ClientId client_id,
+    data_manager::DataNodeId cert_node_id,
+    std::vector<uint8_t> crl_bytes,
+    score::crypto::FormatType format)
+{
+    if (!m_data_manager)
+        return score::crypto::make_unexpected(Error::kInternalError);
+    if (crl_bytes.empty())
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+
+    auto acc_res = m_data_manager->getNodeAccessor(client_id, cert_node_id);
+    if (!acc_res.has_value())
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+
+    auto typed_res = std::move(acc_res).value().downCast<CertDataNode>();
+    if (!typed_res.has_value())
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+
+    auto entry = typed_res.value()->GetCertEntry();
+    if (!entry)
+        return score::crypto::make_unexpected(Error::kInternalError);
+    entry->AttachSessionCrl(std::move(crl_bytes), format);
+    return std::monostate{};
 }
 
 }  // namespace score::crypto::daemon::cert_management
