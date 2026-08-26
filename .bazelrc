@@ -80,6 +80,8 @@ build:x86_64-qnx --config=shared_qnx
 build:x86_64-qnx --platforms=//platforms:x86_64-qnx-extended
 build:x86_64-qnx --extra_toolchains=@score_qcc_x86_64_toolchain//:x86_64-qnx-sdp_8.0.0
 build:x86_64-qnx --extra_toolchains=@score_qnx_x86_64_ifs_toolchain//:ifs-x86_64-qnx-sdp_8.0.0
+build:x86_64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_pc_nto_qnx800
+build:x86_64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 test:x86_64-qnx --run_under=@score_qnx_unit_tests//src:run_under_qnx
 test:x86_64-qnx --test_lang_filters=cc,rust
 test:aarch64-qnx --test_timeout=180,900,2700,10800 # Increase default test timeout by factor 3
@@ -92,6 +94,8 @@ build:aarch64-qnx --config=shared_qnx
 build:aarch64-qnx --platforms=//platforms:aarch64-qnx-extended
 build:aarch64-qnx --extra_toolchains=@score_qcc_aarch64_toolchain//:aarch64-qnx-sdp_8.0.0
 build:aarch64-qnx --extra_toolchains=@score_qnx_aarch64_ifs_toolchain//:ifs-aarch64-qnx-sdp_8.0.0
+build:aarch64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_aarch64_unknown_nto_qnx800
+build:aarch64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 test:aarch64-qnx --run_under=@score_qnx_unit_tests//src:run_under_qnx
 test:aarch64-qnx --test_lang_filters=cc,rust
 test:aarch64-qnx --test_timeout=180,900,2700,10800 # Increase default test timeout by factor 3
@@ -108,6 +112,3 @@ test --test_output=errors
 # Run Cargo build.rs scripts locally so openssl-sys can access host license files
 build:aarch64-qnx --strategy=CargoBuildScriptRun=local
 common --lockfile_mode=error
-
-# Valeo - Force Bazel to use the company's approved x86_64 compiler by default on Linux
-build --config=x86_64-linux
