@@ -55,4 +55,9 @@ score::crypto::Expected<int64_t, score::crypto::daemon::common::DaemonErrorCode>
     return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
 }
 
+score::crypto::FormatType ICertSlotHandler::GetCrlFormat(const CertSlotConfig& /*slot*/)
+{
+    return score::crypto::FormatType::kDer;
+}
+
 }  // namespace score::crypto::daemon::cert_management
