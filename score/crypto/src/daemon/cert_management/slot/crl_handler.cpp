@@ -129,4 +129,13 @@ score::crypto::Expected<std::int64_t, Error> CrlHandler::GetCrlNextUpdate(const 
     }
 }
 
+score::crypto::FormatType CrlHandler::GetCrlFormat(const CertSlotConfig& slot) const
+{
+    const auto descriptor = LoadDescriptor(slot);
+    if (!descriptor)
+        return score::crypto::FormatType::kDer;
+    const auto fmt = descriptor->Get("crl", "crl_format");
+    return (fmt == "pem") ? score::crypto::FormatType::kPem : score::crypto::FormatType::kDer;
+}
+
 }  // namespace score::crypto::daemon::cert_management

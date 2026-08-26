@@ -349,4 +349,62 @@ TEST_F(CertManagementServiceTest, RegisterCertMaterial_EphemeralPath_CreatesReso
     EXPECT_FALSE(m_service->ResolveCertForOperation(kClientA, result->node_id).has_value());
 }
 
+// ---------------------------------------------------------------------------
+// ResolveCertEntryForOperation — returns the CertEntry behind a cert node.
+// Enables callers to access session CRL state alongside the CertObject.
+// ---------------------------------------------------------------------------
+
+TEST_F(CertManagementServiceTest, ResolveCertEntryForOperation_ReturnsSameEntryAsLoaded)
+{
+    const auto result = LoadCert(kClientA);
+    ASSERT_NE(result.node_id, 0U);
+    ASSERT_NE(result.entry, nullptr);
+
+    const auto entry_res = m_service->ResolveCertEntryForOperation(kClientA, result.node_id);
+    ASSERT_TRUE(entry_res.has_value());
+    // Must be the exact same CertEntry (shared ownership), not a copy.
+    EXPECT_EQ(entry_res->get(), result.entry.get());
+    // The resolved entry must expose the same cert object.
+    EXPECT_EQ((*entry_res)->GetCertObject()->GetSubject(), kSubjectInitial);
+}
+
+TEST_F(CertManagementServiceTest, ResolveCertEntryForOperation_UnknownNode_ReturnsError)
+{
+    EXPECT_FALSE(m_service->ResolveCertEntryForOperation(kClientA, 999U).has_value());
+}
+
+// ---------------------------------------------------------------------------
+// AttachSessionCrl — stores CRL bytes in-memory on CertEntry; no disk write.
+// Subsequent GetSessionCrl() on the entry returns the attached bytes.
+// ---------------------------------------------------------------------------
+
+TEST_F(CertManagementServiceTest, AttachSessionCrl_StoresInMemoryNotOnDisk)
+{
+    const auto result = LoadCert(kClientA);
+    ASSERT_NE(result.node_id, 0U);
+
+    // No CRL on disk before the call.
+    EXPECT_FALSE(result.entry->HasSessionCrl());
+
+    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    ASSERT_TRUE(
+        m_service->AttachSessionCrl(kClientA, result.node_id, crl_bytes, score::crypto::FormatType::kDer).has_value());
+
+    // CRL must be accessible in-memory through the entry.
+    EXPECT_TRUE(result.entry->HasSessionCrl());
+    const auto session_crl = result.entry->GetSessionCrl();
+    ASSERT_TRUE(session_crl.has_value());
+    EXPECT_EQ(*session_crl, crl_bytes);
+    EXPECT_EQ(result.entry->GetSessionCrlFormat(), score::crypto::FormatType::kDer);
+
+    // No CRL file must have been written to disk.
+    EXPECT_FALSE(std::filesystem::exists(m_dir / "root_ca.crl"));
+}
+
+TEST_F(CertManagementServiceTest, AttachSessionCrl_UnknownNode_ReturnsError)
+{
+    const std::vector<std::uint8_t> crl_bytes{0x01U};
+    EXPECT_FALSE(m_service->AttachSessionCrl(kClientA, 999U, crl_bytes, score::crypto::FormatType::kDer).has_value());
+}
+
 }  // namespace

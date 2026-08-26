@@ -14,6 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_TRUSTSTORE_TRUST_STORE_MANAGER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_TRUSTSTORE_TRUST_STORE_MANAGER_HPP
 
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_object.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_slot_config.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
@@ -145,11 +147,42 @@ class TrustStoreManager
 
     /// @brief Add a certificate to a trust store's runtime anchor set.
     ///
-    /// Persists the new member to the trust store descriptor.
+    /// Performs a fingerprint dedup across ALL member types before searching for
+    /// an empty exclusive slot — if the cert is already a member (shared-static,
+    /// conditional-external, or exclusive), returns success without consuming a
+    /// new slot.
+    ///
+    /// When @p crl_bytes is non-empty the CRL is written to the exclusive slot
+    /// atomically with the cert (new add) or as an upsert (cert already present).
+    ///
+    /// Upsert semantics for existing members:
+    ///   - kExclusiveMutable match: CRL is stored/updated; cert is re-enabled.
+    ///   - kSharedStatic / kConditionalExternal match: trust store does not own
+    ///     these slots; if crl_bytes is non-empty, kUnsupportedOperation is
+    ///     returned. Callers should use ImportCrl directly on the slot resource.
+    ///
     /// Write access to the trust store must be checked by CertManagementService
     /// before calling this method.
+    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> AddMember(
+        TrustStoreId id,
+        CertObject::Sptr cert,
+        data_manager::ClientId client_id,
+        score::crypto::span<const uint8_t> crl_bytes = {},
+        score::crypto::FormatType crl_format = score::crypto::FormatType::kDer);
+
+    /// @brief Import a CRL to the exclusive trust store slot holding the cert
+    ///        whose SHA-256 fingerprint matches @p fingerprint.
+    ///
+    /// Only operates on kExclusiveMutable members — the trust store owns these.
+    /// Shared-static and conditional-external slots are externally managed;
+    /// callers use CertManagementService::ImportCrlToSlot directly for those.
+    ///
+    /// Returns kInvalidResourceId if no exclusive member fingerprint matches.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    AddMember(TrustStoreId id, CertObject::Sptr cert, data_manager::ClientId client_id);
+    ImportCrlForMember(TrustStoreId id,
+                       score::crypto::span<const uint8_t> fingerprint,
+                       score::crypto::span<const uint8_t> crl_data,
+                       score::crypto::FormatType format);
 
     /// @brief Remove a certificate from a trust store by fingerprint.
     ///
