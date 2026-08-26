@@ -51,6 +51,7 @@ class FileBackedSlotHandler final : public ICertSlotHandler
                                                                               score::crypto::FormatType) override;
     score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearCrl(const CertSlotConfig&) override;
     score::crypto::Expected<int64_t, common::DaemonErrorCode> GetCrlNextUpdate(const CertSlotConfig&) override;
+    score::crypto::FormatType GetCrlFormat(const CertSlotConfig&) override;
 
   private:
     using Handler = CrlHandler;

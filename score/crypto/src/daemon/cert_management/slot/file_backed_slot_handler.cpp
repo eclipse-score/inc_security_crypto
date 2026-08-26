@@ -186,4 +186,9 @@ score::crypto::Expected<int64_t, Error> FileBackedSlotHandler::GetCrlNextUpdate(
 {
     return m_crl.GetCrlNextUpdate(slot);
 }
+
+score::crypto::FormatType FileBackedSlotHandler::GetCrlFormat(const CertSlotConfig& slot)
+{
+    return m_crl.GetCrlFormat(slot);
+}
 }  // namespace score::crypto::daemon::cert_management

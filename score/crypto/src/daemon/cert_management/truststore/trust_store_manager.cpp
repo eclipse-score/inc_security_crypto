@@ -434,31 +434,42 @@ score::crypto::Expected<TrustStoreManager::ResolvedBackend, Error> TrustStoreMan
     return ResolvedBackend{*cfg, handler};
 }
 
-score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(TrustStoreId id,
-                                                                            CertObject::Sptr cert,
-                                                                            data_manager::ClientId client_id)
+score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
+    TrustStoreId id,
+    CertObject::Sptr cert,
+    data_manager::ClientId client_id,
+    score::crypto::span<const uint8_t> crl_bytes,
+    score::crypto::FormatType crl_format)
 {
     std::lock_guard lock(m_mutex);
     if (id >= m_stores.size() || !cert)
         return score::crypto::make_unexpected(Error::kInvalidArgument);
     if (!AccessPolicyEnforcer::CheckTrustStoreWritePermission(m_stores[id].config, client_id).has_value())
         return score::crypto::make_unexpected(Error::kAccessDenied);
+
+    const auto& cert_fp = cert->GetFingerprint();
+    const bool has_crl = !crl_bytes.empty();
+
+    // Dedup: check all member types before consuming an exclusive slot.
     for (const auto& member : m_stores[id].config.members)
     {
-        if (member.kind != TrustStoreMemberKind::kExclusiveMutable)
-            continue;
         const auto resolved = ResolveMember(member);
         if (!resolved)
             continue;
         const auto current = resolved->handler->LoadCertificate(*resolved->cfg);
-        if (current)
+        if (!current)
+            continue;
+        const auto& current_fp = (*current)->GetFingerprint();
+        if (current_fp.size() != cert_fp.size() || !std::equal(current_fp.begin(), current_fp.end(), cert_fp.begin()))
+            continue;
+
+        // Fingerprint match — cert is already a member.
+        if (member.kind == TrustStoreMemberKind::kExclusiveMutable)
         {
-            const auto& current_fp = (*current)->GetFingerprint();
-            const auto& cert_fp = cert->GetFingerprint();
-            if (current_fp.size() != cert_fp.size() ||
-                !std::equal(current_fp.begin(), current_fp.end(), cert_fp.begin()))
-                continue;  // Slot occupied by a different cert — try the next exclusive slot.
-            // Idempotent: cert already stored — re-enable and refresh cache.
+            // Upsert CRL if provided — trust store owns this exclusive slot.
+            if (has_crl)
+                static_cast<void>(resolved->handler->StoreCrl(*resolved->cfg, crl_bytes, crl_format));
+            // Re-enable in case it was disabled and refresh the anchor cache.
             m_member_states[id][resolved->slot.index].enabled = true;
             m_slot_cert_cache[resolved->slot.index] = cert;
             static_cast<TrustStoreHandler*>(m_stores[id].handler.get())->NotifySlotUpdate(resolved->slot, cert);
@@ -466,10 +477,39 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(Trus
                 return score::crypto::make_unexpected(persisted.error());
             return std::monostate{};
         }
-        // Empty slot — store cert here.
+
+        // Shared-static or conditional-external: trust store does not own this slot.
+        // CRL writes on externally-managed slots must go through ImportCrl directly.
+        if (has_crl)
+        {
+            score::mw::log::LogError() << kLogPrefix << "AddMember: cannot write CRL to non-exclusive member '"
+                                       << member.slot_name << "' — use ImportCrl on the slot resource directly";
+            return score::crypto::make_unexpected(Error::kUnsupportedOperation);
+        }
+        return std::monostate{};
+    }
+
+    // No fingerprint match — find an empty exclusive slot and store the cert.
+    for (const auto& member : m_stores[id].config.members)
+    {
+        if (member.kind != TrustStoreMemberKind::kExclusiveMutable)
+            continue;
+        const auto resolved = ResolveMember(member);
+        if (!resolved)
+            continue;
+        const auto state = resolved->handler->GetSlotState(*resolved->cfg);
+        if (!state || *state != score::crypto::CertificateSlotState::kEmpty)
+            continue;  // occupied by a different cert
+
         const auto stored = resolved->handler->StoreCertificate(*resolved->cfg, *cert);
         if (!stored)
             return score::crypto::make_unexpected(stored.error());
+
+        // Best-effort CRL write — cert already persisted; CRL failure is non-fatal.
+        // Caller may retry via ImportCrlForMember.
+        if (has_crl)
+            static_cast<void>(resolved->handler->StoreCrl(*resolved->cfg, crl_bytes, crl_format));
+
         m_member_states[id][resolved->slot.index].enabled = true;
         m_slot_cert_cache[resolved->slot.index] = cert;
         static_cast<TrustStoreHandler*>(m_stores[id].handler.get())->NotifySlotUpdate(resolved->slot, cert);
@@ -478,6 +518,36 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(Trus
         return std::monostate{};
     }
     return score::crypto::make_unexpected(Error::kTrustStoreCapacityExceeded);
+}
+
+score::crypto::Expected<std::monostate, Error> TrustStoreManager::ImportCrlForMember(
+    TrustStoreId id,
+    score::crypto::span<const uint8_t> fingerprint,
+    score::crypto::span<const uint8_t> crl_data,
+    score::crypto::FormatType format)
+{
+    std::lock_guard lock(m_mutex);
+    if (id >= m_stores.size())
+        return score::crypto::make_unexpected(Error::kInvalidResourceId);
+    if (fingerprint.size() != 32U || crl_data.empty())
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+
+    for (const auto& member : m_stores[id].config.members)
+    {
+        if (member.kind != TrustStoreMemberKind::kExclusiveMutable)
+            continue;
+        const auto resolved = ResolveMember(member);
+        if (!resolved)
+            continue;
+        const auto current = resolved->handler->LoadCertificate(*resolved->cfg);
+        if (!current)
+            continue;
+        const auto& fp = (*current)->GetFingerprint();
+        if (fp.size() != fingerprint.size() || !std::equal(fp.begin(), fp.end(), fingerprint.begin()))
+            continue;
+        return resolved->handler->StoreCrl(*resolved->cfg, crl_data, format);
+    }
+    return score::crypto::make_unexpected(Error::kInvalidResourceId);
 }
 
 score::crypto::Expected<std::monostate, Error> TrustStoreManager::RemoveMember(TrustStoreId id,

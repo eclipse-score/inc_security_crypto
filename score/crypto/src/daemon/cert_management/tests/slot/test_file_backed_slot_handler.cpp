@@ -180,6 +180,65 @@ TEST_F(FileBackedSlotHandlerTest, GetSlotState_EmptyForFreshSlot)
     EXPECT_EQ(m_handler->GetSlotState(m_slot).value(), score::crypto::CertificateSlotState::kEmpty);
 }
 
+// GetCrlFormat must return kDer (default) when no crl_format key is present in
+// the descriptor's [crl] section. The fixture's SetUp writes crl_path but not
+// crl_format, so this covers the "key absent" path in CrlHandler::GetCrlFormat.
+TEST_F(FileBackedSlotHandlerTest, GetCrlFormat_ReturnsDerWhenNoFormatKey)
+{
+    EXPECT_EQ(m_handler->GetCrlFormat(m_slot), score::crypto::FormatType::kDer);
+}
+
+// After storing a CRL with kPem format, GetCrlFormat must return kPem. This
+// verifies that StoreCrl writes the format to the descriptor and GetCrlFormat
+// reads it back correctly.
+TEST_F(FileBackedSlotHandlerTest, GetCrlFormat_ReadsFormatFromDescriptor)
+{
+    const std::vector<std::uint8_t> crl{0x01U, 0x02U, 0x03U};
+    ASSERT_TRUE(m_handler
+                    ->StoreCrl(m_slot,
+                               score::crypto::span<const std::uint8_t>{crl.data(), crl.size()},
+                               score::crypto::FormatType::kPem)
+                    .has_value());
+    EXPECT_EQ(m_handler->GetCrlFormat(m_slot), score::crypto::FormatType::kPem);
+}
+
+// ClearSlot must be idempotent: calling it a second time on an already-cleared
+// slot must return success rather than an error. The FileExists guard ensures
+// RemoveFile is not called when the cert file is already absent.
+TEST_F(FileBackedSlotHandlerTest, ClearSlot_IsIdempotent)
+{
+    cert::CertChainMetadata metadata;
+    metadata.subject_canonical = "CN=file-test";
+    metadata.issuer_canonical = "CN=file-test";
+    auto certificate = std::make_shared<cert::CertObject>(
+        std::move(metadata), std::vector<std::uint8_t>{1U, 2U, 3U}, score::crypto::FormatType::kDer);
+
+    ASSERT_TRUE(m_handler->StoreCertificate(m_slot, *certificate).has_value());
+
+    ASSERT_TRUE(m_handler->ClearSlot(m_slot).has_value());
+    // Second call must succeed — slot is already empty.
+    ASSERT_TRUE(m_handler->ClearSlot(m_slot).has_value());
+    EXPECT_EQ(m_handler->GetSlotState(m_slot).value(), score::crypto::CertificateSlotState::kEmpty);
+}
+
+// ClearCrl must be idempotent: calling it a second time when no CRL file exists
+// must return success. The FileExists guard prevents a spurious error from
+// RemoveFile on an absent file.
+TEST_F(FileBackedSlotHandlerTest, ClearCrl_IsIdempotent)
+{
+    const std::vector<std::uint8_t> crl{0x0AU, 0x0BU};
+    ASSERT_TRUE(m_handler
+                    ->StoreCrl(m_slot,
+                               score::crypto::span<const std::uint8_t>{crl.data(), crl.size()},
+                               score::crypto::FormatType::kDer)
+                    .has_value());
+
+    ASSERT_TRUE(m_handler->ClearCrl(m_slot).has_value());
+    // Second call must succeed — CRL file is already gone.
+    ASSERT_TRUE(m_handler->ClearCrl(m_slot).has_value());
+    EXPECT_FALSE(m_handler->HasCrl(m_slot));
+}
+
 // ---------------------------------------------------------------------------
 // OpenSSL-backed tests — verify real metadata extraction from test vectors.
 // These tests require the openssl_backend_active build constraint.

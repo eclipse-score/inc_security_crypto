@@ -174,6 +174,14 @@ class ICertSlotHandler
     /// Default: returns kUnsupportedOperation.
     [[nodiscard]] virtual score::crypto::Expected<int64_t, score::crypto::daemon::common::DaemonErrorCode>
     GetCrlNextUpdate(const CertSlotConfig& slot);
+
+    /// Return the format (DER or PEM) of the CRL stored in the slot's [crl] section.
+    ///
+    /// Reads the crl_format key from the deployment descriptor without loading
+    /// the CRL bytes. Returns kDer when no [crl] section or format key is present.
+    ///
+    /// Default: returns kDer.
+    [[nodiscard]] virtual score::crypto::FormatType GetCrlFormat(const CertSlotConfig& slot);
 };
 
 /// Factory function type for creating a slot handler from a slot configuration.
