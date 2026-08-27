@@ -17,6 +17,7 @@
 
 mod common;
 
+use std::path::PathBuf;
 use cryptoki::pkcs11::constants::*;
 use cryptoki::pkcs11::types::*;
 use serial_test::serial;
@@ -24,6 +25,10 @@ use std::ffi::c_void;
 use std::ptr;
 
 // ── Helpers ──────────────────────────────────────────────────────────────
+
+fn test_tmp_dir() -> PathBuf {
+    std::env::var_os("TEST_TMPDIR").map(PathBuf::from).unwrap_or_else(std::env::temp_dir)
+}
 
 unsafe fn init_and_open_session() -> CK_SESSION_HANDLE {
     let fl = common::fn_list();
@@ -132,7 +137,8 @@ unsafe fn count_secret_keys(session: CK_SESSION_HANDLE) -> usize {
 #[test]
 #[serial]
 fn test_token_objects_persist_across_finalize() {
-    let store_path = format!("/tmp/pkcs11_persist_test_{}.json", std::process::id());
+    let store_path = test_tmp_dir().join(format!("pkcs11_persist_test_{}.json", std::process::id()));
+    let store_path = store_path.to_str().unwrap().to_string();
     std::env::set_var("CRYPTOKI_STORE", &store_path);
 
     // Clean up any leftover file
@@ -175,7 +181,8 @@ fn test_token_objects_persist_across_finalize() {
 #[test]
 #[serial]
 fn test_session_objects_do_not_persist() {
-    let store_path = format!("/tmp/pkcs11_session_test_{}.json", std::process::id());
+    let store_path = test_tmp_dir().join(format!("pkcs11_session_test_{}.json", std::process::id()));
+    let store_path = store_path.to_str().unwrap().to_string();
     std::env::set_var("CRYPTOKI_STORE", &store_path);
     let _ = std::fs::remove_file(&store_path);
 
@@ -236,7 +243,8 @@ fn test_session_objects_do_not_persist() {
 #[test]
 #[serial]
 fn test_rsa_keypair_persists() {
-    let store_path = format!("/tmp/pkcs11_rsa_persist_{}.json", std::process::id());
+    let store_path = test_tmp_dir().join(format!("pkcs11_rsa_persist_{}.json", std::process::id()));
+    let store_path = store_path.to_str().unwrap().to_string();
     std::env::set_var("CRYPTOKI_STORE", &store_path);
     let _ = std::fs::remove_file(&store_path);
 
@@ -333,7 +341,8 @@ fn test_rsa_keypair_persists() {
 #[test]
 #[serial]
 fn test_storage_file_created_and_valid_json() {
-    let store_path = format!("/tmp/pkcs11_json_test_{}.json", std::process::id());
+    let store_path = test_tmp_dir().join(format!("pkcs11_json_test_{}.json", std::process::id()));
+    let store_path = store_path.to_str().unwrap().to_string();
     std::env::set_var("CRYPTOKI_STORE", &store_path);
     let _ = std::fs::remove_file(&store_path);
 

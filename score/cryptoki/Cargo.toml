@@ -11,7 +11,7 @@ path       = "lib.rs"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
-libc           = "0.2"
+libc           = "=0.2.186" # >=0.2.187 panics on QNX8 targets (see score_crates 0.0.11)
 parsec-client  = "0.16"
 openssl     = "0.10"
 parking_lot = "0.12"

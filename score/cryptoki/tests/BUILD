@@ -54,8 +54,23 @@ _TESTS_NO_COMMON = [
     "storage_atomic_writes",
 ]
 
-_CPP_LINKER_FLAGS = [
-    "-Clink-arg=-lstdc++",
+# TODO(#workaround): Mark flaky tests to be retried or handled specially
+_FLAKY_TESTS = [
+    "attribute_policy",
+    "copy_object",
+    "engine_integration",
+    "mechanism_policy",
+    "message_api",
+    "ro_session",
+    "signing",
+    "pkcs11_integration",
+    "wrap_acl",
+]
+
+_CPP_LINKER_FLAGS = select({
+    "@platforms//os:qnx": ["-Clink-arg=-lc++"],   # QNX uses libc++
+    "//conditions:default": ["-Clink-arg=-lstdc++"],
+}) + [
     "-Clink-arg=-lm",
     "-Clink-arg=-lc",
     "-Clink-arg=-lssl",
@@ -75,6 +90,8 @@ _CPP_LINKER_FLAGS = [
     ),
     crate_root = name + ".rs",
     env = {"RUST_TEST_THREADS": "1"},
+    flaky = name in _FLAKY_TESTS,
+    tags = ["flaky"] if name in _FLAKY_TESTS else [],
     rustc_flags = _CPP_LINKER_FLAGS,
     visibility = ["//visibility:public"],
     proc_macro_deps = all_crate_deps(
@@ -100,6 +117,8 @@ _CPP_LINKER_FLAGS = [
     ),
     crate_root = name + ".rs",
     env = {"RUST_TEST_THREADS": "1"},
+    flaky = name in _FLAKY_TESTS,
+    tags = ["flaky"] if name in _FLAKY_TESTS else [],
     rustc_flags = _CPP_LINKER_FLAGS,
     visibility = ["//visibility:public"],
     proc_macro_deps = all_crate_deps(

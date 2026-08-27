@@ -44,8 +44,10 @@ DEPS = [
 ]
 
 # Shared C/C++ linker flags required by score_log_bridge
-CPP_LINKER_FLAGS = [
-    "-Clink-arg=-lstdc++",
+CPP_LINKER_FLAGS = select({
+    "@platforms//os:qnx": ["-Clink-arg=-lc++"],   # QNX uses libc++
+    "//conditions:default": ["-Clink-arg=-lstdc++"],
+}) + [
     "-Clink-arg=-lm",
     "-Clink-arg=-lc",
 ]
