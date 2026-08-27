@@ -15,6 +15,7 @@
 try-import %workspace%/user.bazelrc
 
 build --per_file_copt=external/score_baselibs.*/.*@-Wno-deprecated-declarations
+build --per_file_copt=external/score_logging.*/.*@-Wno-deprecated-declarations
 common --@score_baselibs//score/json:base_library=nlohmann # TODO : https://github.com/eclipse-score/baselibs/issues/57
 build --java_language_version=17
 build --tool_java_language_version=17
@@ -25,6 +26,7 @@ build --tool_java_runtime_version=remotejdk_17
 common --action_env=QNX_LICENSE_EXTSERVER_DELAY=59
 
 test --test_output=errors
+test --test_env=CRYPTOKI_WEAK_PIN_HASHING=1
 
 # Bazel registry configuration
 common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
@@ -34,6 +36,7 @@ common --credential_helper=*.qnx.com=%workspace%/.github/tools/qnx_credential_he
 common --credential_helper_timeout="60s"
 
 # Shared configuration for simple test execution
+common --experimental_isolated_extension_usages
 build:shared --incompatible_strict_action_env
 build:shared --sandbox_writable_path=/var/tmp
 build:shared --host_platform=@score_bazel_platforms//:x86_64-linux
@@ -52,6 +55,7 @@ build:shared_qnx --cxxopt=-DGRPC_POSIX_SOCKET
 build:shared_qnx --cxxopt=-DGRPC_POSIX_SOCKETUTILS
 build:shared_qnx --cxxopt=-DGRPC_POSIX_WAKEUP_FD
 build:shared_qnx --cxxopt=-DIP_PKTINFO=0
+build:shared_qnx --@score_baselibs//score/memory/shared/flags:use_typedshmd=false
 
 # -------------------------------------------------------------------------------
 # Config dedicated to host platform CPU:x86_64 and OS:Linux
@@ -59,7 +63,6 @@ build:shared_qnx --cxxopt=-DIP_PKTINFO=0
 build:x86_64-linux --config=shared
 build:x86_64-linux --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
 build:x86_64-linux --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
-build:x86_64-linux --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 build:x86_64-linux --features=use_pthread
 
 # -------------------------------------------------------------------------------
@@ -68,7 +71,6 @@ build:x86_64-linux --features=use_pthread
 build:aarch64-linux --config=shared
 build:aarch64-linux --platforms=@score_bazel_platforms//:aarch64-linux-gcc_12.2.0-posix
 build:aarch64-linux --extra_toolchains=@score_gcc_aarch64_toolchain//:aarch64-linux-gcc_12.2.0
-build:aarch64-linux --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_aarch64_unknown_linux_gnu
 
 # -------------------------------------------------------------------------------
 # Config dedicated to target platform CPU:x86_64 and OS:QNX
@@ -79,6 +81,7 @@ build:x86_64-qnx --platforms=//platforms:x86_64-qnx-extended
 build:x86_64-qnx --extra_toolchains=@score_qcc_x86_64_toolchain//:x86_64-qnx-sdp_8.0.0
 build:x86_64-qnx --extra_toolchains=@score_qnx_x86_64_ifs_toolchain//:ifs-x86_64-qnx-sdp_8.0.0
 build:x86_64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_pc_nto_qnx800
+build:x86_64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 test:x86_64-qnx --run_under=@score_qnx_unit_tests//src:run_under_qnx
 test:x86_64-qnx --test_lang_filters=cc,rust
 test:aarch64-qnx --test_timeout=180,900,2700,10800 # Increase default test timeout by factor 3
@@ -92,6 +95,20 @@ build:aarch64-qnx --platforms=//platforms:aarch64-qnx-extended
 build:aarch64-qnx --extra_toolchains=@score_qcc_aarch64_toolchain//:aarch64-qnx-sdp_8.0.0
 build:aarch64-qnx --extra_toolchains=@score_qnx_aarch64_ifs_toolchain//:ifs-aarch64-qnx-sdp_8.0.0
 build:aarch64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_aarch64_unknown_nto_qnx800
+build:aarch64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 test:aarch64-qnx --run_under=@score_qnx_unit_tests//src:run_under_qnx
 test:aarch64-qnx --test_lang_filters=cc,rust
 test:aarch64-qnx --test_timeout=180,900,2700,10800 # Increase default test timeout by factor 3
+
+# Clippy linting
+# build --aspects=@score_rust_policies//clippy:linters.bzl%clippy_strict
+build --output_groups=+rules_lint_human
+build:lint --@aspect_rules_lint//lint:fail_on_violation=true
+build:lint --config=per-x86_64-linux
+
+# Test settings
+test --test_output=errors
+
+# Run Cargo build.rs scripts locally so openssl-sys can access host license files
+build:aarch64-qnx --strategy=CargoBuildScriptRun=local
+common --lockfile_mode=error

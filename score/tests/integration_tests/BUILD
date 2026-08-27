@@ -15,10 +15,10 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
 load("@score_itf//:defs.bzl", "py_itf_test")
 
 cc_binary(
-    name = "init_softhsm_token",
-    srcs = ["init_softhsm_token.cpp"],
+    name = "init_pkcs11_token",
+    srcs = ["init_pkcs11_token.cpp"],
     deps = [
-        "//third_party/soft_hsm:softhsm_shared",
+        "//score/crypto/src/backend:active_pkcs11_backend",
     ],
 )
 
@@ -87,11 +87,11 @@ py_itf_test(
         "--log-level=WARNING",
     ],
     data = [
-        ":hash_performance_test",
-        ":init_softhsm_token",
+        ":init_pkcs11_token",
         ":score_api_hash_example",
         ":score_api_mac_example",
         ":score_demo",
+        ":hash_performance_test",
         "//score/crypto/src/api/control_plane",
         "//score/crypto/src/daemon:crypto_daemon",
         "//score/tests/config:logging.json",

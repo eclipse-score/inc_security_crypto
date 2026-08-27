@@ -122,6 +122,7 @@ class Pkcs11ProviderHashTest : public ::testing::Test
         // CKR_OK is fine too (first test or fresh process).
         ASSERT_TRUE((rv == CKR_OK) || (rv == CKR_CRYPTOKI_ALREADY_INITIALIZED));
 
+#ifndef USE_RUST_PKCS11
         // Get first available slot (without token).
         CK_ULONG slotCount{0U};
         rv = fl->C_GetSlotList(CK_FALSE, nullptr, &slotCount);
@@ -162,6 +163,7 @@ class Pkcs11ProviderHashTest : public ::testing::Test
         ASSERT_EQ(rv, CKR_OK);
         rv = fl->C_CloseSession(tmpSession);
         ASSERT_EQ(rv, CKR_OK);
+#endif // USE_RUST_PKCS11
 
         // NOTE: Do NOT call C_Finalize here — the provider manages module lifecycle.
         // The provider's Pkcs11Module will finalize when it's destroyed.

@@ -1,0 +1,47 @@
+diff -urN a/build/main.rs b/build/main.rs
+--- a/build/main.rs
++++ b/build/main.rs
+@@ -131,1 +131,43 @@
+ fn main() {
++    println!("cargo:rustc-cfg=openssl");
++
++    // 1. Declare S-CORE's compiled OpenSSL version and the highest supported crate version
++    const S_CORE_OPENSSL_VERSION: &str = "3.6.1";
++    const MAX_SUPPORTED_VERSION: &str = "3.5.0";
++
++    // 2. Perform safety validation:
++    // If S-CORE's C++ OpenSSL is upgraded to an incompatible major version (like 4.0.0 or 5.0.0)
++    // without upgrading the Rust crate, we intentionally throw a clear, custom compile error!
++    let s_core_major: u64 = S_CORE_OPENSSL_VERSION.split('.').next().unwrap().parse().unwrap();
++    let max_major: u64 = MAX_SUPPORTED_VERSION.split('.').next().unwrap().parse().unwrap();
++    if s_core_major > max_major {
++        panic!(
++            "Incompatibility Error: S-CORE's compiled OpenSSL version ({}) has a different major release than this crate's highest supported bindings ({})! Please upgrade the openssl-sys crate version in Cargo.toml.",
++            S_CORE_OPENSSL_VERSION,
++            MAX_SUPPORTED_VERSION
++        );
++    }
++
++    // 3. Emit the correct, matching version flags up to the highest supported fallback
++    println!("cargo:rustc-cfg=ossl101");
++    println!("cargo:rustc-cfg=ossl102");
++    println!("cargo:rustc-cfg=ossl102f");
++    println!("cargo:rustc-cfg=ossl102h");
++    println!("cargo:rustc-cfg=ossl110");
++    println!("cargo:rustc-cfg=ossl110f");
++    println!("cargo:rustc-cfg=ossl110g");
++    println!("cargo:rustc-cfg=ossl110h");
++    println!("cargo:rustc-cfg=ossl111");
++    println!("cargo:rustc-cfg=ossl111b");
++    println!("cargo:rustc-cfg=ossl111c");
++    println!("cargo:rustc-cfg=ossl111d");
++    println!("cargo:rustc-cfg=ossl300");
++    println!("cargo:rustc-cfg=ossl310");
++    println!("cargo:rustc-cfg=ossl320");
++    println!("cargo:rustc-cfg=ossl330");
++    println!("cargo:rustc-cfg=ossl340");
++    println!("cargo:rustc-cfg=ossl350");
++
++    println!("cargo:version_number=30500000"); // 3.5.0 (highest version openssl-sys 0.9.116 supports for OpenSSL 3.6.1 fallback)
++    println!("cargo:conf=");
++    return;

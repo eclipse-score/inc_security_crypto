@@ -25,7 +25,7 @@
       {
         "slot_name": "test/pkcs11-AES-256",
         "algorithm": "AES-256",
-        "provider_names": ["SOFTHSM"],
+        "provider_names": ["PKCS11_ENGINE"],
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
@@ -43,9 +43,9 @@
         "deployment_format" : "kv"
       },
       {
-        "slot_name": "HMAC_SHA256_IntegrationTestKey_SoftHSM",
+        "slot_name": "HMAC_SHA256_IntegrationTestKey",
         "algorithm": "AES-256",
-        "provider_names": ["SOFTHSM"],
+        "provider_names": ["PKCS11_ENGINE"],
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
@@ -76,8 +76,8 @@
       },
       {
         "uid": 0,
-        "app_resource_id": "HMAC_SHA256_IntegrationTestKey_SoftHSM",
-        "slot_name": "HMAC_SHA256_IntegrationTestKey_SoftHSM"
+        "app_resource_id": "HMAC_SHA256_IntegrationTestKey",
+        "slot_name": "HMAC_SHA256_IntegrationTestKey"
       },
       {
         "uid": 1000,
@@ -101,8 +101,8 @@
       },
       {
         "uid": 1000,
-        "app_resource_id": "HMAC_SHA256_IntegrationTestKey_SoftHSM",
-        "slot_name": "HMAC_SHA256_IntegrationTestKey_SoftHSM"
+        "app_resource_id": "HMAC_SHA256_IntegrationTestKey",
+        "slot_name": "HMAC_SHA256_IntegrationTestKey"
       }
     ]
   }

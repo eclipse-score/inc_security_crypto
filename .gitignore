@@ -78,3 +78,10 @@ ubproject.toml
 
 # Devcontainer
 .devcontainer/devcontainer-lock.json
+# Ignore C++ native build directory
+/cpp/build/*
+
+# Rust
+# Cargo
+target/
+**/*.rs.bk

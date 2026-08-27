@@ -17,6 +17,7 @@
 API Dynamic Architecture
 ========================
 
+
 .. code-block:: rst
    
    .. comp_arc_dyn:: Dynamic View
@@ -25,6 +26,7 @@ API Dynamic Architecture
       :safety: QM
       :status: invalid
       :fulfils:
+
 
       Dynamic interactions for typical crypto operations.
 

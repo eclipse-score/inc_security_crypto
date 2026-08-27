@@ -528,7 +528,7 @@ const std::string kMacHmacSha256OutDataPathAlternative =
     "/opt/crypto/tests/test_vectors/mac/hmac_sha256_complete_data.bin";
 
 const std::string kHmacSha256KeySlotNameOpenSSL = "HMAC_SHA256_IntegrationTestKey_OpenSSL";
-const std::string kHmacSha256KeySlotNameSoftHSM = "HMAC_SHA256_IntegrationTestKey_SoftHSM";
+const std::string kHmacSha256KeySlotName = "HMAC_SHA256_IntegrationTestKey";
 
 // =========================================================================
 // Test Suite: Generated Key MAC (self-consistency, no fixed vectors)
@@ -587,7 +587,7 @@ INSTANTIATE_TEST_SUITE_P(KeySlotProviderType,
                                                               kMacInDataPathAlternative,
                                                               kMacHmacSha256OutDataPath,
                                                               kMacHmacSha256OutDataPathAlternative,
-                                                              kHmacSha256KeySlotNameSoftHSM},
+                                                              kHmacSha256KeySlotName},
                                            KeySlotMacTestData{"HMAC_SHA256_KeySlot_DefaultProviderType",
                                                               ProviderType::kDefault,
                                                               kAlgHmacSha256,
@@ -597,7 +597,7 @@ INSTANTIATE_TEST_SUITE_P(KeySlotProviderType,
                                                               kMacInDataPathAlternative,
                                                               kMacHmacSha256OutDataPath,
                                                               kMacHmacSha256OutDataPathAlternative,
-                                                              kHmacSha256KeySlotNameSoftHSM},
+                                                              kHmacSha256KeySlotName},
                                            KeySlotMacTestData{"HMAC_SHA256_KeySlot_SoftwareProvider",
                                                               ProviderType::kSoftware,
                                                               kAlgHmacSha256,
@@ -617,7 +617,7 @@ INSTANTIATE_TEST_SUITE_P(KeySlotProviderType,
                                                               kMacInDataPathAlternative,
                                                               kMacHmacSha256OutDataPath,
                                                               kMacHmacSha256OutDataPathAlternative,
-                                                              kHmacSha256KeySlotNameSoftHSM}),
+                                                              kHmacSha256KeySlotName}),
                          [](const testing::TestParamInfo<KeySlotMacTest::ParamType>& info) {
                              return info.param.test_case_name;
                          });

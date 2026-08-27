@@ -14,30 +14,20 @@
 name: Documentation
 
 permissions:
-  contents: write
-  pages: write
-  pull-requests: write
-  id-token: write
+  contents: read
 
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize] # Allows forks to trigger the docs build
+  pull_request:
+    types: [opened, reopened, synchronize]
   push:
     branches:
       - main
   merge_group:
     types: [checks_requested]
+  release:
+    types: [published]
+  workflow_dispatch:
 
 jobs:
   build-docs:
     uses: eclipse-score/cicd-workflows/.github/workflows/docs.yml@8d80e8df150cae21d53cbc8031d0f970648f7a67 # v0.0.3
-    permissions:
-      contents: write
-      pages: write
-      pull-requests: write
-      id-token: write
-
-    with:
-      # the bazel-target depends on your repo specific docs_targets configuration (e.g. "suffix")
-      bazel-target: "--lockfile_mode=error //:docs -- --github_user=${{ github.repository_owner }} --github_repo=${{ github.event.repository.name }}"
-      retention-days: 3

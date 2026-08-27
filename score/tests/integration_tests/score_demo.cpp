@@ -58,7 +58,7 @@ const std::size_t kHmacSha256MacSize = 32;
 // Both slots contain the same key material, but are associated
 // with different providers.
 const std::string kSlotOpenSSL = "HMAC_SHA256_IntegrationTestKey_OpenSSL";
-const std::string kSlotSoftHSM = "HMAC_SHA256_IntegrationTestKey_SoftHSM";
+const std::string kSlotPKCS11 = "HMAC_SHA256_IntegrationTestKey";
 
 // Test data
 const std::string kTestDataPath = "/opt/crypto/tests/test_vectors/mac/input_hello_world.bin";
@@ -236,7 +236,7 @@ int main()
     // =========================================================================
     print_section("PROVIDER 2: SoftHSM (Hardware)");
 
-    auto result_softhsm = ComputeMacWithProvider(kSlotSoftHSM, ProviderType::kHardware, test_data, expected_mac);
+    auto result_softhsm = ComputeMacWithProvider(kSlotPKCS11, ProviderType::kHardware, test_data, expected_mac);
     if (!result_softhsm.has_value())
     {
         print_error("Hardware provider (SoftHSM) unavailable or verification failed");
