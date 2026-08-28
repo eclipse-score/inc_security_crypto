@@ -50,11 +50,16 @@ The implementation is divided by responsibility:
   ``CertEntry``.
 * ``nodes/`` contains DataManager nodes for certificate slots, loaded
   certificates, and trust stores.
-* ``slot/`` contains slot registration, file-backed storage, deployment
-  dispatch, and co-located CRL storage.
+* ``slot/`` contains slot registration, file-backed storage
+  (``FileBackedSlotHandler``), PKCS#11 storage (``Pkcs11CertSlotHandler``),
+  deployment dispatch, and co-located CRL storage (``CrlHandler``).
 * ``truststore/`` contains trust-store membership, anchor caching, persistence,
   and per-client references.
 * ``policy/`` contains the shared slot/trust-store access-policy checks.
+* ``query/`` contains ``CertObjectSerializer`` — the single source of IPC
+  wire-format encoding for certificate, slot, and trust-store objects. Both
+  the executor and the mediator's typed-object handlers depend on this module;
+  changing the wire layout requires one edit.
 * ``provider/`` supplies parsing and provider-specific context handlers. The
   selected certificate-management provider must expose ``ICertParser``;
   certificate management does not require a particular provider.

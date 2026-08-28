@@ -35,6 +35,7 @@ package "cert_management" {
     [CertSlotRegistry]
     [ConfigDrivenSlotCatalog]
     [FileBackedSlotHandler]
+    [Pkcs11CertSlotHandler]
     [CrlHandler]
   }
   package "truststore" {
@@ -44,6 +45,9 @@ package "cert_management" {
   }
   package "policy" {
     [AccessPolicyEnforcer]
+  }
+  package "query" {
+    [CertObjectSerializer]
   }
 }
 
@@ -55,6 +59,10 @@ package "daemon/common" {
 package "provider" {
   [OpenSslCertParser]
   [Provider Context Handlers]
+}
+
+package "daemon/mediator" {
+  [Mediator]
 }
 
 [CertManagementService] --> [CertRegistry]
@@ -76,8 +84,13 @@ package "provider" {
 [FileBackedSlotHandler] --> [CrlHandler]
 [FileBackedSlotHandler] --> ICertParser
 [FileBackedSlotHandler] --> [Shared Deployment Storage]
+[Pkcs11CertSlotHandler] ..|> ICertSlotHandler
+[Pkcs11CertSlotHandler] --> [CrlHandler]
 [OpenSslCertParser] ..|> ICertParser
 [OpenSslCertParser] --> [CertObject]
 [Provider Context Handlers] --> [CertObject]
+[CertObjectSerializer] --> [CertManagementService]
+[Provider Context Handlers] --> [CertObjectSerializer]
+[Mediator] --> [CertObjectSerializer]
 
 @enduml

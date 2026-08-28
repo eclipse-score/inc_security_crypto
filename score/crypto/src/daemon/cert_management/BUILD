@@ -14,6 +14,19 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
+    name = "cert_object_serializer",
+    srcs = ["query/cert_object_serializer.cpp"],
+    hdrs = ["query/cert_object_serializer.hpp"],
+    includes = ["."],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":cert_management",
+        ":cert_management_headers",
+        "//score/crypto/src/daemon/common",
+    ],
+)
+
+cc_library(
     name = "cert_management_headers",
     hdrs = glob([
         "interfaces/*.hpp",

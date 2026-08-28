@@ -33,6 +33,7 @@
 
 #include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"
@@ -70,19 +71,22 @@ class CertManagementServiceTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        m_dir = std::filesystem::temp_directory_path() / "score_cert_mgmt_service";
+        cert::test::ConfigureTestLogging();
+        m_dir = cert::test::TempDirectory("score_cert_mgmt_service");
         std::filesystem::remove_all(m_dir);
         std::filesystem::create_directories(m_dir);
         m_cert_path = m_dir / "root_ca.pem";
         m_cert_updated_path = m_dir / "root_ca_updated.pem";
         m_descriptor_path = m_dir / "root_ca.kv";
 
-        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/certificate.pem",
-                                               m_cert_path,
-                                               std::filesystem::copy_options::overwrite_existing));
-        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/certificate_updated.pem",
-                                               m_cert_updated_path,
-                                               std::filesystem::copy_options::overwrite_existing));
+        ASSERT_TRUE(std::filesystem::copy_file(
+            cert::test::TestVectorPath("score/tests/test_vectors/certificate/certificate.pem"),
+            m_cert_path,
+            std::filesystem::copy_options::overwrite_existing));
+        ASSERT_TRUE(std::filesystem::copy_file(
+            cert::test::TestVectorPath("score/tests/test_vectors/certificate/certificate_updated.pem"),
+            m_cert_updated_path,
+            std::filesystem::copy_options::overwrite_existing));
 
         // Write the KV descriptor pointing at the initial cert.
         storage::DeploymentDescriptor desc;
@@ -113,6 +117,8 @@ class CertManagementServiceTest : public ::testing::Test
 
     void TearDown() override
     {
+        static_cast<void>(m_data_manager->deleteClientNodes(kClientA));
+        static_cast<void>(m_data_manager->deleteClientNodes(kClientB));
         std::error_code ec;
         std::filesystem::remove_all(m_dir, ec);
     }

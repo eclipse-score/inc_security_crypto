@@ -44,6 +44,10 @@ inline constexpr OperationAction TRUST_STORE_DISABLE_CERT = 0xC3U;
 inline constexpr OperationAction TRUST_STORE_ACK_UPDATE = 0xC4U;
 inline constexpr OperationAction TRUST_STORE_REMOVE_CERT_BY_ID = 0xC5U;      // remove by cert node_id (lib resolves fp)
 inline constexpr OperationAction TRUST_STORE_IMPORT_CRL_FOR_MEMBER = 0xC6U;  // fingerprint + CRL bytes → exclusive slot
+inline constexpr OperationAction TRUST_STORE_GET_INFO = 0xC7U;               // read-only snapshot: member list + state
+// Enable/disable now fingerprint-based at the IPC layer (no slot_node_id round-trip needed from lib side):
+// TRUST_STORE_ENABLE_CERT (0xC2): [0]=ts_node_id, [1]=fingerprint_bytes
+// TRUST_STORE_DISABLE_CERT (0xC3): [0]=ts_node_id, [1]=fingerprint_bytes
 
 inline constexpr OperationAction CERT_RELEASE = 0xF0U;
 
