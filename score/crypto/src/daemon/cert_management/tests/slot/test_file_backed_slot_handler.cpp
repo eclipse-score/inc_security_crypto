@@ -57,6 +57,16 @@ class FakeParser final : public provider::ICertParser
             return score::crypto::make_unexpected(parsed.error());
         return std::vector<cert::CertObject::Sptr>{*parsed};
     }
+
+    score::crypto::Expected<std::int64_t, Error> ValidateCrl(const std::uint8_t*,
+                                                             std::size_t,
+                                                             score::crypto::FormatType,
+                                                             const std::uint8_t*,
+                                                             std::size_t,
+                                                             score::crypto::FormatType) override
+    {
+        return 0;
+    }
 };
 
 class FileBackedSlotHandlerTest : public ::testing::Test

@@ -134,8 +134,11 @@ struct SlotHandlerStub : public cert::ICertSlotHandler
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
 
-    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    StoreCrl(const cert::CertSlotConfig&, score::crypto::span<const uint8_t>, score::crypto::FormatType) override
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> StoreCrl(
+        const cert::CertSlotConfig&,
+        score::crypto::span<const uint8_t>,
+        score::crypto::FormatType,
+        std::int64_t) override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }

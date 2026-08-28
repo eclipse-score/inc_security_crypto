@@ -250,4 +250,109 @@ OpenSslCertParser::ParseCertificates(const std::uint8_t* bytes, std::size_t size
     return result;
 }
 
+// ---------------------------------------------------------------------------
+// CRL validation
+// ---------------------------------------------------------------------------
+
+namespace
+{
+struct X509CrlDeleter
+{
+    void operator()(X509_CRL* p) const noexcept
+    {
+        X509_CRL_free(p);
+    }
+};
+using X509CrlPtr = std::unique_ptr<X509_CRL, X509CrlDeleter>;
+
+// Parse raw CRL bytes (DER or PEM) into an OpenSSL CRL object.
+X509CrlPtr ParseCrlBytes(const std::uint8_t* data, std::size_t size, score::crypto::FormatType format)
+{
+    if (format == score::crypto::FormatType::kDer)
+    {
+        const uint8_t* ptr = data;
+        return X509CrlPtr(d2i_X509_CRL(nullptr, &ptr, static_cast<long>(size)));
+    }
+    auto* bio_raw = BIO_new_mem_buf(data, static_cast<int>(size));
+    if (!bio_raw)
+        return nullptr;
+    std::unique_ptr<BIO, decltype(&BIO_free)> bio{bio_raw, &BIO_free};
+    return X509CrlPtr(PEM_read_bio_X509_CRL(bio.get(), nullptr, nullptr, nullptr));
+}
+
+// Convert an ASN1_TIME to a Unix epoch (seconds). Returns 0 if unavailable.
+std::int64_t Asn1TimeToEpoch(const ASN1_TIME* asn1)
+{
+    if (!asn1)
+        return 0;
+    struct tm t{};
+    if (ASN1_TIME_to_tm(asn1, &t) != 1)
+        return 0;
+#ifdef _WIN32
+    return static_cast<std::int64_t>(_mkgmtime(&t));
+#else
+    return static_cast<std::int64_t>(timegm(&t));
+#endif
+}
+}  // namespace
+
+score::crypto::Expected<std::int64_t, common::DaemonErrorCode> OpenSslCertParser::ValidateCrl(
+    const std::uint8_t* crl_data,
+    std::size_t crl_size,
+    score::crypto::FormatType crl_format,
+    const std::uint8_t* issuer_cert_data,
+    std::size_t issuer_cert_size,
+    score::crypto::FormatType issuer_cert_format)
+{
+    if (!crl_data || crl_size == 0U || !issuer_cert_data || issuer_cert_size == 0U)
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+
+    // 1. Parse the CRL.
+    X509CrlPtr crl = ParseCrlBytes(crl_data, crl_size, crl_format);
+    if (!crl)
+    {
+        ERR_clear_error();
+        return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
+    }
+
+    // 2. Parse the issuer certificate.
+    X509Ptr issuer_x509;
+    if (issuer_cert_format == score::crypto::FormatType::kDer)
+    {
+        const uint8_t* ptr = issuer_cert_data;
+        issuer_x509.reset(d2i_X509(nullptr, &ptr, static_cast<long>(issuer_cert_size)));
+    }
+    else
+    {
+        auto* bio_raw = BIO_new_mem_buf(issuer_cert_data, static_cast<int>(issuer_cert_size));
+        if (bio_raw)
+        {
+            std::unique_ptr<BIO, decltype(&BIO_free)> bio{bio_raw, &BIO_free};
+            issuer_x509.reset(PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
+        }
+    }
+    if (!issuer_x509)
+    {
+        ERR_clear_error();
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+    }
+
+    // 3. Verify CRL issuer DN matches the certificate's subject DN.
+    if (X509_NAME_cmp(X509_CRL_get_issuer(crl.get()), X509_get_subject_name(issuer_x509.get())) != 0)
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+
+    // 4. Verify the CRL signature using the issuer certificate's public key.
+    EVP_PKEY* pkey = X509_get0_pubkey(issuer_x509.get());
+    if (!pkey)
+        return score::crypto::make_unexpected(Error::kInternalError);
+    if (X509_CRL_verify(crl.get(), pkey) != 1)
+    {
+        ERR_clear_error();
+        return score::crypto::make_unexpected(Error::kOperationFailed);
+    }
+
+    // 5. Extract nextUpdate (optional field — 0 when absent).
+    return Asn1TimeToEpoch(X509_CRL_get0_nextUpdate(crl.get()));
+}
+
 }  // namespace score::crypto::daemon::provider::score_provider::openssl

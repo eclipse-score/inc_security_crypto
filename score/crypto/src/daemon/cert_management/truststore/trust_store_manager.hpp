@@ -182,7 +182,8 @@ class TrustStoreManager
     ImportCrlForMember(TrustStoreId id,
                        CertSlotHandle slot,
                        score::crypto::span<const uint8_t> crl_data,
-                       score::crypto::FormatType format);
+                       score::crypto::FormatType format,
+                       std::int64_t next_update_epoch_s = 0);
 
     /// @brief Remove a certificate from a trust store by fingerprint.
     ///

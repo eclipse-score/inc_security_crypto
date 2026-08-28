@@ -156,7 +156,10 @@ class ICertSlotHandler
     ///
     /// Default: returns kUnsupportedOperation.
     [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    StoreCrl(const CertSlotConfig& slot, score::crypto::span<const uint8_t> crl_data, score::crypto::FormatType format);
+    StoreCrl(const CertSlotConfig& slot,
+             score::crypto::span<const uint8_t> crl_data,
+             score::crypto::FormatType format,
+             std::int64_t next_update_epoch_s = 0);
 
     /// Remove the CRL from the slot's [crl] section.
     ///

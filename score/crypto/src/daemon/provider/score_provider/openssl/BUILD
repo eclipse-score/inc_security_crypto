@@ -86,6 +86,7 @@ cc_library(
     }),
     visibility = ["//:__subpackages__"],
     deps = [
+        ":openssl_cert_management_headers",
         ":openssl_key_management_headers",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
@@ -120,9 +121,11 @@ cc_library(
     }),
     visibility = ["//:__subpackages__"],
     deps = [
+        ":openssl_cert_parser_library",
         ":openssl_detail_headers",
         ":openssl_key_management_headers",
         ":provider_openssl_headers",
+        "//score/crypto/src/daemon/cert_management",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/data_manager",

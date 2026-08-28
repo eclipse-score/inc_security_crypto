@@ -20,6 +20,7 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace
@@ -74,7 +75,7 @@ TEST(OpenSslCertParserTest, ParsesPemBundleIntoSeparateCertificateObjects)
 
 TEST(OpenSslCertParserTest, RejectsMalformedCertificate)
 {
-    constexpr std::string malformed{"not a certificate"};
+    constexpr std::string_view malformed{"not a certificate"};
     OpenSslCertParser parser{ProviderId{1U}};
     const auto result = parser.ParseCertificate(
         reinterpret_cast<const std::uint8_t*>(malformed.data()), malformed.size(), FormatType::kPem);
