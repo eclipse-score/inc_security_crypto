@@ -172,9 +172,10 @@ score::crypto::Expected<std::vector<uint8_t>, Error> FileBackedSlotHandler::Load
 
 score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCrl(const CertSlotConfig& slot,
                                                                                score::crypto::span<const uint8_t> data,
-                                                                               score::crypto::FormatType format)
+                                                                               score::crypto::FormatType format,
+                                                                               std::int64_t next_update_epoch_s)
 {
-    return m_crl.StoreCrl(slot, data, format);
+    return m_crl.StoreCrl(slot, data, format, next_update_epoch_s);
 }
 
 score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::ClearCrl(const CertSlotConfig& slot)

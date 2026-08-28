@@ -38,7 +38,8 @@ score::crypto::Expected<std::vector<uint8_t>, score::crypto::daemon::common::Dae
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ICertSlotHandler::StoreCrl(
     const CertSlotConfig& /*slot*/,
     score::crypto::span<const uint8_t> /*crl_data*/,
-    score::crypto::FormatType /*format*/)
+    score::crypto::FormatType /*format*/,
+    std::int64_t /*next_update_epoch_s*/)
 {
     return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
 }

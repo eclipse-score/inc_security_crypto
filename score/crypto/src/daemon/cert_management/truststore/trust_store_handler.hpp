@@ -40,16 +40,13 @@ class TrustStoreHandler final : public ITrustStoreHandler
     score::crypto::Expected<std::vector<CertObject::Sptr>, common::DaemonErrorCode> GetAnchors() override;
     void NotifySlotUpdate(CertSlotHandle slot, CertObject::Sptr cert) override;
 
+    std::vector<CrlEntry> GetCrls() override;
+    void NotifyCrlUpdate(CertSlotHandle slot, std::optional<CrlEntry> entry) override;
+
     CertObject::Sptr FindBySubject(const std::string& subject) const override;
     CertObject::Sptr FindBySkid(score::crypto::span<const uint8_t> skid) const override;
 
-    /// Remove one slot's cached cert and force a full reload on the next GetAnchors() call.
-    /// Called by TrustStoreManager when a member slot's content changes externally.
     void InvalidateSlot(CertSlotHandle slot);
-
-    /// Drop all cached anchor strong-refs and reset the loaded flag.
-    /// Called by TrustStoreManager when the last DataNode for this store is released,
-    /// so that the CertObject memory is freed when no other store holds it.
     void ClearAnchorCache();
 
   private:
@@ -58,6 +55,7 @@ class TrustStoreHandler final : public ITrustStoreHandler
 
     TrustStoreHandle m_handle{};
     std::unordered_map<uint32_t, CertObject::Sptr> m_slots;
+    std::unordered_map<uint32_t, CrlEntry> m_crls;
     AnchorLoader m_loader;
     bool m_loaded{false};
 };

@@ -53,6 +53,23 @@ class ICertParser
         std::vector<std::shared_ptr<score::crypto::daemon::cert_management::CertObject>>,
         common::DaemonErrorCode>
     ParseCertificates(const std::uint8_t* bytes, std::size_t size, score::crypto::FormatType format) = 0;
+
+    /// Validate raw CRL bytes against the CA certificate that should have issued it.
+    ///
+    /// Checks (in order):
+    /// 1. The bytes are a parseable X.509 CRL.
+    /// 2. The CRL issuer DN equals the issuer cert's subject DN.
+    /// 3. The CRL signature verifies against the issuer cert's public key.
+    ///
+    /// @return The CRL's nextUpdate field as Unix epoch seconds on success.
+    ///         0 is returned when the CRL omits the optional nextUpdate field.
+    [[nodiscard]] virtual score::crypto::Expected<std::int64_t, common::DaemonErrorCode> ValidateCrl(
+        const std::uint8_t* crl_data,
+        std::size_t crl_size,
+        score::crypto::FormatType crl_format,
+        const std::uint8_t* issuer_cert_data,
+        std::size_t issuer_cert_size,
+        score::crypto::FormatType issuer_cert_format) = 0;
 };
 
 }  // namespace score::crypto::daemon::provider::cert_management

@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -101,6 +102,24 @@ class ITrustStoreHandler
     /// Implementations must update the internal slot->anchor mapping and
     /// invalidate / refresh the chain-building indices (FindBySubject, FindBySkid).
     virtual void NotifySlotUpdate(CertSlotHandle slot, CertObject::Sptr cert) = 0;
+
+    // -----------------------------------------------------------------------
+    // CRL cache — co-located with the anchor cache
+    // -----------------------------------------------------------------------
+
+    /// Return all CRL entries currently cached for enabled member slots.
+    ///
+    /// Entries are loaded lazily alongside the anchor cache (EnsureLoaded).
+    /// Used by the OpenSSL verification handler when kCrlOnly revocation
+    /// checking is active — avoids re-reading CRL files on every Verify() call.
+    [[nodiscard]] virtual std::vector<CrlEntry> GetCrls() = 0;
+
+    /// Update the in-memory CRL cache for a single slot.
+    ///
+    /// Called by TrustStoreManager after a successful StoreCrl (AddMember or
+    /// ImportCrlForMember) to keep the cache coherent without a full reload.
+    /// An empty @p entry evicts the slot's CRL from the cache.
+    virtual void NotifyCrlUpdate(CertSlotHandle slot, std::optional<CrlEntry> entry) = 0;
 
     // -----------------------------------------------------------------------
     // Chain-building lookup indices

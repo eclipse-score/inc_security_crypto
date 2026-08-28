@@ -59,10 +59,12 @@ class CrlHandler final
 
     /// Write @p data to the CRL file and update the descriptor's [crl] section.
     /// Derives the CRL path from the deployment path if not already set.
+    /// When @p next_update_epoch_s is non-zero, caches the value in the descriptor.
     [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> StoreCrl(
         const CertSlotConfig& slot,
         score::crypto::span<const std::uint8_t> data,
-        score::crypto::FormatType format);
+        score::crypto::FormatType format,
+        std::int64_t next_update_epoch_s = 0);
 
     /// Remove the CRL file and erase the [crl] section from the descriptor.
     [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearCrl(const CertSlotConfig& slot);
