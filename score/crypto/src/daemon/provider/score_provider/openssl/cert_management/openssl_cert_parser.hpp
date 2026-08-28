@@ -48,6 +48,14 @@ class OpenSslCertParser final : public cert_management::ICertParser
                                           common::DaemonErrorCode>
     ParseCertificates(const std::uint8_t* bytes, std::size_t size, score::crypto::FormatType format) override;
 
+    [[nodiscard]] score::crypto::Expected<std::int64_t, common::DaemonErrorCode> ValidateCrl(
+        const std::uint8_t* crl_data,
+        std::size_t crl_size,
+        score::crypto::FormatType crl_format,
+        const std::uint8_t* issuer_cert_data,
+        std::size_t issuer_cert_size,
+        score::crypto::FormatType issuer_cert_format) override;
+
   private:
     common::ProviderId m_provider_id;
 };
