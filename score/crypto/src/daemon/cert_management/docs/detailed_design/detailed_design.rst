@@ -33,7 +33,9 @@ Implementation units
 
 ``CertRegistry`` and ``CertEntry``
    Own live certificate entries and share immutable ``CertObject`` values
-   between clients and trust stores.
+   between clients and trust stores. ``CertEntry`` optionally holds a
+   session-scoped CRL (from ``ImportCrl`` with ``persist=false``) that is
+   never written to disk.
 
 ``CertSlotRegistry``
    Stores immutable slot configuration and application resource mappings.
@@ -41,14 +43,33 @@ Implementation units
 ``FileBackedSlotHandler`` and ``CrlHandler``
    Read and write certificate/CRL data using the deployment descriptor and
    shared atomic file I/O. The slot handler delegates parsing to ``ICertParser``.
+   ``CrlHandler`` is composed into both ``FileBackedSlotHandler`` and
+   ``Pkcs11CertSlotHandler`` and handles all ``[crl]`` section operations.
+
+``Pkcs11CertSlotHandler``
+   Storage backend for PKCS#11 token certificate slots. Implements
+   ``ICertSlotHandler`` using ``C_FindObjects`` / ``CKA_VALUE`` for load and
+   ``C_CreateObject`` / ``C_DestroyObject`` for write and clear. CRL operations
+   delegate to a composed ``CrlHandler`` (identical to the file-backed handler
+   because PKCS#11 tokens have no native CRL object type).
 
 ``TrustStoreManager`` and ``TrustStoreHandler``
    Resolve typed slot memberships, maintain reverse indices, load anchors
    lazily, persist mutable member state, and manage per-client references.
+   Slot handlers are created on demand (lazy cache in ``GetOrCreateHandler``).
+   Reference counting is per-client: one client releasing its verification
+   context cannot evict another client's active anchor cache.
 
 ``AccessPolicyEnforcer``
    Applies UID-based read/write policy. Mutation is default-deny when no writer
    UID is explicitly configured.
+
+``CertObjectSerializer`` (``query/``)
+   Free functions that encode ``CertObject``, ``ICertSlotHandler`` state, and
+   trust-store member snapshots into the ``common::ResponseParameters`` IPC wire
+   format. Both ``CertManagementExecutor`` (executor path) and the mediator's
+   typed-object handlers call the same functions, guaranteeing a
+   single wire-layout definition for certificate, slot, and trust-store objects.
 
 Data and lifetime model
 -----------------------

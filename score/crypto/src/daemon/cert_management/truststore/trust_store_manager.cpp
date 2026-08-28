@@ -522,29 +522,23 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
 
 score::crypto::Expected<std::monostate, Error> TrustStoreManager::ImportCrlForMember(
     TrustStoreId id,
-    score::crypto::span<const uint8_t> fingerprint,
+    CertSlotHandle slot,
     score::crypto::span<const uint8_t> crl_data,
     score::crypto::FormatType format)
 {
     std::lock_guard lock(m_mutex);
-    if (id >= m_stores.size())
+    if (id >= m_stores.size() || !slot.IsValid())
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
-    if (fingerprint.size() != 32U || crl_data.empty())
+    if (crl_data.empty())
         return score::crypto::make_unexpected(Error::kInvalidArgument);
 
     for (const auto& member : m_stores[id].config.members)
     {
-        if (member.kind != TrustStoreMemberKind::kExclusiveMutable)
-            continue;
         const auto resolved = ResolveMember(member);
-        if (!resolved)
+        if (!resolved || resolved->slot.index != slot.index)
             continue;
-        const auto current = resolved->handler->LoadCertificate(*resolved->cfg);
-        if (!current)
-            continue;
-        const auto& fp = (*current)->GetFingerprint();
-        if (fp.size() != fingerprint.size() || !std::equal(fp.begin(), fp.end(), fingerprint.begin()))
-            continue;
+        if (member.kind != TrustStoreMemberKind::kExclusiveMutable)
+            return score::crypto::make_unexpected(Error::kUnsupportedOperation);
         return resolved->handler->StoreCrl(*resolved->cfg, crl_data, format);
     }
     return score::crypto::make_unexpected(Error::kInvalidResourceId);
@@ -650,6 +644,57 @@ const TrustStoreConfig* TrustStoreManager::GetStoreConfig(TrustStoreId id) const
 {
     std::lock_guard lock(m_mutex);
     return id < m_stores.size() ? &m_stores[id].config : nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// Member snapshot (for ITrustStoreObject read-only view)
+// ---------------------------------------------------------------------------
+
+std::vector<TrustStoreManager::MemberSnapshot> TrustStoreManager::GetMembersSnapshot(TrustStoreId id)
+{
+    std::lock_guard lock(m_mutex);
+    if (id >= m_stores.size() || !m_slot_registry)
+        return {};
+
+    std::vector<MemberSnapshot> result;
+    const auto& store = m_stores[id];
+
+    for (const auto& member : store.config.members)
+    {
+        const auto slot = m_slot_registry->ResolveSlotInternal(member.slot_name);
+        if (!slot)
+            continue;
+
+        auto cert = LoadOrGetCached(*slot);
+        if (!cert)
+            continue;  // slot is empty — omit from snapshot
+
+        MemberSnapshot snap;
+        snap.slot_handle = *slot;
+        snap.slot_name = member.slot_name;
+        snap.kind = member.kind;
+
+        const auto& meta = cert->GetChainMetadata();
+        snap.subject = meta.subject_canonical;
+        snap.issuer = meta.issuer_canonical;
+        snap.serial_number = meta.serial_number_hex;
+
+        const auto fp = cert->GetFingerprint();
+        if (fp.size() == 32U)
+            std::copy(fp.begin(), fp.end(), snap.fingerprint.begin());
+
+        // Default enabled=true; override from persisted state if present.
+        const auto states_it = m_member_states.find(id);
+        if (states_it != m_member_states.end())
+        {
+            const auto state_it = states_it->second.find(slot->index);
+            if (state_it != states_it->second.end())
+                snap.is_enabled = state_it->second.enabled;
+        }
+
+        result.push_back(std::move(snap));
+    }
+    return result;
 }
 
 }  // namespace score::crypto::daemon::cert_management
