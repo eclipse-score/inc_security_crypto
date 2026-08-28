@@ -37,6 +37,7 @@ cc_library(
     hdrs = [
         "i_cert_slot_object.hpp",
         "i_certificate_object.hpp",
+        "i_trust_store_object.hpp",
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
