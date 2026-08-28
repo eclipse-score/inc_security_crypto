@@ -46,9 +46,11 @@ class FileBackedSlotHandler final : public ICertSlotHandler
                                                                                       const CertObject&) override;
     score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearSlot(const CertSlotConfig&) override;
     score::crypto::Expected<std::vector<uint8_t>, common::DaemonErrorCode> LoadCrl(const CertSlotConfig&) override;
-    score::crypto::Expected<std::monostate, common::DaemonErrorCode> StoreCrl(const CertSlotConfig&,
-                                                                              score::crypto::span<const uint8_t>,
-                                                                              score::crypto::FormatType) override;
+    score::crypto::Expected<std::monostate, common::DaemonErrorCode> StoreCrl(
+        const CertSlotConfig&,
+        score::crypto::span<const uint8_t>,
+        score::crypto::FormatType,
+        std::int64_t next_update_epoch_s = 0) override;
     score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearCrl(const CertSlotConfig&) override;
     score::crypto::Expected<int64_t, common::DaemonErrorCode> GetCrlNextUpdate(const CertSlotConfig&) override;
     score::crypto::FormatType GetCrlFormat(const CertSlotConfig&) override;

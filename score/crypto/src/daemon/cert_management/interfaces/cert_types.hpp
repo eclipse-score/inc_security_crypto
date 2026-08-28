@@ -130,6 +130,16 @@ struct CertChainMetadata
     bool is_ca{false};
 };
 
+/// Raw CRL bytes together with their encoding format.
+///
+/// Used as the cache unit in TrustStoreHandler and as the return element of
+/// ICertSlotHandler::LoadCrl paired with ICertSlotHandler::GetCrlFormat().
+struct CrlEntry
+{
+    std::vector<uint8_t> bytes;
+    score::crypto::FormatType format{score::crypto::FormatType::kDer};
+};
+
 // ---------------------------------------------------------------------------
 // Deployment descriptor section and key name constants
 // ---------------------------------------------------------------------------

@@ -54,15 +54,35 @@ void TrustStoreHandler::NotifySlotUpdate(CertSlotHandle slot, CertObject::Sptr c
     m_slots[slot.index] = std::move(cert);
 }
 
+std::vector<CrlEntry> TrustStoreHandler::GetCrls()
+{
+    EnsureLoaded();
+    std::vector<CrlEntry> result;
+    result.reserve(m_crls.size());
+    for (const auto& [slot_index, entry] : m_crls)
+        result.push_back(entry);
+    return result;
+}
+
+void TrustStoreHandler::NotifyCrlUpdate(CertSlotHandle slot, std::optional<CrlEntry> entry)
+{
+    if (entry.has_value())
+        m_crls[slot.index] = std::move(*entry);
+    else
+        m_crls.erase(slot.index);
+}
+
 void TrustStoreHandler::InvalidateSlot(CertSlotHandle slot)
 {
     m_slots.erase(slot.index);
+    m_crls.erase(slot.index);
     m_loaded = false;
 }
 
 void TrustStoreHandler::ClearAnchorCache()
 {
     m_slots.clear();
+    m_crls.clear();
     m_loaded = false;
 }
 
