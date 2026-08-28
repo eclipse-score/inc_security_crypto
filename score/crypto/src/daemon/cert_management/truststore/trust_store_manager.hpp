@@ -170,17 +170,17 @@ class TrustStoreManager
         score::crypto::span<const uint8_t> crl_bytes = {},
         score::crypto::FormatType crl_format = score::crypto::FormatType::kDer);
 
-    /// @brief Import a CRL to the exclusive trust store slot holding the cert
-    ///        whose SHA-256 fingerprint matches @p fingerprint.
+    /// @brief Import a CRL to the exclusive trust store slot identified by @p slot.
     ///
     /// Only operates on kExclusiveMutable members — the trust store owns these.
     /// Shared-static and conditional-external slots are externally managed;
     /// callers use CertManagementService::ImportCrlToSlot directly for those.
     ///
-    /// Returns kInvalidResourceId if no exclusive member fingerprint matches.
+    /// Returns kInvalidResourceId if @p slot is not a member of the trust store.
+    /// Returns kUnsupportedOperation if the slot is not kExclusiveMutable.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     ImportCrlForMember(TrustStoreId id,
-                       score::crypto::span<const uint8_t> fingerprint,
+                       CertSlotHandle slot,
                        score::crypto::span<const uint8_t> crl_data,
                        score::crypto::FormatType format);
 
@@ -197,6 +197,32 @@ class TrustStoreManager
     DisableMember(TrustStoreId id, CertSlotHandle slot, data_manager::ClientId client_id);
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     AcknowledgeMemberUpdate(TrustStoreId id, CertSlotHandle slot, data_manager::ClientId client_id);
+
+    // -----------------------------------------------------------------------
+    // Snapshot for read-only typed object access (ITrustStoreObject)
+    // -----------------------------------------------------------------------
+
+    /// @brief Point-in-time snapshot of a trust store's member list.
+    ///
+    /// Used by the cert management executor to populate the TRUST_STORE_GET_INFO response
+    /// consumed by ITrustStoreObject on the lib side. Slots with no cert present are omitted.
+    struct MemberSnapshot
+    {
+        CertSlotHandle slot_handle{0U};          ///< Daemon-internal slot index (for enable/disable routing).
+        std::string slot_name;                   ///< Slot name (used by executor to call ResolveCertSlot).
+        std::array<uint8_t, 32U> fingerprint{};  ///< SHA-256 fingerprint of the member certificate.
+        std::string subject;                     ///< RFC 4514 Subject DN.
+        std::string issuer;                      ///< RFC 4514 Issuer DN.
+        std::string serial_number;               ///< Uppercase hex serial number.
+        TrustStoreMemberKind kind{TrustStoreMemberKind::kSharedStatic};
+        bool is_enabled{true};
+    };
+
+    /// @brief Load and return a snapshot of all occupied member slots for trust store @p id.
+    ///
+    /// Certs are loaded via the shared cache where possible; fresh loads are taken for
+    /// uncached slots. Non-const because it may populate handler and cert caches.
+    [[nodiscard]] std::vector<MemberSnapshot> GetMembersSnapshot(TrustStoreId id);
 
     // -----------------------------------------------------------------------
     // Configuration access

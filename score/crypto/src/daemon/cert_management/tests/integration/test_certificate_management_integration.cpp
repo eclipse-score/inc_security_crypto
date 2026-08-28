@@ -14,6 +14,7 @@
 #include "score/crypto/src/daemon/cert_management/slot/config_driven_slot_catalog.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/deployment_loader.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/config_driven_trust_store_catalog.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
@@ -41,7 +42,7 @@ class CertificateManagementIntegrationTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        m_directory = std::filesystem::temp_directory_path() / "score_cert_management_integration";
+        m_directory = cert::test::TempDirectory("score_cert_management_integration");
         std::filesystem::remove_all(m_directory);
         std::filesystem::create_directories(m_directory);
         m_descriptor_path = m_directory / "device_root.kv";

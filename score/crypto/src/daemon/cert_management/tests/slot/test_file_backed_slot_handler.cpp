@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
 
@@ -63,7 +64,7 @@ class FileBackedSlotHandlerTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        m_directory = std::filesystem::temp_directory_path() / "score_cert_management_test";
+        m_directory = cert::test::TempDirectory("score_cert_management_test");
         std::filesystem::create_directories(m_directory);
         m_descriptor = m_directory / "slot.kv";
         m_certificate = m_directory / "certificate.pem";
@@ -254,7 +255,7 @@ class FileBackedSlotHandlerRealParserTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        m_dir = std::filesystem::temp_directory_path() / "score_cert_slot_real";
+        m_dir = cert::test::TempDirectory("score_cert_slot_real");
         m_descriptor = m_dir / "slot.kv";
         m_cert_file = m_dir / "cert.pem";
         std::filesystem::remove_all(m_dir);
@@ -327,4 +328,130 @@ TEST_F(FileBackedSlotHandlerRealParserTest, StoreThenLoad_SubjectAndIsCAMatch)
     EXPECT_EQ((*reloaded)->GetSubject(), (*initial)->GetSubject());
     EXPECT_EQ((*reloaded)->IsCA(), (*initial)->IsCA());
 }
+
+// ---------------------------------------------------------------------------
+// Algorithm-variety parameterized tests
+//
+// Verify that OpenSslCertParser correctly parses every certificate in the
+// test-vector suite: RSA (2048/3072/4096), EC (P-256/P-384/P-521),
+// EdDSA (Ed25519/Ed448), and PQC (ML-DSA-44/65/87).
+//
+// Each test copies the PEM from the test-vector directory into a temp
+// directory, sets up a FileBackedSlotHandler with a real OpenSslCertParser,
+// and verifies common metadata invariants that must hold for every cert:
+//   - Subject matches the manifest's expected value
+//   - CA flag is set (all test-vector certs are self-signed CAs)
+//   - SKID is present and 20 bytes (SHA-1 key ID, algorithm-independent)
+//   - SHA-256 fingerprint is 32 bytes (algorithm-independent)
+// ---------------------------------------------------------------------------
+
+struct AlgorithmVarietyParam
+{
+    const char* pem_path;          // workspace-relative path to the PEM test vector
+    const char* expected_subject;  // RFC 4514 DN as returned by GetSubject()
+};
+
+class FileBackedSlotHandlerAlgorithmVarietyTest : public ::testing::TestWithParam<AlgorithmVarietyParam>
+{
+  protected:
+    void SetUp() override
+    {
+        m_dir = cert::test::TempDirectory("score_cert_alg_variety");
+        std::filesystem::remove_all(m_dir);
+        std::filesystem::create_directories(m_dir);
+
+        const auto& p = GetParam();
+        m_cert_file = m_dir / "cert.pem";
+        ASSERT_TRUE(
+            std::filesystem::copy_file(p.pem_path, m_cert_file, std::filesystem::copy_options::overwrite_existing))
+            << "Failed to copy test vector: " << p.pem_path;
+
+        const auto descriptor_path = m_dir / "slot.kv";
+        storage::DeploymentDescriptor descriptor;
+        descriptor.Set("certificate", "cert_path", m_cert_file.string());
+        descriptor.Set("certificate", "cert_format", "pem");
+        ASSERT_TRUE(storage::KvDeploymentWriter{}.Write(descriptor_path.string(), descriptor).has_value());
+
+        m_slot.deployment_path = descriptor_path.string();
+        m_slot.deployment_format = "kv";
+
+        m_parser = std::make_shared<openssl_ns::OpenSslCertParser>(score::crypto::daemon::common::ProviderId{1U});
+        m_handler = std::make_unique<cert::FileBackedSlotHandler>(m_parser);
+    }
+
+    void TearDown() override
+    {
+        std::error_code ec;
+        std::filesystem::remove_all(m_dir, ec);
+    }
+
+    std::filesystem::path m_dir;
+    std::filesystem::path m_cert_file;
+    cert::CertSlotConfig m_slot;
+    std::shared_ptr<openssl_ns::OpenSslCertParser> m_parser;
+    std::unique_ptr<cert::FileBackedSlotHandler> m_handler;
+};
+
+TEST_P(FileBackedSlotHandlerAlgorithmVarietyTest, LoadCertificate_MetadataIsCorrect)
+{
+    const auto& p = GetParam();
+    const auto result = m_handler->LoadCertificate(m_slot);
+    ASSERT_TRUE(result.has_value()) << "LoadCertificate failed for: " << p.pem_path;
+    ASSERT_NE(*result, nullptr);
+
+    const auto& c = **result;
+    EXPECT_EQ(c.GetSubject(), p.expected_subject);
+    EXPECT_TRUE(c.IsCA());
+    // SKID is SHA-1(public key) — 20 bytes regardless of signature algorithm.
+    EXPECT_EQ(c.GetSkid().size(), 20U) << "Unexpected SKID size for: " << p.pem_path;
+    // SHA-256 fingerprint is always 32 bytes — independent of cert algorithm.
+    EXPECT_EQ(c.GetFingerprint().size(), 32U) << "Unexpected fingerprint size for: " << p.pem_path;
+}
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(
+    AlgorithmVariety,
+    FileBackedSlotHandlerAlgorithmVarietyTest,
+    ::testing::Values(
+        // RSA
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/certificate.pem",
+                              "CN=cert-management-test,O=Eclipse"},
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/rsa_3072.pem",
+                              "CN=cert-mgmt-rsa-3072,O=Eclipse"},
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/rsa_4096.pem",
+                              "CN=cert-mgmt-rsa-4096,O=Eclipse"},
+        // EC
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ec_p256.pem",
+                              "CN=cert-mgmt-ec-p256,O=Eclipse"},
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ec_p384.pem",
+                              "CN=cert-mgmt-ec-p384,O=Eclipse"},
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ec_p521.pem",
+                              "CN=cert-mgmt-ec-p521,O=Eclipse"},
+        // EdDSA
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ed25519.pem",
+                              "CN=cert-mgmt-ed25519,O=Eclipse"},
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ed448.pem",
+                              "CN=cert-mgmt-ed448,O=Eclipse"},
+        // PQC — ML-DSA (NIST FIPS 204)
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ml_dsa_44.pem",
+                              "CN=cert-mgmt-ml-dsa-44,O=Eclipse"},
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ml_dsa_65.pem",
+                              "CN=cert-mgmt-ml-dsa-65,O=Eclipse"},
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ml_dsa_87.pem",
+                              "CN=cert-mgmt-ml-dsa-87,O=Eclipse"}
+    ),
+    [](const ::testing::TestParamInfo<AlgorithmVarietyParam>& info) {
+        // Build a test name from the PEM filename stem (e.g. "rsa_3072").
+        std::string name = info.param.pem_path;
+        const auto slash = name.rfind('/');
+        if (slash != std::string::npos)
+            name = name.substr(slash + 1U);
+        const auto dot = name.rfind('.');
+        if (dot != std::string::npos)
+            name = name.substr(0U, dot);
+        return name;
+    }
+);
+// clang-format on
+
 }  // namespace

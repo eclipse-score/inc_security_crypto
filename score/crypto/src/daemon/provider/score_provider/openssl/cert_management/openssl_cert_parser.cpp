@@ -99,6 +99,26 @@ score::crypto::Expected<CertObject::Sptr, Error> BuildObject(X509* certificate,
         return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
     }
 
+    // Extract serial number as uppercase hex string (e.g., "01ABCDEF").
+    // (issuer, serial) is the RFC 5280 canonical certificate identifier.
+    {
+        const ASN1_INTEGER* serial = X509_get_serialNumber(certificate);
+        if (serial != nullptr)
+        {
+            BIGNUM* bn = ASN1_INTEGER_to_BN(serial, nullptr);
+            if (bn != nullptr)
+            {
+                char* hex = BN_bn2hex(bn);
+                if (hex != nullptr)
+                {
+                    metadata.serial_number_hex = hex;
+                    OPENSSL_free(hex);
+                }
+                BN_free(bn);
+            }
+        }
+    }
+
     ASN1_OCTET_STRING* skid =
         static_cast<ASN1_OCTET_STRING*>(X509_get_ext_d2i(certificate, NID_subject_key_identifier, nullptr, nullptr));
     if (skid != nullptr)
