@@ -31,6 +31,7 @@
 //   - AcknowledgeMemberUpdate — re-enables a disabled slot with fresh load
 
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
@@ -78,7 +79,7 @@ class TrustStoreManagerTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        m_dir = std::filesystem::temp_directory_path() / "score_ts_mgr_test";
+        m_dir = cert::test::TempDirectory("score_ts_mgr_test");
         std::filesystem::remove_all(m_dir);
         std::filesystem::create_directories(m_dir);
 
@@ -701,7 +702,7 @@ TEST_F(TrustStoreManagerTest, AddMember_DeduplicationChecksAllMemberTypes)
 TEST_F(TrustStoreManagerTest, ImportCrlForMember_WritesToExclusiveSlot)
 {
     auto registry = std::make_shared<cert::CertSlotRegistry>();
-    static_cast<void>(registry->RegisterSlot(MakeSlotConfig("empty-anchor", m_empty_slot_kv)));
+    const auto slot_handle = registry->RegisterSlot(MakeSlotConfig("empty-anchor", m_empty_slot_kv));
 
     cert::TrustStoreConfig ts_cfg;
     ts_cfg.store_name = "mutable-store";
@@ -720,12 +721,11 @@ TEST_F(TrustStoreManagerTest, ImportCrlForMember_WritesToExclusiveSlot)
     // First add the cert without CRL.
     ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA).has_value());
 
-    // Now import a CRL for that member by fingerprint.
-    const auto fp_span = cert->GetFingerprint();
+    // Now import a CRL for that member by slot handle.
     const std::vector<std::uint8_t> crl{0xD0U, 0xD1U, 0xD2U};
     const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
 
-    ASSERT_TRUE(manager.ImportCrlForMember(ts_id, fp_span, crl_span, score::crypto::FormatType::kDer).has_value());
+    ASSERT_TRUE(manager.ImportCrlForMember(ts_id, slot_handle, crl_span, score::crypto::FormatType::kDer).has_value());
 
     // Verify persistence: fresh handler must read the CRL.
     cert::FileBackedSlotHandler fresh_handler{m_parser};

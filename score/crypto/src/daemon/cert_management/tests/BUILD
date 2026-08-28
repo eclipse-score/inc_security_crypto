@@ -5,6 +5,20 @@
 
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
+# Unit tests for the cert_object_serializer query module.
+# No OpenSSL dependency — CertObject is constructed synthetically.
+# SerializeTrustStoreMembers slot-resolution coverage is in test_cert_management_service.
+cc_test(
+    name = "test_cert_object_serializer",
+    srcs = ["query/test_cert_object_serializer.cpp"],
+    deps = [
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/cert_management:cert_object_serializer",
+        "//score/crypto/src/daemon/common",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "test_cert_registry",
     srcs = ["core/test_cert_registry.cpp"],
@@ -27,7 +41,7 @@ cc_test(
 
 cc_test(
     name = "test_file_backed_slot_handler",
-    srcs = ["slot/test_file_backed_slot_handler.cpp"],
+    srcs = ["slot/test_file_backed_slot_handler.cpp", "test_environment.hpp"],
     data = [
         "//score/tests/test_vectors/certificate:certificate_test_vectors",
     ],
@@ -47,7 +61,7 @@ cc_test(
 
 cc_test(
     name = "test_trust_store_manager",
-    srcs = ["truststore/test_trust_store_manager.cpp"],
+    srcs = ["truststore/test_trust_store_manager.cpp", "test_environment.hpp"],
     data = [
         "//score/tests/test_vectors/certificate:certificate_test_vectors",
     ],
@@ -67,8 +81,9 @@ cc_test(
 
 cc_test(
     name = "test_cert_management_service",
-    srcs = ["service/test_cert_management_service.cpp"],
+    srcs = ["service/test_cert_management_service.cpp", "test_environment.hpp"],
     data = [
+        "//score/tests/config:logging.json",
         "//score/tests/test_vectors/certificate:certificate_test_vectors",
     ],
     target_compatible_with = select({
@@ -88,7 +103,7 @@ cc_test(
 
 cc_test(
     name = "test_certificate_management_integration",
-    srcs = ["integration/test_certificate_management_integration.cpp"],
+    srcs = ["integration/test_certificate_management_integration.cpp", "test_environment.hpp"],
     data = [
         "//score/tests/test_vectors/certificate:certificate_test_vectors",
     ],

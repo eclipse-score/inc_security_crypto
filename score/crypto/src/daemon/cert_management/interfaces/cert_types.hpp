@@ -105,6 +105,11 @@ struct CertChainMetadata
     /// RFC 4514 string representation of the Issuer DN.
     std::string issuer_canonical;
 
+    /// Certificate serial number as an uppercase hex string (e.g., "01ABCDEF").
+    /// Empty if not available. Together with issuer_canonical this is the RFC 5280
+    /// canonical certificate identifier used in CRLs and OCSP.
+    std::string serial_number_hex;
+
     /// DER-encoded Subject Key Identifier extension value; empty if the extension
     /// is absent from the certificate.
     std::vector<uint8_t> skid;
@@ -213,6 +218,9 @@ inline constexpr std::string_view kIsCA = "is_ca";
 
 /// Hex-encoded SHA-256 fingerprint of the certificate DER encoding.
 inline constexpr std::string_view kFingerprint = "fingerprint";
+
+/// Certificate serial number as an uppercase hex string (e.g., "01ABCDEF").
+inline constexpr std::string_view kSerialNumber = "serial_number";
 
 // ---- [metadata] section --------------------------------------------------
 
