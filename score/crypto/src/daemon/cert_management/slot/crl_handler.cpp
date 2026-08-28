@@ -63,7 +63,8 @@ score::crypto::Expected<std::vector<std::uint8_t>, Error> CrlHandler::LoadCrl(co
 
 score::crypto::Expected<std::monostate, Error> CrlHandler::StoreCrl(const CertSlotConfig& slot,
                                                                     score::crypto::span<const std::uint8_t> data,
-                                                                    score::crypto::FormatType format)
+                                                                    score::crypto::FormatType format,
+                                                                    std::int64_t next_update_epoch_s)
 {
     if (data.empty())
         return score::crypto::make_unexpected(Error::kInvalidArgument);
@@ -90,6 +91,8 @@ score::crypto::Expected<std::monostate, Error> CrlHandler::StoreCrl(const CertSl
         return result;
     descriptor->Set("crl", "crl_path", path);
     descriptor->Set("crl", "crl_format", FormatName(format));
+    if (next_update_epoch_s != 0)
+        descriptor->Set("crl", "crl_next_update", std::to_string(next_update_epoch_s));
     return SaveDescriptor(slot, *descriptor);
 }
 

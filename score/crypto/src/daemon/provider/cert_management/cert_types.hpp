@@ -51,6 +51,14 @@ enum class CertVerifyErrorCode : std::uint16_t
     kUnknownError
 };
 
+enum class RevocationCheckPolicy : std::uint8_t
+{
+    kNone = 0,
+    kCrlOnly,
+    kOcspOnly,
+    kOcspWithCrlFallback
+};
+
 /// Verification result. The established chain is returned as neutral CertObjects
 /// (leaf-first, terminating anchor last), never as provider-bound handles.
 struct CertVerifyResult
@@ -88,7 +96,7 @@ struct VerificationRequest
     std::optional<CertSlotHandle> crl_slot;
     std::optional<std::vector<std::uint8_t>> ocsp_response;
     std::optional<std::int64_t> verification_time_epoch_s;
-    score::crypto::RevocationCheckPolicy revocation_policy{score::crypto::RevocationCheckPolicy::kNone};
+    RevocationCheckPolicy revocation_policy{RevocationCheckPolicy::kNone};
 };
 }  // namespace score::crypto::daemon::provider::cert_management
 
