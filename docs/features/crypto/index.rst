@@ -31,4 +31,5 @@ For the main feature description and requirements, see the belonging `Feature <h
    safety_analysis/dfa.rst
    safety_analysis/aou_requirements.rst
    safety_planning/index.rst
+   security_analysis/aou_requirements.rst
    security_planning/index.rst
