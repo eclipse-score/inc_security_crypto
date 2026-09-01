@@ -51,7 +51,7 @@ Feature AoU
    :status: valid
    :tags: environment
 
-   If pkcs11_dynload is used as backend for the pkcs11 provider, the PKCS1111_OVERRIDE mechanism
+   If pkcs11_dynload is used as backend for the pkcs11 provider, the `PKCS11_LIB_OVERRIDE` mechanism
    shall not be used for series. The pkcs11 module path provided via pkcs11_lib shall be the effective
    and final module that will be loaded at runtime.
    Hint: This option is introduced only for internal use of testing and is not recommended to be used 
