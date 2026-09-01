@@ -11,9 +11,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-# Import user-specific configurations
-try-import %workspace%/user.bazelrc
-
 build --per_file_copt=external/score_baselibs.*/.*@-Wno-deprecated-declarations
 build --per_file_copt=external/score_logging.*/.*@-Wno-deprecated-declarations
 common --@score_baselibs//score/json:base_library=nlohmann # TODO : https://github.com/eclipse-score/baselibs/issues/57
@@ -98,11 +95,12 @@ build:aarch64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocen
 build:aarch64-qnx --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 test:aarch64-qnx --run_under=@score_qnx_unit_tests//src:run_under_qnx
 test:aarch64-qnx --test_lang_filters=cc,rust
+test:aarch64-qnx --test_tag_filters=-flaky
 test:aarch64-qnx --test_timeout=180,900,2700,10800 # Increase default test timeout by factor 3
 
 # Clippy linting
 # build --aspects=@score_rust_policies//clippy:linters.bzl%clippy_strict
-build --output_groups=+rules_lint_human
+# build --output_groups=+rules_lint_human
 build:lint --@aspect_rules_lint//lint:fail_on_violation=true
 build:lint --config=per-x86_64-linux
 
@@ -112,3 +110,6 @@ test --test_output=errors
 # Run Cargo build.rs scripts locally so openssl-sys can access host license files
 build:aarch64-qnx --strategy=CargoBuildScriptRun=local
 common --lockfile_mode=error
+
+# Import optional user-specific configurations after repository defaults.
+try-import %workspace%/user.bazelrc

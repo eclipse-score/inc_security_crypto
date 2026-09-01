@@ -49,7 +49,9 @@ fn lock_store() -> std::sync::MutexGuard<'static, ()> {
 
 /// Return a unique temp file path and guarantee it does not exist.
 fn fresh_store_path(tag: &str) -> PathBuf {
-    let p = std::env::temp_dir().join(format!("pkcs11_store_test_{tag}.json"));
+    // Prefer TEST_TMPDIR (set by qnx_unit_tests inside the QNX VM) over the system default.
+    let base = std::env::var_os("TEST_TMPDIR").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
+    let p = base.join(format!("pkcs11_store_test_{tag}.json"));
     let _ = std::fs::remove_file(&p);
     p
 }
@@ -239,7 +241,8 @@ fn token_object_destroy_writes_disk() {
         let mtime_before = std::fs::metadata(&store_path).unwrap().modified().unwrap();
 
         // Small sleep so mtime can advance on coarse-grained filesystems.
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        // TODO(#workaround): /persistent/tmp on QNX mtime did not advance in 10 ms; granularity unconfirmed.
+        std::thread::sleep(std::time::Duration::from_millis(if cfg!(target_os = "nto") { 1100 } else { 10 }));
 
         let rv = p11!(fl, C_DestroyObject, h, key_h);
         assert_eq!(rv, CKR_OK, "C_DestroyObject failed: {rv:#010x}");
@@ -274,7 +277,8 @@ fn token_object_set_attribute_writes_disk() {
         assert!(store_path.exists(), "token create must write disk");
 
         let mtime_before = std::fs::metadata(&store_path).unwrap().modified().unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        // TODO(#workaround): /persistent/tmp on QNX mtime did not advance in 10 ms; granularity unconfirmed.
+        std::thread::sleep(std::time::Duration::from_millis(if cfg!(target_os = "nto") { 1100 } else { 10 }));
 
         let label = b"persistent-label";
         let attr = CK_ATTRIBUTE {
