@@ -17,6 +17,8 @@
 #include "score/crypto/src/daemon/cert_management/slot/deployment_writer.hpp"
 #include "score/crypto/src/daemon/common/storage/file_io.hpp"
 
+#include <charconv>
+
 namespace score::crypto::daemon::cert_management
 {
 namespace
@@ -122,14 +124,11 @@ score::crypto::Expected<std::int64_t, Error> CrlHandler::GetCrlNextUpdate(const 
     const auto value = descriptor->Get("crl", "crl_next_update");
     if (value.empty())
         return score::crypto::make_unexpected(Error::kResourceNotAllocated);
-    try
-    {
-        return std::stoll(value);
-    }
-    catch (...)
-    {
+    std::int64_t result{};
+    const auto [end, ec] = std::from_chars(value.data(), value.data() + value.size(), result);
+    if (ec != std::errc{} || end != value.data() + value.size())
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
+    return result;
 }
 
 score::crypto::FormatType CrlHandler::GetCrlFormat(const CertSlotConfig& slot) const

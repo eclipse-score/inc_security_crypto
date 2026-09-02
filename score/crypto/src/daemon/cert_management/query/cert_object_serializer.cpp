@@ -25,8 +25,8 @@ common::ResponseParameters SerializeCertObject(const CertObject& cert)
     common::ResponseParameters out;
     out.push_back(common::OwnedString{meta.subject_canonical});
     out.push_back(common::OwnedString{meta.issuer_canonical});
-    out.push_back(static_cast<std::uint64_t>(static_cast<uint64_t>(meta.not_before_epoch_s)));
-    out.push_back(static_cast<std::uint64_t>(static_cast<uint64_t>(meta.not_after_epoch_s)));
+    out.push_back(static_cast<std::uint64_t>(meta.not_before_epoch_s));
+    out.push_back(static_cast<std::uint64_t>(meta.not_after_epoch_s));
     out.push_back(static_cast<std::uint8_t>(meta.is_ca ? 1U : 0U));
     out.push_back(common::OwnedBuffer{meta.skid.begin(), meta.skid.end()});
     out.push_back(common::OwnedBuffer{meta.akid.begin(), meta.akid.end()});
@@ -43,7 +43,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Ser
     if (!info_res.has_value())
         return score::crypto::make_unexpected(info_res.error());
 
-    const bool has_crl = handler.HasCrl(config);
+    const bool has_crl = info_res.value().has_crl;
     int64_t crl_next = 0;
     if (has_crl)
     {
@@ -55,7 +55,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Ser
     common::ResponseParameters out;
     out.push_back(static_cast<std::uint8_t>(info_res.value().state));
     out.push_back(static_cast<std::uint8_t>(has_crl ? 1U : 0U));
-    out.push_back(static_cast<std::uint64_t>(static_cast<uint64_t>(crl_next)));
+    out.push_back(static_cast<std::uint64_t>(crl_next));
     return out;
 }
 
@@ -87,7 +87,7 @@ common::ResponseParameters SerializeTrustStoreMembers(const std::vector<TrustSto
         out.push_back(common::OwnedString{entry.snap->subject});
         out.push_back(common::OwnedString{entry.snap->issuer});
         out.push_back(common::OwnedString{entry.snap->serial_number});
-        out.push_back(static_cast<std::uint8_t>(static_cast<uint8_t>(entry.snap->kind)));
+        out.push_back(static_cast<std::uint8_t>(entry.snap->kind));
         out.push_back(static_cast<std::uint8_t>(entry.snap->is_enabled ? 1U : 0U));
     }
     return out;

@@ -133,14 +133,22 @@ another client's active cache.
 Design decisions
 ----------------
 
-* Trust stores reference certificate slots, not raw certificate paths.
-* CRLs are stored in the certificate slot's optional ``[crl]`` section; there
-  is no independent CRL resource or registry.
-* Access-policy checks are shared by slots and trust stores. Mutation is
-  default-deny and requires an explicit writer UID.
-* File-backed certificate and descriptor writes use the shared atomic storage
-  utilities.
-* Provider-specific objects and private keys never cross the certificate
+The five structural decisions that shape the component's storage model are
+documented with full context, alternatives considered, and consequences in
+:ref:`crypto_cert_management_design_decisions`:
+
+* :need:`dec_rec__crypto_cert_mgmt__ts_ref_slots` — trust-store members are
+  named cert slot references, not raw paths.
+* :need:`dec_rec__crypto_cert_mgmt__crl_co_location` — CRLs occupy an optional
+  ``[crl]`` section of the cert slot descriptor; no independent CRL registry.
+* :need:`dec_rec__crypto_cert_mgmt__deny_mutation` — all mutations are
+  default-deny; write access requires an explicit UID in the resource access
+  policy.
+* :need:`dec_rec__crypto_cert_mgmt__atomic_writes` — file-backed cert and
+  descriptor writes use the shared ``file_io::WriteFile`` temp-file + rename
+  primitive.
+* :need:`dec_rec__crypto_cert_mgmt__provider_boundary` — provider interaction is
+  limited to ``ICertParser``; no private key or HSM handle crosses the cert
   management boundary.
 
 Current limitations
