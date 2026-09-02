@@ -250,6 +250,58 @@ TEST_F(FileBackedSlotHandlerTest, ClearCrl_IsIdempotent)
     EXPECT_FALSE(m_handler->HasCrl(m_slot));
 }
 
+// StoreCrl with next_update_epoch_s == 0 must NOT write a crl_next_update key
+// to the descriptor.  Subsequent GetCrlNextUpdate must return kResourceNotAllocated.
+TEST_F(FileBackedSlotHandlerTest, StoreCrl_ZeroNextUpdate_DoesNotWriteNextUpdateKey)
+{
+    const std::vector<std::uint8_t> crl{0x01U, 0x02U};
+    ASSERT_TRUE(m_handler
+                    ->StoreCrl(m_slot,
+                               score::crypto::span<const std::uint8_t>{crl.data(), crl.size()},
+                               score::crypto::FormatType::kDer,
+                               0 /* next_update_epoch_s = 0 */)
+                    .has_value());
+
+    const auto nu = m_handler->GetCrlNextUpdate(m_slot);
+    EXPECT_FALSE(nu.has_value());
+    EXPECT_EQ(nu.error(), Error::kResourceNotAllocated);
+}
+
+// StoreCrl with a non-zero next_update_epoch_s must persist the epoch and
+// GetCrlNextUpdate must read it back.
+TEST_F(FileBackedSlotHandlerTest, StoreCrl_NonZeroNextUpdate_RoundTrips)
+{
+    constexpr std::int64_t kEpoch = 1800000000LL;
+    const std::vector<std::uint8_t> crl{0x03U, 0x04U};
+    ASSERT_TRUE(m_handler
+                    ->StoreCrl(m_slot,
+                               score::crypto::span<const std::uint8_t>{crl.data(), crl.size()},
+                               score::crypto::FormatType::kDer,
+                               kEpoch)
+                    .has_value());
+
+    const auto nu = m_handler->GetCrlNextUpdate(m_slot);
+    ASSERT_TRUE(nu.has_value());
+    EXPECT_EQ(*nu, kEpoch);
+}
+
+// GetCrlNextUpdate with a malformed value in the descriptor must return
+// kInvalidArgument and must not throw or call std::terminate.
+TEST_F(FileBackedSlotHandlerTest, GetCrlNextUpdate_MalformedValue_ReturnsInvalidArgument)
+{
+    // Write an intentionally invalid epoch string directly to the descriptor.
+    storage::DeploymentDescriptor descriptor;
+    descriptor.Set("certificate", "cert_path", m_certificate.string());
+    descriptor.Set("certificate", "cert_format", "pem");
+    descriptor.Set("crl", "crl_path", m_crl.string());
+    descriptor.Set("crl", "crl_next_update", "not_a_number");
+    ASSERT_TRUE(storage::KvDeploymentWriter{}.Write(m_descriptor.string(), descriptor).has_value());
+
+    const auto nu = m_handler->GetCrlNextUpdate(m_slot);
+    EXPECT_FALSE(nu.has_value());
+    EXPECT_EQ(nu.error(), Error::kInvalidArgument);
+}
+
 // ---------------------------------------------------------------------------
 // OpenSSL-backed tests — verify real metadata extraction from test vectors.
 // These tests require the openssl_backend_active build constraint.
@@ -271,7 +323,7 @@ class FileBackedSlotHandlerRealParserTest : public ::testing::Test
         std::filesystem::remove_all(m_dir);
         std::filesystem::create_directories(m_dir);
 
-        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/certificate.pem",
+        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate.pem",
                                                m_cert_file,
                                                std::filesystem::copy_options::overwrite_existing));
 
@@ -424,30 +476,30 @@ INSTANTIATE_TEST_SUITE_P(
     FileBackedSlotHandlerAlgorithmVarietyTest,
     ::testing::Values(
         // RSA
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/certificate.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/basic/certificate.pem",
                               "CN=cert-management-test,O=Eclipse"},
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/rsa_3072.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/algorithm_variety/rsa_3072.pem",
                               "CN=cert-mgmt-rsa-3072,O=Eclipse"},
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/rsa_4096.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/algorithm_variety/rsa_4096.pem",
                               "CN=cert-mgmt-rsa-4096,O=Eclipse"},
         // EC
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ec_p256.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/algorithm_variety/ec_p256.pem",
                               "CN=cert-mgmt-ec-p256,O=Eclipse"},
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ec_p384.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/algorithm_variety/ec_p384.pem",
                               "CN=cert-mgmt-ec-p384,O=Eclipse"},
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ec_p521.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/algorithm_variety/ec_p521.pem",
                               "CN=cert-mgmt-ec-p521,O=Eclipse"},
         // EdDSA
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ed25519.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/algorithm_variety/ed25519.pem",
                               "CN=cert-mgmt-ed25519,O=Eclipse"},
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ed448.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/algorithm_variety/ed448.pem",
                               "CN=cert-mgmt-ed448,O=Eclipse"},
         // PQC — ML-DSA (NIST FIPS 204)
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ml_dsa_44.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/algorithm_variety/ml_dsa_44.pem",
                               "CN=cert-mgmt-ml-dsa-44,O=Eclipse"},
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ml_dsa_65.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/algorithm_variety/ml_dsa_65.pem",
                               "CN=cert-mgmt-ml-dsa-65,O=Eclipse"},
-        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/ml_dsa_87.pem",
+        AlgorithmVarietyParam{"score/tests/test_vectors/certificate/algorithm_variety/ml_dsa_87.pem",
                               "CN=cert-mgmt-ml-dsa-87,O=Eclipse"}
     ),
     [](const ::testing::TestParamInfo<AlgorithmVarietyParam>& info) {

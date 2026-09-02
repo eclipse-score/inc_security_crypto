@@ -21,3 +21,4 @@ Architecture
 .. toctree::
 
    component_architecture
+   design_decisions

@@ -85,7 +85,7 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     }
 
     /// True when a session-scoped CRL has been attached via AttachSessionCrl().
-    [[nodiscard]] bool HasSessionCrl() const noexcept
+    [[nodiscard]] bool HasSessionCrl() const
     {
         const std::lock_guard<std::mutex> lock(m_ref_mutex);
         return m_session_crl.has_value();
@@ -98,7 +98,7 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
         return m_session_crl;
     }
 
-    [[nodiscard]] score::crypto::FormatType GetSessionCrlFormat() const noexcept
+    [[nodiscard]] score::crypto::FormatType GetSessionCrlFormat() const
     {
         const std::lock_guard<std::mutex> lock(m_ref_mutex);
         return m_session_crl_format;

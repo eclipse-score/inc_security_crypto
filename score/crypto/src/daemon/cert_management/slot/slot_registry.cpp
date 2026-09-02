@@ -45,42 +45,35 @@ score::crypto::Expected<CertSlotHandle, score::crypto::daemon::common::DaemonErr
     const std::string& slot_name,
     data_manager::ClientId client_id) const
 {
+    // RegisterSlot is called only at startup (ConfigDrivenSlotCatalog::Populate),
+    // before any concurrent executor threads start. m_name_index and m_registry are
+    // read-only at runtime, so no lock is needed here.
     auto it = m_name_index.find(slot_name);
     if (it == m_name_index.end())
-    {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
-    }
-
-    const auto index = it->second;
-    const auto& entry = m_registry[index];
-
-    auto access_result = AccessPolicyEnforcer::CheckSlotAccess(entry.config, client_id);
+    auto access_result = AccessPolicyEnforcer::CheckSlotAccess(m_registry[it->second].config, client_id);
     if (!access_result.has_value())
-    {
         return score::crypto::make_unexpected(access_result.error());
-    }
-
-    return CertSlotHandle{index};
+    return CertSlotHandle{it->second};
 }
 
 score::crypto::Expected<CertSlotHandle, score::crypto::daemon::common::DaemonErrorCode>
 CertSlotRegistry::ResolveSlotInternal(const std::string& slot_name) const
 {
+    // See ResolveSlot: m_name_index is read-only after startup.
     auto it = m_name_index.find(slot_name);
     if (it == m_name_index.end())
-    {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
-    }
     return CertSlotHandle{it->second};
 }
 
 score::crypto::Expected<const CertSlotConfig*, score::crypto::daemon::common::DaemonErrorCode>
 CertSlotRegistry::GetConfig(CertSlotHandle handle) const
 {
+    // See ResolveSlot: m_registry is read-only after startup. IsValidHandle reads
+    // m_registry.size() without a lock — consistent with GetSlotCount() and IsValidHandle().
     if (!IsValidHandle(handle))
-    {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
-    }
     return &m_registry[handle.index].config;
 }
 

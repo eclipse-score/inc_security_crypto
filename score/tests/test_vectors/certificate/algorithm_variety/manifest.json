@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "description": "Certificate-management test certificate inventory. Public certificates are checked in; private keys are generated locally and are not committed.",
+  "description": "One self-signed CA per supported key algorithm. Used by slot-handler algorithm-variety tests.",
   "defaults": {
     "cert_dir": ".",
     "key_dir": "private",
@@ -8,30 +8,8 @@
   },
   "certificates": [
     {
-      "name": "certificate",
-      "purpose": "Initial CA certificate for file-backed slot and trust-store tests",
-      "subject": "/CN=cert-management-test/O=Eclipse",
-      "key_algorithm": "RSA-2048",
-      "generated": {
-        "not_before": "2026-08-24T22:20:18Z",
-        "not_after": "2036-08-21T22:20:18Z",
-        "sha256_fingerprint": "3E7A581BCAAB80F73535B10968F8C3E68517194B6A404CE5F58AACABE0A62D0C"
-      }
-    },
-    {
-      "name": "certificate_updated",
-      "purpose": "Replacement CA certificate used to test slot updates and trust-store anchor invalidation",
-      "subject": "/CN=cert-management-updated/O=Eclipse",
-      "key_algorithm": "RSA-2048",
-      "generated": {
-        "not_before": "2026-08-24T22:20:18Z",
-        "not_after": "2036-08-21T22:20:18Z",
-        "sha256_fingerprint": "2324A755EB36B44DF2495504AF85A8ED3FE89A8328F01788905DB3A0E1EAED7E"
-      }
-    },
-    {
       "name": "rsa_3072",
-      "purpose": "RSA-3072 CA certificate for key-size variety tests",
+      "purpose": "RSA-3072 CA for key-size variety tests",
       "subject": "/CN=cert-mgmt-rsa-3072/O=Eclipse",
       "key_algorithm": "RSA-3072",
       "generated": {
@@ -42,7 +20,7 @@
     },
     {
       "name": "rsa_4096",
-      "purpose": "RSA-4096 CA certificate for key-size variety tests",
+      "purpose": "RSA-4096 CA for key-size variety tests",
       "subject": "/CN=cert-mgmt-rsa-4096/O=Eclipse",
       "key_algorithm": "RSA-4096",
       "generated": {
@@ -53,7 +31,7 @@
     },
     {
       "name": "ec_p256",
-      "purpose": "ECDSA P-256 CA certificate for elliptic-curve algorithm tests",
+      "purpose": "ECDSA P-256 CA for elliptic-curve algorithm tests",
       "subject": "/CN=cert-mgmt-ec-p256/O=Eclipse",
       "key_algorithm": "EC-P256",
       "generated": {
@@ -64,7 +42,7 @@
     },
     {
       "name": "ec_p384",
-      "purpose": "ECDSA P-384 CA certificate for elliptic-curve algorithm tests",
+      "purpose": "ECDSA P-384 CA for elliptic-curve algorithm tests",
       "subject": "/CN=cert-mgmt-ec-p384/O=Eclipse",
       "key_algorithm": "EC-P384",
       "generated": {
@@ -75,7 +53,7 @@
     },
     {
       "name": "ec_p521",
-      "purpose": "ECDSA P-521 CA certificate for elliptic-curve algorithm tests",
+      "purpose": "ECDSA P-521 CA for elliptic-curve algorithm tests",
       "subject": "/CN=cert-mgmt-ec-p521/O=Eclipse",
       "key_algorithm": "EC-P521",
       "generated": {
@@ -86,7 +64,7 @@
     },
     {
       "name": "ed25519",
-      "purpose": "Ed25519 CA certificate for Edwards-curve algorithm tests",
+      "purpose": "Ed25519 CA for Edwards-curve algorithm tests",
       "subject": "/CN=cert-mgmt-ed25519/O=Eclipse",
       "key_algorithm": "Ed25519",
       "generated": {
@@ -97,7 +75,7 @@
     },
     {
       "name": "ed448",
-      "purpose": "Ed448 CA certificate for Edwards-curve algorithm tests",
+      "purpose": "Ed448 CA for Edwards-curve algorithm tests",
       "subject": "/CN=cert-mgmt-ed448/O=Eclipse",
       "key_algorithm": "Ed448",
       "generated": {
@@ -108,7 +86,7 @@
     },
     {
       "name": "ml_dsa_44",
-      "purpose": "ML-DSA-44 CA certificate for post-quantum algorithm tests (NIST FIPS 204 security level 2)",
+      "purpose": "ML-DSA-44 CA for post-quantum algorithm tests (NIST FIPS 204 level 2)",
       "subject": "/CN=cert-mgmt-ml-dsa-44/O=Eclipse",
       "key_algorithm": "ML-DSA-44",
       "generated": {
@@ -119,7 +97,7 @@
     },
     {
       "name": "ml_dsa_65",
-      "purpose": "ML-DSA-65 CA certificate for post-quantum algorithm tests (NIST FIPS 204 security level 3)",
+      "purpose": "ML-DSA-65 CA for post-quantum algorithm tests (NIST FIPS 204 level 3)",
       "subject": "/CN=cert-mgmt-ml-dsa-65/O=Eclipse",
       "key_algorithm": "ML-DSA-65",
       "generated": {
@@ -130,7 +108,7 @@
     },
     {
       "name": "ml_dsa_87",
-      "purpose": "ML-DSA-87 CA certificate for post-quantum algorithm tests (NIST FIPS 204 security level 5)",
+      "purpose": "ML-DSA-87 CA for post-quantum algorithm tests (NIST FIPS 204 level 5)",
       "subject": "/CN=cert-mgmt-ml-dsa-87/O=Eclipse",
       "key_algorithm": "ML-DSA-87",
       "generated": {

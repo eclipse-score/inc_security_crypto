@@ -15,7 +15,7 @@
 //
 // Uses a real DataManager, real CertSlotRegistry, real TrustStoreManager, and
 // the real OpenSslCertParser + FileBackedSlotHandler backed by the central test
-// vector at score/tests/test_vectors/certificate/certificate.pem.
+// vector at score/tests/test_vectors/certificate/basic/certificate.pem.
 //
 // All cert bytes come from the central test-vector directory so that these
 // tests share the same known-answer inputs as the integration and provider
@@ -80,11 +80,11 @@ class CertManagementServiceTest : public ::testing::Test
         m_descriptor_path = m_dir / "root_ca.kv";
 
         ASSERT_TRUE(std::filesystem::copy_file(
-            cert::test::TestVectorPath("score/tests/test_vectors/certificate/certificate.pem"),
+            cert::test::TestVectorPath("score/tests/test_vectors/certificate/basic/certificate.pem"),
             m_cert_path,
             std::filesystem::copy_options::overwrite_existing));
         ASSERT_TRUE(std::filesystem::copy_file(
-            cert::test::TestVectorPath("score/tests/test_vectors/certificate/certificate_updated.pem"),
+            cert::test::TestVectorPath("score/tests/test_vectors/certificate/basic/certificate_updated.pem"),
             m_cert_updated_path,
             std::filesystem::copy_options::overwrite_existing));
 
@@ -279,8 +279,8 @@ TEST_F(CertManagementServiceTest, NotifySlotCertChanged_RefreshesAnchorSubjectIn
         return std::make_shared<cert::FileBackedSlotHandler>(m_parser);
     });
 
-    const auto ts_id = m_trust_store_manager->ResolveByName("test-roots");
-    auto store = m_trust_store_manager->GetStore(ts_id);
+    const auto ts_handle = m_trust_store_manager->ResolveByName("test-roots");
+    auto store = m_trust_store_manager->GetStore(ts_handle);
     ASSERT_NE(store, nullptr);
 
     // Verify the initial anchor subject.

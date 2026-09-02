@@ -89,7 +89,6 @@ struct SlotHandlerStub : public cert::ICertSlotHandler
     mutable score::crypto::Expected<score::crypto::CertificateSlotInfo, score::crypto::daemon::common::DaemonErrorCode>
         slot_info_result{score::crypto::CertificateSlotInfo{score::crypto::CertificateSlotState::kOccupied}};
 
-    bool has_crl_result{false};
     mutable std::optional<int64_t> crl_next_update_value{std::nullopt};
 
     score::crypto::Expected<cert::CertObject::Sptr, score::crypto::daemon::common::DaemonErrorCode> LoadCertificate(
@@ -125,7 +124,7 @@ struct SlotHandlerStub : public cert::ICertSlotHandler
 
     bool HasCrl(const cert::CertSlotConfig&) override
     {
-        return has_crl_result;
+        return slot_info_result->has_crl;
     }
 
     score::crypto::Expected<std::vector<uint8_t>, score::crypto::daemon::common::DaemonErrorCode> LoadCrl(
@@ -329,7 +328,7 @@ TEST(SerializeCertSlotInfo, Param0_SlotStateUint8_Empty)
 TEST(SerializeCertSlotInfo, NoCrl_Param1IsZero_Param2IsZero)
 {
     SlotHandlerStub stub;
-    stub.has_crl_result = false;
+    stub.slot_info_result->has_crl = false;
     cert::CertSlotConfig config{};
     const auto result = query::SerializeCertSlotInfo(stub, config);
     ASSERT_TRUE(result.has_value());
@@ -345,7 +344,7 @@ TEST(SerializeCertSlotInfo, NoCrl_Param1IsZero_Param2IsZero)
 TEST(SerializeCertSlotInfo, CrlPresent_Param1IsOne_Param2IsEpoch)
 {
     SlotHandlerStub stub;
-    stub.has_crl_result = true;
+    stub.slot_info_result->has_crl = true;
     stub.crl_next_update_value = 1700000000LL;
     cert::CertSlotConfig config{};
     const auto result = query::SerializeCertSlotInfo(stub, config);
@@ -364,7 +363,7 @@ TEST(SerializeCertSlotInfo, CrlPresent_GetCrlNextUpdateFails_Param2IsZero)
     // HasCrl() returns true but GetCrlNextUpdate() is unavailable.
     // The serializer should encode has_crl=1 and crl_next=0 (not an error).
     SlotHandlerStub stub;
-    stub.has_crl_result = true;
+    stub.slot_info_result->has_crl = true;
     stub.crl_next_update_value = std::nullopt;  // causes GetCrlNextUpdate to return error
     cert::CertSlotConfig config{};
     const auto result = query::SerializeCertSlotInfo(stub, config);

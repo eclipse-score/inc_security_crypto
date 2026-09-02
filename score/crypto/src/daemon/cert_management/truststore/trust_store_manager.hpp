@@ -95,8 +95,8 @@ class TrustStoreManager
     // Store access
     // -----------------------------------------------------------------------
 
-    [[nodiscard]] ITrustStoreHandler::Sptr GetStore(TrustStoreId id) const;
-    [[nodiscard]] TrustStoreId ResolveByName(const std::string& name) const;
+    [[nodiscard]] ITrustStoreHandler::Sptr GetStore(TrustStoreHandle handle) const;
+    [[nodiscard]] TrustStoreHandle ResolveByName(const std::string& name) const;
 
     void RegisterAppResource(uint32_t uid, const std::string& app_resource_id, const std::string& store_name);
     [[nodiscard]] score::crypto::Expected<TrustStoreHandle, score::crypto::daemon::common::DaemonErrorCode>
@@ -109,7 +109,7 @@ class TrustStoreManager
     /// @brief Return the set of trust store IDs that contain a given cert slot.
     ///
     /// Used by CertManagementService::SaveCertificate to fan out NotifyUpdate().
-    [[nodiscard]] std::vector<TrustStoreId> GetMembershipsForSlot(CertSlotHandle slot_handle) const;
+    [[nodiscard]] std::vector<TrustStoreHandle> GetMembershipsForSlot(CertSlotHandle slot_handle) const;
 
     // -----------------------------------------------------------------------
     // Runtime notifications and mutations
@@ -143,7 +143,7 @@ class TrustStoreManager
     /// Called by CertManagementService::NotifySlotCertChanged() after StoreCertificate.
     /// Unchanged member slots retain their cached strong-refs; only the changed slot
     /// pays a reload cost on the next GetAnchors() call.
-    void NotifySlotChanged(TrustStoreId id, CertSlotHandle changed_slot);
+    void NotifySlotChanged(TrustStoreHandle handle, CertSlotHandle changed_slot);
 
     /// @brief Add a certificate to a trust store's runtime anchor set.
     ///
@@ -164,7 +164,7 @@ class TrustStoreManager
     /// Write access to the trust store must be checked by CertManagementService
     /// before calling this method.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> AddMember(
-        TrustStoreId id,
+        TrustStoreHandle handle,
         CertObject::Sptr cert,
         data_manager::ClientId client_id,
         score::crypto::span<const uint8_t> crl_bytes = {},
@@ -179,7 +179,7 @@ class TrustStoreManager
     /// Returns kInvalidResourceId if @p slot is not a member of the trust store.
     /// Returns kUnsupportedOperation if the slot is not kExclusiveMutable.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    ImportCrlForMember(TrustStoreId id,
+    ImportCrlForMember(TrustStoreHandle handle,
                        CertSlotHandle slot,
                        score::crypto::span<const uint8_t> crl_data,
                        score::crypto::FormatType format,
@@ -190,14 +190,14 @@ class TrustStoreManager
     /// Persists the change to the trust store descriptor and calls NotifyUpdate().
     /// Write access must be checked before calling.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    RemoveMember(TrustStoreId id, const std::vector<uint8_t>& fingerprint, data_manager::ClientId client_id);
+    RemoveMember(TrustStoreHandle handle, const std::vector<uint8_t>& fingerprint, data_manager::ClientId client_id);
 
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    EnableMember(TrustStoreId id, CertSlotHandle slot, data_manager::ClientId client_id);
+    EnableMember(TrustStoreHandle handle, CertSlotHandle slot, data_manager::ClientId client_id);
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    DisableMember(TrustStoreId id, CertSlotHandle slot, data_manager::ClientId client_id);
+    DisableMember(TrustStoreHandle handle, CertSlotHandle slot, data_manager::ClientId client_id);
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    AcknowledgeMemberUpdate(TrustStoreId id, CertSlotHandle slot, data_manager::ClientId client_id);
+    AcknowledgeMemberUpdate(TrustStoreHandle handle, CertSlotHandle slot, data_manager::ClientId client_id);
 
     // -----------------------------------------------------------------------
     // Snapshot for read-only typed object access (ITrustStoreObject)
@@ -223,14 +223,14 @@ class TrustStoreManager
     ///
     /// Certs are loaded via the shared cache where possible; fresh loads are taken for
     /// uncached slots. Non-const because it may populate handler and cert caches.
-    [[nodiscard]] std::vector<MemberSnapshot> GetMembersSnapshot(TrustStoreId id);
+    [[nodiscard]] std::vector<MemberSnapshot> GetMembersSnapshot(TrustStoreHandle handle);
 
     // -----------------------------------------------------------------------
     // Configuration access
     // -----------------------------------------------------------------------
 
-    /// @brief Return the TrustStoreConfig for a given store ID.
-    [[nodiscard]] const TrustStoreConfig* GetStoreConfig(TrustStoreId id) const;
+    /// @brief Return the TrustStoreConfig for a given store handle.
+    [[nodiscard]] const TrustStoreConfig* GetStoreConfig(TrustStoreHandle handle) const;
 
   private:
     struct MemberState
@@ -243,9 +243,9 @@ class TrustStoreManager
     /// All pointers are non-null. Valid only while m_mutex is held.
     struct ResolvedMember
     {
-        CertSlotHandle slot;
-        ICertSlotHandler* handler;
-        const CertSlotConfig* cfg;
+        CertSlotHandle slot{};
+        ICertSlotHandler* handler{nullptr};
+        const CertSlotConfig* cfg{nullptr};
     };
     /// Returns nullopt if the member's slot name cannot be resolved or has no registered handler.
     [[nodiscard]] std::optional<ResolvedMember> ResolveMember(const TrustStoreMemberConfig& member);
