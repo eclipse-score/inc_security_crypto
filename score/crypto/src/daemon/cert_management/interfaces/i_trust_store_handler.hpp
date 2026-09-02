@@ -85,6 +85,17 @@ class ITrustStoreHandler
     ///
     /// Returns kInternalError when the anchor set cannot be assembled
     /// (e.g., static file I/O failure during lazy reload).
+    ///
+    /// Lifetime contract: callers must bracket every usage of GetAnchors() with
+    /// TrustStoreManager::AddRef() before the first call and ReleaseRef() after
+    /// the last call. AddRef pins the anchor cache so it is not evicted while
+    /// certs are in use; ReleaseRef allows eviction when no client holds refs.
+    /// Calling GetAnchors() without a matching AddRef/ReleaseRef pair populates
+    /// the cache with no corresponding cleanup trigger — the loaded certs will
+    /// remain in memory until an unrelated ReleaseRef happens to evict them.
+    /// The sole production call path (ScoreCertVerificationHandler) already
+    /// satisfies this contract; direct calls are only safe in tests or
+    /// read-only tooling where memory lifetime is not a concern.
     [[nodiscard]] virtual score::crypto::Expected<std::vector<CertObject::Sptr>,
                                                   score::crypto::daemon::common::DaemonErrorCode>
     GetAnchors() = 0;

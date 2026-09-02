@@ -251,8 +251,8 @@ void CertManagementService::NotifySlotCertChanged(CertSlotHandle slot_handle)
     if (!m_trust_stores)
         return;
     const auto memberships = m_trust_stores->GetMembershipsForSlot(slot_handle);
-    for (const auto ts_id : memberships)
-        m_trust_stores->NotifySlotChanged(ts_id, slot_handle);
+    for (const auto ts_handle : memberships)
+        m_trust_stores->NotifySlotChanged(ts_handle, slot_handle);
 }
 
 // ---------------------------------------------------------------------------

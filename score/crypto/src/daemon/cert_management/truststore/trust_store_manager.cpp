@@ -193,7 +193,7 @@ CertObject::Sptr TrustStoreManager::LoadOrGetCached(CertSlotHandle slot)
 
     auto* handler = GetOrCreateHandler(slot);
     const auto cfg = m_slot_registry ? m_slot_registry->GetConfig(slot) : nullptr;
-    if (!handler || !cfg)
+    if (handler == nullptr || !cfg)
         return nullptr;
 
     auto loaded = handler->LoadCertificate(**cfg);
@@ -268,7 +268,7 @@ void TrustStoreManager::LoadAnchorsIntoHandler(TrustStoreId id, TrustStoreHandle
         {
             auto* slot_handler = GetOrCreateHandler(*slot);
             const auto cfg = m_slot_registry->GetConfig(*slot);
-            if (slot_handler && cfg && slot_handler->HasCrl(**cfg))
+            if (slot_handler != nullptr && cfg && slot_handler->HasCrl(**cfg))
             {
                 auto crl_res = slot_handler->LoadCrl(**cfg);
                 if (crl_res)
@@ -285,17 +285,19 @@ void TrustStoreManager::LoadAnchorsIntoHandler(TrustStoreId id, TrustStoreHandle
 // Store access
 // ---------------------------------------------------------------------------
 
-ITrustStoreHandler::Sptr TrustStoreManager::GetStore(TrustStoreId id) const
+ITrustStoreHandler::Sptr TrustStoreManager::GetStore(TrustStoreHandle handle) const
 {
     std::lock_guard lock(m_mutex);
-    return id < m_stores.size() ? m_stores[id].handler : nullptr;
+    if (!handle.IsValid())
+        return nullptr;
+    return handle.index < m_stores.size() ? m_stores[handle.index].handler : nullptr;
 }
 
-TrustStoreId TrustStoreManager::ResolveByName(const std::string& name) const
+TrustStoreHandle TrustStoreManager::ResolveByName(const std::string& name) const
 {
     std::lock_guard lock(m_mutex);
     const auto it = m_name_index.find(name);
-    return it == m_name_index.end() ? UINT32_MAX : it->second;
+    return it == m_name_index.end() ? TrustStoreHandle{} : TrustStoreHandle{it->second};
 }
 
 void TrustStoreManager::RegisterAppResource(uint32_t uid,
@@ -328,11 +330,17 @@ score::crypto::Expected<TrustStoreHandle, Error> TrustStoreManager::ResolveAppRe
 // Slot membership query
 // ---------------------------------------------------------------------------
 
-std::vector<TrustStoreId> TrustStoreManager::GetMembershipsForSlot(CertSlotHandle slot) const
+std::vector<TrustStoreHandle> TrustStoreManager::GetMembershipsForSlot(CertSlotHandle slot) const
 {
     std::lock_guard lock(m_mutex);
     const auto it = m_slot_memberships.find(slot.index);
-    return it == m_slot_memberships.end() ? std::vector<TrustStoreId>{} : it->second;
+    if (it == m_slot_memberships.end())
+        return {};
+    std::vector<TrustStoreHandle> result;
+    result.reserve(it->second.size());
+    for (const auto id : it->second)
+        result.push_back(TrustStoreHandle{id});
+    return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -344,13 +352,13 @@ void TrustStoreManager::MaybeEvictAnchorCache(TrustStoreHandle handle)
     // Must be called with m_mutex held.
     for (const auto& [cid, stores] : m_client_ref_counts)
     {
-        if (stores.count(handle.index))
+        if (stores.count(handle.index) != 0U)
             return;  // at least one client still active for this store
     }
     if (handle.index < m_stores.size())
     {
         auto* h = static_cast<TrustStoreHandler*>(m_stores[handle.index].handler.get());
-        if (h)
+        if (h != nullptr)
             h->ClearAnchorCache();
     }
     score::mw::log::LogDebug() << kLogPrefix << "No active clients for store index " << handle.index
@@ -403,16 +411,16 @@ void TrustStoreManager::CleanupClient(data_manager::ClientId client_id)
 // Slot change notification
 // ---------------------------------------------------------------------------
 
-void TrustStoreManager::NotifySlotChanged(TrustStoreId id, CertSlotHandle changed_slot)
+void TrustStoreManager::NotifySlotChanged(TrustStoreHandle handle, CertSlotHandle changed_slot)
 {
     std::lock_guard lock(m_mutex);
-    if (id >= m_stores.size())
+    if (!handle.IsValid() || handle.index >= m_stores.size())
         return;
     // Evict the changed slot from the shared cache so LoadOrGetCached does fresh I/O.
     m_slot_cert_cache.erase(changed_slot.index);
     // Tell the handler to drop just this slot and mark itself for reload.
-    auto* h = static_cast<TrustStoreHandler*>(m_stores[id].handler.get());
-    if (h)
+    auto* h = static_cast<TrustStoreHandler*>(m_stores[handle.index].handler.get());
+    if (h != nullptr)
         h->InvalidateSlot(changed_slot);
 }
 
@@ -431,7 +439,7 @@ std::optional<TrustStoreManager::ResolvedMember> TrustStoreManager::ResolveMembe
     if (!cfg)
         return std::nullopt;
     auto* handler = GetOrCreateHandler(*slot);
-    if (!handler)
+    if (handler == nullptr)
         return std::nullopt;
     return ResolvedMember{*slot, handler, *cfg};
 }
@@ -445,19 +453,20 @@ score::crypto::Expected<TrustStoreManager::ResolvedBackend, Error> TrustStoreMan
     if (!cfg)
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     auto* handler = GetOrCreateHandler(slot);
-    if (!handler)
+    if (handler == nullptr)
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     return ResolvedBackend{*cfg, handler};
 }
 
 score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
-    TrustStoreId id,
+    TrustStoreHandle handle,
     CertObject::Sptr cert,
     data_manager::ClientId client_id,
     score::crypto::span<const uint8_t> crl_bytes,
     score::crypto::FormatType crl_format)
 {
     std::lock_guard lock(m_mutex);
+    const TrustStoreId id = handle.index;
     if (id >= m_stores.size() || !cert)
         return score::crypto::make_unexpected(Error::kInvalidArgument);
     if (!AccessPolicyEnforcer::CheckTrustStoreWritePermission(m_stores[id].config, client_id).has_value())
@@ -496,7 +505,8 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
             // Re-enable in case it was disabled and refresh the anchor cache.
             m_member_states[id][resolved->slot.index].enabled = true;
             m_slot_cert_cache[resolved->slot.index] = cert;
-            static_cast<TrustStoreHandler*>(m_stores[id].handler.get())->NotifySlotUpdate(resolved->slot, cert);
+            static_cast<TrustStoreHandler*>(m_stores[id].handler.get())
+                ->NotifySlotUpdate(resolved->slot, std::move(cert));
             if (const auto persisted = PersistState(id); !persisted)
                 return score::crypto::make_unexpected(persisted.error());
             return std::monostate{};
@@ -533,8 +543,8 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
         // Caller may retry via ImportCrlForMember.
         if (has_crl)
         {
-            const auto stored = resolved->handler->StoreCrl(*resolved->cfg, crl_bytes, crl_format);
-            if (stored)
+            const auto crl_stored = resolved->handler->StoreCrl(*resolved->cfg, crl_bytes, crl_format);
+            if (crl_stored)
             {
                 CrlEntry entry{std::vector<uint8_t>(crl_bytes.begin(), crl_bytes.end()), crl_format};
                 static_cast<TrustStoreHandler*>(m_stores[id].handler.get())
@@ -544,7 +554,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
 
         m_member_states[id][resolved->slot.index].enabled = true;
         m_slot_cert_cache[resolved->slot.index] = cert;
-        static_cast<TrustStoreHandler*>(m_stores[id].handler.get())->NotifySlotUpdate(resolved->slot, cert);
+        static_cast<TrustStoreHandler*>(m_stores[id].handler.get())->NotifySlotUpdate(resolved->slot, std::move(cert));
         if (const auto persisted = PersistState(id); !persisted)
             return score::crypto::make_unexpected(persisted.error());
         return std::monostate{};
@@ -553,13 +563,14 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
 }
 
 score::crypto::Expected<std::monostate, Error> TrustStoreManager::ImportCrlForMember(
-    TrustStoreId id,
+    TrustStoreHandle handle,
     CertSlotHandle slot,
     score::crypto::span<const uint8_t> crl_data,
     score::crypto::FormatType format,
     std::int64_t next_update_epoch_s)
 {
     std::lock_guard lock(m_mutex);
+    const TrustStoreId id = handle.index;
     if (id >= m_stores.size() || !slot.IsValid())
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     if (crl_data.empty())
@@ -582,11 +593,12 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::ImportCrlForMe
     return score::crypto::make_unexpected(Error::kInvalidResourceId);
 }
 
-score::crypto::Expected<std::monostate, Error> TrustStoreManager::RemoveMember(TrustStoreId id,
+score::crypto::Expected<std::monostate, Error> TrustStoreManager::RemoveMember(TrustStoreHandle handle,
                                                                                const std::vector<uint8_t>& fingerprint,
                                                                                data_manager::ClientId client_id)
 {
     std::lock_guard lock(m_mutex);
+    const TrustStoreId id = handle.index;
     if (id >= m_stores.size())
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     if (!AccessPolicyEnforcer::CheckTrustStoreWritePermission(m_stores[id].config, client_id).has_value())
@@ -618,11 +630,12 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::RemoveMember(T
     return score::crypto::make_unexpected(Error::kInvalidArgument);
 }
 
-score::crypto::Expected<std::monostate, Error> TrustStoreManager::EnableMember(TrustStoreId id,
+score::crypto::Expected<std::monostate, Error> TrustStoreManager::EnableMember(TrustStoreHandle handle,
                                                                                CertSlotHandle slot,
                                                                                data_manager::ClientId client_id)
 {
     std::lock_guard lock(m_mutex);
+    const TrustStoreId id = handle.index;
     if (id >= m_stores.size() || !slot.IsValid())
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     if (!AccessPolicyEnforcer::CheckTrustStoreWritePermission(m_stores[id].config, client_id).has_value())
@@ -641,11 +654,12 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::EnableMember(T
     return std::monostate{};
 }
 
-score::crypto::Expected<std::monostate, Error> TrustStoreManager::DisableMember(TrustStoreId id,
+score::crypto::Expected<std::monostate, Error> TrustStoreManager::DisableMember(TrustStoreHandle handle,
                                                                                 CertSlotHandle slot,
                                                                                 data_manager::ClientId client_id)
 {
     std::lock_guard lock(m_mutex);
+    const TrustStoreId id = handle.index;
     if (id >= m_stores.size() || !slot.IsValid())
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     if (!AccessPolicyEnforcer::CheckTrustStoreWritePermission(m_stores[id].config, client_id).has_value())
@@ -662,10 +676,13 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::DisableMember(
     return std::monostate{};
 }
 
-score::crypto::Expected<std::monostate, Error>
-TrustStoreManager::AcknowledgeMemberUpdate(TrustStoreId id, CertSlotHandle slot, data_manager::ClientId client_id)
+score::crypto::Expected<std::monostate, Error> TrustStoreManager::AcknowledgeMemberUpdate(
+    TrustStoreHandle handle,
+    CertSlotHandle slot,
+    data_manager::ClientId client_id)
 {
     std::lock_guard lock(m_mutex);
+    const TrustStoreId id = handle.index;
     if (id >= m_stores.size() || !slot.IsValid())
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     if (!AccessPolicyEnforcer::CheckTrustStoreWritePermission(m_stores[id].config, client_id).has_value())
@@ -688,19 +705,20 @@ TrustStoreManager::AcknowledgeMemberUpdate(TrustStoreId id, CertSlotHandle slot,
     return std::monostate{};
 }
 
-const TrustStoreConfig* TrustStoreManager::GetStoreConfig(TrustStoreId id) const
+const TrustStoreConfig* TrustStoreManager::GetStoreConfig(TrustStoreHandle handle) const
 {
     std::lock_guard lock(m_mutex);
-    return id < m_stores.size() ? &m_stores[id].config : nullptr;
+    return handle.index < m_stores.size() ? &m_stores[handle.index].config : nullptr;
 }
 
 // ---------------------------------------------------------------------------
 // Member snapshot (for ITrustStoreObject read-only view)
 // ---------------------------------------------------------------------------
 
-std::vector<TrustStoreManager::MemberSnapshot> TrustStoreManager::GetMembersSnapshot(TrustStoreId id)
+std::vector<TrustStoreManager::MemberSnapshot> TrustStoreManager::GetMembersSnapshot(TrustStoreHandle handle)
 {
     std::lock_guard lock(m_mutex);
+    const TrustStoreId id = handle.index;
     if (id >= m_stores.size() || !m_slot_registry)
         return {};
 

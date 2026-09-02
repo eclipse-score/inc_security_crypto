@@ -27,6 +27,7 @@ cc_test(
         "//score/crypto/src/daemon/cert_management:cert_management_headers",
         "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_cert_management_headers",
         "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_cert_parser_library",
+        "//third_party/openssl:openssl_shared",
         "@googletest//:gtest_main",
     ],
 )
