@@ -49,10 +49,10 @@ class CertificateManagementIntegrationTest : public ::testing::Test
         m_certificate_path = m_directory / "device_root.pem";
         m_trust_store_path = m_directory / "tls_roots.kv";
 
-        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/certificate.pem",
+        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate.pem",
                                                m_certificate_path,
                                                std::filesystem::copy_options::overwrite_existing));
-        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/certificate_updated.pem",
+        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate_updated.pem",
                                                m_directory / "certificate_updated.pem",
                                                std::filesystem::copy_options::overwrite_existing));
 
@@ -61,7 +61,7 @@ class CertificateManagementIntegrationTest : public ::testing::Test
         slot_desc.Set("certificate", "cert_format", "pem");
         ASSERT_TRUE(storage::KvDeploymentWriter{}.Write(m_descriptor_path.string(), slot_desc).has_value());
 
-        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/trust_store.kv",
+        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/trust_store.kv",
                                                m_trust_store_path,
                                                std::filesystem::copy_options::overwrite_existing));
 
@@ -135,7 +135,7 @@ TEST_F(CertificateManagementIntegrationTest, LoadsPersistsUpdatesAndInvalidatesT
 
     auto trust_store_handle = m_trust_store_manager->ResolveAppResource("tls_roots", 0U);
     ASSERT_TRUE(trust_store_handle.has_value());
-    auto trust_store = m_trust_store_manager->GetStore(trust_store_handle->index);
+    auto trust_store = m_trust_store_manager->GetStore(*trust_store_handle);
     ASSERT_NE(trust_store, nullptr);
 
     const auto initial_anchors = trust_store->GetAnchors();
@@ -156,7 +156,7 @@ TEST_F(CertificateManagementIntegrationTest, LoadsPersistsUpdatesAndInvalidatesT
     EXPECT_EQ(descriptor->Get("certificate_metadata", "issuer"), "CN=cert-management-updated,O=Eclipse");
     EXPECT_EQ(descriptor->Get("certificate_metadata", "is_ca"), "true");
 
-    m_trust_store_manager->NotifySlotChanged(trust_store_handle->index, *slot);
+    m_trust_store_manager->NotifySlotChanged(*trust_store_handle, *slot);
     const auto updated_anchors = trust_store->GetAnchors();
     ASSERT_TRUE(updated_anchors.has_value());
     ASSERT_EQ(updated_anchors->size(), 1U);

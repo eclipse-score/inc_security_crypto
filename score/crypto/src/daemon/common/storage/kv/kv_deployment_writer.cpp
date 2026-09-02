@@ -35,7 +35,9 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
         oss << '\n';
     }
 
-    const std::string content = oss.str();
+    std::string content = oss.str();
+    if (content.empty())
+        content = "# empty deployment descriptor\n";
     const auto bytes =
         score::crypto::span<const std::uint8_t>{reinterpret_cast<const std::uint8_t*>(content.data()), content.size()};
     return WriteFile(path, bytes);

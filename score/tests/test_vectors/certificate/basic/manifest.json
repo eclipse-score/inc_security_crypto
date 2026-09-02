@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "description": "Primary RSA-2048 test PKI. Root CA + rotated CA + signed leaf. Used by cert-management, trust-store, slot-handler, integration, and cert-parser tests.",
+  "defaults": {
+    "cert_dir": ".",
+    "key_dir": "private",
+    "validity_days": 3650
+  },
+  "certificates": [
+    {
+      "name": "certificate",
+      "purpose": "Root CA for basic slot and trust-store tests",
+      "subject": "/CN=cert-management-test/O=Eclipse",
+      "key_algorithm": "RSA-2048",
+      "crl": {
+        "_comment": "Run: python ../generate_certificates.py crl certificate --manifest manifest.json",
+        "revoked": ["certificate_leaf"]
+      },
+      "generated": {
+        "not_before": "2026-08-24T22:20:18Z",
+        "not_after": "2036-08-21T22:20:18Z",
+        "sha256_fingerprint": "3E7A581BCAAB80F73535B10968F8C3E68517194B6A404CE5F58AACABE0A62D0C"
+      }
+    },
+    {
+      "name": "certificate_updated",
+      "purpose": "Rotated CA — used to test slot updates and trust-store anchor invalidation",
+      "subject": "/CN=cert-management-updated/O=Eclipse",
+      "key_algorithm": "RSA-2048",
+      "generated": {
+        "not_before": "2026-08-24T22:20:18Z",
+        "not_after": "2036-08-21T22:20:18Z",
+        "sha256_fingerprint": "2324A755EB36B44DF2495504AF85A8ED3FE89A8328F01788905DB3A0E1EAED7E"
+      }
+    },
+    {
+      "name": "certificate_leaf",
+      "purpose": "End-entity cert signed by 'certificate' CA; appears in certificate CRL revoked list",
+      "subject": "/CN=cert-mgmt-leaf/O=Eclipse",
+      "key_algorithm": "RSA-2048",
+      "signed_by": "certificate",
+      "is_ca": false,
+      "cert_formats": ["pem", "der"],
+      "chain_file": true,
+      "_usage": [
+        "Step 1 — generate the CA first (if not already present):",
+        "  python ../generate_certificates.py generate certificate --manifest manifest.json",
+        "Step 2 — generate the leaf (CSR signed by 'certificate'):",
+        "  python ../generate_certificates.py generate certificate_leaf --manifest manifest.json",
+        "Step 3 — generate the CA CRL that revokes this leaf:",
+        "  python ../generate_certificates.py crl certificate --manifest manifest.json"
+      ]
+    }
+  ]
+}

@@ -113,4 +113,4 @@ CRL validation, OCSP, and mediator dispatch are outside this component's
 storage and lifecycle scope. Hardware CSR signing must use a cross-context
 service without exporting private key material.
 
-.. uml:: ../architecture/cert_management_dynamic.puml
+.. uml:: cert_management_dynamic.puml
