@@ -11,7 +11,8 @@
 ' SPDX-License-Identifier: Apache-2.0
 ' *******************************************************************************
 
-@startuml
+@startuml cert_management_static
+top to bottom direction
 skinparam componentStyle rectangle
 skinparam packageStyle rectangle
 
@@ -65,25 +66,25 @@ package "daemon/mediator" {
   [Mediator]
 }
 
-[CertManagementService] --> [CertRegistry]
+[CertManagementService] -> [CertRegistry]
 [CertManagementService] --> [CertSlotRegistry]
 [CertManagementService] --> [TrustStoreManager]
-[CertManagementService] --> [DataManager]
+[CertManagementService] -->[DataManager]
 [CertManagementService] --> [AccessPolicyEnforcer]
-[CertManagementService] ..> [CertSlotDataNode] : creates
-[CertManagementService] ..> [CertDataNode] : creates
-[CertManagementService] ..> [TrustStoreDataNode] : creates
+[CertSlotDataNode] <.. [CertManagementService] : creates
+[CertDataNode] <.. [CertManagementService] : creates
+[TrustStoreDataNode] <.. [CertManagementService] : creates
 
-[ConfigDrivenSlotCatalog] --> [CertSlotRegistry]
-[ConfigDrivenTrustStoreCatalog] --> [TrustStoreManager]
+[CertSlotRegistry] <-- [ConfigDrivenSlotCatalog]
+[ConfigDrivenTrustStoreCatalog] ---> [TrustStoreManager]
 [TrustStoreManager] --> [CertSlotRegistry]
 [TrustStoreManager] --> [TrustStoreHandler]
 [TrustStoreManager] --> ICertSlotHandler
 [TrustStoreHandler] ..|> ITrustStoreHandler
 [FileBackedSlotHandler] ..|> ICertSlotHandler
 [FileBackedSlotHandler] --> [CrlHandler]
-[FileBackedSlotHandler] --> ICertParser
-[FileBackedSlotHandler] --> [Shared Deployment Storage]
+[FileBackedSlotHandler] ---> ICertParser
+[Shared Deployment Storage] <-- [FileBackedSlotHandler]
 [Pkcs11CertSlotHandler] ..|> ICertSlotHandler
 [Pkcs11CertSlotHandler] --> [CrlHandler]
 [OpenSslCertParser] ..|> ICertParser

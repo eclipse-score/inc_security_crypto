@@ -35,7 +35,6 @@ cc_library(
         "policy/*.hpp",
         "slot/*.hpp",
         "truststore/*.hpp",
-        "detail/*.hpp",
         "cert_management_module.hpp",
     ]),
     includes = ["."],

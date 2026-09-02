@@ -53,7 +53,7 @@ class TrustStoreDataNode final : public data_manager::DataNode
 
     ITrustStoreHandler::Sptr GetStore() const
     {
-        return m_manager ? m_manager->GetStore(m_handle.index) : nullptr;
+        return m_manager ? m_manager->GetStore(m_handle) : nullptr;
     }
 
   private:

@@ -1,0 +1,67 @@
+{
+  "schema_version": 2,
+  "description": "Three-level PKI: root CA -> intermediate CA -> leaf. For chain-verification and OCSP tests. No certs committed yet — generate in order below.",
+  "defaults": {
+    "cert_dir": ".",
+    "key_dir": "private",
+    "validity_days": 3650
+  },
+  "certificates": [
+    {
+      "name": "root_ca",
+      "purpose": "Self-signed root CA; issues intermediate_ca and the root CRL",
+      "subject": "/CN=Test-Root-CA/O=Eclipse",
+      "key_algorithm": "RSA-2048",
+      "crl": {
+        "revoked": ["intermediate_ca"]
+      }
+    },
+    {
+      "name": "ocsp_signer",
+      "purpose": "OCSP signing certificate issued by root_ca; used to sign OCSP responses",
+      "subject": "/CN=Test-OCSP-Signer/O=Eclipse",
+      "key_algorithm": "RSA-2048",
+      "signed_by": "root_ca",
+      "is_ca": false,
+      "ext_file": "ocsp_signer.ext.conf",
+      "_note": "ext_file adds extendedKeyUsage = OCSPSigning — required for OCSP response signing"
+    },
+    {
+      "name": "intermediate_ca",
+      "purpose": "Intermediate CA issued by root_ca; issues leaf and the intermediate CRL",
+      "subject": "/CN=Test-Intermediate-CA/O=Eclipse",
+      "key_algorithm": "RSA-2048",
+      "signed_by": "root_ca",
+      "is_ca": true,
+      "chain_file": true,
+      "crl": {
+        "revoked": ["leaf"]
+      }
+    },
+    {
+      "name": "leaf",
+      "purpose": "End-entity cert issued by intermediate_ca; subject of OCSP request/response",
+      "subject": "/CN=Test-Leaf/O=Eclipse",
+      "key_algorithm": "RSA-2048",
+      "signed_by": "intermediate_ca",
+      "is_ca": false,
+      "cert_formats": ["pem", "der"],
+      "chain_file": true,
+      "ocsp": {
+        "signer": "ocsp_signer",
+        "status": "good",
+        "validity_days": 7
+      }
+    }
+  ],
+  "_generation_order": [
+    "python ../generate_certificates.py generate root_ca         --manifest manifest.json",
+    "python ../generate_certificates.py generate ocsp_signer     --manifest manifest.json",
+    "python ../generate_certificates.py generate intermediate_ca --manifest manifest.json",
+    "python ../generate_certificates.py generate leaf            --manifest manifest.json",
+    "python ../generate_certificates.py crl root_ca              --manifest manifest.json",
+    "python ../generate_certificates.py crl intermediate_ca      --manifest manifest.json",
+    "python ../generate_certificates.py ocsp-req  leaf           --manifest manifest.json",
+    "python ../generate_certificates.py ocsp-resp leaf           --manifest manifest.json"
+  ]
+}

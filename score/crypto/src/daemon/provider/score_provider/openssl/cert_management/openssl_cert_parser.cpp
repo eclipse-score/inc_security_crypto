@@ -288,11 +288,8 @@ std::int64_t Asn1TimeToEpoch(const ASN1_TIME* asn1)
     struct tm t{};
     if (ASN1_TIME_to_tm(asn1, &t) != 1)
         return 0;
-#ifdef _WIN32
-    return static_cast<std::int64_t>(_mkgmtime(&t));
-#else
+
     return static_cast<std::int64_t>(timegm(&t));
-#endif
 }
 }  // namespace
 

@@ -17,7 +17,7 @@
 // test vectors so that trust-store anchor loading, eviction, and mutation
 // operations are exercised against real certificate material — not stubs.
 //
-// All cert bytes come from score/tests/test_vectors/certificate/ and all slot
+// All cert bytes come from score/tests/test_vectors/certificate/basic/ and all slot
 // state is backed by KV descriptor files in a per-test temp directory.
 //
 // Test subjects:
@@ -29,6 +29,7 @@
 //   - AddMember — stores a cert into an empty exclusive slot, persists to disk
 //   - RemoveMember — removes anchor by real SHA-256 fingerprint
 //   - AcknowledgeMemberUpdate — re-enables a disabled slot with fresh load
+//   - ConditionalExternal — fingerprint mismatch auto-disables on reload; AcknowledgeMemberUpdate re-enables
 
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
@@ -88,7 +89,7 @@ class TrustStoreManagerTest : public ::testing::Test
         // root-anchor: slot backed by the initial test vector cert.
         m_root_cert = m_dir / "root_ca.pem";
         m_root_slot_kv = m_dir / "root_ca.kv";
-        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/certificate.pem",
+        ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate.pem",
                                                m_root_cert,
                                                std::filesystem::copy_options::overwrite_existing));
         WriteSlotDescriptor(m_root_slot_kv, m_root_cert);
@@ -181,10 +182,10 @@ TEST_F(TrustStoreManagerTest, LoadsAnchorsLazilyAndBuildsSlotMembershipIndex)
 
     // Membership index is built at Load() time without touching cert bytes.
     ASSERT_EQ(manager.GetMembershipsForSlot(slot).size(), 1U);
-    EXPECT_EQ(manager.GetMembershipsForSlot(slot)[0], 0U);
+    EXPECT_EQ(manager.GetMembershipsForSlot(slot)[0], cert::TrustStoreHandle{0U});
 
     // Anchors are loaded lazily on the first GetAnchors() call.
-    auto store = manager.GetStore(0U);
+    auto store = manager.GetStore(cert::TrustStoreHandle{0U});
     ASSERT_NE(store, nullptr);
     auto anchors = store->GetAnchors();
     ASSERT_TRUE(anchors.has_value());
@@ -200,7 +201,7 @@ TEST_F(TrustStoreManagerTest, LoadsAnchorsLazilyAndBuildsSlotMembershipIndex)
 TEST(TrustStoreManagerStandaloneTest, RejectsUnknownStoreAndSlotHandles)
 {
     cert::TrustStoreManager manager;
-    EXPECT_EQ(manager.GetStore(0U), nullptr);
+    EXPECT_EQ(manager.GetStore(cert::TrustStoreHandle{0U}), nullptr);
     EXPECT_EQ(manager.GetMembershipsForSlot(cert::CertSlotHandle{4U}).size(), 0U);
 }
 
@@ -227,8 +228,8 @@ TEST_F(TrustStoreManagerTest, PerClientAddRef_DoesNotEvictCacheWhileOtherClientH
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("tls-roots");
-    auto store = manager.GetStore(ts_id);
+    const auto ts_handle = manager.ResolveByName("tls-roots");
+    auto store = manager.GetStore(ts_handle);
     ASSERT_NE(store, nullptr);
 
     // Trigger initial load; drop the result so the anchor's strong ref lives
@@ -239,12 +240,11 @@ TEST_F(TrustStoreManagerTest, PerClientAddRef_DoesNotEvictCacheWhileOtherClientH
         EXPECT_EQ((*anchors)[0]->GetSubject(), kSubjectInitial);
     }
 
-    const cert::TrustStoreHandle ts_handle{ts_id};
     manager.AddRef(ts_handle, kClientA);
     manager.AddRef(ts_handle, kClientB);
 
     // Rotate cert on disk — subsequent reloads will see kSubjectUpdated.
-    ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/certificate_updated.pem",
+    ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate_updated.pem",
                                            m_root_cert,
                                            std::filesystem::copy_options::overwrite_existing));
 
@@ -284,12 +284,11 @@ TEST_F(TrustStoreManagerTest, CleanupClient_ReleasesAllRefsAndEvictsCache)
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("tls-roots");
-    auto store = manager.GetStore(ts_id);
+    const auto ts_handle = manager.ResolveByName("tls-roots");
+    auto store = manager.GetStore(ts_handle);
     ASSERT_NE(store, nullptr);
 
     // Simulate two open verification contexts for kClientA.
-    const cert::TrustStoreHandle ts_handle{ts_id};
     manager.AddRef(ts_handle, kClientA);
     manager.AddRef(ts_handle, kClientA);
 
@@ -301,7 +300,7 @@ TEST_F(TrustStoreManagerTest, CleanupClient_ReleasesAllRefsAndEvictsCache)
     }
 
     // Rotate cert on disk.
-    ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/certificate_updated.pem",
+    ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate_updated.pem",
                                            m_root_cert,
                                            std::filesystem::copy_options::overwrite_existing));
 
@@ -334,8 +333,8 @@ TEST_F(TrustStoreManagerTest, DisableAndReEnable_MemberTogglesAnchorVisibility)
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("tls-roots");
-    auto store = manager.GetStore(ts_id);
+    const auto ts_handle = manager.ResolveByName("tls-roots");
+    auto store = manager.GetStore(ts_handle);
     ASSERT_NE(store, nullptr);
 
     // Initial load: one anchor present.
@@ -345,13 +344,13 @@ TEST_F(TrustStoreManagerTest, DisableAndReEnable_MemberTogglesAnchorVisibility)
     EXPECT_EQ((*initial)[0]->GetSubject(), kSubjectInitial);
 
     // Disable: anchor must disappear from the store immediately.
-    ASSERT_TRUE(manager.DisableMember(ts_id, slot, kClientA).has_value());
+    ASSERT_TRUE(manager.DisableMember(ts_handle, slot, kClientA).has_value());
     auto after_disable = store->GetAnchors();
     ASSERT_TRUE(after_disable.has_value());
     EXPECT_EQ(after_disable->size(), 0U);
 
     // Re-enable: anchor must reappear with the same subject.
-    ASSERT_TRUE(manager.EnableMember(ts_id, slot, kClientA).has_value());
+    ASSERT_TRUE(manager.EnableMember(ts_handle, slot, kClientA).has_value());
     auto after_enable = store->GetAnchors();
     ASSERT_TRUE(after_enable.has_value());
     ASSERT_EQ(after_enable->size(), 1U);
@@ -383,10 +382,10 @@ TEST_F(TrustStoreManagerTest, TwoStores_OneSlot_BothGetMemberships)
     // Both stores report membership for the shared slot.
     EXPECT_EQ(manager.GetMembershipsForSlot(slot).size(), 2U);
 
-    const auto ts_id_a = manager.ResolveByName("store-a");
-    const auto ts_id_b = manager.ResolveByName("store-b");
-    auto anchors_a = manager.GetStore(ts_id_a)->GetAnchors();
-    auto anchors_b = manager.GetStore(ts_id_b)->GetAnchors();
+    const auto ts_handle_a = manager.ResolveByName("store-a");
+    const auto ts_handle_b = manager.ResolveByName("store-b");
+    auto anchors_a = manager.GetStore(ts_handle_a)->GetAnchors();
+    auto anchors_b = manager.GetStore(ts_handle_b)->GetAnchors();
     ASSERT_TRUE(anchors_a.has_value());
     ASSERT_TRUE(anchors_b.has_value());
     ASSERT_EQ(anchors_a->size(), 1U);
@@ -417,8 +416,8 @@ TEST_F(TrustStoreManagerTest, AddMember_ToExclusiveSlot_AddsAnchorAndPersistsToD
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("mutable-store");
-    auto store = manager.GetStore(ts_id);
+    const auto ts_handle = manager.ResolveByName("mutable-store");
+    auto store = manager.GetStore(ts_handle);
     ASSERT_NE(store, nullptr);
 
     // Slot is empty — no anchors before AddMember.
@@ -431,7 +430,7 @@ TEST_F(TrustStoreManagerTest, AddMember_ToExclusiveSlot_AddsAnchorAndPersistsToD
     ASSERT_NE(cert, nullptr);
     EXPECT_EQ(cert->GetSubject(), kSubjectInitial);
 
-    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA).has_value());
+    ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA).has_value());
 
     // Anchor must be visible immediately after AddMember.
     auto after = store->GetAnchors();
@@ -466,8 +465,8 @@ TEST_F(TrustStoreManagerTest, RemoveMember_ByFingerprint_RemovesAnchor)
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("mutable-store");
-    auto store = manager.GetStore(ts_id);
+    const auto ts_handle = manager.ResolveByName("mutable-store");
+    auto store = manager.GetStore(ts_handle);
     ASSERT_NE(store, nullptr);
 
     // Load the anchors to obtain the real SHA-256 fingerprint.
@@ -480,7 +479,7 @@ TEST_F(TrustStoreManagerTest, RemoveMember_ByFingerprint_RemovesAnchor)
     ASSERT_EQ(fp_span.size(), 32U);
     const std::vector<std::uint8_t> fingerprint{fp_span.begin(), fp_span.end()};
 
-    ASSERT_TRUE(manager.RemoveMember(ts_id, fingerprint, kClientA).has_value());
+    ASSERT_TRUE(manager.RemoveMember(ts_handle, fingerprint, kClientA).has_value());
 
     // Anchor must be gone after removal.
     auto after = store->GetAnchors();
@@ -506,8 +505,8 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("cond-store");
-    auto store = manager.GetStore(ts_id);
+    const auto ts_handle = manager.ResolveByName("cond-store");
+    auto store = manager.GetStore(ts_handle);
     ASSERT_NE(store, nullptr);
 
     // Initial load — anchor present.
@@ -517,12 +516,12 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
     EXPECT_EQ((*initial)[0]->GetSubject(), kSubjectInitial);
 
     // Rotate cert on disk so that AcknowledgeMemberUpdate reloads a different cert.
-    ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/certificate_updated.pem",
+    ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate_updated.pem",
                                            m_root_cert,
                                            std::filesystem::copy_options::overwrite_existing));
 
     // Disable — simulates detection of an unexpected content change.
-    ASSERT_TRUE(manager.DisableMember(ts_id, slot, kClientA).has_value());
+    ASSERT_TRUE(manager.DisableMember(ts_handle, slot, kClientA).has_value());
     {
         auto after_disable = store->GetAnchors();
         ASSERT_TRUE(after_disable.has_value());
@@ -530,12 +529,90 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
     }
 
     // Acknowledge — fresh load from disk, records accepted_fingerprint, re-enables.
-    ASSERT_TRUE(manager.AcknowledgeMemberUpdate(ts_id, slot, kClientA).has_value());
+    ASSERT_TRUE(manager.AcknowledgeMemberUpdate(ts_handle, slot, kClientA).has_value());
 
     auto after_ack = store->GetAnchors();
     ASSERT_TRUE(after_ack.has_value());
     ASSERT_EQ(after_ack->size(), 1U);
     // AcknowledgeMemberUpdate reloaded from disk — must now show the rotated cert.
+    EXPECT_EQ((*after_ack)[0]->GetSubject(), kSubjectUpdated);
+    EXPECT_EQ((*after_ack)[0]->GetFingerprint().size(), 32U);
+}
+
+// ---------------------------------------------------------------------------
+// ConditionalExternal — fingerprint mismatch triggers auto-disable; the entire
+// scenario from initial acceptance through rotation, mismatch detection,
+// and re-acknowledgement is exercised here.
+//
+// Steps:
+//  1. kConditionalExternal member with kEnableAndAcceptCurrent init policy:
+//     first GetAnchors() records accepted_fingerprint = fingerprint(cert A).
+//  2. Cert rotated on disk (cert A → cert B) while a client ref is held.
+//  3. ReleaseRef → cache evicted (m_loaded = false, m_slots cleared).
+//  4. Next GetAnchors() → LoadAnchorsIntoHandler reloads cert B from disk,
+//     detects fingerprint(B) ≠ accepted_fingerprint(A) → auto-disables
+//     the member → returns empty anchors.
+//  5. AcknowledgeMemberUpdate → fresh load of cert B, records new fingerprint,
+//     re-enables via NotifySlotUpdate.
+//  6. GetAnchors() returns cert B without another reload cycle.
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, ConditionalExternal_FingerprintMismatch_AutoDisablesUntilAcknowledged)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    const auto slot = registry->RegisterSlot(MakeSlotConfig("root-anchor", m_root_slot_kv));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "cond-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.conditional_slot_initialization = cert::ConditionalSlotInitialization::kEnableAndAcceptCurrent;
+    ts_cfg.members.push_back(
+        cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kConditionalExternal});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_handle = manager.ResolveByName("cond-store");
+    auto store = manager.GetStore(ts_handle);
+    ASSERT_NE(store, nullptr);
+
+    // Step 1: Initial load — kEnableAndAcceptCurrent records accepted_fingerprint.
+    // The ref is established before the load so that ReleaseRef later triggers eviction.
+    manager.AddRef(ts_handle, kClientA);
+    {
+        auto initial = store->GetAnchors();
+        ASSERT_TRUE(initial.has_value());
+        ASSERT_EQ(initial->size(), 1U);
+        EXPECT_EQ((*initial)[0]->GetSubject(), kSubjectInitial);
+        // 'initial' drops here; the only remaining strong ref is inside TrustStoreHandler::m_slots.
+    }
+
+    // Step 2: Rotate cert on disk without acknowledgement.
+    ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate_updated.pem",
+                                           m_root_cert,
+                                           std::filesystem::copy_options::overwrite_existing));
+
+    // Step 3: ReleaseRef — last client ref gone → MaybeEvictAnchorCache → ClearAnchorCache
+    // (m_loaded = false, m_slots cleared, weak_ptr in m_slot_cert_cache expires).
+    manager.ReleaseRef(ts_handle, kClientA);
+
+    // Step 4: GetAnchors() triggers LoadAnchorsIntoHandler which loads cert B from disk,
+    // compares fingerprint(B) with the recorded fingerprint(A), detects mismatch,
+    // sets state.enabled = false, and calls NotifySlotUpdate with nullptr.
+    {
+        auto after_rotate = store->GetAnchors();
+        ASSERT_TRUE(after_rotate.has_value());
+        EXPECT_EQ(after_rotate->size(), 0U);
+    }
+
+    // Step 5: Acknowledge — fresh load of cert B records new fingerprint and re-enables.
+    ASSERT_TRUE(manager.AcknowledgeMemberUpdate(ts_handle, slot, kClientA).has_value());
+
+    // Step 6: GetAnchors() returns cert B without another reload cycle (m_loaded is
+    // still true; AcknowledgeMemberUpdate updated m_slots directly via NotifySlotUpdate).
+    auto after_ack = store->GetAnchors();
+    ASSERT_TRUE(after_ack.has_value());
+    ASSERT_EQ(after_ack->size(), 1U);
     EXPECT_EQ((*after_ack)[0]->GetSubject(), kSubjectUpdated);
     EXPECT_EQ((*after_ack)[0]->GetFingerprint().size(), 32U);
 }
@@ -559,7 +636,7 @@ TEST_F(TrustStoreManagerTest, AddMember_WithCrlBytes_StoresAndPersistsCrl)
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("mutable-store");
+    const auto ts_handle = manager.ResolveByName("mutable-store");
 
     auto cert = ParseCert(m_root_cert);
     ASSERT_NE(cert, nullptr);
@@ -567,7 +644,7 @@ TEST_F(TrustStoreManagerTest, AddMember_WithCrlBytes_StoresAndPersistsCrl)
     const std::vector<std::uint8_t> crl{0xC0U, 0xC1U, 0xC2U};
     const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
 
-    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA, crl_span, score::crypto::FormatType::kDer).has_value());
+    ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA, crl_span, score::crypto::FormatType::kDer).has_value());
 
     // Verify via a fresh handler: cert and CRL are both on disk.
     cert::FileBackedSlotHandler fresh_handler{m_parser};
@@ -599,13 +676,13 @@ TEST_F(TrustStoreManagerTest, AddMember_ExistingExclusiveMember_UpsertsCrl)
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("mutable-store");
+    const auto ts_handle = manager.ResolveByName("mutable-store");
 
     auto cert = ParseCert(m_root_cert);
     ASSERT_NE(cert, nullptr);
 
     // First add: cert only, no CRL.
-    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA).has_value());
+    ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA).has_value());
     {
         cert::FileBackedSlotHandler fh{m_parser};
         const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
@@ -615,7 +692,7 @@ TEST_F(TrustStoreManagerTest, AddMember_ExistingExclusiveMember_UpsertsCrl)
     // Second add: same cert, with CRL — upsert path.
     const std::vector<std::uint8_t> crl{0xAAU, 0xBBU, 0xCCU};
     const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
-    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA, crl_span, score::crypto::FormatType::kDer).has_value());
+    ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA, crl_span, score::crypto::FormatType::kDer).has_value());
 
     cert::FileBackedSlotHandler fresh_handler{m_parser};
     const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
@@ -643,7 +720,7 @@ TEST_F(TrustStoreManagerTest, AddMember_SharedStaticMember_WithCrl_ReturnsUnsupp
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("mixed-store");
+    const auto ts_handle = manager.ResolveByName("mixed-store");
 
     // Parse the same cert that is already the shared-static member.
     auto cert = ParseCert(m_root_cert);
@@ -652,7 +729,7 @@ TEST_F(TrustStoreManagerTest, AddMember_SharedStaticMember_WithCrl_ReturnsUnsupp
     const std::vector<std::uint8_t> crl{0x01U, 0x02U};
     const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
 
-    const auto result = manager.AddMember(ts_id, cert, kClientA, crl_span, score::crypto::FormatType::kDer);
+    const auto result = manager.AddMember(ts_handle, cert, kClientA, crl_span, score::crypto::FormatType::kDer);
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
 }
@@ -678,14 +755,14 @@ TEST_F(TrustStoreManagerTest, AddMember_DeduplicationChecksAllMemberTypes)
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("mixed-store");
+    const auto ts_handle = manager.ResolveByName("mixed-store");
 
     // Parse the same cert that is already the shared-static member.
     auto cert = ParseCert(m_root_cert);
     ASSERT_NE(cert, nullptr);
 
     // AddMember without CRL: dedup on shared-static → idempotent success.
-    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA).has_value());
+    ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA).has_value());
 
     // The exclusive slot must still be empty — not consumed by AddMember.
     cert::FileBackedSlotHandler fresh_handler{m_parser};
@@ -713,19 +790,20 @@ TEST_F(TrustStoreManagerTest, ImportCrlForMember_WritesToExclusiveSlot)
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeHandlerFactory());
 
-    const auto ts_id = manager.ResolveByName("mutable-store");
+    const auto ts_handle = manager.ResolveByName("mutable-store");
 
     auto cert = ParseCert(m_root_cert);
     ASSERT_NE(cert, nullptr);
 
     // First add the cert without CRL.
-    ASSERT_TRUE(manager.AddMember(ts_id, cert, kClientA).has_value());
+    ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA).has_value());
 
     // Now import a CRL for that member by slot handle.
     const std::vector<std::uint8_t> crl{0xD0U, 0xD1U, 0xD2U};
     const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
 
-    ASSERT_TRUE(manager.ImportCrlForMember(ts_id, slot_handle, crl_span, score::crypto::FormatType::kDer).has_value());
+    ASSERT_TRUE(
+        manager.ImportCrlForMember(ts_handle, slot_handle, crl_span, score::crypto::FormatType::kDer).has_value());
 
     // Verify persistence: fresh handler must read the CRL.
     cert::FileBackedSlotHandler fresh_handler{m_parser};
@@ -734,6 +812,184 @@ TEST_F(TrustStoreManagerTest, ImportCrlForMember_WritesToExclusiveSlot)
     const auto loaded_crl = fresh_handler.LoadCrl(cfg);
     ASSERT_TRUE(loaded_crl.has_value());
     EXPECT_EQ(*loaded_crl, crl);
+}
+
+// ---------------------------------------------------------------------------
+// AddMember — capacity exceeded: all exclusive slots are occupied by a
+// different cert. The trust store has no shared-static member and no empty
+// exclusive slot.
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, AddMember_NoEmptyExclusiveSlot_ReturnsCapacityExceeded)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    static_cast<void>(registry->RegisterSlot(MakeSlotConfig("root-anchor", m_root_slot_kv)));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "full-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.members.push_back(
+        cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_handle = manager.ResolveByName("full-store");
+
+    // root-anchor already holds a cert (kSubjectInitial). Add the same cert first to fill the slot.
+    auto cert_a = ParseCert(m_root_cert);
+    ASSERT_NE(cert_a, nullptr);
+    ASSERT_TRUE(manager.AddMember(ts_handle, cert_a, kClientA).has_value());
+
+    // Now try to add a *different* cert — slot is occupied, no empty exclusive slot.
+    // Use the updated cert (different fingerprint) to bypass dedup.
+    ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate_updated.pem",
+                                           m_dir / "alt.pem",
+                                           std::filesystem::copy_options::overwrite_existing));
+    auto cert_b = ParseCert(m_dir / "alt.pem");
+    ASSERT_NE(cert_b, nullptr);
+
+    const auto result = manager.AddMember(ts_handle, cert_b, kClientA);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kTrustStoreCapacityExceeded);
+}
+
+// ---------------------------------------------------------------------------
+// RemoveMember — wrong fingerprint: no exclusive member matches; returns
+// kInvalidArgument rather than silently succeeding.
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, RemoveMember_WrongFingerprint_ReturnsInvalidArgument)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    static_cast<void>(registry->RegisterSlot(MakeSlotConfig("root-anchor", m_root_slot_kv)));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "mutable-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.members.push_back(
+        cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_handle = manager.ResolveByName("mutable-store");
+
+    const std::vector<std::uint8_t> wrong_fp(32U, 0xFFU);
+    const auto result = manager.RemoveMember(ts_handle, wrong_fp, kClientA);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+}
+
+// ---------------------------------------------------------------------------
+// ImportCrlForMember — returns kUnsupportedOperation when the target slot is
+// a shared-static member (the trust store does not own it).
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, ImportCrlForMember_SharedStaticSlot_ReturnsUnsupportedOperation)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    const auto slot_handle = registry->RegisterSlot(MakeSlotConfig("root-anchor", m_root_slot_kv));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "shared-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_handle = manager.ResolveByName("shared-store");
+
+    const std::vector<std::uint8_t> crl{0x01U, 0x02U, 0x03U};
+    const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
+
+    const auto result = manager.ImportCrlForMember(ts_handle, slot_handle, crl_span, score::crypto::FormatType::kDer);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+}
+
+// ---------------------------------------------------------------------------
+// EnableMember / DisableMember — slot is not a registered member of the trust
+// store; returns kInvalidArgument.
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, EnableMember_UnregisteredSlot_ReturnsInvalidArgument)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    static_cast<void>(registry->RegisterSlot(StaticSlotConfig("root-anchor")));
+    // Register a second slot that is NOT a member of the trust store.
+    const auto unrelated_slot = registry->RegisterSlot(MakeSlotConfig("unrelated", m_empty_slot_kv));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "tls-roots";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_handle = manager.ResolveByName("tls-roots");
+
+    const auto result = manager.EnableMember(ts_handle, unrelated_slot, kClientA);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+
+    const auto result2 = manager.DisableMember(ts_handle, unrelated_slot, kClientA);
+    EXPECT_FALSE(result2.has_value());
+    EXPECT_EQ(result2.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+}
+
+// ---------------------------------------------------------------------------
+// Trust-store state persistence — after DisableMember, a second manager
+// instance loading from the same descriptor must see the slot as disabled.
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, PersistState_DisabledMemberSurvivesReload)
+{
+    // Need a deployment path for the trust store itself (stores enabled/disabled state).
+    const auto ts_kv = m_dir / "ts_state.kv";
+    // Create an empty descriptor so DeploymentLoader finds the file on second load.
+    storage::DeploymentDescriptor empty_desc;
+    ASSERT_TRUE(storage::KvDeploymentWriter{}.Write(ts_kv.string(), empty_desc).has_value());
+
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    const auto slot = registry->RegisterSlot(StaticSlotConfig("root-anchor"));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "persist-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.deployment_path = ts_kv.string();
+    ts_cfg.deployment_format = "kv";
+    ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
+
+    {
+        cert::TrustStoreManager manager;
+        manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+        const auto ts_handle = manager.ResolveByName("persist-store");
+        auto store = manager.GetStore(ts_handle);
+        // Confirm anchor is visible before disabling.
+        auto before = store->GetAnchors();
+        ASSERT_TRUE(before.has_value());
+        ASSERT_EQ(before->size(), 1U);
+
+        // Disable and persist.
+        ASSERT_TRUE(manager.DisableMember(ts_handle, slot, kClientA).has_value());
+    }
+
+    // Second manager instance — simulates daemon restart.
+    cert::TrustStoreManager manager2;
+    manager2.Load({ts_cfg}, registry, MakeHandlerFactory());
+
+    const auto ts_handle2 = manager2.ResolveByName("persist-store");
+    auto store2 = manager2.GetStore(ts_handle2);
+    ASSERT_NE(store2, nullptr);
+
+    // The disabled state was persisted; GetAnchors must return empty.
+    auto after_reload = store2->GetAnchors();
+    ASSERT_TRUE(after_reload.has_value());
+    EXPECT_EQ(after_reload->size(), 0U);
 }
 
 }  // namespace
