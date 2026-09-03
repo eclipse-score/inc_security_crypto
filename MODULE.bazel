@@ -128,7 +128,28 @@ use_repo(
 
 bazel_dep(name = "rules_rust", version = "0.68.2-score")
 
-bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
+# Coverage-only Clang instance (covmap instrumentation for the LLVM coverage
+# pipeline from @score_tooling//coverage; active only under --config=llvm_cov,
+# regular builds keep GCC).
+bazel_dep(name = "toolchains_llvm", version = "1.8.0", dev_dependency = True)
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm", dev_dependency = True)
+llvm.toolchain(
+    extra_known_features = [
+        "@score_tooling//coverage:enable_llvm_coverage_for_death_tests",
+    ],
+    link_libs = {"linux-x86_64": [
+        "-lrt",
+        "-latomic",
+    ]},
+    llvm_version = "22.1.7",
+    stdlib = {"linux-x86_64": "stdc++"},
+)
+use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
+
+# >= 0.10.0: the standard Ferrocene toolchains ship llvm-cov/llvm-profdata,
+# which activates Rust coverage without any custom toolchain instance.
+bazel_dep(name = "score_toolchains_rust", version = "0.10.0", dev_dependency = True)
 
 bazel_dep(name = "score_crates", version = "0.0.10")
 bazel_dep(name = "score_baselibs_rust", version = "0.1.2")
@@ -290,7 +311,7 @@ filegroup(
 # ===============================================================================
 
 # tooling
-bazel_dep(name = "score_tooling", version = "1.2.0")
+bazel_dep(name = "score_tooling", version = "2.2.1")
 bazel_dep(name = "score_rust_policies", version = "0.0.5")
 bazel_dep(name = "aspect_rules_lint", version = "2.8.0")
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.3")

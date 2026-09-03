@@ -112,3 +112,6 @@ test --test_output=errors
 # Run Cargo build.rs scripts locally so openssl-sys can access host license files
 build:aarch64-qnx --strategy=CargoBuildScriptRun=local
 common --lockfile_mode=error
+
+# LLVM source-based coverage (@score_tooling//coverage): --config=llvm_cov
+import %workspace%/tools/coverage/coverage.bazelrc
