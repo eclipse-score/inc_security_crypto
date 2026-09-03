@@ -44,21 +44,46 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
 
     ~ScoreHandlerFactory() override = default;
 
-    /// Routes to CreateHashHandler, CreateMacHandler, or CreateKeyManagementHandler.
+    /// @brief Create a handler for the requested operation family.
+    ///
+    /// Dispatches to the provider-specific factory method selected by
+    /// handlerId. Unsupported handler identifiers result in an
+    /// unsupported-operation error.
+    ///
+    /// @param handlerId Operation family to create.
+    /// @param algorithm Algorithm identifier used by algorithm-specific handlers.
     ::score::Result<handler::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
                                                           const common::AlgorithmId& algorithm) override;
 
   protected:
-    /// Override in concrete provider to create a hash handler. Default returns unsupported.
+    /// Override in a concrete provider to create a hash handler.
+    /// The default implementation returns kUnsupportedOperation.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateHashHandler(
         const common::AlgorithmId& algorithm);
 
-    /// Override in concrete provider to create a MAC handler. Default returns unsupported.
+    /// Override in a concrete provider to create a MAC handler.
+    /// The default implementation returns kUnsupportedOperation.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateMacHandler(
         const common::AlgorithmId& algorithm);
 
-    /// Override in concrete provider to create a key management handler. Default returns unsupported.
+    /// Override in a concrete provider to create a key management handler.
+    /// The default implementation returns kUnsupportedOperation.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateKeyManagementHandler();
+
+    /// Override in a concrete provider to create a signature handler.
+    /// The default implementation returns kUnsupportedOperation.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateSignHandler(
+        const common::AlgorithmId& algorithm);
+
+    /// Override in a concrete provider to create a signature verification handler.
+    /// The default implementation returns kUnsupportedOperation.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateVerifyHandler(
+        const common::AlgorithmId& algorithm);
+
+    /// Override in a concrete provider to create a key encapsulation handler.
+    /// The default implementation returns kUnsupportedOperation.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateKemHandler(
+        const common::AlgorithmId& algorithm);
 
     std::shared_ptr<key_management::IKeyFactory> m_key_factory;
     std::shared_ptr<key_management::IKeySlotHandler> m_slot_handler;
@@ -68,6 +93,9 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
     static constexpr const char* HASH = "HASH";
     static constexpr const char* MAC = "MAC";
     static constexpr const char* KEY_MANAGEMENT = "KEY_MANAGEMENT";
+    static constexpr const char* SIGN = "SIGN";
+    static constexpr const char* VERIFY = "VERIFY";
+    static constexpr const char* KEM = "KEM";
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::operations::factory
