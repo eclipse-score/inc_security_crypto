@@ -36,7 +36,13 @@ jobs:
       - name: Run tests with LLVM coverage (C++ + Rust, line + branch)
         run: |
           set -euo pipefail
-          bazel coverage --config=llvm_cov --build_tests_only -- //score/...
+          # integration_test_docker is excluded: it executes the (coverage-
+          # instrumented) binaries inside a stock ubuntu container where the
+          # instrumentation runtime deps are absent (exit 127), and profiles
+          # written inside the container never reach the host anyway. It keeps
+          # running in the regular test job.
+          bazel coverage --config=llvm_cov --build_tests_only -- //score/... \
+          -//score/tests/integration_tests:integration_test_docker
 
       - name: Generate coverage report
         env:
