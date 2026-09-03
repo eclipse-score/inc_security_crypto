@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Crypto Requirements &#8212; Crypto Project  documentation</title>
+    <title>AoU Component Requirements &#8212; Crypto Project  documentation</title>
   
   
   
@@ -62,7 +62,7 @@
     <script src="../../../../_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
     <script src="../../../../_static/sphinx-needs/libs/html/datatables_loader.js?v=a2cae175"></script>
     <script src="../../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/docs/requirements/requirements';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/docs/security_analysis/aou_requirements';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
@@ -73,8 +73,8 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="Requirement Inspection Checklist" href="chklst_req_inspection.html" />
-    <link rel="prev" title="Requirements" href="index.html" />
+    <link rel="next" title="Component Classification" href="../component_classification.html" />
+    <link rel="prev" title="AoU Component Requirements" href="../safety_analysis/aou_requirements.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1" />
@@ -504,15 +504,11 @@
 </ul>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Requirements</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Crypto Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="chklst_req_inspection.html">Requirement Inspection Checklist</a></li>
-</ul>
-</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../safety_analysis/fmea.html">FMEA (Failure Modes and Effects Analysis)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../safety_analysis/aou_requirements.html">AoU Component Requirements</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../security_analysis/aou_requirements.html">AoU Component Requirements</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">AoU Component Requirements</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../component_classification.html">Component Classification</a></li>
 </ul>
 </div>
@@ -557,10 +553,7 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Crypto</a></li>
     
-    
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Requirements</a></li>
-    
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Crypto Requirements</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">AoU Component Requirements</span></li>
   </ul>
 </nav>
 </div>
@@ -577,13 +570,13 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="crypto-requirements">
-<h1>Crypto Requirements<a class="headerlink" href="#crypto-requirements" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-31ca7d29">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_requirements">
+  <section id="aou-component-requirements">
+<h1>AoU Component Requirements<a class="headerlink" href="#aou-component-requirements" title="Link to this heading">#</a></h1>
+<div class="need_container docutils container" id="SNCB-ae34a7f8">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_sec_comp_aou">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">Crypto Requirements</span></span></span></div>
+<div class="line"><span><span class="needs_title"><span class="needs_data">Crypto Component AoU</span></span></span></div>
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
@@ -598,10 +591,9 @@
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
+<div class="line"><span><span><div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/requirements_engineering/requirements_workproducts.html#wp__requirements_comp">wp__requirements_comp</a></span></span></div>
+<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/requirements_engineering/requirements_workproducts.html#wp__requirements_comp_aou">wp__requirements_comp_aou</a></span></span></div>
 </span></div>
 </div>
 </td>
@@ -610,7 +602,7 @@
 <tr class="content row-odd"><td class="content" colspan="6"></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#doc__crypto_requirements" title="doc__crypto_requirements">doc__crypto_requirements</a></span></span></div>
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#doc__crypto_sec_comp_aou" title="doc__crypto_sec_comp_aou">doc__crypto_sec_comp_aou</a></span></span></div>
 </div>
 </td>
 <td class="footer" colspan="2"><div class="needs_footer line-block">
@@ -623,79 +615,15 @@
 </table>
 </div>
 </div>
-<section id="headlines-for-the-list-of-requirements-if-structuring-is-needed">
-<h2>&lt;Headlines (for the list of requirements if structuring is needed)&gt;<a class="headerlink" href="#headlines-for-the-list-of-requirements-if-structuring-is-needed" title="Link to this heading">#</a></h2>
-<section id="functional-requirements">
-<h3>Functional Requirements<a class="headerlink" href="#functional-requirements" title="Link to this heading">#</a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">comp_req</span><span class="p">::</span> <span class="n">Some</span> <span class="n">Title</span>
-   <span class="p">:</span><span class="nb">id</span><span class="p">:</span> <span class="n">comp_req__crypto__func_req_example</span>
-   <span class="p">:</span><span class="n">reqtype</span><span class="p">:</span> <span class="n">Process</span>
-   <span class="p">:</span><span class="n">security</span><span class="p">:</span> <span class="n">YES</span>
-   <span class="p">:</span><span class="n">safety</span><span class="p">:</span> <span class="n">ASIL_B</span>
-   <span class="p">:</span><span class="n">derived_from</span><span class="p">:</span>
-   <span class="p">:</span><span class="n">status</span><span class="p">:</span> <span class="n">valid</span>
-   <span class="p">:</span><span class="n">satisfied_by</span><span class="p">:</span> <span class="n">comp__crypto</span>
-
-   <span class="n">The</span> <span class="n">Component</span> <span class="n">shall</span> <span class="n">do</span> <span class="n">xyz</span> <span class="n">to</span> <span class="n">another</span> <span class="n">component</span> <span class="n">to</span> <span class="n">bring</span> <span class="n">it</span> <span class="n">to</span> <span class="n">this</span> <span class="n">condition</span> <span class="n">at</span> <span class="n">this</span> <span class="n">time</span>
-
-   <span class="n">Note</span><span class="p">:</span> <span class="p">(</span><span class="n">optional</span><span class="p">,</span> <span class="ow">not</span> <span class="n">to</span> <span class="n">be</span> <span class="n">verified</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="assumption-of-use-requirements">
-<h3>Assumption of Use Requirements<a class="headerlink" href="#assumption-of-use-requirements" title="Link to this heading">#</a></h3>
-<div class="need_container docutils container" id="SNCB-84cbd403">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_aou_req table" id="aou_req__crypto_aou__next_title">
+<p>This page contains Assumption of Use requirement snippets that belong to the
+crypto repository.</p>
+<section id="component-aou">
+<h2>Component AoU<a class="headerlink" href="#component-aou" title="Link to this heading">#</a></h2>
+<div class="need_container docutils container" id="SNCB-856140ac">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_aou_req table" id="aou_req__mod_temp_crypto__sec_next_title">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">Crypto AoU Requirement Example</span></span></span></div>
-</div>
-</td>
-<td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
-<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
-<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">ASIL_B</span></span></span></div>
-</div>
-</td>
-<td class="head_right" colspan="2"><div class="needs_head_right line-block">
-<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
-</div>
-</td>
-</tr>
-<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_reqtype"><span class="needs_label">reqtype: </span><span class="needs_data">Process</span></span></div>
-<div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
-</span></span></div>
-<div class="line"><span></span></div>
-</div>
-</td>
-<td class="meta" colspan="3"></td>
-</tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p>The Component User shall do xyz to use the component safely/securely</p></td>
-</tr>
-<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#aou_req__crypto_aou__next_title" title="aou_req__crypto_aou__next_title">aou_req__crypto_aou__next_title</a></span></span></div>
-</div>
-</td>
-<td class="footer" colspan="2"><div class="needs_footer line-block">
-<div class="line"><span><span class="needs_type_name"><span class="needs_data">Assumption of Use Requirement</span></span></span></div>
-</div>
-</td>
-<td class="footer_right" colspan="2"></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</section>
-<section id="environmental-requirements">
-<h3>Environmental Requirements<a class="headerlink" href="#environmental-requirements" title="Link to this heading">#</a></h3>
-<div class="need_container docutils container" id="SNCB-1bf23c53">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_aou_req table" id="aou_req__crypto__crypto_env_req_ex">
-<tbody>
-<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">Crypto Environmental Requirement Example</span></span></span></div>
+<div class="line"><span><span class="needs_title"><span class="needs_data">Next Title</span></span></span></div>
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
@@ -710,8 +638,7 @@
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">environment</span><span class="needs_spacer">, </span><span class="needs_data">crypto</span></span></span></div>
-<div class="line"><span class="needs_reqtype"><span class="needs_label">reqtype: </span><span class="needs_data">Process</span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_reqtype"><span class="needs_label">reqtype: </span><span class="needs_data">Process</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
 <div class="line"><span></span></div>
@@ -719,10 +646,10 @@
 </td>
 <td class="meta" colspan="3"></td>
 </tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p>The Component shall only be used in a xyz environment to ensure its proper functioning.</p></td>
+<tr class="content row-odd"><td class="content" colspan="6"><p>The Component User shall do xyz to use the component safely/securely</p></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#aou_req__crypto__crypto_env_req_ex" title="aou_req__crypto__crypto_env_req_ex">aou_req__crypto__crypto_env_req_ex</a></span></span></div>
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#aou_req__mod_temp_crypto__sec_next_title" title="aou_req__mod_temp_crypto__sec_next_title">aou_req__mod_temp_crypto__sec_next_title</a></span></span></div>
 </div>
 </td>
 <td class="footer" colspan="2"><div class="needs_footer line-block">
@@ -735,21 +662,50 @@
 </table>
 </div>
 </div>
-</section>
-<section id="hints">
-<h3>Hints<a class="headerlink" href="#hints" title="Link to this heading">#</a></h3>
-<div class="admonition attention">
-<p class="admonition-title">Attention</p>
-<p>The above directives must be updated according to your feature requirements.</p>
-<ul class="simple">
-<li><p>Replace the example content by the real content for your first requirement (according to <a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/requirements_engineering/guidance/requirements_guideline.html#gd_guidl__req_engineering">gd_guidl__req_engineering</a>)</p></li>
-<li><p>Set <code class="docutils literal notranslate"><span class="pre">safety</span></code> and <code class="docutils literal notranslate"><span class="pre">security</span></code> to the right value (ASIL B/QM; YES/NO)</p></li>
-<li><p>Set <code class="docutils literal notranslate"><span class="pre">reqtype</span></code> with a link to the right value (&lt;Functional|Interface|Process|Non-Functional&gt;)</p></li>
-<li><p>Add other needed requirements for your feature</p></li>
-<li><p>Set <code class="docutils literal notranslate"><span class="pre">status</span></code> to <code class="docutils literal notranslate"><span class="pre">valid</span></code> and start the review/merge process</p></li>
-</ul>
+<div class="need_container docutils container" id="SNCB-4b2dbfa1">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_aou_req table" id="aou_req__mod_temp_crypto__sec_another">
+<tbody>
+<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
+<div class="line"><span><span class="needs_title"><span class="needs_data">Another Title</span></span></span></div>
 </div>
-</section>
+</td>
+<td class="head_center" colspan="2"><div class="needs_head line-block">
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">invalid</span></span></span></div>
+<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
+<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">ASIL_B</span></span></span></div>
+</div>
+</td>
+<td class="head_right" colspan="2"><div class="needs_head_right line-block">
+<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
+</div>
+</td>
+</tr>
+<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
+<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">environment</span></span></span></div>
+<div class="line"><span class="needs_reqtype"><span class="needs_label">reqtype: </span><span class="needs_data">Process</span></span></div>
+<div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
+</span></span></div>
+<div class="line"><span></span></div>
+</div>
+</td>
+<td class="meta" colspan="3"></td>
+</tr>
+<tr class="content row-odd"><td class="content" colspan="6"><p>The Component shall only be used in a xyz environment to ensure its proper functioning.</p></td>
+</tr>
+<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#aou_req__mod_temp_crypto__sec_another" title="aou_req__mod_temp_crypto__sec_another">aou_req__mod_temp_crypto__sec_another</a></span></span></div>
+</div>
+</td>
+<td class="footer" colspan="2"><div class="needs_footer line-block">
+<div class="line"><span><span class="needs_type_name"><span class="needs_data">Assumption of Use Requirement</span></span></span></div>
+</div>
+</td>
+<td class="footer_right" colspan="2"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 </section>
 </section>
 
@@ -764,20 +720,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="../safety_analysis/aou_requirements.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Requirements</p>
+        <p class="prev-next-title">AoU Component Requirements</p>
       </div>
     </a>
     <a class="right-next"
-       href="chklst_req_inspection.html"
+       href="../component_classification.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Requirement Inspection Checklist</p>
+        <p class="prev-next-title">Component Classification</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -800,13 +756,7 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#headlines-for-the-list-of-requirements-if-structuring-is-needed">&lt;Headlines (for the list of requirements if structuring is needed)&gt;</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#functional-requirements">Functional Requirements</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#assumption-of-use-requirements">Assumption of Use Requirements</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#environmental-requirements">Environmental Requirements</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#hints">Hints</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#component-aou">Component AoU</a></li>
 </ul>
   </nav></div>
 
@@ -814,7 +764,7 @@
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./score/crypto/docs/requirements/requirements.rst">
+    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./score/crypto/docs/security_analysis/aou_requirements.rst">
       <i class="fa-solid fa-pencil"></i>
       
       
