@@ -114,5 +114,9 @@
   {
     "version": "pr-196",
     "url": "https://eclipse-score.github.io/inc_security_crypto/pr-196/"
+  },
+  {
+    "version": "pr-197",
+    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-197/"
   }
 ]
