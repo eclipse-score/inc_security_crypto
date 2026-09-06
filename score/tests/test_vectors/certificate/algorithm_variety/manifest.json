@@ -1,0 +1,121 @@
+{
+  "schema_version": 2,
+  "description": "One self-signed CA per supported key algorithm. Used by slot-handler algorithm-variety tests.",
+  "defaults": {
+    "cert_dir": ".",
+    "key_dir": "private",
+    "validity_days": 3650
+  },
+  "certificates": [
+    {
+      "name": "rsa_3072",
+      "purpose": "RSA-3072 CA for key-size variety tests",
+      "subject": "/CN=cert-mgmt-rsa-3072/O=Eclipse",
+      "key_algorithm": "RSA-3072",
+      "generated": {
+        "not_before": "2026-08-28T07:38:42Z",
+        "not_after": "2036-08-25T07:38:42Z",
+        "sha256_fingerprint": "C7AD557FD1C810DE4AF562082B182BB0B6E3D31CC9C368D0309A083B1019E67A"
+      }
+    },
+    {
+      "name": "rsa_4096",
+      "purpose": "RSA-4096 CA for key-size variety tests",
+      "subject": "/CN=cert-mgmt-rsa-4096/O=Eclipse",
+      "key_algorithm": "RSA-4096",
+      "generated": {
+        "not_before": "2026-08-28T07:39:03Z",
+        "not_after": "2036-08-25T07:39:03Z",
+        "sha256_fingerprint": "FEF07C92839DA3601FB8675855027D114410FF25BF38725CFAAB4816E1D9961F"
+      }
+    },
+    {
+      "name": "ec_p256",
+      "purpose": "ECDSA P-256 CA for elliptic-curve algorithm tests",
+      "subject": "/CN=cert-mgmt-ec-p256/O=Eclipse",
+      "key_algorithm": "EC-P256",
+      "generated": {
+        "not_before": "2026-08-28T07:39:04Z",
+        "not_after": "2036-08-25T07:39:04Z",
+        "sha256_fingerprint": "518B26F75E5FF9F8AD885CD9009B32088A6568F9801A4573A08646D8CA4B9D7E"
+      }
+    },
+    {
+      "name": "ec_p384",
+      "purpose": "ECDSA P-384 CA for elliptic-curve algorithm tests",
+      "subject": "/CN=cert-mgmt-ec-p384/O=Eclipse",
+      "key_algorithm": "EC-P384",
+      "generated": {
+        "not_before": "2026-08-28T07:39:04Z",
+        "not_after": "2036-08-25T07:39:04Z",
+        "sha256_fingerprint": "A3DDF05A72139BC6C1651AD5FFEE9A6B9267171D29D9BFCE8BB40277147B97DF"
+      }
+    },
+    {
+      "name": "ec_p521",
+      "purpose": "ECDSA P-521 CA for elliptic-curve algorithm tests",
+      "subject": "/CN=cert-mgmt-ec-p521/O=Eclipse",
+      "key_algorithm": "EC-P521",
+      "generated": {
+        "not_before": "2026-08-28T07:39:04Z",
+        "not_after": "2036-08-25T07:39:04Z",
+        "sha256_fingerprint": "27A9B1D95C7105C8501BEAAA5AEF4DAC12E9D530EA5179483384A43862C9707F"
+      }
+    },
+    {
+      "name": "ed25519",
+      "purpose": "Ed25519 CA for Edwards-curve algorithm tests",
+      "subject": "/CN=cert-mgmt-ed25519/O=Eclipse",
+      "key_algorithm": "Ed25519",
+      "generated": {
+        "not_before": "2026-08-28T07:39:05Z",
+        "not_after": "2036-08-25T07:39:05Z",
+        "sha256_fingerprint": "A65D474FFEB3868BFB0D3930AB3B75120FD1BB37C2EB7775F0A76F437056F4A8"
+      }
+    },
+    {
+      "name": "ed448",
+      "purpose": "Ed448 CA for Edwards-curve algorithm tests",
+      "subject": "/CN=cert-mgmt-ed448/O=Eclipse",
+      "key_algorithm": "Ed448",
+      "generated": {
+        "not_before": "2026-08-28T07:39:05Z",
+        "not_after": "2036-08-25T07:39:05Z",
+        "sha256_fingerprint": "604EEBDC8B3ABE10D0D61C9D00BB4461AFA4B0B6C4D9F00934C36CA92F4CA2DF"
+      }
+    },
+    {
+      "name": "ml_dsa_44",
+      "purpose": "ML-DSA-44 CA for post-quantum algorithm tests (NIST FIPS 204 level 2)",
+      "subject": "/CN=cert-mgmt-ml-dsa-44/O=Eclipse",
+      "key_algorithm": "ML-DSA-44",
+      "generated": {
+        "not_before": "2026-08-28T07:39:05Z",
+        "not_after": "2036-08-25T07:39:05Z",
+        "sha256_fingerprint": "3486F8E8FB941936B5C2E900D5FC24080026D1885AB18E944EDE404C1FDD1908"
+      }
+    },
+    {
+      "name": "ml_dsa_65",
+      "purpose": "ML-DSA-65 CA for post-quantum algorithm tests (NIST FIPS 204 level 3)",
+      "subject": "/CN=cert-mgmt-ml-dsa-65/O=Eclipse",
+      "key_algorithm": "ML-DSA-65",
+      "generated": {
+        "not_before": "2026-08-28T07:39:21Z",
+        "not_after": "2036-08-25T07:39:21Z",
+        "sha256_fingerprint": "151B8ED50DCDEDF92D67A9ABAB39ABAD113A8DFB59C50E8AB8E415DD4E0C1E5E"
+      }
+    },
+    {
+      "name": "ml_dsa_87",
+      "purpose": "ML-DSA-87 CA for post-quantum algorithm tests (NIST FIPS 204 level 5)",
+      "subject": "/CN=cert-mgmt-ml-dsa-87/O=Eclipse",
+      "key_algorithm": "ML-DSA-87",
+      "generated": {
+        "not_before": "2026-08-28T07:39:06Z",
+        "not_after": "2036-08-25T07:39:06Z",
+        "sha256_fingerprint": "B59C6AEECDE777AC81A8D32701A92DFF54EFDEDC8D8BC9DD8F5187D76269A2B6"
+      }
+    }
+  ]
+}

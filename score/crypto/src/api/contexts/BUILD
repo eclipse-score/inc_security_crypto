@@ -49,6 +49,25 @@ cc_library(
 )
 
 cc_library(
+    name = "cert_contexts",
+    hdrs = [
+        "i_certificate_management_context.hpp",
+        "i_certificate_verification_context.hpp",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":context_bases",
+        "//score/crypto/src/api/certificate:cert_types",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/config:cert_context_configs",
+        "//score/crypto/src/api/objects:cert_objects",
+        "@score_baselibs//score/language/futurecpp",
+        "@score_baselibs//score/result",
+    ],
+)
+
+cc_library(
     name = "crypto_contexts_impl",
     srcs = [
         "src/hash_context_impl.cpp",

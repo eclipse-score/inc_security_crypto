@@ -29,3 +29,17 @@ cc_library(
         "//score/crypto/src/api/common:crypto_common",
     ],
 )
+
+cc_library(
+    name = "cert_context_configs",
+    hdrs = [
+        "certificate_context_config.hpp",
+        "certificate_verification_context_config.hpp",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":context_configs",
+        "//score/crypto/src/api/common:crypto_common",
+    ],
+)

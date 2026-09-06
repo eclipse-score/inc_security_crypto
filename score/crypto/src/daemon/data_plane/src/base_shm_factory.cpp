@@ -43,8 +43,7 @@ Expected<ShmResource, common::DaemonErrorCode> BaseShmFactory::Create(std::strin
     perm_map[score::os::Acl::Permission::kRead] = {uid};
     perm_map[score::os::Acl::Permission::kWrite] = {uid};
 
-    auto handle = ShmFactory::Create(
-        std::string(name), [](const auto&) noexcept {}, size, perm_map);
+    auto handle = ShmFactory::Create(std::string(name), [](const auto&) noexcept {}, size, perm_map);
     if (!handle)
     {
         return make_unexpected(common::DaemonErrorCode::kAllocationFailed);
