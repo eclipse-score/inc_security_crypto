@@ -32,9 +32,13 @@ cc_library(
 cc_library(
     name = "crypto_contexts",
     hdrs = [
+        "i_cipher_context.hpp",
         "i_hash_context.hpp",
         "i_key_management_context.hpp",
         "i_mac_context.hpp",
+        "i_random_context.hpp",
+        "i_sign_context.hpp",
+        "i_verify_signature_context.hpp",
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
@@ -51,14 +55,22 @@ cc_library(
 cc_library(
     name = "crypto_contexts_impl",
     srcs = [
+        "src/cipher_context_impl.cpp",
         "src/hash_context_impl.cpp",
         "src/key_management_context_impl.cpp",
         "src/mac_context_impl.cpp",
+        "src/random_context_impl.cpp",
+        "src/sign_context_impl.cpp",
+        "src/verify_signature_context_impl.cpp",
     ],
     hdrs = [
+        "src/cipher_context_impl.hpp",
         "src/hash_context_impl.hpp",
         "src/key_management_context_impl.hpp",
         "src/mac_context_impl.hpp",
+        "src/random_context_impl.hpp",
+        "src/sign_context_impl.hpp",
+        "src/verify_signature_context_impl.hpp",
     ],
     includes = ["."],
     visibility = ["//:__subpackages__"],

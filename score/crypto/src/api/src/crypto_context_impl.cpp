@@ -15,13 +15,22 @@
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/config/cipher_context_config.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
 #include "score/crypto/src/api/config/mac_context_config.hpp"
+#include "score/crypto/src/api/config/random_context_config.hpp"
+#include "score/crypto/src/api/config/sign_context_config.hpp"
+#include "score/crypto/src/api/config/verify_signature_context_config.hpp"
+#include "score/crypto/src/api/contexts/src/cipher_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/hash_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/key_management_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/mac_context_impl.hpp"
+#include "score/crypto/src/api/contexts/src/random_context_impl.hpp"
+#include "score/crypto/src/api/contexts/src/sign_context_impl.hpp"
+#include "score/crypto/src/api/contexts/src/verify_signature_context_impl.hpp"
 #include "score/crypto/src/api/src/provider_type_converter.hpp"
+#include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
@@ -34,19 +43,143 @@
 #include <utility>
 
 // Full definitions needed for Result<unique_ptr<T>> return types
+#include "score/crypto/src/api/contexts/i_cipher_context.hpp"
 #include "score/crypto/src/api/contexts/i_hash_context.hpp"
 #include "score/crypto/src/api/contexts/i_key_management_context.hpp"
 #include "score/crypto/src/api/contexts/i_mac_context.hpp"
+#include "score/crypto/src/api/contexts/i_random_context.hpp"
+#include "score/crypto/src/api/contexts/i_sign_context.hpp"
+#include "score/crypto/src/api/contexts/i_verify_signature_context.hpp"
 #include "score/crypto/src/api/objects/i_key_object.hpp"
 #include "score/crypto/src/api/objects/i_key_slot_object.hpp"
 
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
+
+#include <optional>
+#include <string_view>
 
 namespace score
 {
 
 namespace crypto
 {
+
+/// The context-type ids are owned by the daemon side, which dispatches on them.
+namespace daemon_common = ::score::crypto::daemon::common;
+
+namespace
+{
+
+/// @brief Describes one CTX_CREATE call on the wire.
+///
+/// Wire layout is positional and shared by every context type:
+///   [0] context_type, [1] algorithm, [2] provider_type (or no-param),
+///   [3] key_node_id (keyed contexts only), [4] mode byte (cipher direction
+///   or MAC/signature OperationMode).
+struct ContextCreationRequest
+{
+    std::string_view context_type{};
+    const AlgorithmId* algorithm{nullptr};
+    std::optional<ProviderType> provider_type{std::nullopt};
+    std::optional<std::uint64_t> key_node_id{std::nullopt};
+    std::optional<std::uint8_t> mode{std::nullopt};
+};
+
+/// @brief Sends CTX_CREATE to the daemon and returns the new context's node id.
+///
+/// Centralises the request/validate/extract sequence that is identical for all
+/// context types, so each factory below only has to describe its parameters and
+/// wrap the resulting id in the right context implementation.
+score::Result<std::uint64_t> CreateDaemonContext(
+    const std::shared_ptr<score::crypto::api::control_plane::IConnection>& connection,
+    const ContextCreationRequest& request)
+{
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+
+    auto builder = proto::ControlRequestBuilder()
+                       .forDataNodeId(connection->GetConnectionNodeId())
+                       .operation(score::crypto::daemon::mediator::operations::CreateContext())
+                       .with_in_string(request.context_type)
+                       .with_in_string(*request.algorithm);
+
+    if (request.provider_type.has_value())
+    {
+        builder = builder.with_in_val_uint8(ProviderTypeConverter::ToWireValue(request.provider_type.value()));
+    }
+    else
+    {
+        builder = builder.with_no_param();
+    }
+
+    if (request.key_node_id.has_value())
+    {
+        builder = builder.with_in_val_uint64(request.key_node_id.value());
+    }
+
+    if (request.mode.has_value())
+    {
+        builder = builder.with_in_val_uint8(request.mode.value());
+    }
+
+    auto control_req_result = builder.build();
+    if (!control_req_result.has_value())
+    {
+        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: Failed to build CTX_CREATE request for"
+                                   << request.context_type;
+        return score::Result<std::uint64_t>{
+            score::unexpect, MakeError(CryptoErrorCode::kContextCreationFailed, "Failed to build CTX_CREATE request")};
+    }
+
+    auto control_response_res = connection->SendRequest(control_req_result.value());
+
+    auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
+    validator.expectOperation(score::crypto::daemon::mediator::operations::CreateContext()).expectSuccess();
+
+    if (!validator.isValid())
+    {
+        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR:" << validator.getError();
+        // Forward the daemon's own verdict when it gave one — a key whose policy
+        // forbids this context must surface as kKeyOperationNotPermitted, which
+        // the caller can act on, rather than a generic creation failure.
+        return score::Result<std::uint64_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kContextCreationFailed),
+                      "CTX_CREATE daemon response invalid")};
+    }
+
+    auto ctx_id_result = validator.getParameterAt<std::uint64_t>(0, 0);
+    if (!ctx_id_result.has_value())
+    {
+        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: CTX_CREATE response has invalid context_id type";
+        return score::Result<std::uint64_t>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE response has invalid context_id type")};
+    }
+
+    return ctx_id_result.value();
+}
+
+/// @brief Rejects a key handle that cannot drive a keyed operation context.
+score::Result<std::monostate> ValidateOperationKey(const CryptoResourceId& key, std::string_view context_type)
+{
+    if (key.id == 0U)
+    {
+        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: " << context_type << " invalid / missing key id";
+        return score::Result<std::monostate>{
+            score::unexpect, MakeError(CryptoErrorCode::kContextCreationFailed, "invalid / missing key id")};
+    }
+
+    if ((key.type != ResourceType::kKey) && (key.type != ResourceType::kKeySlot))
+    {
+        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: " << context_type << " invalid key type";
+        return score::Result<std::monostate>{
+            score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "invalid key resource type")};
+    }
+
+    return std::monostate{};
+}
+
+}  // namespace
 
 CryptoContextImpl::CryptoContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                      std::shared_ptr<IBufferTranscoder> transcoder)
@@ -69,7 +202,7 @@ score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContex
     auto request_builder = proto::ControlRequestBuilder()
                                .forDataNodeId(m_connection->GetConnectionNodeId())
                                .operation(score::crypto::daemon::mediator::operations::CreateContext())
-                               .with_in_string("HASH")
+                               .with_in_string(daemon_common::context_types::kHash)
                                .with_in_string(config.algorithm);
 
     if (config.provider_type.has_value())
@@ -195,78 +328,27 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
 
 score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(const MacContextConfig& config)
 {
-    namespace proto = ::score::crypto::daemon::control_plane::protocol;
-
-    if (config.key.id == 0)
+    auto key_check = ValidateOperationKey(config.key, "CreateMacContext");
+    if (!key_check.has_value())
     {
-        return score::Result<std::unique_ptr<IMacContext>>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kContextCreationFailed, "CreateMacContext invalid / missing key id")};
+        return score::Result<std::unique_ptr<IMacContext>>{score::unexpect, key_check.error()};
     }
 
-    if (config.key.type != ResourceType::kKey && config.key.type != ResourceType::kKeySlot)
+    ContextCreationRequest request{};
+    request.context_type = daemon_common::context_types::kMac;
+    request.algorithm = &config.algorithm;
+    request.provider_type = config.provider_type;
+    request.key_node_id = config.key.id;
+    // Routes the daemon to C_Sign* or C_Verify* (EVP_MAC either way for OpenSSL).
+    request.mode = static_cast<std::uint8_t>(config.operation_mode);
+
+    auto context_id = CreateDaemonContext(m_connection, request);
+    if (!context_id.has_value())
     {
-        return score::Result<std::unique_ptr<IMacContext>>{
-            score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "CreateMacContext invalid key type")};
+        return score::Result<std::unique_ptr<IMacContext>>{score::unexpect, context_id.error()};
     }
 
-    // Send CTX_CREATE to the daemon to create a server-side MAC context.
-    // MAC context requires: context type "MAC", algorithm, and key id.
-    auto request_builder = proto::ControlRequestBuilder()
-                               .forDataNodeId(m_connection->GetConnectionNodeId())
-                               .operation(score::crypto::daemon::mediator::operations::CreateContext())
-                               .with_in_string("MAC")
-                               .with_in_string(config.algorithm);
-
-    if (config.provider_type.has_value())
-    {
-        request_builder =
-            request_builder.with_in_val_uint8(ProviderTypeConverter::ToWireValue(config.provider_type.value()));
-    }
-    else
-    {
-        request_builder = request_builder.with_no_param();
-    }
-
-    request_builder = request_builder.with_in_val_uint64(config.key.id);
-
-    // Serialize operation_mode (param[4]) so the daemon can route to C_Sign* or C_Verify*.
-    request_builder = request_builder.with_in_val_uint8(static_cast<std::uint8_t>(config.operation_mode));
-
-    auto control_req_result = request_builder.build();
-    if (!control_req_result.has_value())
-    {
-        return score::Result<std::unique_ptr<IMacContext>>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kContextCreationFailed, "Failed to build CTX_CREATE request for MAC")};
-    }
-
-    // Send CTX_CREATE request to daemon
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
-
-    // Validate CTX_CREATE response
-    auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
-    validator.expectOperation(score::crypto::daemon::mediator::operations::CreateContext()).expectSuccess();
-
-    if (!validator.isValid())
-    {
-        return score::Result<std::unique_ptr<IMacContext>>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE MAC daemon response invalid")};
-    }
-
-    auto ctx_id_result = validator.getParameterAt<std::uint64_t>(0, 0);
-    if (!ctx_id_result.has_value())
-    {
-        return score::Result<std::unique_ptr<IMacContext>>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE MAC response has invalid context_id type")};
-    }
-
-    const uint64_t context_id = ctx_id_result.value();
-    auto mac_ctx = std::make_unique<MacContextImpl>(m_connection, context_id, config.algorithm, m_transcoder);
-
-    return mac_ctx;
+    return std::make_unique<MacContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
 }
 
 score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateKeyManagementContext(
@@ -278,7 +360,7 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
     auto request_builder = proto::ControlRequestBuilder()
                                .forDataNodeId(m_connection->GetConnectionNodeId())
                                .operation(score::crypto::daemon::mediator::operations::CreateContext())
-                               .with_in_string("KEY_MANAGEMENT")
+                               .with_in_string(daemon_common::context_types::kKeyManagement)
                                .with_in_string("");  // no algorithm for key management
 
     if (config.provider_type.has_value())
@@ -324,6 +406,107 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
     auto key_mgmt_ctx = std::make_unique<KeyManagementContextImpl>(m_connection, context_id);
 
     return key_mgmt_ctx;
+}
+
+// ---------------------------------------------------------------------------
+// Context Factory — Cipher / Sign / Verify / Random
+// ---------------------------------------------------------------------------
+
+score::Result<std::unique_ptr<ICipherContext>> CryptoContextImpl::CreateCipherContext(const CipherContextConfig& config)
+{
+    auto key_check = ValidateOperationKey(config.key, "CreateCipherContext");
+    if (!key_check.has_value())
+    {
+        return score::Result<std::unique_ptr<ICipherContext>>{score::unexpect, key_check.error()};
+    }
+
+    ContextCreationRequest request{};
+    request.context_type = daemon_common::context_types::kCipher;
+    request.algorithm = &config.algorithm;
+    request.provider_type = config.provider_type;
+    request.key_node_id = config.key.id;
+    // The daemon routes to EVP_EncryptInit / EVP_DecryptInit (or C_EncryptInit /
+    // C_DecryptInit) based on this byte.
+    request.mode = static_cast<std::uint8_t>(config.direction);
+
+    auto context_id = CreateDaemonContext(m_connection, request);
+    if (!context_id.has_value())
+    {
+        return score::Result<std::unique_ptr<ICipherContext>>{score::unexpect, context_id.error()};
+    }
+
+    return std::make_unique<CipherContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
+}
+
+score::Result<std::unique_ptr<ISignContext>> CryptoContextImpl::CreateSignContext(const SignContextConfig& config)
+{
+    auto key_check = ValidateOperationKey(config.key, "CreateSignContext");
+    if (!key_check.has_value())
+    {
+        return score::Result<std::unique_ptr<ISignContext>>{score::unexpect, key_check.error()};
+    }
+
+    ContextCreationRequest request{};
+    request.context_type = daemon_common::context_types::kSign;
+    request.algorithm = &config.algorithm;
+    request.provider_type = config.provider_type;
+    request.key_node_id = config.key.id;
+    // A signing context always uses the private half of the key pair, regardless
+    // of what the caller left in BaseContextConfig::operation_mode.
+    request.mode = static_cast<std::uint8_t>(OperationMode::kGenerate);
+
+    auto context_id = CreateDaemonContext(m_connection, request);
+    if (!context_id.has_value())
+    {
+        return score::Result<std::unique_ptr<ISignContext>>{score::unexpect, context_id.error()};
+    }
+
+    return std::make_unique<SignContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
+}
+
+score::Result<std::unique_ptr<IVerifySignatureContext>> CryptoContextImpl::CreateVerifySignatureContext(
+    const VerifySignatureContextConfig& config)
+{
+    auto key_check = ValidateOperationKey(config.key, "CreateVerifySignatureContext");
+    if (!key_check.has_value())
+    {
+        return score::Result<std::unique_ptr<IVerifySignatureContext>>{score::unexpect, key_check.error()};
+    }
+
+    ContextCreationRequest request{};
+    request.context_type = daemon_common::context_types::kVerify;
+    request.algorithm = &config.algorithm;
+    request.provider_type = config.provider_type;
+    request.key_node_id = config.key.id;
+    // Signals the daemon to bind the public half of the key pair.
+    request.mode = static_cast<std::uint8_t>(OperationMode::kVerify);
+
+    auto context_id = CreateDaemonContext(m_connection, request);
+    if (!context_id.has_value())
+    {
+        return score::Result<std::unique_ptr<IVerifySignatureContext>>{score::unexpect, context_id.error()};
+    }
+
+    return std::make_unique<VerifySignatureContextImpl>(
+        m_connection, context_id.value(), config.algorithm, m_transcoder);
+}
+
+score::Result<std::unique_ptr<IRandomContext>> CryptoContextImpl::CreateRandomContext(const RandomContextConfig& config)
+{
+    // No key and no mode byte: an RNG context is keyless, so the wire call stops
+    // after the provider-type slot.
+    ContextCreationRequest request{};
+    request.context_type = daemon_common::context_types::kRandom;
+    request.algorithm = &config.algorithm;
+    request.provider_type = config.provider_type;
+
+    auto context_id = CreateDaemonContext(m_connection, request);
+    if (!context_id.has_value())
+    {
+        return score::Result<std::unique_ptr<IRandomContext>>{score::unexpect, context_id.error()};
+    }
+
+    return std::make_unique<RandomContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
 }
 
 // ---------------------------------------------------------------------------

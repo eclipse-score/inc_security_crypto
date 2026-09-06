@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_FACTORY_SCORE_HANDLER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_FACTORY_SCORE_HANDLER_FACTORY_HPP
 
+#include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
@@ -22,6 +23,7 @@
 #include "score/result/result.h"
 
 #include <memory>
+#include <string_view>
 
 namespace score::crypto::daemon::provider::score_provider::operations::factory
 {
@@ -60,14 +62,36 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
     /// Override in concrete provider to create a key management handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateKeyManagementHandler();
 
+    /// Override in concrete provider to create a symmetric cipher handler. Default returns unsupported.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateCipherHandler(
+        const common::AlgorithmId& algorithm);
+
+    /// Override in concrete provider to create a signature handler.
+    ///
+    /// Serves both the SIGN and VERIFY context types: the direction is carried
+    /// in the OperationMode parameter of CTX_CREATE, not in the handler id, so
+    /// one implementation covers both. Default returns unsupported.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateSignatureHandler(
+        const common::AlgorithmId& algorithm);
+
+    /// Override in concrete provider to create a random handler. Default returns unsupported.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateRandomHandler(
+        const common::AlgorithmId& algorithm);
+
     std::shared_ptr<key_management::IKeyFactory> m_key_factory;
     std::shared_ptr<key_management::IKeySlotHandler> m_slot_handler;
     key_management::KeyManagementService::Sptr m_km_service;
 
   private:
-    static constexpr const char* HASH = "HASH";
-    static constexpr const char* MAC = "MAC";
-    static constexpr const char* KEY_MANAGEMENT = "KEY_MANAGEMENT";
+    // The context-type ids are shared with the client and the mediator, which
+    // dispatches on the same strings — see common/context_types.hpp.
+    static constexpr std::string_view HASH = common::context_types::kHash;
+    static constexpr std::string_view MAC = common::context_types::kMac;
+    static constexpr std::string_view KEY_MANAGEMENT = common::context_types::kKeyManagement;
+    static constexpr std::string_view CIPHER = common::context_types::kCipher;
+    static constexpr std::string_view SIGN = common::context_types::kSign;
+    static constexpr std::string_view VERIFY = common::context_types::kVerify;
+    static constexpr std::string_view RANDOM = common::context_types::kRandom;
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::operations::factory

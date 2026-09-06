@@ -65,6 +65,65 @@ cc_binary(
 )
 
 cc_binary(
+    name = "score_api_cipher_example",
+    srcs = ["score_api_cipher_example.cpp"],
+    data = [
+        "//score/tests/test_vectors/block_cipher/CBC-AES128:block_cipher_test_vectors",
+        "//score/tests/test_vectors/block_cipher/CBC-AES192:block_cipher_test_vectors",
+        "//score/tests/test_vectors/block_cipher/CBC-AES256:block_cipher_test_vectors",
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "//score/tests/utility",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
+    name = "score_api_random_example",
+    srcs = ["score_api_random_example.cpp"],
+    data = [
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "//score/tests/utility",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
+    name = "score_api_ecdsa_example",
+    srcs = ["score_api_ecdsa_example.cpp"],
+    data = [
+        "//score/tests/test_vectors/config:integration_test_config",
+        "//score/tests/test_vectors/ecdsa:ecdsa_test_vectors",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "//score/tests/utility",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
+    name = "score_api_key_permissions_example",
+    srcs = ["score_api_key_permissions_example.cpp"],
+    data = [
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
     name = "score_demo",
     srcs = ["score_demo.cpp"],
     data = [
@@ -80,7 +139,7 @@ cc_binary(
 
 py_itf_test(
     name = "integration_test_docker",
-    size = "small",
+    size = "medium",
     srcs = ["integration_test.py"],
     args = [
         "--docker-image=ubuntu:24.04",
@@ -88,8 +147,12 @@ py_itf_test(
     ],
     data = [
         ":init_pkcs11_token",
+        ":score_api_cipher_example",
+        ":score_api_ecdsa_example",
         ":score_api_hash_example",
+        ":score_api_key_permissions_example",
         ":score_api_mac_example",
+        ":score_api_random_example",
         ":score_demo",
         ":hash_performance_test",
         "//score/crypto/src/api/control_plane",
