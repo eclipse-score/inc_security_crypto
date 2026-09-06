@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.14.0
+        uses: bazel-contrib/setup-bazel@0.19.0
 
       - name: Check coverage scope completeness
         run: ./.github/tools/check_coverage_scope.sh
