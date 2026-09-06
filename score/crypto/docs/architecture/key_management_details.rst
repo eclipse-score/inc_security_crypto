@@ -606,22 +606,23 @@ implements ``IDeploymentLoader`` / ``IDeploymentWriter``:
 
 .. code-block:: text
 
-   slot/
-     deployment_loader.hpp/.cpp        ← façade (public API unchanged for all callers)
+   key_management/slot/
+     deployment_loader.hpp/.cpp        ← façade (delegates to common/storage/ impls)
      deployment_writer.hpp/.cpp        ← façade
-     deployment/
-       deployment_path_utils.hpp       ← IsDeploymentPathSafe() — shared guard
-       i_deployment_loader.hpp         ← pure-virtual interface
-       i_deployment_writer.hpp         ← pure-virtual interface
-       kv/
-         kv_deployment_loader.hpp/.cpp ← current implementation
-         kv_deployment_writer.hpp/.cpp
-       json/                           ← reserved (add JsonDeploymentLoader when needed)
-       flatbuffer/                     ← reserved
+
+   daemon/common/storage/              ← shared by key_management and cert_management
+     deployment_path_utils.hpp         ← IsDeploymentPathSafe() — shared guard
+     i_deployment_loader.hpp           ← pure-virtual interface
+     i_deployment_writer.hpp           ← pure-virtual interface
+     kv/
+       kv_deployment_loader.hpp/.cpp   ← current implementation
+       kv_deployment_writer.hpp/.cpp   ← writes atomically via file_io::WriteFile
+     json/                             ← reserved (add JsonDeploymentLoader when needed)
+     flatbuffer/                       ← reserved
 
 To add a new format: implement ``IDeploymentLoader`` / ``IDeploymentWriter`` under
-``slot/deployment/<format>/``, then add one ``if``-branch in each façade ``.cpp``
-and one dep in ``slot/deployment/BUILD``.  No other files change.
+``daemon/common/storage/<format>/``, then add one ``if``-branch in each façade ``.cpp``
+and one dep in ``daemon/common/storage/BUILD``.  No other files change.
 
 **Key=value format (``"kv"``) — file layout**
 

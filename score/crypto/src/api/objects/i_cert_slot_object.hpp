@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_CERT_SLOT_OBJECT_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_CERT_SLOT_OBJECT_HPP
+#ifndef SCORE_CRYPTO_SRC_API_OBJECTS_I_CERT_SLOT_OBJECT_HPP
+#define SCORE_CRYPTO_SRC_API_OBJECTS_I_CERT_SLOT_OBJECT_HPP
 
 #include "score/crypto/src/api/objects/i_crypto_object.hpp"
 
@@ -51,4 +51,4 @@ class ICertSlotObject : public ICryptoObject
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_CERT_SLOT_OBJECT_HPP
+#endif  // SCORE_CRYPTO_SRC_API_OBJECTS_I_CERT_SLOT_OBJECT_HPP

@@ -125,16 +125,16 @@ class FlatBufferConfigParser
         const keyslot::KeySlotConfig* key_slot_config,
         KeyConfig& out_config);
 
-    /// @brief Parse app resource entries from key slot configuration.
+    /// @brief Parse app key slot entries from key slot configuration.
     ///
-    /// Iterates through app resource entries in the KeySlotConfig and populates
-    /// KeyConfig with parsed AppResourceEntry objects.
+    /// Iterates through app key slot entries in the KeySlotConfig and populates
+    /// KeyConfig with parsed AppKeySlotEntry objects.
     ///
     /// @param key_slot_config Pointer to the KeySlotConfig FlatBuffers object
     /// @param out_config      Output KeyConfig object to populate
     /// @return Success (monostate) on successful parsing, DaemonErrorCode on failure
     /// @retval kInternalError  Invalid entry structure or missing required fields
-    static Expected<std::monostate, common::DaemonErrorCode> ParseAppResourceEntries(
+    static Expected<std::monostate, common::DaemonErrorCode> ParseAppKeySlotEntries(
         const keyslot::KeySlotConfig* key_slot_config,
         KeyConfig& out_config);
 };
