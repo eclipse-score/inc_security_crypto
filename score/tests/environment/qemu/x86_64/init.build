@@ -1,0 +1,107 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
+
+# Based upon itf example with bigger ram disk renamed mount point '/opt'
+# https://github.com/eclipse-score/itf/blob/1be7deaf8f535984d214aa97db0bada4b89c2ed4/test/resources/qnx/init.build
+
+[-optional]
+
+[image=0x3600000]                                   # Set image size to 56MB (0x3600000 bytes)
+[virtual=x86_64,multiboot] boot = {                 # Configure for x86_64 architecture with multiboot support
+    startup-x86 -v -D8250..115200 -zz               # Start x86 kernel with verbose output, serial console at 115200 baud
+    PATH=/proc/boot                                 # Set executable search path to boot directory
+    LD_LIBRARY_PATH=/proc/boot                      # Set library search path to boot directory
+    [+keeplinked] procnto-smp-instr                 # Keep process manager linked and instrumented for SMP
+}
+
+[+script] startup-script = {              # Define startup script that runs during boot
+    procmgr_symlink /dev/shmem /tmp       # Create symbolic link from shared memory to /tmp
+
+    display_msg Welcome to QNX OS 8.0 on x86_64 tweaked for S-CORE!
+
+    # These env variables get inherited by all programs which follow
+    SYSNAME=nto                          # Set system name to "nto" (Neutrino)
+    TERM=qansi                           # Set terminal type to QNX ANSI
+
+    devc-ser8250 &                       # Start serial driver in background
+    waitfor /dev/ser1                    # Wait for serial device to be available
+    reopen /dev/ser1                     # Reopen serial device for console I/O
+
+    /proc/boot/startup.sh                # Startup the system
+
+    [+session] /bin/sh &                 # Start shell session in background
+}
+
+[uid=0 gid=0 perms=0700] startup.sh = {
+    echo "---> Starting slogger2"
+    slogger2 -s 4096                        # Start system logger with 4KB buffer size for log messages
+    waitfor /dev/slog                       # Wait for system log device to become available
+
+    echo "---> Starting PCI Services"
+    pci-server --config=/proc/boot/pci_server.cfg  # Start PCI server with configuration file
+    waitfor /dev/pci                        # Wait for PCI device manager to initialize
+
+    echo "---> Starting Pipe"
+    pipe                                    # Start named pipe resource manager for IPC
+    waitfor /dev/pipe                       # Wait for pipe device to become available
+
+    echo "---> Starting Random"
+    random                                  # Start random number generator device
+    waitfor /dev/random                     # Wait for random device to become available
+
+    echo "---> Starting fsevmgr"
+    fsevmgr                                 # Start file system event manager for file notifications
+    waitfor /dev/fsnotify                   # Wait for filesystem notification device
+
+    echo "---> Starting devb-ram"
+    devb-ram ram capacity=1 blk ramdisk=512m,cache=512k,vnode=1024 2>/dev/null  # Create 512MB RAM disk
+    waitfor /dev/ram0                       # Wait for RAM disk device to be ready
+
+    echo "---> mounting ram disk"
+    mkqnx6fs -q /dev/ram0                   # Create QNX6 filesystem on RAM disk (quiet mode)
+    waitfor /dev/ram0                       # Wait for filesystem creation to complete
+    mount -t qnx6 /dev/ram0 /opt            # Mount RAM disk as QNX6 filesystem at /opt
+
+    echo "---> Starting mqueue"
+    mqueue                                  # Start POSIX message queue resource manager
+    waitfor /dev/mqueue                     # Wait for message queue device to be available
+
+    echo "---> Starting devc-pty"
+    devc-pty -n 32                          # Start pseudo-terminal driver with 32 PTY pairs
+
+    echo "---> Starting devb-eide"
+    devb-eide cam user=20:20 blk cache=64M,auto=partition,vnode=2000,ncache=2000,commit=low  # Start IDE/SATA block driver
+    waitfor /dev/hd0                        # Wait for first hard disk to be detected
+
+    echo "---> Starting Networking"
+    io-sock -m phy -m pci -d vtnet_pci      # Start network stack with PHY and PCI modules, load VirtIO network driver
+    waitfor /dev/socket                     # Wait for socket device to become available before proceeding
+
+    echo "---> Configuring network interface"
+    # Bring up the interface and configure with bridge-accessible IP for direct ping
+    if_up -p vtnet0                                         # Bring up the vtnet0 network interface in promiscuous mode
+    ifconfig vtnet0 169.254.158.190 netmask 255.255.0.0     # Configure IP address and subnet mask for vtnet0
+    ifconfig vtnet0 alias 10.0.2.15 netmask 255.255.255.0   # Configure additional IP address and subnet mask for vtnet0
+                                                            # for usage with QEMU port forwarding
+
+    # Configure system network settings
+    sysctl -w net.inet.icmp.bmcastecho=1        # Enable ICMP broadcast echo (responds to broadcast pings)
+    sysctl -w qnx.sec.droproot=33:33            # Set user/group ID (33:33) for dropping root privileges
+
+    echo "---> Setting hostname"
+    hostname qnx-score                  # Set default hostname if no file exists
+    echo "Qnx_S-core" > /tmp/hostname   # Create temporary hostname file
+    echo "Default hostname set to: Qnx_S-core"
+
+    /proc/boot/sshd -f /var/ssh/sshd_config # Start SSH daemon with specified configuration file
+}

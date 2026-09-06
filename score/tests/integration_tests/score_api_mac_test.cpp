@@ -41,6 +41,7 @@
 #include <cstring>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -49,6 +50,12 @@ using tests::utility::print_hex;
 
 namespace
 {
+
+#ifdef __QNXNTO__
+constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
+#else
+constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
+#endif
 
 // =========================================================================
 // Parameterized Test Data
@@ -61,13 +68,13 @@ namespace
 /// tamper detection, and deterministic re-computation via Reset.
 struct MacTestData
 {
-    std::string test_case_name;
+    std::string_view test_case_name;
     std::optional<ProviderType> provider_type;
-    std::string mac_algorithm;
-    std::string key_algorithm;
+    std::string_view mac_algorithm;
+    std::string_view key_algorithm;
     size_t expected_mac_size;
-    std::string in_data_path;
-    std::string in_data_path_alternative;
+    std::string_view in_data_relative_path;
+    std::string_view in_data_alternative_relative_path;
 };
 
 /// @brief Test parameters for MAC tests using a key loaded from a named slot.
@@ -76,21 +83,29 @@ struct MacTestData
 /// known test vectors in addition to self-consistency checks.
 struct KeySlotMacTestData
 {
-    std::string test_case_name;
+    std::string_view test_case_name;
     std::optional<ProviderType> provider_type;
-    std::string mac_algorithm;
-    std::string key_algorithm;
+    std::string_view mac_algorithm;
+    std::string_view key_algorithm;
     size_t expected_mac_size;
-    std::string in_data_path;
-    std::string in_data_path_alternative;
-    std::string expected_mac_data_path;
-    std::string expected_mac_data_path_alternative;
-    std::string key_slot_name;
+    std::string_view in_data_relative_path;
+    std::string_view in_data_alternative_relative_path;
+    std::string_view expected_mac_data_relative_path;
+    std::string_view expected_mac_data_alternative_relative_path;
+    std::string_view key_slot_name;
 };
 
 // =========================================================================
 // Helper functions for test steps
 // =========================================================================
+
+/// @brief Get the absolute path to a test vector file based on the TEST_VECTORS_DIR
+/// environment variable, or the default Linux install path if unset.
+std::string GetTestVectorPath(const std::string_view relative_path)
+{
+    const char* dir = std::getenv("TEST_VECTORS_DIR");
+    return std::string{dir != nullptr ? dir : "/opt/crypto/share/test_vectors"} + std::string{relative_path};
+}
 
 /// Streaming MAC: splits input into two chunks, Init → Update → Update → Finalize.
 /// The computed MAC is written to @p output.
@@ -122,6 +137,7 @@ void ComputeStreamingMac(IMacContext& mac,
 
 /// Reset → Init → Update (full buffer) → Verify against @p expected_mac.
 /// Asserts that the verification succeeds.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void ResetAndVerifyMac(IMacContext& mac, const std::vector<uint8_t>& input, const std::vector<uint8_t>& expected_mac)
 {
     auto reset = mac.Reset();
@@ -141,7 +157,7 @@ void ResetAndVerifyMac(IMacContext& mac, const std::vector<uint8_t>& input, cons
 /// Reset → Init → Update → Verify with a tampered MAC (first byte flipped).
 /// Asserts that verification fails.
 void ResetAndVerifyTamperedMac(IMacContext& mac,
-                               const std::vector<uint8_t>& input,
+                               const std::vector<uint8_t>& input,  // NOLINT(bugprone-easily-swappable-parameters)
                                const std::vector<uint8_t>& original_mac)
 {
     auto reset = mac.Reset();
@@ -154,6 +170,7 @@ void ResetAndVerifyTamperedMac(IMacContext& mac,
     ASSERT_TRUE(update.has_value()) << "Update for tampered verify failed";
 
     std::vector<uint8_t> tampered_mac = original_mac;
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     tampered_mac[0] ^= 0xFF;  // Flip bits in first byte
 
     auto verify = mac.Verify({tampered_mac.data(), tampered_mac.size()});
@@ -187,6 +204,7 @@ void ResetAndComputeMac(IMacContext& mac,
 
 /// Init → Update (partial) → Reset (discard) → Init → Update (full) → Finalize.
 /// Verifies that Reset mid-stream correctly discards partial work.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void ResetMidStreamAndComputeMac(IMacContext& mac,
                                  const std::vector<uint8_t>& partial_input,
                                  const std::vector<uint8_t>& full_input,
@@ -239,16 +257,17 @@ TEST_P(GeneratedKeyMacTest, MacGenerationAndVerificationTest)
     auto key_algorithm = test_data.key_algorithm;
     auto expected_mac_size = test_data.expected_mac_size;
 
-    auto input_buffer = tests::utility::read_bin(test_data.in_data_path);
+    auto input_buffer = tests::utility::read_bin(GetTestVectorPath(test_data.in_data_relative_path));
     ASSERT_FALSE(input_buffer.empty());
-    auto input_buffer_alternative = tests::utility::read_bin(test_data.in_data_path_alternative);
+    auto input_buffer_alternative =
+        tests::utility::read_bin(GetTestVectorPath(test_data.in_data_alternative_relative_path));
     ASSERT_FALSE(input_buffer_alternative.empty());
 
     // =========================================================================
     // 1. Create the crypto stack and connect to the daemon
     // =========================================================================
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock");
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
 
     auto stack_result = CreateCryptoStack(stack_config);
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
@@ -283,7 +302,7 @@ TEST_P(GeneratedKeyMacTest, MacGenerationAndVerificationTest)
     // The CryptoResourceGuard owns the key lifetime — it will be auto-released
     // when key goes out of scope.
     GenerateKeyParams key_gen_params;
-    key_gen_params.SetAlgorithm(key_algorithm).SetPermissions(KeyOperationPermission::kMac);
+    key_gen_params.SetAlgorithm(std::string{key_algorithm}).SetPermissions(KeyOperationPermission::kMac);
 
     auto key_result = key_mgmt->GenerateKey(key_gen_params);
     ASSERT_TRUE(key_result.has_value()) << "Failed to generate MAC key";
@@ -298,7 +317,7 @@ TEST_P(GeneratedKeyMacTest, MacGenerationAndVerificationTest)
     // The key implicitly converts to const CryptoResourceId& via its
     // operator, so it can be passed directly to SetKey().
     MacContextConfig mac_config;
-    mac_config.SetAlgorithm(mac_algorithm).SetKey(key);  // implicit conversion from CryptoResourceGuard
+    mac_config.SetAlgorithm(std::string{mac_algorithm}).SetKey(key);  // implicit conversion from CryptoResourceGuard
 
     if (provider_type.has_value())
     {
@@ -392,21 +411,23 @@ TEST_P(KeySlotMacTest, MacWithKeySlotTest)
     auto mac_algorithm = test_data.mac_algorithm;
     auto expected_mac_size = test_data.expected_mac_size;
 
-    auto input_buffer = tests::utility::read_bin(test_data.in_data_path);
+    auto input_buffer = tests::utility::read_bin(GetTestVectorPath(test_data.in_data_relative_path));
     ASSERT_FALSE(input_buffer.empty());
-    const auto expected_mac = tests::utility::read_bin(test_data.expected_mac_data_path);
+    const auto expected_mac = tests::utility::read_bin(GetTestVectorPath(test_data.expected_mac_data_relative_path));
     ASSERT_EQ(expected_mac.size(), expected_mac_size);
 
-    auto input_buffer_alternative = tests::utility::read_bin(test_data.in_data_path_alternative);
+    auto input_buffer_alternative =
+        tests::utility::read_bin(GetTestVectorPath(test_data.in_data_alternative_relative_path));
     ASSERT_FALSE(input_buffer_alternative.empty());
-    const auto expected_mac_alternative = tests::utility::read_bin(test_data.expected_mac_data_path_alternative);
+    const auto expected_mac_alternative =
+        tests::utility::read_bin(GetTestVectorPath(test_data.expected_mac_data_alternative_relative_path));
     ASSERT_EQ(expected_mac_alternative.size(), expected_mac_size);
 
     // =========================================================================
     // 1. Create the crypto stack and connect to the daemon
     // =========================================================================
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock");
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
 
     auto stack_result = CreateCryptoStack(stack_config);
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
@@ -438,7 +459,7 @@ TEST_P(KeySlotMacTest, MacWithKeySlotTest)
 
     // Resolve the named key slot to a CryptoResourceId,
     // then load the key material into a CryptoResourceGuard.
-    auto slot_result = ctx->ResolveResource(test_data.key_slot_name, ResourceType::kKeySlot);
+    auto slot_result = ctx->ResolveResource(std::string{test_data.key_slot_name}, ResourceType::kKeySlot);
     ASSERT_TRUE(slot_result.has_value()) << "Failed to resolve key slot: " << test_data.key_slot_name;
 
     auto key_result = key_mgmt->LoadKey(slot_result.value());
@@ -450,7 +471,7 @@ TEST_P(KeySlotMacTest, MacWithKeySlotTest)
     // 4. Configure and create a MAC context
     // =========================================================================
     MacContextConfig mac_config;
-    mac_config.SetAlgorithm(mac_algorithm).SetKey(key);  // implicit conversion from CryptoResourceGuard
+    mac_config.SetAlgorithm(std::string{mac_algorithm}).SetKey(key);  // implicit conversion from CryptoResourceGuard
 
     if (provider_type.has_value())
     {
@@ -516,19 +537,22 @@ TEST_P(KeySlotMacTest, MacWithKeySlotTest)
 // Test Vector Constants
 // =========================================================================
 
-const std::string kAlgHmacSha256 = "HMAC-SHA256";
-const std::string kKeyAlgHmacSha256 = "HMAC-SHA256";
+constexpr std::string_view kAlgHmacSha256 = "HMAC-SHA256";
+constexpr std::string_view kKeyAlgHmacSha256 = "HMAC-SHA256";
 const std::size_t kHmacSha256MacSize = 32;
 
-const std::string kMacInDataPath = "/opt/crypto/tests/test_vectors/mac/input_hello_world.bin";
-const std::string kMacInDataPathAlternative = "/opt/crypto/tests/test_vectors/mac/input_complete_data.bin";
+constexpr std::string_view kMacInDataRelativePath = "/mac/input_hello_world.bin";
+constexpr std::string_view kMacInDataAlternativeRelativePath = "/mac/input_complete_data.bin";
 
-const std::string kMacHmacSha256OutDataPath = "/opt/crypto/tests/test_vectors/mac/hmac_sha256_hello_world.bin";
-const std::string kMacHmacSha256OutDataPathAlternative =
-    "/opt/crypto/tests/test_vectors/mac/hmac_sha256_complete_data.bin";
+constexpr std::string_view kMacHmacSha256OutDataRelativePath = "/mac/hmac_sha256_hello_world.bin";
+constexpr std::string_view kMacHmacSha256OutDataAlternativeRelativePath = "/mac/hmac_sha256_complete_data.bin";
 
-const std::string kHmacSha256KeySlotNameOpenSSL = "HMAC_SHA256_IntegrationTestKey_OpenSSL";
-const std::string kHmacSha256KeySlotName = "HMAC_SHA256_IntegrationTestKey";
+#ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
+constexpr std::string_view kHmacSha256KeySlotNameSoftware = "HMAC_SHA256_IntegrationTestKey_OpenSSL";
+#endif
+#ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
+constexpr std::string_view kHmacSha256KeySlotNameHardware = "HMAC_SHA256_IntegrationTestKey";
+#endif
 
 // =========================================================================
 // Test Suite: Generated Key MAC (self-consistency, no fixed vectors)
@@ -541,31 +565,38 @@ INSTANTIATE_TEST_SUITE_P(SelectionOfProviderType,
                                                        kAlgHmacSha256,
                                                        kKeyAlgHmacSha256,
                                                        kHmacSha256MacSize,
-                                                       kMacInDataPath,
-                                                       kMacInDataPathAlternative},
+                                                       kMacInDataRelativePath,
+                                                       kMacInDataAlternativeRelativePath},
                                            MacTestData{"HMAC_SHA256_DefaultProviderType",
                                                        ProviderType::kDefault,
                                                        kAlgHmacSha256,
                                                        kKeyAlgHmacSha256,
                                                        kHmacSha256MacSize,
-                                                       kMacInDataPath,
-                                                       kMacInDataPathAlternative},
+                                                       kMacInDataRelativePath,
+                                                       kMacInDataAlternativeRelativePath}
+#ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
+                                           ,
                                            MacTestData{"HMAC_SHA256_SoftwareProvider",
                                                        ProviderType::kSoftware,
                                                        kAlgHmacSha256,
                                                        kKeyAlgHmacSha256,
                                                        kHmacSha256MacSize,
-                                                       kMacInDataPath,
-                                                       kMacInDataPathAlternative},
+                                                       kMacInDataRelativePath,
+                                                       kMacInDataAlternativeRelativePath}
+#endif
+#ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
+                                           ,
                                            MacTestData{"HMAC_SHA256_HardwareProvider",
                                                        ProviderType::kHardware,
                                                        kAlgHmacSha256,
                                                        kKeyAlgHmacSha256,
                                                        kHmacSha256MacSize,
-                                                       kMacInDataPath,
-                                                       kMacInDataPathAlternative}),
+                                                       kMacInDataRelativePath,
+                                                       kMacInDataAlternativeRelativePath}
+#endif
+                                           ),
                          [](const testing::TestParamInfo<GeneratedKeyMacTest::ParamType>& info) {
-                             return info.param.test_case_name;
+                             return std::string{info.param.test_case_name};
                          });
 
 // =========================================================================
@@ -576,6 +607,14 @@ INSTANTIATE_TEST_SUITE_P(SelectionOfProviderType,
 // Test Suite: Key Slot MAC (fixed vector verification)
 // =========================================================================
 
+#ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
+const std::string_view kHmacSha256KeySlotNameDefault = kHmacSha256KeySlotNameHardware;
+#elif defined(SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED)
+const std::string_view kHmacSha256KeySlotNameDefault = kHmacSha256KeySlotNameSoftware;
+#else
+static_assert(false, "At least one crypto backend must be enabled for Key Slot MAC tests");
+#endif
+
 INSTANTIATE_TEST_SUITE_P(KeySlotProviderType,
                          KeySlotMacTest,
                          ::testing::Values(KeySlotMacTestData{"HMAC_SHA256_KeySlot_NoProviderSelection",
@@ -583,43 +622,50 @@ INSTANTIATE_TEST_SUITE_P(KeySlotProviderType,
                                                               kAlgHmacSha256,
                                                               kKeyAlgHmacSha256,
                                                               kHmacSha256MacSize,
-                                                              kMacInDataPath,
-                                                              kMacInDataPathAlternative,
-                                                              kMacHmacSha256OutDataPath,
-                                                              kMacHmacSha256OutDataPathAlternative,
-                                                              kHmacSha256KeySlotName},
+                                                              kMacInDataRelativePath,
+                                                              kMacInDataAlternativeRelativePath,
+                                                              kMacHmacSha256OutDataRelativePath,
+                                                              kMacHmacSha256OutDataAlternativeRelativePath,
+                                                              kHmacSha256KeySlotNameDefault},
                                            KeySlotMacTestData{"HMAC_SHA256_KeySlot_DefaultProviderType",
                                                               ProviderType::kDefault,
                                                               kAlgHmacSha256,
                                                               kKeyAlgHmacSha256,
                                                               kHmacSha256MacSize,
-                                                              kMacInDataPath,
-                                                              kMacInDataPathAlternative,
-                                                              kMacHmacSha256OutDataPath,
-                                                              kMacHmacSha256OutDataPathAlternative,
-                                                              kHmacSha256KeySlotName},
+                                                              kMacInDataRelativePath,
+                                                              kMacInDataAlternativeRelativePath,
+                                                              kMacHmacSha256OutDataRelativePath,
+                                                              kMacHmacSha256OutDataAlternativeRelativePath,
+                                                              kHmacSha256KeySlotNameDefault}
+#ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
+                                           ,
                                            KeySlotMacTestData{"HMAC_SHA256_KeySlot_SoftwareProvider",
                                                               ProviderType::kSoftware,
                                                               kAlgHmacSha256,
                                                               kKeyAlgHmacSha256,
                                                               kHmacSha256MacSize,
-                                                              kMacInDataPath,
-                                                              kMacInDataPathAlternative,
-                                                              kMacHmacSha256OutDataPath,
-                                                              kMacHmacSha256OutDataPathAlternative,
-                                                              kHmacSha256KeySlotNameOpenSSL},
+                                                              kMacInDataRelativePath,
+                                                              kMacInDataAlternativeRelativePath,
+                                                              kMacHmacSha256OutDataRelativePath,
+                                                              kMacHmacSha256OutDataAlternativeRelativePath,
+                                                              kHmacSha256KeySlotNameSoftware}
+#endif
+#ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
+                                           ,
                                            KeySlotMacTestData{"HMAC_SHA256_KeySlot_HardwareProvider",
                                                               ProviderType::kHardware,
                                                               kAlgHmacSha256,
                                                               kKeyAlgHmacSha256,
                                                               kHmacSha256MacSize,
-                                                              kMacInDataPath,
-                                                              kMacInDataPathAlternative,
-                                                              kMacHmacSha256OutDataPath,
-                                                              kMacHmacSha256OutDataPathAlternative,
-                                                              kHmacSha256KeySlotName}),
+                                                              kMacInDataRelativePath,
+                                                              kMacInDataAlternativeRelativePath,
+                                                              kMacHmacSha256OutDataRelativePath,
+                                                              kMacHmacSha256OutDataAlternativeRelativePath,
+                                                              kHmacSha256KeySlotNameHardware}
+#endif
+                                           ),
                          [](const testing::TestParamInfo<KeySlotMacTest::ParamType>& info) {
-                             return info.param.test_case_name;
+                             return std::string{info.param.test_case_name};
                          });
 
 }  // namespace

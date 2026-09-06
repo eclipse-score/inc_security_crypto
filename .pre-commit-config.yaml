@@ -35,7 +35,7 @@ repos:
         files: ^\.github/workflows/
       - id: generate-compile-commands
         name: bazel-compile-commands (for clang-tidy)
-        entry: bazel-compile-commands
+        entry: bazel-compile-commands --compiler /usr/bin/clang -R "-fno-canonical-system-headers=" //...
         language: system
         files: \.(c|cpp|h|hpp)$
         pass_filenames: false
@@ -56,5 +56,3 @@ repos:
       - id: copyright
         args:
         - --exclusion-file=copyright_exclusions.txt
-
-

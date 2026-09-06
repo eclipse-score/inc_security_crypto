@@ -21,6 +21,8 @@
     },
 
     // Python Settings
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv_test/bin/python",
+
     // Exclude build, temp and cache folders
     "python.analysis.exclude": [
         // Note: this overrides the default setting, so we need to re-exclude defaults like .* and **/__pycache__

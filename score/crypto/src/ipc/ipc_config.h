@@ -19,8 +19,12 @@
 namespace score::crypto::ipc
 {
 
-// Default Unix domain socket path for control communication
+// QNX: /tmp is /dev/shmem and does not support Unix domain sockets; use /opt instead
+#ifdef __QNXNTO__
+constexpr std::string_view kControlSocket = "/opt/crypto_daemon.sock";
+#else
 constexpr std::string_view kControlSocket = "/tmp/crypto_daemon.sock";
+#endif
 
 }  // namespace score::crypto::ipc
 

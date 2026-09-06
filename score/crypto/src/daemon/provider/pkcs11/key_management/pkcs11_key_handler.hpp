@@ -14,15 +14,20 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_HANDLER_HPP
 
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/key_management/resolved_key.hpp"
 
 #include <pkcs11.h>
 
 #include <atomic>
-#include <cstdint>
 #include <memory>
 #include <utility>
+#include <variant>
 
 namespace score::crypto::daemon::provider::pkcs11
 {
@@ -58,28 +63,12 @@ class Pkcs11KeyHandler final : public key_management::IKeyHandler
     /// Direct access to PKCS#11 session key without opaque_id round-trip.
     [[nodiscard]] std::pair<CK_SESSION_HANDLE, CK_OBJECT_HANDLE> GetSessionKey() const noexcept;
 
-    /// Resolve a usable PKCS#11 object handle for the given handler session.
+    /// Resolve a PKCS#11 key for use in a crypto operation.
     ///
-    /// For session-object keys (GenerateKey / ImportKey) the stored handle is
-    /// returned directly — it is valid on any session.
-    ///
-    /// For token-object keys (LoadKey) C_FindObjects is re-run on handler_session
-    /// using the stored SearchTemplate, returning a fresh session-local handle.
-    /// Multiple independent handlers may call this concurrently on the same key.
-    ///
-    /// Returns CK_INVALID_HANDLE on any error (key not found, module gone, etc.).
-    /// Resolve a PKCS#11 key for use on a crypto operation.
-    ///
-    /// For session-object keys: returns the creating session + stored handle
-    /// and acquires the per-key mutex exclusively.  The caller must hold the
-    /// returned ResolvedKey for the full duration of the crypto operation
-    /// (C_SignInit through C_SignFinal) to serialize concurrent access.
-    ///
-    /// For token-object keys: re-runs C_FindObjects on handler_session,
-    /// returning a session-local handle with no lock.
-    ///
-    /// Returns an invalid ResolvedKey on any error.
-    [[nodiscard]] Pkcs11KeyStore::ResolvedKey ResolveObject(CK_SESSION_HANDLE handler_session) const noexcept;
+    /// Delegates to Pkcs11KeyStore::ResolveObject. See that method for full
+    /// semantics and error codes.
+    [[nodiscard]] score::crypto::Expected<ResolvedKey, score::crypto::daemon::common::DaemonErrorCode> ResolveObject(
+        CK_SESSION_HANDLE handler_session) const noexcept;
 
   private:
     std::weak_ptr<Pkcs11KeyStore> m_key_store;
