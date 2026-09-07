@@ -10,28 +10,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
+# Deliberate coverage-scope exclusions, one label per line, each with a
+# justification. Checked by .github/tools/check_coverage_scope.sh: a
+# production target must either be reachable from
+# //tools/coverage:coverage_scope or be listed here.
 
-load("@score_docs_as_code//:docs.bzl", "docs")
-
-docs(
-    data = [
-        "@score_process_description//:needs_json",
-    ],
-    source_dir = ".",
-)
-
-# The LLVM coverage pipeline (//tools/coverage) resolves the workspace root
-# through MODULE.bazel at report time.
-exports_files(["MODULE.bazel"])
-
-# bazel run //:shellcheck
-alias(
-    name = "shellcheck",
-    actual = "@score_devcontainer//tools:shellcheck",
-)
-
-# bazel run //:actionlint
-alias(
-    name = "actionlint",
-    actual = "@score_devcontainer//tools:actionlint",
-)
+# --- test scaffolding (non-testonly, but test infrastructure only) ---
+//score/crypto/tests/softhsm:softhsm_test_fixture  # SoftHSM fixture for backend tests
+//score/tests/utility:utility  # shared helpers for demo/integration tests

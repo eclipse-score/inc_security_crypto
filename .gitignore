@@ -85,3 +85,6 @@ ubproject.toml
 # Cargo
 target/
 **/*.rs.bk
+
+# LLVM coverage report output
+/coverage_artifact/

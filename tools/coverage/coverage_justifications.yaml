@@ -10,28 +10,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-
-load("@score_docs_as_code//:docs.bzl", "docs")
-
-docs(
-    data = [
-        "@score_process_description//:needs_json",
-    ],
-    source_dir = ".",
-)
-
-# The LLVM coverage pipeline (//tools/coverage) resolves the workspace root
-# through MODULE.bazel at report time.
-exports_files(["MODULE.bazel"])
-
-# bazel run //:shellcheck
-alias(
-    name = "shellcheck",
-    actual = "@score_devcontainer//tools:shellcheck",
-)
-
-# bazel run //:actionlint
-alias(
-    name = "actionlint",
-    actual = "@score_devcontainer//tools:actionlint",
-)
+# Coverage justifications for lines/branches that cannot be exercised by
+# tests. Each entry pairs with a COV_JUSTIFIED <id> marker in the source.
+# Fields: id (kebab-case), category (defensive_programming |
+# tool_false_positive | platform_specific | other), platforms ([linux]),
+# reason. See @score_tooling//coverage:COVERAGE_GUIDE.md.
+version: 1
+justifications: []
