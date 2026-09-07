@@ -31,8 +31,8 @@
 /// @endcode
 ///
 /// ### Design notes
-/// - Header-only: all functions are constexpr, no runtime tables.
-/// - Covers all first-party actors and their operations.
+/// - Header-only: lookup functions are constexpr and do not use runtime tables.
+/// - Covers the operation namespaces currently registered by this component.
 /// - Falls back to "<unknown_actor>" / "<unknown_op>" for future or custom values,
 ///   while still printing the numeric ids so nothing is lost.
 
@@ -42,7 +42,10 @@
 // Operation constants — these headers only depend on types.hpp (no circular risk).
 #include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/kem_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/mac_handler_operations.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/sign_handler_operations.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/verify_handler_operations.hpp"
 
 #include "score/mw/log/logging.h"
 #include <ostream>
@@ -52,6 +55,7 @@ namespace score::crypto::daemon::common
 {
 
 /// @brief Returns the symbolic name for a registered OperationActor value.
+/// @return Symbolic actor name, or "<unknown_actor>" for unknown actors.
 constexpr std::string_view ActorName(OperationActor actor) noexcept
 {
     switch (actor)
@@ -68,6 +72,12 @@ constexpr std::string_view ActorName(OperationActor actor) noexcept
             return "KEY_MGMT";
         case actors::OP_ACTOR_MAC_HANDLER:
             return "MAC_HANDLER";
+        case actors::OP_ACTOR_SIGN_HANDLER:
+            return "SIGN_HANDLER";
+        case actors::OP_ACTOR_VERIFY_HANDLER:
+            return "VERIFY_HANDLER";
+        case actors::OP_ACTOR_KEM_HANDLER:
+            return "KEM_HANDLER";
         default:
             return "<unknown_actor>";
     }
@@ -77,6 +87,8 @@ constexpr std::string_view ActorName(OperationActor actor) noexcept
 ///
 /// The actor context is required because the same action integer has different meanings
 /// across actors (e.g., action=1 is CTX_CREATE for MEDIATOR but HASH_INIT for HASH_HANDLER).
+/// @return Symbolic operation name, or an actor-specific unknown-operation marker
+///         if the action is not registered.
 constexpr std::string_view ActionName(OperationActor actor, OperationAction action) noexcept
 {
     // Mediator action constants (mediator_operations.hpp cannot be included here without
@@ -142,6 +154,57 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
                     return "MAC_SS";
                 default:
                     return "<unknown_mac_op>";
+            }
+
+        case actors::OP_ACTOR_SIGN_HANDLER:
+            switch (action)
+            {
+                case provider::handler::sign_handler_operations::SIGN_INIT:
+                    return "SIGN_INIT";
+                case provider::handler::sign_handler_operations::SIGN_UPDATE:
+                    return "SIGN_UPDATE";
+                case provider::handler::sign_handler_operations::SIGN_FINALIZE:
+                    return "SIGN_FINALIZE";
+                case provider::handler::sign_handler_operations::SIGN_SS:
+                    return "SIGN_SS";
+                case provider::handler::sign_handler_operations::SIGN_GET_SIGNATURE_SIZE:
+                    return "SIGN_GET_SIGNATURE_SIZE";
+                case provider::handler::sign_handler_operations::SIGN_RESET:
+                    return "SIGN_RESET";
+                default:
+                    return "<unknown_sign_op>";
+            }
+
+        case actors::OP_ACTOR_VERIFY_HANDLER:
+            switch (action)
+            {
+                case provider::handler::verify_handler_operations::VERIFY_INIT:
+                    return "VERIFY_INIT";
+                case provider::handler::verify_handler_operations::VERIFY_UPDATE:
+                    return "VERIFY_UPDATE";
+                case provider::handler::verify_handler_operations::VERIFY_FINALIZE:
+                    return "VERIFY_FINALIZE";
+                case provider::handler::verify_handler_operations::VERIFY_SS:
+                    return "VERIFY_SS";
+                case provider::handler::verify_handler_operations::VERIFY_RESET:
+                    return "VERIFY_RESET";
+                default:
+                    return "<unknown_verify_op>";
+            }
+
+        case actors::OP_ACTOR_KEM_HANDLER:
+            switch (action)
+            {
+                case provider::handler::kem_handler_operations::KEM_KEYGEN:
+                    return "KEM_KEYGEN";
+                case provider::handler::kem_handler_operations::KEM_ENCAPSULATE:
+                    return "KEM_ENCAPSULATE";
+                case provider::handler::kem_handler_operations::KEM_DECAPSULATE:
+                    return "KEM_DECAPSULATE";
+                case provider::handler::kem_handler_operations::KEM_RESET:
+                    return "KEM_RESET";
+                default:
+                    return "<unknown_kem_op>";
             }
 
         case actors::OP_ACTOR_KEY_MANAGEMENT:
