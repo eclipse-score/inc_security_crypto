@@ -49,17 +49,30 @@ TEST(CertRegistryTest, RegistersFindsAndUnregistersEphemeralCertificate)
     EXPECT_FALSE(registry.FindById(id));
 }
 
-TEST(CertRegistryTest, RejectsDuplicateCertificateSlotRegistration)
+// RegisterSlotCert creates independent entries per call — dedup of the
+// underlying CertObject bytes is handled by CertSlotManager::CertObjectCache,
+// not by the registry. Two clients loading the same slot each get their own
+// CertEntry so that per-client state (e.g. session CRL) cannot bleed.
+TEST(CertRegistryTest, RegisterSlotCert_TwoCallsProduceTwoIndependentEntries)
 {
     CertRegistry registry;
     const CertSlotHandle slot{7U};
-    auto first = std::make_shared<CertEntry>(MakeCertificate(), slot);
-    auto second = std::make_shared<CertEntry>(MakeCertificate(), slot);
+    auto cert_obj = MakeCertificate();
+    auto first = std::make_shared<CertEntry>(cert_obj, slot);
+    auto second = std::make_shared<CertEntry>(cert_obj, slot);
 
-    ASSERT_NE(registry.RegisterSlotCert(slot, first), 0U);
-    EXPECT_EQ(registry.RegisterSlotCert(slot, second), 0U);
-    EXPECT_EQ(registry.FindBySlot(slot), first);
-    EXPECT_EQ(registry.Size(), 1U);
+    const auto id1 = registry.RegisterSlotCert(slot, first);
+    const auto id2 = registry.RegisterSlotCert(slot, second);
+
+    ASSERT_NE(id1, 0U);
+    ASSERT_NE(id2, 0U);
+    EXPECT_NE(id1, id2);
+    EXPECT_EQ(registry.Size(), 2U);
+    // Each ID resolves to its own CertEntry.
+    EXPECT_EQ(registry.FindById(id1), first);
+    EXPECT_EQ(registry.FindById(id2), second);
+    // Both entries wrap the same CertObject bytes.
+    EXPECT_EQ(registry.FindById(id1)->GetCertObject().get(), registry.FindById(id2)->GetCertObject().get());
 }
 
 // Two ephemeral certs registered under two different client IDs.
@@ -93,9 +106,9 @@ TEST(CertRegistryTest, CleanupClient_RemovesOnlyThatClientsEntries)
     EXPECT_EQ(registry.Size(), 1U);
 }
 
-// A slot cert registered for one handle remains findable via both ID and slot
-// after a CleanupClient for an unrelated client.
-TEST(CertRegistryTest, FindBySlot_SlotCertPersistsAfterUnrelatedCleanup)
+// A slot cert registered for one client remains findable by ID after an
+// unrelated client's entries are cleaned up.
+TEST(CertRegistryTest, SlotCertPersistsAfterUnrelatedClientCleanup)
 {
     using ClientId = score::crypto::daemon::data_manager::ClientId;
     static constexpr ClientId kClientA = 10U;
@@ -115,7 +128,7 @@ TEST(CertRegistryTest, FindBySlot_SlotCertPersistsAfterUnrelatedCleanup)
 
     registry.CleanupClient(kClientB);
 
-    EXPECT_EQ(registry.FindBySlot(slot), slot_entry);
     EXPECT_EQ(registry.FindById(slot_id), slot_entry);
+    EXPECT_EQ(registry.Size(), 1U);
 }
 }  // namespace

@@ -12,6 +12,7 @@ cc_test(
     name = "test_cert_object_serializer",
     srcs = ["query/test_cert_object_serializer.cpp"],
     deps = [
+        "//score/crypto/src/daemon/cert_management:cert_management",
         "//score/crypto/src/daemon/cert_management:cert_management_headers",
         "//score/crypto/src/daemon/cert_management:cert_object_serializer",
         "//score/crypto/src/daemon/common",

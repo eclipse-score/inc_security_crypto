@@ -23,15 +23,16 @@
 //
 // Test subjects:
 //   - Slot resolution and cert load via the executor call sequence
-//     (ResolveCertSlot → ResolveSlotForOperation → LoadOrShare)
+//     (ResolveCertSlot → ResolveSlotForOperation → Load)
 //   - ResolveCertForOperation round-trip
 //   - Cert node release and subsequent unresolvability
-//   - LoadOrShare deduplication — second call for the same slot shares the
-//     existing CertEntry without a second handler LoadCertificate call
+//   - Load creates independent CertEntries per client; shared CertObject bytes
+//     avoid repeated disk reads (CertObjectCache in CertSlotManager)
 //   - Mediator-style client cleanup isolates clients — purging one leaves the other intact
 //   - NotifySlotCertChanged propagates through TrustStoreManager anchor cache
 
 #include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
@@ -109,10 +110,12 @@ class CertManagementServiceTest : public ::testing::Test
         m_trust_store_manager = std::make_shared<cert::TrustStoreManager>();
         m_data_manager = std::make_shared<dm::DataManager>();
 
-        m_service = std::make_shared<cert::CertManagementService>(
-            m_data_manager, m_registry, m_trust_store_manager, [this](const cert::CertSlotConfig&) {
+        auto slot_manager = std::make_shared<cert::CertSlotManager>(
+            m_registry, [this](const cert::CertSlotConfig&) -> cert::ICertSlotHandler::Sptr {
                 return std::make_shared<cert::FileBackedSlotHandler>(m_parser);
             });
+        m_service = std::make_shared<cert::CertManagementService>(
+            m_data_manager, m_registry, m_trust_store_manager, slot_manager);
     }
 
     void TearDown() override
@@ -124,7 +127,6 @@ class CertManagementServiceTest : public ::testing::Test
     }
 
     // Mirror the executor call sequence: resolve the slot node, then load the cert.
-    // Combines ResolveCertSlot → ResolveSlotForOperation → LoadOrShare.
     cert::CertDataNodeResult LoadCert(dm::ClientId client_id)
     {
         auto slot_res = m_service->ResolveCertSlot(std::string{kAppResource}, client_id);
@@ -141,7 +143,7 @@ class CertManagementServiceTest : public ::testing::Test
         params.parent_id = slot_node_id;
         params.slot_handle = resolved->handle;
 
-        auto result = m_service->LoadOrShare(params, *resolved->handler, *resolved->config);
+        auto result = m_service->Load(params);
         if (!result.has_value())
             return {};
         return result.value();
@@ -206,10 +208,13 @@ TEST_F(CertManagementServiceTest, ReleaseCert_UnknownNodeId_ReturnsError)
 }
 
 // ---------------------------------------------------------------------------
-// Deduplication — second call for the same slot must share the CertEntry
+// Per-client CertEntry isolation — each Load call produces an independent
+// CertEntry so that session CRL state cannot bleed across clients.
+// The underlying CertObject bytes are shared via the CertObjectCache in
+// CertSlotManager, avoiding repeated disk reads.
 // ---------------------------------------------------------------------------
 
-TEST_F(CertManagementServiceTest, LoadOrShare_SecondCallSharesRegistryEntry)
+TEST_F(CertManagementServiceTest, Load_SecondCallProducesIndependentCertEntry)
 {
     const auto result1 = LoadCert(kClientA);
     ASSERT_NE(result1.node_id, 0U);
@@ -219,9 +224,11 @@ TEST_F(CertManagementServiceTest, LoadOrShare_SecondCallSharesRegistryEntry)
     ASSERT_NE(result2.node_id, 0U);
     ASSERT_NE(result2.entry, nullptr);
 
-    // Separate data-manager nodes but the same live CertEntry.
+    // Independent CertEntry objects — session CRL on one cannot affect the other.
     EXPECT_NE(result1.node_id, result2.node_id);
-    EXPECT_EQ(result1.entry.get(), result2.entry.get());
+    EXPECT_NE(result1.entry.get(), result2.entry.get());
+    // But the underlying CertObject bytes are the same shared object (cache hit).
+    EXPECT_EQ(result1.entry->GetCertObject().get(), result2.entry->GetCertObject().get());
 }
 
 // ---------------------------------------------------------------------------
@@ -236,6 +243,16 @@ TEST_F(CertManagementServiceTest, ResolveCertSlot_SameClientAndResource_ReturnsS
     ASSERT_TRUE(id1.has_value());
     ASSERT_TRUE(id2.has_value());
     EXPECT_EQ(id1.value(), id2.value());
+}
+
+TEST_F(CertManagementServiceTest, ResolveCertSlot_ByHandleSharesResourceNodeId)
+{
+    const auto by_resource = m_service->ResolveCertSlot(std::string{kAppResource}, kClientA);
+    const auto by_handle = m_service->ResolveCertSlot(m_slot_handle, kClientA);
+
+    ASSERT_TRUE(by_resource.has_value());
+    ASSERT_TRUE(by_handle.has_value());
+    EXPECT_EQ(by_resource.value(), by_handle.value());
 }
 
 TEST_F(CertManagementServiceTest, ResolveCertSlot_UnknownResource_ReturnsError)
@@ -275,9 +292,11 @@ TEST_F(CertManagementServiceTest, NotifySlotCertChanged_RefreshesAnchorSubjectIn
     ts_cfg.members.push_back(
         cert::TrustStoreMemberConfig{std::string{kSlotName}, cert::TrustStoreMemberKind::kSharedStatic});
 
-    m_trust_store_manager->Load({ts_cfg}, m_registry, [this](const cert::CertSlotConfig&) {
-        return std::make_shared<cert::FileBackedSlotHandler>(m_parser);
-    });
+    auto ts_slot_manager = std::make_shared<cert::CertSlotManager>(
+        m_registry, [this](const cert::CertSlotConfig&) -> cert::ICertSlotHandler::Sptr {
+            return std::make_shared<cert::FileBackedSlotHandler>(m_parser);
+        });
+    m_trust_store_manager->Load({ts_cfg}, m_registry, ts_slot_manager);
 
     const auto ts_handle = m_trust_store_manager->ResolveByName("test-roots");
     auto store = m_trust_store_manager->GetStore(ts_handle);

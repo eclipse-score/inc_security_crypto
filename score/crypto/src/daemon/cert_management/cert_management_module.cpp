@@ -12,6 +12,7 @@
  ********************************************************************************/
 #include "score/crypto/src/daemon/cert_management/cert_management_module.hpp"
 
+#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/config_driven_slot_catalog.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/config_driven_trust_store_catalog.hpp"
@@ -68,9 +69,12 @@ CertManagementModule::Sptr CertManagementModule::Create(data_manager::IDataManag
             return nullptr;
         return provider->GetCertSlotHandler(slot, cert_parser);
     };
-    trust_catalog.Load(*module->m_trust_stores, module->m_slots, slot_handler_factory);
+
+    auto slot_manager = std::make_shared<CertSlotManager>(module->m_slots, std::move(slot_handler_factory));
+
+    trust_catalog.Load(*module->m_trust_stores, module->m_slots, slot_manager);
     module->m_service = std::make_shared<CertManagementService>(
-        std::move(data_manager), module->m_slots, module->m_trust_stores, std::move(slot_handler_factory));
+        std::move(data_manager), module->m_slots, module->m_trust_stores, slot_manager);
     if (module->m_provider_manager)
     {
         module->m_provider_manager->ForEachProvider([&](const auto& /*id*/, const auto& provider) {

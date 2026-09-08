@@ -32,10 +32,13 @@ Implementation units
    access, slot operations, and trust-store update notifications.
 
 ``CertRegistry`` and ``CertEntry``
-   Own live certificate entries and share immutable ``CertObject`` values
-   between clients and trust stores. ``CertEntry`` optionally holds a
-   session-scoped CRL (from ``ImportCrl`` with ``persist=false``) that is
-   never written to disk.
+   Own live certificate entries. Each ``Load`` call produces a fresh
+   ``CertEntry`` per client; entries are never shared across clients.
+   ``CertEntry`` holds a ``CertObject::Sptr`` (the immutable parsed bytes) and
+   an optional session-scoped CRL (from ``ImportCrl`` with ``persist=false``)
+   that is never written to disk. Because ``CertEntry`` is per-client, the
+   session CRL is isolated — one client's ``ImportCrl`` cannot be observed by
+   another client that loaded the same slot.
 
 ``CertSlotRegistry``
    Stores immutable slot configuration and application resource mappings.
@@ -80,10 +83,15 @@ Data and lifetime model
 * ``TrustStoreDataNode`` is a client-scoped reference to a manager-owned trust
   store.
 * ``CertObject`` is immutable and provider-neutral.
-* Trust-store anchor contents are loaded on demand. A weak cache avoids
-  duplicate certificate objects across active stores.
-* Per-client trust-store references prevent one client from evicting another
-  client's active anchor cache.
+* ``CertSlotManager`` holds a weak-ptr cache of ``CertObject`` values keyed by
+  slot index. The cache avoids repeated disk reads when multiple clients open
+  the same slot in quick succession. Entries expire automatically when no
+  ``CertEntry`` holds a strong reference; ``StoreCertificate`` and
+  ``ClearSlot`` invalidate the entry explicitly so the next load reads fresh
+  bytes.
+* Trust-store anchor contents are loaded on demand by ``TrustStoreManager``
+  through a separate anchor cache. Per-client references prevent one client
+  from evicting another client's active anchor cache.
 
 Storage contract
 ----------------

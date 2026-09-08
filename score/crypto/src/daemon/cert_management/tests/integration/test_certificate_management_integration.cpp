@@ -16,6 +16,7 @@
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/config_driven_trust_store_catalog.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
 
@@ -33,9 +34,30 @@
 namespace
 {
 namespace cert = score::crypto::daemon::cert_management;
+namespace common = score::crypto::daemon::common;
 namespace config = score::crypto::daemon::config;
 namespace storage = score::crypto::daemon::common::storage;
 namespace openssl = score::crypto::daemon::provider::score_provider::openssl;
+
+// ---------------------------------------------------------------------------
+// Helper — build a ClientId from explicit pid/uid fields.
+// Mirrors the union layout used by GetUidFromClientId in control_protocol.h.
+// ---------------------------------------------------------------------------
+score::crypto::daemon::data_manager::ClientId MakeClientId(std::uint32_t pid, std::uint32_t uid)
+{
+    union
+    {
+        score::crypto::daemon::data_manager::ClientId id;
+        struct
+        {
+            std::uint32_t process_id;
+            std::uint32_t user_id;
+        } parts;
+    } value{0U};
+    value.parts.process_id = pid;
+    value.parts.user_id = uid;
+    return value.id;
+}
 
 class CertificateManagementIntegrationTest : public ::testing::Test
 {
@@ -92,10 +114,11 @@ class CertificateManagementIntegrationTest : public ::testing::Test
         slot_catalog.Load(*m_slot_registry);
 
         m_trust_store_manager = std::make_shared<cert::TrustStoreManager>();
-        cert::ConfigDrivenTrustStoreCatalog trust_store_catalog{m_config};
-        trust_store_catalog.Load(*m_trust_store_manager, m_slot_registry, [this](const cert::CertSlotConfig&) {
+        m_slot_manager = std::make_shared<cert::CertSlotManager>(m_slot_registry, [this](const cert::CertSlotConfig&) {
             return std::make_shared<cert::FileBackedSlotHandler>(m_parser);
         });
+        cert::ConfigDrivenTrustStoreCatalog trust_store_catalog{m_config};
+        trust_store_catalog.Load(*m_trust_store_manager, m_slot_registry, m_slot_manager);
     }
 
     void TearDown() override
@@ -117,6 +140,7 @@ class CertificateManagementIntegrationTest : public ::testing::Test
     config::CertificateConfig m_config;
     std::shared_ptr<openssl::OpenSslCertParser> m_parser;
     cert::CertSlotRegistry::Sptr m_slot_registry;
+    cert::CertSlotManager::Sptr m_slot_manager;
     cert::TrustStoreManager::Sptr m_trust_store_manager;
 };
 
@@ -166,4 +190,111 @@ TEST_F(CertificateManagementIntegrationTest, LoadsPersistsUpdatesAndInvalidatesT
                             (*initial_anchors)[0]->GetFingerprint().begin(),
                             (*initial_anchors)[0]->GetFingerprint().end()));
 }
+// ===========================================================================
+// Access control — CertSlotManager
+//
+// The fixture configures the slot with allowed_write_uids={0}, so:
+//   MakeClientId(pid, 0)  → UID 0 → write authorized
+//   MakeClientId(pid, 99) → UID 99 → write denied
+// Reads are unconditionally permitted regardless of UID.
+// ===========================================================================
+
+// Any UID can load a certificate; reads are unrestricted after resource resolution.
+TEST_F(CertificateManagementIntegrationTest, LoadCertificate_IsUnrestrictedForAnyUid)
+{
+    const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(slot.has_value());
+
+    EXPECT_TRUE(m_slot_manager->LoadCertificate(*slot, MakeClientId(1U, 0U)).has_value());
+    EXPECT_TRUE(m_slot_manager->LoadCertificate(*slot, MakeClientId(2U, 99U)).has_value());
+}
+
+// StoreCertificate succeeds when the caller's UID is in allowed_write_uids.
+TEST_F(CertificateManagementIntegrationTest, StoreCertificate_GrantedForAuthorizedUid)
+{
+    const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(slot.has_value());
+    const auto cert = m_slot_manager->LoadCertificate(*slot, MakeClientId(1U, 0U));
+    ASSERT_TRUE(cert.has_value());
+
+    EXPECT_TRUE(m_slot_manager->StoreCertificate(*slot, MakeClientId(1U, 0U), **cert).has_value());
+}
+
+// StoreCertificate is denied when the caller's UID is not in allowed_write_uids.
+TEST_F(CertificateManagementIntegrationTest, StoreCertificate_DeniedForUnauthorizedUid)
+{
+    const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(slot.has_value());
+    const auto cert = m_slot_manager->LoadCertificate(*slot, MakeClientId(1U, 0U));
+    ASSERT_TRUE(cert.has_value());
+
+    const auto result = m_slot_manager->StoreCertificate(*slot, MakeClientId(2U, 99U), **cert);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kAccessDenied);
+}
+
+// ClearSlot is denied when the caller's UID is not in allowed_write_uids.
+TEST_F(CertificateManagementIntegrationTest, ClearSlot_DeniedForUnauthorizedUid)
+{
+    const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(slot.has_value());
+
+    const auto result = m_slot_manager->ClearSlot(*slot, MakeClientId(2U, 99U));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kAccessDenied);
+}
+
+// A slot with an empty allowed_write_uids list denies writes from every UID,
+// including UID 0. This is the default-deny invariant.
+TEST_F(CertificateManagementIntegrationTest, WritesDeniedWhenAllowedWriteUidsIsEmpty)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    cert::CertSlotConfig cfg;
+    cfg.slot_name = "test/locked-slot";
+    // access_policy.allowed_write_uids left empty — default-deny for all UIDs.
+    const auto locked_slot = registry->RegisterSlot(cfg);
+
+    auto handler = std::make_shared<cert::FileBackedSlotHandler>(m_parser);
+    cert::CertSlotManager locked_mgr{registry, [&handler](const cert::CertSlotConfig&) {
+                                         return handler;
+                                     }};
+
+    const auto src_slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(src_slot.has_value());
+    const auto cert = m_slot_manager->LoadCertificate(*src_slot, MakeClientId(1U, 0U));
+    ASSERT_TRUE(cert.has_value());
+
+    // Even UID 0 is denied because the allowlist is empty.
+    const auto result = locked_mgr.StoreCertificate(locked_slot, MakeClientId(1U, 0U), **cert);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kAccessDenied);
+}
+
+// ===========================================================================
+// Access control — TrustStoreManager
+//
+// The fixture configures the trust store with allowed_write_uids={0}.
+// TrustStoreManager checks CheckTrustStoreWritePermission internally before
+// any membership mutation.
+// ===========================================================================
+
+// Trust-store membership mutations are denied for UIDs not in the store's
+// allowed_write_uids, regardless of whether the member slot is valid.
+TEST_F(CertificateManagementIntegrationTest, TrustStoreMutation_DeniedForUnauthorizedUid)
+{
+    const auto trust_store = m_trust_store_manager->ResolveAppResource("tls_roots", 0U);
+    ASSERT_TRUE(trust_store.has_value());
+    const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(slot.has_value());
+
+    // UID 99 is not in the trust store's allowed_write_uids={0}.
+    const auto enable_result = m_trust_store_manager->EnableMember(*trust_store, *slot, MakeClientId(2U, 99U));
+    ASSERT_FALSE(enable_result.has_value());
+    EXPECT_EQ(enable_result.error(), common::DaemonErrorCode::kAccessDenied);
+
+    const auto disable_result = m_trust_store_manager->DisableMember(*trust_store, *slot, MakeClientId(2U, 99U));
+    ASSERT_FALSE(disable_result.has_value());
+    EXPECT_EQ(disable_result.error(), common::DaemonErrorCode::kAccessDenied);
+}
+
 }  // namespace
