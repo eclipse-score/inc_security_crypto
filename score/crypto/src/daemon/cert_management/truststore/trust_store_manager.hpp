@@ -23,6 +23,7 @@
 #include "score/crypto/src/daemon/cert_management/interfaces/i_trust_store_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/trust_store_config.hpp"
 #include "score/crypto/src/daemon/cert_management/policy/access_policy_enforcer.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_handler.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
@@ -89,7 +90,7 @@ class TrustStoreManager
     ///   - Does NOT load cert content — certs are loaded lazily on first GetAnchors()
     void Load(const std::vector<TrustStoreConfig>& store_configs,
               CertSlotRegistry::Sptr slot_registry,
-              CertSlotHandlerFactory slot_handler_factory = {});
+              CertSlotManager::Sptr slot_manager = {});
 
     // -----------------------------------------------------------------------
     // Store access
@@ -183,6 +184,7 @@ class TrustStoreManager
                        CertSlotHandle slot,
                        score::crypto::span<const uint8_t> crl_data,
                        score::crypto::FormatType format,
+                       data_manager::ClientId client_id,
                        std::int64_t next_update_epoch_s = 0);
 
     /// @brief Remove a certificate from a trust store by fingerprint.
@@ -210,7 +212,7 @@ class TrustStoreManager
     struct MemberSnapshot
     {
         CertSlotHandle slot_handle{0U};          ///< Daemon-internal slot index (for enable/disable routing).
-        std::string slot_name;                   ///< Slot name (used by executor to call ResolveCertSlot).
+        std::string slot_name;                   ///< Stable diagnostic/configuration name.
         std::array<uint8_t, 32U> fingerprint{};  ///< SHA-256 fingerprint of the member certificate.
         std::string subject;                     ///< RFC 4514 Subject DN.
         std::string issuer;                      ///< RFC 4514 Issuer DN.
@@ -261,10 +263,10 @@ class TrustStoreManager
     [[nodiscard]] score::crypto::Expected<ResolvedBackend, common::DaemonErrorCode> ResolveSlotBackend(
         CertSlotHandle slot);
 
-    /// Returns the handler for @p slot, creating it via m_slot_handler_factory on first access.
-    /// Returns nullptr if the factory is absent, the slot has no config, or factory returns nullptr.
+    /// Returns the handler for @p slot from CertSlotManager (friend-gated, no auth check).
+    /// Returns nullptr if CertSlotManager is absent or has no config for the slot.
     /// Must be called with m_mutex held.
-    ICertSlotHandler* GetOrCreateHandler(CertSlotHandle slot);
+    ICertSlotHandler* GetHandler(CertSlotHandle slot);
 
     void LoadState(TrustStoreId id);
     score::crypto::Expected<std::monostate, common::DaemonErrorCode> PersistState(TrustStoreId id) const;
@@ -313,8 +315,7 @@ class TrustStoreManager
     std::unordered_map<data_manager::ClientId, std::unordered_map<TrustStoreId, uint32_t>> m_client_ref_counts;
 
     CertSlotRegistry::Sptr m_slot_registry;
-    std::unordered_map<uint32_t, ICertSlotHandler::Sptr> m_slot_handlers;
-    CertSlotHandlerFactory m_slot_handler_factory;
+    CertSlotManager::Sptr m_slot_manager;
 
     static constexpr std::string_view kLogPrefix = "[TRUST_STORE_MANAGER] ";
 };

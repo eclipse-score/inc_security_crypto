@@ -31,6 +31,7 @@
 //   - AcknowledgeMemberUpdate — re-enables a disabled slot with fresh load
 //   - ConditionalExternal — fingerprint mismatch auto-disables on reload; AcknowledgeMemberUpdate re-enables
 
+#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
@@ -115,12 +116,13 @@ class TrustStoreManagerTest : public ::testing::Test
         ASSERT_TRUE(storage::KvDeploymentWriter{}.Write(kv.string(), desc).has_value());
     }
 
-    cert::CertSlotHandlerFactory MakeHandlerFactory()
+    cert::CertSlotManager::Sptr MakeSlotManager(cert::CertSlotRegistry::Sptr registry)
     {
         auto parser = m_parser;
-        return [parser](const cert::CertSlotConfig&) {
+        cert::CertSlotHandlerFactory factory = [parser](const cert::CertSlotConfig&) {
             return std::make_shared<cert::FileBackedSlotHandler>(parser);
         };
+        return std::make_shared<cert::CertSlotManager>(std::move(registry), std::move(factory));
     }
 
     // MakeSlotConfig — for tests that mutate state (overwrite cert file, AddMember, etc.)
@@ -178,7 +180,7 @@ TEST_F(TrustStoreManagerTest, LoadsAnchorsLazilyAndBuildsSlotMembershipIndex)
     ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     // Membership index is built at Load() time without touching cert bytes.
     ASSERT_EQ(manager.GetMembershipsForSlot(slot).size(), 1U);
@@ -226,7 +228,7 @@ TEST_F(TrustStoreManagerTest, PerClientAddRef_DoesNotEvictCacheWhileOtherClientH
     ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("tls-roots");
     auto store = manager.GetStore(ts_handle);
@@ -282,7 +284,7 @@ TEST_F(TrustStoreManagerTest, CleanupClient_ReleasesAllRefsAndEvictsCache)
     ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("tls-roots");
     auto store = manager.GetStore(ts_handle);
@@ -331,7 +333,7 @@ TEST_F(TrustStoreManagerTest, DisableAndReEnable_MemberTogglesAnchorVisibility)
     ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("tls-roots");
     auto store = manager.GetStore(ts_handle);
@@ -377,7 +379,7 @@ TEST_F(TrustStoreManagerTest, TwoStores_OneSlot_BothGetMemberships)
     store_b.members.push_back(cert::TrustStoreMemberConfig{"shared-anchor", cert::TrustStoreMemberKind::kSharedStatic});
 
     cert::TrustStoreManager manager;
-    manager.Load({store_a, store_b}, registry, MakeHandlerFactory());
+    manager.Load({store_a, store_b}, registry, MakeSlotManager(registry));
 
     // Both stores report membership for the shared slot.
     EXPECT_EQ(manager.GetMembershipsForSlot(slot).size(), 2U);
@@ -414,7 +416,7 @@ TEST_F(TrustStoreManagerTest, AddMember_ToExclusiveSlot_AddsAnchorAndPersistsToD
         cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("mutable-store");
     auto store = manager.GetStore(ts_handle);
@@ -463,7 +465,7 @@ TEST_F(TrustStoreManagerTest, RemoveMember_ByFingerprint_RemovesAnchor)
         cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("mutable-store");
     auto store = manager.GetStore(ts_handle);
@@ -503,7 +505,7 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
     ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("cond-store");
     auto store = manager.GetStore(ts_handle);
@@ -570,7 +572,7 @@ TEST_F(TrustStoreManagerTest, ConditionalExternal_FingerprintMismatch_AutoDisabl
         cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kConditionalExternal});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("cond-store");
     auto store = manager.GetStore(ts_handle);
@@ -634,7 +636,7 @@ TEST_F(TrustStoreManagerTest, AddMember_WithCrlBytes_StoresAndPersistsCrl)
         cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("mutable-store");
 
@@ -674,7 +676,7 @@ TEST_F(TrustStoreManagerTest, AddMember_ExistingExclusiveMember_UpsertsCrl)
         cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("mutable-store");
 
@@ -718,7 +720,7 @@ TEST_F(TrustStoreManagerTest, AddMember_SharedStaticMember_WithCrl_ReturnsUnsupp
     ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("mixed-store");
 
@@ -753,7 +755,7 @@ TEST_F(TrustStoreManagerTest, AddMember_DeduplicationChecksAllMemberTypes)
         cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("mixed-store");
 
@@ -788,7 +790,7 @@ TEST_F(TrustStoreManagerTest, ImportCrlForMember_WritesToExclusiveSlot)
         cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("mutable-store");
 
@@ -802,8 +804,8 @@ TEST_F(TrustStoreManagerTest, ImportCrlForMember_WritesToExclusiveSlot)
     const std::vector<std::uint8_t> crl{0xD0U, 0xD1U, 0xD2U};
     const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
 
-    ASSERT_TRUE(
-        manager.ImportCrlForMember(ts_handle, slot_handle, crl_span, score::crypto::FormatType::kDer).has_value());
+    ASSERT_TRUE(manager.ImportCrlForMember(ts_handle, slot_handle, crl_span, score::crypto::FormatType::kDer, kClientA)
+                    .has_value());
 
     // Verify persistence: fresh handler must read the CRL.
     cert::FileBackedSlotHandler fresh_handler{m_parser};
@@ -812,6 +814,35 @@ TEST_F(TrustStoreManagerTest, ImportCrlForMember_WritesToExclusiveSlot)
     const auto loaded_crl = fresh_handler.LoadCrl(cfg);
     ASSERT_TRUE(loaded_crl.has_value());
     EXPECT_EQ(*loaded_crl, crl);
+}
+
+TEST_F(TrustStoreManagerTest, ImportCrlForMember_DeniesUnauthorizedWriter)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    const auto slot_handle = registry->RegisterSlot(MakeSlotConfig("empty-anchor", m_empty_slot_kv));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "mutable-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.members.push_back(
+        cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
+    const auto ts_handle = manager.ResolveByName("mutable-store");
+
+    auto cert = ParseCert(m_root_cert);
+    ASSERT_NE(cert, nullptr);
+    ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA).has_value());
+
+    const std::vector<std::uint8_t> crl{0xD0U, 0xD1U, 0xD2U};
+    const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
+    const auto unauthorized = static_cast<dm::ClientId>(1ULL << 32U) | 3U;
+    const auto result =
+        manager.ImportCrlForMember(ts_handle, slot_handle, crl_span, score::crypto::FormatType::kDer, unauthorized);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Error::kAccessDenied);
 }
 
 // ---------------------------------------------------------------------------
@@ -832,7 +863,7 @@ TEST_F(TrustStoreManagerTest, AddMember_NoEmptyExclusiveSlot_ReturnsCapacityExce
         cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("full-store");
 
@@ -871,7 +902,7 @@ TEST_F(TrustStoreManagerTest, RemoveMember_WrongFingerprint_ReturnsInvalidArgume
         cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kExclusiveMutable});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("mutable-store");
 
@@ -897,14 +928,15 @@ TEST_F(TrustStoreManagerTest, ImportCrlForMember_SharedStaticSlot_ReturnsUnsuppo
     ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("shared-store");
 
     const std::vector<std::uint8_t> crl{0x01U, 0x02U, 0x03U};
     const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
 
-    const auto result = manager.ImportCrlForMember(ts_handle, slot_handle, crl_span, score::crypto::FormatType::kDer);
+    const auto result =
+        manager.ImportCrlForMember(ts_handle, slot_handle, crl_span, score::crypto::FormatType::kDer, kClientA);
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
 }
@@ -927,7 +959,7 @@ TEST_F(TrustStoreManagerTest, EnableMember_UnregisteredSlot_ReturnsInvalidArgume
     ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
 
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle = manager.ResolveByName("tls-roots");
 
@@ -965,7 +997,7 @@ TEST_F(TrustStoreManagerTest, PersistState_DisabledMemberSurvivesReload)
 
     {
         cert::TrustStoreManager manager;
-        manager.Load({ts_cfg}, registry, MakeHandlerFactory());
+        manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
         const auto ts_handle = manager.ResolveByName("persist-store");
         auto store = manager.GetStore(ts_handle);
@@ -980,7 +1012,7 @@ TEST_F(TrustStoreManagerTest, PersistState_DisabledMemberSurvivesReload)
 
     // Second manager instance — simulates daemon restart.
     cert::TrustStoreManager manager2;
-    manager2.Load({ts_cfg}, registry, MakeHandlerFactory());
+    manager2.Load({ts_cfg}, registry, MakeSlotManager(registry));
 
     const auto ts_handle2 = manager2.ResolveByName("persist-store");
     auto store2 = manager2.GetStore(ts_handle2);

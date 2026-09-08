@@ -19,7 +19,9 @@
 //   - Parameter values for known synthetic inputs
 //
 // These tests do NOT require OpenSSL.  CertObject is constructed synthetically
-// from a known CertChainMetadata.  ICertSlotHandler is stubbed inline.
+// from a known CertChainMetadata.  ICertSlotHandler is stubbed inline and
+// wrapped inside a minimal CertSlotManager so the serializer's access-policy
+// path is exercised without a real storage backend.
 //
 // SerializeTrustStoreMembers requires a live CertManagementService for slot
 // resolution and is therefore covered by test_cert_management_service.cpp
@@ -30,12 +32,15 @@
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/query/cert_object_serializer.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -80,12 +85,11 @@ cert::CertObject MakeSyntheticCert(bool is_ca = true)
 }
 
 // ---------------------------------------------------------------------------
-// ICertSlotHandler stub — configurable inline
+// ICertSlotHandler stub — configurable slot state and CRL metadata
 // ---------------------------------------------------------------------------
 
 struct SlotHandlerStub : public cert::ICertSlotHandler
 {
-    // Mutable so the stub can be used from const methods.
     mutable score::crypto::Expected<score::crypto::CertificateSlotInfo, score::crypto::daemon::common::DaemonErrorCode>
         slot_info_result{score::crypto::CertificateSlotInfo{score::crypto::CertificateSlotState::kOccupied}};
 
@@ -124,7 +128,7 @@ struct SlotHandlerStub : public cert::ICertSlotHandler
 
     bool HasCrl(const cert::CertSlotConfig&) override
     {
-        return slot_info_result->has_crl;
+        return slot_info_result.has_value() && slot_info_result->has_crl;
     }
 
     score::crypto::Expected<std::vector<uint8_t>, score::crypto::daemon::common::DaemonErrorCode> LoadCrl(
@@ -290,47 +294,67 @@ TEST(SerializeCertObject, EmptySkidAndAkidEncodeAsEmptyBuffers)
 
 // ===========================================================================
 // SerializeCertSlotInfo
+//
+// CertSlotManager is constructed with a minimal CertSlotRegistry and a factory
+// that returns a SlotHandlerStub.  CheckSlotAccess is unconditionally permissive
+// for reads, so no UID configuration is required.
 // ===========================================================================
 
-TEST(SerializeCertSlotInfo, ProducesThreeParameters)
+class SerializeCertSlotInfoTest : public ::testing::Test
 {
-    SlotHandlerStub stub;
-    cert::CertSlotConfig config{};
-    const auto result = query::SerializeCertSlotInfo(stub, config);
+  protected:
+    static constexpr score::crypto::daemon::data_manager::ClientId kClientId = 42U;
+
+    void SetUp() override
+    {
+        auto registry = std::make_shared<cert::CertSlotRegistry>();
+        cert::CertSlotConfig cfg;
+        cfg.slot_name = "test/serializer-slot";
+        slot_handle_ = registry->RegisterSlot(cfg);
+
+        stub_ = std::make_shared<SlotHandlerStub>();
+        auto stub_ptr = stub_;
+        mgr_ = std::make_unique<cert::CertSlotManager>(std::move(registry), [stub_ptr](const cert::CertSlotConfig&) {
+            return stub_ptr;
+        });
+    }
+
+    cert::CertSlotHandle slot_handle_{};
+    std::shared_ptr<SlotHandlerStub> stub_;
+    std::unique_ptr<cert::CertSlotManager> mgr_;
+};
+
+TEST_F(SerializeCertSlotInfoTest, ProducesThreeParameters)
+{
+    const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().size(), 3U);
 }
 
-TEST(SerializeCertSlotInfo, Param0_SlotStateUint8_Occupied)
+TEST_F(SerializeCertSlotInfoTest, Param0_SlotStateUint8_Occupied)
 {
-    SlotHandlerStub stub;
-    stub.slot_info_result = score::crypto::CertificateSlotInfo{score::crypto::CertificateSlotState::kOccupied};
-    cert::CertSlotConfig config{};
-    const auto result = query::SerializeCertSlotInfo(stub, config);
+    stub_->slot_info_result = score::crypto::CertificateSlotInfo{score::crypto::CertificateSlotState::kOccupied};
+    const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
     ASSERT_TRUE(result.has_value());
     const auto* val = GetParam<std::uint8_t>(result.value(), 0U);
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, static_cast<std::uint8_t>(score::crypto::CertificateSlotState::kOccupied));
 }
 
-TEST(SerializeCertSlotInfo, Param0_SlotStateUint8_Empty)
+TEST_F(SerializeCertSlotInfoTest, Param0_SlotStateUint8_Empty)
 {
-    SlotHandlerStub stub;
-    stub.slot_info_result = score::crypto::CertificateSlotInfo{score::crypto::CertificateSlotState::kEmpty};
-    cert::CertSlotConfig config{};
-    const auto result = query::SerializeCertSlotInfo(stub, config);
+    stub_->slot_info_result = score::crypto::CertificateSlotInfo{score::crypto::CertificateSlotState::kEmpty};
+    const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
     ASSERT_TRUE(result.has_value());
     const auto* val = GetParam<std::uint8_t>(result.value(), 0U);
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, static_cast<std::uint8_t>(score::crypto::CertificateSlotState::kEmpty));
 }
 
-TEST(SerializeCertSlotInfo, NoCrl_Param1IsZero_Param2IsZero)
+TEST_F(SerializeCertSlotInfoTest, NoCrl_Param1IsZero_Param2IsZero)
 {
-    SlotHandlerStub stub;
-    stub.slot_info_result->has_crl = false;
-    cert::CertSlotConfig config{};
-    const auto result = query::SerializeCertSlotInfo(stub, config);
+    stub_->slot_info_result->has_crl = false;
+    const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
     ASSERT_TRUE(result.has_value());
 
     const auto* has_crl = GetParam<std::uint8_t>(result.value(), 1U);
@@ -341,13 +365,11 @@ TEST(SerializeCertSlotInfo, NoCrl_Param1IsZero_Param2IsZero)
     EXPECT_EQ(*crl_next, 0U);
 }
 
-TEST(SerializeCertSlotInfo, CrlPresent_Param1IsOne_Param2IsEpoch)
+TEST_F(SerializeCertSlotInfoTest, CrlPresent_Param1IsOne_Param2IsEpoch)
 {
-    SlotHandlerStub stub;
-    stub.slot_info_result->has_crl = true;
-    stub.crl_next_update_value = 1700000000LL;
-    cert::CertSlotConfig config{};
-    const auto result = query::SerializeCertSlotInfo(stub, config);
+    stub_->slot_info_result->has_crl = true;
+    stub_->crl_next_update_value = 1700000000LL;
+    const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
     ASSERT_TRUE(result.has_value());
 
     const auto* has_crl = GetParam<std::uint8_t>(result.value(), 1U);
@@ -358,15 +380,13 @@ TEST(SerializeCertSlotInfo, CrlPresent_Param1IsOne_Param2IsEpoch)
     EXPECT_EQ(*crl_next, static_cast<std::uint64_t>(1700000000ULL));
 }
 
-TEST(SerializeCertSlotInfo, CrlPresent_GetCrlNextUpdateFails_Param2IsZero)
+TEST_F(SerializeCertSlotInfoTest, CrlPresent_GetCrlNextUpdateFails_Param2IsZero)
 {
     // HasCrl() returns true but GetCrlNextUpdate() is unavailable.
-    // The serializer should encode has_crl=1 and crl_next=0 (not an error).
-    SlotHandlerStub stub;
-    stub.slot_info_result->has_crl = true;
-    stub.crl_next_update_value = std::nullopt;  // causes GetCrlNextUpdate to return error
-    cert::CertSlotConfig config{};
-    const auto result = query::SerializeCertSlotInfo(stub, config);
+    // The serializer encodes has_crl=1 and crl_next=0 (not an error).
+    stub_->slot_info_result->has_crl = true;
+    stub_->crl_next_update_value = std::nullopt;
+    const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
     ASSERT_TRUE(result.has_value());
 
     const auto* has_crl = GetParam<std::uint8_t>(result.value(), 1U);
@@ -377,13 +397,11 @@ TEST(SerializeCertSlotInfo, CrlPresent_GetCrlNextUpdateFails_Param2IsZero)
     EXPECT_EQ(*crl_next, 0U);
 }
 
-TEST(SerializeCertSlotInfo, GetSlotInfoError_PropagatesError)
+TEST_F(SerializeCertSlotInfoTest, GetSlotInfoError_PropagatesError)
 {
-    SlotHandlerStub stub;
-    stub.slot_info_result =
+    stub_->slot_info_result =
         score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
-    cert::CertSlotConfig config{};
-    const auto result = query::SerializeCertSlotInfo(stub, config);
+    const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInternalError);
 }

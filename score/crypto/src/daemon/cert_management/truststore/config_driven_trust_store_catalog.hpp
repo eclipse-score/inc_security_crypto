@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_TRUSTSTORE_CONFIG_DRIVEN_TRUST_STORE_CATALOG_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_TRUSTSTORE_CONFIG_DRIVEN_TRUST_STORE_CATALOG_HPP
 
+#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
@@ -36,12 +37,10 @@ class ConfigDrivenTrustStoreCatalog final
 
     /// @brief Adapt config entries and populate the trust store manager.
     ///
-    /// @param manager   The TrustStoreManager to populate.
-    /// @param registry  Fully-populated CertSlotRegistry for member slot resolution.
-    /// @param factory   Certificate factory for loading static anchor files (may be null).
-    void Load(TrustStoreManager& manager,
-              CertSlotRegistry::Sptr registry,
-              CertSlotHandlerFactory slot_handler_factory = {});
+    /// @param manager      The TrustStoreManager to populate.
+    /// @param registry     Fully-populated CertSlotRegistry for member slot resolution.
+    /// @param slot_manager CertSlotManager for lazily-created, cached slot handlers (may be null).
+    void Load(TrustStoreManager& manager, CertSlotRegistry::Sptr registry, CertSlotManager::Sptr slot_manager = {});
 
   private:
     const config::CertificateConfig& m_config;
