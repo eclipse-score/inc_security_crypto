@@ -22,11 +22,11 @@ using Error = common::DaemonErrorCode;
 CertManagementService::CertManagementService(data_manager::IDataManager::Sptr data_manager,
                                              CertSlotRegistry::Sptr slot_registry,
                                              TrustStoreManager::Sptr trust_store_manager,
-                                             CertSlotHandlerFactory slot_handler_factory)
+                                             CertSlotManager::Sptr slot_manager)
     : m_data_manager{std::move(data_manager)},
       m_slot_registry{std::move(slot_registry)},
       m_trust_stores{std::move(trust_store_manager)},
-      m_slot_handler_factory{std::move(slot_handler_factory)}
+      m_slot_manager{std::move(slot_manager)}
 {
 }
 
@@ -39,13 +39,6 @@ score::crypto::Expected<CertDataNodeResult, Error> CertManagementService::Regist
     auto entry = std::make_shared<CertEntry>(std::move(object), params.slot_handle);
     auto id = params.slot_handle.IsValid() ? m_cert_registry.RegisterSlotCert(params.slot_handle, entry)
                                            : m_cert_registry.RegisterEphemeralCert(entry);
-    if (id == 0U)
-    {
-        id = m_cert_registry.FindSlotRegistryId(params.slot_handle);
-        entry = m_cert_registry.FindById(id);
-        if (!entry)
-            return score::crypto::make_unexpected(Error::kInternalError);
-    }
     auto captured = entry;
     auto node = std::make_shared<CertDataNode>(entry, id, params.client_id, [this](CertRegistryId rid) {
         m_cert_registry.Unregister(rid);
@@ -56,24 +49,11 @@ score::crypto::Expected<CertDataNodeResult, Error> CertManagementService::Regist
     return CertDataNodeResult{*node_id, std::move(captured)};
 }
 
-score::crypto::Expected<CertDataNodeResult, Error> CertManagementService::LoadOrShare(
-    const CertRegistrationParams& params,
-    ICertSlotHandler& handler,
-    const CertSlotConfig& config)
+score::crypto::Expected<CertDataNodeResult, Error> CertManagementService::Load(const CertRegistrationParams& params)
 {
-    auto existing = m_cert_registry.FindBySlot(params.slot_handle);
-    if (existing)
-    {
-        const auto id = m_cert_registry.FindSlotRegistryId(params.slot_handle);
-        auto node = std::make_shared<CertDataNode>(existing, id, params.client_id, [this](CertRegistryId rid) {
-            m_cert_registry.Unregister(rid);
-        });
-        auto node_id = m_data_manager->addChildNode(params.client_id, params.parent_id, node);
-        if (!node_id)
-            return score::crypto::make_unexpected(Error::kInternalError);
-        return CertDataNodeResult{*node_id, std::move(existing)};
-    }
-    auto loaded = handler.LoadCertificate(config);
+    if (!m_slot_manager)
+        return score::crypto::make_unexpected(Error::kInternalError);
+    auto loaded = m_slot_manager->LoadCertificate(params.slot_handle, params.client_id);
     if (!loaded)
         return score::crypto::make_unexpected(loaded.error());
     return RegisterCertMaterial(params, std::move(*loaded));
@@ -107,22 +87,33 @@ score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::
     if (!m_data_manager || !m_slot_registry)
         return score::crypto::make_unexpected(Error::kInternalError);
 
-    // Dedup: same client resolving the same slot twice returns the cached node id.
-    auto& client_cache = m_cert_slot_node_cache[client_id];
-    const auto it = client_cache.find(resource_name);
-    if (it != client_cache.end())
-        return it->second;
-
     auto handle_res = m_slot_registry->ResolveAppResource(resource_name, client_id);
     if (!handle_res.has_value())
         return score::crypto::make_unexpected(handle_res.error());
 
-    auto node = std::make_shared<CertSlotDataNode>(handle_res.value(), m_slot_registry);
+    return ResolveCertSlot(handle_res.value(), client_id);
+}
+
+score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::ResolveCertSlot(
+    CertSlotHandle slot_handle,
+    data_manager::ClientId client_id)
+{
+    if (!m_data_manager || !m_slot_registry)
+        return score::crypto::make_unexpected(Error::kInternalError);
+    if (!m_slot_registry->GetConfig(slot_handle).has_value())
+        return score::crypto::make_unexpected(Error::kInvalidResourceId);
+
+    auto& client_cache = m_cert_slot_node_cache[client_id];
+    const auto it = client_cache.find(slot_handle.index);
+    if (it != client_cache.end())
+        return it->second;
+
+    auto node = std::make_shared<CertSlotDataNode>(slot_handle, m_slot_registry);
     auto node_id = m_data_manager->addNode(client_id, std::move(node));
     if (!node_id.has_value())
         return score::crypto::make_unexpected(Error::kInternalError);
 
-    client_cache[resource_name] = node_id.value();
+    client_cache[slot_handle.index] = node_id.value();
     return node_id.value();
 }
 
@@ -177,13 +168,7 @@ score::crypto::Expected<ResolvedCertSlot, Error> CertManagementService::ResolveS
     if (!config_res.has_value())
         return score::crypto::make_unexpected(config_res.error());
 
-    if (!m_slot_handler_factory)
-        return score::crypto::make_unexpected(Error::kInternalError);
-    auto handler = m_slot_handler_factory(*config_res.value());
-    if (!handler)
-        return score::crypto::make_unexpected(Error::kInternalError);
-
-    return ResolvedCertSlot{handle, config_res.value(), std::move(handler)};
+    return ResolvedCertSlot{handle, config_res.value()};
 }
 
 score::crypto::Expected<CertObject::Sptr, Error> CertManagementService::ResolveCertForOperation(

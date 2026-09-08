@@ -24,7 +24,7 @@ ConfigDrivenTrustStoreCatalog::ConfigDrivenTrustStoreCatalog(const config::Certi
 
 void ConfigDrivenTrustStoreCatalog::Load(TrustStoreManager& manager,
                                          CertSlotRegistry::Sptr registry,
-                                         CertSlotHandlerFactory slot_handler_factory)
+                                         CertSlotManager::Sptr slot_manager)
 {
     const auto& entries = m_config.GetTrustStoreEntries();
 
@@ -54,7 +54,7 @@ void ConfigDrivenTrustStoreCatalog::Load(TrustStoreManager& manager,
     }
 
     score::mw::log::LogDebug() << kLogPrefix << "Loading " << configs.size() << " trust store(s) from configuration.";
-    manager.Load(std::move(configs), std::move(registry), std::move(slot_handler_factory));
+    manager.Load(std::move(configs), std::move(registry), std::move(slot_manager));
     for (const auto& mapping : m_config.GetAppTrustStoreEntries())
         manager.RegisterAppResource(mapping.uid, mapping.app_resource_id, mapping.trust_store_name);
 }

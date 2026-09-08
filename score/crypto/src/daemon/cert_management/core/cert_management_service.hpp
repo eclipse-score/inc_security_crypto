@@ -15,8 +15,8 @@
 
 #include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/daemon/cert_management/core/cert_registry.hpp"
-#include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/nodes/cert_data_node.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 
@@ -33,12 +33,14 @@ struct CertDataNodeResult
     std::shared_ptr<CertEntry> entry;
 };
 
-/// Resolved certificate slot — handler + config + handle returned by ResolveSlotForOperation.
+/// Resolved certificate slot — handle + config returned by ResolveSlotForOperation.
+///
+/// All slot backend operations must go through
+/// CertManagementService::GetSlotManager() which enforces access policy centrally.
 struct ResolvedCertSlot
 {
     CertSlotHandle handle;
     const CertSlotConfig* config{nullptr};
-    ICertSlotHandler::Sptr handler;
 };
 
 class CertManagementService final
@@ -49,7 +51,7 @@ class CertManagementService final
     CertManagementService(data_manager::IDataManager::Sptr data_manager,
                           CertSlotRegistry::Sptr slot_registry,
                           TrustStoreManager::Sptr trust_store_manager,
-                          CertSlotHandlerFactory slot_handler_factory = {});
+                          CertSlotManager::Sptr slot_manager = {});
 
     // -----------------------------------------------------------------------
     // Existing cert lifecycle methods
@@ -58,9 +60,13 @@ class CertManagementService final
     score::crypto::Expected<CertDataNodeResult, common::DaemonErrorCode> RegisterCertMaterial(
         const CertRegistrationParams&,
         CertObject::Sptr);
-    score::crypto::Expected<CertDataNodeResult, common::DaemonErrorCode> LoadOrShare(const CertRegistrationParams&,
-                                                                                     ICertSlotHandler&,
-                                                                                     const CertSlotConfig&);
+    /// Load a certificate from a slot and create a fresh CertEntry for this client.
+    ///
+    /// Each call produces an independent CertEntry so that per-client state
+    /// (e.g. session-scoped CRL) is never shared across clients. CertSlotManager
+    /// returns a cached CertObject when another client loaded the same slot recently,
+    /// avoiding a redundant disk read without sharing the wrapping CertEntry.
+    score::crypto::Expected<CertDataNodeResult, common::DaemonErrorCode> Load(const CertRegistrationParams& params);
     score::crypto::Expected<std::monostate, common::DaemonErrorCode> ReleaseCert(data_manager::ClientId,
                                                                                  data_manager::DataNodeId);
     void CleanupClient(data_manager::ClientId);
@@ -68,6 +74,11 @@ class CertManagementService final
     TrustStoreManager::Sptr GetTrustStoreManager() const
     {
         return m_trust_stores;
+    }
+
+    CertSlotManager::Sptr GetSlotManager() const
+    {
+        return m_slot_manager;
     }
 
     // -----------------------------------------------------------------------
@@ -80,6 +91,10 @@ class CertManagementService final
     /// The node survives across context opens, matching key slot lifecycle.
     score::crypto::Expected<data_manager::DataNodeId, common::DaemonErrorCode> ResolveCertSlot(
         const std::string& resource_name,
+        data_manager::ClientId client_id);
+
+    score::crypto::Expected<data_manager::DataNodeId, common::DaemonErrorCode> ResolveCertSlot(
+        CertSlotHandle slot_handle,
         data_manager::ClientId client_id);
 
     /// Resolve an application trust store resource name to a client-scoped DataNodeId.
@@ -141,13 +156,13 @@ class CertManagementService final
     data_manager::IDataManager::Sptr m_data_manager;
     CertSlotRegistry::Sptr m_slot_registry;
     TrustStoreManager::Sptr m_trust_stores;
+    CertSlotManager::Sptr m_slot_manager;
     CertRegistry m_cert_registry;
-    CertSlotHandlerFactory m_slot_handler_factory;
 
-    // Node-id dedup caches — keyed by (client_id, resource_name).
-    // Mirrors the key-slot dedup pattern so that resolving the same resource
-    // twice from the same client reuses the existing DataNodeId.
-    std::unordered_map<data_manager::ClientId, std::unordered_map<std::string, data_manager::DataNodeId>>
+    // Slot node cache keyed by canonical slot identity, not app-resource name.
+    // Multiple resource names may map to one slot and must share one node ID
+    // within a client.
+    std::unordered_map<data_manager::ClientId, std::unordered_map<uint32_t, data_manager::DataNodeId>>
         m_cert_slot_node_cache;
     std::unordered_map<data_manager::ClientId, std::unordered_map<std::string, data_manager::DataNodeId>>
         m_trust_store_node_cache;

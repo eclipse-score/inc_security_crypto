@@ -23,17 +23,16 @@ namespace score::crypto::daemon::cert_management
 /// UID-based read/write access control policy for a certificate slot or trust store.
 struct AccessPolicy
 {
-    /// UIDs permitted to read from this slot (LoadCertificate, GetSlotInfo,
-    /// CERT_EXPORT, CERT_PUBLIC_KEY, CERT_VERIFY).
-    ///
-    /// An empty list means no UID-based restriction (all clients may read).
+    /// Reserved for future UID-based read authorization. Certificate reads are
+    /// currently allowed after DataManager node ownership is established.
     std::vector<uint32_t> allowed_uids;
 
     /// UIDs permitted to write to this slot (SaveCertificate, CRL_IMPORT,
     /// CERT_CLEAR, TRUST_STORE_ADD_CERT, TRUST_STORE_REMOVE_CERT).
     ///
-    /// A UID in allowed_uids but not in allowed_write_uids may read but not
-    /// write. An empty list means no UID-based write restriction.
+    /// Mutation authorization is explicit and default-deny: an empty list
+    /// grants no write permission. Trust-store-owned exclusive slots do not
+    /// use this list; their writes are authorized by TrustStoreManager.
     std::vector<uint32_t> allowed_write_uids;
 };
 

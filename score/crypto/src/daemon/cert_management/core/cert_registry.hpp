@@ -56,8 +56,9 @@ class CertRegistry final
 
     /// Register a certificate that was loaded from a persistent slot.
     ///
-    /// Returns 0 if the slot is already registered (caller should call
-    /// FindBySlot() first to check).
+    /// Every call creates a new registry entry regardless of the slot; callers
+    /// that load the same slot for different clients each receive an independent
+    /// CertEntry so that per-client state (e.g. session CRL) cannot bleed.
     [[nodiscard]] CertRegistryId RegisterSlotCert(CertSlotHandle slot_handle, std::shared_ptr<CertEntry> cert_entry);
 
     /// Register an ephemeral (non-slot) certificate.
@@ -67,8 +68,6 @@ class CertRegistry final
     // Lookup
     // ------------------------------------------------------------------
 
-    [[nodiscard]] std::shared_ptr<CertEntry> FindBySlot(CertSlotHandle slot_handle) const;
-    [[nodiscard]] CertRegistryId FindSlotRegistryId(CertSlotHandle slot_handle) const;
     [[nodiscard]] std::shared_ptr<CertEntry> FindById(CertRegistryId id) const;
 
     // ------------------------------------------------------------------
@@ -93,7 +92,6 @@ class CertRegistry final
   private:
     mutable std::mutex m_mutex;
     std::unordered_map<CertRegistryId, std::shared_ptr<CertEntry>> m_certs;
-    std::unordered_map<uint32_t, CertRegistryId> m_slot_to_id;
     CertRegistryId m_next_id{1U};
 };
 

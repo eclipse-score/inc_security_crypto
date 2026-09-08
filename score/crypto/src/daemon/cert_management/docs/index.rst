@@ -66,10 +66,16 @@ This drives several design decisions:
   file-backed handler so that all certificate operations are accessible
   without hardware.
 
-* **CertObject as a value type** — parsed certificates are immutable
-  ``shared_ptr``-managed values. The same ``CertObject`` instance is
-  shared across trust stores and client handles via a weak-ptr cache in
-  ``TrustStoreManager``, avoiding redundant parses and copies.
+* **CertObject as a shared immutable value** — parsed certificates are
+  immutable ``shared_ptr``-managed values. Two separate weak-ptr caches avoid
+  redundant disk reads and parses. ``CertSlotManager`` caches the
+  most-recently-loaded ``CertObject`` per slot so that multiple clients
+  opening the same slot in quick succession share the bytes without repeated
+  I/O. ``TrustStoreManager`` maintains a separate anchor cache for active
+  trust stores. Critically, each client receives its own independent
+  ``CertEntry`` wrapping the shared ``CertObject``, so per-client state such
+  as a session-scoped CRL cannot bleed across clients that have loaded the
+  same slot.
 
 * **Trust store membership by typed slot reference** — anchors are
   certificate slots, not raw file paths. This allows the daemon to track

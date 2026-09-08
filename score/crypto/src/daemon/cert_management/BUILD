@@ -66,6 +66,7 @@ cc_library(
         "slot/deployment_loader.cpp",
         "slot/deployment_writer.cpp",
         "slot/file_backed_slot_handler.cpp",
+        "slot/cert_slot_manager.cpp",
         "slot/slot_registry.cpp",
         "truststore/trust_store_handler.cpp",
         "truststore/trust_store_manager.cpp",

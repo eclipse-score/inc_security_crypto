@@ -35,19 +35,18 @@ common::ResponseParameters SerializeCertObject(const CertObject& cert)
     return out;
 }
 
-score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> SerializeCertSlotInfo(
-    ICertSlotHandler& handler,
-    const CertSlotConfig& config)
+score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode>
+SerializeCertSlotInfo(CertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id)
 {
-    auto info_res = handler.GetSlotInfo(config);
+    auto info_res = mgr.GetSlotInfo(slot, client_id);
     if (!info_res.has_value())
         return score::crypto::make_unexpected(info_res.error());
 
-    const bool has_crl = info_res.value().has_crl;
+    const bool has_crl = mgr.HasCrl(slot);
     int64_t crl_next = 0;
     if (has_crl)
     {
-        auto nu = handler.GetCrlNextUpdate(config);
+        auto nu = mgr.GetCrlNextUpdate(slot, client_id);
         if (nu.has_value())
             crl_next = nu.value();
     }
@@ -72,7 +71,7 @@ common::ResponseParameters SerializeTrustStoreMembers(const std::vector<TrustSto
     entries.reserve(snapshot.size());
     for (const auto& member : snapshot)
     {
-        auto nid_res = service.ResolveCertSlot(member.slot_name, client_id);
+        auto nid_res = service.ResolveCertSlot(member.slot_handle, client_id);
         if (!nid_res.has_value())
             continue;  // slot not resolvable — omit silently rather than failing
         entries.push_back({static_cast<std::uint64_t>(nid_res.value()), &member});
