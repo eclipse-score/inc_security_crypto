@@ -44,7 +44,7 @@ std::optional<std::array<uint8_t, 32U>> CopyFingerprint(score::crypto::span<cons
 
 void TrustStoreManager::Load(const std::vector<TrustStoreConfig>& configs,
                              CertSlotRegistry::Sptr registry,
-                             CertSlotHandlerFactory slot_handler_factory)
+                             CertSlotManager::Sptr slot_manager)
 {
     std::lock_guard lock(m_mutex);
     m_stores.clear();
@@ -55,8 +55,7 @@ void TrustStoreManager::Load(const std::vector<TrustStoreConfig>& configs,
     m_slot_cert_cache.clear();
     m_client_ref_counts.clear();
     m_slot_registry = std::move(registry);
-    m_slot_handler_factory = std::move(slot_handler_factory);
-    m_slot_handlers.clear();  // lazy cache — populated by GetOrCreateHandler() on first access
+    m_slot_manager = std::move(slot_manager);
     for (const auto& config : configs)
     {
         const TrustStoreId id = static_cast<TrustStoreId>(m_stores.size());
@@ -83,7 +82,7 @@ void TrustStoreManager::Load(const std::vector<TrustStoreConfig>& configs,
 }
 
 // ---------------------------------------------------------------------------
-// State helpers (unchanged logic, no cert loading)
+// State helpers
 // ---------------------------------------------------------------------------
 
 void TrustStoreManager::LoadState(TrustStoreId id)
@@ -166,22 +165,15 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::PersistState(T
 // Lazy anchor loading — called by TrustStoreHandler::EnsureLoaded()
 // ---------------------------------------------------------------------------
 
-ICertSlotHandler* TrustStoreManager::GetOrCreateHandler(CertSlotHandle slot)
+ICertSlotHandler* TrustStoreManager::GetHandler(CertSlotHandle slot)
 {
     // Must be called with m_mutex held.
-    auto it = m_slot_handlers.find(slot.index);
-    if (it != m_slot_handlers.end())
-        return it->second.get();
-
-    if (!m_slot_handler_factory || !m_slot_registry)
+    // Delegate to CertSlotManager (friend access, no auth check). The returned Sptr
+    // is kept alive by CertSlotManager::m_handlers for the daemon lifetime — the raw
+    // pointer is safe for any call within this lock scope.
+    if (!m_slot_manager)
         return nullptr;
-    const auto cfg = m_slot_registry->GetConfig(slot);
-    if (!cfg)
-        return nullptr;
-    auto handler = m_slot_handler_factory(**cfg);
-    if (!handler)
-        return nullptr;
-    return m_slot_handlers.emplace(slot.index, std::move(handler)).first->second.get();
+    return m_slot_manager->GetTrustStoreCertSlotHandler(slot).get();
 }
 
 CertObject::Sptr TrustStoreManager::LoadOrGetCached(CertSlotHandle slot)
@@ -191,7 +183,7 @@ CertObject::Sptr TrustStoreManager::LoadOrGetCached(CertSlotHandle slot)
     if (auto cert = weak.lock())
         return cert;  // another active trust store handler already holds it
 
-    auto* handler = GetOrCreateHandler(slot);
+    auto* handler = GetHandler(slot);
     const auto cfg = m_slot_registry ? m_slot_registry->GetConfig(slot) : nullptr;
     if (handler == nullptr || !cfg)
         return nullptr;
@@ -266,7 +258,7 @@ void TrustStoreManager::LoadAnchorsIntoHandler(TrustStoreId id, TrustStoreHandle
         // Co-load the CRL for this slot into the handler's CRL cache.
         if (usable && cert)
         {
-            auto* slot_handler = GetOrCreateHandler(*slot);
+            auto* slot_handler = GetHandler(*slot);
             const auto cfg = m_slot_registry->GetConfig(*slot);
             if (slot_handler != nullptr && cfg && slot_handler->HasCrl(**cfg))
             {
@@ -438,7 +430,7 @@ std::optional<TrustStoreManager::ResolvedMember> TrustStoreManager::ResolveMembe
     const auto cfg = m_slot_registry->GetConfig(*slot);
     if (!cfg)
         return std::nullopt;
-    auto* handler = GetOrCreateHandler(*slot);
+    auto* handler = GetHandler(*slot);
     if (handler == nullptr)
         return std::nullopt;
     return ResolvedMember{*slot, handler, *cfg};
@@ -452,7 +444,7 @@ score::crypto::Expected<TrustStoreManager::ResolvedBackend, Error> TrustStoreMan
     const auto cfg = m_slot_registry->GetConfig(slot);
     if (!cfg)
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
-    auto* handler = GetOrCreateHandler(slot);
+    auto* handler = GetHandler(slot);
     if (handler == nullptr)
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     return ResolvedBackend{*cfg, handler};
@@ -567,6 +559,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::ImportCrlForMe
     CertSlotHandle slot,
     score::crypto::span<const uint8_t> crl_data,
     score::crypto::FormatType format,
+    data_manager::ClientId client_id,
     std::int64_t next_update_epoch_s)
 {
     std::lock_guard lock(m_mutex);
@@ -575,6 +568,8 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::ImportCrlForMe
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     if (crl_data.empty())
         return score::crypto::make_unexpected(Error::kInvalidArgument);
+    if (!AccessPolicyEnforcer::CheckTrustStoreWritePermission(m_stores[id].config, client_id).has_value())
+        return score::crypto::make_unexpected(Error::kAccessDenied);
 
     for (const auto& member : m_stores[id].config.members)
     {

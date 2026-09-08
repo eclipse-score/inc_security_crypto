@@ -20,6 +20,7 @@ package "cert_management" {
   package "core" {
     [CertManagementService]
     [CertRegistry]
+    [CertEntry]
   }
   package "interfaces" {
     interface ICertSlotHandler
@@ -33,6 +34,7 @@ package "cert_management" {
     [TrustStoreDataNode]
   }
   package "slot" {
+    [CertSlotManager]
     [CertSlotRegistry]
     [ConfigDrivenSlotCatalog]
     [FileBackedSlotHandler]
@@ -66,20 +68,38 @@ package "daemon/mediator" {
   [Mediator]
 }
 
+note right of [CertSlotManager]
+  Handler cache (Sptr, per slot)
+  CertObjectCache (weak_ptr, per slot)
+  Access policy enforcement
+end note
+
+note right of [CertEntry]
+  Per-client (never shared)
+  Holds CertObject::Sptr
+  + session-scoped CRL
+end note
+
 [CertManagementService] -> [CertRegistry]
+[CertManagementService] --> [CertSlotManager]
 [CertManagementService] --> [CertSlotRegistry]
 [CertManagementService] --> [TrustStoreManager]
-[CertManagementService] -->[DataManager]
-[CertManagementService] --> [AccessPolicyEnforcer]
+[CertManagementService] --> [DataManager]
+[CertRegistry] --> [CertEntry]
+[CertEntry] --> [CertObject]
 [CertSlotDataNode] <.. [CertManagementService] : creates
 [CertDataNode] <.. [CertManagementService] : creates
 [TrustStoreDataNode] <.. [CertManagementService] : creates
+
+[CertSlotManager] --> ICertSlotHandler
+[CertSlotManager] --> [CertSlotRegistry]
+[CertSlotManager] --> [AccessPolicyEnforcer]
 
 [CertSlotRegistry] <-- [ConfigDrivenSlotCatalog]
 [ConfigDrivenTrustStoreCatalog] ---> [TrustStoreManager]
 [TrustStoreManager] --> [CertSlotRegistry]
 [TrustStoreManager] --> [TrustStoreHandler]
-[TrustStoreManager] --> ICertSlotHandler
+[TrustStoreManager] --> [CertSlotManager] : anchor loading
 [TrustStoreHandler] ..|> ITrustStoreHandler
 [FileBackedSlotHandler] ..|> ICertSlotHandler
 [FileBackedSlotHandler] --> [CrlHandler]

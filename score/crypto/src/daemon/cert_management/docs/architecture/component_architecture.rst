@@ -71,8 +71,14 @@ Runtime boundaries
 
 Resource resolution is client-scoped through the Data Manager. A resolved
 certificate slot or trust store is represented by a lightweight DataNode. A
-certificate loaded from a slot becomes a ``CertDataNode`` backed by a shared
-``CertEntry``. Trust-store anchor content is loaded lazily and cached by
+certificate loaded from a slot becomes a ``CertDataNode`` backed by a
+per-client ``CertEntry``. Each ``Load`` call produces an independent
+``CertEntry`` so that per-client state — such as a session-scoped CRL
+associated via ``ImportCrl(persist=false)`` — cannot bleed across clients.
+``CertSlotManager`` holds a weak-ptr cache of ``CertObject`` instances keyed
+by slot: when the cache entry is live, multiple clients share the same parsed
+bytes without redundant I/O; when it expires, the next load re-reads the slot.
+Trust-store anchor content is loaded lazily and cached separately by
 ``TrustStoreManager``.
 
 The current provider boundary is intentionally narrow:
@@ -116,9 +122,12 @@ Runtime flows
 
 During startup, the configuration adapter registers certificate slots and
 trust stores. A client resolves an application resource into a DataManager
-node. Loading a certificate resolves its slot handler, reads the deployment
-descriptor and payload, parses the bytes, and registers a shared
-``CertEntry``. Repeated loads of the same slot share the registry entry.
+node. Loading a certificate goes through ``CertSlotManager``, which checks
+its weak-ptr ``CertObjectCache`` first: on a hit the parsed bytes are returned
+without disk I/O; on a miss the slot handler reads and parses the certificate
+and the result is stored in the cache. A fresh ``CertEntry`` is created for
+each caller and registered in ``CertRegistry``; no entry is shared across
+clients.
 
 Trust-store anchors are loaded lazily. ``TrustStoreManager`` resolves each
 typed member slot and caches the resulting ``CertObject`` through a weak

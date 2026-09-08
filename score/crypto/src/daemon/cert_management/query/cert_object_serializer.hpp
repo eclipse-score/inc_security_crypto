@@ -15,10 +15,11 @@
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_QUERY_CERT_OBJECT_SERIALIZER_HPP
 
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_object.hpp"
-#include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/data_manager/data_node.hpp"
 
 #include <cstdint>
 #include <vector>
@@ -53,14 +54,14 @@ common::ResponseParameters SerializeCertObject(const CertObject& cert);
 ///
 /// Returns an error if GetSlotInfo fails. Both the mediator typed-object handler
 /// and the cert management executor use this function.
-score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> SerializeCertSlotInfo(
-    ICertSlotHandler& handler,
-    const CertSlotConfig& config);
+score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode>
+SerializeCertSlotInfo(CertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id);
 
 /// @brief Serialize trust store member snapshot into IPC response parameters.
 ///
-/// Resolves per-client slot DataNodeIds via @p service; members whose slot cannot
-/// be resolved are silently omitted rather than failing the whole response.
+/// Resolves per-client slot DataNodeIds from each member's canonical slot handle
+/// via @p service; members whose slot cannot be resolved are silently omitted
+/// rather than failing the whole response.
 ///
 /// Wire layout: [0] count N (uint64), then for each member i in [0, N) (7 params):
 ///   [1+i*7+0] slot_node_id (uint64), [1+i*7+1] fingerprint (OwnedBuffer 32B),
