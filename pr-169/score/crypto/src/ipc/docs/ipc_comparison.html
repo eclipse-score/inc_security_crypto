@@ -27,8 +27,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../../../../_static/styles/theme.css?digest=7f76b32a3354e82990f2" rel="stylesheet" />
-<link href="../../../../../_static/styles/pydata-sphinx-theme.css?digest=7f76b32a3354e82990f2" rel="stylesheet" />
+  <link href="../../../../../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="../../../../../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../../_static/graphviz.css?v=4ae1632d" />
@@ -38,18 +38,18 @@
     <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
-    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
     <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
-    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
     <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
     <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../../../../../_static/scripts/fontawesome.js?digest=7f76b32a3354e82990f2"></script>
+  <script defer src="../../../../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=7f76b32a3354e82990f2" />
-<link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=7f76b32a3354e82990f2" />
+  <link rel="preload" as="script" href="../../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
 
     <script src="../../../../../_static/jquery.js?v=5d32c60e"></script>
     <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
@@ -64,7 +64,7 @@
     <script src="../../../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/src/ipc/docs/ipc_comparison';</script>
     <script>
-        DOCUMENTATION_OPTIONS.theme_version = '0.17.0';
+        DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
@@ -93,7 +93,9 @@
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-
+  
+  
+  
   
   <dialog id="pst-search-dialog">
     
@@ -255,11 +257,18 @@
       
         <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
       
         <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -272,8 +281,7 @@
           
           
           
-          <a href="https://github.com/eclipse-score" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">GitHub</span></a>
+          <a href="https://github.com/eclipse-score" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
         </li>
 </ul></div>
       
@@ -426,11 +434,18 @@
         
           <div class="navbar-item">
 
-<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
-  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
-  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
-  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
-</button></div>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
         
           <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -443,8 +458,7 @@
           
           
           
-          <a href="https://github.com/eclipse-score" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
-            <span class="sr-only">GitHub</span></a>
+          <a href="https://github.com/eclipse-score" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
         </li>
 </ul></div>
         
@@ -590,7 +604,7 @@
 </tr>
 <tr class="row-odd"><td><p>R4</p></td>
 <td><p>Authentic peer identification</p></td>
-<td><p>Server must be able to identify the calling process via an OS-enforced mechanism, not a client-supplied value.</p></td>
+<td><p>Server must be able to identify the calling identity via an OS-enforced mechanism, not a client-supplied value.</p></td>
 </tr>
 <tr class="row-even"><td><p>R5</p></td>
 <td><p>Minimal or zero configuration</p></td>
@@ -639,19 +653,40 @@
 <h3>Option C — LoLa Full SOA Abstraction (asynchronous Method + Event)<a class="headerlink" href="#option-c-lola-full-soa-abstraction-asynchronous-method-event" title="Link to this heading">#</a></h3>
 <p>S-CORE <code class="docutils literal notranslate"><span class="pre">mw::com</span></code> LoLa binding, two-phase protocol: Phase 1 — short blocking Method call returns a ticket; Phase 2 — result delivered via a broadcast Event. Evaluated in the asynchronous LoLa prototype.</p>
 </section>
-<section id="option-d-lola-message-passing-abstraction-sendwithcallback-notify">
-<h3>Option D — LoLa Message Passing Abstraction (SendWithCallback + Notify)<a class="headerlink" href="#option-d-lola-message-passing-abstraction-sendwithcallback-notify" title="Link to this heading">#</a></h3>
+<section id="option-d-lola-message-passing-abstraction-sendwithcallback-reply-notify">
+<h3>Option D — LoLa Message Passing Abstraction (SendWithCallback + Reply + Notify)<a class="headerlink" href="#option-d-lola-message-passing-abstraction-sendwithcallback-reply-notify" title="Link to this heading">#</a></h3>
 <p>The platform-independent message-passing abstraction uses the S-CORE
 <code class="docutils literal notranslate"><span class="pre">score::message_passing</span></code> API with <code class="docutils literal notranslate"><span class="pre">SendWithCallback</span></code> / <code class="docutils literal notranslate"><span class="pre">Reply</span></code> / <code class="docutils literal notranslate"><span class="pre">Notify</span></code>
 primitives. The transport backend is OS-specific and provided by the framework:
 Unix domain socket on Linux, QNX message passing on QNX. The application code is
 OS-agnostic. Evaluated in the low-level message-passing prototype.</p>
 </section>
+<section id="option-e-lola-message-passing-abstraction-send-notify-no-reply">
+<h3>Option E — LoLa Message Passing Abstraction (Send + Notify, no Reply)<a class="headerlink" href="#option-e-lola-message-passing-abstraction-send-notify-no-reply" title="Link to this heading">#</a></h3>
+<p>The same platform-independent message-passing abstraction, using <code class="docutils literal notranslate"><span class="pre">Send</span></code> for
+non-blocking request submission and <code class="docutils literal notranslate"><span class="pre">Notify</span></code> for the operation result. The
+server does not send an immediate <code class="docutils literal notranslate"><span class="pre">Reply</span></code>; it copies each request into its
+application work queue and a worker sends the terminal response. The client
+uses the request ID in the payload to route the point-to-point notification.
+Evaluated in <code class="docutils literal notranslate"><span class="pre">poc_low_level_no_reply.cpp</span></code>.</p>
+</section>
+<section id="option-f-message-passing-engine-bootstrap-per-thread-reply">
+<h3>Option F — Message Passing Engine (bootstrap + per-thread Reply)<a class="headerlink" href="#option-f-message-passing-engine-bootstrap-per-thread-reply" title="Link to this heading">#</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">score::message_passing</span></code> Engine model uses a bootstrap endpoint to create
+one on-demand service endpoint and server Engine session per client thread.
+Each client thread then owns one connection and uses <code class="docutils literal notranslate"><span class="pre">SendWithCallback</span></code>; the
+server Engine performs the complete operation in its request callback and
+returns the result with <code class="docutils literal notranslate"><span class="pre">Reply()</span></code>. There is no application-owned work queue or
+worker pool. Evaluated in <code class="docutils literal notranslate"><span class="pre">poc_engine.cpp</span></code>.</p>
+</section>
 </section>
 <hr class="docutils" />
 <section id="decision-matrix">
 <h2>4. Decision Matrix<a class="headerlink" href="#decision-matrix" title="Link to this heading">#</a></h2>
-<p>Options C and D use a two-phase protocol (enqueue + async response); R2 applies to both phases independently. For Options A and B, which are single-phase, R2 describes a single blocking call.</p>
+<p>Options C, D, and E use an enqueue + asynchronous response protocol. Option F
+uses a bootstrap handshake followed by a blocking server callback; R2 applies
+to the client submission/wait and the server callback separately. For Options
+A and B, which are single-phase, R2 describes a single blocking call.</p>
 <p>The matrix describes target library and architecture capabilities, not completed
 production guarantees. <code class="docutils literal notranslate"><span class="pre">✅</span></code> means the option appears capable of meeting the
 requirement architecturally; <code class="docutils literal notranslate"><span class="pre">⚠️</span></code> means the result depends on a wrapper,
@@ -665,7 +700,9 @@ must validate the remaining requirements.</p>
 <th class="head"><p>Option A — gRPC</p></th>
 <th class="head"><p>Option B — LoLa Full SOA (sync)</p></th>
 <th class="head"><p>Option C — LoLa Full SOA (async)</p></th>
-<th class="head"><p>Option D — LoLa Message Passing Abstraction</p></th>
+<th class="head"><p>Option D — LoLa Message Passing (ack + notify)</p></th>
+<th class="head"><p>Option E — LoLa Message Passing (send + notify)</p></th>
+<th class="head"><p>Option F — Message Passing Engine (per-thread Reply)</p></th>
 </tr>
 </thead>
 <tbody>
@@ -674,71 +711,93 @@ must validate the remaining requirements.</p>
 <td><p>✅ the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use and ASIL-B deployment</p></td>
 <td><p>✅ the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use and ASIL-B deployment, including its method/event model</p></td>
 <td><p>✅ the message-passing library design supports fixed resource bounds, preallocation, and pool/monotonic allocation; the communication module documents safety-oriented quality tooling and ASIL-B qualification</p></td>
+<td><p>✅ the same message-passing library capabilities apply; the POC uses bounded queues and an application-owned worker pool</p></td>
+<td><p>⚠️ the same library provides safety-oriented capabilities, but the POC dynamically creates one endpoint and Engine session per client thread; bounded startup/resource evidence for production use is still required</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>R2</strong> Bounded timeout</p></td>
 <td><p>⚠️ current adapter uses a blocking call without a configured deadline; deadline-based or async gRPC was not analyzed</p></td>
 <td><p>❌ single-phase blocking call — blocks indefinitely if server stalls</p></td>
-<td><p>⚠️ Phase 2 (response event): <code class="docutils literal notranslate"><span class="pre">wait_for()</span></code> indicated in POC; Phase 1 (enqueue): ❌ <code class="docutils literal notranslate"><span class="pre">DoCall()</span></code> holds caller’s thread inside LoLa framework with no timeout API — requires framework change</p></td>
-<td><p>⚠️ <code class="docutils literal notranslate"><span class="pre">SendWithCallback()</span></code> is non-blocking by design and can support an application-level timeout; mandatory timeout API and typed error handling remain production work, and server-side <code class="docutils literal notranslate"><span class="pre">Notify()</span></code> bounds are backend-dependent</p></td>
+<td><p>Phase 2 (response event) has a <code class="docutils literal notranslate"><span class="pre">wait_for()</span></code> in the POC, but Phase 1 (enqueue) <code class="docutils literal notranslate"><span class="pre">DoCall()</span></code> holds the caller’s thread inside LoLa framework with no timeout API — because R2 applies to every phase, the option fails overall and requires a framework change</p></td>
+<td><p>⚠️ <code class="docutils literal notranslate"><span class="pre">SendWithCallback()</span></code> is non-blocking by design and can support an application-level timeout; mandatory timeout API and typed error handling remain production work. For QNX, configured Notify capacity is bounded; Linux socket blocking is outside the safety scope</p></td>
+<td><p>⚠️ <code class="docutils literal notranslate"><span class="pre">Send()</span></code> is non-blocking when the send queue and <code class="docutils literal notranslate"><span class="pre">truly_async</span></code> mode are configured; the client can bound its wait for <code class="docutils literal notranslate"><span class="pre">Notify()</span></code>. For QNX, configured Notify capacity is bounded; Linux socket blocking is outside the safety scope</p></td>
+<td><p>⚠️ client waits use an application timeout, but the server Engine callback performs the operation synchronously and has no operation deadline or cancellation path; a stalled callback can occupy the session indefinitely</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>R3</strong> Server crash / connection loss</p></td>
 <td><p>❓ not analysed in POC</p></td>
 <td><p>❓ not analysed in POC</p></td>
 <td><p>❓ not analysed in POC</p></td>
 <td><p>⚠️ transport disconnect was observed in the POC; typed propagation to all pending calls and cleanup policy remain production work</p></td>
+<td><p>⚠️ the POC wakes pending calls when the client connection reaches stopped, but typed error propagation, late notifications, and all delivery-failure paths remain production work</p></td>
+<td><p>⚠️ connection state is observed, but the current response wait is not directly completed by a stopped callback; crash/error propagation and bootstrap/session cleanup remain production work</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>R4</strong> Authentic peer identification</p></td>
 <td><p>❌ no authentication mechanism</p></td>
 <td><p>⚠️ config specifies which UIDs may use a service instance — non-listed UIDs are rejected at runtime by the framework; no API to actively query the connected UID</p></td>
 <td><p>⚠️ config specifies which UIDs may use a service instance — non-listed UIDs are rejected at runtime by the framework; no API to actively query the connected UID</p></td>
 <td><p>✅ <code class="docutils literal notranslate"><span class="pre">score::message_passing</span></code> exposes an API to retrieve kernel-provided peer credentials from an active connection</p></td>
+<td><p>✅ same as Option D; the transport exposes kernel-provided peer credentials from an active connection</p></td>
+<td><p>✅ the server reads kernel-provided UID credentials in bootstrap and session connect callbacks</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>R5</strong> Minimal config</p></td>
 <td><p>✅ socket path only</p></td>
 <td><p>❌ LoLa requires service-oriented configuration for the service, instance, method/event identifiers, application identity, and safety-relevant properties; configuration must be provided consistently to the participating applications and composed with any other <code class="docutils literal notranslate"><span class="pre">mw::com</span></code> services used in the same process</p></td>
 <td><p>❌ LoLa requires service-oriented configuration for the service, instance, method/event identifiers, application identity, and safety-relevant properties; configuration must be provided consistently to the participating applications and composed with any other <code class="docutils literal notranslate"><span class="pre">mw::com</span></code> services used in the same process</p></td>
 <td><p>⚠️ service identifier only, but worst-case buffer sizes must be configured explicitly: max client processes (N), max concurrent threads per client (T), and max payload size — all must be set to system-wide upper bounds at compile/startup time</p></td>
+<td><p>⚠️ service identifier only, but N, T, M, send-queue, and notify-queue bounds still must be configured explicitly; the no-<code class="docutils literal notranslate"><span class="pre">Reply</span></code> model removes the async-reply queue from the client-side sizing</p></td>
+<td><p>❌ requires a bootstrap endpoint, dynamically generated per-thread service identifiers, one session endpoint per thread, and separate connection/Engine lifecycle management</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>R6</strong> Flexible server threading</p></td>
 <td><p>⚠️ gRPC owns an internal thread pool; handler is called on gRPC threads. Flexible configuration of that pool may not be sufficient for the required threading model, while a complete replacement of it may be feasible but was not evaluated</p></td>
 <td><p>⚠️ skeleton thread processes one call at a time and blocks until the handler returns; handler may dispatch to a pool internally but must block the skeleton on the result — skeleton is always occupied during work</p></td>
 <td><p>✅ flexible threading model can be built on top — POC demonstrates a server-side thread pool receiving work via the Phase 1 callback and completing it independently</p></td>
 <td><p>✅ <code class="docutils literal notranslate"><span class="pre">Reply()</span></code> callable from any thread at any time — server fully controls threading</p></td>
+<td><p>✅ <code class="docutils literal notranslate"><span class="pre">Notify()</span></code> callable from worker threads; the server queues work before returning from the <code class="docutils literal notranslate"><span class="pre">Send</span></code> callback, so it retains full control of the worker model</p></td>
+<td><p>❌ operation work runs on the message-passing Engine callback thread; the model does not provide an application-controlled worker-pool or per-request dispatch boundary</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>R7</strong> Concurrent calls / same process</p></td>
 <td><p>✅ channel is thread-safe, no external mechanism needed</p></td>
 <td><p>⚠️ concurrent calls depend on the LoLa proxy and method queue configuration; the service abstraction does not make the required parallelism transparent to the application</p></td>
 <td><p>⚠️ concurrent calls depend on the LoLa proxy, method queue, and event subscription configuration; the service abstraction does not make the required parallelism transparent to the application</p></td>
 <td><p>⚠️ the library supports concurrent use, while request-ID assignment, pending-call tracking, and response multiplexing must be implemented above the library; sufficient resource configuration is also needed</p></td>
+<td><p>⚠️ the library supports concurrent <code class="docutils literal notranslate"><span class="pre">Send()</span></code> calls, while request-ID assignment, pending-call tracking, and response multiplexing remain application responsibilities; fewer queue types need sizing than Option D</p></td>
+<td><p>⚠️ each client thread has its own endpoint and connection, so no application-level response multiplexing is required; however, concurrency scales open channels and Engine resources with thread count, and QNX imposes platform/deployment limits on the number of open channels</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>R8</strong> Multiple client processes</p></td>
 <td><p>✅ works out of the box</p></td>
 <td><p>⚠️ supported through the service-oriented deployment model, but requires consistent application/service configuration across participating processes — see R5</p></td>
 <td><p>⚠️ supported through the service-oriented deployment model, but requires consistent application/service configuration across participating processes — see R5</p></td>
 <td><p>✅ the library supports one server communicating with multiple client processes through independent client/server sessions; sufficient connection and queue resource configuration is needed</p></td>
+<td><p>✅ same as Option D; one server can communicate with multiple client processes through independent sessions, subject to connection and queue bounds</p></td>
+<td><p>⚠️ the POC exercises one client process; supporting multiple client processes requires bootstrap/session ownership and endpoint namespace rules beyond the demonstrated setup, and the per-thread channel model is constrained by QNX platform/deployment limits on the number of open channels</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>R9</strong> One-to-one</p></td>
 <td><p>✅ each call gets exactly one response</p></td>
 <td><p>✅ each call gets exactly one response</p></td>
 <td><p>⚠️ response is a broadcast event — requires one skeleton instance per client to prevent cross-client response leakage</p></td>
 <td><p>✅ each call gets exactly one response</p></td>
+<td><p>✅ each <code class="docutils literal notranslate"><span class="pre">Send()</span></code> gets one point-to-point <code class="docutils literal notranslate"><span class="pre">Notify()</span></code> response</p></td>
+<td><p>✅ each per-thread request receives one <code class="docutils literal notranslate"><span class="pre">Reply()</span></code> on its dedicated connection</p></td>
 </tr>
-<tr class="row-odd"><td><p><strong>R10</strong> Latency</p></td>
-<td><p>❌ indicative POC measurement ~430 µs (full request + response)</p></td>
+<tr class="row-odd"><td><p><strong>R10</strong> Latency (WSL on Performance Laptop / QNX on RPi4)</p></td>
+<td><p>⚠️ indicative POC measurement ~420 µs / 1244 µs</p></td>
 <td><p>❓ not measured</p></td>
-<td><p>⚠️ indicative POC measurement ~130 µs (lowest measured value, but still significant IPC overhead)</p></td>
-<td><p>⚠️ indicative POC measurement ~160 µs (second-lowest measured value, but still significant IPC overhead)</p></td>
+<td><p>⚠️ indicative POC measurement ~130 µs / -</p></td>
+<td><p>⚠️ indicative POC measurement ~155 µs / 342 µs</p></td>
+<td><p>⚠️ indicative POC measurement ~141 µs / 219 µs</p></td>
+<td><p>⚠️ indicative POC measurement ~99 µs / 185 µs</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>R11</strong> Inter-VM</p></td>
 <td><p>⚠️ gRPC supports network channels, but the current adapter hardcodes Unix-domain endpoints; an endpoint/configuration change and validation of the inter-VM transport and peer-authentication model are required</p></td>
 <td><p>⚠️ current LoLa binding is SHM-only (single-kernel); the service-oriented architecture could in principle support a network binding without changing the service API, but no such binding exists today</p></td>
 <td><p>⚠️ current LoLa binding is SHM-only (single-kernel); the service-oriented architecture could in principle support a network binding without changing the service API, but no such binding exists today</p></td>
 <td><p>❌ current <code class="docutils literal notranslate"><span class="pre">score::message_passing</span></code> backends are local Unix-domain socket and QNX message passing; the library provides no inter-VM transport. A new framework backend would be required.</p></td>
+<td><p>❌ same as Option D; the no-<code class="docutils literal notranslate"><span class="pre">Reply</span></code> protocol does not change the available local-only backends and a new framework backend would be required.</p></td>
+<td><p>❌ uses the same local Unix-domain socket and QNX message-passing backends; the bootstrap/session arrangement does not add inter-VM transport</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p><strong>Note:</strong> R1 and R2 are hard safety blockers — any ❌ on these disqualifies an option for safety use regardless of performance on other requirements. Options A, B, and C all carry at least one ❌ on R1 or R2.</p>
+<p><strong>Note:</strong> R1 and R2 are hard safety blockers — any ❌ on these disqualifies an option for safety use regardless of performance on other requirements. Options A, B, and C each fail at least one of these requirements: A on R1, B on R2, and C on R2 because its Phase 1 enqueue has no timeout, even though its Phase 2 response wait is bounded.</p>
 <p><strong>POC note:</strong> The LoLa POCs generated per-client configuration and used unique
 application identifiers to exercise multiple clients. These are prototype
 workarounds and should not be interpreted as the library’s fundamental
@@ -748,26 +807,67 @@ configuration model.</p>
 <section id="analysis">
 <h2>5. Analysis<a class="headerlink" href="#analysis" title="Link to this heading">#</a></h2>
 <p><strong>Option B (LoLa Full SOA, synchronous)</strong> meets the R1 library-capability assessment: the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use. It fails R2 (timeout): there is no two-phase workaround available — the single blocking call holds the caller’s thread until the handler returns with no escape path. The synchronous prototype was only validated in-process (skeleton and proxy on separate threads within a single test binary); cross-process concurrency was not tested. The config burden is high and would compound if LoLa is used elsewhere in the same process.</p>
-<p><strong>Option C (LoLa Full SOA, asynchronous)</strong> meets the R1 library-capability assessment: the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use, including its method/event model. Its indicative POC latency of approximately 130 microseconds is the lowest measured value, but still represents significant IPC overhead and should remain a warning rather than an unqualified pass. It fails partially on R2: Phase 2 timeout is implemented and flexible server threading is achievable, but Phase 1 timeout requires a LoLa framework change — it cannot be fixed in application code. On server crash, Phase 2 never fires and the client hangs until the application-level timeout expires; the crash itself is not detected independently. The broadcast-event response model requires one skeleton instance per client, adding complexity and config overhead. Notably, LoLa’s service-oriented architecture is transport-agnostic by design; a future network binding could enable inter-VM communication without application-level changes — a meaningful long-term advantage that does not resolve the current safety gaps.</p>
+<p><strong>Option C (LoLa Full SOA, asynchronous)</strong> meets the R1 library-capability assessment: the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use, including its method/event model. Its indicative POC latency is approximately 130 microseconds on WSL. It fails R2 overall: Phase 2 timeout is implemented and flexible server threading is achievable, but Phase 1 timeout requires a LoLa framework change — it cannot be fixed in application code. Because R2 applies to every phase, the bounded Phase 2 wait does not compensate for the unbounded Phase 1 call. On server crash, Phase 2 never fires and the client hangs until the application-level timeout expires; the crash itself is not detected independently. The broadcast-event response model requires one skeleton instance per client, adding complexity and config overhead. Notably, LoLa’s service-oriented architecture is transport-agnostic by design; a future network binding could enable inter-VM communication without application-level changes — a meaningful long-term advantage that does not resolve the current safety gaps.</p>
 <p><strong>Option A (gRPC)</strong> fails R1 for the stated ASIL-B use because the general-purpose library uses framework-managed threads and dynamic resources and does not provide an ASIL-oriented deterministic resource profile or safety qualification artifacts. The current adapter also does not configure a deadline; deadline-based and asynchronous gRPC were not analyzed. It handles server crash via gRPC status errors but cannot distinguish a crashed server from a hung one without a configured deadline. Peer authentication requires a PKI (no <code class="docutils literal notranslate"><span class="pre">SO_PEERCRED</span></code> equivalent). It remains the strongest option for inter-VM, because gRPC provides network channel support, but the current adapter hardcodes Unix-domain endpoints and requires endpoint/configuration changes before that path is available. It is appropriate for QM-to-QM communication where safety certification is not required.</p>
-<p><strong>Option D (LoLa Message Passing Abstraction)</strong> meets the R1 library-capability assessment: its design supports fixed resource bounds, preallocation, and pool/monotonic allocation, and the communication module documents safety-oriented quality tooling and ASIL-B qualification. Its indicative POC latency of approximately 160 microseconds is the second-lowest measured value, but still represents significant IPC overhead and should remain a warning rather than an unqualified pass. The application code is OS-agnostic; the framework provides the OS-specific transport backend (Unix domain socket on Linux, QNX message passing on QNX). The low-level message-passing prototype provides feasibility evidence for the intended skeleton: non-blocking <code class="docutils literal notranslate"><span class="pre">SendWithCallback</span></code> / <code class="docutils literal notranslate"><span class="pre">Reply</span></code> decoupling, application-level <code class="docutils literal notranslate"><span class="pre">request_id</span></code> multiplexing for concurrent threads, application-level bounded waiting, and detection of server death via socket EOF. Typed error propagation, mandatory timeout APIs, and backend-specific bounded-notification behavior remain implementation work. The selected library does not support inter-VM communication: its current backends are local, and a new framework backend would be required. The <code class="docutils literal notranslate"><span class="pre">IConnection</span></code> abstraction may provide a migration direction, but this has not been demonstrated and is not evidence of current library support.</p>
+<p><strong>Option D (LoLa Message Passing Abstraction)</strong> meets the R1 library-capability assessment: its design supports fixed resource bounds, preallocation, and pool/monotonic allocation, and the communication module documents safety-oriented quality tooling and ASIL-B qualification. Its indicative POC latency is approximately 155 microseconds on WSL and 342 microseconds on QNX in the collected runs. The application code is OS-agnostic; the framework provides the OS-specific transport backend (Unix domain socket on Linux, QNX message passing on QNX). The low-level message-passing prototype provides feasibility evidence for the intended skeleton: non-blocking <code class="docutils literal notranslate"><span class="pre">SendWithCallback</span></code> / <code class="docutils literal notranslate"><span class="pre">Reply</span></code> decoupling, application-level <code class="docutils literal notranslate"><span class="pre">request_id</span></code> multiplexing for concurrent threads, application-level bounded waiting, and detection of server death via socket EOF. Typed error propagation, mandatory timeout APIs, and backend-specific bounded-notification behavior remain implementation work. The selected library does not support inter-VM communication: its current backends are local, and a new framework backend would be required. The <code class="docutils literal notranslate"><span class="pre">IConnection</span></code> abstraction may provide a migration direction, but this has not been demonstrated and is not evidence of current library support.</p>
+<p><strong>Option E (LoLa Message Passing Abstraction, send plus notify)</strong> uses the same
+OS-agnostic library and shared connection model, but removes the immediate
+<code class="docutils literal notranslate"><span class="pre">Reply</span></code> acknowledgement. <code class="docutils literal notranslate"><span class="pre">Send()</span></code> is configured as fire-and-forget and the
+server’s callback only validates and queues the request; a worker later sends
+the result with <code class="docutils literal notranslate"><span class="pre">Notify()</span></code>. This avoids the per-connection REQUEST/REPLY
+serialization window and the client-side async-reply queue, making the
+protocol simpler and potentially reducing submission overhead. It does not
+provide an immediate admission acknowledgement: a successful <code class="docutils literal notranslate"><span class="pre">Send()</span></code> only
+means the request was accepted by the client-side send path. If server-side
+validation or work-queue submission fails, the server can return a negative
+<code class="docutils literal notranslate"><span class="pre">Notify()</span></code> result; otherwise, <code class="docutils literal notranslate"><span class="pre">Notify()</span></code> carries the operation result. The POC
+still requires application-level request IDs, pending-call tracking, bounded
+waiting, queue sizing, and connection-lifetime protection for worker
+notifications. Its indicative POC latency is approximately 141 microseconds on
+WSL and 219 microseconds on QNX in the collected runs. Like Option D, it does
+not provide inter-VM communication.</p>
+<p><strong>Option F (Message Passing Engine)</strong> demonstrates a bootstrap handshake that
+creates a dedicated service endpoint, server Engine session, and client
+connection for each client thread. The server Engine performs the complete
+operation in its request callback and returns the response with <code class="docutils literal notranslate"><span class="pre">Reply()</span></code>, so
+the POC needs no application work queue, worker pool, request-ID map, or
+<code class="docutils literal notranslate"><span class="pre">Notify()</span></code> path. This makes one-to-one response matching straightforward and
+keeps the server implementation small, but it couples the server’s execution
+capacity to the number of Engine sessions and client threads. The callback has
+no operation deadline or cancellation path, so a stalled operation occupies
+its Engine session and the client’s application wait can expire without
+interrupting the server work. The bootstrap and per-thread endpoint lifecycle
+also add substantial configuration and resource-management complexity; the POC
+does not establish the multiple-client-process or bounded-resource behavior
+needed for production. As with Options D and E, the current backends do not
+provide inter-VM communication. On QNX, the maximum number of open channels is
+configurable, but the per-thread design consumes one channel and Engine session
+per client thread against that limit, leading to many channels open at the
+server side. QNX recommends sharing a single channel among multiple threads
+instead, so this POC’s scaling model is not the platform-preferred approach
+and would need a deployment-specific channel-count assessment or redesign. Its
+indicative POC latency is approximately 99 microseconds on WSL and 185
+microseconds on QNX in the collected runs, but this performance does not offset
+its R2, R6, and resource-scaling limitations.</p>
 </section>
 <hr class="docutils" />
 <section id="decision">
 <h2>6. Decision<a class="headerlink" href="#decision" title="Link to this heading">#</a></h2>
-<p><strong>Option D — LoLa Message Passing Abstraction</strong> is selected as the IPC transport for the score-crypto daemon, using <code class="docutils literal notranslate"><span class="pre">score::message_passing</span></code> as its current implementation basis.</p>
+<p><strong>Option E — LoLa Message Passing Abstraction (Send + Notify)</strong> is selected as the IPC transport for the score-crypto daemon, using <code class="docutils literal notranslate"><span class="pre">score::message_passing</span></code> as its current implementation basis. The no-<code class="docutils literal notranslate"><span class="pre">Reply</span></code> protocol avoids the per-connection request/reply serialization window and still allows server-side submission failures to be reported through a negative <code class="docutils literal notranslate"><span class="pre">Notify()</span></code> result.</p>
 </section>
 <hr class="docutils" />
 <section id="consequences">
 <h2>7. Consequences<a class="headerlink" href="#consequences" title="Link to this heading">#</a></h2>
 <p><strong>Accepted trade-offs:</strong></p>
 <ul class="simple">
-<li><p>Indicative POC measurements show ~160 µs for message_passing, ~130 µs for LoLa Full SOA (async), and ~430 µs for gRPC. These figures are not a controlled benchmark and must be validated with the proper implementation using a common platform, payload, concurrency, warm-up, and measurement method. The observed gap between LoLa Full SOA and message_passing is partly attributed to configuration: the LoLa Full SOA asynchronous prototype was measured with QM-only settings, whereas the message_passing prototype was configured for mixed usage (<code class="docutils literal notranslate"><span class="pre">truly_async=true</span></code>). Configuring message_passing for QM-only reduced its observed round-trip to ~140 µs; the remaining difference was not analyzed. Throughput would be higher with LoLa Full SOA due to shared memory, but this is not a control-plane requirement: larger data transfers are expected to use a dedicated data plane.</p></li>
+<li><p>Option E is not the fastest measured option: the indicative results show lower round-trip latency for Option F and, in some measurements, for the asynchronous LoLa POC. Option E is selected because it provides a better overall balance across the requirements, including bounded client-side waiting, concurrent client and server operation, point-to-point responses, peer identification, configuration, and server-threading flexibility. Further preliminary measurements indicated that the IPC overhead was below 20% of the overall operation time (of the target daemon architecture), reducing the practical impact of the latency difference.</p></li>
+<li><p>Option E does not provide an immediate admission acknowledgement. A successful <code class="docutils literal notranslate"><span class="pre">Send()</span></code> confirms only client-side enqueueing; server-side validation or work-queue submission failure must be returned through a negative <code class="docutils literal notranslate"><span class="pre">Notify()</span></code>, and the client must handle final-result timeouts and late notifications. In rare cases (Server cannot retrieve request_id), the notify cannot be matched to a specific client request. This however is considered as a rare case and could be partially mitigated e.g. by relying on the timeout mechanism.</p></li>
 <li><p>The selected library does not currently support inter-VM communication. The existing <code class="docutils literal notranslate"><span class="pre">IConnection</span></code> abstraction may guide a second, dedicated IPC mechanism, but that migration path has not been demonstrated and remains separate follow-up work.</p></li>
 </ul>
 <p><strong>Production implementation follow-up:</strong></p>
-<p>The formal implementation of <code class="docutils literal notranslate"><span class="pre">IConnection</span></code> and <code class="docutils literal notranslate"><span class="pre">IControlServer</span></code> interfaces
-replacing the gRPC adapter is still pending will be taken up.</p>
+<p>The formal implementation of the <code class="docutils literal notranslate"><span class="pre">IConnection</span></code> and <code class="docutils literal notranslate"><span class="pre">IControlServer</span></code>
+interfaces to replace the gRPC adapter remains pending and will be addressed
+separately.</p>
 </section>
 </section>
 
@@ -806,7 +906,9 @@ replacing the gRPC adapter is still pending will be taken up.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-a-grpc-over-unix-domain-socket-current">Option A — gRPC over Unix Domain Socket (current)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-b-lola-full-soa-abstraction-synchronous-method">Option B — LoLa Full SOA Abstraction (synchronous Method)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-c-lola-full-soa-abstraction-asynchronous-method-event">Option C — LoLa Full SOA Abstraction (asynchronous Method + Event)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-d-lola-message-passing-abstraction-sendwithcallback-notify">Option D — LoLa Message Passing Abstraction (SendWithCallback + Notify)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-d-lola-message-passing-abstraction-sendwithcallback-reply-notify">Option D — LoLa Message Passing Abstraction (SendWithCallback + Reply + Notify)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-e-lola-message-passing-abstraction-send-notify-no-reply">Option E — LoLa Message Passing Abstraction (Send + Notify, no Reply)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-f-message-passing-engine-bootstrap-per-thread-reply">Option F — Message Passing Engine (bootstrap + per-thread Reply)</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#decision-matrix">4. Decision Matrix</a></li>
@@ -820,7 +922,7 @@ replacing the gRPC adapter is still pending will be taken up.</p>
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main//home/runner/work/inc_security_crypto/inc_security_crypto/score/crypto/src/ipc/docs/ipc_comparison.md">
+    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./score/crypto/src/ipc/docs/ipc_comparison.md">
       <i class="fa-solid fa-pencil"></i>
       
       
@@ -845,8 +947,8 @@ replacing the gRPC adapter is still pending will be taken up.</p>
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../../../../_static/scripts/bootstrap.js?digest=7f76b32a3354e82990f2"></script>
-<script defer src="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=7f76b32a3354e82990f2"></script>
+  <script defer src="../../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="../../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -870,7 +972,7 @@ replacing the gRPC adapter is still pending will be taken up.</p>
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.17.0.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.20.0.
 </p></div>
       
     </div>
