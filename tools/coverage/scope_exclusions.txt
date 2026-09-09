@@ -18,3 +18,26 @@
 # --- test scaffolding (non-testonly, but test infrastructure only) ---
 //score/crypto/tests/softhsm:softhsm_test_fixture  # SoftHSM fixture for backend tests
 //score/tests/utility:utility  # shared helpers for demo/integration tests
+
+# --- POCs for the selection of IPC mechanism ---
+# Kept as reference till full migration to new IPC is done
+# will then be removed. Code will is not meant to be in target
+# Helper utility is unly used for runtime_measurement in POCs
+//score/tests/ipc_poc:async_control_plane_service
+//score/tests/ipc_poc:direct_socket_poc_deps
+//score/tests/ipc_poc:generated_poc_control
+//score/tests/ipc_poc:low_level_poc_deps
+//score/tests/ipc_poc:poc_async
+//score/tests/ipc_poc:poc_engine
+//score/tests/ipc_poc:poc_engine_sync
+//score/tests/ipc_poc:poc_grpc
+//score/tests/ipc_poc:poc_grpc_protocol
+//score/tests/ipc_poc:poc_helper
+//score/tests/ipc_poc:poc_low_level
+//score/tests/ipc_poc:poc_low_level_no_reply
+//score/tests/ipc_poc:poc_low_level_no_reply_notify_in_thread
+//score/tests/ipc_poc:poc_qnx_message_passing
+//score/tests/ipc_poc:poc_thread_pool_queue
+//score/tests/ipc_poc:poc_unix_socket
+//score/tests/utility:process_resource_measurement
+//score/tests/utility:runtime_measurement
