@@ -45,10 +45,13 @@ cc_library(
 cc_library(
     name = "provider_openssl_headers",
     hdrs = [
+        "operations/cipher/openssl_cipher_handler.hpp",
         "operations/factory/openssl_handler_factory.hpp",
         "operations/hash/openssl_hash_handler.hpp",
         "operations/key_management/openssl_key_management_handler.hpp",
         "operations/mac/openssl_hmac_handler.hpp",
+        "operations/random/openssl_random_handler.hpp",
+        "operations/signature/openssl_ecdsa_handler.hpp",
         "provider_openssl.hpp",
     ],
     includes = ["."],
@@ -62,10 +65,13 @@ cc_library(
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
         "//score/crypto/src/daemon/provider/score_provider",
+        "//score/crypto/src/daemon/provider/score_provider/operations/cipher:score_cipher_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/factory:score_handler_factory",
         "//score/crypto/src/daemon/provider/score_provider/operations/hash:score_hash_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/key_management:score_key_management_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/mac:score_mac_handler",
+        "//score/crypto/src/daemon/provider/score_provider/operations/random:score_random_handler",
+        "//score/crypto/src/daemon/provider/score_provider/operations/signature:score_signature_handler",
     ],
 )
 
@@ -75,10 +81,13 @@ cc_library(
         "detail/openssl_algorithm_info.hpp",
         "key_management/openssl_key_factory.cpp",
         "key_management/openssl_key_handler.cpp",
+        "operations/cipher/openssl_cipher_handler.cpp",
         "operations/factory/openssl_handler_factory.cpp",
         "operations/hash/openssl_hash_handler.cpp",
         "operations/key_management/openssl_key_management_handler.cpp",
         "operations/mac/openssl_hmac_handler.cpp",
+        "operations/random/openssl_random_handler.cpp",
+        "operations/signature/openssl_ecdsa_handler.cpp",
         "provider_openssl.cpp",
     ],
     implementation_deps = [
