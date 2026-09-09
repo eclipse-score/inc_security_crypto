@@ -38,11 +38,11 @@
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
@@ -578,7 +578,7 @@
                   
   <section id="certificate-management-component">
 <h1>Certificate Management Component<a class="headerlink" href="#certificate-management-component" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-f614059d">
+<div class="need_container docutils container" id="SNCB-9f435168">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_mgmt">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -654,10 +654,16 @@ This drives several design decisions:</p>
 prefers hardware), the cert management capability defaults to the
 file-backed handler so that all certificate operations are accessible
 without hardware.</p></li>
-<li><p><strong>CertObject as a value type</strong> — parsed certificates are immutable
-<code class="docutils literal notranslate"><span class="pre">shared_ptr</span></code>-managed values. The same <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> instance is
-shared across trust stores and client handles via a weak-ptr cache in
-<code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code>, avoiding redundant parses and copies.</p></li>
+<li><p><strong>CertObject as a shared immutable value</strong> — parsed certificates are
+immutable <code class="docutils literal notranslate"><span class="pre">shared_ptr</span></code>-managed values. Two separate weak-ptr caches avoid
+redundant disk reads and parses. <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> caches the
+most-recently-loaded <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> per slot so that multiple clients
+opening the same slot in quick succession share the bytes without repeated
+I/O. <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> maintains a separate anchor cache for active
+trust stores. Critically, each client receives its own independent
+<code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> wrapping the shared <code class="docutils literal notranslate"><span class="pre">CertObject</span></code>, so per-client state such
+as a session-scoped CRL cannot bleed across clients that have loaded the
+same slot.</p></li>
 <li><p><strong>Trust store membership by typed slot reference</strong> — anchors are
 certificate slots, not raw file paths. This allows the daemon to track
 content changes (<code class="docutils literal notranslate"><span class="pre">NotifySlotCertChanged</span></code>) and invalidate cached

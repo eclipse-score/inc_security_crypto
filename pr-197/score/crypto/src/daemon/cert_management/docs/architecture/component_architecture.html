@@ -38,11 +38,11 @@
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
@@ -588,7 +588,7 @@
                   
   <section id="certificate-management-component-architecture">
 <h1>Certificate Management Component Architecture<a class="headerlink" href="#certificate-management-component-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-31f9d255">
+<div class="need_container docutils container" id="SNCB-24629cef">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_architecture">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -632,7 +632,7 @@
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-201253eb">
+<div class="need_container docutils container" id="SNCB-046fd63a">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto_cert_management">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -707,14 +707,20 @@ selected certificate-management provider must expose <code class="docutils liter
 certificate management does not require a particular provider.</p></li>
 </ul>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-38ae42a08b61e916099ee3ae7b4cd8380a72a8fe.svg" type="image/svg+xml" style="width:1764px;height:904px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-4d903dc79d93839cdc9ef48878bf51c806366cda.svg" type="image/svg+xml" style="width:2537px;height:954px;background:#FFFFFF;"></object></p>
 </section>
 <section id="runtime-boundaries">
 <h2>Runtime boundaries<a class="headerlink" href="#runtime-boundaries" title="Link to this heading">#</a></h2>
 <p>Resource resolution is client-scoped through the Data Manager. A resolved
 certificate slot or trust store is represented by a lightweight DataNode. A
-certificate loaded from a slot becomes a <code class="docutils literal notranslate"><span class="pre">CertDataNode</span></code> backed by a shared
-<code class="docutils literal notranslate"><span class="pre">CertEntry</span></code>. Trust-store anchor content is loaded lazily and cached by
+certificate loaded from a slot becomes a <code class="docutils literal notranslate"><span class="pre">CertDataNode</span></code> backed by a
+per-client <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code>. Each <code class="docutils literal notranslate"><span class="pre">Load</span></code> call produces an independent
+<code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> so that per-client state — such as a session-scoped CRL
+associated via <code class="docutils literal notranslate"><span class="pre">ImportCrl(persist=false)</span></code> — cannot bleed across clients.
+<code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> holds a weak-ptr cache of <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> instances keyed
+by slot: when the cache entry is live, multiple clients share the same parsed
+bytes without redundant I/O; when it expires, the next load re-reads the slot.
+Trust-store anchor content is loaded lazily and cached separately by
 <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code>.</p>
 <p>The current provider boundary is intentionally narrow:</p>
 <ul class="simple">
@@ -755,9 +761,12 @@ not responsibilities of the core storage component.</p>
 <h2>Runtime flows<a class="headerlink" href="#runtime-flows" title="Link to this heading">#</a></h2>
 <p>During startup, the configuration adapter registers certificate slots and
 trust stores. A client resolves an application resource into a DataManager
-node. Loading a certificate resolves its slot handler, reads the deployment
-descriptor and payload, parses the bytes, and registers a shared
-<code class="docutils literal notranslate"><span class="pre">CertEntry</span></code>. Repeated loads of the same slot share the registry entry.</p>
+node. Loading a certificate goes through <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code>, which checks
+its weak-ptr <code class="docutils literal notranslate"><span class="pre">CertObjectCache</span></code> first: on a hit the parsed bytes are returned
+without disk I/O; on a miss the slot handler reads and parses the certificate
+and the result is stored in the cache. A fresh <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> is created for
+each caller and registered in <code class="docutils literal notranslate"><span class="pre">CertRegistry</span></code>; no entry is shared across
+clients.</p>
 <p>Trust-store anchors are loaded lazily. <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> resolves each
 typed member slot and caches the resulting <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> through a weak
 reference. The trust-store handler holds strong references while active.</p>

@@ -38,11 +38,11 @@
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
@@ -587,7 +587,7 @@
                   
   <section id="certificate-management-detailed-design">
 <h1>Certificate Management Detailed Design<a class="headerlink" href="#certificate-management-detailed-design" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-756529ca">
+<div class="need_container docutils container" id="SNCB-20344949">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_detailed_design">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -637,10 +637,13 @@
 <dt><code class="docutils literal notranslate"><span class="pre">CertManagementService</span></code></dt><dd><p>Coordinates resource resolution, DataManager nodes, certificate registry
 access, slot operations, and trust-store update notifications.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">CertRegistry</span></code> and <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code></dt><dd><p>Own live certificate entries and share immutable <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> values
-between clients and trust stores. <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> optionally holds a
-session-scoped CRL (from <code class="docutils literal notranslate"><span class="pre">ImportCrl</span></code> with <code class="docutils literal notranslate"><span class="pre">persist=false</span></code>) that is
-never written to disk.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">CertRegistry</span></code> and <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code></dt><dd><p>Own live certificate entries. Each <code class="docutils literal notranslate"><span class="pre">Load</span></code> call produces a fresh
+<code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> per client; entries are never shared across clients.
+<code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> holds a <code class="docutils literal notranslate"><span class="pre">CertObject::Sptr</span></code> (the immutable parsed bytes) and
+an optional session-scoped CRL (from <code class="docutils literal notranslate"><span class="pre">ImportCrl</span></code> with <code class="docutils literal notranslate"><span class="pre">persist=false</span></code>)
+that is never written to disk. Because <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> is per-client, the
+session CRL is isolated — one client’s <code class="docutils literal notranslate"><span class="pre">ImportCrl</span></code> cannot be observed by
+another client that loaded the same slot.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">CertSlotRegistry</span></code></dt><dd><p>Stores immutable slot configuration and application resource mappings.</p>
 </dd>
@@ -681,10 +684,15 @@ single wire-layout definition for certificate, slot, and trust-store objects.</p
 <li><p><code class="docutils literal notranslate"><span class="pre">TrustStoreDataNode</span></code> is a client-scoped reference to a manager-owned trust
 store.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">CertObject</span></code> is immutable and provider-neutral.</p></li>
-<li><p>Trust-store anchor contents are loaded on demand. A weak cache avoids
-duplicate certificate objects across active stores.</p></li>
-<li><p>Per-client trust-store references prevent one client from evicting another
-client’s active anchor cache.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> holds a weak-ptr cache of <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> values keyed by
+slot index. The cache avoids repeated disk reads when multiple clients open
+the same slot in quick succession. Entries expire automatically when no
+<code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> holds a strong reference; <code class="docutils literal notranslate"><span class="pre">StoreCertificate</span></code> and
+<code class="docutils literal notranslate"><span class="pre">ClearSlot</span></code> invalidate the entry explicitly so the next load reads fresh
+bytes.</p></li>
+<li><p>Trust-store anchor contents are loaded on demand by <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code>
+through a separate anchor cache. Per-client references prevent one client
+from evicting another client’s active anchor cache.</p></li>
 </ul>
 </section>
 <section id="storage-contract">
@@ -712,7 +720,7 @@ CRL validation, OCSP, and mediator dispatch are outside this component’s
 storage and lifecycle scope. Hardware CSR signing must use a cross-context
 service without exporting private key material.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-f1ed951d430b8a08edf32f1bed507c4cd4a1b187.svg" type="image/svg+xml" style="width:2189px;height:1198px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-67c44d3185b25ee4c29e7548f85b981be80ee95a.svg" type="image/svg+xml" style="width:2719px;height:2410px;background:#FFFFFF;"></object></p>
 </section>
 </section>
 
