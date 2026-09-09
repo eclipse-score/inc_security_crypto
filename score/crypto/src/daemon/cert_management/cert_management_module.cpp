@@ -26,10 +26,10 @@ CertManagementModule::Sptr CertManagementModule::Create(data_manager::IDataManag
 {
     auto module = Sptr(new CertManagementModule());
     module->m_provider_manager = std::move(provider_manager);
-    module->m_slots = std::make_shared<CertSlotRegistry>();
+    auto slot_registry = std::make_shared<CertSlotRegistry>();
     ConfigDrivenSlotCatalog catalog{config};
-    catalog.Load(*module->m_slots);
-    module->m_trust_stores = std::make_shared<TrustStoreManager>();
+    catalog.Load(*slot_registry);
+    auto trust_store_manager = std::make_shared<TrustStoreManager>();
     ConfigDrivenTrustStoreCatalog trust_catalog{config};
     // Resolve the cert parser once at startup; injected into every FileBackedSlotHandler.
     // Contract: a provider that advertises kCertManagement must implement GetCertParser().
@@ -70,11 +70,11 @@ CertManagementModule::Sptr CertManagementModule::Create(data_manager::IDataManag
         return provider->GetCertSlotHandler(slot, cert_parser);
     };
 
-    auto slot_manager = std::make_shared<CertSlotManager>(module->m_slots, std::move(slot_handler_factory));
+    auto slot_manager = std::make_shared<CertSlotManager>(slot_registry, std::move(slot_handler_factory));
 
-    trust_catalog.Load(*module->m_trust_stores, module->m_slots, slot_manager);
+    trust_catalog.Load(*trust_store_manager, slot_registry, slot_manager);
     module->m_service = std::make_shared<CertManagementService>(
-        std::move(data_manager), module->m_slots, module->m_trust_stores, slot_manager);
+        std::move(data_manager), slot_registry, trust_store_manager, slot_manager);
     if (module->m_provider_manager)
     {
         module->m_provider_manager->ForEachProvider([&](const auto& /*id*/, const auto& provider) {

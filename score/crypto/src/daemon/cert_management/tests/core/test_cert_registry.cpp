@@ -86,10 +86,8 @@ TEST(CertRegistryTest, CleanupClient_RemovesOnlyThatClientsEntries)
 
     CertRegistry registry;
 
-    auto entry_a = std::make_shared<CertEntry>(MakeCertificate());
-    auto entry_b = std::make_shared<CertEntry>(MakeCertificate());
-    entry_a->AddRef(kClientA);
-    entry_b->AddRef(kClientB);
+    auto entry_a = std::make_shared<CertEntry>(MakeCertificate(), CertSlotHandle{}, kClientA);
+    auto entry_b = std::make_shared<CertEntry>(MakeCertificate(), CertSlotHandle{}, kClientB);
 
     const auto id_a = registry.RegisterEphemeralCert(entry_a);
     const auto id_b = registry.RegisterEphemeralCert(entry_b);
@@ -117,10 +115,8 @@ TEST(CertRegistryTest, SlotCertPersistsAfterUnrelatedClientCleanup)
     CertRegistry registry;
     const CertSlotHandle slot{3U};
 
-    auto slot_entry = std::make_shared<CertEntry>(MakeCertificate(), slot);
-    auto ephemeral_entry = std::make_shared<CertEntry>(MakeCertificate());
-    slot_entry->AddRef(kClientA);
-    ephemeral_entry->AddRef(kClientB);
+    auto slot_entry = std::make_shared<CertEntry>(MakeCertificate(), slot, kClientA);
+    auto ephemeral_entry = std::make_shared<CertEntry>(MakeCertificate(), CertSlotHandle{}, kClientB);
 
     const auto slot_id = registry.RegisterSlotCert(slot, slot_entry);
     ASSERT_NE(slot_id, 0U);
