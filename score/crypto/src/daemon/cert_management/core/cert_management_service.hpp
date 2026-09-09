@@ -73,7 +73,7 @@ class CertManagementService final
 
     TrustStoreManager::Sptr GetTrustStoreManager() const
     {
-        return m_trust_stores;
+        return m_trust_store_manager;
     }
 
     CertSlotManager::Sptr GetSlotManager() const
@@ -121,7 +121,7 @@ class CertManagementService final
     /// Look up a CertDataNode by node_id and return the underlying CertEntry.
     ///
     /// Use instead of ResolveCertForOperation when the session CRL association
-    /// (CertEntry::GetSessionCrl) is also needed — e.g. in HandleTrustStoreAdd.
+    /// (CertEntry::GetSessionCrl) is also needed.
     score::crypto::Expected<std::shared_ptr<CertEntry>, common::DaemonErrorCode> ResolveCertEntryForOperation(
         data_manager::ClientId client_id,
         data_manager::DataNodeId cert_node_id);
@@ -136,26 +136,10 @@ class CertManagementService final
     /// Called after a successful StoreCertificate to keep trust store anchors current.
     void NotifySlotCertChanged(CertSlotHandle slot_handle);
 
-    // -----------------------------------------------------------------------
-    // CRL helpers — called by the cert management executor
-    // -----------------------------------------------------------------------
-
-    /// Attach a session-scoped CRL to an ephemeral or slot-loaded certificate.
-    ///
-    /// The CRL bytes must be pre-validated by the caller (signature, issuer match,
-    /// validity). This stores the bytes in-memory on the CertEntry; they are not
-    /// written to disk. Subsequent SaveCertificate / AddCertificateToTrustStore
-    /// with with_crl=true will propagate from this in-memory association.
-    score::crypto::Expected<std::monostate, common::DaemonErrorCode> AttachSessionCrl(
-        data_manager::ClientId client_id,
-        data_manager::DataNodeId cert_node_id,
-        std::vector<uint8_t> crl_bytes,
-        score::crypto::FormatType format);
-
   private:
     data_manager::IDataManager::Sptr m_data_manager;
     CertSlotRegistry::Sptr m_slot_registry;
-    TrustStoreManager::Sptr m_trust_stores;
+    TrustStoreManager::Sptr m_trust_store_manager;
     CertSlotManager::Sptr m_slot_manager;
     CertRegistry m_cert_registry;
 
@@ -164,7 +148,7 @@ class CertManagementService final
     // within a client.
     std::unordered_map<data_manager::ClientId, std::unordered_map<uint32_t, data_manager::DataNodeId>>
         m_cert_slot_node_cache;
-    std::unordered_map<data_manager::ClientId, std::unordered_map<std::string, data_manager::DataNodeId>>
+    std::unordered_map<data_manager::ClientId, std::unordered_map<uint32_t, data_manager::DataNodeId>>
         m_trust_store_node_cache;
 };
 }  // namespace score::crypto::daemon::cert_management

@@ -42,7 +42,7 @@ SerializeCertSlotInfo(CertSlotManager& mgr, CertSlotHandle slot, data_manager::C
     if (!info_res.has_value())
         return score::crypto::make_unexpected(info_res.error());
 
-    const bool has_crl = mgr.HasCrl(slot);
+    const bool has_crl = info_res.value().has_crl;
     int64_t crl_next = 0;
     if (has_crl)
     {

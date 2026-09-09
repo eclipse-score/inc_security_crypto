@@ -20,13 +20,10 @@
 #include "score/crypto/src/daemon/cert_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
 
-#include <algorithm>
-#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <vector>
 
 namespace score::crypto::daemon::cert_management
 {
@@ -43,8 +40,9 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
   public:
     /// @param object       Owning cert object (must not be nullptr).
     /// @param slot_handle  Non-default only when cert was loaded from a slot.
-    CertEntry(CertObject::Sptr object, CertSlotHandle slot_handle = CertSlotHandle{})
-        : m_object{std::move(object)}, m_slot_handle{slot_handle}
+    /// @param owner        The client that owns this entry.
+    CertEntry(CertObject::Sptr object, CertSlotHandle slot_handle = CertSlotHandle{}, data_manager::ClientId owner = 0U)
+        : m_object{std::move(object)}, m_slot_handle{slot_handle}, m_owner_client_id{owner}
     {
     }
 
@@ -113,43 +111,25 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     }
 
     // -----------------------------------------------------------------------
-    // Reference counting
+    // Ownership
     // -----------------------------------------------------------------------
 
-    void AddRef(data_manager::ClientId client_id)
+    [[nodiscard]] data_manager::ClientId GetOwner() const noexcept
     {
-        const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        m_ref_count.fetch_add(1U, std::memory_order_relaxed);
-        m_referencing_clients.push_back(client_id);
+        return m_owner_client_id;
     }
 
-    /// @return true when the reference count has reached zero.
-    bool Release(data_manager::ClientId client_id)
+    [[nodiscard]] bool IsOwnedBy(data_manager::ClientId client_id) const noexcept
     {
-        const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        auto it = std::find(m_referencing_clients.begin(), m_referencing_clients.end(), client_id);
-        if (it == m_referencing_clients.end())
-        {
-            return false;
-        }
-        m_referencing_clients.erase(it);
-        const std::uint32_t prev = m_ref_count.fetch_sub(1U, std::memory_order_acq_rel);
-        return prev == 1U;
-    }
-
-    [[nodiscard]] std::uint32_t GetRefCount() const noexcept
-    {
-        return m_ref_count.load(std::memory_order_acquire);
+        return m_owner_client_id == client_id;
     }
 
   private:
     CertObject::Sptr m_object;
     CertSlotHandle m_slot_handle;
+    data_manager::ClientId m_owner_client_id{0U};
 
     mutable std::mutex m_ref_mutex;
-    std::atomic<std::uint32_t> m_ref_count{0U};
-    std::vector<data_manager::ClientId> m_referencing_clients;
-
     std::optional<std::vector<uint8_t>> m_session_crl;
     score::crypto::FormatType m_session_crl_format{score::crypto::FormatType::kDer};
 };

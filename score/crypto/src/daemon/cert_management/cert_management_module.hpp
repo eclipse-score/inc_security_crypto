@@ -14,7 +14,6 @@
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_CERT_MANAGEMENT_MODULE_HPP
 
 #include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
-#include "score/crypto/src/daemon/cert_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
@@ -27,10 +26,6 @@ class CertManagementModule final
     static Sptr Create(data_manager::IDataManager::Sptr,
                        provider::ProviderManager::Sptr,
                        const config::CertificateConfig&);
-    CertSlotRegistry::Sptr GetSlotRegistry() const
-    {
-        return m_slots;
-    }
     CertManagementService::Sptr GetService() const
     {
         return m_service;
@@ -42,8 +37,6 @@ class CertManagementModule final
 
   private:
     CertManagementModule() = default;
-    CertSlotRegistry::Sptr m_slots;
-    TrustStoreManager::Sptr m_trust_stores;
     CertManagementService::Sptr m_service;
     provider::ProviderManager::Sptr m_provider_manager;
 };

@@ -46,25 +46,20 @@ class CertDataNode final : public data_manager::DataNode
     CertDataNode(std::shared_ptr<CertEntry> cert_entry,
                  CertRegistryId registry_id,
                  data_manager::ClientId client_id,
-                 UnregisterCallback on_last_release)
+                 UnregisterCallback unregister_callback)
         : DataNode(false),
           m_cert_entry{std::move(cert_entry)},
           m_registry_id{registry_id},
           m_client_id{client_id},
-          m_on_last_release{std::move(on_last_release)}
+          m_unregister_callback{std::move(unregister_callback)}
     {
-        m_cert_entry->AddRef(m_client_id);
     }
 
     ~CertDataNode() override
     {
-        if (m_cert_entry != nullptr)
+        if (m_cert_entry != nullptr && m_unregister_callback)
         {
-            const bool last = m_cert_entry->Release(m_client_id);
-            if (last && m_on_last_release)
-            {
-                m_on_last_release(m_registry_id);
-            }
+            m_unregister_callback(m_registry_id);
         }
     }
 
@@ -87,7 +82,7 @@ class CertDataNode final : public data_manager::DataNode
     std::shared_ptr<CertEntry> m_cert_entry;
     CertRegistryId m_registry_id;
     data_manager::ClientId m_client_id;
-    UnregisterCallback m_on_last_release;
+    UnregisterCallback m_unregister_callback;
 };
 
 }  // namespace score::crypto::daemon::cert_management
