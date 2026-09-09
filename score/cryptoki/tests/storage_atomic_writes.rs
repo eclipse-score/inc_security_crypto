@@ -60,7 +60,9 @@ fn lock_store() -> std::sync::MutexGuard<'static, ()> {
 /// permission test can verify a directory we fully own (not `/tmp` itself).
 /// Any pre-existing directory is removed first to start from a clean slate.
 fn fresh_store_path(tag: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("pkcs11_storage_test_{tag}"));
+    // Prefer TEST_TMPDIR (set by qnx_unit_tests inside the QNX VM) over the system default.
+    let base = std::env::var_os("TEST_TMPDIR").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
+    let dir = base.join(format!("pkcs11_storage_test_{tag}"));
     let _ = std::fs::remove_dir_all(&dir);
     dir.join("token.json")
 }
