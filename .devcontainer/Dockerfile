@@ -44,7 +44,8 @@ RUN --mount=type=bind,source=.env,target=/tmp/.env \
 
 # Phase 3: Install virtualization tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        iputils-ping \
+    file \
+    iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the default user for the container

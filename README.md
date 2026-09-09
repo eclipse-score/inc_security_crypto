@@ -118,6 +118,19 @@ bazel test //score/... --config=x86_64-qnx-itf
 
 Note: Run the `docker pull` command from a VS Code Terminal associated with the devcontainer. This properly sets up all environment variables, which may not be the case when just using docker to attach to the running container.
 
+### 4️⃣ Generate Coverage
+
+Run the LLVM coverage tests and generate the HTML report locally:
+
+```sh
+bazel coverage --config=llvm_cov --build_tests_only -- //score/...
+
+COVERAGE_THRESHOLD=0 bazel run @score_tooling//coverage:generate_coverage_html -- \
+    --yaml tools/coverage/coverage_justifications.yaml \
+    --testlogs-subdir score \
+    --archive-dir coverage_artifact
+```
+
 ---
 
 ## 🛠 Tools & Linters

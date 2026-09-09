@@ -46,3 +46,8 @@ coverage:llvm_cov --@rules_rust//rust/settings:extra_rustc_flag=-Cllvm-args=-run
 # Trade-off: functions never referenced by a tested binary do not appear
 # in the coverage mapping; untested FILES still get 0% baselines.
 coverage:llvm_cov --@rules_rust//rust/settings:extra_rustc_flag=-Zcoverage-options=branch
+
+# Exclude integration tests (via itf) from coverage.
+# Coverage results from integration_test are not collected. The tests continue
+# to run in the regular test job.
+coverage:llvm_cov --test_tag_filters=-itf
