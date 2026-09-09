@@ -75,18 +75,16 @@ void CertRegistry::CleanupClient(data_manager::ClientId client_id)
 
     std::vector<CertRegistryId> to_remove;
 
-    for (auto& [id, cert_entry] : m_certs)
+    for (const auto& [id, cert_entry] : m_certs)
     {
-        if (cert_entry->Release(client_id))
-        {
+        if (cert_entry->IsOwnedBy(client_id))
             to_remove.push_back(id);
-        }
     }
 
     for (const auto id : to_remove)
     {
-        score::mw::log::LogDebug() << kLogPrefix << "CleanupClient: removing cert " << id
-                                   << " (ref_count reached 0 after client " << client_id << " cleanup)";
+        score::mw::log::LogDebug() << kLogPrefix << "CleanupClient: removing cert " << id << " owned by client "
+                                   << client_id;
         m_certs.erase(id);
     }
 }
