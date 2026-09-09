@@ -33,11 +33,11 @@ logger = logging.getLogger(__name__)
 class TestCryptoDaemon:
     """Test suite for crypto_daemon Docker container."""
 
-    # Shared between softhsm_token and daemon fixtures.
+    # Shared between init_pkcs11_token and daemon fixtures.
     SOFTHSM_CONF_PATH = "/tmp/softhsm2.conf"
 
     @pytest.fixture(autouse=True, scope="class")
-    def softhsm_token(self, request: pytest.FixtureRequest, target: Target, target_os: str, deploy: None, install_dir: str):
+    def init_pkcs11_token(self, request: pytest.FixtureRequest, target: Target, target_os: str, deploy: None, install_dir: str):
         if not request.config.getoption("--pkcs11-backend-enabled"):
             yield
             return
@@ -73,19 +73,20 @@ class TestCryptoDaemon:
         )
         exit_code = handler.run()
         log = handler.get_log_contents()
-        if exit_code != 0:
-            logger.error(f"init_pkcs11_token failed (exit code {exit_code}):\n{log}")
-            assert False, f"init_pkcs11_token failed (exit code {exit_code})"
-        else:
-            logger.info(f"init_pkcs11_token output:\n{log}")
+        assert exit_code == 0, (
+            f"init_pkcs11_token failed (exit code {exit_code}):\n{log}"
+        )
+        logger.info(f"init_pkcs11_token output:\n{log}")
 
         yield
 
-        logger.info(f"Cleaning up {token_dir} SoftHSM token directory.")
-        if token_dir.exists():
-            for item in token_dir.iterdir():
-                item.unlink()
-            token_dir.rmdir()
+        logger.info(f"Cleaning up {token_dir} pkcs11 token directory.")
+        exit_code, output = target.execute(f"rm -rf {token_dir}")
+        if exit_code != 0:
+            logger.error(
+                f"Failed to clean up {token_dir} pkcs11 token directory: "
+                f"{output.decode()}"
+            )
 
     @pytest.fixture(autouse=True, scope="class")
     def daemon(
@@ -93,7 +94,7 @@ class TestCryptoDaemon:
         target: Target,
         target_os: str,
         install_dir: str,
-        softhsm_token: None,
+        init_pkcs11_token: None,
     ):
         """Start the crypto daemon, then teardown after test."""
         daemon: ProcessRunner = ProcessRunner(

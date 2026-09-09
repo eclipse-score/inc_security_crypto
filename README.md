@@ -108,7 +108,7 @@ bazel test //score/...
 # with detailed output and no caching
 bazel test //score/... --test_output=all --cache_test_results=no
 # single integration test (via pytest -k option)
-bazel test //score/tests/integration_tests:integration_test --test_arg="-k" --test_arg="test_score_api_hash_example" --test_output=all
+bazel test //score/tests/integration_tests:integration_test --test_arg="-k" --test_arg="test_score_api_hash" --test_output=all
 
 # cc_test and rust_test for x86_64-qnx target
 bazel test //score/... --config=x86_64-qnx

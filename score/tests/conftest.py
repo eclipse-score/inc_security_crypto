@@ -25,6 +25,12 @@ from score.tests.utility.process_runner import Target
 logger = logging.getLogger(__name__)
 
 
+def pytest_configure(config: pytest.Config):
+    config.addinivalue_line(
+        "markers", "install_dir(path): Override the target deployment directory."
+    )
+
+
 def pytest_addoption(parser: pytest.Parser):
     parser.addoption(
         "--deployment-tar",
