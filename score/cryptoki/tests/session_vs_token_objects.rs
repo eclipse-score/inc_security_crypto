@@ -242,7 +242,7 @@ fn token_object_destroy_writes_disk() {
 
         // Small sleep so mtime can advance on coarse-grained filesystems.
         // TODO(#workaround): /persistent/tmp on QNX mtime did not advance in 10 ms; granularity unconfirmed.
-        std::thread::sleep(std::time::Duration::from_millis(if cfg!(target_os = "nto") { 1100 } else { 10 }));
+        std::thread::sleep(std::time::Duration::from_millis(if cfg!(any(target_os = "nto", target_os = "qnx")) { 1100 } else { 10 }));
 
         let rv = p11!(fl, C_DestroyObject, h, key_h);
         assert_eq!(rv, CKR_OK, "C_DestroyObject failed: {rv:#010x}");
@@ -278,7 +278,7 @@ fn token_object_set_attribute_writes_disk() {
 
         let mtime_before = std::fs::metadata(&store_path).unwrap().modified().unwrap();
         // TODO(#workaround): /persistent/tmp on QNX mtime did not advance in 10 ms; granularity unconfirmed.
-        std::thread::sleep(std::time::Duration::from_millis(if cfg!(target_os = "nto") { 1100 } else { 10 }));
+        std::thread::sleep(std::time::Duration::from_millis(if cfg!(any(target_os = "nto", target_os = "qnx")) { 1100 } else { 10 }));
 
         let label = b"persistent-label";
         let attr = CK_ATTRIBUTE {
