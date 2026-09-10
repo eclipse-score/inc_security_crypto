@@ -36,6 +36,7 @@ score_coverage_scope(
         "//score/crypto/src/backend:score_backend_defines",
         "//score/crypto/src/backend/score_provider:backend",
         "//score/crypto/src/daemon/provider:provider_manager_factory",
+        "//score/crypto/src/daemon/cert_management:cert_object_serializer",
         "//score/crypto/src/ipc/grpc_adapter:grpc_control_server",
         "//score/cryptoki:cryptoki_cdylib_wrapped",
         "//score/cryptoki:cryptoki_headers",
