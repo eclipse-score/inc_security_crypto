@@ -13,5 +13,4 @@
 
 exports_files([
     "openssl_sys_build_rs.patch",
-    "score_itf_ping_diagnostics.patch",
 ])

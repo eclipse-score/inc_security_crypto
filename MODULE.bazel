@@ -346,18 +346,6 @@ git_override(
 
 bazel_dep(name = "score_itf", version = "0.5.0", dev_dependency = True)
 
-# Add diagnostics to ITF's host-side QEMU ping check. This preserves the
-# existing result while exposing the command output in CI when ping fails.
-git_override(
-    module_name = "score_itf",
-    commit = "802e0186d373e0d9d67c1c9ccb1ea08952c7ad06",
-    patch_strip = 1,
-    patches = [
-        "//third_party/patches:score_itf_ping_diagnostics.patch",
-    ],
-    remote = "https://github.com/eclipse-score/itf.git",
-)
-
 # Provide the tools from the devcontainer to Bazel
 bazel_dep(name = "score_devcontainer", version = "1.11.0")
 
