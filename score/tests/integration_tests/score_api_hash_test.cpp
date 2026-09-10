@@ -25,10 +25,14 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <string>
+#include <string_view>
 #include <vector>
 
 using namespace score::crypto;
@@ -37,17 +41,26 @@ using tests::utility::print_hex;
 namespace
 {
 
+#ifdef __QNXNTO__
+constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
+#else
+constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
+#endif
+
+constexpr std::chrono::milliseconds kDefaultOperationTimeout{500};
+constexpr std::size_t kInBandThreshold = 32U;
+
 // Parameterized Test Data
 struct HashTestData
 {
-    std::string test_case_name;
+    std::string_view test_case_name;
     std::optional<ProviderType> provider_type;
-    std::string algorithm;
+    std::string_view algorithm;
     size_t expected_out_data_size;
-    std::string in_data_path;
-    std::string expected_out_data_path;
-    std::string in_data_path_alternative;
-    std::string expected_out_data_path_alternative;
+    std::string_view in_data_relative_path;
+    std::string_view expected_out_data_relative_path;
+    std::string_view in_data_alternative_relative_path;
+    std::string_view expected_out_data_alternative_relative_path;
 };
 
 class ParameterizedHashTest : public ::testing::TestWithParam<HashTestData>
@@ -58,6 +71,12 @@ class HashExampleTest : public ::testing::Test
 {
 };
 
+std::string GetTestVectorPath(const std::string_view relative_path)
+{
+    const char* dir = std::getenv("TEST_VECTORS_DIR");
+    return std::string{dir != nullptr ? dir : "/opt/crypto/share/test_vectors"} + std::string{relative_path};
+}
+
 TEST_P(ParameterizedHashTest, HashingTest)
 {
     // Prepare test data
@@ -67,19 +86,21 @@ TEST_P(ParameterizedHashTest, HashingTest)
     auto algorithm = test_data.algorithm;
     auto expected_out_data_size = test_data.expected_out_data_size;
 
-    auto input_buffer = tests::utility::read_bin(test_data.in_data_path);
+    auto input_buffer = tests::utility::read_bin(GetTestVectorPath(test_data.in_data_relative_path));
     ASSERT_FALSE(input_buffer.empty());
-    const auto expected_hash = tests::utility::read_bin(test_data.expected_out_data_path);
+    const auto expected_hash = tests::utility::read_bin(GetTestVectorPath(test_data.expected_out_data_relative_path));
     ASSERT_EQ(expected_hash.size(), expected_out_data_size);
 
-    auto input_buffer_alternative = tests::utility::read_bin(test_data.in_data_path_alternative);
+    auto input_buffer_alternative =
+        tests::utility::read_bin(GetTestVectorPath(test_data.in_data_alternative_relative_path));
     ASSERT_FALSE(input_buffer_alternative.empty());
-    const auto expected_hash_alternative = tests::utility::read_bin(test_data.expected_out_data_path_alternative);
+    const auto expected_hash_alternative =
+        tests::utility::read_bin(GetTestVectorPath(test_data.expected_out_data_alternative_relative_path));
     ASSERT_EQ(expected_hash_alternative.size(), expected_out_data_size);
 
     // 1. Create the crypto stack and connect to the daemon
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock");
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
 
     auto stack_result = CreateCryptoStack(stack_config);
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
@@ -92,7 +113,7 @@ TEST_P(ParameterizedHashTest, HashingTest)
 
     // 3. Configure and create a hash context
     HashContextConfig hash_config;
-    hash_config.SetAlgorithm(algorithm);
+    hash_config.SetAlgorithm(std::string{algorithm});
 
     // Select provider type
     if (provider_type.has_value())
@@ -181,8 +202,7 @@ TEST_P(ParameterizedHashTest, HashingTest)
 TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
 {
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock")
-        .SetDefaultOperationTimeout(std::chrono::milliseconds{500});
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint).SetDefaultOperationTimeout(kDefaultOperationTimeout);
 
     auto stack_result = CreateCryptoStack(stack_config);
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
@@ -200,18 +220,17 @@ TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
     std::cout << "\n[1/3] IN-BAND Transport Path (SHA-256, 13-byte heap message):\n";
 
     HashContextConfig inband_config;
-    inband_config.SetAlgorithm("SHA256").SetOperationTimeout(std::chrono::milliseconds{500});
+    inband_config.SetAlgorithm("SHA256").SetOperationTimeout(kDefaultOperationTimeout);
     auto inband_ctx = ctx->CreateHashContext(inband_config);
     ASSERT_TRUE(inband_ctx.has_value()) << "Failed to create SHA-256 context";
     auto inband_hash = std::move(inband_ctx).value();
 
-    const std::string inband_msg = "Hello, World!";  // 13 bytes < threshold
-    std::array<uint8_t, kSha256DigestSize> digest_inband{};
+    const auto inband_msg = tests::utility::read_bin(GetTestVectorPath("/hash/input_hello_world.bin"));
+    ASSERT_LT(inband_msg.size(), kInBandThreshold);
 
+    std::array<uint8_t, kSha256DigestSize> digest_inband{};
     ASSERT_TRUE(inband_hash->Init().has_value()) << "Init failed";
-    ASSERT_TRUE(
-        inband_hash->Update({reinterpret_cast<const uint8_t*>(inband_msg.data()), inband_msg.size()}).has_value())
-        << "Update failed";
+    ASSERT_TRUE(inband_hash->Update({inband_msg.data(), inband_msg.size()}).has_value()) << "Update failed";
     auto fin_inband = inband_hash->Finalize({digest_inband.data(), digest_inband.size()});
     ASSERT_TRUE(fin_inband.has_value()) << "Finalize failed";
 
@@ -226,17 +245,16 @@ TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
     std::cout << "\n[2/3] POOL Transport Path (SHA-512, 100-byte heap message):\n";
 
     HashContextConfig pool_config;
-    pool_config.SetAlgorithm("SHA512").SetOperationTimeout(std::chrono::milliseconds{500});
+    pool_config.SetAlgorithm("SHA512").SetOperationTimeout(kDefaultOperationTimeout);
     auto pool_ctx = ctx->CreateHashContext(pool_config);
     ASSERT_TRUE(pool_ctx.has_value()) << "Failed to create SHA-512 pool context";
     auto pool_hash = std::move(pool_ctx).value();
 
-    const std::string pool_msg(100, 'A');  // 100 bytes > kInBandThreshold (32 bytes)
+    const std::vector<uint8_t> pool_msg(100, static_cast<uint8_t>('A'));  // 100 bytes > kInBandThreshold (32 bytes)
     std::array<uint8_t, kSha512DigestSize> digest_pool{};
 
     ASSERT_TRUE(pool_hash->Init().has_value()) << "Init failed";
-    ASSERT_TRUE(pool_hash->Update({reinterpret_cast<const uint8_t*>(pool_msg.data()), pool_msg.size()}).has_value())
-        << "Update failed";
+    ASSERT_TRUE(pool_hash->Update({pool_msg.data(), pool_msg.size()}).has_value()) << "Update failed";
     auto fin_pool = pool_hash->Finalize({digest_pool.data(), digest_pool.size()});
     ASSERT_TRUE(fin_pool.has_value()) << "Finalize failed";
 
@@ -275,11 +293,12 @@ TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
     const auto bulk_input = bulk_region->AsSpan().subspan(0, pool_msg.size());
 
     // Reserve output buffer at offset 4096 (second half of the 8KB region, avoids input overlap)
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
     uint8_t* output_buffer = bulk_region->AsWritableSpan().data() + 4096;
     auto output_span = score::cpp::span<uint8_t>{output_buffer, kSha512DigestSize};
 
     HashContextConfig bulk_config;
-    bulk_config.SetAlgorithm("SHA512").SetOperationTimeout(std::chrono::milliseconds{500});
+    bulk_config.SetAlgorithm("SHA512").SetOperationTimeout(kDefaultOperationTimeout);
     auto bulk_ctx = ctx->CreateHashContext(bulk_config);
     ASSERT_TRUE(bulk_ctx.has_value()) << "Failed to create SHA-512 bulk context";
     auto bulk_hash = std::move(bulk_ctx).value();
@@ -306,12 +325,13 @@ TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
     EXPECT_EQ(digest_pool, digest_bulk) << "Pool and bulk SHA-512 must match for identical input";
 }
 
-const std::string kAlgSha256 = "SHA256";
-const std::size_t kSha256DigestSize = 32;
-const std::string kInDataPath = "/opt/crypto/tests/test_vectors/hash/input_hello_world.bin";
-const std::string kSha256OutDataPath = "/opt/crypto/tests/test_vectors/hash/sha256_hello_world.bin";
-const std::string kInDataPathAlternative = "/opt/crypto/tests/test_vectors/hash/input_complete_data.bin";
-const std::string kSha256OutDataPathAlternative = "/opt/crypto/tests/test_vectors/hash/sha256_complete_data.bin";
+constexpr std::string_view kAlgSha256 = "SHA256";
+constexpr std::size_t kSha256DigestSize = 32;
+
+constexpr std::string_view kInDataRelativePath = "/hash/input_hello_world.bin";
+constexpr std::string_view kSha256OutDataRelativePath = "/hash/sha256_hello_world.bin";
+constexpr std::string_view kInDataAlternativeRelativePath = "/hash/input_complete_data.bin";
+constexpr std::string_view kSha256OutDataAlternativeRelativePath = "/hash/sha256_complete_data.bin";
 
 // TODO: Daemon expects SHA256 here we planned to use SHA-256
 // Either we find the common standard or allow variations, which we would need to re-map
@@ -322,36 +342,43 @@ INSTANTIATE_TEST_SUITE_P(SelectionOfProviderType,
                                                         std::nullopt,
                                                         kAlgSha256,
                                                         kSha256DigestSize,
-                                                        kInDataPath,
-                                                        kSha256OutDataPath,
-                                                        kInDataPathAlternative,
-                                                        kSha256OutDataPathAlternative},
+                                                        kInDataRelativePath,
+                                                        kSha256OutDataRelativePath,
+                                                        kInDataAlternativeRelativePath,
+                                                        kSha256OutDataAlternativeRelativePath},
                                            HashTestData{"SHA256_DefaultProviderType",
                                                         ProviderType::kDefault,
                                                         kAlgSha256,
                                                         kSha256DigestSize,
-                                                        kInDataPath,
-                                                        kSha256OutDataPath,
-                                                        kInDataPathAlternative,
-                                                        kSha256OutDataPathAlternative},
+                                                        kInDataRelativePath,
+                                                        kSha256OutDataRelativePath,
+                                                        kInDataAlternativeRelativePath,
+                                                        kSha256OutDataAlternativeRelativePath}
+#ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
+                                           ,
                                            HashTestData{"SHA256_SoftwareProvider",
                                                         ProviderType::kSoftware,
                                                         kAlgSha256,
                                                         kSha256DigestSize,
-                                                        kInDataPath,
-                                                        kSha256OutDataPath,
-                                                        kInDataPathAlternative,
-                                                        kSha256OutDataPathAlternative},
+                                                        kInDataRelativePath,
+                                                        kSha256OutDataRelativePath,
+                                                        kInDataAlternativeRelativePath,
+                                                        kSha256OutDataAlternativeRelativePath}
+#endif
+#ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
+                                           ,
                                            HashTestData{"SHA256_HardwareProvider",
                                                         ProviderType::kHardware,
                                                         kAlgSha256,
                                                         kSha256DigestSize,
-                                                        kInDataPath,
-                                                        kSha256OutDataPath,
-                                                        kInDataPathAlternative,
-                                                        kSha256OutDataPathAlternative}),
+                                                        kInDataRelativePath,
+                                                        kSha256OutDataRelativePath,
+                                                        kInDataAlternativeRelativePath,
+                                                        kSha256OutDataAlternativeRelativePath}
+#endif
+                                           ),
                          [](const testing::TestParamInfo<ParameterizedHashTest::ParamType>& info) {
-                             return info.param.test_case_name;
+                             return std::string{info.param.test_case_name};
                          });
 
 }  // namespace

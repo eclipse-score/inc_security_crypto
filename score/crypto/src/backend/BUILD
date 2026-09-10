@@ -49,13 +49,13 @@ bool_flag(
 config_setting(
     name = "pkcs11_backend_enabled",
     flag_values = {":score_crypto_pkcs11_backend_enabled": "True"},
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "score_backend_enabled",
     flag_values = {":score_crypto_score_backend_enabled": "True"},
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
 )
 
 # True only when both the master score-backend gate and the score sub-backend

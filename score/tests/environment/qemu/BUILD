@@ -11,18 +11,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
+load("@score_rules_imagefs//rules/qnx:ifs.bzl", "qnx_ifs")
 
-filegroup(
-    name = "hash_test_vectors",
-    srcs = glob(["*.bin"]),
-    visibility = ["//visibility:public"],
-)
+exports_files(["qemu_config.json"])
 
-pkg_files(
-    name = "hash_test_vectors_pkg",
-    srcs = glob(["*.bin"]),
-    # preserve test_vectors/hash/ folders
-    strip_prefix = strip_prefix.from_root("score/tests"),
+qnx_ifs(
+    name = "qnx_x86_64_ifs",
+    srcs = [],
+    build_file = "x86_64/init.build",
+    extra_build_files = ["x86_64/tools.build"],
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:qnx"],
     visibility = ["//visibility:public"],
 )

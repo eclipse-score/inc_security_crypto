@@ -11,18 +11,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
-
-filegroup(
-    name = "hash_test_vectors",
-    srcs = glob(["*.bin"]),
-    visibility = ["//visibility:public"],
+from score.tests.utility.process_runner.process_runner import (
+    ProcessRunner,
+    Target,
+    run_test_app,
 )
 
-pkg_files(
-    name = "hash_test_vectors_pkg",
-    srcs = glob(["*.bin"]),
-    # preserve test_vectors/hash/ folders
-    strip_prefix = strip_prefix.from_root("score/tests"),
-    visibility = ["//visibility:public"],
-)
+__all__ = ["ProcessRunner", "Target", "run_test_app"]
