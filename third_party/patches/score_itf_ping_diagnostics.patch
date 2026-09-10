@@ -1,0 +1,34 @@
+--- a/score/itf/core/com/ping.py
++++ b/score/itf/core/com/ping.py
+@@ -10,13 +10,30 @@
+ #
+ # SPDX-License-Identifier: Apache-2.0
+ # *******************************************************************************
++import logging
+ import os
+ import shutil
++import subprocess
+ import time
+ 
+ 
++logger = logging.getLogger(__name__)
++
++
+ def _execute_command(cmd):
+-    return os.system(cmd)
++    result = subprocess.run(
++        cmd,
++        capture_output=True,
++        check=False,
++        shell=True,
++        text=True,
++    )
++    logger.debug("Ping command: %s; return code: %s", cmd, result.returncode)
++    if result.stdout:
++        logger.debug("Ping stdout: %s", result.stdout.rstrip())
++    if result.stderr:
++        logger.warning("Ping stderr: %s", result.stderr.rstrip())
++    return result.returncode
+ 
+ 
+ def _ping(address, wait_ms_precision=None):
