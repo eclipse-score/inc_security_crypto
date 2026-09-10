@@ -87,6 +87,7 @@ test:x86_64-qnx --test_timeout=180,900,2700,10800 # Increase default test timeou
 
 build:x86_64-qnx-itf --config=x86_64-qnx-common
 test:x86_64-qnx-itf --test_tag_filters=itf
+test:x86_64-qnx-itf --run_under=@score_itf//scripts:run_under_qemu
 
 # -------------------------------------------------------------------------------
 # Config dedicated to target platform CPU:aarch64 and OS:QNX
