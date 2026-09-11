@@ -13,8 +13,8 @@
 
 #include "score/crypto/src/daemon/key_management/slot/deployment_loader.hpp"
 
-#include "score/crypto/src/daemon/key_management/slot/deployment/deployment_path_utils.hpp"
-#include "score/crypto/src/daemon/key_management/slot/deployment/kv/kv_deployment_loader.hpp"
+#include "score/crypto/src/daemon/common/storage/deployment_path_utils.hpp"
+#include "score/crypto/src/daemon/common/storage/kv/kv_deployment_loader.hpp"
 
 #include "score/mw/log/logging.h"
 
@@ -27,7 +27,7 @@ score::crypto::Expected<SlotDeploymentInfo, score::crypto::daemon::common::Daemo
     const std::string& path,
     const std::string& format)
 {
-    if (!IsDeploymentPathSafe(path))
+    if (!score::crypto::daemon::common::storage::IsDeploymentPathSafe(path))
     {
         score::mw::log::LogError() << LOG_PREFIX << "Unsafe deployment path rejected:" << path;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
@@ -35,7 +35,16 @@ score::crypto::Expected<SlotDeploymentInfo, score::crypto::daemon::common::Daemo
 
     if (format == "kv")
     {
-        return KvDeploymentLoader{}.Load(path);
+        auto descriptor = score::crypto::daemon::common::storage::KvDeploymentLoader{}.Load(path);
+        if (!descriptor)
+        {
+            return score::crypto::make_unexpected(descriptor.error());
+        }
+
+        SlotDeploymentInfo info{};
+        info.metadata = descriptor->sections["metadata"];
+        info.key_properties = descriptor->sections["key"];
+        return info;
     }
     // To add a new format: include its header above and add a branch here.
     // Example: if (format == "json") { return JsonDeploymentLoader{}.Load(path); }

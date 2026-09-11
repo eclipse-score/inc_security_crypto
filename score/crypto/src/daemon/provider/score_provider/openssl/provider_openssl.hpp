@@ -41,11 +41,19 @@ class OpenSSL final : public ::score::crypto::daemon::provider::score_provider::
     // --- IProvider lifecycle (OpenSSL-specific) ---
     void Shutdown() override;
 
+    // --- Capability advertisement ---
+    [[nodiscard]] common::ProviderCapability GetProviderCapabilities() override;
+
     // --- Key management capability ---
     std::shared_ptr<key_management::IKeyFactory> GetKeyFactory() override;
     std::shared_ptr<key_management::IKeySlotHandler> GetKeySlotHandler(
         const key_management::KeySlotConfig& config) override;
     void SetKeyManagementService(std::shared_ptr<key_management::KeyManagementService> service) override;
+
+    // --- Certificate management capability ---
+    std::shared_ptr<provider::cert_management::ICertParser> GetCertParser() override;
+    void SetCertManagementService(
+        std::shared_ptr<::score::crypto::daemon::cert_management::CertManagementService> service) override;
 
     // --- SHM capability ---
     std::shared_ptr<data_plane::IShmFactory> GetShmFactory() override;
@@ -60,6 +68,7 @@ class OpenSSL final : public ::score::crypto::daemon::provider::score_provider::
 
     std::shared_ptr<key_management::IKeyFactory> m_factory;
     std::shared_ptr<key_management::KeyManagementService> m_keyManagementService;
+    std::shared_ptr<::score::crypto::daemon::cert_management::CertManagementService> m_certManagementService;
     std::shared_ptr<data_plane::IShmFactory> m_shm_factory;
 };
 

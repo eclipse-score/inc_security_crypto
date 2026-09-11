@@ -165,6 +165,7 @@ Additional documentation for relevant Crypto subcomponents can be found here:
    :maxdepth: 1
 
    ../src/daemon/data_manager/docs/index
+   ../src/daemon/cert_management/docs/index
 
 Component Detail Information
 ============================

@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -301,6 +302,22 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         }
     }
 
+    // Scoped context types encode the capability as a prefix ("CERT:VERIFICATION", "KEY:MANAGEMENT").
+    // Unscoped types ("HASH", "MAC") fall back to type-based provider selection.
+    // To add a new scope: add one entry to kScopeCapability.
+    static const std::unordered_map<std::string_view, common::ProviderCapability> kScopeCapability{
+        {"CERT", common::ProviderCapability::kCertManagement},
+        {"KEY", common::ProviderCapability::kKeyManagement},
+    };
+    common::ProviderCapability required_capability = common::ProviderCapability::kNone;
+    const auto colon_pos = context_type.find(':');
+    if (colon_pos != std::string_view::npos)
+    {
+        const auto it = kScopeCapability.find(context_type.substr(0, colon_pos));
+        if (it != kScopeCapability.end())
+            required_capability = it->second;
+    }
+
     // --- Resolve target provider (considers key/slot affinity when available) ---
     std::shared_ptr<provider::IProvider> provider;
     if (m_km_service && has_key_binding)
@@ -316,6 +333,11 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
             return false;
         }
         provider = m_provider_manager->GetProvider(resolved_id_res.value());
+    }
+    else if (required_capability != common::ProviderCapability::kNone &&
+             requested_provider_type == common::CryptoProviderType::DEFAULT)
+    {
+        provider = m_provider_manager->GetProviderForCapability(required_capability);
     }
     else
     {
@@ -413,8 +435,10 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         return false;
     }
 
-    const std::string_view provider_selection =
-        has_key_binding ? " (key-affinity resolved)" : " (type-based selection)";
+    const std::string_view provider_selection = has_key_binding ? " (key-affinity resolved)"
+                                                : required_capability != common::ProviderCapability::kNone
+                                                    ? " (capability-based selection)"
+                                                    : " (type-based selection)";
     score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
                                  << "] selected provider: name='" << provider->GetProviderName()
                                  << "' id=" << provider->GetProviderId() << provider_selection

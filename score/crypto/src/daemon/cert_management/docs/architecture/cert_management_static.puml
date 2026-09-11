@@ -1,0 +1,117 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml cert_management_static
+top to bottom direction
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+package "cert_management" {
+  package "core" {
+    [CertManagementService]
+    [CertRegistry]
+    [CertEntry]
+  }
+  package "interfaces" {
+    interface ICertSlotHandler
+    interface ITrustStoreHandler
+    interface ICertParser
+    [CertObject]
+  }
+  package "nodes" {
+    [CertSlotDataNode]
+    [CertDataNode]
+    [TrustStoreDataNode]
+  }
+  package "slot" {
+    [CertSlotManager]
+    [CertSlotRegistry]
+    [ConfigDrivenSlotCatalog]
+    [FileBackedSlotHandler]
+    [Pkcs11CertSlotHandler]
+    [CrlHandler]
+  }
+  package "truststore" {
+    [TrustStoreManager]
+    [TrustStoreHandler]
+    [ConfigDrivenTrustStoreCatalog]
+  }
+  package "policy" {
+    [AccessPolicyEnforcer]
+  }
+  package "query" {
+    [CertObjectSerializer]
+  }
+}
+
+package "daemon/common" {
+  [DataManager]
+  [Shared Deployment Storage]
+}
+
+package "provider" {
+  [OpenSslCertParser]
+  [Provider Context Handlers]
+}
+
+package "daemon/mediator" {
+  [Mediator]
+}
+
+note right of [CertSlotManager]
+  Handler cache (Sptr, per slot)
+  CertObjectCache (weak_ptr, per slot)
+  Access policy enforcement
+end note
+
+note right of [CertEntry]
+  Per-client (never shared)
+  Holds CertObject::Sptr
+  + session-scoped CRL
+end note
+
+[CertManagementService] -> [CertRegistry]
+[CertManagementService] --> [CertSlotManager]
+[CertManagementService] --> [CertSlotRegistry]
+[CertManagementService] --> [TrustStoreManager]
+[CertManagementService] --> [DataManager]
+[CertRegistry] --> [CertEntry]
+[CertEntry] --> [CertObject]
+[CertSlotDataNode] <.. [CertManagementService] : creates
+[CertDataNode] <.. [CertManagementService] : creates
+[TrustStoreDataNode] <.. [CertManagementService] : creates
+
+[CertSlotManager] --> ICertSlotHandler
+[CertSlotManager] --> [CertSlotRegistry]
+[CertSlotManager] --> [AccessPolicyEnforcer]
+
+[CertSlotRegistry] <-- [ConfigDrivenSlotCatalog]
+[ConfigDrivenTrustStoreCatalog] ---> [TrustStoreManager]
+[TrustStoreManager] --> [CertSlotRegistry]
+[TrustStoreManager] --> [TrustStoreHandler]
+[TrustStoreManager] --> [CertSlotManager] : anchor loading
+[TrustStoreHandler] ..|> ITrustStoreHandler
+[FileBackedSlotHandler] ..|> ICertSlotHandler
+[FileBackedSlotHandler] --> [CrlHandler]
+[FileBackedSlotHandler] ---> ICertParser
+[Shared Deployment Storage] <-- [FileBackedSlotHandler]
+[Pkcs11CertSlotHandler] ..|> ICertSlotHandler
+[Pkcs11CertSlotHandler] --> [CrlHandler]
+[OpenSslCertParser] ..|> ICertParser
+[OpenSslCertParser] --> [CertObject]
+[Provider Context Handlers] --> [CertObject]
+[CertObjectSerializer] --> [CertManagementService]
+[Provider Context Handlers] --> [CertObjectSerializer]
+[Mediator] --> [CertObjectSerializer]
+
+@enduml

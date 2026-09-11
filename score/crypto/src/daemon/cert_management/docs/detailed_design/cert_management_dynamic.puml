@@ -1,0 +1,123 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml cert_management_dynamic
+participant "Flat-config parser" as Config
+participant "ConfigDrivenSlotCatalog" as SlotCatalog
+participant "CertSlotRegistry" as Slots
+participant "ConfigDrivenTrustStoreCatalog" as TrustCatalog
+participant "TrustStoreManager" as Stores
+participant "CertManagementService" as Service
+participant "CertSlotManager" as SlotMgr
+participant "FileBackedSlotHandler" as Handler
+participant "OpenSslCertParser" as Parser
+participant "CertObjectCache\n(weak_ptr, per slot)" as Cache
+participant "CertRegistry" as Registry
+participant "TrustStoreHandler" as StoreHandler
+participant "DataManager" as Data
+
+== Startup: slot and trust-store registration ==
+
+Config -> SlotCatalog : CertificateConfig
+SlotCatalog -> Slots : RegisterSlot(config)
+Config -> TrustCatalog : CertificateConfig
+TrustCatalog -> Stores : Load(store configs, registry, factory)
+TrustCatalog -> Stores : RegisterAppResource()
+
+== Slot resolution ==
+
+Service -> Slots : ResolveAppResource(resource, client)
+Slots --> Service : CertSlotHandle
+Service -> Data : addNode(CertSlotDataNode)
+Data --> Service : slot_node_id
+
+== Certificate load — first client (cache miss) ==
+
+Service -> SlotMgr : Load(params)
+SlotMgr -> Cache : lookup(slot.index)
+Cache --> SlotMgr : miss (empty or expired)
+SlotMgr -> Handler : LoadCertificate(slot config)
+Handler -> Parser : ParseCertificate(bytes, format)
+Parser --> Handler : CertObject
+Handler --> SlotMgr : CertObject
+SlotMgr -> Cache : store weak_ptr(CertObject)
+SlotMgr -> Registry : RegisterSlotCert(slot, new CertEntry)
+Registry --> SlotMgr : cert_registry_id
+SlotMgr --> Service : CertObject + CertEntry (per-client)
+Service -> Data : addChildNode(CertDataNode)
+
+== Certificate load — second client (cache hit, shared bytes) ==
+
+Service -> SlotMgr : Load(params, client_B)
+SlotMgr -> Cache : lookup(slot.index)
+Cache --> SlotMgr : hit — CertObject::Sptr (no I/O)
+SlotMgr -> Registry : RegisterSlotCert(slot, new CertEntry)
+note right of Registry
+  Independent CertEntry per client.
+  Both wrap the same CertObject ptr.
+  Session CRL on one entry is not
+  visible from the other entry.
+end note
+Registry --> SlotMgr : cert_registry_id_2
+SlotMgr --> Service : CertObject + CertEntry (per-client)
+
+== Trust store resolution and anchor loading ==
+
+Service -> Stores : ResolveAppResource(trust resource, client)
+Stores --> Service : TrustStoreHandle
+Service -> Stores : GetStore(handle)
+Stores --> Service : TrustStoreHandler
+Service -> StoreHandler : GetAnchors()
+StoreHandler -> Stores : lazy AnchorLoader
+Stores -> SlotMgr : LoadCertificate(slot config)
+SlotMgr -> Cache : lookup(slot.index)
+Cache --> SlotMgr : hit or miss
+alt cache miss
+  SlotMgr -> Handler : LoadCertificate(slot config)
+  Handler -> Parser : ParseCertificate(bytes, format)
+  Parser --> Handler : CertObject
+  Handler --> SlotMgr : CertObject
+  SlotMgr -> Cache : store weak_ptr(CertObject)
+end
+SlotMgr --> Stores : CertObject
+Stores -> StoreHandler : NotifySlotUpdate(slot, cert)
+StoreHandler --> Service : anchors
+
+== Certificate store and cache invalidation ==
+
+Service -> SlotMgr : StoreCertificate(slot, updated cert)
+SlotMgr -> Handler : StoreCertificate(updated cert)
+Handler -> "Shared Deployment Storage" : atomic cert + metadata write
+Handler --> SlotMgr : ok
+SlotMgr -> Cache : erase(slot.index)
+note right of Cache
+  Next Load will re-read from handler.
+  In-flight CertEntries holding the
+  old CertObject::Sptr remain valid
+  for their lifetime.
+end note
+SlotMgr --> Service : ok
+Service -> Stores : NotifySlotChanged(store, slot)
+Stores -> StoreHandler : InvalidateSlot(slot)
+Service -> StoreHandler : GetAnchors()
+StoreHandler -> Stores : reload changed slot
+Stores -> SlotMgr : LoadCertificate()
+SlotMgr -> Handler : LoadCertificate()
+Handler -> Parser : ParseCertificate()
+Parser --> Handler : updated CertObject
+Handler --> SlotMgr : updated CertObject
+SlotMgr -> Cache : store weak_ptr(updated CertObject)
+SlotMgr --> Stores : updated CertObject
+Stores -> StoreHandler : NotifySlotUpdate()
+StoreHandler --> Service : updated anchors
+@enduml
