@@ -24,7 +24,11 @@
 #include <sys/neutrino.h>  // _NTO_VERSION
 #if _NTO_VERSION >= 700
 #include <string.h>  // memset_s
+#else
+#error "QNX versions lesser than 7.0 are not supported"
 #endif
+#else
+#error "Unsupported platform: secure memory is supported only on Linux and QNX 7.0+"
 #endif
 
 namespace score::crypto::daemon::common
@@ -35,7 +39,6 @@ namespace score::crypto::daemon::common
 /// Uses platform-specific primitives:
 ///   - Linux:   explicit_bzero
 ///   - QNX 7.0+: memset_s
-///   - Fallback: manual loop with volatile ptr
 ///
 /// No provider dependencies (no OpenSSL, PKCS#11, etc.).
 inline void SecureZeroize(void* ptr, std::size_t len) noexcept
@@ -48,13 +51,6 @@ inline void SecureZeroize(void* ptr, std::size_t len) noexcept
     explicit_bzero(ptr, len);
 #elif defined(__QNX__) && (_NTO_VERSION >= 700)
     memset_s(ptr, len, 0, len);
-#else
-    // Volatile pointer prevents compiler from optimizing away the memset
-    volatile unsigned char* p = static_cast<volatile unsigned char*>(ptr);
-    while (len-- > 0U)
-    {
-        *p++ = 0;
-    }
 #endif
 }
 
