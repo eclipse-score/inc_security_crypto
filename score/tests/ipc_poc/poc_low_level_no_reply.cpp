@@ -1,0 +1,1236 @@
+/********************************************************************************
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ ********************************************************************************/
+
+// =============================================================================
+// WARNING: EXPERIMENTAL REFERENCE CODE - DO NOT USE IN PRODUCTION
+//
+// This file exists only to test and understand IPC mechanisms and to guide a
+// proper implementation. It is kept temporarily as reference and will be
+// removed once confidence has been gained in the proper implementation.
+// =============================================================================
+
+/// POC: Send + Notify async model — one shared connection per client process
+///
+/// This replicates the functionality of poc_async.cpp using only the low-level
+/// score::message_passing API, without any score::mw elements.
+///
+/// Communication model:
+///
+///   Phase 1 — Send for non-blocking request submission:
+///     The client thread calls Send() with a ControlRequest.  The call enqueues
+///     the message and returns immediately.  The server's sent_callback
+///     validates and enqueues the work, then returns without sending a reply.
+///
+///   Phase 2 — Server Notify (analogous to the Response event):
+///     A server pool worker dequeues the request, does the work, and calls
+///     Notify() on the IServerConnection.  The ControlResponse payload carries
+///     the original request_id.  The client's NotifyCallback routes by
+///     request_id and wakes the waiting thread.
+///
+/// Send() avoids the per-connection REQUEST/REPLY serialization window.  The
+/// server worker pool still executes requests independently, and NOTIFY carries
+/// the only terminal result for each request.
+///
+/// Why Send instead of SendWaitReply:
+///   SendWaitReply() blocks the calling thread inside the library with no timeout.
+///   A misbehaving QM server (slow callback, scheduling starvation without crash)
+///   would hold an ASIL-B thread blocked indefinitely.  Send() is non-blocking
+///   when the client send queue is enabled.  The application-level wait_for()
+///   provides the terminal notification timeout.
+///
+/// Connection model:
+///   One IClientConnection per client process (shared by all threads).
+///   The request_id in the FlatBuffer payload is used to route each Notify
+///   back to the thread that issued the corresponding Send.
+///   Because Notify() is point-to-point (reaches only this connection's client),
+///   no cross-client leakage occurs — unlike poc_async's broadcast events which
+///   required one skeleton instance per client.
+///
+/// Process model: same as poc_async — fork before any IPC setup, parent=server,
+/// children=clients.
+///
+/// Usage:
+///   bazel run //tests/score_com_poc:poc_low_level
+///   bazel run //tests/score_com_poc:poc_low_level -- --client_count=3 --call_count=5
+///   bazel run //tests/score_com_poc:poc_low_level -- --client_count=3 --call_count=5 --client_threads=4
+///   bazel run //tests/score_com_poc:poc_low_level -- --client_count=3 --call_count=5 --server_threads=2
+
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <cstdio>
+#include <future>
+#include <iostream>
+#include <mutex>
+#include <queue>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+#include "flatbuffers/flatbuffers.h"
+#include "score/message_passing/client_factory.h"
+#include "score/message_passing/i_client_connection.h"
+#include "score/message_passing/i_server_connection.h"
+#include "score/message_passing/i_server_factory.h"
+#include "score/message_passing/server_factory.h"
+#include "score/message_passing/service_protocol_config.h"
+#include "score/tests/utility/runtime_measurement.hpp"
+#include "score/tests/ipc_poc/ipc_buffer.h"
+#include "score/tests/ipc_poc/poc_control_generated.h"
+#include "score/tests/ipc_poc/poc_helper.hpp"
+#include "score/tests/utility/process_resource_measurement.hpp"
+
+// ---------------------------------------------------------------------------
+// Global parameters (set before fork; never mutated after)
+// ---------------------------------------------------------------------------
+
+static int g_client_count = 1;       // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_call_count = 1000;         // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_client_threads = 1;     // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_server_threads = 8;      // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_sleep_milliseconds = 0;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static bool g_random_wait = false;    // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+// ---------------------------------------------------------------------------
+// Shared logging helper
+// ---------------------------------------------------------------------------
+
+static std::mutex g_log_mutex;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static constexpr bool kEnableVerboseOutput{false};
+static constexpr bool kEnableLatencyVerbose{false};
+
+static void Log(const std::string& line)
+{
+    if (!kEnableVerboseOutput)
+    {
+        return;
+    }
+    std::lock_guard<std::mutex> lk(g_log_mutex);
+    std::cout << line << "\n";
+}
+
+static void LogErr(const std::string& line)
+{
+    std::stringstream ss;
+    ss << "[ERROR] " << line << "\n";
+    std::lock_guard<std::mutex> lk(g_log_mutex);
+    std::cerr << ss.str();
+}
+
+// ---------------------------------------------------------------------------
+// Protocol config — identifier resolves to an abstract Unix domain socket
+// ---------------------------------------------------------------------------
+
+namespace score::crypto::ipc::control
+{
+
+namespace helper = score::crypto::ipc::poc_helper;
+
+static constexpr std::string_view kServiceIdentifier{"score_crypto_poc_ll_no_reply"};
+
+// ---------------------------------------------------------------------------
+// Configuration
+//
+// All queue sizes derive from two logical inputs:
+//
+//   N  — number of distinct client processes (== distinct UIDs the server
+//         accepts).  Controls how many connections the server manages and
+//         sets the capacity of the global server-side receive queue.
+//
+//   T  — maximum number of threads per client process that may have
+//         concurrent in-flight requests at any one time.  Controls the
+//         per-connection queue depths.
+//
+// Payload size M is fixed by the IPC protocol (sizeof(IpcBuffer)).
+// ---------------------------------------------------------------------------
+
+/// Parameters shared by both server and client sides.
+/// Both sides must be constructed from the same ServiceParams values;
+/// a mismatch in any size field causes EMSGSIZE on send or silent
+/// truncation on receive.
+struct ServiceParams
+{
+    /// Logical identifier of the service.  Maps to an abstract Unix domain
+    /// socket name on Linux and to a QNX resource-manager path on QNX.
+    std::string_view identifier;
+
+    /// Maximum byte size of a client→server message (ControlRequest).
+    /// Must be >= sizeof(the largest FlatBuffer payload sent by any client).
+    std::uint32_t max_payload_bytes;
+};
+
+/// Parameters that only the server side needs.
+struct ServerParams
+{
+    /// Number of distinct client processes expected to connect.
+    /// Used to:
+    ///   - size the global server-side receive queue (N * T slots total)
+    ///   - limit accepted connections to at most N (one per UID)
+    std::uint32_t max_client_processes;  // N
+
+    /// Maximum number of threads per client process that may have concurrent
+    /// in-flight requests.  Used to size per-connection notify queues.
+    /// Under-sizing this causes Notify() to return ENOBUFS on QNX (response
+    /// lost, client times out) or blocks the engine thread on Linux.
+    std::uint32_t max_threads_per_client;  // T
+
+    /// Number of server-side pool threads processing requests.
+    std::uint32_t worker_threads;
+};
+
+/// Parameters that only the client side needs.
+struct ClientParams
+{
+    /// Maximum number of threads in this process that may have concurrent
+    /// in-flight requests.  Sizes max_queued_sends in the client config so that
+    /// T concurrent Send() calls can
+    /// be in-flight simultaneously without getting ENOBUFS.
+    std::uint32_t max_concurrent_threads;  // T
+};
+
+// ---------------------------------------------------------------------------
+// Config factory functions
+// ---------------------------------------------------------------------------
+
+static score::message_passing::ServiceProtocolConfig MakeProtocolConfig(const ServiceParams& p)
+{
+    return score::message_passing::ServiceProtocolConfig{
+        p.identifier,
+        // max_send_size: upper bound for a client→server ControlRequest FlatBuffer.
+        /*max_send_size=*/p.max_payload_bytes,
+        // max_reply_size: upper bound for the ack ControlResponse sent by Reply().
+        // The ack only carries request_id and an empty operation batch, so it is much
+        // smaller than max_payload_bytes in practice.  Using the same value keeps both
+        // sides in sync without a second size constant; the slight over-allocation in the
+        // client receive buffer is acceptable.
+        /*max_reply_size=*/0U,
+        // max_notify_size: upper bound for the full ControlResponse sent by Notify().
+        // Must be at least as large as the largest response payload the server produces.
+        /*max_notify_size=*/p.max_payload_bytes,
+    };
+}
+
+static score::message_passing::IServerFactory::ServerConfig MakeServerConfig(const ServerParams& p)
+{
+    const std::uint32_t n = p.max_client_processes;
+    const std::uint32_t t = p.max_threads_per_client;
+
+    // NOTE: ServerConfig is read only by the QNX implementation; the Linux/Unix-domain
+    // implementation ignores all three fields and relies on kernel socket buffers instead.
+    // The values are set correctly here so that the same code works on QNX without changes.
+    return score::message_passing::IServerFactory::ServerConfig{
+        // Server-side ring buffer for incoming SEND and REQUEST messages (QNX).
+        // The REQUEST/REPLY protocol serializes one REQUEST per connection: the server
+        // does not accept the next REQUEST on a connection until Reply() has been called.
+        // With one connection per client process we therefore have at most N simultaneous
+        // in-flight REQUESTs — one per client — regardless of how many threads each client
+        // has.  N slots are sufficient; N*T would be an over-allocation.
+        /*max_queued_sends=*/n,
+
+        // Number of ServerConnection objects pre-allocated at startup (QNX).
+        // Avoids runtime heap allocation when clients connect, which is required for
+        // monotonic/bounded memory in safety contexts.  Set to N (one per expected client).
+        /*pre_alloc_connections=*/n,
+
+        // Per-connection NOTIFY queue depth on the server side (QNX).
+        // Each in-flight Send() on the client side will eventually receive one
+        // Notify() from the server.  With T threads sharing one connection, up to T
+        // Notify() calls may be queued before the client drains them.
+        // If this queue overflows, Notify() returns ENOBUFS on QNX — the response is
+        // silently dropped and the client hangs until the 30-second timeout.
+        // This is the most critical parameter to size correctly: must be >= T.
+        /*max_queued_notifies=*/t,
+    };
+}
+
+static score::message_passing::IClientFactory::ClientConfig MakeClientConfig(const ClientParams& p)
+{
+    const std::uint32_t t = p.max_concurrent_threads;
+
+    return score::message_passing::IClientFactory::ClientConfig{
+        // One async-reply slot per concurrent thread: each in-flight SendWithCallback()
+        // holds one slot until its ReplyCallback fires.  Must be >= T.
+        /*max_async_replies=*/0U,
+
+        // Send() with truly_async=true always queues into the send queue before
+        // the engine thread picks it up.  One slot per concurrent thread.
+        // Must be >= T; shared pool with max_async_replies.
+        /*max_queued_sends=*/t,
+
+        // This POC uses only SEND, so cross-type ordering is irrelevant.
+        /*fully_ordered=*/false,
+
+        // Route Send() through the engine's background thread so the
+        // calling thread is never held inside the IPC layer (non-blocking guarantee).
+        // Required when max_queued_sends > 0.  Mandatory for safety clients sending
+        // to QM servers where the server callback duration is not bounded.
+        /*truly_async=*/true,
+
+        // Do not block the calling thread on the first connection attempt.
+        // Start() is called before the server socket exists (child processes start
+        // 300 ms after the fork); the background engine thread retries until the
+        // server is ready and fires the kReady state callback.
+        /*sync_first_connect=*/false,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// FlatBuffer helpers
+// ---------------------------------------------------------------------------
+
+static std::vector<std::uint8_t> ProcessRequestBytes(const std::uint64_t request_id,
+                                                     score::cpp::span<const std::uint8_t> message)
+{
+    helper::Response workload_response;
+    if (!helper::ProcessRequestBytes(message.data(), message.size(), workload_response))
+    {
+        LogErr("[server/worker] FlatBuffer verification failed");
+        return {};
+    }
+
+    {
+        std::ostringstream ss;
+        ss << "[server/worker] request_id=" << workload_response.request_id << " -> combined=\""
+              << workload_response.string_value << "\"";
+        Log(ss.str());
+    }
+
+    if (workload_response.request_id != request_id)
+    {
+        return {};
+    }
+    return helper::BuildResponseBytes(workload_response);
+}
+
+// ---------------------------------------------------------------------------
+// Server
+// ---------------------------------------------------------------------------
+
+struct WorkItem
+{
+    score::message_passing::IServerConnection* conn;
+    std::shared_ptr<bool> alive;  // per-connection lifetime token; set to false by disconnect_cb
+    std::uint64_t request_id;
+    std::vector<std::uint8_t> request_bytes;
+};
+
+static int RunServer(const std::vector<pid_t>& child_pids)
+{
+    const auto resources_before_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+
+    score::crypto::daemon::common::RuntimeMeasurement latency_measurement{kEnableLatencyVerbose};
+    const ServiceParams service_params{
+        kServiceIdentifier,
+        /*max_payload_bytes=*/static_cast<std::uint32_t>(sizeof(IpcBuffer)),
+    };
+    const ServerParams server_params{
+        /*max_client_processes=*/static_cast<std::uint32_t>(g_client_count),
+        /*max_threads_per_client=*/static_cast<std::uint32_t>(g_client_threads),
+        /*worker_threads=*/static_cast<std::uint32_t>(g_server_threads),
+    };
+
+    score::message_passing::ServerFactory server_factory;
+    const auto protocol_config = MakeProtocolConfig(service_params);
+    const auto server_config = MakeServerConfig(server_params);
+
+    auto server = server_factory.Create(protocol_config, server_config);
+    if (!server)
+    {
+        LogErr("[server] failed to create server");
+        return 1;
+    }
+
+    // ------------------------------------------------------------------
+    // Live-connection guard via per-connection lifetime token.
+    //
+    // Worker threads hold a shared_ptr<bool> (alive token) inside WorkItem,
+    // captured at enqueue time.  The library destroys a ServerConnection as
+    // soon as the client disconnects.  Without coordination, a worker that
+    // dequeued a WorkItem before the disconnect fires could call Notify() on
+    // a destroyed object — or on a new connection that reused the same address.
+    //
+    // Fix: each connection gets a shared_ptr<bool> initialised to true.
+    // disconnect_cb sets it to false under live_conn->mutex before the library
+    // destroys the object.  The worker checks the flag under the same mutex
+    // before calling Notify(), so a false flag always wins the race.
+    //
+    // Aliasing is impossible: the WorkItem holds its own shared_ptr copy whose
+    // control block is unique to that connection's lifetime; a new connection
+    // that reuses the same address gets a brand-new shared_ptr<bool>(true).
+    //
+    // Notify() is called while holding live_conn->mutex because the transport
+    // does not expose a connection lifetime lease.  This ordering is required:
+    // disconnect_cb cannot destroy the connection until a worker has finished
+    // using its raw pointer.  It does not make Notify() bounded.  The Unix
+    // backend uses a blocking sendmsg(), while the QNX backend takes its own
+    // send mutex and can return ENOBUFS when its notify pool is exhausted.
+    // Consequently, a blocked Notify() can delay disconnect_cb and therefore
+    // client admission.  Production code must provide a bounded/non-blocking
+    // Notify() operation or a library-owned connection lease before removing
+    // this lock or claiming a bounded disconnect path.
+    //
+    // Lock order: live_conn->mutex must NOT be taken while holding any
+    // score::message_passing internal lock.  Workers take it only around
+    // the alive check + Notify(); they release it before touching the work
+    // queue again.
+    //
+    // connect_cb and disconnect_cb use [&] capture and access live_conn directly
+    // by reference — no heap allocation needed.  sent_with_reply_cb accesses it
+    // via SentWithReplyCtx (a shared_ptr-boxed struct required for the 32-byte
+    // callback limit), which holds a LiveConnections& into the same frame.
+    // ------------------------------------------------------------------
+    struct LiveConnections
+    {
+        std::mutex mutex;
+        // Was facing pointer-reuse issues, when just using the Connection address for alive checks
+        // Thus the additional shared_ptr<bool> per connection, used in work_items
+        std::unordered_map<score::message_passing::IServerConnection*, std::shared_ptr<bool>> alive_map;
+    };
+    LiveConnections live_conn;
+
+    // ------------------------------------------------------------------
+    // Thread pool: workers dequeue requests, do the work, and call
+    // Notify() on the stored IServerConnection*.
+    // Notify() is thread-safe and safe to call from a pool thread.
+    // Multiple concurrent Notify() calls on the same connection are
+    // serialized by the library; the NotifyCallback on the client side
+    // routes by request_id so ordering does not matter.
+    // ------------------------------------------------------------------
+    std::mutex queue_mutex;
+    std::condition_variable queue_cv;
+    std::queue<WorkItem> work_queue;
+    std::atomic<bool> stop_workers{false};
+
+    std::vector<std::thread> workers;
+    workers.reserve(server_params.worker_threads);
+    helper::ThreadStartBarrier worker_start_barrier{server_params.worker_threads};
+    for (std::uint32_t w = 0U; w < server_params.worker_threads; ++w)
+    {
+        score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement thread_scope{
+            latency_measurement, "POC::LowLevel::ServerThreadCreation"};
+        workers.emplace_back([&, w]() {
+            worker_start_barrier.ArriveAndWait();
+            while (true)
+            {
+                score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement wait_scope{
+                    latency_measurement, "POC::LowLevel::ServerQueueWait"};
+                std::unique_lock<std::mutex> lk(queue_mutex);
+
+                queue_cv.wait(lk, [&] {
+                    return !work_queue.empty() || stop_workers.load();
+                });
+
+                if (stop_workers.load() && work_queue.empty())
+                {
+                    break;
+                }
+
+                WorkItem item = std::move(work_queue.front());
+                work_queue.pop();
+                lk.unlock();
+
+                if (g_sleep_milliseconds > 0)
+                {
+                    Log("[server/worker " + std::to_string(w) + "] simulating work, sleeping " +
+                        std::to_string(g_sleep_milliseconds) + " ms");
+                    std::this_thread::sleep_for(std::chrono::milliseconds(g_sleep_milliseconds));
+                }
+
+                auto response_bytes = ProcessRequestBytes(
+                    item.request_id,
+                    score::cpp::span<const std::uint8_t>{item.request_bytes.data(), item.request_bytes.size()});
+
+                // Guard against use-after-free: check the alive token under live_conn->mutex,
+                // which disconnect_cb also holds when it flips the flag to false.
+                // Notify() is called under the same lock so no window exists between the check
+                // and the call.  This protects the raw connection pointer, but the transport
+                // call itself is not guaranteed to return within a bounded time; see the
+                // LiveConnections note above.
+                std::lock_guard<std::mutex> live_lk(live_conn.mutex);
+                if (!*item.alive)
+                {
+                    LogErr("[server/worker " + std::to_string(w) +
+                           "] Notify() skipped — connection already disconnected "
+                           "(request_id=" +
+                           std::to_string(item.request_id) + ")");
+                    continue;
+                }
+
+                std::ostringstream notify_log;
+                notify_log << "[server/worker " << w << "] Calling Notify() for request_id=" << item.request_id
+                           << " with " << response_bytes.size() << " bytes";
+                Log(notify_log.str());
+
+                auto notify_result = item.conn->Notify(
+                    score::cpp::span<const std::uint8_t>{response_bytes.data(), response_bytes.size()});
+
+                if (!notify_result.has_value())
+                {
+                    // ENOBUFS: max_queued_notifies was too small — response dropped,
+                    // client will hang until its timeout expires.
+                    LogErr("[server/worker " + std::to_string(w) + "] Notify() failed for request_id=" +
+                           std::to_string(item.request_id) + " — check max_queued_notifies >= max_threads_per_client");
+                }
+                else
+                {
+                    Log("[server/worker " + std::to_string(w) +
+                        "] Notify() succeeded for request_id=" + std::to_string(item.request_id));
+                }
+            }
+        });
+    }
+    worker_start_barrier.WaitForAll();
+    const auto resources_after_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+    tests::utility::PrintProcessResourceDelta(
+        "poc_low_level_server_thread_creation", resources_before_thread_creation, resources_after_thread_creation);
+    worker_start_barrier.Release();
+    Log("[server] started " + std::to_string(server_params.worker_threads) + " worker thread(s)");
+
+    // ------------------------------------------------------------------
+    // UID admission control.
+    //
+    // The server enforces at most one active connection per UID.  This:
+    //   - prevents a single client from starving others by opening N*T
+    //     connections and consuming the entire server receive queue;
+    //   - binds resource consumption (queue slots, connection objects) to
+    //     the number of authenticated client processes, not to thread count.
+    //
+    // All server callbacks for the same IServer instance are called
+    // sequentially on the library's internal thread (doc §Server callbacks),
+    // so connected_uids needs no external mutex.
+    //
+    // Rejection policy:
+    //   EAGAIN — the UID is already connected; the library will tell the
+    //            client to retry.  Used instead of EACCES so that a client
+    //            which reconnects after a crash is not permanently locked out
+    //            while the previous disconnect callback has not yet fired.
+    //
+    // Hint: The idea here is not access control as we did it earlier
+    // but to prevent resource starvation, since we pre-allocate x buffer
+    // we have a limit on how many simultaneous connections we can handle
+    // enforcing one connection per UID is a simple way to prevent a
+    // single client from consuming all resources and starving others.
+    // ------------------------------------------------------------------
+    std::unordered_set<uid_t> connected_uids;
+
+    auto connect_cb = [&](score::message_passing::IServerConnection& conn)
+        -> score::cpp::expected<score::message_passing::UserData, score::os::Error> {
+        const uid_t uid = conn.GetClientIdentity().uid;
+#if ENFORCE_SINGLE_CONNECTION_PER_UID
+        if (connected_uids.count(uid) != 0U)
+        {
+            std::ostringstream ss;
+            ss << "[server] rejected connection from uid=" << uid << " (already connected) — client will retry";
+            Log(ss.str());
+            // EAGAIN: instructs the client library to retry the connection
+            // rather than transitioning to kStopped with kPermission reason.
+            return score::cpp::make_unexpected(score::os::Error::createFromErrno(EAGAIN));
+        }
+#endif
+        connected_uids.insert(uid);
+        {
+            std::lock_guard<std::mutex> live_lk(live_conn.mutex);
+            live_conn.alive_map[&conn] = std::make_shared<bool>(true);
+        }
+        std::ostringstream ss;
+        ss << "[server] accepted connection from uid=" << uid << " (" << connected_uids.size() << "/"
+           << server_params.max_client_processes << " slots used)";
+        Log(ss.str());
+        return score::message_passing::UserData{static_cast<void*>(nullptr)};
+    };
+
+    auto disconnect_cb = [&](score::message_passing::IServerConnection& conn) {
+        const uid_t uid = conn.GetClientIdentity().uid;
+        connected_uids.erase(uid);
+        {
+            // Flip the alive token to false before the library destroys the
+            // ServerConnection object.  Workers hold a shared_ptr copy of the
+            // same token and check it under live_conn->mutex before Notify(),
+            // so a false flag always wins the race against pointer reuse.
+            std::lock_guard<std::mutex> live_lk(live_conn.mutex);
+            auto it = live_conn.alive_map.find(&conn);
+            if (it != live_conn.alive_map.end())
+            {
+                *it->second = false;
+                live_conn.alive_map.erase(it);
+            }
+        }
+        std::ostringstream ss;
+        ss << "[server] client disconnected uid=" << uid << " (" << connected_uids.size() << "/"
+           << server_params.max_client_processes << " slots used)";
+        Log(ss.str());
+    };
+
+    // Box the captured references into a heap struct so the lambda fits
+    // in the 32-byte inline capacity of score::cpp::callback<>.
+    struct SentCtx
+    {
+        std::mutex& queue_mutex;
+        std::condition_variable& queue_cv;
+        std::queue<WorkItem>& work_queue;
+        LiveConnections& live_conn;
+    };
+    auto sent_ctx = std::make_shared<SentCtx>(SentCtx{queue_mutex, queue_cv, work_queue, live_conn});
+
+    auto sent_cb =
+        [sent_ctx](score::message_passing::IServerConnection& conn,
+                   score::cpp::span<const std::uint8_t> message) -> score::cpp::expected_blank<score::os::Error> {
+        // Read the client-assigned request_id from the FlatBuffer.
+        // The client guarantees it is non-zero and unique within its process.
+        helper::Request workload_request;
+        if (!helper::ParseRequestBytes(message.data(), message.size(), workload_request))
+        {
+            LogErr("[server/handler] FlatBuffer verification failed — dropping request");
+            return score::cpp::make_unexpected(score::os::Error::createFromErrno(EINVAL));
+        }
+        const std::uint64_t request_id = workload_request.request_id;
+        if (request_id == 0U)
+        {
+            LogErr("[server/handler] received request with zero request_id — dropping");
+            return score::cpp::make_unexpected(score::os::Error::createFromErrno(EINVAL));
+        }
+
+        // Fetch the alive token for this connection.  The connection is guaranteed
+        // live at this point (connect_cb has fired, disconnect_cb has not), so the
+        // entry must exist in alive_map.
+        std::shared_ptr<bool> alive;
+        {
+            std::lock_guard<std::mutex> live_lk(sent_ctx->live_conn.mutex);
+            auto it = sent_ctx->live_conn.alive_map.find(&conn);
+            if (it != sent_ctx->live_conn.alive_map.end())
+            {
+                alive = it->second;
+            }
+        }
+        if (!alive)
+        {
+            LogErr("[server/handler] alive token missing for request_id=" + std::to_string(request_id) +
+                   " — connection not found in alive_map (unexpected)");
+            return score::cpp::make_unexpected(score::os::Error::createFromErrno(ENOENT));
+        }
+
+        // Enqueue the full work for the pool worker before acknowledging the
+        // request.  A successful acknowledgement therefore means the work is
+        // admitted to the application queue.
+        std::vector<std::uint8_t> bytes(message.begin(), message.end());
+        {
+            std::lock_guard<std::mutex> lk(sent_ctx->queue_mutex);
+            sent_ctx->work_queue.push({&conn, alive, request_id, std::move(bytes)});
+        }
+
+        sent_ctx->queue_cv.notify_one();
+
+        Log("[server/handler] SEND received, request_id=" + std::to_string(request_id) + " queued");
+        return {};
+    };
+
+    // Use the fire-and-forget callback for ingress; completion is sent by workers via Notify().
+    auto start_result = server->StartListening(connect_cb, disconnect_cb, sent_cb, /*sent_with_reply_cb=*/{});
+    if (!start_result.has_value())
+    {
+        LogErr("[server] StartListening failed");
+        stop_workers.store(true);
+        queue_cv.notify_all();
+        for (auto& t : workers)
+        {
+            t.join();
+        }
+        return 1;
+    }
+
+    Log("[server] listening — waiting for all clients to finish...");
+
+    int overall_status = 0;
+    for (std::size_t i = 0U; i < child_pids.size(); ++i)
+    {
+        int wstatus = 0;
+        pid_t pid = waitpid(-1, &wstatus, 0);
+        if (pid > 0)
+        {
+            const bool ok = WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 0;
+            std::ostringstream ss;
+            ss << "[server] child pid=" << pid << (ok ? " exited OK" : " FAILED");
+            (ok ? Log : LogErr)(ss.str());
+            if (!ok)
+            {
+                overall_status = 1;
+            }
+        }
+    }
+
+    stop_workers.store(true);
+    queue_cv.notify_all();
+    for (auto& t : workers)
+    {
+        t.join();
+    }
+
+    const auto resources_after_workload = tests::utility::CaptureProcessResourceSnapshot();
+    tests::utility::PrintProcessResourceDelta(
+        "poc_low_level_no_reply_server_workload", resources_after_thread_creation, resources_after_workload);
+    server->StopListening();
+    Log("[server] shutdown complete.");
+    return overall_status;
+}
+
+// ---------------------------------------------------------------------------
+// Client — per-call pending state for notify-based demultiplexing
+// ---------------------------------------------------------------------------
+
+struct PendingCall
+{
+    bool ready{false};
+    bool ok{false};
+    std::string result_value;
+    std::mutex mutex;
+    std::condition_variable cv;
+};
+
+static bool RunClient(const int client_index, const int call_count, const int thread_count)
+{
+    const auto resources_before_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+    score::crypto::daemon::common::RuntimeMeasurement latency_measurement{kEnableLatencyVerbose};
+    const ServiceParams service_params{
+        kServiceIdentifier,
+        /*max_payload_bytes=*/static_cast<std::uint32_t>(sizeof(IpcBuffer)),
+    };
+    const ClientParams client_params{
+        /*max_concurrent_threads=*/static_cast<std::uint32_t>(thread_count),
+    };
+
+    const auto protocol_config = MakeProtocolConfig(service_params);
+    const auto client_config = MakeClientConfig(client_params);
+
+    score::message_passing::ClientFactory client_factory;
+
+    // ------------------------------------------------------------------
+    // Client-assigned request IDs: pid in the upper 32 bits, per-process
+    // counter in the lower 32 bits.  Unique within this client process and
+    // distinguishable across processes (different pids), so the server can
+    // echo them back without any server-side ID assignment.
+    //
+    // Pending-call map: each in-flight request inserts its shared PendingCall
+    // BEFORE calling Send(), keyed by its pre-assigned id.
+    // NotifyCallback looks up by id — the entry is always present because
+    // the insert happens before the send, eliminating the gap that previously
+    // required a generation counter and two-phase wait.
+    //
+    // Lock order: always pending_map_mutex before PendingCall::mutex.
+    // ------------------------------------------------------------------
+    const std::uint64_t pid_upper = static_cast<std::uint64_t>(::getpid()) << 32U;
+    std::atomic<std::uint32_t> call_counter{1U};
+    std::mutex pending_map_mutex;
+    std::unordered_map<std::uint64_t, std::shared_ptr<PendingCall>> pending_map;
+
+    // ------------------------------------------------------------------
+    // Create ONE shared connection for the whole process.
+    // All threads share it — Send() is safe to call concurrently because
+    // truly_async=true routes all sends through the library's background thread
+    // without blocking the caller.
+    // ------------------------------------------------------------------
+    decltype(client_factory.Create(protocol_config, client_config)) client;
+
+    // The state callback is stored in a score::cpp::callback<> with a fixed
+    // 32-byte inline capacity.  Capturing four objects (two promises + two
+    // atomics) exceeds that limit, so we box them onto the heap and capture
+    // a single pointer — sizeof(void*) == 8 bytes.
+    struct ConnectionState
+    {
+        ConnectionState(
+            std::mutex& pending_map_mutex_in,
+            std::unordered_map<std::uint64_t, std::shared_ptr<PendingCall>>& pending_map_in)
+            : pending_map_mutex{pending_map_mutex_in}, pending_map{pending_map_in}
+        {
+        }
+
+        std::promise<void> ready_promise;
+        std::promise<void> stopped_promise;
+        std::atomic<bool> ready_set{false};
+        std::atomic<bool> stopped_set{false};
+        std::mutex& pending_map_mutex;
+        std::unordered_map<std::uint64_t, std::shared_ptr<PendingCall>>& pending_map;
+    };
+    auto conn_state = std::make_shared<ConnectionState>(pending_map_mutex, pending_map);
+    auto ready_future = conn_state->ready_promise.get_future();
+    auto stopped_future = conn_state->stopped_promise.get_future();
+
+    // Box the NotifyCallback captures into a heap struct so the lambda fits
+    // in the 32-byte inline capacity of score::cpp::callback<>.
+    struct NotifyCtx
+    {
+        std::mutex& pending_map_mutex;
+        std::unordered_map<std::uint64_t, std::shared_ptr<PendingCall>>& pending_map;
+        int client_index;
+    };
+    // notify_ctx is shared across all calls; the per-call generation guard is
+    // stored inside each PendingCall and checked under pending_map_mutex.
+    auto notify_ctx = std::make_shared<NotifyCtx>(NotifyCtx{pending_map_mutex, pending_map, client_index});
+
+    {
+        score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement connection_scope{
+            latency_measurement, "POC::LowLevel::ClientConnectionSetup"};
+        client = client_factory.Create(protocol_config, client_config);
+        if (!client)
+        {
+            LogErr("[client " + std::to_string(client_index) + "] Create failed");
+            return false;
+        }
+
+        client->Start(
+        [conn_state, client_index](score::message_passing::IClientConnection::State state) {
+            if (state == score::message_passing::IClientConnection::State::kReady)
+            {
+                if (!conn_state->ready_set.exchange(true))
+                {
+                    Log("[client " + std::to_string(client_index) + "] connection ready");
+                    conn_state->ready_promise.set_value();
+                }
+            }
+            else if (state == score::message_passing::IClientConnection::State::kStopped)
+            {
+                if (!conn_state->stopped_set.exchange(true))
+                {
+                    conn_state->stopped_promise.set_value();
+                }
+                std::vector<std::shared_ptr<PendingCall>> pending_calls;
+                {
+                    std::lock_guard<std::mutex> map_lk(conn_state->pending_map_mutex);
+                    for (const auto& entry : conn_state->pending_map)
+                    {
+                        pending_calls.push_back(entry.second);
+                    }
+                    conn_state->pending_map.clear();
+                }
+                for (const auto& pending : pending_calls)
+                {
+                    {
+                        std::lock_guard<std::mutex> call_lk(pending->mutex);
+                        pending->ok = false;
+                        pending->ready = true;
+                    }
+                    pending->cv.notify_one();
+                }
+            }
+        },
+        // NotifyCallback — runs on the library's engine thread.
+        // The PendingCall is inserted before Send(), so the entry is available
+        // when a Notify arrives.
+        // MUST NOT call any blocking message_passing operation (doc §Client
+        // Connection callbacks).  Only parse the payload, look up the pending
+        // call by request_id, and signal the condition variable.
+        [notify_ctx](score::cpp::span<const std::uint8_t> message) {
+            auto start_time = std::chrono::system_clock::now();
+
+            helper::Response parsed_response;
+            const bool parse_ok = helper::ParseResponseBytes(message.data(), message.size(), parsed_response);
+            const std::uint64_t request_id = parsed_response.request_id;
+            std::string result_value = std::move(parsed_response.string_value);
+            if (!parse_ok)
+            {
+                LogErr("[client " + std::to_string(notify_ctx->client_index) + "] NotifyCallback: invalid response");
+            }
+
+            // Look up and signal the waiting thread.
+            // The entry was inserted before Send() so it is always
+            // present when Notify arrives.  A missing entry means the call already
+            // timed out and was erased by the calling thread — discard silently.
+            std::lock_guard<std::mutex> map_lk(notify_ctx->pending_map_mutex);
+            auto it = notify_ctx->pending_map.find(request_id);
+            if (it != notify_ctx->pending_map.end())
+            {
+                const auto pending = it->second;
+                {
+                    std::lock_guard<std::mutex> call_lk(pending->mutex);
+                    pending->result_value = std::move(result_value);
+                    pending->ok = parse_ok;
+                    pending->ready = true;
+                }
+                pending->cv.notify_one();
+            }
+            else
+            {
+                LogErr("[client " + std::to_string(notify_ctx->client_index) +
+                       "] NotifyCallback: late notify for timed-out request_id=" + std::to_string(request_id) +
+                       " — discarded");
+            }
+
+            auto end_time = std::chrono::system_clock::now();
+            auto diff = end_time - start_time;
+            Log("[client " + std::to_string(notify_ctx->client_index) +
+                "] NotifyCallback request_id=" + std::to_string(request_id) + " took " +
+                std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(diff).count()) + " us");
+        });
+
+        if (ready_future.wait_for(std::chrono::seconds(120)) != std::future_status::ready)
+        {
+            LogErr("[client " + std::to_string(client_index) + "] timed out waiting for connection");
+            client->Stop();
+            return false;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Spawn all client threads.  They all share the single connection.
+    // ------------------------------------------------------------------
+    std::atomic<int> total_failures{0};
+    std::vector<std::thread> threads;
+    threads.reserve(static_cast<std::size_t>(thread_count));
+    helper::ThreadStartBarrier thread_start_barrier{static_cast<std::size_t>(thread_count)};
+
+    for (int t = 0; t < thread_count; ++t)
+    {
+        score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement thread_scope{
+            latency_measurement, "POC::LowLevel::ClientThreadCreation"};
+        threads.emplace_back([&, t]() {
+            thread_start_barrier.ArriveAndWait();
+            int failures = 0;
+
+            for (int c = 0; c < call_count; ++c)
+            {
+                {
+                score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement latency_scope{
+                    latency_measurement, "POC::LowLevel::RoundTrip"};
+
+                // Build request
+                auto workload_request = helper::CreateRequest(client_index, t, c);
+
+                // Assign the request_id before building the FlatBuffer so it can
+                // be embedded in the payload and inserted into the pending_map —
+                // all before the send.  Upper 32 bits = pid (process-unique prefix),
+                // lower 32 bits = per-process monotonic counter (thread-unique within
+                // this process).  Zero is never produced (counter starts at 1).
+                const std::uint64_t request_id = pid_upper | call_counter.fetch_add(1U, std::memory_order_relaxed);
+                workload_request.request_id = request_id;
+
+                // Persist the shared-codec request so it outlives the async send queue.
+                auto request_buffer = std::make_shared<std::vector<std::uint8_t>>(
+                    helper::BuildRequestBytes(workload_request));
+                score::cpp::span<const std::uint8_t> request_span{request_buffer->data(), request_buffer->size()};
+
+                // Insert into the pending map BEFORE the send so the entry is
+                // guaranteed to exist when NotifyCallback fires.  No generation
+                // counter needed: request_ids are never reused within a process.
+                auto pending = std::make_shared<PendingCall>();
+                {
+                    std::lock_guard<std::mutex> map_lk(pending_map_mutex);
+                    pending_map[request_id] = pending;
+                }
+
+                {
+                    std::ostringstream ss;
+                          ss << "[client " << client_index << "/thread " << t
+                              << "] -> Send() str=\"" << workload_request.string_value
+                              << "\" uint64=" << workload_request.uint64_value << " request_id=" << request_id;
+                    Log(ss.str());
+                }
+
+                auto send_result = client->Send(request_span);
+                if (!send_result.has_value())
+                {
+                    std::ostringstream ss;
+                    ss << "[client " << client_index << "/thread " << t
+                       << "] Send() failed: " << send_result.error();
+                    LogErr(ss.str());
+                    std::lock_guard<std::mutex> map_lk(pending_map_mutex);
+                    pending_map.erase(request_id);
+                    ++failures;
+                    continue;
+                }
+
+                // Wait for NotifyCallback to signal ready.
+                constexpr auto kNotifyTimeout = std::chrono::seconds(300);
+                bool timed_out = false;
+                {
+                    std::unique_lock<std::mutex> call_lk(pending->mutex);
+                    timed_out = !pending->cv.wait_for(call_lk, kNotifyTimeout, [&] {
+                        return pending->ready;
+                    });
+                }
+
+                // Retire: erase from map. The shared state remains alive until a
+                // deferred NotifyCallback releases it.
+                {
+                    std::lock_guard<std::mutex> map_lk(pending_map_mutex);
+                    pending_map.erase(request_id);
+                }
+
+                if (timed_out)
+                {
+                    std::ostringstream ss;
+                    ss << "[client " << client_index << "/thread " << t
+                       << "] TIMEOUT waiting for Notify request_id=" << request_id;
+                    LogErr(ss.str());
+                    ++failures;
+                    continue;
+                }
+
+                if (!pending->ok ||
+                    !helper::Matches(workload_request, helper::Response{request_id, pending->result_value}))
+                {
+                    std::ostringstream ss;
+                    ss << "[client " << client_index << "/thread " << t << "] MISMATCH request_id=" << request_id
+                       << ": expected=\"" << helper::ProcessRequest(workload_request).string_value << "\" got=\""
+                       << (pending->ok ? pending->result_value : "<parse error>") << "\"";
+                    LogErr(ss.str());
+                    ++failures;
+                    continue;
+                }
+
+                {
+                    std::ostringstream ss;
+                    ss << "[client " << client_index << "/thread " << t << "] <- OK request_id=" << request_id
+                       << " result=\"" << pending->result_value << "\" (Phase 2: Notify received, round-trip complete)";
+                    Log(ss.str());
+                }
+
+                // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                }
+                helper::WaitAfterCall(g_random_wait);
+            }
+
+            total_failures.fetch_add(failures, std::memory_order_relaxed);
+        });
+    }
+
+    thread_start_barrier.WaitForAll();
+    const auto resources_after_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
+    tests::utility::PrintProcessResourceDelta(
+        "poc_low_level_client_thread_creation", resources_before_thread_creation, resources_after_thread_creation);
+    thread_start_barrier.Release();
+
+    for (auto& th : threads)
+    {
+        th.join();
+    }
+    const auto resources_after_workload = tests::utility::CaptureProcessResourceSnapshot();
+    tests::utility::PrintProcessResourceDelta(
+        "poc_low_level_no_reply_client_workload", resources_after_thread_creation, resources_after_workload);
+
+    client->Stop();
+    if (stopped_future.wait_for(std::chrono::seconds(30)) != std::future_status::ready)
+    {
+        LogErr("[client " + std::to_string(client_index) + "] timed out waiting for connection to stop");
+    }
+
+    const int total = call_count * thread_count;
+    const int failures = total_failures.load();
+    const int success = total - failures;
+    std::ostringstream ss;
+    ss << "[client " << client_index << "] Results: " << success << "/" << total << " calls succeeded, " << failures
+       << "/" << total << " calls failed (" << thread_count << " thread(s) x " << call_count << " call(s))";
+    Log(ss.str());
+
+    return failures == 0;
+}
+
+}  // namespace score::crypto::ipc::control
+
+// ---------------------------------------------------------------------------
+// main — fork before any IPC setup for a clean per-process state
+// ---------------------------------------------------------------------------
+
+int main(int argc, char** argv)
+{
+    score::crypto::ipc::poc_helper::PocArguments defaults;
+    defaults.client_count = g_client_count;
+    defaults.call_count = g_call_count;
+    defaults.client_threads = g_client_threads;
+    defaults.server_threads = g_server_threads;
+    defaults.sleep_milliseconds = g_sleep_milliseconds;
+    std::string parse_error;
+    const auto parsed_arguments = score::crypto::ipc::poc_helper::ParseArguments(argc, argv, parse_error, defaults);
+    if (!parsed_arguments.has_value())
+    {
+        LogErr("[main] " + parse_error);
+        return 1;
+    }
+    g_client_count = parsed_arguments->client_count;
+    g_call_count = parsed_arguments->call_count;
+    g_client_threads = parsed_arguments->client_threads;
+    g_server_threads = parsed_arguments->server_threads;
+    g_sleep_milliseconds = parsed_arguments->sleep_milliseconds;
+    g_random_wait = parsed_arguments->random_wait;
+
+    std::cout << score::crypto::ipc::poc_helper::SettingsSummary(
+                     "poc_low_level",
+                     g_client_count,
+                     g_call_count,
+                     g_client_threads,
+                     g_server_threads,
+                     g_random_wait)
+              << '\n'
+              << std::flush;
+    Log("[main] client_count=" + std::to_string(g_client_count) + "  call_count=" + std::to_string(g_call_count) +
+        "  client_threads=" + std::to_string(g_client_threads) + "  server_threads=" +
+        std::to_string(g_server_threads) + "  sleep_milliseconds=" + std::to_string(g_sleep_milliseconds));
+
+    std::vector<pid_t> child_pids;
+    int my_client_index = -1;
+
+    for (int i = 0; i < g_client_count; ++i)
+    {
+        pid_t pid = ::fork();
+        if (pid < 0)
+        {
+            std::perror("[main] fork");
+            for (pid_t cpid : child_pids)
+            {
+                ::kill(cpid, SIGTERM);
+            }
+            return 1;
+        }
+        if (pid == 0)
+        {
+            my_client_index = i;
+            break;
+        }
+        child_pids.push_back(pid);
+    }
+
+    if (my_client_index == -1)
+    {
+        return score::crypto::ipc::control::RunServer(child_pids);
+    }
+    else
+    {
+        const bool ok = score::crypto::ipc::control::RunClient(my_client_index, g_call_count, g_client_threads);
+        return ok ? 0 : 1;
+    }
+}
+
+// clang-format off
+
+// =============================================================================
+// Design comparison: per-thread connection (initial) vs. shared connection
+// with Send+Notify (this version)
+// =============================================================================
+//
+// APPROACH A — One IClientConnection per thread, SendWaitReply
+// -------------------------------------------------------------
+// Client threads each own a dedicated connection to the server.
+// SendWaitReply() blocks the calling thread until the server calls Reply().
+// The server uses sent_with_reply_callback + pool threads that call Reply().
+//
+//   Max parallel requests from one client process:
+//     Exactly thread_count.  Each connection carries at most one in-flight
+//     REQUEST at a time (per-connection REQUEST/REPLY serialization).
+//     Adding a thread automatically adds a connection and one more parallel
+//     slot — no explicit queue configuration needed.
+//
+//   Memory / configuration (N client processes, T threads each):
+//     Server allocates N*T connection objects, each with its own receive
+//     buffer, reply slot, and notify queue.  No application-level queue
+//     sizing is required beyond the connection count itself — the parallelism
+//     limit is implicit in the number of connections.
+//     Server max_queued_sends must cover all N*T concurrent sends.
+//
+//   Pros:
+//   - Simple: no ticket tracking, no response routing, no shared state on the
+//     client side.  The transport itself matches requests to replies by
+//     connection ordering.
+//   - Configuration is trivially correct: parallelism = thread count = connection
+//     count, with no additional parameters to keep in sync.
+//   - reply_buffer can be stack-allocated per thread.
+//
+//   Cons:
+//   - One OS connection (socket fd pair) per thread.  For N client processes
+//     each with T threads, the server holds N*T open connections.
+//   - The REQUEST/REPLY protocol serializes the server's sent_with_reply
+//     callback per connection (doc §Server callbacks): while Reply() has not
+//     been called, no further REQUEST from the same connection is processed.
+//     This is fine with one connection per thread (each thread sends one
+//     request at a time), but it means the connection count cannot be reduced
+//     without losing parallelism.
+//   - SendWaitReply() blocks the calling thread inside the library during the
+//     entire round-trip; there is no built-in timeout.
+//
+// APPROACH B — One IClientConnection per process, SendWithCallback + Notify  (this file)
+// --------------------------------------------------------------------------------------
+// One connection is shared by all threads.  Threads call SendWithCallback() with a
+// per-call ReplyCallback.  The ReplyCallback (engine thread) parses the ack and inserts
+// into the pending_map.  The NotifyCallback (same engine thread) routes by request_id
+// and signals the waiting thread.  The caller waits on an application-level CV with a
+// timeout — it is never blocked inside the library.
+//
+//   Max parallel requests from one client process:
+//     Bounded by the minimum of four independently configured sizes:
+//       client  max_async_replies  (one slot per in-flight SendWithCallback)
+//       client  max_queued_sends   (one slot per concurrent enqueue)
+//       server  max_queued_sends   (server-side receive queue, shared across clients)
+//       server  max_queued_notifies (per-connection notify queue)
+//     All must be set to >= thread_count.  If any one is undersized,
+//     SendWithCallback() returns ENOBUFS or Notify() is dropped — with no
+//     automatic backpressure to the calling thread.
+//
+//   Memory / configuration (N client processes, T threads each):
+//     Server allocates N connection objects (not N*T).  Total queue capacity:
+//
+//       server max_queued_sends   — shared across ALL connections (QNX).
+//                                   At most N simultaneous REQUESTs (one per
+//                                   connection), so N slots suffice.
+//
+//       server max_queued_notifies — per connection (QNX).
+//                                   Must hold T responses for that client's
+//                                   threads.  Independent of N.
+//
+//       client max_async_replies  — per connection, per client process.
+//                                   Must hold T concurrent in-flight callbacks.
+//
+//       client max_queued_sends   — per connection, per client process.
+//                                   Must hold T concurrent enqueues.
+//
+//     All four client sizes must be kept in sync with T; the coupling is
+//     enforced by convention only, not by the API.
+//
+//   Pros:
+//   - O(clients) connections instead of O(clients * threads).
+//   - SendWithCallback() is non-blocking — the calling thread is never held
+//     inside the IPC layer regardless of server behavior.
+//   - Application-level wait_for() timeout bounds how long the thread can wait,
+//     which is a prerequisite for use in safety-relevant contexts.
+//   - ReplyCallback and NotifyCallback run sequentially on the engine thread,
+//     so the pending_map needs no early-notify buffer: the entry is always
+//     present by the time Notify() arrives.
+//   - NotifyCallback runs on the library's own thread — no dedicated receive
+//     thread is needed on the client side.
+//
+//   Cons:
+//   - Requires ticket tracking (request_id map + mutex) on the client side.
+//   - ReplyCallback and NotifyCallback must not call any blocking message_passing
+//     operation (doc §Client Connection callbacks); only signal/mutex work is allowed.
+//   - Four queue sizes must all be kept >= thread_count.  Getting any one wrong
+//     causes ENOBUFS on send or silent response drops rather than a clean error.
+//   - The response FlatBuffer (ControlResponse) must carry the request_id
+//     for response routing; a simpler protocol without a correlation id could
+//     not use this model.
+//
+// ANALOGY TO poc_async (mw::com):
+//   poc_async faced the same root constraint at the higher abstraction level:
+//   mw::com methods also serialize the handler per skeleton instance.  The
+//   workaround there was identical in spirit — use a short-lived method call
+//   (enqueue only) + a separate event channel (broadcast) for the response.
+//   The key difference is that mw::com events broadcast to ALL subscribers,
+//   requiring one skeleton per client to prevent cross-client leakage and
+//   making the ticket essential for routing.  message_passing Notify() is
+//   point-to-point per connection, so one connection per process suffices and
+//   the ticket is only needed for intra-process thread response routing.
+//
+// clang-format on
