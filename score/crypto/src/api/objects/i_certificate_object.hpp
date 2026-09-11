@@ -11,17 +11,19 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_CERTIFICATE_OBJECT_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_CERTIFICATE_OBJECT_HPP
+#ifndef SCORE_CRYPTO_SRC_API_OBJECTS_I_CERTIFICATE_OBJECT_HPP
+#define SCORE_CRYPTO_SRC_API_OBJECTS_I_CERTIFICATE_OBJECT_HPP
 
+#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/objects/i_crypto_object.hpp"
 #include "score/result/result.h"
 #include "score/span.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <string>
+#include <string_view>
 
 namespace score
 {
@@ -51,6 +53,8 @@ namespace crypto
 class ICertificateObject : public ICryptoObject
 {
   public:
+    static constexpr std::size_t kSha256FingerprintSize = 32U;
+
     using Uptr = std::unique_ptr<ICertificateObject>;
 
     ~ICertificateObject() override = default;
@@ -76,8 +80,14 @@ class ICertificateObject : public ICryptoObject
     /// @return Algorithm string (e.g., "RSA-2048", "ECDSA-P256", "ML-DSA-65")
     virtual AlgorithmId GetPublicKeyAlgorithm() const noexcept = 0;
 
-    /// @brief Returns the certificate serial number as a hex-encoded string.
+    /// @brief Returns the certificate serial number as an uppercase hex string (e.g., "01ABCDEF").
     virtual std::string GetSerialNumber() const = 0;
+
+    /// @brief Returns the SHA-256 fingerprint of the certificate as a 32-byte array.
+    ///
+    /// The fingerprint is the SHA-256 digest of the DER-encoded certificate. Together
+    /// with the issuer DN and serial number it uniquely identifies a certificate.
+    virtual std::array<uint8_t, kSha256FingerprintSize> GetFingerprint() const noexcept = 0;
 
     /// @brief Returns the byte size of the DER-encoded SubjectPublicKeyInfo.
     ///
@@ -105,4 +115,4 @@ class ICertificateObject : public ICryptoObject
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_CERTIFICATE_OBJECT_HPP
+#endif  // SCORE_CRYPTO_SRC_API_OBJECTS_I_CERTIFICATE_OBJECT_HPP

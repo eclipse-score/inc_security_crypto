@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_CERTIFICATE_CERT_TYPES_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_CERTIFICATE_CERT_TYPES_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CERTIFICATE_CERT_TYPES_HPP
+#define SCORE_CRYPTO_SRC_API_CERTIFICATE_CERT_TYPES_HPP
 
 #include "score/crypto/src/api/common/types.hpp"
 
@@ -39,6 +39,15 @@ enum class CertVerifyResult : uint8_t
     kUnknownError       ///< Unspecified verification failure
 };
 
+/// @brief Controls where certificate-chain verification may terminate.
+enum class ChainTerminationPolicy : uint8_t
+{
+    /// Require a complete path ending at a self-signed trust-store root.
+    kRootRequired,
+    /// Permit termination at the first certificate present in the trust store.
+    kTrustStoreTerminated
+};
+
 /// @brief Status of an OCSP response.
 enum class OcspStatus : uint8_t
 {
@@ -52,4 +61,4 @@ enum class OcspStatus : uint8_t
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_CERTIFICATE_CERT_TYPES_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CERTIFICATE_CERT_TYPES_HPP

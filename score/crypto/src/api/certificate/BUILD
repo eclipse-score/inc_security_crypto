@@ -14,32 +14,16 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
-    name = "context_configs",
+    name = "cert_types",
     hdrs = [
-        "base_context_config.hpp",
-        "hash_context_config.hpp",
-        "key_management_context_config.hpp",
-        "key_operation_params.hpp",
-        "mac_context_config.hpp",
-        "permission_builder.hpp",
+        "cert_types.hpp",
+        "i_ocsp_request_export.hpp",
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
-    ],
-)
-
-cc_library(
-    name = "cert_context_configs",
-    hdrs = [
-        "certificate_context_config.hpp",
-        "certificate_verification_context_config.hpp",
-    ],
-    includes = ["."],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":context_configs",
-        "//score/crypto/src/api/common:crypto_common",
+        "@score_baselibs//score/language/futurecpp",
+        "@score_baselibs//score/result",
     ],
 )

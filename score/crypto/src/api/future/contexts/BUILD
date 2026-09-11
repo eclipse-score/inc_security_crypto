@@ -62,18 +62,15 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #     ],
 # )
 
-# -- Certificate management + verification + CSR --
+# -- CSR --
 # cc_library(
-#     name = "certificate_contexts",
+#     name = "csr_generation_context",
 #     hdrs = [
-#         "i_certificate_management_context.hpp",
-#         "i_certificate_verification_context.hpp",
 #         "i_csr_generation_context.hpp",
 #     ],
 #     deps = [
 #         "//score/crypto/src/api/contexts:context_bases",
 #         "//score/crypto/src/api/common:crypto_common",
-#         "//score/crypto/src/api/future/certificate:crypto_certificate",
 #         "@score_baselibs//score/result",
 #     ],
 # )
