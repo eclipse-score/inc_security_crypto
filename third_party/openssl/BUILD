@@ -30,7 +30,6 @@ configure_make(
     }) + [
         "shared",  # Build shared libraries (libcrypto.so, libssl.so)
         "no-asm",  # Disable assembly optimizations to avoid GCC inline assembly issues
-        "no-threads",  # Disable threading to avoid pthread requirement on QNX
         "no-makedepend",  # Disable dependency generation that causes QCC issues
         "no-sock",  # Disable socket/network BIO (not needed for a crypto library; avoids missing socket APIs in QNX sysroot)
         # Note: ENGINE API kept enabled for SoftHSM compatibility (ENGINE is deprecated in OpenSSL 3.x but still functional)
@@ -81,7 +80,7 @@ configure_make(
         "no-afalgeng",  # Disable Linux AF_ALG engine (requires linux/version.h, not available in QNX sysroot)
         "no-padlockeng",  # Disable VIA Padlock engine (x86-only, irrelevant for aarch64/QNX targets)
         "no-legacy",  # Disable legacy provider (only default provider used)
-        "no-async",  # Disable async dispatch (unused, especially with no-threads)
+        "no-async",  # Disable async dispatch (unused)
         "-DUSE_TIMEGM",  # QNX doesn't provide the 'timezone' global variable
         "--prefix=$${INSTALLDIR}",
         "--openssldir=$${INSTALLDIR}",
