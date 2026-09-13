@@ -14,17 +14,22 @@
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
 
 #include <memory>
+#include <vector>
+
+#include <pkcs11.h>
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/i_provider_factory.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_token_config.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 namespace score::crypto::daemon::provider::pkcs11
 {
 
-Pkcs11ProviderFactory::Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig config) : m_config{std::move(config)} {}
+Pkcs11ProviderFactory::Pkcs11ProviderFactory(const Pkcs11ProviderFactoryConfig& config) : m_config{config} {}
 
 ProviderFactoryResult Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& manager)
 {
@@ -60,7 +65,11 @@ ProviderFactoryResult Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& 
     // so that C_Initialize is called exactly once and C_Finalize is deferred
     // until the very last provider (and therefore all its sessions) is destroyed.
     auto pkcs11Module = std::make_shared<Pkcs11Module>();
-    const auto initResult = pkcs11Module->Init();
+
+    CK_C_INITIALIZE_ARGS init_args{};
+    // Set CKF_OS_LOCKING_OK since the daemon will use it in a multi-threaded manner.
+    init_args.flags = CKF_OS_LOCKING_OK;
+    const auto initResult = pkcs11Module->Init(&init_args);
     if (!initResult.has_value())
     {
         result.failures.push_back(ProviderFailure{
