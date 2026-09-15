@@ -321,14 +321,29 @@ TEST_F(HashExampleTest, ResolvesAndUsesExplicitProvider)
     auto ctx_result = stack_result.value()->CreateCryptoContext();
     ASSERT_TRUE(ctx_result.has_value());
 
-    const auto provider_result = ctx_result.value()->ResolveResource("OPENSSL", ResourceType::kProvider);
-    ASSERT_TRUE(provider_result.has_value());
-    EXPECT_EQ(provider_result.value().type, ResourceType::kProvider);
+    std::vector<std::string_view> provider_names;
+#ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
+    provider_names.emplace_back("OPENSSL");
+#endif
+#ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
+    provider_names.emplace_back("PKCS11_ENGINE");
+#endif
+    ASSERT_FALSE(provider_names.empty());
 
-    HashContextConfig hash_config;
-    hash_config.SetAlgorithm("SHA256").SetProvider(provider_result.value());
-    const auto hash_result = ctx_result.value()->CreateHashContext(hash_config);
-    EXPECT_TRUE(hash_result.has_value());
+    for (const auto provider_name : provider_names)
+    {
+        SCOPED_TRACE(std::string{"Explicit provider: "} + std::string{provider_name});
+
+        const auto provider_result =
+            ctx_result.value()->ResolveResource(ResourceId{provider_name}, ResourceType::kProvider);
+        ASSERT_TRUE(provider_result.has_value());
+        EXPECT_EQ(provider_result.value().type, ResourceType::kProvider);
+
+        HashContextConfig hash_config;
+        hash_config.SetAlgorithm("SHA256").SetProvider(provider_result.value());
+        const auto hash_result = ctx_result.value()->CreateHashContext(hash_config);
+        EXPECT_TRUE(hash_result.has_value());
+    }
 }
 
 TEST_F(HashExampleTest, ReportsMissingExplicitProvider)
