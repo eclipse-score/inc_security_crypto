@@ -51,7 +51,7 @@ int main()
 {
     // 1. Create the crypto stack and connect to the daemon
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///var/run/crypto-daemon.sock");
+    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock");
 
     auto stack_result = CreateCryptoStack(stack_config);
     if (!stack_result.has_value())
@@ -72,7 +72,7 @@ int main()
 
     // 3. Configure and create a SHA-256 hash context
     HashContextConfig hash_config;
-    hash_config.SetAlgorithm("SHA-256");
+    hash_config.SetAlgorithm("SHA256");
 
     auto hash_result = ctx->CreateHashContext(hash_config);
     if (!hash_result.has_value())
@@ -96,8 +96,12 @@ int main()
         return 1;
     }
 
-    hash->Update({reinterpret_cast<const uint8_t*>(chunk1), std::strlen(chunk1)});
-    hash->Update({reinterpret_cast<const uint8_t*>(chunk2), std::strlen(chunk2)});
+    if (!hash->Update({reinterpret_cast<const uint8_t*>(chunk1), std::strlen(chunk1)}).has_value() ||
+        !hash->Update({reinterpret_cast<const uint8_t*>(chunk2), std::strlen(chunk2)}).has_value())
+    {
+        std::cout << "Error: Update failed" << std::endl;
+        return 1;
+    }
 
     auto finalize_result = hash->Finalize({digest.data(), digest.size()});
     if (!finalize_result.has_value())
@@ -128,6 +132,11 @@ int main()
     {
         std::cout << "OK: Streaming and single-shot digests match" << std::endl;
     }
+    else
+    {
+        std::cout << "Error: Streaming and single-shot digests differ" << std::endl;
+        return 1;
+    }
 
     // 7. Context reuse via Reset()
     //    Reset() returns the context to its post-construction state — the key
@@ -146,8 +155,12 @@ int main()
     const char* second_msg = "Context reuse is efficient!";
     std::array<uint8_t, kSha256DigestSize> digest3{};
 
-    hash->Init();
-    hash->Update({reinterpret_cast<const uint8_t*>(second_msg), std::strlen(second_msg)});
+    if (!hash->Init().has_value() ||
+        !hash->Update({reinterpret_cast<const uint8_t*>(second_msg), std::strlen(second_msg)}).has_value())
+    {
+        std::cout << "Error: Reused context initialization or update failed" << std::endl;
+        return 1;
+    }
     auto finalize3 = hash->Finalize({digest3.data(), digest3.size()});
     if (!finalize3.has_value())
     {
@@ -157,18 +170,31 @@ int main()
     PrintHex("Reused-ctx SHA-256", digest3.data(), finalize3.value());
 
     // Reset() also works mid-stream to abort and restart
-    hash->Init();
-    hash->Update({reinterpret_cast<const uint8_t*>(chunk1), std::strlen(chunk1)});
-    hash->Reset();  // discard partial work
-
-    hash->Init();
-    hash->Update({reinterpret_cast<const uint8_t*>(second_msg), std::strlen(second_msg)});
+    if (!hash->Init().has_value() ||
+        !hash->Update({reinterpret_cast<const uint8_t*>(chunk1), std::strlen(chunk1)}).has_value() ||
+        !hash->Reset().has_value() ||  // discard partial work
+        !hash->Init().has_value() ||
+        !hash->Update({reinterpret_cast<const uint8_t*>(second_msg), std::strlen(second_msg)}).has_value())
+    {
+        std::cout << "Error: Mid-stream reset sequence failed" << std::endl;
+        return 1;
+    }
     std::array<uint8_t, kSha256DigestSize> digest4{};
-    hash->Finalize({digest4.data(), digest4.size()});
+    auto finalize4 = hash->Finalize({digest4.data(), digest4.size()});
+    if (!finalize4.has_value())
+    {
+        std::cout << "Error: Finalize after mid-stream Reset failed" << std::endl;
+        return 1;
+    }
 
     if (digest3 == digest4)
     {
         std::cout << "OK: Reset mid-stream + re-hash matches" << std::endl;
+    }
+    else
+    {
+        std::cout << "Error: Reset mid-stream + re-hash differs" << std::endl;
+        return 1;
     }
 
     // 8. Query digest size

@@ -27,6 +27,21 @@ namespace handler
 namespace handler_utils
 {
 
+Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ValidateParameterCount(
+    const common::RequestParameters& parameters,
+    const std::size_t expected_count) noexcept
+{
+    if (parameters.size() < expected_count)
+    {
+        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
+    }
+    if (parameters.size() > expected_count)
+    {
+        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
+    return std::monostate{};
+}
+
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 ExtractOutputBufferData(common::RequestParameter& userData, uint8_t*& buffer, size_t& size) noexcept
 {
@@ -54,6 +69,16 @@ Expected<common::StreamOperationState, score::crypto::daemon::common::DaemonErro
     common::StreamOperationState currentState,
     StreamOperation streamOperation) noexcept
 {
+    return ValidateStreamOperationSequence(
+        currentState, streamOperation, false, score::crypto::daemon::common::DaemonErrorCode::kInvalidStreamOperation);
+}
+
+Expected<common::StreamOperationState, score::crypto::daemon::common::DaemonErrorCode> ValidateStreamOperationSequence(
+    common::StreamOperationState currentState,
+    StreamOperation streamOperation,
+    const bool allow_finalize_without_update,
+    const score::crypto::daemon::common::DaemonErrorCode invalid_sequence_error) noexcept
+{
     switch (streamOperation)
     {
         case StreamOperation::kInit:
@@ -66,12 +91,13 @@ Expected<common::StreamOperationState, score::crypto::daemon::common::DaemonErro
             {
                 return common::StreamOperationState::STREAM_ACTIVE;
             }
-            return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidStreamOperation);
+            return make_unexpected(invalid_sequence_error);
 
         case StreamOperation::kFinalize:
-            if (currentState != common::StreamOperationState::STREAM_ACTIVE)
+            if ((currentState != common::StreamOperationState::STREAM_ACTIVE) &&
+                !(allow_finalize_without_update && (currentState == common::StreamOperationState::STREAM_INITIALIZED)))
             {
-                return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidStreamOperation);
+                return make_unexpected(invalid_sequence_error);
             }
             return common::StreamOperationState::IDLE;
     }

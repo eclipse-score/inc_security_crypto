@@ -84,10 +84,9 @@ score::Result<IReadWriteMemory::Uptr> ShmMemoryAllocator::Allocate(std::size_t s
 
 score::Result<IReadWriteMemory::Uptr> ShmMemoryAllocator::Allocate(std::size_t size, const CryptoResourceId& provider)
 {
-    const std::optional<std::uint16_t> provider_id =
-        (provider.primary_provider != med_ops::SHM_WIRE_PROVIDER_ID_UNBOUND)
-            ? std::optional<std::uint16_t>{provider.primary_provider}
-            : std::nullopt;
+    const std::optional<std::uint16_t> provider_id = (provider.primary_provider != kUnboundProviderId)
+                                                         ? std::optional<std::uint16_t>{provider.primary_provider}
+                                                         : std::nullopt;
     auto result = AllocateInternal(size, std::nullopt, provider_id);
     if (!result.has_value())
     {

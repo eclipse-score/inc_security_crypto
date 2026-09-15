@@ -43,7 +43,7 @@ The API uses a two-phase resource identification model:
        ResourceType type;             // kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,
                                       // kKey, kCertificate, kSecureObject, kDataObject
        ResourcePersistence persistence; // kPersistent or kEphemeral
-       uint16_t primary_provider;     // owning device/provider index (0 = unbound)
+       uint16_t primary_provider;     // owning device/provider index (UINT16_MAX = unbound)
    };
 
 The struct is fully numeric, cheap to copy and hash, and includes
@@ -620,7 +620,7 @@ the WCET bound.
 
    // Per-context override: 200 ms for hash, disabled for key gen
    HashContextConfig hash_cfg;
-   hash_cfg.SetAlgorithm("SHA-256")
+   hash_cfg.SetAlgorithm("SHA256")
            .SetOperationTimeout(std::chrono::milliseconds{200});
 
    KeyManagementContextConfig keygen_cfg;

@@ -13,9 +13,12 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <initializer_list>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,6 +27,8 @@
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_executor.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 #include "score/tests/utility/test_utility.hpp"
@@ -58,6 +63,10 @@ std::vector<std::uint8_t> ExtractDigest(const common::ResponseParameters& respon
         if (const auto* size_ptr = std::get_if<std::uint64_t>(&param))
         {
             const auto size = static_cast<std::size_t>(*size_ptr);
+            if (size > outputBuffer.size())
+            {
+                return {};
+            }
             return {outputBuffer.begin(), outputBuffer.begin() + size};
         }
         // Old protocol: full data in response (backward compatibility)
@@ -71,6 +80,374 @@ std::vector<std::uint8_t> ExtractDigest(const common::ResponseParameters& respon
         }
     }
     return {};
+}
+
+struct HashAlgorithmTestData
+{
+    const char* algorithm;
+    std::size_t digest_size;
+    const char* hello_digest_path;
+    const char* complete_digest_path;
+    const char* empty_digest_path;
+    const char* abc_digest_path;
+};
+
+struct HashVector
+{
+    const char* input_path;
+    const char* digest_path;
+};
+
+struct DigestFinalStubState
+{
+    std::vector<CK_RV> results{};
+    std::size_t call_count{0U};
+};
+
+struct DigestUpdateStubState
+{
+    CK_RV result{CKR_OK};
+    std::size_t call_count{0U};
+};
+
+struct DigestStubState
+{
+    CK_RV init_result{CKR_OK};
+    CK_RV digest_result{CKR_OK};
+    std::size_t init_call_count{0U};
+    std::size_t digest_call_count{0U};
+};
+
+DigestFinalStubState& GetDigestFinalStubState()
+{
+    static DigestFinalStubState state{};
+    return state;
+}
+
+DigestUpdateStubState& GetDigestUpdateStubState()
+{
+    static DigestUpdateStubState state{};
+    return state;
+}
+
+DigestStubState& GetDigestStubState()
+{
+    static DigestStubState state{};
+    return state;
+}
+
+void ConfigureDigestFinalStub(std::initializer_list<CK_RV> results)
+{
+    auto& state = GetDigestFinalStubState();
+    state.results.assign(results);
+    state.call_count = 0U;
+}
+
+void ConfigureDigestUpdateStub(const CK_RV result)
+{
+    auto& state = GetDigestUpdateStubState();
+    state.result = result;
+    state.call_count = 0U;
+}
+
+void ConfigureDigestStub(const CK_RV initResult, const CK_RV digestResult = CKR_OK)
+{
+    auto& state = GetDigestStubState();
+    state.init_result = initResult;
+    state.digest_result = digestResult;
+    state.init_call_count = 0U;
+    state.digest_call_count = 0U;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, DigestFinalStub)
+(CK_SESSION_HANDLE /*session*/, CK_BYTE_PTR /*digest*/, CK_ULONG_PTR /*digest_length*/)
+{
+    auto& state = GetDigestFinalStubState();
+    if (state.call_count >= state.results.size())
+    {
+        return CKR_GENERAL_ERROR;
+    }
+    return state.results[state.call_count++];
+}
+
+CK_DEFINE_FUNCTION(CK_RV, DigestUpdateStub)
+(CK_SESSION_HANDLE /*session*/, CK_BYTE_PTR /*data*/, CK_ULONG /*data_length*/)
+{
+    auto& state = GetDigestUpdateStubState();
+    ++state.call_count;
+    return state.result;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, DigestInitStub)
+(CK_SESSION_HANDLE /*session*/, CK_MECHANISM_PTR /*mechanism*/)
+{
+    auto& state = GetDigestStubState();
+    ++state.init_call_count;
+    return state.init_result;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, DigestStub)
+(CK_SESSION_HANDLE /*session*/,
+ CK_BYTE_PTR /*data*/,
+ CK_ULONG /*data_length*/,
+ CK_BYTE_PTR /*digest*/,
+ CK_ULONG_PTR /*digest_length*/)
+{
+    auto& state = GetDigestStubState();
+    ++state.digest_call_count;
+    return state.digest_result;
+}
+
+pkcs11::Pkcs11HashExecutor MakeStubbedHashExecutor(CK_FUNCTION_LIST& functionList)
+{
+    functionList.C_DigestInit = &DigestInitStub;
+    functionList.C_Digest = &DigestStub;
+    functionList.C_DigestFinal = &DigestFinalStub;
+    functionList.C_DigestUpdate = &DigestUpdateStub;
+    return pkcs11::Pkcs11HashExecutor{functionList};
+}
+
+pkcs11::Pkcs11HashExecutionContext MakeHashExecutionContext()
+{
+    pkcs11::Pkcs11HashExecutionContext context{};
+    context.session = 1U;
+    context.mechanism.mechanism = CKM_SHA256;
+    context.digest_size = 32U;
+    return context;
+}
+
+TEST(Pkcs11HashExecutorErrorTest, AbortNormalizesNoActiveOperationAndPropagatesProviderFailure)
+{
+    CK_FUNCTION_LIST functionList{};
+    auto executor = MakeStubbedHashExecutor(functionList);
+
+    ConfigureDigestFinalStub({CKR_OPERATION_NOT_INITIALIZED});
+    EXPECT_TRUE(executor.Abort(1U).has_value());
+
+    ConfigureDigestFinalStub({CKR_DEVICE_ERROR});
+    const auto failedAbort = executor.Abort(1U);
+    ASSERT_FALSE(failedAbort.has_value());
+    EXPECT_EQ(failedAbort.error(), common::DaemonErrorCode::kAlgorithmExecutionFailed);
+}
+
+TEST(Pkcs11HashExecutorErrorTest, InitializationFailureKeepsStreamIdle)
+{
+    CK_FUNCTION_LIST functionList{};
+    auto executor = MakeStubbedHashExecutor(functionList);
+    auto context = MakeHashExecutionContext();
+    common::RequestParameters request{};
+    auto nextState = common::StreamOperationState::IDLE;
+
+    ConfigureDigestStub(CKR_DEVICE_ERROR);
+    const auto result =
+        executor.Execute(context, ops::HASH_INIT, request, common::StreamOperationState::IDLE, nextState);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kAlgorithmExecutionFailed);
+    EXPECT_EQ(nextState, common::StreamOperationState::IDLE);
+    EXPECT_EQ(GetDigestStubState().init_call_count, 1U);
+}
+
+TEST(Pkcs11HashExecutorErrorTest, ReinitializationAbortsThePreviousStream)
+{
+    CK_FUNCTION_LIST functionList{};
+    auto executor = MakeStubbedHashExecutor(functionList);
+    auto context = MakeHashExecutionContext();
+    common::RequestParameters request{};
+    auto nextState = common::StreamOperationState::IDLE;
+
+    ConfigureDigestStub(CKR_OK);
+    ConfigureDigestFinalStub({CKR_OK});
+    const auto restarted =
+        executor.Execute(context, ops::HASH_INIT, request, common::StreamOperationState::STREAM_ACTIVE, nextState);
+
+    EXPECT_TRUE(restarted.has_value());
+    EXPECT_EQ(nextState, common::StreamOperationState::STREAM_INITIALIZED);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 1U);
+    EXPECT_EQ(GetDigestStubState().init_call_count, 1U);
+
+    ConfigureDigestStub(CKR_OK);
+    ConfigureDigestFinalStub({CKR_DEVICE_ERROR});
+    const auto cleanupFailure =
+        executor.Execute(context, ops::HASH_INIT, request, common::StreamOperationState::STREAM_ACTIVE, nextState);
+
+    ASSERT_FALSE(cleanupFailure.has_value());
+    EXPECT_EQ(cleanupFailure.error(), common::DaemonErrorCode::kAlgorithmExecutionFailed);
+    EXPECT_EQ(nextState, common::StreamOperationState::STREAM_ACTIVE);
+    EXPECT_EQ(GetDigestStubState().init_call_count, 0U);
+}
+
+TEST(Pkcs11HashExecutorErrorTest, SingleShotFailureRestoresIdleTokenState)
+{
+    CK_FUNCTION_LIST functionList{};
+    auto executor = MakeStubbedHashExecutor(functionList);
+    auto context = MakeHashExecutionContext();
+    const std::array<std::uint8_t, 1U> input{0x42U};
+    std::array<std::uint8_t, 32U> output{};
+    common::RequestParameters request{
+        score::cpp::span<const std::uint8_t>{input.data(), input.size()},
+        score::cpp::span<std::uint8_t>{output.data(), output.size()},
+    };
+    auto nextState = common::StreamOperationState::IDLE;
+
+    ConfigureDigestStub(CKR_OK, CKR_BUFFER_TOO_SMALL);
+    ConfigureDigestFinalStub({CKR_OPERATION_NOT_INITIALIZED, CKR_OK});
+    const auto recoveredFailure =
+        executor.Execute(context, ops::HASH_SS, request, common::StreamOperationState::IDLE, nextState);
+
+    ASSERT_FALSE(recoveredFailure.has_value());
+    EXPECT_EQ(recoveredFailure.error(), common::DaemonErrorCode::kInsufficientBufferSize);
+    EXPECT_EQ(nextState, common::StreamOperationState::IDLE);
+    EXPECT_EQ(GetDigestStubState().init_call_count, 1U);
+    EXPECT_EQ(GetDigestStubState().digest_call_count, 1U);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 2U);
+
+    ConfigureDigestStub(CKR_OK, CKR_BUFFER_TOO_SMALL);
+    ConfigureDigestFinalStub({CKR_OPERATION_NOT_INITIALIZED, CKR_DEVICE_ERROR});
+    const auto cleanupFailure =
+        executor.Execute(context, ops::HASH_SS, request, common::StreamOperationState::IDLE, nextState);
+
+    ASSERT_FALSE(cleanupFailure.has_value());
+    EXPECT_EQ(cleanupFailure.error(), common::DaemonErrorCode::kAlgorithmExecutionFailed);
+    EXPECT_EQ(nextState, common::StreamOperationState::IDLE);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 2U);
+}
+
+TEST(Pkcs11HashExecutorErrorTest, ResetOnlyTransitionsToIdleAfterSuccessfulCleanup)
+{
+    CK_FUNCTION_LIST functionList{};
+    auto executor = MakeStubbedHashExecutor(functionList);
+    auto context = MakeHashExecutionContext();
+    common::RequestParameters request{};
+    auto nextState = common::StreamOperationState::STREAM_ACTIVE;
+
+    ConfigureDigestFinalStub({CKR_DEVICE_ERROR});
+    const auto failedReset =
+        executor.Execute(context, ops::HASH_RESET, request, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    ASSERT_FALSE(failedReset.has_value());
+    EXPECT_EQ(failedReset.error(), common::DaemonErrorCode::kAlgorithmExecutionFailed);
+    EXPECT_EQ(nextState, common::StreamOperationState::STREAM_ACTIVE);
+
+    ConfigureDigestFinalStub({CKR_OK});
+    const auto successfulReset =
+        executor.Execute(context, ops::HASH_RESET, request, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    EXPECT_TRUE(successfulReset.has_value());
+    EXPECT_EQ(nextState, common::StreamOperationState::IDLE);
+}
+
+TEST(Pkcs11HashExecutorErrorTest, FinalizePreservesOnlyRetryableOperationState)
+{
+    CK_FUNCTION_LIST functionList{};
+    auto executor = MakeStubbedHashExecutor(functionList);
+    auto context = MakeHashExecutionContext();
+    std::vector<std::uint8_t> output(32U, 0U);
+    common::RequestParameters request{score::cpp::span<std::uint8_t>{output.data(), output.size()}};
+    auto nextState = common::StreamOperationState::IDLE;
+
+    ConfigureDigestFinalStub({CKR_BUFFER_TOO_SMALL});
+    const auto retryableFailure =
+        executor.Execute(context, ops::HASH_FINALIZE, request, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    ASSERT_FALSE(retryableFailure.has_value());
+    EXPECT_EQ(retryableFailure.error(), common::DaemonErrorCode::kInsufficientBufferSize);
+    EXPECT_EQ(nextState, common::StreamOperationState::STREAM_ACTIVE);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 1U);
+
+    ConfigureDigestFinalStub({CKR_DEVICE_ERROR, CKR_OK});
+    const auto recoveredFailure =
+        executor.Execute(context, ops::HASH_FINALIZE, request, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    ASSERT_FALSE(recoveredFailure.has_value());
+    EXPECT_EQ(recoveredFailure.error(), common::DaemonErrorCode::kAlgorithmExecutionFailed);
+    EXPECT_EQ(nextState, common::StreamOperationState::IDLE);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 2U);
+
+    ConfigureDigestFinalStub({CKR_DEVICE_ERROR, CKR_DEVICE_ERROR});
+    const auto unrecoveredFailure =
+        executor.Execute(context, ops::HASH_FINALIZE, request, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    ASSERT_FALSE(unrecoveredFailure.has_value());
+    EXPECT_EQ(unrecoveredFailure.error(), common::DaemonErrorCode::kAlgorithmExecutionFailed);
+    EXPECT_EQ(nextState, common::StreamOperationState::STREAM_ACTIVE);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 2U);
+}
+
+TEST(Pkcs11HashExecutorErrorTest, UpdatePreservesValidationFailuresAndCleansUpProviderFailures)
+{
+    CK_FUNCTION_LIST functionList{};
+    auto executor = MakeStubbedHashExecutor(functionList);
+    auto context = MakeHashExecutionContext();
+    auto nextState = common::StreamOperationState::IDLE;
+
+    ConfigureDigestUpdateStub(CKR_OK);
+    ConfigureDigestFinalStub({CKR_OK});
+    common::RequestParameters invalidRequest{std::uint64_t{1U}};
+    const auto validationFailure = executor.Execute(
+        context, ops::HASH_UPDATE, invalidRequest, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    ASSERT_FALSE(validationFailure.has_value());
+    EXPECT_EQ(validationFailure.error(), common::DaemonErrorCode::kInvalidDataType);
+    EXPECT_EQ(nextState, common::StreamOperationState::STREAM_ACTIVE);
+    EXPECT_EQ(GetDigestUpdateStubState().call_count, 0U);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 0U);
+
+    ConfigureDigestUpdateStub(CKR_DEVICE_ERROR);
+    ConfigureDigestFinalStub({CKR_OK});
+    const std::vector<std::uint8_t> input{0x01U};
+    common::RequestParameters validRequest{score::cpp::span<const std::uint8_t>{input.data(), input.size()}};
+    const auto providerFailure = executor.Execute(
+        context, ops::HASH_UPDATE, validRequest, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    ASSERT_FALSE(providerFailure.has_value());
+    EXPECT_EQ(providerFailure.error(), common::DaemonErrorCode::kAlgorithmExecutionFailed);
+    EXPECT_EQ(nextState, common::StreamOperationState::IDLE);
+    EXPECT_EQ(GetDigestUpdateStubState().call_count, 1U);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 1U);
+}
+
+TEST(Pkcs11HashExecutorErrorTest, RejectsUnexpectedHashParametersBeforeCallingToken)
+{
+    CK_FUNCTION_LIST functionList{};
+    auto executor = MakeStubbedHashExecutor(functionList);
+    auto context = MakeHashExecutionContext();
+    auto nextState = common::StreamOperationState::IDLE;
+
+    ConfigureDigestStub(CKR_OK);
+    common::RequestParameters invalidInit{std::uint64_t{1U}};
+    const auto initResult =
+        executor.Execute(context, ops::HASH_INIT, invalidInit, common::StreamOperationState::IDLE, nextState);
+    ASSERT_FALSE(initResult.has_value());
+    EXPECT_EQ(initResult.error(), common::DaemonErrorCode::kInvalidArgument);
+    EXPECT_EQ(GetDigestStubState().init_call_count, 0U);
+
+    const std::array<std::uint8_t, 1U> input{0x42U};
+    std::array<std::uint8_t, 32U> output{};
+    common::RequestParameters invalidSingleShot{
+        score::cpp::span<const std::uint8_t>{input.data(), input.size()},
+        score::cpp::span<std::uint8_t>{output.data(), output.size()},
+        std::uint64_t{1U},
+    };
+    const auto singleShotResult =
+        executor.Execute(context, ops::HASH_SS, invalidSingleShot, common::StreamOperationState::IDLE, nextState);
+    ASSERT_FALSE(singleShotResult.has_value());
+    EXPECT_EQ(singleShotResult.error(), common::DaemonErrorCode::kInvalidArgument);
+    EXPECT_EQ(GetDigestStubState().init_call_count, 0U);
+
+    common::RequestParameters invalidReset{std::uint64_t{1U}};
+    ConfigureDigestFinalStub({CKR_OK});
+    const auto resetResult = executor.Execute(
+        context, ops::HASH_RESET, invalidReset, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    ASSERT_FALSE(resetResult.has_value());
+    EXPECT_EQ(resetResult.error(), common::DaemonErrorCode::kInvalidArgument);
+    EXPECT_EQ(nextState, common::StreamOperationState::STREAM_ACTIVE);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 0U);
+
+    common::RequestParameters invalidFinalize{
+        score::cpp::span<std::uint8_t>{output.data(), output.size()},
+        std::uint64_t{1U},
+    };
+    ConfigureDigestFinalStub({CKR_OK});
+    const auto finalizeResult = executor.Execute(
+        context, ops::HASH_FINALIZE, invalidFinalize, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    ASSERT_FALSE(finalizeResult.has_value());
+    EXPECT_EQ(finalizeResult.error(), common::DaemonErrorCode::kInvalidArgument);
+    EXPECT_EQ(nextState, common::StreamOperationState::STREAM_ACTIVE);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 0U);
 }
 
 /// @brief Test fixture that initialises a SoftHSM token before each test.
@@ -163,7 +540,7 @@ class Pkcs11ProviderHashTest : public ::testing::Test
         ASSERT_EQ(rv, CKR_OK);
         rv = fl->C_CloseSession(tmpSession);
         ASSERT_EQ(rv, CKR_OK);
-#endif // USE_RUST_PKCS11
+#endif  // USE_RUST_PKCS11
 
         // NOTE: Do NOT call C_Finalize here — the provider manages module lifecycle.
         // The provider's Pkcs11Module will finalize when it's destroyed.
@@ -179,14 +556,19 @@ class Pkcs11ProviderHashTest : public ::testing::Test
         // SoftHSM may report very small limits; we ensure at least 32 sessions available.
         cfg.maxRoSessionsOverride = 32U;
         cfg.maxRwSessionsOverride = 16U;
-        // Use hard cleanup strategy to ensure complete session reset between handlers.
-        // This addresses SoftHSM's soft cleanup edge cases with concurrent operations.
-        cfg.cleanupStrategy = pkcs11::Pkcs11SessionCleanupStrategy::kHardCleanup;
+        cfg.cleanupStrategy = CleanupStrategy();
         // sessionType removed: session type is now per-handler via kRequirements
 
         provider_ = std::make_shared<pkcs11::Pkcs11Provider>(std::move(cfg));
         provider::ProviderInitContext ctx{1, "SOFTHSM"};  // ID 1, name "SOFTHSM"
         ASSERT_TRUE(provider_->Initialize(ctx));
+    }
+
+    [[nodiscard]] virtual pkcs11::Pkcs11SessionCleanupStrategy CleanupStrategy() const noexcept
+    {
+        // Hard cleanup isolates the functional hash tests from token-specific
+        // soft-cleanup behavior. Dedicated tests below exercise soft cleanup.
+        return pkcs11::Pkcs11SessionCleanupStrategy::kHardCleanup;
     }
 
     void TearDown() override
@@ -202,106 +584,259 @@ class Pkcs11ProviderHashTest : public ::testing::Test
     std::shared_ptr<pkcs11::Pkcs11Provider> provider_;
 };
 
-// ---------------------------------------------------------------------------
-// Single-shot hash tests
-// ---------------------------------------------------------------------------
-
-TEST_F(Pkcs11ProviderHashTest, SHA256SingleShotHash)
+class Pkcs11ProviderSoftCleanupHashTest : public Pkcs11ProviderHashTest
 {
-    auto cryptoOps = provider_->GetCryptoHandlerFactory();
-    ASSERT_NE(cryptoOps, nullptr);
+  protected:
+    [[nodiscard]] pkcs11::Pkcs11SessionCleanupStrategy CleanupStrategy() const noexcept override
+    {
+        return pkcs11::Pkcs11SessionCleanupStrategy::kSoftCleanup;
+    }
+};
 
-    // Create handler.
-    auto handlerResult = cryptoOps->CreateHandler("HASH", "SHA256");
-    ASSERT_TRUE(handlerResult.has_value());
-    auto handler = handlerResult.value();
-    ASSERT_NE(handler, nullptr);
+TEST_F(Pkcs11ProviderSoftCleanupHashTest, DiscardsSessionWhenHandlerCleanupFails)
+{
+    const auto sessionResult = provider_->AcquireSession(pkcs11::Pkcs11HashHandler::kRequirements);
+    ASSERT_TRUE(sessionResult.has_value());
+    const CK_SESSION_HANDLE session = sessionResult.value();
 
-    // Initialise.
-    auto initCtxResult = handler->InitializeContext(handler::InitializationParams{});
-    ASSERT_TRUE(initCtxResult.has_value()) << "InitializeContext failed";
+    CK_FUNCTION_LIST functionList{};
+    functionList.C_DigestFinal = &DigestFinalStub;
+    ConfigureDigestFinalStub({CKR_DEVICE_ERROR});
+    {
+        auto executor = std::make_unique<pkcs11::Pkcs11HashExecutor>(functionList);
+        pkcs11::Pkcs11HashHandler hashHandler{std::move(executor), session, "SHA256", provider_.get()};
+    }
 
-    // Prepare input from test vector file.
-    auto inputBuffer = tests::utility::read_bin("score/tests/test_vectors/hash/input_hello_world.bin");
-    ASSERT_FALSE(inputBuffer.empty());
+    EXPECT_FALSE(provider_->ValidateSession(session));
 
-    // Prepare output (SHA-256 → 32 bytes).
-    constexpr std::size_t kSha256DigestLen{32U};
-    std::vector<std::uint8_t> outputBuffer(kSha256DigestLen);
+    const auto replacement = provider_->AcquireSession(pkcs11::Pkcs11HashHandler::kRequirements);
+    ASSERT_TRUE(replacement.has_value());
+    EXPECT_TRUE(provider_->ValidateSession(replacement.value()));
+    provider_->ReleaseSession(replacement.value(), pkcs11::Pkcs11HashHandler::kRequirements);
+}
 
-    // Execute single-shot.
-    common::RequestParameters request{};
-    request.push_back(score::cpp::span<const uint8_t>{inputBuffer.data(), inputBuffer.size()});
-    request.push_back(score::cpp::span<uint8_t>{outputBuffer.data(), outputBuffer.size()});
+TEST_F(Pkcs11ProviderSoftCleanupHashTest, ReusesSessionWhenHandlerCleanupSucceeds)
+{
+    const auto sessionResult = provider_->AcquireSession(pkcs11::Pkcs11HashHandler::kRequirements);
+    ASSERT_TRUE(sessionResult.has_value());
+    const CK_SESSION_HANDLE session = sessionResult.value();
 
-    auto executeResult = handler->Execute(MakeHashOp(ops::HASH_SS), request);
-    ASSERT_TRUE(executeResult.has_value()) << "Execute failed";
+    CK_FUNCTION_LIST functionList{};
+    functionList.C_DigestFinal = &DigestFinalStub;
+    ConfigureDigestFinalStub({CKR_OPERATION_NOT_INITIALIZED});
+    {
+        auto executor = std::make_unique<pkcs11::Pkcs11HashExecutor>(functionList);
+        pkcs11::Pkcs11HashHandler hashHandler{std::move(executor), session, "SHA256", provider_.get()};
+    }
 
-    // Extract digest from response parameters.
-    const auto digest = ExtractDigest(executeResult.value(), outputBuffer);
-
-    // Verify against reference test vector.
-    const auto expectedHash = tests::utility::read_bin("score/tests/test_vectors/hash/sha256_hello_world.bin");
-    ASSERT_EQ(expectedHash.size(), kSha256DigestLen);
-    EXPECT_EQ(digest, expectedHash) << "Hash output does not match expected SHA-256 digest";
+    EXPECT_TRUE(provider_->ValidateSession(session));
+    const auto reused = provider_->AcquireSession(pkcs11::Pkcs11HashHandler::kRequirements);
+    ASSERT_TRUE(reused.has_value());
+    EXPECT_EQ(reused.value(), session);
+    provider_->ReleaseSession(reused.value(), pkcs11::Pkcs11HashHandler::kRequirements);
 }
 
 // ---------------------------------------------------------------------------
-// Streaming hash tests
+// SHA-256/384/512 migration coverage
 // ---------------------------------------------------------------------------
 
-TEST_F(Pkcs11ProviderHashTest, SHA256StreamingHash)
+class Pkcs11ProviderHashAlgorithmTest : public Pkcs11ProviderHashTest,
+                                        public ::testing::WithParamInterface<HashAlgorithmTestData>
+{
+};
+
+TEST_P(Pkcs11ProviderHashAlgorithmTest, SupportsSingleShotStreamingResetAndDigestSize)
+{
+    const auto& testData = GetParam();
+    auto cryptoOps = provider_->GetCryptoHandlerFactory();
+    ASSERT_NE(cryptoOps, nullptr);
+
+    auto handlerResult = cryptoOps->CreateHandler("HASH", testData.algorithm);
+    ASSERT_TRUE(handlerResult.has_value()) << "Failed to create HASH/" << testData.algorithm;
+    auto hashHandler = handlerResult.value();
+    ASSERT_NE(hashHandler, nullptr);
+    ASSERT_TRUE(hashHandler->InitializeContext(handler::InitializationParams{}).has_value());
+
+    const std::vector<HashVector> vectors{
+        {"score/tests/test_vectors/hash/input_hello_world.bin", testData.hello_digest_path},
+        {"score/tests/test_vectors/hash/input_complete_data.bin", testData.complete_digest_path},
+        {"score/tests/test_vectors/hash/input_empty.bin", testData.empty_digest_path},
+        {"score/tests/test_vectors/hash/input_abc.bin", testData.abc_digest_path},
+    };
+
+    for (const auto& vector : vectors)
+    {
+        SCOPED_TRACE(std::string{testData.algorithm} + " / " + vector.input_path);
+        const auto input = tests::utility::read_bin(vector.input_path);
+        const auto expectedDigest = tests::utility::read_bin(vector.digest_path);
+        ASSERT_EQ(expectedDigest.size(), testData.digest_size);
+
+        std::vector<std::uint8_t> output(testData.digest_size, 0U);
+        common::RequestParameters request{
+            score::cpp::span<const std::uint8_t>{input.data(), input.size()},
+            score::cpp::span<std::uint8_t>{output.data(), output.size()},
+        };
+
+        const auto result = hashHandler->Execute(MakeHashOp(ops::HASH_SS), request);
+        ASSERT_TRUE(result.has_value()) << "Single-shot hash failed";
+        EXPECT_EQ(ExtractDigest(result.value(), output), expectedDigest);
+    }
+
+    common::RequestParameters digestSizeRequest{};
+    const auto digestSizeResult = hashHandler->Execute(MakeHashOp(ops::HASH_GET_DIGEST_SIZE), digestSizeRequest);
+    ASSERT_TRUE(digestSizeResult.has_value());
+    ASSERT_EQ(digestSizeResult.value().size(), 1U);
+    const auto* digestSize = std::get_if<std::uint64_t>(&digestSizeResult.value().front());
+    ASSERT_NE(digestSize, nullptr);
+    EXPECT_EQ(*digestSize, testData.digest_size);
+
+    common::RequestParameters initRequest{};
+    const auto empty = tests::utility::read_bin("score/tests/test_vectors/hash/input_empty.bin");
+    const auto expectedEmpty = tests::utility::read_bin(testData.empty_digest_path);
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_INIT), initRequest).has_value());
+    common::RequestParameters emptyUpdate{
+        score::cpp::span<const std::uint8_t>{empty.data(), empty.size()},
+    };
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_UPDATE), emptyUpdate).has_value());
+    std::vector<std::uint8_t> emptyStreamingOutput(testData.digest_size, 0U);
+    common::RequestParameters emptyFinalize{
+        score::cpp::span<std::uint8_t>{emptyStreamingOutput.data(), emptyStreamingOutput.size()},
+    };
+    const auto emptyStreamingResult = hashHandler->Execute(MakeHashOp(ops::HASH_FINALIZE), emptyFinalize);
+    ASSERT_TRUE(emptyStreamingResult.has_value());
+    EXPECT_EQ(ExtractDigest(emptyStreamingResult.value(), emptyStreamingOutput), expectedEmpty);
+
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_INIT), initRequest).has_value());
+    std::vector<std::uint8_t> zeroUpdateOutput(testData.digest_size, 0U);
+    common::RequestParameters zeroUpdateFinalize{
+        score::cpp::span<std::uint8_t>{zeroUpdateOutput.data(), zeroUpdateOutput.size()},
+    };
+    const auto zeroUpdateResult = hashHandler->Execute(MakeHashOp(ops::HASH_FINALIZE), zeroUpdateFinalize);
+    ASSERT_TRUE(zeroUpdateResult.has_value());
+    EXPECT_EQ(ExtractDigest(zeroUpdateResult.value(), zeroUpdateOutput), expectedEmpty)
+        << "Init followed directly by Finalize must hash empty input";
+
+    const auto hello = tests::utility::read_bin("score/tests/test_vectors/hash/input_hello_world.bin");
+    const auto expectedHello = tests::utility::read_bin(testData.hello_digest_path);
+    ASSERT_FALSE(hello.empty());
+    ASSERT_EQ(expectedHello.size(), testData.digest_size);
+
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_INIT), initRequest).has_value());
+
+    const auto split = static_cast<std::ptrdiff_t>(hello.size() / 2U);
+    const std::vector<std::uint8_t> firstChunk{hello.begin(), hello.begin() + split};
+    const std::vector<std::uint8_t> secondChunk{hello.begin() + split, hello.end()};
+    common::RequestParameters firstUpdate{
+        score::cpp::span<const std::uint8_t>{firstChunk.data(), firstChunk.size()},
+    };
+    common::RequestParameters secondUpdate{
+        score::cpp::span<const std::uint8_t>{secondChunk.data(), secondChunk.size()},
+    };
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_UPDATE), firstUpdate).has_value());
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_UPDATE), secondUpdate).has_value());
+
+    std::vector<std::uint8_t> streamingOutput(testData.digest_size, 0U);
+    common::RequestParameters finalizeRequest{
+        score::cpp::span<std::uint8_t>{streamingOutput.data(), streamingOutput.size()},
+    };
+    const auto streamingResult = hashHandler->Execute(MakeHashOp(ops::HASH_FINALIZE), finalizeRequest);
+    ASSERT_TRUE(streamingResult.has_value());
+    EXPECT_EQ(ExtractDigest(streamingResult.value(), streamingOutput), expectedHello);
+
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_INIT), initRequest).has_value());
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_UPDATE), firstUpdate).has_value());
+    common::RequestParameters resetRequest{};
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_RESET), resetRequest).has_value());
+
+    const auto complete = tests::utility::read_bin("score/tests/test_vectors/hash/input_complete_data.bin");
+    const auto expectedComplete = tests::utility::read_bin(testData.complete_digest_path);
+    ASSERT_FALSE(complete.empty());
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_INIT), initRequest).has_value());
+    common::RequestParameters completeUpdate{
+        score::cpp::span<const std::uint8_t>{complete.data(), complete.size()},
+    };
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_UPDATE), completeUpdate).has_value());
+    std::vector<std::uint8_t> resetOutput(testData.digest_size, 0U);
+    common::RequestParameters resetFinalize{
+        score::cpp::span<std::uint8_t>{resetOutput.data(), resetOutput.size()},
+    };
+    const auto resetResult = hashHandler->Execute(MakeHashOp(ops::HASH_FINALIZE), resetFinalize);
+    ASSERT_TRUE(resetResult.has_value());
+    EXPECT_EQ(ExtractDigest(resetResult.value(), resetOutput), expectedComplete);
+
+    std::vector<std::uint8_t> undersizedOutput(testData.digest_size - 1U, 0U);
+    common::RequestParameters undersizedRequest{
+        score::cpp::span<const std::uint8_t>{hello.data(), hello.size()},
+        score::cpp::span<std::uint8_t>{undersizedOutput.data(), undersizedOutput.size()},
+    };
+    const auto undersizedSingleShot = hashHandler->Execute(MakeHashOp(ops::HASH_SS), undersizedRequest);
+    ASSERT_FALSE(undersizedSingleShot.has_value());
+    EXPECT_EQ(undersizedSingleShot.error(), common::DaemonErrorCode::kInsufficientBufferSize);
+
+    // PKCS#11 keeps a digest operation active after CKR_BUFFER_TOO_SMALL.
+    // Verify the handler preserves that retry contract and its stream state.
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_INIT), initRequest).has_value());
+    common::RequestParameters retryUpdate{
+        score::cpp::span<const std::uint8_t>{hello.data(), hello.size()},
+    };
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_UPDATE), retryUpdate).has_value());
+    common::RequestParameters undersizedFinalize{
+        score::cpp::span<std::uint8_t>{undersizedOutput.data(), undersizedOutput.size()},
+    };
+    const auto failedFinalize = hashHandler->Execute(MakeHashOp(ops::HASH_FINALIZE), undersizedFinalize);
+    ASSERT_FALSE(failedFinalize.has_value());
+    EXPECT_EQ(failedFinalize.error(), common::DaemonErrorCode::kInsufficientBufferSize);
+
+    std::vector<std::uint8_t> retryOutput(testData.digest_size, 0U);
+    common::RequestParameters retryFinalize{
+        score::cpp::span<std::uint8_t>{retryOutput.data(), retryOutput.size()},
+    };
+    const auto retryResult = hashHandler->Execute(MakeHashOp(ops::HASH_FINALIZE), retryFinalize);
+    ASSERT_TRUE(retryResult.has_value()) << "Finalize retry failed after an undersized output buffer";
+    EXPECT_EQ(ExtractDigest(retryResult.value(), retryOutput), expectedHello);
+}
+
+TEST_F(Pkcs11ProviderHashTest, RejectsUnsupportedAlgorithm)
+{
+    auto cryptoOps = provider_->GetCryptoHandlerFactory();
+    ASSERT_NE(cryptoOps, nullptr);
+    const auto result = cryptoOps->CreateHandler("HASH", "UNSUPPORTED_ALGORITHM");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(*result.error(),
+              static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm));
+}
+
+TEST_F(Pkcs11ProviderHashTest, QueriesSelectedTokenMechanisms)
+{
+    const auto sha256 = provider_->SupportsMechanism(CKM_SHA256, CKF_DIGEST);
+    ASSERT_TRUE(sha256.has_value());
+    EXPECT_TRUE(sha256.value());
+
+    const auto sha256Encryption = provider_->SupportsMechanism(CKM_SHA256, CKF_ENCRYPT);
+    ASSERT_TRUE(sha256Encryption.has_value());
+    EXPECT_FALSE(sha256Encryption.value()) << "SHA-256 must not be accepted for an unsupported operation flag";
+
+    constexpr CK_MECHANISM_TYPE kUnknownVendorMechanism{CKM_VENDOR_DEFINED | 0x0053434FUL};
+    const auto unknown = provider_->SupportsMechanism(kUnknownVendorMechanism, CKF_DIGEST);
+    ASSERT_TRUE(unknown.has_value());
+    EXPECT_FALSE(unknown.value());
+}
+
+TEST_F(Pkcs11ProviderHashTest, ReportsExecutorUpdateFailure)
 {
     auto cryptoOps = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(cryptoOps, nullptr);
 
     auto handlerResult = cryptoOps->CreateHandler("HASH", "SHA256");
     ASSERT_TRUE(handlerResult.has_value());
-    auto handler = handlerResult.value();
-    ASSERT_NE(handler, nullptr);
+    auto hashHandler = handlerResult.value();
+    ASSERT_TRUE(hashHandler->InitializeContext(handler::InitializationParams{}).has_value());
 
-    auto initCtxResult = handler->InitializeContext(handler::InitializationParams{});
-    ASSERT_TRUE(initCtxResult.has_value()) << "InitializeContext failed";
+    common::RequestParameters initRequest{};
+    ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_INIT), initRequest).has_value());
 
-    // HASH_INIT
-    common::RequestParameters initOp{};
-    auto initResult = handler->Execute(MakeHashOp(ops::HASH_INIT), initOp);
-    ASSERT_TRUE(initResult.has_value()) << "HASH_INIT failed";
-
-    // HASH_UPDATE — chunk 1: "Hello, "
-    const std::string chunk1Str = "Hello, ";
-    std::vector<std::uint8_t> chunk1Buf(chunk1Str.begin(), chunk1Str.end());
-
-    common::RequestParameters updateOp1{};
-    updateOp1.push_back(score::cpp::span<const uint8_t>{chunk1Buf.data(), chunk1Buf.size()});
-    auto update1Result = handler->Execute(MakeHashOp(ops::HASH_UPDATE), updateOp1);
-    ASSERT_TRUE(update1Result.has_value()) << "HASH_UPDATE chunk1 failed";
-
-    // HASH_UPDATE — chunk 2: "World!"
-    const std::string chunk2Str = "World!";
-    std::vector<std::uint8_t> chunk2Buf(chunk2Str.begin(), chunk2Str.end());
-
-    common::RequestParameters updateOp2{};
-    updateOp2.push_back(score::cpp::span<const uint8_t>{chunk2Buf.data(), chunk2Buf.size()});
-    auto update2Result = handler->Execute(MakeHashOp(ops::HASH_UPDATE), updateOp2);
-    ASSERT_TRUE(update2Result.has_value()) << "HASH_UPDATE chunk2 failed";
-
-    // HASH_FINALIZE
-    constexpr std::size_t kSha256DigestLen{32U};
-    std::vector<std::uint8_t> outputBuffer(kSha256DigestLen);
-
-    common::RequestParameters finishOp{};
-    finishOp.push_back(score::cpp::span<uint8_t>{outputBuffer.data(), outputBuffer.size()});
-    auto finishResult = handler->Execute(MakeHashOp(ops::HASH_FINALIZE), finishOp);
-    ASSERT_TRUE(finishResult.has_value()) << "HASH_FINALIZE failed";
-
-    // Extract digest from response.
-    const auto digest = ExtractDigest(finishResult.value(), outputBuffer);
-
-    // Verify same digest as single-shot using reference test vector.
-    const auto expectedHash = tests::utility::read_bin("score/tests/test_vectors/hash/sha256_hello_world.bin");
-    ASSERT_EQ(expectedHash.size(), kSha256DigestLen);
-    EXPECT_EQ(digest, expectedHash) << "Streaming hash does not match expected SHA-256 digest";
+    common::RequestParameters invalidUpdate{std::uint64_t{1U}};
+    EXPECT_FALSE(hashHandler->Execute(MakeHashOp(ops::HASH_UPDATE), invalidUpdate).has_value());
 }
 
 // ---------------------------------------------------------------------------
@@ -329,7 +864,8 @@ TEST_F(Pkcs11ProviderHashTest, StreamStateViolation)
     updateOp.push_back(score::cpp::span<const uint8_t>{dataBuf.data(), dataBuf.size()});
 
     auto updateResult = handler->Execute(MakeHashOp(ops::HASH_UPDATE), updateOp);
-    EXPECT_FALSE(updateResult.has_value()) << "HASH_UPDATE without HASH_INIT should fail";
+    ASSERT_FALSE(updateResult.has_value()) << "HASH_UPDATE without HASH_INIT should fail";
+    EXPECT_EQ(updateResult.error(), common::DaemonErrorCode::kStreamNotInitialized);
 
     // HASH_FINALIZE without HASH_INIT should also fail.
     std::vector<std::uint8_t> outBuf(32U);
@@ -338,7 +874,13 @@ TEST_F(Pkcs11ProviderHashTest, StreamStateViolation)
     finishOp.push_back(score::cpp::span<uint8_t>{outBuf.data(), outBuf.size()});
 
     auto finishResult = handler->Execute(MakeHashOp(ops::HASH_FINALIZE), finishOp);
-    EXPECT_FALSE(finishResult.has_value()) << "HASH_FINALIZE without active stream should fail";
+    ASSERT_FALSE(finishResult.has_value()) << "HASH_FINALIZE without active stream should fail";
+    EXPECT_EQ(finishResult.error(), common::DaemonErrorCode::kStreamNotInitialized);
+
+    common::RequestParameters initOp{};
+    ASSERT_TRUE(handler->Execute(MakeHashOp(ops::HASH_INIT), initOp).has_value());
+    EXPECT_TRUE(handler->Execute(MakeHashOp(ops::HASH_INIT), initOp).has_value())
+        << "Init on an active stream must restart it";
 }
 
 // ---------------------------------------------------------------------------
@@ -434,6 +976,31 @@ TEST_F(Pkcs11ProviderHashTest, TrueConcurrentStreamingOnSeparateSessions)
     handlerA.reset();
     handlerB.reset();
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    BaselibsMigrationAlgorithms,
+    Pkcs11ProviderHashAlgorithmTest,
+    ::testing::Values(HashAlgorithmTestData{"SHA256",
+                                            32U,
+                                            "score/tests/test_vectors/hash/sha256_hello_world.bin",
+                                            "score/tests/test_vectors/hash/sha256_complete_data.bin",
+                                            "score/tests/test_vectors/hash/sha256_empty.bin",
+                                            "score/tests/test_vectors/hash/sha256_abc.bin"},
+                      HashAlgorithmTestData{"SHA384",
+                                            48U,
+                                            "score/tests/test_vectors/hash/sha384_hello_world.bin",
+                                            "score/tests/test_vectors/hash/sha384_complete_data.bin",
+                                            "score/tests/test_vectors/hash/sha384_empty.bin",
+                                            "score/tests/test_vectors/hash/sha384_abc.bin"},
+                      HashAlgorithmTestData{"SHA512",
+                                            64U,
+                                            "score/tests/test_vectors/hash/sha512_hello_world.bin",
+                                            "score/tests/test_vectors/hash/sha512_complete_data.bin",
+                                            "score/tests/test_vectors/hash/sha512_empty.bin",
+                                            "score/tests/test_vectors/hash/sha512_abc.bin"}),
+    [](const ::testing::TestParamInfo<HashAlgorithmTestData>& info) {
+        return info.param.algorithm;
+    });
 
 }  // namespace
 

@@ -23,11 +23,12 @@ cc_test(
     }),
     deps = [
         "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_library",
         "//score/tests/utility",
+        "//third_party/openssl:openssl_shared",
         "@googletest//:gtest",
     ],
 )

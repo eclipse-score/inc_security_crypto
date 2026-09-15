@@ -138,7 +138,7 @@ Hashing Example
 .. code-block:: cpp
 
    HashContextConfig hash_config;
-   hash_config.SetAlgorithm("SHA-256");
+   hash_config.SetAlgorithm("SHA256");
    auto hash = ctx->CreateHashContext(hash_config).value();
 
    // Streaming
@@ -157,7 +157,7 @@ Context Reuse via Reset()
 
    // Create the context once — expensive (factory + IPC)
    HashContextConfig hash_config;
-   hash_config.SetAlgorithm("SHA-256");
+   hash_config.SetAlgorithm("SHA256");
    auto hash = ctx->CreateHashContext(hash_config).value();
 
    // First message
@@ -282,7 +282,7 @@ Bounding all IPC calls with a per-call deadline for safety analysis:
 
    // 2. Per-context override: tighter 200 ms deadline for hashing
    HashContextConfig hash_cfg;
-   hash_cfg.SetAlgorithm("SHA-256")
+   hash_cfg.SetAlgorithm("SHA256")
            .SetOperationTimeout(std::chrono::milliseconds{200});
    auto hash = ctx->CreateHashContext(hash_cfg).value();
 
