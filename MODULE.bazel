@@ -54,7 +54,7 @@ bazel_dep(name = "rules_cc", version = "0.2.22")
 # *******************************************************************************
 bazel_dep(
     name = "score_bazel_cpp_toolchains",
-    version = "0.5.4",
+    version = "1.0.3",
     dev_dependency = True,
 )
 
