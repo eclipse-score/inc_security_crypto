@@ -153,7 +153,7 @@ use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
 # which activates Rust coverage without any custom toolchain instance.
 bazel_dep(name = "score_toolchains_rust", version = "0.10.0", dev_dependency = True)
 
-bazel_dep(name = "score_crates", version = "0.0.11")
+bazel_dep(name = "score_crates", version = "0.0.12")
 bazel_dep(name = "score_logging", version = "0.2.0")
 
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", isolate = True)
