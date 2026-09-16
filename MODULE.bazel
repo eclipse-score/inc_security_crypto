@@ -180,7 +180,7 @@ use_repo(crate, "crates")
 # *******************************************************************************
 # QNX IFS (Image File System) toolchain for building boot images
 # *******************************************************************************
-bazel_dep(name = "score_rules_imagefs", version = "0.0.3", dev_dependency = True)
+bazel_dep(name = "score_rules_imagefs", version = "0.1.0", dev_dependency = True)
 
 imagefs = use_extension("@score_rules_imagefs//extensions:imagefs.bzl", "imagefs", dev_dependency = True)
 imagefs.toolchain(
