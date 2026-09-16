@@ -42,7 +42,7 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 # Constraint values for specifying platforms and toolchains
 # *******************************************************************************
 bazel_dep(name = "platforms", version = "1.1.0")
-bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
+bazel_dep(name = "score_bazel_platforms", version = "1.1.0")
 
 # *******************************************************************************
 # C++ Rules for Bazel
