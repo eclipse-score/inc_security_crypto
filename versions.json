@@ -190,5 +190,9 @@
   {
     "version": "pr-241",
     "url": "https://eclipse-score.github.io/inc_security_crypto/pr-241/"
+  },
+  {
+    "version": "pr-240",
+    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-240/"
   }
 ]
