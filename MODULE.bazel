@@ -324,7 +324,7 @@ bazel_dep(name = "rules_pkg", version = "1.2.0")
 bazel_dep(name = "score_docs_as_code", version = "8.0.0")
 
 #process
-bazel_dep(name = "score_process_description", version = "2.1.1")
+bazel_dep(name = "score_process_description", version = "2.1.2")
 bazel_dep(name = "score_platform", version = "0.6.2")
 
 # s-core baselibs
