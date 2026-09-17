@@ -17,8 +17,6 @@
 #include "score/crypto/src/daemon/provider/i_provider_factory.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_token_config.hpp"
 
-#include <vector>
-
 namespace score::crypto::daemon::provider::pkcs11
 {
 
@@ -47,7 +45,7 @@ namespace score::crypto::daemon::provider::pkcs11
 class Pkcs11ProviderFactory final : public IProviderFactory
 {
   public:
-    explicit Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig config);
+    explicit Pkcs11ProviderFactory(const Pkcs11ProviderFactoryConfig& config);
 
     ~Pkcs11ProviderFactory() override = default;
 
