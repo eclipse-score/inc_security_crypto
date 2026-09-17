@@ -10,7 +10,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-module(name = "score_crypto")
+module(name = "score_security_crypto")
 
 bazel_dep(name = "rules_python", version = "2.3.1")
 single_version_override(
