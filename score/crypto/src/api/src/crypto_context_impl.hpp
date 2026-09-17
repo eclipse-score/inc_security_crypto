@@ -62,6 +62,11 @@ class CryptoContextImpl final : public ICryptoContext
     score::Result<std::unique_ptr<IMacContext>> CreateMacContext(const MacContextConfig& config) override;
     score::Result<std::unique_ptr<IKeyManagementContext>> CreateKeyManagementContext(
         const KeyManagementContextConfig& config) override;
+    score::Result<std::unique_ptr<ICipherContext>> CreateCipherContext(const CipherContextConfig& config) override;
+    score::Result<std::unique_ptr<ISignContext>> CreateSignContext(const SignContextConfig& config) override;
+    score::Result<std::unique_ptr<IVerifySignatureContext>> CreateVerifySignatureContext(
+        const VerifySignatureContextConfig& config) override;
+    score::Result<std::unique_ptr<IRandomContext>> CreateRandomContext(const RandomContextConfig& config) override;
 
     // -- Queries --
     score::Result<AlgorithmCapabilities> QueryCapabilities(const AlgorithmId& algorithm) override;
