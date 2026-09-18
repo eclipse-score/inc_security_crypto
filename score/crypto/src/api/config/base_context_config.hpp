@@ -36,7 +36,7 @@ namespace crypto
 /// of the key's primary.
 struct BaseContextConfig
 {
-    /// @brief Algorithm identifier (e.g., "AES-256-CBC", "SHA-384", "ML-DSA-65").
+    /// @brief Algorithm identifier (e.g., "AES-256-CBC", "SHA384", "ML-DSA-65").
     AlgorithmId algorithm{};
 
     /// @brief Optional resolved provider handle. When set, overrides

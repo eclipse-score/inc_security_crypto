@@ -22,7 +22,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string_view>
 
 namespace score::crypto::daemon::provider::score_provider::operations::hash
@@ -93,23 +92,20 @@ class ScoreHashHandler : public handler::Handler
     // -----------------------------------------------------------------------
 
     /// @brief Initialize a hash operation on an existing context.
-    [[nodiscard]] virtual Expected<std::monostate, common::DaemonErrorCode> InitHash(
-        const std::optional<common::RequestParameter> initialDataOrIV);
+    [[nodiscard]] virtual Expected<std::monostate, common::DaemonErrorCode> InitHash();
 
     /// @brief Add data to the active hash stream.
     [[nodiscard]] virtual Expected<std::monostate, common::DaemonErrorCode> UpdateHash(
-        const common::RequestParameter& dataToHash);
+        score::cpp::span<const std::uint8_t> dataToHash);
 
     /// @brief Finalize the hash and produce the digest.
     [[nodiscard]] virtual Expected<common::ResponseParameters, common::DaemonErrorCode> FinalizeHash(
-        common::RequestParameter hashOutput,
-        const std::optional<common::RequestParameter> finalDataToHash);
+        score::cpp::span<std::uint8_t> hashOutput);
 
     /// @brief Perform single-shot hash without streaming.
     [[nodiscard]] virtual Expected<common::ResponseParameters, common::DaemonErrorCode> SingleShotHash(
-        const common::RequestParameter& dataToHash,
-        common::RequestParameter outputHash,
-        std::optional<common::RequestParameter> iv);
+        score::cpp::span<const std::uint8_t> dataToHash,
+        score::cpp::span<std::uint8_t> outputHash);
 
     /// @brief Get the digest size for the current algorithm.
     [[nodiscard]] virtual Expected<common::ResponseParameters, common::DaemonErrorCode> GetDigestSize() const;

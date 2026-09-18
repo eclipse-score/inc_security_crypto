@@ -16,3 +16,7 @@
 
 The example source files are only kept for reference.
 For an actual executable or sample application refer to the tests/integration_tests folder.
+
+The hashing example uses the canonical, case-sensitive API identifier `SHA256`.
+The corresponding standard algorithm name is SHA-256. The other migration-target
+identifiers are `SHA384` and `SHA512`; hyphenated API aliases are not currently supported.

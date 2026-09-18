@@ -184,6 +184,24 @@ class ControlPlaneTest : public ::testing::Test
     std::thread _server_thread;
 };
 
+TEST(ControlProtocolTest, PreservesApiErrorCodeInOperationResponse)
+{
+    namespace protocol = score::crypto::daemon::control_plane::protocol;
+    const protocol::OperationIdentifier operation_id{score::crypto::test::dummyActorA,
+                                                     score::crypto::test::dummyActionA};
+    const auto api_error = score::crypto::MakeError(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm);
+
+    const auto response = protocol::OperationResponseBuilder().operation(operation_id).return_error(api_error).build();
+    ASSERT_TRUE(response.has_value());
+
+    protocol::ControlResponseValidator validator(response.value());
+    validator.expectOperation(operation_id).expectSuccess();
+
+    EXPECT_FALSE(validator.isValid());
+    ASSERT_TRUE(validator.getErrorCode().has_value());
+    EXPECT_EQ(validator.getErrorCode().value(), score::crypto::CryptoErrorCode::kUnsupportedAlgorithm);
+}
+
 TEST_F(ControlPlaneTest, Connection_SendRequest)
 {
     auto endpoint = "unix://" + _socket_path;

@@ -40,7 +40,11 @@ inline constexpr std::uint64_t SHM_WIRE_TRANSPORT_TYPE_ABSENT = 0xFFU;
 
 inline constexpr std::uint64_t SHM_WIRE_PROVIDER_TYPE_ABSENT = 0xFFU;
 
-inline constexpr std::uint64_t SHM_WIRE_PROVIDER_ID_UNBOUND = 0U;
+/// @brief Wire sentinel for a resource without a provider binding.
+///
+/// ProviderManager reserves kInvalidProviderId, so this value cannot collide
+/// with a real provider (including provider zero).
+inline constexpr std::uint64_t SHM_WIRE_PROVIDER_ID_UNBOUND = static_cast<std::uint64_t>(common::kInvalidProviderId);
 
 using OperationAction = common::OperationAction;
 
@@ -54,10 +58,19 @@ using OperationAction = common::OperationAction;
 //           param[1]: string — algorithm name (e.g. "SHA256", "SHA512")
 //           param[2]: optional uint8 — provider type preference (defaults to DEFAULT)
 //           param[3]: optional uint64_t — node_id of key resource (CryptoResourceId.id)
+//           param[4]: optional uint8 — operation mode (used by MAC/signature contexts)
+//           param[5]: optional uint16_t — explicit numeric provider ID; overrides param[2]
 // Response: status_code (SUCCESS/error)
 //           uint64_t — daemon-assigned context_id (DataNodeId)
 // Effect:   Creates cryptographic context, initializes handler with specified algorithm
 inline constexpr OperationAction CTX_CREATE = 1;
+
+inline constexpr std::size_t CTX_PARAM_HANDLER_TYPE = 0U;
+inline constexpr std::size_t CTX_PARAM_ALGORITHM = 1U;
+inline constexpr std::size_t CTX_PARAM_PROVIDER_TYPE = 2U;
+inline constexpr std::size_t CTX_PARAM_KEY_NODE_ID = 3U;
+inline constexpr std::size_t CTX_PARAM_OPERATION_MODE = 4U;
+inline constexpr std::size_t CTX_PARAM_EXPLICIT_PROVIDER_ID = 5U;
 
 // CTX_CLOSE
 // Request:  data_node_id = context_id (the context to close),

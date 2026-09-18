@@ -20,6 +20,7 @@
 #include <functional>
 
 #include <limits>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -384,6 +385,12 @@ class OperationResponseBuilder
         return return_error(score::crypto::daemon::common::ToCryptoErrorCode(error));
     };
 
+    /// @brief Preserve an API-domain error returned by a provider factory.
+    OperationResponseBuilder& return_error(const score::result::Error& error)
+    {
+        return return_error(static_cast<score::crypto::CryptoErrorCode>(*error));
+    };
+
     OperationResponseBuilder& return_value_bool(bool val)
     {
         if (validateOperationExists())
@@ -588,6 +595,7 @@ class ControlResponseValidator
             auto errorCode = static_cast<score::crypto::CryptoErrorCode>(op.result);
 
             m_isValid = false;
+            m_errorCode = errorCode;
             m_errorMsg = "Operation at index " + std::to_string(m_currentOpIndex) + " failed with error code " +
                          std::string(score::crypto::kCryptoErrorDomain.MessageFor(
                              static_cast<score::result::ErrorCode>(errorCode)));
@@ -677,12 +685,22 @@ class ControlResponseValidator
         return m_errorMsg;
     }
 
+    /// @brief Return the daemon-provided operation error when validation failed at expectSuccess().
+    ///
+    /// Structural validation failures and transport failures do not have an
+    /// operation-level CryptoErrorCode and therefore return std::nullopt.
+    [[nodiscard]] std::optional<score::crypto::CryptoErrorCode> getErrorCode() const noexcept
+    {
+        return m_errorCode;
+    }
+
   private:
     std::reference_wrapper<const OperationResponse> m_response;
     size_t m_currentOpIndex;
     bool m_isValid = true;
     std::string m_errorMsg;
     bool m_logErrors = false;
+    std::optional<score::crypto::CryptoErrorCode> m_errorCode;
 
     void logError()
     {
