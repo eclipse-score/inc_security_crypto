@@ -42,7 +42,7 @@ jobs:
           - name: Linux x86_64, openssl provider
             bazel-target: "test //score/... --config=x86_64-linux --//score/crypto/src/backend:score_crypto_pkcs11_backend_enabled=False"
             upload-name: "score_security_crypto linux x86_64 OpenSSL backend test results"
-    uses: eclipse-score/cicd-workflows/.github/workflows/tests.yml@8c48c65fc9e8927a06214192e6ebce520853087d
+    uses: eclipse-score/cicd-workflows/.github/workflows/tests.yml@60961d2c522aa78a8c5cc157125fbfd85bd7cbcd
     with:
       bazel-target: ${{ matrix.bazel-target }}
       upload-name: ${{ matrix.upload-name }}
