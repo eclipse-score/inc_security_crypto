@@ -351,6 +351,16 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         return false;
     }
 
+    if (required_capability != common::ProviderCapability::kNone &&
+        !common::HasCapability(provider->GetProviderCapabilities(), required_capability))
+    {
+        score::mw::log::LogError()
+            << "[SCORE_API_MED] ERROR - Selected provider lacks required capability for context: " << context_type;
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+        return false;
+    }
+
     auto crypto_ops = provider->GetCryptoHandlerFactory();
     if (crypto_ops == nullptr)
     {
@@ -365,7 +375,8 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Handler or algorithm not supported:" << context_type
                                    << "/" << algorithm;
-        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
         return false;
     }
 
