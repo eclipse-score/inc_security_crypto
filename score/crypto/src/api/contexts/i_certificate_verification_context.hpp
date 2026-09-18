@@ -14,9 +14,9 @@
 #ifndef SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_VERIFICATION_CONTEXT_HPP
 #define SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_VERIFICATION_CONTEXT_HPP
 
-#include "score/crypto/src/api/certificate/cert_types.hpp"
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/contexts/i_context.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/result/result.h"
 #include "score/span.hpp"
 
