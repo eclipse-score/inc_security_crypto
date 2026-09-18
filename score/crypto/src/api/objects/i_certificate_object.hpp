@@ -51,8 +51,6 @@ namespace crypto
 class ICertificateObject : public ICryptoObject
 {
   public:
-    static constexpr std::size_t kSha256FingerprintSize = 32U;
-
     using Uptr = std::unique_ptr<ICertificateObject>;
 
     ~ICertificateObject() override = default;
