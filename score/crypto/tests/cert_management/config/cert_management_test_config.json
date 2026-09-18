@@ -1,6 +1,5 @@
 {
   "cert_slot_config": {
-    "parser_provider_name": "ALT_PROVIDER",
     "slot_entries": [
       {
         "slot_name": "test/root-ca",
@@ -24,7 +23,7 @@
         "slot_name": "test/exclusive-slot",
         "storage_backend": "DEFAULT",
         "allowed_uids": [0],
-        "allowed_write_uids": [],
+        "allowed_write_uids": [0],
         "deployment_path": "/opt/crypto/deploy/certs/exclusive.kv",
         "deployment_format": "kv",
         "integrity_policy": "disabled"
@@ -55,12 +54,12 @@
         "deployment_format": "kv"
       }
     ],
-    "app_cert_slot_mappings": [
+    "app_cert_slot_entries": [
       { "uid": 0,    "app_resource_id": "root_ca",     "slot_name": "test/root-ca" },
       { "uid": 0,    "app_resource_id": "device_cert", "slot_name": "test/device-cert" },
       { "uid": 1000, "app_resource_id": "device_cert", "slot_name": "test/device-cert" }
     ],
-    "app_trust_store_mappings": [
+    "app_trust_store_entries": [
       { "uid": 0,    "app_resource_id": "tls_roots", "trust_store_name": "test/tls-roots" },
       { "uid": 1000, "app_resource_id": "tls_roots", "trust_store_name": "test/tls-roots" },
       { "uid": 0,    "app_resource_id": "ota_roots", "trust_store_name": "test/ota-roots" }

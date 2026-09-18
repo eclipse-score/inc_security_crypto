@@ -16,12 +16,10 @@
 
 #include "score/mw/log/logging.h"
 #include <sys/stat.h>
-#include <cerrno>
 #include <cstdlib>
 
 #include <map>
 #include <string>
-#include <system_error>
 #include <vector>
 
 namespace score::crypto::daemon::config
@@ -88,43 +86,31 @@ bool Config::ParseCommandLine(int argc, char** argv)
 // Per-component section parsers
 // ---------------------------------------------------------------------------
 
-bool Config::ParseKeyManagementSection(const ConfigFile& file)
+bool Config::ParseKeyManagementSection(std::string_view filepath)
 {
-    auto result = FlatBufferConfigParser::ParseKeyManagementConfig(file, m_key);
+    auto result = FlatBufferConfigParser::ParseKeyManagementConfig(filepath, m_key);
     if (!result.has_value())
     {
-        score::mw::log::LogError() << "[CONFIG] Key management config parsing failed";
+        score::mw::log::LogError() << "[CONFIG] Key management config parsing failed: " << filepath;
         return false;
     }
-    m_key_management_enabled = result.value();
-    if (!m_key_management_enabled)
-    {
-        score::mw::log::LogInfo() << "[CONFIG] No key_slot_config in configuration; key management starts empty.";
-        return true;
-    }
     score::mw::log::LogDebug() << "[CONFIG] Key management: " << m_key.GetSlotEntries().size() << " slot(s), "
-                               << m_key.GetAppKeySlotMappings().size() << " app mapping(s).";
+                               << m_key.GetAppKeySlotEntries().size() << " app mapping(s).";
     return true;
 }
 
-bool Config::ParseCertManagementSection(const ConfigFile& file)
+bool Config::ParseCertManagementSection(std::string_view filepath)
 {
-    auto result = FlatBufferConfigParser::ParseCertManagementConfig(file, m_certificate);
+    auto result = FlatBufferConfigParser::ParseCertManagementConfig(filepath, m_certificate);
     if (!result.has_value())
     {
-        score::mw::log::LogError() << "[CONFIG] Cert management config parsing failed";
+        score::mw::log::LogError() << "[CONFIG] Cert management config parsing failed: " << filepath;
         return false;
-    }
-    m_cert_management_enabled = result.value();
-    if (!m_cert_management_enabled)
-    {
-        score::mw::log::LogInfo() << "[CONFIG] No cert_slot_config in configuration; cert management starts empty.";
-        return true;
     }
     score::mw::log::LogDebug() << "[CONFIG] Cert management: " << m_certificate.GetSlotEntries().size()
                                << " cert slot(s), " << m_certificate.GetTrustStoreEntries().size()
-                               << " trust store(s), " << m_certificate.GetAppCertSlotMappings().size()
-                               << " app cert mapping(s), " << m_certificate.GetAppTrustStoreMappings().size()
+                               << " trust store(s), " << m_certificate.GetAppCertSlotEntries().size()
+                               << " app cert mapping(s), " << m_certificate.GetAppTrustStoreEntries().size()
                                << " app trust store mapping(s).";
     return true;
 }
@@ -144,10 +130,7 @@ bool Config::ParseConfig()
         struct stat st;
         if (::stat(env_path, &st) != 0)
         {
-            const int stat_error = errno;
-            const std::error_code error{stat_error, std::generic_category()};
-            score::mw::log::LogError() << "[CONFIG] Could not inspect config file " << std::string_view{env_path}
-                                       << ": " << error.message();
+            score::mw::log::LogError() << "[CONFIG] Config file does not exist: " << std::string_view{env_path};
             return false;
         }
         resolved_path = env_path;
@@ -162,17 +145,6 @@ bool Config::ParseConfig()
                 resolved_path = std::string{path};
                 break;
             }
-
-            const int stat_error = errno;
-            if (stat_error == ENOENT)
-            {
-                continue;
-            }
-
-            const std::error_code error{stat_error, std::generic_category()};
-            score::mw::log::LogError() << "[CONFIG] Could not inspect default config path " << path << ": "
-                                       << error.message();
-            return false;
         }
     }
 
@@ -187,29 +159,17 @@ bool Config::ParseConfig()
 
     score::mw::log::LogDebug() << "[CONFIG] Loading crypto stack config from: " << resolved_path;
 
-    // The file is read and validated once; each section parser reads only its own section.
-    auto file = FlatBufferConfigParser::LoadFile(resolved_path);
-    if (!file.has_value())
-    {
-        score::mw::log::LogError() << "[CONFIG] Config file could not be read or validated: " << resolved_path;
-        return false;
-    }
-
     // -----------------------------------------------------------------------
-    // Component config sections. An absent section is not an error; a present
-    // section that cannot be parsed fails the load. Add a call here when a new
-    // component's config section is introduced.
+    // Component config sections — each call is the single control point for
+    // its component.  Remove a call to disable that component's config loading.
+    // Add a new call here when a new component's config section is introduced.
     // -----------------------------------------------------------------------
 
-    if (!ParseKeyManagementSection(file.value()))
-    {
+    if (!ParseKeyManagementSection(resolved_path))
         return false;
-    }
 
-    if (!ParseCertManagementSection(file.value()))
-    {
+    if (!ParseCertManagementSection(resolved_path))
         return false;
-    }
 
     // Future components (uncomment / add when their config sections are ready):
     //   if (!ParseProviderManagementSection(resolved_path)) return false;
@@ -217,8 +177,8 @@ bool Config::ParseConfig()
     score::mw::log::LogInfo() << "[CONFIG] Crypto stack config loaded successfully: " << m_key.GetSlotEntries().size()
                               << " key slot(s), " << m_certificate.GetSlotEntries().size() << " cert slot(s), "
                               << m_certificate.GetTrustStoreEntries().size() << " trust store(s), "
-                              << m_certificate.GetAppCertSlotMappings().size() << " cert app resource(s), "
-                              << m_certificate.GetAppTrustStoreMappings().size() << " trust store app resource(s).";
+                              << m_certificate.GetAppCertSlotEntries().size() << " cert app resource(s), "
+                              << m_certificate.GetAppTrustStoreEntries().size() << " trust store app resource(s).";
 
     return true;
 }
