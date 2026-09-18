@@ -14,15 +14,13 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
-    name = "cert_types",
+    name = "ocsp_export",
     hdrs = [
-        "cert_types.hpp",
         "i_ocsp_request_export.hpp",
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
-        "//score/crypto/src/api/common:crypto_common",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],

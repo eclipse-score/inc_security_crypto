@@ -26,7 +26,7 @@ score_coverage_scope(
     visibility = ["//visibility:private"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
-        "//score/crypto/src/api/certificate:cert_types",
+        "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/config:cert_context_configs",
         "//score/crypto/src/api/contexts:cert_contexts",
         "//score/crypto/src/api/objects:cert_objects",

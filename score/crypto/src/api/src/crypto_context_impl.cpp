@@ -14,7 +14,6 @@
 #include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
 #include "score/crypto/src/api/config/mac_context_config.hpp"
@@ -22,6 +21,10 @@
 #include "score/crypto/src/api/contexts/src/key_management_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/mac_context_impl.hpp"
 #include "score/crypto/src/api/src/provider_type_converter.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"

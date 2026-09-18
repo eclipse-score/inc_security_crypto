@@ -38,12 +38,6 @@ struct CertificateContextConfig : public BaseContextConfig
 {
     // -- Fluent builder --
 
-    CertificateContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
-    {
-        BaseContextConfig::SetAlgorithm(alg);
-        return *this;
-    }
-
     CertificateContextConfig& SetProvider(const CryptoResourceId& prov) noexcept
     {
         BaseContextConfig::SetProvider(prov);

@@ -222,15 +222,15 @@ class GeneralConfig
 /**
  * @brief Key management configuration section
  *
- * Stores key slot definitions parsed from the daemon's configuration source
- * (JSON manifest or flatbuffer). Each entry describes a persistent key slot:
+ * Stores key slot definitions parsed from the daemon's binary FlatBuffers
+ * configuration source. Each entry describes a persistent key slot:
  * its human-readable name, algorithm, owning provider, access policy, and
  * a deployment path that points to the external deployment descriptor.
  *
  * At daemon startup, a ConfigDrivenSlotCatalog reads these entries and calls
  * SlotRegistry::RegisterSlot() for each one.
  *
- * Example JSON slot entry:
+ * Example slot entry:
  * @code
  * {
  *     "slot_name": "vehicle/hmac-256",
@@ -305,7 +305,7 @@ class KeyConfig
         return m_app_key_slot_entries;
     }
 
-    /// @brief Path to the JSON key slot manifest file (optional).
+    /// @brief Path to an optional key slot manifest used by catalog tooling.
     ///
     /// If non-empty, ConfigDrivenSlotCatalog reads this file during Load().
     /// If empty, only the entries added via AddSlotEntry() are used.
@@ -395,7 +395,7 @@ class Config
     bool ParseCommandLine(int argc, char** argv);
 
     /**
-     * @brief Parse configuration (like flatbuffer)
+     * @brief Parse the binary FlatBuffers configuration
      * @param none
      * @return true if parsing succeeded, false on error
      */
