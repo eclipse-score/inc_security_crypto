@@ -32,17 +32,17 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/graphviz.css?v=4ae1632d" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score.css?v=bb63a8e1" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score.css?v=415257cb" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score_needs.css?v=82a1844f" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score_design.css?v=8048e6ee" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
@@ -587,7 +587,7 @@
                   
   <section id="certificate-management-detailed-design">
 <h1>Certificate Management Detailed Design<a class="headerlink" href="#certificate-management-detailed-design" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-c1ad7ea6">
+<div class="need_container docutils container" id="SNCB-9b64bffd">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_detailed_design">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -640,7 +640,7 @@ access, slot operations, and trust-store update notifications.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">CertRegistry</span></code> and <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code></dt><dd><p>Own live certificate entries. Each <code class="docutils literal notranslate"><span class="pre">Load</span></code> call produces a fresh
 <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> per client; entries are never shared across clients.
 <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> holds a <code class="docutils literal notranslate"><span class="pre">CertObject::Sptr</span></code> (the immutable parsed bytes) and
-an optional session-scoped CRL (from <code class="docutils literal notranslate"><span class="pre">ImportCrl</span></code> with <code class="docutils literal notranslate"><span class="pre">persist=false</span></code>)
+an optional session-scoped CRL from <code class="docutils literal notranslate"><span class="pre">ImportCrl</span></code>
 that is never written to disk. Because <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> is per-client, the
 session CRL is isolated — one client’s <code class="docutils literal notranslate"><span class="pre">ImportCrl</span></code> cannot be observed by
 another client that loaded the same slot.</p>
@@ -707,20 +707,23 @@ descriptor remains available until the replacement is complete.</p>
 <h2>Trust-store update contract<a class="headerlink" href="#trust-store-update-contract" title="Link to this heading">#</a></h2>
 <p>After a successful slot certificate update, the service obtains the reverse
 membership list and calls <code class="docutils literal notranslate"><span class="pre">TrustStoreManager::NotifySlotChanged</span></code>. The manager
-invalidates the affected <code class="docutils literal notranslate"><span class="pre">TrustStoreHandler</span></code> cache. The next <code class="docutils literal notranslate"><span class="pre">GetAnchors</span></code>
-operation reloads the slot and reconstructs its <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> through the
-injected parser.</p>
+invalidates the affected <code class="docutils literal notranslate"><span class="pre">TrustStoreHandler</span></code> cache. For a
+<code class="docutils literal notranslate"><span class="pre">kConditionalExternal</span></code> member, the manager also disables the member and
+persists its existing accepted fingerprint. The member remains unavailable
+until <code class="docutils literal notranslate"><span class="pre">AcknowledgeMemberUpdate</span></code> records the replacement fingerprint and
+re-enables it. Other member kinds retain their enablement state. The next
+<code class="docutils literal notranslate"><span class="pre">GetAnchors</span></code> operation reloads the slot and reconstructs its <code class="docutils literal notranslate"><span class="pre">CertObject</span></code>
+through the injected parser.</p>
 </section>
 <section id="provider-boundary-and-scope">
 <h2>Provider boundary and scope<a class="headerlink" href="#provider-boundary-and-scope" title="Link to this heading">#</a></h2>
 <p>The core component does not depend on OpenSSL or PKCS#11 concrete types.
-OpenSSL currently supplies parsing and verification implementations; PKCS#11
-supplies a read-only certificate-slot backend. Hardware-key CSR generation,
-CRL validation, OCSP, and mediator dispatch are outside this component’s
-storage and lifecycle scope. Hardware CSR signing must use a cross-context
-service without exporting private key material.</p>
+OpenSSL supplies parsing and verification implementations; PKCS#11 supplies
+certificate-slot storage. Hardware-key CSR signing uses a cross-context
+service without exporting private key material. OCSP remains a provider-boundary
+extension.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-67c44d3185b25ee4c29e7548f85b981be80ee95a.svg" type="image/svg+xml" style="width:2719px;height:2410px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-27e8b74a8b8fdaad21de0b3b426d6e9373a7c11d.svg" type="image/svg+xml" style="width:4429px;height:3231px;background:#FFFFFF;"></object></p>
 </section>
 </section>
 

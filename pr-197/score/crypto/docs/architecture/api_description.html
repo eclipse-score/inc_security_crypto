@@ -32,17 +32,17 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/css/score.css?v=bb63a8e1" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/score.css?v=415257cb" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/css/score_needs.css?v=82a1844f" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/css/score_design.css?v=8048e6ee" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
@@ -761,6 +761,7 @@ promoting DRY code reuse:</p>
 ├── IRandomContext (Generate, Seed)
 ├── IKeyManagementContext (key lifecycle operations)
 ├── ICertificateManagementContext (certificate lifecycle operations)
+├── ITrustStoreManagementContext (trust-store membership curation)
 ├── ICertificateVerificationContext (builder-style chain verification)
 └── ICsrGenerationContext (builder-style CSR generation)
 </pre></div>
@@ -975,10 +976,13 @@ specified, the daemon auto-resolves the provider from
 <li><p><strong>Parsing</strong>: <code class="docutils literal notranslate"><span class="pre">ParseCertificate()</span></code> returns an <code class="docutils literal notranslate"><span class="pre">ICertificateObject::Uptr</span></code> with
 field accessors (subject, issuer, serial, validity dates, algorithm). The object
 is backed by a daemon-assigned ephemeral <code class="docutils literal notranslate"><span class="pre">CryptoResourceId</span></code>.</p></li>
-<li><p><strong>Persistence</strong>: <code class="docutils literal notranslate"><span class="pre">SaveCertificate(id,</span> <span class="pre">slot)</span></code> promotes a parsed certificate to a slot
+<li><p><strong>Persistence</strong>: <code class="docutils literal notranslate"><span class="pre">SaveCertificate(id,</span> <span class="pre">slot)</span></code> promotes a parsed certificate to a slot;
+<code class="docutils literal notranslate"><span class="pre">SaveCertificateWithCrl(id,</span> <span class="pre">slot)</span></code> also propagates the associated CRL
 (copy semantics — the parsed object remains valid after the call)</p></li>
 <li><p><strong>Export</strong>: <code class="docutils literal notranslate"><span class="pre">GetCertificateExportSize()</span></code> + <code class="docutils literal notranslate"><span class="pre">ExportCertificate()</span></code> two-call pattern</p></li>
-<li><p><strong>CRL</strong>: <code class="docutils literal notranslate"><span class="pre">ImportCrl()</span></code>, <code class="docutils literal notranslate"><span class="pre">DeleteCrl()</span></code>, <code class="docutils literal notranslate"><span class="pre">DeleteExpiredCrls()</span></code> for offline revocation</p></li>
+<li><p><strong>CRL</strong>: <code class="docutils literal notranslate"><span class="pre">ImportCrl()</span></code> for session-scoped CRLs on loaded certificates,
+<code class="docutils literal notranslate"><span class="pre">ImportCrlToSlot()</span></code> and <code class="docutils literal notranslate"><span class="pre">DeleteCrl()</span></code> for persistent slot-scoped
+revocation, with CRL metadata available for inspection</p></li>
 <li><p><strong>Key extraction</strong>: <code class="docutils literal notranslate"><span class="pre">LoadCertificatePublicKey()</span></code> extracts the public key
 as a <code class="docutils literal notranslate"><span class="pre">CryptoResourceGuard</span></code> wrapping an ephemeral <code class="docutils literal notranslate"><span class="pre">CryptoResourceId</span></code>
 with <code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">==</span> <span class="pre">kKey</span></code>, following the same guard model as key-producing methods.
@@ -986,6 +990,16 @@ Use <code class="docutils literal notranslate"><span class="pre">ICryptoContext:
 <li><p><strong>OCSP</strong>: <code class="docutils literal notranslate"><span class="pre">GetOcspRequestData()</span></code> generates a request; the response is
 consumed via <code class="docutils literal notranslate"><span class="pre">ICertificateVerificationContext::SetOcspResponse()</span></code></p></li>
 </ul>
+<p><strong>ITrustStoreManagementContext</strong> handles trust-store membership curation:</p>
+<ul class="simple">
+<li><p>adding and removing certificate members</p></li>
+<li><p>enabling, disabling, and acknowledging member updates</p></li>
+<li><p>importing CRLs for trust-store-owned exclusive members</p></li>
+<li><p>deleting CRLs from trust-store-owned exclusive members</p></li>
+</ul>
+<p>It uses <code class="docutils literal notranslate"><span class="pre">TrustStoreManagementContextConfig</span></code> and the certificate-management
+provider capability, but routes to the distinct <code class="docutils literal notranslate"><span class="pre">CERT:TRUST_STORE</span></code> daemon
+context. <code class="docutils literal notranslate"><span class="pre">ITrustStoreObject</span></code> remains a read-only snapshot interface.</p>
 <p><strong>ICertificateVerificationContext</strong> provides builder-style chain verification:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">SetCertificate()</span></code>, <code class="docutils literal notranslate"><span class="pre">SetCertificateChain()</span></code>, <code class="docutils literal notranslate"><span class="pre">SetVerificationTrustStore()</span></code>, <code class="docutils literal notranslate"><span class="pre">SetAdditionalTrustAnchors()</span></code></p></li>

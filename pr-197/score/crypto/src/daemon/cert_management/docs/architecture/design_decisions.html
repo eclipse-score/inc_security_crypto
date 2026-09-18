@@ -32,17 +32,17 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/graphviz.css?v=4ae1632d" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score.css?v=bb63a8e1" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score.css?v=415257cb" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score_needs.css?v=82a1844f" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score_design.css?v=8048e6ee" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
@@ -590,7 +590,7 @@
 <span id="crypto-cert-management-design-decisions"></span><h1>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h1>
 <section id="trust-stores-reference-certificate-slots-not-raw-paths">
 <h2>Trust Stores Reference Certificate Slots, Not Raw Paths<a class="headerlink" href="#trust-stores-reference-certificate-slots-not-raw-paths" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-94136ece">
+<div class="need_container docutils container" id="SNCB-9ceb2dba">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__ts_ref_slots">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -660,7 +660,9 @@ single change-notification point.</p></li>
 <code class="docutils literal notranslate"><span class="pre">CertSlotRegistry</span></code> resolves each name to a <code class="docutils literal notranslate"><span class="pre">CertSlotHandle</span></code> at startup.
 The <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> maintains a reverse index (slot → stores) so that a
 single <code class="docutils literal notranslate"><span class="pre">NotifySlotChanged(slot)</span></code> call after <code class="docutils literal notranslate"><span class="pre">StoreCertificate</span></code> invalidates
-every affected trust store’s anchor cache in O(1).</p></li>
+every affected trust store’s anchor cache. Conditional-external members are
+disabled and persisted until <code class="docutils literal notranslate"><span class="pre">AcknowledgeMemberUpdate</span></code> records the new
+fingerprint.</p></li>
 </ol>
 </section>
 <section id="decision">
@@ -724,7 +726,7 @@ slot entry and a trust-store membership entry.</p></li>
 </section>
 <section id="crl-co-located-with-the-certificate-slot">
 <h2>CRL Co-located with the Certificate Slot<a class="headerlink" href="#crl-co-located-with-the-certificate-slot" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-c5879afb">
+<div class="need_container docutils container" id="SNCB-ecb9dee9">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__crl_co_location">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -799,10 +801,22 @@ because no independent resource exists.</p></li>
 <section id="id2">
 <h3>Decision<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
 <p>CRL co-location with the cert slot (option 3) was selected. <code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code>
-is extended with <code class="docutils literal notranslate"><span class="pre">HasCrl</span></code>, <code class="docutils literal notranslate"><span class="pre">LoadCrl</span></code>, <code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code>, <code class="docutils literal notranslate"><span class="pre">ClearCrl</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">GetCrlNextUpdate</span></code> — implemented by the composed <code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code>. The
-<code class="docutils literal notranslate"><span class="pre">crl_next_update</span></code> epoch is written by <code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code> and exposed through the
-descriptor so the daemon can evaluate CRL freshness without loading the full DER.</p>
+is extended with <code class="docutils literal notranslate"><span class="pre">HasCrl</span></code>, <code class="docutils literal notranslate"><span class="pre">LoadCrl</span></code>, <code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code>, <code class="docutils literal notranslate"><span class="pre">ClearCrl</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GetCrlNextUpdate</span></code>, and <code class="docutils literal notranslate"><span class="pre">GetCrlMetadata</span></code> — implemented by the composed
+<code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code>. Validated CRLs persist their fingerprint, issuer fingerprint,
+<code class="docutils literal notranslate"><span class="pre">thisUpdate</span></code>, <code class="docutils literal notranslate"><span class="pre">nextUpdate</span></code>, and <code class="docutils literal notranslate"><span class="pre">cRLNumber</span></code> in the descriptor. The public
+<code class="docutils literal notranslate"><span class="pre">ICertificateObject</span></code> exposes this as optional <code class="docutils literal notranslate"><span class="pre">CrlMetadata</span></code>; encoding format
+remains an internal persistence detail. Persisted <code class="docutils literal notranslate"><span class="pre">CrlMetadata</span></code> is populated
+only through <code class="docutils literal notranslate"><span class="pre">ImportCrl</span></code>/<code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code>; a CRL placed into a slot’s <code class="docutils literal notranslate"><span class="pre">[crl]</span></code>
+section out of band (only <code class="docutils literal notranslate"><span class="pre">crl_path</span></code>/<code class="docutils literal notranslate"><span class="pre">crl_format</span></code> set, no fingerprint
+fields) has no cached metadata and <code class="docutils literal notranslate"><span class="pre">GetCrlMetadata</span></code> returns no value for it.
+This does not affect revocation checking: <code class="docutils literal notranslate"><span class="pre">OpenSslCertVerificationHandler</span></code>
+never reads the descriptor’s cached <code class="docutils literal notranslate"><span class="pre">CrlMetadata</span></code> — it re-parses each raw
+CRL and recomputes fingerprint, issuer fingerprint, <code class="docutils literal notranslate"><span class="pre">thisUpdate</span></code>,
+<code class="docutils literal notranslate"><span class="pre">nextUpdate</span></code>, and <code class="docutils literal notranslate"><span class="pre">cRLNumber</span></code> directly from the CRL bytes on every
+<code class="docutils literal notranslate"><span class="pre">DoVerify()</span></code> call. The cached descriptor fields exist solely to answer
+inspection queries (<code class="docutils literal notranslate"><span class="pre">ICertificateObject::GetCrlMetadata</span></code>) without
+deserialising the CRL.</p>
 <p>For PKCS#11 token slots (where no filesystem cert path exists), <code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code>
 stores CRL data in the deployment filesystem using the same <code class="docutils literal notranslate"><span class="pre">crl_path</span></code>
 convention — the PKCS#11 token provides no native CRL object type.</p>
@@ -817,8 +831,7 @@ convention — the PKCS#11 token provides no native CRL object type.</p>
 cross-registry coordination.</p></li>
 <li><p>The verification handler walks trust-store member slots and calls <code class="docutils literal notranslate"><span class="pre">HasCrl</span></code>
 per slot — no separate CRL lookup service.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">crl_next_update</span></code> in the descriptor enables freshness checks without
-deserialising the DER.</p></li>
+<li><p>CRL metadata is available without deserialising the CRL during normal reads.</p></li>
 </ul>
 <p><strong>Negative:</strong></p>
 <ul class="simple">
@@ -827,13 +840,17 @@ Detached CRLs (no corresponding cert slot) are not supported.</p></li>
 <li><p>CRL data is not independently addressable — no <code class="docutils literal notranslate"><span class="pre">kCrl</span></code> API resource type.
 Applications use <code class="docutils literal notranslate"><span class="pre">ImportCrl(cert_resource_id,</span> <span class="pre">...)</span></code> rather than
 <code class="docutils literal notranslate"><span class="pre">ImportCrl(crl_resource_id,</span> <span class="pre">...)</span></code>.</p></li>
+<li><p>A CRL written to a slot’s <code class="docutils literal notranslate"><span class="pre">[crl]</span></code> section out of band (bypassing
+<code class="docutils literal notranslate"><span class="pre">ImportCrl</span></code>/<code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code>) has no cached <code class="docutils literal notranslate"><span class="pre">CrlMetadata</span></code>; inspection
+queries report no metadata for it even though the CRL is fully usable for
+revocation checking. There is no on-demand derivation path.</p></li>
 </ul>
 <p>—</p>
 </section>
 </section>
 <section id="mutation-default-deny-with-explicit-writer-uid">
 <h2>Mutation Default-Deny with Explicit Writer UID<a class="headerlink" href="#mutation-default-deny-with-explicit-writer-uid" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-e63482e4">
+<div class="need_container docutils container" id="SNCB-8f47df82">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__deny_mutation">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -964,13 +981,22 @@ express time-limited or operation-specific delegation.</p></li>
 <li><p>Misconfigured <code class="docutils literal notranslate"><span class="pre">writers</span></code> sets are caught at runtime, not at compile time.</p></li>
 <li><p>Long-term refactoring to a shared ACL component will require updating
 enforcement sites in both <code class="docutils literal notranslate"><span class="pre">key_management</span></code> and <code class="docutils literal notranslate"><span class="pre">cert_management</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code>’s slot-write enforcement is keyed purely off
+<code class="docutils literal notranslate"><span class="pre">allowed_write_uids</span></code>; it has no notion of trust-store ownership. A
+<code class="docutils literal notranslate"><span class="pre">kExclusiveMutable</span></code> trust-store member slot must therefore be configured
+with an empty <code class="docutils literal notranslate"><span class="pre">allowed_write_uids</span></code> — the exclusive slot is meant to be
+written only through the trust store’s own write-access gate. A non-empty
+list on such a slot lets any listed UID write to it directly, bypassing
+that gate and the trust store’s cache/notification bookkeeping. This is
+currently a configuration invariant rather than one enforced by
+<code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> itself.</p></li>
 </ul>
 <p>—</p>
 </section>
 </section>
 <section id="atomic-file-writes-via-temp-file-and-rename">
 <h2>Atomic File Writes via Temp-File and Rename<a class="headerlink" href="#atomic-file-writes-via-temp-file-and-rename" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-409d9f2b">
+<div class="need_container docutils container" id="SNCB-c80f3159">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__atomic_writes">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1078,7 +1104,7 @@ kilobytes); not suitable for large append-only data.</p></li>
 </section>
 <section id="provider-boundary-parsing-only-no-private-key-or-hsm-handle-crossing">
 <h2>Provider Boundary: Parsing Only; No Private Key or HSM Handle Crossing<a class="headerlink" href="#provider-boundary-parsing-only-no-private-key-or-hsm-handle-crossing" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-67d48e5c">
+<div class="need_container docutils container" id="SNCB-cbd9a2c5">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__provider_boundary">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">

@@ -32,17 +32,17 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/graphviz.css?v=4ae1632d" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score.css?v=bb63a8e1" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score.css?v=415257cb" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score_needs.css?v=82a1844f" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score_design.css?v=8048e6ee" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
     <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
@@ -588,7 +588,7 @@
                   
   <section id="certificate-management-component-architecture">
 <h1>Certificate Management Component Architecture<a class="headerlink" href="#certificate-management-component-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-5dd28d64">
+<div class="need_container docutils container" id="SNCB-a1407fcd">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_architecture">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -632,7 +632,7 @@
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-c7c00425">
+<div class="need_container docutils container" id="SNCB-0a336d6d">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto_cert_management">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -702,12 +702,30 @@ and per-client references.</p></li>
 wire-format encoding for certificate, slot, and trust-store objects. Both
 the executor and the mediator’s typed-object handlers depend on this module;
 changing the wire layout requires one edit.</p></li>
+<li><p>Public value definitions are owned by <code class="docutils literal notranslate"><span class="pre">api/types</span></code>: <code class="docutils literal notranslate"><span class="pre">common.hpp</span></code> contains
+cross-domain resource/provider types, <code class="docutils literal notranslate"><span class="pre">certificate.hpp</span></code> contains certificate,
+CRL, OCSP, and verification types, and <code class="docutils literal notranslate"><span class="pre">key.hpp</span></code> contains key slot and
+permission types. <code class="docutils literal notranslate"><span class="pre">api/common</span></code> contains shared utilities and guards, not
+domain-specific type contracts.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">provider/</span></code> supplies parsing and provider-specific context handlers. The
 selected certificate-management provider must expose <code class="docutils literal notranslate"><span class="pre">ICertParser</span></code>;
-certificate management does not require a particular provider.</p></li>
+certificate management does not require a particular provider.
+The public certificate contexts route by scoped type: <code class="docutils literal notranslate"><span class="pre">CERT:MANAGEMENT</span></code>
+owns certificate lifecycle operations, while <code class="docutils literal notranslate"><span class="pre">CERT:TRUST_STORE</span></code> owns
+trust-store membership curation. Both handlers share the same
+<code class="docutils literal notranslate"><span class="pre">CertManagementService</span></code> and certificate-management capability.</p></li>
 </ul>
+</section>
+<section id="public-certificate-loading">
+<h2>Public certificate loading<a class="headerlink" href="#public-certificate-loading" title="Link to this heading">#</a></h2>
+<p>Certificate contexts support two equivalent resource paths. Passing a resolved
+<code class="docutils literal notranslate"><span class="pre">kCertSlot</span></code> directly lets the context load and release the certificate for its
+own operation. <code class="docutils literal notranslate"><span class="pre">ICertificateManagementContext::LoadCertificate(slot)</span></code> performs
+an explicit load and returns a guarded ephemeral <code class="docutils literal notranslate"><span class="pre">kCertificate</span></code> resource.
+Applications can retain that guard and reuse the loaded certificate across
+multiple contexts; destroying the guard releases the client-owned data node.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-4d903dc79d93839cdc9ef48878bf51c806366cda.svg" type="image/svg+xml" style="width:2537px;height:954px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-2a339107493af8b3fdd43a62d78d72665e5309ae.svg" type="image/svg+xml" style="width:3377px;height:1132px;background:#FFFFFF;"></object></p>
 </section>
 <section id="runtime-boundaries">
 <h2>Runtime boundaries<a class="headerlink" href="#runtime-boundaries" title="Link to this heading">#</a></h2>
@@ -716,7 +734,7 @@ certificate slot or trust store is represented by a lightweight DataNode. A
 certificate loaded from a slot becomes a <code class="docutils literal notranslate"><span class="pre">CertDataNode</span></code> backed by a
 per-client <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code>. Each <code class="docutils literal notranslate"><span class="pre">Load</span></code> call produces an independent
 <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> so that per-client state — such as a session-scoped CRL
-associated via <code class="docutils literal notranslate"><span class="pre">ImportCrl(persist=false)</span></code> — cannot bleed across clients.
+associated via session-scoped <code class="docutils literal notranslate"><span class="pre">ImportCrl</span></code> — cannot bleed across clients.
 <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> holds a weak-ptr cache of <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> instances keyed
 by slot: when the cache entry is live, multiple clients share the same parsed
 bytes without redundant I/O; when it expires, the next load re-reads the slot.
@@ -738,7 +756,11 @@ non-exportable keys while preserving provider ownership of private keys.</p></li
 <li><p>Certificate slots reference one storage backend selected at startup.</p></li>
 <li><p>Trust stores reference certificate slots, never raw certificate paths.</p></li>
 <li><p>CRLs are slot-scoped and are not independently resolved.</p></li>
+<li><p>CRL metadata is exposed through certificate views; CRL encoding format stays
+internal to storage and provider decoding.</p></li>
 <li><p>All trust-store mutation paths require trust-store write authorization.</p></li>
+<li><p>Trust-store mutations are dispatched through <code class="docutils literal notranslate"><span class="pre">CERT:TRUST_STORE</span></code>; the
+<code class="docutils literal notranslate"><span class="pre">CERT:MANAGEMENT</span></code> context retains certificate-slot and slot-CRL lifecycle.</p></li>
 <li><p>Shared deployment writes are atomic; a partially written descriptor must not
 replace the previous valid descriptor.</p></li>
 </ul>
@@ -799,8 +821,8 @@ management boundary.</p></li>
 </section>
 <section id="current-limitations">
 <h2>Current limitations<a class="headerlink" href="#current-limitations" title="Link to this heading">#</a></h2>
-<p>The current implementation does not provide CRL validation during
-verification, OCSP, or hardware-key CSR signing. Hardware CSR signing
+<p>CRL validation and CRL-based verification are implemented, including selected
+CRL metadata reporting. OCSP remains deferred. Hardware-key CSR signing
 requires a cross-context service using <code class="docutils literal notranslate"><span class="pre">Sign</span></code> and <code class="docutils literal notranslate"><span class="pre">GetPublicKeyDer</span></code>
 without exporting private key material. Provider and daemon dispatch
 integration is outside this component’s storage and lifecycle boundary.</p>
@@ -856,6 +878,7 @@ integration is outside this component’s storage and lifecycle boundary.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#purpose">Purpose</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#static-decomposition">Static decomposition</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#public-certificate-loading">Public certificate loading</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#runtime-boundaries">Runtime boundaries</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture-constraints">Architecture constraints</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-interfaces">Key interfaces</a></li>

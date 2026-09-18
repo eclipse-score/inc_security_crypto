@@ -32,17 +32,17 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/graphviz.css?v=4ae1632d" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../_static/css/score.css?v=bb63a8e1" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/css/score.css?v=415257cb" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/css/score_needs.css?v=82a1844f" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/css/score_design.css?v=8048e6ee" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
     <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
@@ -578,7 +578,7 @@
                   
   <section id="certificate-management-component">
 <h1>Certificate Management Component<a class="headerlink" href="#certificate-management-component" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-94f4b7dc">
+<div class="need_container docutils container" id="SNCB-3d88bf1b">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_mgmt">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -677,12 +677,6 @@ application’s verification context cannot evict another application’s
 active anchor cache.</p></li>
 </ul>
 </section>
-<section id="backwards-compatibility-impact">
-<h2>Backwards Compatibility Impact<a class="headerlink" href="#backwards-compatibility-impact" title="Link to this heading">#</a></h2>
-<p>The component introduces no changes to existing certificate-management
-callers. The certificate-management, certificate-verification, and
-CSR-generation context interfaces are defined in <code class="docutils literal notranslate"><span class="pre">score/crypto/src/api/</span></code>.</p>
-</section>
 <section id="security-impact">
 <h2>Security Impact<a class="headerlink" href="#security-impact" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -696,7 +690,8 @@ partial updates.</p></li>
 <li><p>Trust store mutations (<code class="docutils literal notranslate"><span class="pre">AddMember</span></code>, <code class="docutils literal notranslate"><span class="pre">RemoveMember</span></code>,
 <code class="docutils literal notranslate"><span class="pre">DisableMember</span></code>, <code class="docutils literal notranslate"><span class="pre">EnableMember</span></code>) carry a separate write permission
 check on the trust store policy, independent of the member slot’s
-write policy.</p></li>
+write policy, and are dispatched through the <code class="docutils literal notranslate"><span class="pre">CERT:TRUST_STORE</span></code> context
+handler.</p></li>
 </ul>
 </section>
 <section id="safety-impact">
@@ -786,7 +781,6 @@ verification is outside the current component behavior.</p></li>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#abstract">Abstract</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rationale">Rationale</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#backwards-compatibility-impact">Backwards Compatibility Impact</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#security-impact">Security Impact</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#safety-impact">Safety Impact</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rejected-ideas">Rejected Ideas</a></li>
