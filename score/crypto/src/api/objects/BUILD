@@ -50,3 +50,32 @@ cc_library(
         "@score_baselibs//score/result",
     ],
 )
+
+# Concrete implementations of the cert object interfaces.
+# Private — only consumed by the API implementation layer (crypto_contexts_impl,
+# crypto_context_impl). Not part of the public API surface.
+cc_library(
+    name = "cert_objects_impl",
+    srcs = [
+        "src/cert_slot_object_impl.cpp",
+        "src/certificate_object_impl.cpp",
+        "src/trust_store_object_impl.cpp",
+    ],
+    hdrs = [
+        "src/cert_slot_object_impl.hpp",
+        "src/certificate_object_impl.hpp",
+        "src/trust_store_object_impl.hpp",
+    ],
+    includes = ["."],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":cert_objects",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/common:release_callback_iface",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
+        "@score_baselibs//score/mw/log",
+        "@score_baselibs//score/result",
+    ],
+)
