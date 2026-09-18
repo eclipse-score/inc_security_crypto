@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_STORAGE_DEPLOYMENT_DESCRIPTOR_HPP
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 namespace score::crypto::daemon::common::storage
@@ -33,18 +34,30 @@ struct DeploymentDescriptor
     /// @brief Section name -> (key -> value) map.
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> sections;
 
-    /// @brief Get a value from a section, returning default_val if absent.
-    [[nodiscard]] const std::string& Get(const std::string& section,
-                                         const std::string& key,
-                                         const std::string& default_val = kEmptyString) const noexcept
+    /// @brief Get a value from a section, returning an empty string if absent.
+    [[nodiscard]] const std::string& Get(const std::string& section, const std::string& key) const noexcept
     {
         const auto sit = sections.find(section);
         if (sit == sections.end())
         {
-            return default_val;
+            return kEmptyString;
         }
         const auto kit = sit->second.find(key);
-        return (kit != sit->second.end()) ? kit->second : default_val;
+        return (kit != sit->second.end()) ? kit->second : kEmptyString;
+    }
+
+    /// @brief Get a value from a section, returning an owning default if absent.
+    [[nodiscard]] std::string Get(const std::string& section,
+                                  const std::string& key,
+                                  std::string_view default_val) const
+    {
+        const auto sit = sections.find(section);
+        if (sit == sections.end())
+        {
+            return std::string{default_val};
+        }
+        const auto kit = sit->second.find(key);
+        return (kit != sit->second.end()) ? kit->second : std::string{default_val};
     }
 
     /// @brief True if the named section is present (even if empty).

@@ -10,10 +10,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
-/********************************************************************************
- * Copyright (c) 2026 Contributors to the Eclipse Foundation
- * SPDX-License-Identifier: Apache-2.0
- ********************************************************************************/
+
 #ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_STORAGE_FILE_IO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_STORAGE_FILE_IO_HPP
 
@@ -33,9 +30,9 @@ namespace score::crypto::daemon::common::storage
 /// @param path     Absolute or relative path to the file.
 /// @param max_size Maximum accepted file size in bytes. Returns kInvalidArgument
 ///                 if the file is empty or exceeds this limit.
-/// @return Byte vector on success; kResourceNotAllocated if the file cannot be
-///         opened, kInvalidArgument if size is out of range, kInternalError on
-///         a partial read.
+/// @return Byte vector on success; kResourceNotAllocated if the file is absent,
+///         kInvalidArgument if size is out of range, kInternalError if the file
+///         cannot be opened for another reason or on a partial read.
 [[nodiscard]] score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> ReadFile(const std::string& path,
                                                                                            std::size_t max_size);
 
@@ -52,11 +49,12 @@ namespace score::crypto::daemon::common::storage
     const std::string& path,
     score::crypto::span<const std::uint8_t> data);
 
-/// Return true if @p path refers to an existing regular file.
+/// Check whether @p path refers to an existing regular file.
 ///
-/// Returns false for directories, symlinks to non-existent targets, and any
-/// other non-regular-file entries. Errors resolve to false.
-[[nodiscard]] bool FileExists(const std::string& path);
+/// Returns false for missing paths, directories, symlinks to non-existent
+/// targets, and other non-regular-file entries. Filesystem errors are returned
+/// as failures instead of being reported as absence.
+[[nodiscard]] score::crypto::Expected<bool, DaemonErrorCode> FileExists(const std::string& path);
 
 /// Remove the file at @p path.
 ///
