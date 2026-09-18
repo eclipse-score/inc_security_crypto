@@ -27,6 +27,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],
@@ -44,6 +45,7 @@ cc_library(
     deps = [
         ":crypto_objects",
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],

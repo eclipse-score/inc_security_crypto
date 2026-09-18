@@ -34,19 +34,16 @@ namespace crypto
 
 /// @brief Typed view of a certificate resource.
 ///
-/// The single certificate abstraction used for both ephemeral (parsed from bytes)
-/// and persistent (loaded from a slot) certificates. All instances are
+/// The single certificate view abstraction used for both ephemeral (parsed from
+/// bytes) and persistent (loaded from a slot) certificates. All instances are
 /// daemon-backed and carry a valid `GetId()` from the moment they are obtained.
 ///
-/// **Lifecycle**: destroying this object releases the daemon-side resource.
-/// For ephemeral certificates created by ParseCertificate(), the daemon frees
-/// the resource when the last ICertificateObject referring to it is destroyed.
-/// For persistent certificates loaded from a slot, the slot and its content
-/// are unaffected — only the in-memory view object is released.
+/// **Lifecycle**: this object is non-owning. A parsed certificate's
+/// CryptoResourceGuard owns the daemon-side resource and must outlive this view.
+/// For persistent certificates, the slot owns the stored content.
 ///
 /// **Persistence**: use ICertificateManagementContext::SaveCertificate() to
-/// copy an ephemeral certificate to a persistent slot. The ephemeral copy
-/// remains valid and is released independently when this object is destroyed.
+/// copy an ephemeral certificate to a persistent slot.
 ///
 /// Provides field access, serial number, public key metadata, and public key
 /// export. Certificates with PQC keys (ML-DSA, SLH-DSA, XMSS, LMS) may
@@ -89,6 +86,12 @@ class ICertificateObject : public ICryptoObject
     /// The fingerprint is the SHA-256 digest of the DER-encoded certificate. Together
     /// with the issuer DN and serial number it uniquely identifies a certificate.
     virtual std::array<uint8_t, kSha256FingerprintSize> GetFingerprint() const noexcept = 0;
+
+    /// @brief Returns metadata for the CRL associated with this certificate.
+    ///
+    /// The result is empty when no session-scoped or persistent CRL is
+    /// associated with the certificate.
+    virtual std::optional<CrlMetadata> GetCrlMetadata() const noexcept = 0;
 
     /// @brief Returns the byte size of the DER-encoded SubjectPublicKeyInfo.
     ///
