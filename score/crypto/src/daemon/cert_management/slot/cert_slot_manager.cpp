@@ -51,7 +51,9 @@ score::crypto::Expected<std::monostate, Error> CertSlotManager::ApplyWriteChecks
 
     // TODO(cert-slot-mgr): exclusive-slot guard — return kAccessDenied when the slot
     // is a kExclusiveMutable member of any trust store. Requires a membership query
-    // callback to avoid a circular dependency with TrustStoreManager.
+    // callback to avoid a circular dependency with TrustStoreManager. Until this
+    // lands, correctness relies on a configuration invariant documented on
+    // AccessPolicy::allowed_write_uids (access_policy.hpp) and in design_decisions.rst.
 
     return std::monostate{};
 }
@@ -188,11 +190,11 @@ score::crypto::Expected<score::crypto::CertificateSlotInfo, Error> CertSlotManag
     return handler->GetSlotInfo(cfg);
 }
 
-bool CertSlotManager::HasCrl(CertSlotHandle slot)
+score::crypto::Expected<bool, Error> CertSlotManager::HasCrl(CertSlotHandle slot)
 {
     const auto cfg_res = GetConfig(slot);
     if (!cfg_res.has_value())
-        return false;
+        return score::crypto::make_unexpected(cfg_res.error());
 
     ICertSlotHandler::Sptr handler;
     {
@@ -200,7 +202,7 @@ bool CertSlotManager::HasCrl(CertSlotHandle slot)
         handler = GetOrCreate(slot);
     }
     if (!handler)
-        return false;
+        return score::crypto::make_unexpected(Error::kInternalError);
     return handler->HasCrl(*cfg_res.value());
 }
 
@@ -240,6 +242,22 @@ score::crypto::FormatType CertSlotManager::GetCrlFormat(CertSlotHandle slot)
     if (!handler)
         return score::crypto::FormatType::kDer;
     return handler->GetCrlFormat(*cfg_res.value());
+}
+
+std::optional<score::crypto::CrlMetadata> CertSlotManager::GetCrlMetadata(CertSlotHandle slot)
+{
+    const auto cfg_res = GetConfig(slot);
+    if (!cfg_res.has_value())
+        return std::nullopt;
+
+    ICertSlotHandler::Sptr handler;
+    {
+        std::lock_guard lock(m_mutex);
+        handler = GetOrCreate(slot);
+    }
+    if (!handler)
+        return std::nullopt;
+    return handler->GetCrlMetadata(*cfg_res.value());
 }
 
 score::crypto::Expected<int64_t, Error> CertSlotManager::GetCrlNextUpdate(CertSlotHandle slot,
@@ -333,11 +351,12 @@ void CertSlotManager::InvalidateCertObjectCache(CertSlotHandle slot)
     m_cert_object_cache.erase(slot.index);
 }
 
-score::crypto::Expected<std::monostate, Error> CertSlotManager::ImportCrl(CertSlotHandle slot,
-                                                                          data_manager::ClientId client_id,
-                                                                          score::crypto::span<const uint8_t> crl_data,
-                                                                          score::crypto::FormatType format,
-                                                                          std::int64_t next_update_epoch_s)
+score::crypto::Expected<std::monostate, Error> CertSlotManager::ImportCrl(
+    CertSlotHandle slot,
+    data_manager::ClientId client_id,
+    score::crypto::span<const uint8_t> crl_data,
+    score::crypto::FormatType format,
+    std::optional<score::crypto::CrlMetadata> metadata)
 {
     const auto cfg_res = GetConfig(slot);
     if (!cfg_res.has_value())
@@ -358,7 +377,7 @@ score::crypto::Expected<std::monostate, Error> CertSlotManager::ImportCrl(CertSl
     }
     if (!handler)
         return score::crypto::make_unexpected(Error::kInternalError);
-    return handler->StoreCrl(cfg, crl_data, format, next_update_epoch_s);
+    return handler->StoreCrl(cfg, crl_data, format, std::move(metadata));
 }
 
 score::crypto::Expected<std::monostate, Error> CertSlotManager::DeleteCrl(CertSlotHandle slot,

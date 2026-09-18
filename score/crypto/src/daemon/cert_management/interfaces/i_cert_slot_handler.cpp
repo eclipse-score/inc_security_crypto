@@ -39,7 +39,7 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
     const CertSlotConfig& /*slot*/,
     score::crypto::span<const uint8_t> /*crl_data*/,
     score::crypto::FormatType /*format*/,
-    std::int64_t /*next_update_epoch_s*/)
+    std::optional<score::crypto::CrlMetadata> /*metadata*/)
 {
     return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
 }
@@ -59,6 +59,11 @@ score::crypto::Expected<int64_t, score::crypto::daemon::common::DaemonErrorCode>
 score::crypto::FormatType ICertSlotHandler::GetCrlFormat(const CertSlotConfig& /*slot*/)
 {
     return score::crypto::FormatType::kDer;
+}
+
+std::optional<score::crypto::CrlMetadata> ICertSlotHandler::GetCrlMetadata(const CertSlotConfig& /*slot*/)
+{
+    return std::nullopt;
 }
 
 }  // namespace score::crypto::daemon::cert_management

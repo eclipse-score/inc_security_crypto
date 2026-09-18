@@ -244,6 +244,90 @@ TEST_F(CertificateManagementIntegrationTest, ClearSlot_DeniedForUnauthorizedUid)
     EXPECT_EQ(result.error(), common::DaemonErrorCode::kAccessDenied);
 }
 
+// ImportCrl succeeds when the caller's UID is in allowed_write_uids, and the
+// stored CRL becomes visible via HasCrl.
+TEST_F(CertificateManagementIntegrationTest, ImportCrl_GrantedForAuthorizedUid_StoresCrl)
+{
+    const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(slot.has_value());
+    ASSERT_FALSE(m_slot_manager->HasCrl(*slot).value());
+
+    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    const auto result =
+        m_slot_manager->ImportCrl(*slot, MakeClientId(1U, 0U), crl_bytes, score::crypto::FormatType::kDer);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(m_slot_manager->HasCrl(*slot).value());
+}
+
+// ImportCrl is denied when the caller's UID is not in allowed_write_uids; no
+// CRL is stored.
+TEST_F(CertificateManagementIntegrationTest, ImportCrl_DeniedForUnauthorizedUid)
+{
+    const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(slot.has_value());
+
+    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    const auto result =
+        m_slot_manager->ImportCrl(*slot, MakeClientId(2U, 99U), crl_bytes, score::crypto::FormatType::kDer);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kAccessDenied);
+    EXPECT_FALSE(m_slot_manager->HasCrl(*slot).value());
+}
+
+// DeleteCrl is denied when the caller's UID is not in allowed_write_uids; a
+// previously-stored CRL survives the denied attempt.
+TEST_F(CertificateManagementIntegrationTest, DeleteCrl_DeniedForUnauthorizedUid)
+{
+    const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(slot.has_value());
+    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    ASSERT_TRUE(
+        m_slot_manager->ImportCrl(*slot, MakeClientId(1U, 0U), crl_bytes, score::crypto::FormatType::kDer).has_value());
+
+    const auto result = m_slot_manager->DeleteCrl(*slot, MakeClientId(2U, 99U));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kAccessDenied);
+    EXPECT_TRUE(m_slot_manager->HasCrl(*slot).value());
+}
+
+// DeleteCrl succeeds when the caller's UID is in allowed_write_uids.
+TEST_F(CertificateManagementIntegrationTest, DeleteCrl_GrantedForAuthorizedUid_RemovesCrl)
+{
+    const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(slot.has_value());
+    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    ASSERT_TRUE(
+        m_slot_manager->ImportCrl(*slot, MakeClientId(1U, 0U), crl_bytes, score::crypto::FormatType::kDer).has_value());
+
+    const auto result = m_slot_manager->DeleteCrl(*slot, MakeClientId(1U, 0U));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(m_slot_manager->HasCrl(*slot).value());
+}
+
+// StoreCertificate invalidates the CertObjectCache: a certificate loaded
+// before a write must not be returned again after the slot content changes.
+TEST_F(CertificateManagementIntegrationTest, StoreCertificate_InvalidatesCertObjectCache)
+{
+    const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
+    ASSERT_TRUE(slot.has_value());
+
+    const auto before = m_slot_manager->LoadCertificate(*slot, MakeClientId(1U, 0U));
+    ASSERT_TRUE(before.has_value());
+    EXPECT_EQ((*before)->GetSubject(), "CN=cert-management-test,O=Eclipse");
+
+    const auto updated_pem = ReadFile(m_directory / "certificate_updated.pem");
+    ASSERT_FALSE(updated_pem.empty());
+    const auto updated = m_parser->ParseCertificate(
+        reinterpret_cast<const std::uint8_t*>(updated_pem.data()), updated_pem.size(), score::crypto::FormatType::kPem);
+    ASSERT_TRUE(updated.has_value());
+    ASSERT_TRUE(m_slot_manager->StoreCertificate(*slot, MakeClientId(1U, 0U), **updated).has_value());
+
+    const auto after = m_slot_manager->LoadCertificate(*slot, MakeClientId(1U, 0U));
+    ASSERT_TRUE(after.has_value());
+    // A stale cache would still report the pre-write subject here.
+    EXPECT_EQ((*after)->GetSubject(), "CN=cert-management-updated,O=Eclipse");
+}
+
 // A slot with an empty allowed_write_uids list denies writes from every UID,
 // including UID 0. This is the default-deny invariant.
 TEST_F(CertificateManagementIntegrationTest, WritesDeniedWhenAllowedWriteUidsIsEmpty)

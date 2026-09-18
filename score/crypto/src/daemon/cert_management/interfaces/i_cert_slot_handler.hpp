@@ -14,7 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_INTERFACES_I_CERT_SLOT_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_INTERFACES_I_CERT_SLOT_HANDLER_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_object.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_slot_config.hpp"
@@ -26,6 +27,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -101,11 +103,12 @@ class ICertSlotHandler
                                                   score::crypto::daemon::common::DaemonErrorCode>
     GetSlotInfo(const CertSlotConfig& slot) = 0;
 
-    /// True when the slot has an associated CRL stored in its [crl] section.
+    /// Check whether the slot has an associated CRL stored in its [crl] section.
     ///
     /// For file-backed slots: checks existence of the crl_path key in the
     /// deployment descriptor and verifies the file is present.
-    [[nodiscard]] virtual bool HasCrl(const CertSlotConfig& slot) = 0;
+    [[nodiscard]] virtual score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> HasCrl(
+        const CertSlotConfig& slot) = 0;
 
     // -----------------------------------------------------------------------
     // Optional — defaulted to kUnsupportedOperation
@@ -145,7 +148,7 @@ class ICertSlotHandler
     ///
     /// crl_data points to caller-owned memory valid for the duration of this call.
     /// The implementation must copy the bytes and write them to the configured path.
-    /// Updates cert_deployment_keys::kCrlNextUpdate in the deployment descriptor.
+    /// Updates CRL metadata keys in the deployment descriptor when metadata is provided.
     ///
     /// Consistency model: the operation is two steps — write CRL file, then write
     /// descriptor. Each step is individually atomic (temp-file + rename). If the
@@ -159,7 +162,7 @@ class ICertSlotHandler
     StoreCrl(const CertSlotConfig& slot,
              score::crypto::span<const uint8_t> crl_data,
              score::crypto::FormatType format,
-             std::int64_t next_update_epoch_s = 0);
+             std::optional<score::crypto::CrlMetadata> metadata = std::nullopt);
 
     /// Remove the CRL from the slot's [crl] section.
     ///
@@ -185,6 +188,9 @@ class ICertSlotHandler
     ///
     /// Default: returns kDer.
     [[nodiscard]] virtual score::crypto::FormatType GetCrlFormat(const CertSlotConfig& slot);
+
+    /// Return metadata for the stored CRL, when available.
+    [[nodiscard]] virtual std::optional<score::crypto::CrlMetadata> GetCrlMetadata(const CertSlotConfig& slot);
 };
 
 /// Factory function type for creating a slot handler from a slot configuration.

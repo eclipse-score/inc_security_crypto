@@ -126,7 +126,8 @@ struct SlotHandlerStub : public cert::ICertSlotHandler
         return slot_info_result;
     }
 
-    bool HasCrl(const cert::CertSlotConfig&) override
+    score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> HasCrl(
+        const cert::CertSlotConfig&) override
     {
         return slot_info_result.has_value() && slot_info_result->has_crl;
     }
@@ -141,7 +142,7 @@ struct SlotHandlerStub : public cert::ICertSlotHandler
         const cert::CertSlotConfig&,
         score::crypto::span<const uint8_t>,
         score::crypto::FormatType,
-        std::int64_t) override
+        std::optional<score::crypto::CrlMetadata>) override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
@@ -171,10 +172,10 @@ struct SlotHandlerStub : public cert::ICertSlotHandler
 // SerializeCertObject
 // ===========================================================================
 
-TEST(SerializeCertObject, ProducesNineParameters)
+TEST(SerializeCertObject, ProducesFifteenParameters)
 {
     const auto cert = MakeSyntheticCert();
-    EXPECT_EQ(query::SerializeCertObject(cert).size(), 9U);
+    EXPECT_EQ(query::SerializeCertObject(cert).size(), 15U);
 }
 
 TEST(SerializeCertObject, Param0_SubjectString)
@@ -274,6 +275,37 @@ TEST(SerializeCertObject, Param8_Fingerprint32ByteBuffer)
         EXPECT_EQ(byte, 0x5AU);
 }
 
+TEST(SerializeCertObject, CrlMetadataUsesTypedTail)
+{
+    const auto cert = MakeSyntheticCert();
+    score::crypto::CrlMetadata metadata;
+    metadata.fingerprint.fill(0xA1U);
+    metadata.issuer_fingerprint.fill(0xB2U);
+    metadata.this_update = 1700000000LL;
+    metadata.next_update = 1730000000LL;
+    metadata.crl_number = 7U;
+
+    const auto params = query::SerializeCertObject(cert, metadata);
+    const auto* has_crl = GetParam<std::uint8_t>(params, 9U);
+    const auto* crl_fp = GetParam<score::crypto::daemon::common::OwnedBuffer>(params, 10U);
+    const auto* issuer_fp = GetParam<score::crypto::daemon::common::OwnedBuffer>(params, 11U);
+    const auto* this_update = GetParam<std::uint64_t>(params, 12U);
+    const auto* next_update = GetParam<std::uint64_t>(params, 13U);
+    const auto* crl_number = GetParam<std::uint64_t>(params, 14U);
+    ASSERT_NE(has_crl, nullptr);
+    ASSERT_NE(crl_fp, nullptr);
+    ASSERT_NE(issuer_fp, nullptr);
+    ASSERT_NE(this_update, nullptr);
+    ASSERT_NE(next_update, nullptr);
+    ASSERT_NE(crl_number, nullptr);
+    EXPECT_EQ(*has_crl, 1U);
+    EXPECT_EQ(crl_fp->size(), 32U);
+    EXPECT_EQ(issuer_fp->size(), 32U);
+    EXPECT_EQ(*this_update, static_cast<std::uint64_t>(metadata.this_update));
+    EXPECT_EQ(*next_update, static_cast<std::uint64_t>(metadata.next_update));
+    EXPECT_EQ(*crl_number, metadata.crl_number);
+}
+
 TEST(SerializeCertObject, EmptySkidAndAkidEncodeAsEmptyBuffers)
 {
     cert::CertChainMetadata meta;
@@ -324,11 +356,11 @@ class SerializeCertSlotInfoTest : public ::testing::Test
     std::unique_ptr<cert::CertSlotManager> mgr_;
 };
 
-TEST_F(SerializeCertSlotInfoTest, ProducesThreeParameters)
+TEST_F(SerializeCertSlotInfoTest, ProducesTwoParameters)
 {
     const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result.value().size(), 3U);
+    EXPECT_EQ(result.value().size(), 2U);
 }
 
 TEST_F(SerializeCertSlotInfoTest, Param0_SlotStateUint8_Occupied)
@@ -351,50 +383,26 @@ TEST_F(SerializeCertSlotInfoTest, Param0_SlotStateUint8_Empty)
     EXPECT_EQ(*val, static_cast<std::uint8_t>(score::crypto::CertificateSlotState::kEmpty));
 }
 
-TEST_F(SerializeCertSlotInfoTest, NoCrl_Param1IsZero_Param2IsZero)
+TEST_F(SerializeCertSlotInfoTest, NoCrl_Param1IsZero)
 {
     stub_->slot_info_result->has_crl = false;
     const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
     ASSERT_TRUE(result.has_value());
 
     const auto* has_crl = GetParam<std::uint8_t>(result.value(), 1U);
-    const auto* crl_next = GetParam<std::uint64_t>(result.value(), 2U);
     ASSERT_NE(has_crl, nullptr);
-    ASSERT_NE(crl_next, nullptr);
     EXPECT_EQ(*has_crl, 0U);
-    EXPECT_EQ(*crl_next, 0U);
 }
 
-TEST_F(SerializeCertSlotInfoTest, CrlPresent_Param1IsOne_Param2IsEpoch)
+TEST_F(SerializeCertSlotInfoTest, CrlPresent_Param1IsOne)
 {
     stub_->slot_info_result->has_crl = true;
-    stub_->crl_next_update_value = 1700000000LL;
     const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
     ASSERT_TRUE(result.has_value());
 
     const auto* has_crl = GetParam<std::uint8_t>(result.value(), 1U);
-    const auto* crl_next = GetParam<std::uint64_t>(result.value(), 2U);
     ASSERT_NE(has_crl, nullptr);
-    ASSERT_NE(crl_next, nullptr);
     EXPECT_EQ(*has_crl, 1U);
-    EXPECT_EQ(*crl_next, static_cast<std::uint64_t>(1700000000ULL));
-}
-
-TEST_F(SerializeCertSlotInfoTest, CrlPresent_GetCrlNextUpdateFails_Param2IsZero)
-{
-    // HasCrl() returns true but GetCrlNextUpdate() is unavailable.
-    // The serializer encodes has_crl=1 and crl_next=0 (not an error).
-    stub_->slot_info_result->has_crl = true;
-    stub_->crl_next_update_value = std::nullopt;
-    const auto result = query::SerializeCertSlotInfo(*mgr_, slot_handle_, kClientId);
-    ASSERT_TRUE(result.has_value());
-
-    const auto* has_crl = GetParam<std::uint8_t>(result.value(), 1U);
-    const auto* crl_next = GetParam<std::uint64_t>(result.value(), 2U);
-    ASSERT_NE(has_crl, nullptr);
-    ASSERT_NE(crl_next, nullptr);
-    EXPECT_EQ(*has_crl, 1U);
-    EXPECT_EQ(*crl_next, 0U);
 }
 
 TEST_F(SerializeCertSlotInfoTest, GetSlotInfoError_PropagatesError)

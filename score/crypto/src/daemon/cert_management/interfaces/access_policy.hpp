@@ -31,8 +31,10 @@ struct AccessPolicy
     /// CERT_CLEAR, TRUST_STORE_ADD_CERT, TRUST_STORE_REMOVE_CERT).
     ///
     /// Mutation authorization is explicit and default-deny: an empty list
-    /// grants no write permission. Trust-store-owned exclusive slots do not
-    /// use this list; their writes are authorized by TrustStoreManager.
+    /// grants no write permission. Trust-store-owned exclusive slots must be
+    /// configured with an empty list — see the "Mutation Default-Deny with
+    /// Explicit Writer UID" design decision (design_decisions.rst) for why,
+    /// and the TODO in CertSlotManager::ApplyWriteChecks for enforcement status.
     std::vector<uint32_t> allowed_write_uids;
 };
 

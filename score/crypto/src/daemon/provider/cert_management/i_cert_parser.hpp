@@ -14,7 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_CERT_MANAGEMENT_I_CERT_PARSER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_CERT_MANAGEMENT_I_CERT_PARSER_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 
@@ -61,9 +62,9 @@ class ICertParser
     /// 2. The CRL issuer DN equals the issuer cert's subject DN.
     /// 3. The CRL signature verifies against the issuer cert's public key.
     ///
-    /// @return The CRL's nextUpdate field as Unix epoch seconds on success.
-    ///         0 is returned when the CRL omits the optional nextUpdate field.
-    [[nodiscard]] virtual score::crypto::Expected<std::int64_t, common::DaemonErrorCode> ValidateCrl(
+    /// @return Metadata extracted from the validated CRL. Optional timestamps
+    ///         and cRLNumber are zero when the corresponding fields are absent.
+    [[nodiscard]] virtual score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> ValidateCrl(
         const std::uint8_t* crl_data,
         std::size_t crl_size,
         score::crypto::FormatType crl_format,

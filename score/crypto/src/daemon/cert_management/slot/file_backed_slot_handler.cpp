@@ -81,8 +81,13 @@ score::crypto::Expected<score::crypto::CertificateSlotState, Error> FileBackedSl
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
     const auto path = ResolvePath(*descriptor, "certificate", "cert_path");
-    return (!path.empty() && file_io::FileExists(path)) ? score::crypto::CertificateSlotState::kOccupied
-                                                        : score::crypto::CertificateSlotState::kEmpty;
+    if (path.empty())
+        return score::crypto::CertificateSlotState::kEmpty;
+    const auto exists = file_io::FileExists(path);
+    if (!exists)
+        return score::crypto::make_unexpected(exists.error());
+    return exists.value() ? score::crypto::CertificateSlotState::kOccupied
+                          : score::crypto::CertificateSlotState::kEmpty;
 }
 
 score::crypto::Expected<score::crypto::CertificateSlotInfo, Error> FileBackedSlotHandler::GetSlotInfo(
@@ -93,11 +98,14 @@ score::crypto::Expected<score::crypto::CertificateSlotInfo, Error> FileBackedSlo
         return score::crypto::make_unexpected(state.error());
     score::crypto::CertificateSlotInfo info{};
     info.state = *state;
-    info.has_crl = HasCrl(slot);
+    const auto has_crl = m_crl.HasCrl(slot);
+    if (!has_crl)
+        return score::crypto::make_unexpected(has_crl.error());
+    info.has_crl = has_crl.value();
     return info;
 }
 
-bool FileBackedSlotHandler::HasCrl(const CertSlotConfig& slot)
+score::crypto::Expected<bool, Error> FileBackedSlotHandler::HasCrl(const CertSlotConfig& slot)
 {
     return m_crl.HasCrl(slot);
 }
@@ -119,17 +127,20 @@ score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCerti
     if (!result)
         return result;
     // Clear any stale CRL: it was issued for the previous CA key and is no longer
-    // valid for the incoming certificate.  Preserve crl_path so that a future
-    // StoreCrl call re-uses the same location — this is essential for backends
-    // (e.g. PKCS#11) where cert_path is absent and the CRL path cannot be
-    // re-derived from the certificate file.  File removal is best-effort; a
-    // stale CRL file will be overwritten by the next StoreCrl.
+    // valid for the incoming certificate. Metadata invalidation happens
+    // unconditionally so the descriptor never reports a stale CRL as current,
+    // even if the physical file removal below fails. Preserve crl_path so that
+    // a future StoreCrl call re-uses the same location — this is essential for
+    // backends (e.g. PKCS#11) where cert_path is absent and the CRL path cannot
+    // be re-derived from the certificate file. File removal is best-effort: a
+    // leftover stale CRL file will be overwritten by the next StoreCrl.
     const auto old_crl_path = descriptor->Get("crl", "crl_path");
-    if (!old_crl_path.empty())
-        static_cast<void>(file_io::RemoveFile(old_crl_path));
     descriptor->RemoveSection("crl");
     if (!old_crl_path.empty())
+    {
         descriptor->Set("crl", "crl_path", old_crl_path);
+        static_cast<void>(file_io::RemoveFile(old_crl_path));
+    }
     descriptor->Set("certificate", "cert_format", cert.GetFormat() == score::crypto::FormatType::kDer ? "der" : "pem");
     descriptor->Set("certificate_metadata", "subject", std::string(cert.GetSubject()));
     descriptor->Set("certificate_metadata", "issuer", std::string(cert.GetIssuer()));
@@ -145,7 +156,7 @@ score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::ClearSlot(
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
     const auto cert = descriptor->Get("certificate", "cert_path");
-    if (!cert.empty() && file_io::FileExists(cert))
+    if (!cert.empty())
     {
         if (const auto rm = file_io::RemoveFile(cert); !rm)
             return rm;
@@ -153,7 +164,7 @@ score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::ClearSlot(
     // Preserve crl_path so a future StoreCrl re-uses the same location.
     // Only the file and volatile metadata (format, next_update) are discarded.
     const auto crl_path = descriptor->Get("crl", "crl_path");
-    if (!crl_path.empty() && file_io::FileExists(crl_path))
+    if (!crl_path.empty())
     {
         if (const auto rm = file_io::RemoveFile(crl_path); !rm)
             return rm;
@@ -170,12 +181,13 @@ score::crypto::Expected<std::vector<uint8_t>, Error> FileBackedSlotHandler::Load
     return m_crl.LoadCrl(slot);
 }
 
-score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCrl(const CertSlotConfig& slot,
-                                                                               score::crypto::span<const uint8_t> data,
-                                                                               score::crypto::FormatType format,
-                                                                               std::int64_t next_update_epoch_s)
+score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCrl(
+    const CertSlotConfig& slot,
+    score::crypto::span<const uint8_t> data,
+    score::crypto::FormatType format,
+    std::optional<score::crypto::CrlMetadata> metadata)
 {
-    return m_crl.StoreCrl(slot, data, format, next_update_epoch_s);
+    return m_crl.StoreCrl(slot, data, format, std::move(metadata));
 }
 
 score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::ClearCrl(const CertSlotConfig& slot)
@@ -191,5 +203,27 @@ score::crypto::Expected<int64_t, Error> FileBackedSlotHandler::GetCrlNextUpdate(
 score::crypto::FormatType FileBackedSlotHandler::GetCrlFormat(const CertSlotConfig& slot)
 {
     return m_crl.GetCrlFormat(slot);
+}
+
+std::optional<score::crypto::CrlMetadata> FileBackedSlotHandler::GetCrlMetadata(const CertSlotConfig& slot)
+{
+    if (const auto metadata = m_crl.GetCrlMetadata(slot); metadata.has_value())
+        return metadata;
+    const auto has_crl = m_crl.HasCrl(slot);
+    if (!m_parser || !has_crl || !has_crl.value())
+        return std::nullopt;
+
+    const auto certificate = LoadCertificate(slot);
+    const auto crl = m_crl.LoadCrl(slot);
+    if (!certificate.has_value() || !crl.has_value())
+        return std::nullopt;
+
+    const auto result = m_parser->ValidateCrl(crl->data(),
+                                              crl->size(),
+                                              m_crl.GetCrlFormat(slot),
+                                              certificate.value()->GetRawBytes().data(),
+                                              certificate.value()->GetRawBytes().size(),
+                                              certificate.value()->GetFormat());
+    return result.has_value() ? std::optional<score::crypto::CrlMetadata>{result.value()} : std::nullopt;
 }
 }  // namespace score::crypto::daemon::cert_management

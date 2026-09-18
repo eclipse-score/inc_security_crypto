@@ -14,13 +14,15 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_SLOT_CRL_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_SLOT_CRL_HANDLER_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_slot_config.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -49,8 +51,8 @@ class CrlHandler final
     CrlHandler(CrlHandler&&) = delete;
     CrlHandler& operator=(CrlHandler&&) = delete;
 
-    /// Return true if the slot's deployment descriptor references an existing CRL file.
-    [[nodiscard]] bool HasCrl(const CertSlotConfig& slot) const;
+    /// Check whether the slot's deployment descriptor references an existing CRL file.
+    [[nodiscard]] score::crypto::Expected<bool, common::DaemonErrorCode> HasCrl(const CertSlotConfig& slot) const;
 
     /// Load raw CRL bytes from the file referenced by the descriptor's [crl] section.
     /// Returns kResourceNotAllocated if no CRL is configured.
@@ -59,12 +61,12 @@ class CrlHandler final
 
     /// Write @p data to the CRL file and update the descriptor's [crl] section.
     /// Derives the CRL path from the deployment path if not already set.
-    /// When @p next_update_epoch_s is non-zero, caches the value in the descriptor.
+    /// When @p metadata is present, caches the validated CRL metadata in the descriptor.
     [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> StoreCrl(
         const CertSlotConfig& slot,
         score::crypto::span<const std::uint8_t> data,
         score::crypto::FormatType format,
-        std::int64_t next_update_epoch_s = 0);
+        std::optional<score::crypto::CrlMetadata> metadata = std::nullopt);
 
     /// Remove the CRL file and erase the [crl] section from the descriptor.
     [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearCrl(const CertSlotConfig& slot);
@@ -77,6 +79,9 @@ class CrlHandler final
     /// Return the format (DER or PEM) recorded in the descriptor's [crl] crl_format key.
     /// Returns kDer when the key is absent or the descriptor cannot be loaded.
     [[nodiscard]] score::crypto::FormatType GetCrlFormat(const CertSlotConfig& slot) const;
+
+    /// Return metadata cached in the descriptor, or no value when unavailable.
+    [[nodiscard]] std::optional<score::crypto::CrlMetadata> GetCrlMetadata(const CertSlotConfig& slot) const;
 
   private:
     static std::string FormatName(score::crypto::FormatType format);

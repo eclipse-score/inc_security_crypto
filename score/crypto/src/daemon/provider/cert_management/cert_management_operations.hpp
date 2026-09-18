@@ -23,19 +23,16 @@ using OperationAction = common::OperationAction;
 inline constexpr OperationAction CERT_PARSE = 0x10U;
 inline constexpr OperationAction CERT_PARSE_CHAIN = 0x11U;
 inline constexpr OperationAction CERT_SAVE = 0x12U;
-inline constexpr OperationAction CERT_GET_METADATA = 0x13U;
 inline constexpr OperationAction CERT_LOAD = 0x20U;
 inline constexpr OperationAction CERT_EXPORT = 0x30U;
 inline constexpr OperationAction CERT_GET_EXPORT_SIZE = 0x31U;
 inline constexpr OperationAction CERT_CONVERT = 0x32U;
 inline constexpr OperationAction CERT_GET_CONVERT_SIZE = 0x33U;
 inline constexpr OperationAction CERT_CLEAR = 0x40U;
-inline constexpr OperationAction CERT_SLOT_INFO = 0x50U;
 inline constexpr OperationAction CERT_PUBLIC_KEY = 0x60U;
-inline constexpr OperationAction CERT_DELETE_EXPIRED = 0x70U;
 inline constexpr OperationAction CRL_IMPORT = 0x80U;
 inline constexpr OperationAction CRL_DELETE = 0x81U;
-inline constexpr OperationAction CRL_DELETE_EXPIRED = 0x82U;
+inline constexpr OperationAction CRL_IMPORT_TO_SLOT = 0x82U;
 inline constexpr OperationAction OCSP_REQUEST = 0x90U;
 inline constexpr OperationAction TRUST_STORE_ADD_CERT = 0xC0U;
 inline constexpr OperationAction TRUST_STORE_REMOVE_CERT = 0xC1U;
@@ -44,10 +41,8 @@ inline constexpr OperationAction TRUST_STORE_DISABLE_CERT = 0xC3U;
 inline constexpr OperationAction TRUST_STORE_ACK_UPDATE = 0xC4U;
 inline constexpr OperationAction TRUST_STORE_REMOVE_CERT_BY_ID = 0xC5U;      // remove by cert node_id (lib resolves fp)
 inline constexpr OperationAction TRUST_STORE_IMPORT_CRL_FOR_MEMBER = 0xC6U;  // fingerprint + CRL bytes → exclusive slot
-inline constexpr OperationAction TRUST_STORE_GET_INFO = 0xC7U;               // read-only snapshot: member list + state
-// Enable/disable now fingerprint-based at the IPC layer (no slot_node_id round-trip needed from lib side):
-// TRUST_STORE_ENABLE_CERT (0xC2): [0]=ts_node_id, [1]=fingerprint_bytes
-// TRUST_STORE_DISABLE_CERT (0xC3): [0]=ts_node_id, [1]=fingerprint_bytes
+inline constexpr OperationAction TRUST_STORE_DELETE_CRL_FOR_MEMBER = 0xC8U;  // clear CRL from exclusive slot
+// TRUST_STORE_ENABLE_CERT / TRUST_STORE_DISABLE_CERT: [0]=ts_node_id, [1]=slot_node_id
 
 inline constexpr OperationAction CERT_RELEASE = 0xF0U;
 

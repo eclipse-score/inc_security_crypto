@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_INTERFACES_CERT_TYPES_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_INTERFACES_CERT_TYPES_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 
@@ -199,9 +199,21 @@ inline constexpr std::string_view kCrlPath = "crl_path";
 /// Encoding of the CRL file: "pem" or "der".
 inline constexpr std::string_view kCrlFormat = "crl_format";
 
+/// Hex-encoded SHA-256 fingerprint of the CRL DER encoding.
+inline constexpr std::string_view kCrlFingerprint = "crl_fingerprint";
+
+/// Hex-encoded SHA-256 fingerprint of the CRL issuer certificate.
+inline constexpr std::string_view kCrlIssuerFingerprint = "crl_issuer_fingerprint";
+
+/// Unix epoch seconds corresponding to the CRL's thisUpdate field.
+inline constexpr std::string_view kCrlThisUpdate = "crl_this_update";
+
 /// ISO-8601 UTC timestamp of the CRL's nextUpdate field.
 /// Written when the CRL is imported; read by the daemon to schedule refresh.
 inline constexpr std::string_view kCrlNextUpdate = "crl_next_update";
+
+/// Issuer-assigned CRL revision; zero when cRLNumber is absent.
+inline constexpr std::string_view kCrlNumber = "crl_number";
 
 // ---- [certificate_metadata] section --------------------------------------
 

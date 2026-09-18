@@ -60,9 +60,28 @@ The implementation is divided by responsibility:
   wire-format encoding for certificate, slot, and trust-store objects. Both
   the executor and the mediator's typed-object handlers depend on this module;
   changing the wire layout requires one edit.
+* Public value definitions are owned by ``api/types``: ``common.hpp`` contains
+  cross-domain resource/provider types, ``certificate.hpp`` contains certificate,
+  CRL, OCSP, and verification types, and ``key.hpp`` contains key slot and
+  permission types. ``api/common`` contains shared utilities and guards, not
+  domain-specific type contracts.
 * ``provider/`` supplies parsing and provider-specific context handlers. The
   selected certificate-management provider must expose ``ICertParser``;
   certificate management does not require a particular provider.
+  The public certificate contexts route by scoped type: ``CERT:MANAGEMENT``
+  owns certificate lifecycle operations, while ``CERT:TRUST_STORE`` owns
+  trust-store membership curation. Both handlers share the same
+  ``CertManagementService`` and certificate-management capability.
+
+Public certificate loading
+--------------------------
+
+Certificate contexts support two equivalent resource paths. Passing a resolved
+``kCertSlot`` directly lets the context load and release the certificate for its
+own operation. ``ICertificateManagementContext::LoadCertificate(slot)`` performs
+an explicit load and returns a guarded ephemeral ``kCertificate`` resource.
+Applications can retain that guard and reuse the loaded certificate across
+multiple contexts; destroying the guard releases the client-owned data node.
 
 .. uml:: cert_management_static.puml
 
@@ -74,7 +93,7 @@ certificate slot or trust store is represented by a lightweight DataNode. A
 certificate loaded from a slot becomes a ``CertDataNode`` backed by a
 per-client ``CertEntry``. Each ``Load`` call produces an independent
 ``CertEntry`` so that per-client state — such as a session-scoped CRL
-associated via ``ImportCrl(persist=false)`` — cannot bleed across clients.
+associated via session-scoped ``ImportCrl`` — cannot bleed across clients.
 ``CertSlotManager`` holds a weak-ptr cache of ``CertObject`` instances keyed
 by slot: when the cache entry is live, multiple clients share the same parsed
 bytes without redundant I/O; when it expires, the next load re-reads the slot.
@@ -96,7 +115,11 @@ Architecture constraints
 * Certificate slots reference one storage backend selected at startup.
 * Trust stores reference certificate slots, never raw certificate paths.
 * CRLs are slot-scoped and are not independently resolved.
+* CRL metadata is exposed through certificate views; CRL encoding format stays
+  internal to storage and provider decoding.
 * All trust-store mutation paths require trust-store write authorization.
+* Trust-store mutations are dispatched through ``CERT:TRUST_STORE``; the
+  ``CERT:MANAGEMENT`` context retains certificate-slot and slot-CRL lifecycle.
 * Shared deployment writes are atomic; a partially written descriptor must not
   replace the previous valid descriptor.
 
@@ -163,8 +186,8 @@ documented with full context, alternatives considered, and consequences in
 Current limitations
 --------------------
 
-The current implementation does not provide CRL validation during
-verification, OCSP, or hardware-key CSR signing. Hardware CSR signing
+CRL validation and CRL-based verification are implemented, including selected
+CRL metadata reporting. OCSP remains deferred. Hardware-key CSR signing
 requires a cross-context service using ``Sign`` and ``GetPublicKeyDer``
 without exporting private key material. Provider and daemon dispatch
 integration is outside this component's storage and lifecycle boundary.

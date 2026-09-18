@@ -14,7 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_SLOT_CERT_SLOT_MANAGER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_SLOT_CERT_SLOT_MANAGER_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_slot_config.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_handler.hpp"
@@ -91,8 +92,8 @@ class CertSlotManager final
                                           score::crypto::daemon::common::DaemonErrorCode>
     GetSlotInfo(CertSlotHandle slot, data_manager::ClientId client_id);
 
-    /// Returns false when the slot has no handler or no CRL; never fails.
-    [[nodiscard]] bool HasCrl(CertSlotHandle slot);
+    [[nodiscard]] score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> HasCrl(
+        CertSlotHandle slot);
 
     [[nodiscard]] score::crypto::Expected<std::vector<uint8_t>, score::crypto::daemon::common::DaemonErrorCode> LoadCrl(
         CertSlotHandle slot,
@@ -100,6 +101,8 @@ class CertSlotManager final
 
     /// Returns kDer when the slot has no handler or no [crl] section; never fails.
     [[nodiscard]] score::crypto::FormatType GetCrlFormat(CertSlotHandle slot);
+
+    [[nodiscard]] std::optional<score::crypto::CrlMetadata> GetCrlMetadata(CertSlotHandle slot);
 
     [[nodiscard]] score::crypto::Expected<int64_t, score::crypto::daemon::common::DaemonErrorCode> GetCrlNextUpdate(
         CertSlotHandle slot,
@@ -121,7 +124,7 @@ class CertSlotManager final
         data_manager::ClientId client_id,
         score::crypto::span<const uint8_t> crl_data,
         score::crypto::FormatType format,
-        std::int64_t next_update_epoch_s);
+        std::optional<score::crypto::CrlMetadata> metadata = std::nullopt);
 
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DeleteCrl(
         CertSlotHandle slot,

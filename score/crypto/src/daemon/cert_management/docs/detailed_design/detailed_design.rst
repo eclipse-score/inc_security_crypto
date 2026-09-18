@@ -35,7 +35,7 @@ Implementation units
    Own live certificate entries. Each ``Load`` call produces a fresh
    ``CertEntry`` per client; entries are never shared across clients.
    ``CertEntry`` holds a ``CertObject::Sptr`` (the immutable parsed bytes) and
-   an optional session-scoped CRL (from ``ImportCrl`` with ``persist=false``)
+   an optional session-scoped CRL from ``ImportCrl``
    that is never written to disk. Because ``CertEntry`` is per-client, the
    session CRL is isolated — one client's ``ImportCrl`` cannot be observed by
    another client that loaded the same slot.
@@ -107,18 +107,21 @@ Trust-store update contract
 
 After a successful slot certificate update, the service obtains the reverse
 membership list and calls ``TrustStoreManager::NotifySlotChanged``. The manager
-invalidates the affected ``TrustStoreHandler`` cache. The next ``GetAnchors``
-operation reloads the slot and reconstructs its ``CertObject`` through the
-injected parser.
+invalidates the affected ``TrustStoreHandler`` cache. For a
+``kConditionalExternal`` member, the manager also disables the member and
+persists its existing accepted fingerprint. The member remains unavailable
+until ``AcknowledgeMemberUpdate`` records the replacement fingerprint and
+re-enables it. Other member kinds retain their enablement state. The next
+``GetAnchors`` operation reloads the slot and reconstructs its ``CertObject``
+through the injected parser.
 
 Provider boundary and scope
 ----------------------------
 
 The core component does not depend on OpenSSL or PKCS#11 concrete types.
-OpenSSL currently supplies parsing and verification implementations; PKCS#11
-supplies a read-only certificate-slot backend. Hardware-key CSR generation,
-CRL validation, OCSP, and mediator dispatch are outside this component's
-storage and lifecycle scope. Hardware CSR signing must use a cross-context
-service without exporting private key material.
+OpenSSL supplies parsing and verification implementations; PKCS#11 supplies
+certificate-slot storage. Hardware-key CSR signing uses a cross-context
+service without exporting private key material. OCSP remains a provider-boundary
+extension.
 
 .. uml:: cert_management_dynamic.puml

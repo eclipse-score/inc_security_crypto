@@ -190,7 +190,10 @@ CertObject::Sptr TrustStoreManager::LoadOrGetCached(CertSlotHandle slot)
 
     auto loaded = handler->LoadCertificate(**cfg);
     if (!loaded)
+    {
+        score::mw::log::LogError() << kLogPrefix << "Failed to load certificate for trust-store slot";
         return nullptr;
+    }
 
     weak = *loaded;  // cache as weak_ptr; expires when all handler caches drop their strong ref
     return std::move(*loaded);
@@ -260,13 +263,25 @@ void TrustStoreManager::LoadAnchorsIntoHandler(TrustStoreId id, TrustStoreHandle
         {
             auto* slot_handler = GetHandler(*slot);
             const auto cfg = m_slot_registry->GetConfig(*slot);
-            if (slot_handler != nullptr && cfg && slot_handler->HasCrl(**cfg))
+            if (slot_handler != nullptr && cfg)
             {
-                auto crl_res = slot_handler->LoadCrl(**cfg);
-                if (crl_res)
+                const auto has_crl = slot_handler->HasCrl(**cfg);
+                if (!has_crl)
                 {
-                    CrlEntry entry{std::move(*crl_res), slot_handler->GetCrlFormat(**cfg)};
-                    handler.NotifyCrlUpdate(*slot, std::move(entry));
+                    score::mw::log::LogError() << kLogPrefix << "Failed to inspect CRL for trust-store slot";
+                }
+                else if (has_crl.value())
+                {
+                    auto crl_res = slot_handler->LoadCrl(**cfg);
+                    if (!crl_res)
+                    {
+                        score::mw::log::LogError() << kLogPrefix << "Failed to load CRL for trust-store slot";
+                    }
+                    else
+                    {
+                        CrlEntry entry{std::move(*crl_res), slot_handler->GetCrlFormat(**cfg)};
+                        handler.NotifyCrlUpdate(*slot, std::move(entry));
+                    }
                 }
             }
         }
@@ -406,14 +421,39 @@ void TrustStoreManager::CleanupClient(data_manager::ClientId client_id)
 void TrustStoreManager::NotifySlotChanged(TrustStoreHandle handle, CertSlotHandle changed_slot)
 {
     std::lock_guard lock(m_mutex);
-    if (!handle.IsValid() || handle.index >= m_stores.size())
+    if (!handle.IsValid() || handle.index >= m_stores.size() || !m_slot_registry)
         return;
+
+    bool is_conditional_member = false;
+    for (const auto& member : m_stores[handle.index].config.members)
+    {
+        const auto slot = m_slot_registry->ResolveSlotInternal(member.slot_name);
+        if (slot.has_value() && *slot == changed_slot)
+        {
+            is_conditional_member = member.kind == TrustStoreMemberKind::kConditionalExternal;
+            break;
+        }
+    }
+
     // Evict the changed slot from the shared cache so LoadOrGetCached does fresh I/O.
     m_slot_cert_cache.erase(changed_slot.index);
     // Tell the handler to drop just this slot and mark itself for reload.
     auto* h = static_cast<TrustStoreHandler*>(m_stores[handle.index].handler.get());
     if (h != nullptr)
+    {
         h->InvalidateSlot(changed_slot);
+        if (is_conditional_member)
+            h->NotifySlotUpdate(changed_slot, nullptr);
+    }
+
+    if (is_conditional_member)
+    {
+        m_member_states[handle.index][changed_slot.index].enabled = false;
+        if (const auto persisted = PersistState(handle.index); !persisted)
+        {
+            score::mw::log::LogError() << kLogPrefix << "Failed to persist conditional member state after slot update";
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -455,7 +495,8 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
     CertObject::Sptr cert,
     data_manager::ClientId client_id,
     score::crypto::span<const uint8_t> crl_bytes,
-    score::crypto::FormatType crl_format)
+    score::crypto::FormatType crl_format,
+    std::optional<score::crypto::CrlMetadata> crl_metadata)
 {
     std::lock_guard lock(m_mutex);
     const TrustStoreId id = handle.index;
@@ -475,7 +516,11 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
             continue;
         const auto current = resolved->handler->LoadCertificate(*resolved->cfg);
         if (!current)
-            continue;
+        {
+            if (current.error() == Error::kResourceNotAllocated || current.error() == Error::kKeySlotEmpty)
+                continue;
+            return score::crypto::make_unexpected(current.error());
+        }
         const auto& current_fp = (*current)->GetFingerprint();
         if (current_fp.size() != cert_fp.size() || !std::equal(current_fp.begin(), current_fp.end(), cert_fp.begin()))
             continue;
@@ -486,7 +531,8 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
             // Upsert CRL if provided — trust store owns this exclusive slot.
             if (has_crl)
             {
-                const auto stored = resolved->handler->StoreCrl(*resolved->cfg, crl_bytes, crl_format);
+                const auto stored =
+                    resolved->handler->StoreCrl(*resolved->cfg, crl_bytes, crl_format, std::move(crl_metadata));
                 if (stored)
                 {
                     CrlEntry entry{std::vector<uint8_t>(crl_bytes.begin(), crl_bytes.end()), crl_format};
@@ -531,17 +577,15 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
         if (!stored)
             return score::crypto::make_unexpected(stored.error());
 
-        // Best-effort CRL write — cert already persisted; CRL failure is non-fatal.
-        // Caller may retry via ImportCrlForMember.
         if (has_crl)
         {
-            const auto crl_stored = resolved->handler->StoreCrl(*resolved->cfg, crl_bytes, crl_format);
-            if (crl_stored)
-            {
-                CrlEntry entry{std::vector<uint8_t>(crl_bytes.begin(), crl_bytes.end()), crl_format};
-                static_cast<TrustStoreHandler*>(m_stores[id].handler.get())
-                    ->NotifyCrlUpdate(resolved->slot, std::move(entry));
-            }
+            const auto crl_stored =
+                resolved->handler->StoreCrl(*resolved->cfg, crl_bytes, crl_format, std::move(crl_metadata));
+            if (!crl_stored)
+                return score::crypto::make_unexpected(crl_stored.error());
+            CrlEntry entry{std::vector<uint8_t>(crl_bytes.begin(), crl_bytes.end()), crl_format};
+            static_cast<TrustStoreHandler*>(m_stores[id].handler.get())
+                ->NotifyCrlUpdate(resolved->slot, std::move(entry));
         }
 
         m_member_states[id][resolved->slot.index].enabled = true;
@@ -560,11 +604,11 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::ImportCrlForMe
     score::crypto::span<const uint8_t> crl_data,
     score::crypto::FormatType format,
     data_manager::ClientId client_id,
-    std::int64_t next_update_epoch_s)
+    std::optional<score::crypto::CrlMetadata> metadata)
 {
     std::lock_guard lock(m_mutex);
     const TrustStoreId id = handle.index;
-    if (id >= m_stores.size() || !slot.IsValid())
+    if (id >= m_stores.size() || !slot.IsValid() || !m_slot_registry)
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     if (crl_data.empty())
         return score::crypto::make_unexpected(Error::kInvalidArgument);
@@ -578,11 +622,39 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::ImportCrlForMe
             continue;
         if (member.kind != TrustStoreMemberKind::kExclusiveMutable)
             return score::crypto::make_unexpected(Error::kUnsupportedOperation);
-        const auto stored = resolved->handler->StoreCrl(*resolved->cfg, crl_data, format, next_update_epoch_s);
+        const auto stored = resolved->handler->StoreCrl(*resolved->cfg, crl_data, format, std::move(metadata));
         if (!stored)
             return score::crypto::make_unexpected(stored.error());
         CrlEntry entry{std::vector<uint8_t>(crl_data.begin(), crl_data.end()), format};
         static_cast<TrustStoreHandler*>(m_stores[id].handler.get())->NotifyCrlUpdate(resolved->slot, std::move(entry));
+        return std::monostate{};
+    }
+    return score::crypto::make_unexpected(Error::kInvalidResourceId);
+}
+
+score::crypto::Expected<std::monostate, Error> TrustStoreManager::DeleteCrlForMember(TrustStoreHandle handle,
+                                                                                     CertSlotHandle slot,
+                                                                                     data_manager::ClientId client_id)
+{
+    std::lock_guard lock(m_mutex);
+    const TrustStoreId id = handle.index;
+    if (id >= m_stores.size() || !slot.IsValid() || !m_slot_registry)
+        return score::crypto::make_unexpected(Error::kInvalidResourceId);
+    if (!AccessPolicyEnforcer::CheckTrustStoreWritePermission(m_stores[id].config, client_id).has_value())
+        return score::crypto::make_unexpected(Error::kAccessDenied);
+
+    for (const auto& member : m_stores[id].config.members)
+    {
+        const auto resolved = ResolveMember(member);
+        if (!resolved || resolved->slot.index != slot.index)
+            continue;
+        if (member.kind != TrustStoreMemberKind::kExclusiveMutable)
+            return score::crypto::make_unexpected(Error::kUnsupportedOperation);
+
+        const auto cleared = resolved->handler->ClearCrl(*resolved->cfg);
+        if (!cleared)
+            return score::crypto::make_unexpected(cleared.error());
+        static_cast<TrustStoreHandler*>(m_stores[id].handler.get())->NotifyCrlUpdate(slot, std::nullopt);
         return std::monostate{};
     }
     return score::crypto::make_unexpected(Error::kInvalidResourceId);
@@ -631,7 +703,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::EnableMember(T
 {
     std::lock_guard lock(m_mutex);
     const TrustStoreId id = handle.index;
-    if (id >= m_stores.size() || !slot.IsValid())
+    if (id >= m_stores.size() || !slot.IsValid() || !m_slot_registry)
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     if (!AccessPolicyEnforcer::CheckTrustStoreWritePermission(m_stores[id].config, client_id).has_value())
         return score::crypto::make_unexpected(Error::kAccessDenied);
@@ -678,10 +750,22 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AcknowledgeMem
 {
     std::lock_guard lock(m_mutex);
     const TrustStoreId id = handle.index;
-    if (id >= m_stores.size() || !slot.IsValid())
+    if (id >= m_stores.size() || !slot.IsValid() || !m_slot_registry)
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     if (!AccessPolicyEnforcer::CheckTrustStoreWritePermission(m_stores[id].config, client_id).has_value())
         return score::crypto::make_unexpected(Error::kAccessDenied);
+    bool is_conditional_member = false;
+    for (const auto& member : m_stores[id].config.members)
+    {
+        const auto member_slot = m_slot_registry->ResolveSlotInternal(member.slot_name);
+        if (member_slot.has_value() && *member_slot == slot)
+        {
+            is_conditional_member = member.kind == TrustStoreMemberKind::kConditionalExternal;
+            break;
+        }
+    }
+    if (!is_conditional_member)
+        return score::crypto::make_unexpected(Error::kUnsupportedOperation);
     // Fresh load to capture the new cert and update the shared cache.
     const auto resolved = ResolveSlotBackend(slot);
     if (!resolved)
