@@ -48,7 +48,7 @@ namespace crypto
 /// @par Example — chain verification with additional untrusted certificates
 /// @code
 ///   // ext_ca is a kCertificate from ParseCertificate() — not persisted.
-///   std::array<CryptoResourceId, 1> extra = {ext_ca->GetId()};
+///   std::array<CryptoResourceId, 1> extra = {ext_ca.Id()};
 ///   auto ctx = crypto_context->CreateCertificateVerificationContext(config).value();
 ///   ctx->SetCertificateChain(chain);
 ///   ctx->SetVerificationTrustStore(system_trust_store);
@@ -72,13 +72,13 @@ class ICertificateVerificationContext : public IContext
     /// @brief Sets the leaf certificate to verify.
     /// @param cert Handle to the certificate to verify
     /// @return std::monostate on success, error if cert handle is invalid
-    /// @note Replaces any previously set certificate or chain on this context.
+    /// @note Replaces the certificate or chain configured on this context.
     virtual score::Result<std::monostate> SetCertificate(const CryptoResourceId& cert) = 0;
 
     /// @brief Sets a certificate chain to verify (leaf first).
     /// @param chain Ordered chain of certificate handles (leaf first, root last)
     /// @return std::monostate on success, error if any handle is invalid
-    /// @note Replaces any previously set certificate or chain on this context.
+    /// @note Replaces the certificate or chain configured on this context.
     virtual score::Result<std::monostate> SetCertificateChain(score::cpp::span<const CryptoResourceId> chain) = 0;
 
     /// @brief Sets the system trust store to use for certificate chain verification.
@@ -92,21 +92,23 @@ class ICertificateVerificationContext : public IContext
     /// @return std::monostate on success, error if handle is invalid
     virtual score::Result<std::monostate> SetVerificationTrustStore(const CryptoResourceId& trust_store) = 0;
 
-    /// @brief Sets the standalone trusted certificates for this verification context.
+    /// @brief Sets explicit trusted certificates for this verification context.
     ///
-    /// This mode is mutually exclusive with SetVerificationTrustStore(). Each
-    /// call replaces the previously configured set, so callers that discover
-    /// anchors incrementally must collect them before calling this method.
+    /// When a verification trust store is configured, these certificates are
+    /// added to the trust-store anchors. Without a trust store, they form the
+    /// complete standalone trust-anchor set. Each call replaces only the
+    /// explicitly configured certificates.
     ///
     /// @param certs Span of certificate handles to treat as trust anchors
     ///        (type = kCertificate or kCertSlot)
     /// @return std::monostate on success, error if any handle is invalid
     virtual score::Result<std::monostate> SetTrustedCertificates(score::cpp::span<const CryptoResourceId> certs) = 0;
 
-    /// @brief Selects the chain termination rule for trust-store verification.
+    /// @brief Selects the chain termination rule for configured-anchor verification.
     ///
-    /// The default is ChainTerminationPolicy::kRootRequired. This setting has
-    /// no effect in standalone trusted-certificate mode.
+    /// The default is ChainTerminationPolicy::kRootRequired. With
+    /// kTrustStoreTerminated, verification stops at the first certificate in
+    /// the effective trust-anchor set, including explicit trusted certificates.
     virtual score::Result<std::monostate> SetChainTerminationPolicy(ChainTerminationPolicy policy) = 0;
 
     /// @brief Supplies additional untrusted certificates for chain building.
@@ -121,7 +123,7 @@ class ICertificateVerificationContext : public IContext
     /// established exclusively by the configured trust store or standalone
     /// trusted certificates.
     ///
-    /// Replaces any previously set additional certificates on this context.
+    /// Replaces the additional certificates configured on this context.
     ///
     /// @param certificates Span of untrusted certificate handles
     ///        (type = kCertificate or kCertSlot)
@@ -129,7 +131,7 @@ class ICertificateVerificationContext : public IContext
     virtual score::Result<std::monostate> SetAdditionalCertificates(
         score::cpp::span<const CryptoResourceId> certificates) = 0;
 
-    // ---- OCSP (not yet active — IPC implementation pending) ----
+    // ---- OCSP ----
 #if 0
     /// @brief Provides one or more OCSP responses for revocation checking.
     ///
@@ -138,7 +140,7 @@ class ICertificateVerificationContext : public IContext
     /// stapled OCSP responses (e.g. TLS 1.3 certificate_status records).
     /// The daemon matches each response to the appropriate certificate in the
     /// chain by the certID field embedded in the response; order does not matter.
-    /// Replaces any previously set responses on this context.
+    /// Replaces the OCSP responses configured on this context.
     ///
     /// @param responses Span of DER-encoded OCSP response byte spans
     /// @return std::monostate on success, error if any response fails to parse
@@ -159,6 +161,10 @@ class ICertificateVerificationContext : public IContext
     /// @note Overrides the default policy set in the config.
     virtual score::Result<std::monostate> SetRevocationCheckPolicy(RevocationCheckPolicy policy) = 0;
 
+    /// @brief Selects which evidence is retained after verification.
+    /// @note The default is kNone. Configure before Verify().
+    virtual score::Result<std::monostate> SetEvidenceMode(VerificationEvidenceMode mode) = 0;
+
     // ---- Execution ----
 
     /// @brief Executes the configured certificate verification.
@@ -167,23 +173,31 @@ class ICertificateVerificationContext : public IContext
     virtual score::Result<CertVerifyResult> Verify() = 0;
 
     /// @brief Returns the number of certificates in the verified chain.
-    ///
-    /// Valid only after a successful Verify() call. The length is stable between
-    /// this call and GetVerifiedChain() provided no intervening Verify() is made.
-    ///
-    /// @return Number of entries in the chain (leaf to terminating anchor inclusive),
-    ///         or an error if Verify() has not yet succeeded.
-    virtual score::Result<std::size_t> GetVerifiedChainLength() const = 0;
+    /// @return Number of certificates, or an error before Verify().
+    virtual score::Result<std::size_t> GetVerifiedChainCertificateCount() const = 0;
 
-    /// @brief Fills caller-provided buffer with verified chain certificate IDs.
+    /// @brief Returns the encoded size of the verified chain.
     ///
-    /// Certificates are ordered leaf-first, terminating anchor last.
-    /// The caller must size @p out to at least GetVerifiedChainLength() entries.
-    ///
-    /// @param out Caller-allocated span of CryptoResourceId to fill
-    /// @return Number of entries written, or an error if @p out is too small
-    ///         or Verify() has not yet succeeded.
-    virtual score::Result<std::size_t> GetVerifiedChain(score::cpp::span<CryptoResourceId> out) const = 0;
+    /// Certificates are ordered leaf-first. PEM output is a concatenated PEM
+    /// chain; DER output is concatenated DER certificates in the same order.
+    virtual score::Result<std::size_t> GetVerifiedChainExportSize(FormatType format) const = 0;
+
+    /// @brief Exports the verified chain in leaf-first order.
+    virtual score::Result<std::size_t> ExportVerifiedChain(FormatType format, score::cpp::span<uint8_t> out) const = 0;
+
+    /// @brief Returns the encoded size of one certificate in the verified chain.
+    virtual score::Result<std::size_t> GetVerifiedCertificateExportSize(std::size_t index, FormatType format) const = 0;
+
+    /// @brief Exports one certificate from the verified chain.
+    virtual score::Result<std::size_t> ExportVerifiedCertificate(std::size_t index,
+                                                                 FormatType format,
+                                                                 score::cpp::span<uint8_t> out) const = 0;
+
+    /// @brief Returns the number of retained CRL evidence entries.
+    virtual score::Result<std::size_t> GetSelectedCrlMetadataCount() const = 0;
+
+    /// @brief Fills caller-provided storage with selected CRL metadata.
+    virtual score::Result<std::size_t> GetSelectedCrlMetadata(score::cpp::span<CrlMetadata> out) const = 0;
 
   protected:
     ICertificateVerificationContext() = default;

@@ -43,6 +43,9 @@ class ICertSlotObject : public ICryptoObject
     /// @brief Whether the certificate slot currently holds a certificate.
     virtual bool IsOccupied() const noexcept = 0;
 
+    /// @brief Whether the slot currently stores a persistent CRL.
+    virtual bool HasCrl() const noexcept = 0;
+
   protected:
     ICertSlotObject() = default;
 };
