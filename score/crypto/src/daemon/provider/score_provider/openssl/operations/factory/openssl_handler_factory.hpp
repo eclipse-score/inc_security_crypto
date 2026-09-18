@@ -14,7 +14,6 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_FACTORY_OPENSSL_HANDLER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_FACTORY_OPENSSL_HANDLER_FACTORY_HPP
 
-#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
@@ -31,28 +30,34 @@ class OpenSslHandlerFactory final
     : public ::score::crypto::daemon::provider::score_provider::operations::factory::ScoreHandlerFactory
 {
   public:
-    OpenSslHandlerFactory(std::shared_ptr<key_management::IKeyFactory> factory,
-                          std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
-                          key_management::KeyManagementService::Sptr km_service);
+    OpenSslHandlerFactory(
+        std::shared_ptr<key_management::IKeyFactory> factory,
+        std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
+        key_management::KeyManagementService::Sptr km_service,
+        std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> cert_parser = nullptr,
+        ::score::crypto::daemon::cert_management::CertManagementService::Sptr cert_service = nullptr);
 
     ~OpenSslHandlerFactory() override = default;
 
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
-    CreateKeyManagementHandler() override;
-
   protected:
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateHashHandler(
-        const AlgorithmDescriptor& algorithm) override;
+        const common::AlgorithmId& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateMacHandler(
-        const AlgorithmDescriptor& algorithm) override;
+        const common::AlgorithmId& algorithm) override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
+    CreateKeyManagementHandler() override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateCipherHandler(
-        const AlgorithmDescriptor& algorithm) override;
+        const common::AlgorithmId& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateSignHandler(
-        const AlgorithmDescriptor& algorithm) override;
+        const common::AlgorithmId& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateVerifyHandler(
-        const AlgorithmDescriptor& algorithm) override;
+        const common::AlgorithmId& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateRandomHandler(
-        const AlgorithmDescriptor& algorithm) override;
+        const common::AlgorithmId& algorithm) override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
+    CreateCertManagementHandler() override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
+    CreateTrustStoreManagementHandler() override;
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

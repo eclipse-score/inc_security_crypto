@@ -14,12 +14,13 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_FACTORY_SCORE_HANDLER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_FACTORY_SCORE_HANDLER_FACTORY_HPP
 
-#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
 #include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
+#include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
 #include "score/result/result.h"
 
@@ -41,51 +42,73 @@ namespace score::crypto::daemon::provider::score_provider::operations::factory
 class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
 {
   public:
-    ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFactory> key_factory,
-                        std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
-                        key_management::KeyManagementService::Sptr km_service);
+    ScoreHandlerFactory(
+        std::shared_ptr<key_management::IKeyFactory> key_factory,
+        std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
+        key_management::KeyManagementService::Sptr km_service,
+        std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> cert_parser = nullptr,
+        ::score::crypto::daemon::cert_management::CertManagementService::Sptr cert_service = nullptr);
 
     ~ScoreHandlerFactory() override = default;
 
-    /// Routes to the Create*Handler hook of the handler type.
+    /// Routes to CreateHashHandler, CreateMacHandler, or CreateKeyManagementHandler.
     ::score::Result<handler::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
-                                                          const AlgorithmDescriptor& algorithm) override;
-
-    /// Override in concrete provider to create a key management handler. Default returns unsupported.
-    [[nodiscard]] ::score::Result<handler::Handler::Sptr> CreateKeyManagementHandler() override;
+                                                          const common::AlgorithmId& algorithm) override;
 
   protected:
     /// Override in concrete provider to create a hash handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateHashHandler(
-        const AlgorithmDescriptor& algorithm);
+        const common::AlgorithmId& algorithm);
 
     /// Override in concrete provider to create a MAC handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateMacHandler(
-        const AlgorithmDescriptor& algorithm);
+        const common::AlgorithmId& algorithm);
+
+    /// Override in concrete provider to create a key management handler. Default returns unsupported.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateKeyManagementHandler();
 
     /// Override in concrete provider to create a symmetric cipher handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateCipherHandler(
-        const AlgorithmDescriptor& algorithm);
+        const common::AlgorithmId& algorithm);
 
     /// Override in concrete provider to create a signature generation handler.
     /// Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateSignHandler(
-        const AlgorithmDescriptor& algorithm);
+        const common::AlgorithmId& algorithm);
 
     /// Override in concrete provider to create a signature verification handler.
     ///
     /// A VERIFY context binds the public half of the key pair, so it is a
     /// distinct hook from CreateSignHandler(). Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateVerifyHandler(
-        const AlgorithmDescriptor& algorithm);
+        const common::AlgorithmId& algorithm);
 
     /// Override in concrete provider to create a random handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateRandomHandler(
-        const AlgorithmDescriptor& algorithm);
+        const common::AlgorithmId& algorithm);
+    /// Override in concrete provider to create a CERT:MANAGEMENT handler. Default returns unsupported.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateCertManagementHandler();
+
+    /// Override in concrete provider to create a CERT:VERIFICATION handler. Default returns unsupported.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateCertVerificationHandler();
+
+    /// Override in concrete provider to create a CERT:CSR_GENERATION handler. Default returns unsupported.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateCsrGenerationHandler();
+
+    /// Override in concrete provider to create a CERT:TRUST_STORE handler. Default returns unsupported.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateTrustStoreManagementHandler();
 
     std::shared_ptr<key_management::IKeyFactory> m_key_factory;
     std::shared_ptr<key_management::IKeySlotHandler> m_slot_handler;
     key_management::KeyManagementService::Sptr m_km_service;
+    std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> m_cert_parser;
+    ::score::crypto::daemon::cert_management::CertManagementService::Sptr m_cert_service;
+
+  private:
+    static constexpr const char* CERT_MANAGEMENT = "CERT:MANAGEMENT";
+    static constexpr const char* CERT_VERIFICATION = "CERT:VERIFICATION";
+    static constexpr const char* CERT_CSR_GENERATION = "CERT:CSR_GENERATION";
+    static constexpr const char* CERT_TRUST_STORE = "CERT:TRUST_STORE";
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::operations::factory
