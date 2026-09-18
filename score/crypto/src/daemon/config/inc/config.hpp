@@ -38,7 +38,13 @@ namespace score::crypto::daemon::config
 {
 
 // Configuration environment variable and default paths
-/// @brief Environment variable name for specifying the configuration file path
+/// @brief Environment variable name for the crypto stack configuration file.
+///
+/// The file is a binary FlatBuffers (.bin) file compiled by the build-time
+/// ``flatc -b`` genrule. ParseConfig() populates both the key slot
+/// configuration and the certificate management configuration from the same
+/// file.
+
 constexpr std::string_view CRYPTO_CONFIG_FILE_ENV = "CRYPTO_CONFIG_FILE";
 
 constexpr uint16_t SERVER_PORT_DEFAULT = 50051;  ///< Default server port for IPC communication
@@ -640,7 +646,29 @@ class Config
     ScoreProviderConfig m_score_provider;
 #endif
 
-    // Helper methods
+    // ---------------------------------------------------------------------------
+    // Per-component config section parsers (called from ParseConfig).
+    //
+    // Each method is the single control point for its config component.
+    // To disable a component's config loading, remove or comment out the
+    // corresponding call in ParseConfig().  To add a new component (e.g.
+    // provider management), add a new private method here and call it from
+    // ParseConfig().
+    //
+    // All methods accept the resolved config file path.  An absent section in
+    // the file is silently accepted (empty config for that component).
+    // ---------------------------------------------------------------------------
+
+    /// Populate m_key from the key_slot_config section of the config file.
+    bool ParseKeyManagementSection(std::string_view filepath);
+
+    /// Populate m_certificate from the cert_slot_config section of the config file.
+    bool ParseCertManagementSection(std::string_view filepath);
+
+    // ---------------------------------------------------------------------------
+    // Low-level argument / environment helpers
+    // ---------------------------------------------------------------------------
+
     std::string GetEnvVar(const char* name, const std::map<std::string, std::string>& env) const;
     bool ParseStringArg(const std::string& arg,
                         const std::string& value,
