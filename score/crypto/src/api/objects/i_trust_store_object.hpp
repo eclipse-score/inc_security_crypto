@@ -37,7 +37,7 @@ namespace crypto
 /// are present, their membership kind, and their enabled/disabled state.
 ///
 /// Mutations (add, remove, enable, disable, import CRL) are performed via
-/// ICertificateManagementContext — not through this object.
+/// ITrustStoreManagementContext — not through this object.
 ///
 /// Obtained via ICryptoContext::GetTrustStoreObject().
 class ITrustStoreObject : public ICryptoObject
