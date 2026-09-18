@@ -79,7 +79,15 @@ score::crypto::Expected<DeploymentDescriptor, score::crypto::daemon::common::Dae
         }
         const std::string key = Trim(trimmed.substr(0U, eq_pos));
         const std::string value = Trim(trimmed.substr(eq_pos + 1U));
-        descriptor.sections[current_section][key] = value;
+
+        auto& section_map = descriptor.sections[current_section];
+        if (section_map.find(key) != section_map.end())
+        {
+            score::mw::log::LogError() << kLogPrefix << "Duplicate key in descriptor: " << path
+                                       << " section=" << current_section << " key=" << key;
+            return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
+        section_map[key] = value;
     }
 
     return descriptor;

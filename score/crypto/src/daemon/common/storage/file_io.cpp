@@ -23,10 +23,21 @@ namespace score::crypto::daemon::common::storage
 score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> ReadFile(const std::string& path,
                                                                              std::size_t max_size)
 {
+    const auto exists = FileExists(path);
+    if (!exists)
+        return score::crypto::make_unexpected(exists.error());
+    if (!*exists)
+        return score::crypto::make_unexpected(DaemonErrorCode::kResourceNotAllocated);
+
     score::filesystem::FileFactory factory{};
     auto open_result = factory.Open(score::filesystem::Path{path}, std::ios::binary | std::ios::in);
     if (!open_result.has_value())
-        return score::crypto::make_unexpected(DaemonErrorCode::kResourceNotAllocated);
+    {
+        return score::crypto::make_unexpected(open_result.error() ==
+                                                      score::filesystem::ErrorCode::kFileOrDirectoryDoesNotExist
+                                                  ? DaemonErrorCode::kResourceNotAllocated
+                                                  : DaemonErrorCode::kInternalError);
+    }
 
     auto& stream = *open_result.value();
     stream.seekg(0, std::ios::end);
@@ -77,11 +88,20 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WriteFile(const std::st
     return std::monostate{};
 }
 
-bool FileExists(const std::string& path)
+score::crypto::Expected<bool, DaemonErrorCode> FileExists(const std::string& path)
 {
+    if (path.empty())
+        return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+
     score::filesystem::StandardFilesystem fs{};
     const auto result = fs.IsRegularFile(score::filesystem::Path{path});
-    return result.has_value() && result.value();
+    if (!result.has_value())
+    {
+        if (result.error() == score::filesystem::ErrorCode::kFileOrDirectoryDoesNotExist)
+            return false;
+        return score::crypto::make_unexpected(DaemonErrorCode::kInternalError);
+    }
+    return result.value();
 }
 
 score::crypto::Expected<std::monostate, DaemonErrorCode> RemoveFile(const std::string& path)
@@ -90,8 +110,15 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> RemoveFile(const std::s
         return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
     score::filesystem::StandardFilesystem fs{};
     const auto result = fs.Remove(score::filesystem::Path{path});
-    if (!result.has_value() && result.error() != score::filesystem::ErrorCode::kFileOrDirectoryDoesNotExist)
+    if (!result.has_value())
+    {
+        const auto status = fs.Status(score::filesystem::Path{path});
+        if (status.has_value() && status->Type() == score::filesystem::FileType::kNotFound)
+            return std::monostate{};
+        if (result.error() == score::filesystem::ErrorCode::kFileOrDirectoryDoesNotExist)
+            return std::monostate{};
         return score::crypto::make_unexpected(DaemonErrorCode::kPersistFailed);
+    }
     return std::monostate{};
 }
 
