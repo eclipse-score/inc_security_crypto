@@ -98,7 +98,7 @@ class ITrustStoreManagementContext : public IContext
 
     /// @brief Enables a disabled trust store member identified by its slot resource.
     ///
-    /// Use the slot_id from ITrustStoreObject::MemberInfo to obtain the slot handle.
+    /// Use the slot_id from MemberInfo to obtain the slot handle.
     ///
     /// @param trust_store Handle to the trust store (type = kCertificateTrustStore)
     /// @param slot        Handle to the member slot (type = kCertSlot)
@@ -110,7 +110,7 @@ class ITrustStoreManagementContext : public IContext
     /// A disabled member is excluded from anchor resolution; it remains in the store
     /// and can be re-enabled. Use RemoveCertificateFromTrustStore to permanently remove.
     ///
-    /// Use the slot_id from ITrustStoreObject::MemberInfo to obtain the slot handle.
+    /// Use the slot_id from MemberInfo to obtain the slot handle.
     ///
     /// @param trust_store Handle to the trust store (type = kCertificateTrustStore)
     /// @param slot        Handle to the member slot (type = kCertSlot)
@@ -120,13 +120,13 @@ class ITrustStoreManagementContext : public IContext
     /// @brief Acknowledges an unexpected content change on a conditional-external member.
     ///
     /// A kConditionalExternal member is automatically disabled when its slot content
-    /// changes without acknowledgement (see ITrustStoreObject::MemberInfo state). This
+    /// changes without acknowledgement (see MemberInfo state). This
     /// re-baselines the accepted fingerprint to the slot's current content and
     /// re-enables the member. Not equivalent to EnableTrustStoreMember: enabling alone
     /// does not update the accepted fingerprint, so the member would be disabled again
     /// on the next anchor reload if the content is still unacknowledged.
     ///
-    /// Use the slot_id from ITrustStoreObject::MemberInfo to obtain the slot handle.
+    /// Use the slot_id from MemberInfo to obtain the slot handle.
     ///
     /// @param trust_store Handle to the trust store (type = kCertificateTrustStore)
     /// @param slot        Handle to the conditional-external member slot (type = kCertSlot)
@@ -139,7 +139,7 @@ class ITrustStoreManagementContext : public IContext
     /// For shared-static or conditional-external members, use
     /// `ICertificateManagementContext::ImportCrlToSlot` directly on the slot.
     ///
-    /// Use the slot_id from ITrustStoreObject::MemberInfo to obtain the slot handle.
+    /// Use the slot_id from MemberInfo to obtain the slot handle.
     ///
     /// @param trust_store Handle to the trust store (type = kCertificateTrustStore)
     /// @param slot        Handle to the exclusive member slot (type = kCertSlot)

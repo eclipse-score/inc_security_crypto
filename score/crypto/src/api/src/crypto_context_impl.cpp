@@ -131,7 +131,7 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
                                   .forDataNodeId(m_connection->GetConnectionNodeId())
                                   .operation(score::crypto::daemon::mediator::operations::ResolveResource())
                                   .with_in_string(resource_id)
-                                  .with_in_val_uint8(static_cast<std::uint8_t>(type))
+                                  .with_in_val_uint64(static_cast<std::uint64_t>(type))
                                   .build();
 
     if (!control_req_result.has_value())
