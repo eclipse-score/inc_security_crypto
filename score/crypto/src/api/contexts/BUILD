@@ -55,6 +55,7 @@ cc_library(
     hdrs = [
         "i_certificate_management_context.hpp",
         "i_certificate_verification_context.hpp",
+        "i_trust_store_management_context.hpp",
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
