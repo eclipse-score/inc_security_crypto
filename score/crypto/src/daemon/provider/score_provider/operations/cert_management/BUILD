@@ -13,22 +13,18 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
-# Abstract base handler factory for the score interface family.
+# CERT:MANAGEMENT context handler — delegates to CertManagementExecutor.
 cc_library(
-    name = "score_handler_factory",
-    srcs = ["src/score_handler_factory.cpp"],
-    hdrs = ["score_handler_factory.hpp"],
+    name = "score_cert_management_handler",
+    srcs = ["src/score_cert_management_handler.cpp"],
+    hdrs = ["score_cert_management_handler.hpp"],
     target_compatible_with = select({
         "//score/crypto/src/backend:score_backend_enabled": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/src/daemon/cert_management",
-        "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/key_management",
-        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
-        "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
-        "@score_baselibs//score/result",
+        "//score/crypto/src/daemon/provider/executors:cert_mgmt_executor",
+        "//score/crypto/src/daemon/provider/handler:handler_headers",
     ],
 )
