@@ -60,3 +60,30 @@ cc_library(
         "@score_baselibs//score/mw/log",
     ],
 )
+
+cc_test(
+    name = "test_deployment_descriptor",
+    srcs = ["tests/test_deployment_descriptor.cpp"],
+    deps = [
+        ":deployment_iface",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "test_file_io",
+    srcs = ["tests/test_file_io.cpp"],
+    deps = [
+        ":file_io",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "test_kv_deployment_loader",
+    srcs = ["tests/test_kv_deployment_loader.cpp"],
+    deps = [
+        ":kv_deployment",
+        "@googletest//:gtest_main",
+    ],
+)

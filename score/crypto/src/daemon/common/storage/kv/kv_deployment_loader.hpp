@@ -39,6 +39,9 @@ namespace score::crypto::daemon::common::storage
 /// - Section headers switch the active section.
 /// - Lines without '=' are silently skipped.
 /// - Keys and values are whitespace-trimmed.
+/// - A key that appears more than once within the same section is rejected:
+///   Load() logs the descriptor path, section, and key, then returns
+///   DaemonErrorCode::kInvalidArgument.
 class KvDeploymentLoader final : public IDeploymentLoader
 {
   public:
