@@ -316,10 +316,11 @@ class ValidateCrlTest : public ::testing::Test
     }
 
     // Convenience wrapper — calls ValidateCrl with vector data.
-    static score::crypto::Expected<std::int64_t, DaemonErrorCode> Validate(const std::vector<uint8_t>& crl,
-                                                                           FormatType crl_fmt,
-                                                                           const std::vector<uint8_t>& issuer,
-                                                                           FormatType issuer_fmt)
+    static score::crypto::Expected<score::crypto::CrlMetadata, DaemonErrorCode> Validate(
+        const std::vector<uint8_t>& crl,
+        FormatType crl_fmt,
+        const std::vector<uint8_t>& issuer,
+        FormatType issuer_fmt)
     {
         OpenSslCertParser parser{ProviderId{1U}};
         return parser.ValidateCrl(crl.data(), crl.size(), crl_fmt, issuer.data(), issuer.size(), issuer_fmt);
@@ -340,28 +341,28 @@ TEST_F(ValidateCrlTest, ValidDerCrl_DerIssuer_ReturnsNextUpdateEpoch)
 {
     const auto result = Validate(s_ca_a.crl_der, FormatType::kDer, s_ca_a.cert_der, FormatType::kDer);
     ASSERT_TRUE(result.has_value());
-    EXPECT_GT(*result, 0);
+    EXPECT_GT(result->next_update, 0);
 }
 
 TEST_F(ValidateCrlTest, ValidPemCrl_PemIssuer_ReturnsNextUpdateEpoch)
 {
     const auto result = Validate(s_ca_a.crl_pem, FormatType::kPem, s_ca_a.cert_pem, FormatType::kPem);
     ASSERT_TRUE(result.has_value());
-    EXPECT_GT(*result, 0);
+    EXPECT_GT(result->next_update, 0);
 }
 
 TEST_F(ValidateCrlTest, ValidDerCrl_PemIssuer_CrossFormat_ReturnsNextUpdateEpoch)
 {
     const auto result = Validate(s_ca_a.crl_der, FormatType::kDer, s_ca_a.cert_pem, FormatType::kPem);
     ASSERT_TRUE(result.has_value());
-    EXPECT_GT(*result, 0);
+    EXPECT_GT(result->next_update, 0);
 }
 
 TEST_F(ValidateCrlTest, ValidPemCrl_DerIssuer_CrossFormat_ReturnsNextUpdateEpoch)
 {
     const auto result = Validate(s_ca_a.crl_pem, FormatType::kPem, s_ca_a.cert_der, FormatType::kDer);
     ASSERT_TRUE(result.has_value());
-    EXPECT_GT(*result, 0);
+    EXPECT_GT(result->next_update, 0);
 }
 
 // nextUpdate was set to now + 365 days, so the epoch must be strictly in the future.
@@ -370,7 +371,7 @@ TEST_F(ValidateCrlTest, ValidCrl_NextUpdateIsInFuture)
     const auto result = Validate(s_ca_a.crl_der, FormatType::kDer, s_ca_a.cert_der, FormatType::kDer);
     ASSERT_TRUE(result.has_value());
     const std::int64_t now_epoch = static_cast<std::int64_t>(std::time(nullptr));
-    EXPECT_GT(*result, now_epoch);
+    EXPECT_GT(result->next_update, now_epoch);
 }
 
 // DER and PEM paths must decode identically — same nextUpdate epoch.
@@ -380,7 +381,10 @@ TEST_F(ValidateCrlTest, ValidCrl_DerAndPemReturnSameEpoch)
     const auto pem_result = Validate(s_ca_a.crl_pem, FormatType::kPem, s_ca_a.cert_pem, FormatType::kPem);
     ASSERT_TRUE(der_result.has_value());
     ASSERT_TRUE(pem_result.has_value());
-    EXPECT_EQ(*der_result, *pem_result);
+    EXPECT_EQ(der_result->next_update, pem_result->next_update);
+    EXPECT_EQ(der_result->this_update, pem_result->this_update);
+    EXPECT_EQ(der_result->fingerprint, pem_result->fingerprint);
+    EXPECT_EQ(der_result->issuer_fingerprint, pem_result->issuer_fingerprint);
 }
 
 // ---------------------------------------------------------------------------

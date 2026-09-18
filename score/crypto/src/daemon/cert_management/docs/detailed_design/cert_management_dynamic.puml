@@ -21,6 +21,9 @@ participant "CertManagementService" as Service
 participant "CertSlotManager" as SlotMgr
 participant "FileBackedSlotHandler" as Handler
 participant "OpenSslCertParser" as Parser
+participant "Certificate Management Handler" as CertHandler
+participant "Trust-Store Management Handler" as TrustHandler
+participant "Trust-Store Management Executor" as TrustExecutor
 participant "CertObjectCache\n(weak_ptr, per slot)" as Cache
 participant "CertRegistry" as Registry
 participant "TrustStoreHandler" as StoreHandler
@@ -55,6 +58,38 @@ SlotMgr -> Registry : RegisterSlotCert(slot, new CertEntry)
 Registry --> SlotMgr : cert_registry_id
 SlotMgr --> Service : CertObject + CertEntry (per-client)
 Service -> Data : addChildNode(CertDataNode)
+
+== Public guarded load ==
+
+"CertificateManagementContext" -> Service : CERT_LOAD(slot_node_id)
+Service -> SlotMgr : Load(params, client)
+SlotMgr --> Service : CertObject + CertEntry
+Service -> Data : addChildNode(CertDataNode)
+Data --> "CertificateManagementContext" : certificate_node_id
+"CertificateManagementContext" --> "Application" : CryptoResourceGuard(kCertificate)
+note right of "Application"
+  The guard can be passed to multiple
+  certificate contexts. Its destruction
+  releases the client-owned CertDataNode.
+end note
+
+== Slot-direct context use ==
+
+"CertificateVerificationContext" -> Service : SetCertificate(kCertSlot)
+note right of Service
+  The context may resolve/load the slot
+  internally for one operation. Use
+  CERT_LOAD when the loaded certificate
+  should be shared across contexts.
+end note
+
+== Trust-store management routing ==
+
+"TrustStoreManagementContext" -> CertHandler : CTX_CREATE(CERT:TRUST_STORE)
+CertHandler -> TrustHandler : Create trust-store handler
+TrustHandler -> TrustExecutor : Add/remove/enable/disable/acknowledge
+TrustExecutor -> Service : TrustStoreManager operation
+Service --> "TrustStoreManagementContext" : result
 
 == Certificate load — second client (cache hit, shared bytes) ==
 
@@ -109,6 +144,16 @@ end note
 SlotMgr --> Service : ok
 Service -> Stores : NotifySlotChanged(store, slot)
 Stores -> StoreHandler : InvalidateSlot(slot)
+alt conditional-external member
+  Stores -> Stores : Disable member and persist state
+  note right of Stores
+    accepted_fingerprint remains unchanged.
+    AcknowledgeMemberUpdate records the
+    replacement fingerprint and re-enables the member.
+  end note
+else other member kind
+  Stores -> Stores : Retain member enablement state
+end
 Service -> StoreHandler : GetAnchors()
 StoreHandler -> Stores : reload changed slot
 Stores -> SlotMgr : LoadCertificate()

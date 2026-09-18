@@ -22,6 +22,7 @@
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 // Forward-declare to avoid pulling in cert_management_service.hpp from the header.
@@ -35,25 +36,27 @@ namespace score::crypto::daemon::cert_management::query
 
 /// @brief Serialize a CertObject's chain metadata into IPC response parameters.
 ///
-/// Wire layout (9 params, indices 0–8):
+/// Wire layout (15 params, indices 0–14):
 ///   [0] subject (OwnedString), [1] issuer (OwnedString),
 ///   [2] not_before_epoch_s (uint64), [3] not_after_epoch_s (uint64),
 ///   [4] is_ca (uint8), [5] skid (OwnedBuffer), [6] akid (OwnedBuffer),
-///   [7] serial_number_hex (OwnedString), [8] SHA-256 fingerprint (OwnedBuffer 32B)
+///   [7] serial_number_hex (OwnedString), [8] SHA-256 fingerprint (OwnedBuffer 32B),
+///   [9] has_crl (uint8), [10] CRL fingerprint (OwnedBuffer 32B),
+///   [11] issuer fingerprint (OwnedBuffer 32B), [12] thisUpdate (int64 encoded as uint64),
+///   [13] nextUpdate (int64 encoded as uint64), [14] cRLNumber (uint64).
 ///
-/// This is the canonical layout for GET_CERTIFICATE_OBJECT and CERT_GET_METADATA.
-/// Both the mediator typed-object handler and the cert management executor use this
-/// function so the format is defined exactly once.
-common::ResponseParameters SerializeCertObject(const CertObject& cert);
+/// This is the canonical layout for the mediator's GET_CERTIFICATE_OBJECT op,
+/// defined exactly once here.
+common::ResponseParameters SerializeCertObject(const CertObject& cert,
+                                               std::optional<score::crypto::CrlMetadata> crl_metadata = std::nullopt);
 
 /// @brief Serialize certificate slot state + CRL metadata into IPC response parameters.
 ///
-/// Wire layout (3 params):
-///   [0] slot state (uint8, CertificateSlotState), [1] has_crl (uint8),
-///   [2] crl_next_update_epoch (uint64, 0 if no CRL)
+/// Wire layout (2 params):
+///   [0] slot state (uint8, CertificateSlotState), [1] has_crl (uint8)
 ///
-/// Returns an error if GetSlotInfo fails. Both the mediator typed-object handler
-/// and the cert management executor use this function.
+/// Returns an error if GetSlotInfo fails. Used by the mediator's
+/// GET_CERT_SLOT_OBJECT handler.
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode>
 SerializeCertSlotInfo(CertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id);
 

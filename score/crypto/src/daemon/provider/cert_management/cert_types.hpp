@@ -14,7 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_CERT_MANAGEMENT_CERT_TYPES_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_CERT_MANAGEMENT_CERT_TYPES_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_object.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
@@ -32,11 +33,7 @@ using ::score::crypto::daemon::cert_management::CertObject;
 using ::score::crypto::daemon::cert_management::CertSlotHandle;
 using ::score::crypto::daemon::cert_management::TrustStoreHandle;
 
-enum class ChainTerminationPolicy : std::uint8_t
-{
-    kRootRequired = 0,
-    kTrustStoreTerminated = 1
-};
+using ::score::crypto::ChainTerminationPolicy;
 enum class CertVerifyErrorCode : std::uint16_t
 {
     kNone = 0,
@@ -51,13 +48,7 @@ enum class CertVerifyErrorCode : std::uint16_t
     kUnknownError
 };
 
-enum class RevocationCheckPolicy : std::uint8_t
-{
-    kNone = 0,
-    kCrlOnly,
-    kOcspOnly,
-    kOcspWithCrlFallback
-};
+using ::score::crypto::RevocationCheckPolicy;
 
 /// Verification result. The established chain is returned as neutral CertObjects
 /// (leaf-first, terminating anchor last), never as provider-bound handles.

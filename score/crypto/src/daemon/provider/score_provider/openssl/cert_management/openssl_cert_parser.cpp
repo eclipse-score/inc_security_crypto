@@ -19,7 +19,9 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
+#include <charconv>
 #include <array>
+#include <cstring>
 #include <ctime>
 #include <memory>
 #include <string>
@@ -291,9 +293,47 @@ std::int64_t Asn1TimeToEpoch(const ASN1_TIME* asn1)
 
     return static_cast<std::int64_t>(timegm(&t));
 }
+
+bool Sha256CertificateDigest(const X509* certificate, std::array<std::uint8_t, 32U>& output)
+{
+    unsigned int digest_size = 0U;
+    return X509_digest(certificate, EVP_sha256(), output.data(), &digest_size) == 1 && digest_size == output.size();
+}
+
+bool Sha256CrlDigest(const X509_CRL* crl, std::array<std::uint8_t, 32U>& output)
+{
+    unsigned int digest_size = 0U;
+    return X509_CRL_digest(crl, EVP_sha256(), output.data(), &digest_size) == 1 && digest_size == output.size();
+}
+
+std::uint64_t CrlNumber(const X509_CRL* crl)
+{
+    auto* number = static_cast<ASN1_INTEGER*>(X509_CRL_get_ext_d2i(crl, NID_crl_number, nullptr, nullptr));
+    if (number == nullptr)
+        return 0U;
+
+    BIGNUM* big_number = ASN1_INTEGER_to_BN(number, nullptr);
+    ASN1_INTEGER_free(number);
+    if (big_number == nullptr || BN_num_bits(big_number) > 64)
+    {
+        BN_free(big_number);
+        return 0U;
+    }
+
+    char* hex = BN_bn2hex(big_number);
+    BN_free(big_number);
+    if (hex == nullptr)
+        return 0U;
+
+    std::uint64_t result = 0U;
+    const auto* end = hex + std::strlen(hex);
+    const auto [parsed_end, ec] = std::from_chars(hex, end, result, 16);
+    OPENSSL_free(hex);
+    return ec == std::errc{} && parsed_end == end ? result : 0U;
+}
 }  // namespace
 
-score::crypto::Expected<std::int64_t, common::DaemonErrorCode> OpenSslCertParser::ValidateCrl(
+score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> OpenSslCertParser::ValidateCrl(
     const std::uint8_t* crl_data,
     std::size_t crl_size,
     score::crypto::FormatType crl_format,
@@ -348,8 +388,14 @@ score::crypto::Expected<std::int64_t, common::DaemonErrorCode> OpenSslCertParser
         return score::crypto::make_unexpected(Error::kOperationFailed);
     }
 
-    // 5. Extract nextUpdate (optional field — 0 when absent).
-    return Asn1TimeToEpoch(X509_CRL_get0_nextUpdate(crl.get()));
+    score::crypto::CrlMetadata metadata;
+    if (!Sha256CrlDigest(crl.get(), metadata.fingerprint) ||
+        !Sha256CertificateDigest(issuer_x509.get(), metadata.issuer_fingerprint))
+        return score::crypto::make_unexpected(Error::kInternalError);
+    metadata.this_update = Asn1TimeToEpoch(X509_CRL_get0_lastUpdate(crl.get()));
+    metadata.next_update = Asn1TimeToEpoch(X509_CRL_get0_nextUpdate(crl.get()));
+    metadata.crl_number = CrlNumber(crl.get());
+    return metadata;
 }
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl

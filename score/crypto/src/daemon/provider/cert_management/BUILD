@@ -20,6 +20,7 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
     ],
@@ -36,6 +37,8 @@ cc_library(
     deps = [
         ":cert_parser_headers",
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/types:certificate_types",
         "//score/crypto/src/daemon/cert_management:cert_management_headers",
     ],
 )

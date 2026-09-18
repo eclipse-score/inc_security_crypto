@@ -14,7 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_TRUSTSTORE_TRUST_STORE_MANAGER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_TRUSTSTORE_TRUST_STORE_MANAGER_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_object.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_slot_config.hpp"
@@ -33,6 +34,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -160,7 +162,7 @@ class TrustStoreManager
     ///   - kExclusiveMutable match: CRL is stored/updated; cert is re-enabled.
     ///   - kSharedStatic / kConditionalExternal match: trust store does not own
     ///     these slots; if crl_bytes is non-empty, kUnsupportedOperation is
-    ///     returned. Callers should use ImportCrl directly on the slot resource.
+    ///     returned. Callers should use ImportCrlToSlot on the slot resource.
     ///
     /// Write access to the trust store must be checked by CertManagementService
     /// before calling this method.
@@ -169,7 +171,8 @@ class TrustStoreManager
         CertObject::Sptr cert,
         data_manager::ClientId client_id,
         score::crypto::span<const uint8_t> crl_bytes = {},
-        score::crypto::FormatType crl_format = score::crypto::FormatType::kDer);
+        score::crypto::FormatType crl_format = score::crypto::FormatType::kDer,
+        std::optional<score::crypto::CrlMetadata> crl_metadata = std::nullopt);
 
     /// @brief Import a CRL to the exclusive trust store slot identified by @p slot.
     ///
@@ -185,7 +188,10 @@ class TrustStoreManager
                        score::crypto::span<const uint8_t> crl_data,
                        score::crypto::FormatType format,
                        data_manager::ClientId client_id,
-                       std::int64_t next_update_epoch_s = 0);
+                       std::optional<score::crypto::CrlMetadata> metadata = std::nullopt);
+
+    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+    DeleteCrlForMember(TrustStoreHandle handle, CertSlotHandle slot, data_manager::ClientId client_id);
 
     /// @brief Remove a certificate from a trust store by fingerprint.
     ///

@@ -60,7 +60,9 @@ Three representations were considered for trust-store membership:
    ``CertSlotRegistry`` resolves each name to a ``CertSlotHandle`` at startup.
    The ``TrustStoreManager`` maintains a reverse index (slot → stores) so that a
    single ``NotifySlotChanged(slot)`` call after ``StoreCertificate`` invalidates
-   every affected trust store's anchor cache in O(1).
+   every affected trust store's anchor cache. Conditional-external members are
+   disabled and persisted until ``AcknowledgeMemberUpdate`` records the new
+   fingerprint.
 
 Decision
 --------
@@ -161,10 +163,22 @@ Decision
 --------
 
 CRL co-location with the cert slot (option 3) was selected. ``ICertSlotHandler``
-is extended with ``HasCrl``, ``LoadCrl``, ``StoreCrl``, ``ClearCrl``, and
-``GetCrlNextUpdate`` — implemented by the composed ``CrlHandler``. The
-``crl_next_update`` epoch is written by ``StoreCrl`` and exposed through the
-descriptor so the daemon can evaluate CRL freshness without loading the full DER.
+is extended with ``HasCrl``, ``LoadCrl``, ``StoreCrl``, ``ClearCrl``,
+``GetCrlNextUpdate``, and ``GetCrlMetadata`` — implemented by the composed
+``CrlHandler``. Validated CRLs persist their fingerprint, issuer fingerprint,
+``thisUpdate``, ``nextUpdate``, and ``cRLNumber`` in the descriptor. The public
+``ICertificateObject`` exposes this as optional ``CrlMetadata``; encoding format
+remains an internal persistence detail. Persisted ``CrlMetadata`` is populated
+only through ``ImportCrl``/``StoreCrl``; a CRL placed into a slot's ``[crl]``
+section out of band (only ``crl_path``/``crl_format`` set, no fingerprint
+fields) has no cached metadata and ``GetCrlMetadata`` returns no value for it.
+This does not affect revocation checking: ``OpenSslCertVerificationHandler``
+never reads the descriptor's cached ``CrlMetadata`` — it re-parses each raw
+CRL and recomputes fingerprint, issuer fingerprint, ``thisUpdate``,
+``nextUpdate``, and ``cRLNumber`` directly from the CRL bytes on every
+``DoVerify()`` call. The cached descriptor fields exist solely to answer
+inspection queries (``ICertificateObject::GetCrlMetadata``) without
+deserialising the CRL.
 
 For PKCS#11 token slots (where no filesystem cert path exists), ``CrlHandler``
 stores CRL data in the deployment filesystem using the same ``crl_path``
@@ -181,8 +195,7 @@ Consequences
   cross-registry coordination.
 * The verification handler walks trust-store member slots and calls ``HasCrl``
   per slot — no separate CRL lookup service.
-* ``crl_next_update`` in the descriptor enables freshness checks without
-  deserialising the DER.
+* CRL metadata is available without deserialising the CRL during normal reads.
 
 **Negative:**
 
@@ -191,6 +204,10 @@ Consequences
 * CRL data is not independently addressable — no ``kCrl`` API resource type.
   Applications use ``ImportCrl(cert_resource_id, ...)`` rather than
   ``ImportCrl(crl_resource_id, ...)``.
+* A CRL written to a slot's ``[crl]`` section out of band (bypassing
+  ``ImportCrl``/``StoreCrl``) has no cached ``CrlMetadata``; inspection
+  queries report no metadata for it even though the CRL is fully usable for
+  revocation checking. There is no on-demand derivation path.
 
 ---
 
@@ -286,6 +303,15 @@ Consequences
 * Misconfigured ``writers`` sets are caught at runtime, not at compile time.
 * Long-term refactoring to a shared ACL component will require updating
   enforcement sites in both ``key_management`` and ``cert_management``.
+* ``CertSlotManager``'s slot-write enforcement is keyed purely off
+  ``allowed_write_uids``; it has no notion of trust-store ownership. A
+  ``kExclusiveMutable`` trust-store member slot must therefore be configured
+  with an empty ``allowed_write_uids`` — the exclusive slot is meant to be
+  written only through the trust store's own write-access gate. A non-empty
+  list on such a slot lets any listed UID write to it directly, bypassing
+  that gate and the trust store's cache/notification bookkeeping. This is
+  currently a configuration invariant rather than one enforced by
+  ``CertSlotManager`` itself.
 
 ---
 
