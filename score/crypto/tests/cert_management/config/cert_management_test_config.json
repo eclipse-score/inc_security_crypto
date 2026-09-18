@@ -1,0 +1,68 @@
+{
+  "cert_slot_config": {
+    "slot_entries": [
+      {
+        "slot_name": "test/root-ca",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/deploy/certs/root_ca.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
+      },
+      {
+        "slot_name": "test/device-cert",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/deploy/certs/device_cert.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
+      },
+      {
+        "slot_name": "test/exclusive-slot",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/deploy/certs/exclusive.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
+      }
+    ],
+    "trust_store_entries": [
+      {
+        "store_name": "test/tls-roots",
+        "members": [
+          { "slot_name": "test/root-ca",       "kind": "kSharedStatic" },
+          { "slot_name": "test/exclusive-slot", "kind": "kExclusiveMutable" }
+        ],
+        "conditional_slot_init": "kDisableUntilAccepted",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/deploy/certs/tls_roots_state.kv",
+        "deployment_format": "kv"
+      },
+      {
+        "store_name": "test/ota-roots",
+        "members": [
+          { "slot_name": "test/root-ca", "kind": "kConditionalExternal" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/deploy/certs/ota_roots_state.kv",
+        "deployment_format": "kv"
+      }
+    ],
+    "app_cert_slot_entries": [
+      { "uid": 0,    "app_resource_id": "root_ca",     "slot_name": "test/root-ca" },
+      { "uid": 0,    "app_resource_id": "device_cert", "slot_name": "test/device-cert" },
+      { "uid": 1000, "app_resource_id": "device_cert", "slot_name": "test/device-cert" }
+    ],
+    "app_trust_store_entries": [
+      { "uid": 0,    "app_resource_id": "tls_roots", "trust_store_name": "test/tls-roots" },
+      { "uid": 1000, "app_resource_id": "tls_roots", "trust_store_name": "test/tls-roots" },
+      { "uid": 0,    "app_resource_id": "ota_roots", "trust_store_name": "test/ota-roots" }
+    ]
+  }
+}
