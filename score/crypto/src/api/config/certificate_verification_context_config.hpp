@@ -11,11 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP
+#define SCORE_CRYPTO_SRC_API_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/config/base_context_config.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 
 #include <optional>
 
@@ -51,12 +52,6 @@ struct CertificateVerificationContextConfig : public BaseContextConfig
 
     // -- Fluent builder --
 
-    CertificateVerificationContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
-    {
-        BaseContextConfig::SetAlgorithm(alg);
-        return *this;
-    }
-
     CertificateVerificationContextConfig& SetProvider(const CryptoResourceId& prov) noexcept
     {
         BaseContextConfig::SetProvider(prov);
@@ -86,4 +81,4 @@ struct CertificateVerificationContextConfig : public BaseContextConfig
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP

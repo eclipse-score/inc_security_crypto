@@ -72,8 +72,8 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseK
         return make_unexpected(slot_entries_result.error());
     }
 
-    // Parse app resource entries
-    auto app_resource_result = ParseAppResourceEntries(key_slot_config, out_config);
+    // Parse app key slot entries
+    auto app_resource_result = ParseAppKeySlotEntries(key_slot_config, out_config);
     if (!app_resource_result.has_value())
     {
         return make_unexpected(app_resource_result.error());
@@ -81,7 +81,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseK
 
     score::mw::log::LogDebug() << LOG_PREFIX << "Successfully parsed configuration. Loaded "
                                << out_config.GetSlotEntries().size() << " slot(s) and "
-                               << out_config.GetAppResourceEntries().size() << " app resource mapping(s).";
+                               << out_config.GetAppKeySlotEntries().size() << " app key slot mapping(s).";
 
     return std::monostate{};
 }
@@ -220,43 +220,43 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseF
     return ParseFromBuffer(buffer.data(), buffer.size(), out_config);
 }
 
-Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseAppResourceEntries(
+Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseAppKeySlotEntries(
     const KeySlotConfig* key_slot_config,
     KeyConfig& out_config)
 {
-    const auto* app_resource_entries = key_slot_config->app_resource_entries();
-    if (!app_resource_entries)
+    const auto* app_key_slot_entries = key_slot_config->app_key_slot_entries();
+    if (!app_key_slot_entries)
     {
-        return std::monostate{};  // No app resource entries is not an error
+        return std::monostate{};  // No app key slot entries is not an error
     }
 
-    for (const auto* entry : *app_resource_entries)
+    for (const auto* entry : *app_key_slot_entries)
     {
         if (!entry)
         {
-            score::mw::log::LogError() << LOG_PREFIX << "Null app resource entry encountered - invalid configuration";
+            score::mw::log::LogError() << LOG_PREFIX << "Null app key slot entry encountered - invalid configuration";
             return make_unexpected(common::DaemonErrorCode::kInternalError);
         }
 
-        KeyConfig::AppResourceEntry resource_entry;
-        resource_entry.uid = entry->uid();
+        KeyConfig::AppKeySlotEntry key_slot_entry;
+        key_slot_entry.uid = entry->uid();
 
         // All fields below are required per schema - add defensive checks
         if (!entry->app_resource_id())
         {
-            score::mw::log::LogError() << LOG_PREFIX << "App resource entry missing required field 'app_resource_id'";
+            score::mw::log::LogError() << LOG_PREFIX << "App key slot entry missing required field 'app_resource_id'";
             return make_unexpected(common::DaemonErrorCode::kInternalError);
         }
-        resource_entry.app_resource_id = entry->app_resource_id()->str();
+        key_slot_entry.app_resource_id = entry->app_resource_id()->str();
 
         if (!entry->slot_name())
         {
-            score::mw::log::LogError() << LOG_PREFIX << "App resource entry missing required field 'slot_name'";
+            score::mw::log::LogError() << LOG_PREFIX << "App key slot entry missing required field 'slot_name'";
             return make_unexpected(common::DaemonErrorCode::kInternalError);
         }
-        resource_entry.slot_name = entry->slot_name()->str();
+        key_slot_entry.slot_name = entry->slot_name()->str();
 
-        out_config.AddAppResourceEntry(std::move(resource_entry));
+        out_config.AddAppKeySlotEntry(std::move(key_slot_entry));
     }
 
     return std::monostate{};

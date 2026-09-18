@@ -147,6 +147,26 @@ class IProvider
     {
         return nullptr;
     }
+
+    // -----------------------------------------------------------------------
+    // Capability advertisement
+    // -----------------------------------------------------------------------
+
+    /// @brief Report the functional capabilities this provider offers.
+    ///
+    /// Concrete providers MUST override this and return their full capability set
+    /// explicitly. The default returns kNone so an unoverridden provider is never
+    /// selected by GetProviderForCapability() — a silent miss is always preferable
+    /// to a mis-routed operation. Derivation from accessor returns is intentionally
+    /// avoided: as capability entry points evolve, heuristic derivation becomes
+    /// incorrect.
+    ///
+    /// Used by ProviderManager::GetProviderForCapability() to pick a default
+    /// provider for a functional area rather than by hardware/software category.
+    [[nodiscard]] virtual common::ProviderCapability GetProviderCapabilities()
+    {
+        return common::ProviderCapability::kNone;
+    }
 };
 
 }  // namespace score::crypto::daemon::provider
