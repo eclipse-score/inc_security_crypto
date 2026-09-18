@@ -23,12 +23,24 @@ genrule(
     visibility = ["//:__subpackages__"],
 )
 
+# Integration crypto stack config contains both key_slot_config and
+# cert_slot_config. It is passed as a generated binary FlatBuffers file.
 filegroup(
     name = "integration_test_config",
     srcs = [
+        ":generate_integration_test_config",
         "integration_openssl_hmac.kv",
         "integration_softhsm_hmac.kv",
-        ":generate_integration_test_config",
+        "integration_device_cert.kv",
+        "integration_root_ca.kv",
+        "integration_tls_roots_state.kv",
+        "integration_exclusive_slot.kv",
+        "integration_mutable_trust_store_state.kv",
+        "integration_verification_intermediate_ca.kv",
+        "integration_verification_intermediate_roots_state.kv",
+        "integration_verification_root_ca.kv",
+        "integration_verification_root_trust_state.kv",
+        "integration_verification_tls_roots_state.kv",
     ],
     visibility = ["//:__subpackages__"],
 )
