@@ -35,6 +35,8 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":mediator_operations",
+        "//score/crypto/src/daemon/cert_management",
+        "//score/crypto/src/daemon/cert_management:cert_object_serializer",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:operation_names",
         "//score/crypto/src/daemon/config",
