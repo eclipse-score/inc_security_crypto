@@ -55,6 +55,7 @@ cc_library(
     deps = [
         ":control_operations",
         ":request_handler_hdr",
+        "//score/crypto/src/daemon/cert_management",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/data_plane",
