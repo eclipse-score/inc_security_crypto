@@ -100,10 +100,10 @@ cc_binary(
         "//score/crypto/src/api:crypto_stack",
         "//score/tests/utility",
         "@googletest//:gtest",
+    data = [
+        "//score/tests/test_vectors/certificate:basic",
+        "//score/tests/test_vectors/config:integration_test_config",
     ],
-)
-
-cc_binary(
     name = "score_api_random_test",
     srcs = ["score_api_random_test.cpp"],
     data = [
@@ -181,6 +181,42 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "score_cert_management_integration_test",
+    srcs = ["score_cert_management_integration_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    data = [
+        "//score/tests/test_vectors/certificate:basic",
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "score_cert_verification_integration_test",
+    srcs = ["score_cert_verification_integration_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    data = [
+        "//score/tests/test_vectors/certificate:pki_chain",
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "@googletest//:gtest_main",
+    ],
+)
+
 integration_test(
     name = "integration_test",
     size = "small",
@@ -191,6 +227,7 @@ integration_test(
         ":score_api_key_permissions_test",
         ":hash_performance_test",
         ":score_demo",
+        ":hash_performance_test",
         "//score/crypto/src/daemon:crypto_daemon",
     ] + select({
         "//score/crypto/src/backend:pkcs11_backend_enabled": [":init_pkcs11_token"],
@@ -200,6 +237,8 @@ integration_test(
             ":score_api_cipher_test",
             ":score_api_random_test",
             ":score_api_ecdsa_test",
+            ":score_cert_management_integration_test",
+            ":score_cert_verification_integration_test",
         ],
         "//conditions:default": [],
     }),
@@ -208,6 +247,9 @@ integration_test(
         "//score/tests/test_vectors/config:integration_test_config",
     ],
     extra_args = select({
+        "//score/crypto/src/backend:openssl_backend_active": ["--openssl-backend-enabled"],
+        "//conditions:default": [],
+    }) + select({
         "//score/crypto/src/backend:pkcs11_backend_enabled": ["--pkcs11-backend-enabled"],
         "//conditions:default": [],
     }) + select({
@@ -224,6 +266,8 @@ integration_test(
             "//score/tests/test_vectors/block_cipher/CBC-AES192:block_cipher_test_vectors_pkg",
             "//score/tests/test_vectors/block_cipher/CBC-AES256:block_cipher_test_vectors_pkg",
             "//score/tests/test_vectors/ecdsa:ecdsa_test_vectors_pkg",
+            "//score/tests/test_vectors/certificate:basic_pkg",
+            "//score/tests/test_vectors/certificate:pki_chain_pkg",
         ],
         "//conditions:default": [],
     }),
