@@ -31,3 +31,48 @@ cc_library(
         "//score/crypto/src/daemon/provider/handler:handler_headers",
     ],
 )
+
+cc_library(
+    name = "cert_mgmt_context",
+    hdrs = ["cert_mgmt_context.hpp"],
+    visibility = [
+        "//score/crypto/src/daemon/provider:__subpackages__",
+        "//score/crypto/tests:__subpackages__",
+    ],
+    deps = ["//score/crypto/src/daemon/common"],
+)
+
+cc_library(
+    name = "cert_mgmt_executor",
+    srcs = ["src/cert_mgmt_executor.cpp"],
+    hdrs = ["cert_mgmt_executor.hpp"],
+    visibility = [
+        "//score/crypto/src/daemon/provider:__subpackages__",
+        "//score/crypto/tests:__subpackages__",
+    ],
+    deps = [
+        ":cert_mgmt_context",
+        "//score/crypto/src/daemon/cert_management",
+        "//score/crypto/src/daemon/cert_management:cert_object_serializer",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
+        "//score/crypto/src/daemon/provider/handler:handler_headers",
+    ],
+)
+
+cc_library(
+    name = "trust_store_mgmt_executor",
+    srcs = ["src/trust_store_mgmt_executor.cpp"],
+    hdrs = ["trust_store_mgmt_executor.hpp"],
+    visibility = [
+        "//score/crypto/src/daemon/provider:__subpackages__",
+        "//score/crypto/tests:__subpackages__",
+    ],
+    deps = [
+        ":cert_mgmt_context",
+        "//score/crypto/src/daemon/cert_management",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
+        "//score/crypto/src/daemon/provider/handler:handler_headers",
+    ],
+)
