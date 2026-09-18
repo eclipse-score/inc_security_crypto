@@ -66,7 +66,8 @@ void OpenSSL::Shutdown()
 
 std::shared_ptr<::score::crypto::daemon::provider::handler::ICryptoHandlerFactory> OpenSSL::CreateHandlerFactory()
 {
-    return std::make_shared<handler::OpenSslHandlerFactory>(m_factory, GetKeySlotHandler({}), m_keyManagementService);
+    return std::make_shared<handler::OpenSslHandlerFactory>(
+        m_factory, GetKeySlotHandler({}), m_keyManagementService, GetCertParser(), m_certManagementService);
 }
 
 void OpenSSL::SetCertManagementService(

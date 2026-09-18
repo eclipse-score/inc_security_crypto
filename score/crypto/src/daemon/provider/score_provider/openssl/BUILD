@@ -89,18 +89,24 @@ cc_library(
         ":openssl_cert_management_headers",
         ":openssl_key_management_headers",
         "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
+        "//score/crypto/src/daemon/provider/executors:cert_mgmt_executor",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
+        "//score/crypto/src/daemon/provider/executors:trust_store_mgmt_executor",
         "//score/crypto/src/daemon/provider/score_provider",
+        "//score/crypto/src/daemon/provider/score_provider/operations/cert_management:score_cert_management_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/factory:score_handler_factory",
         "//score/crypto/src/daemon/provider/score_provider/operations/hash:score_hash_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/key_management:score_key_management_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/mac:score_mac_handler",
+        "//score/crypto/src/daemon/provider/score_provider/operations/trust_store_management:score_trust_store_management_handler",
     ],
 )
 
 cc_library(
     name = "provider_openssl_library",
     srcs = [
+        "cert_management/openssl_cert_parser.cpp",
         "detail/openssl_algorithm_info.hpp",
         "key_management/openssl_key_factory.cpp",
         "key_management/openssl_key_handler.cpp",
