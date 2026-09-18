@@ -27,6 +27,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
     ],
 )
 
@@ -41,5 +42,6 @@ cc_library(
     deps = [
         ":context_configs",
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
     ],
 )

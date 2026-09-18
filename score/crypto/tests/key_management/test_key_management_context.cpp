@@ -20,7 +20,8 @@
 /// handler dispatch flow without mocks.
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/config/src/flatbuffer_config_parser.hpp"
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"

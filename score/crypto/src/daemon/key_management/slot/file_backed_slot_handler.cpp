@@ -70,15 +70,21 @@ score::crypto::Expected<score::crypto::KeySlotState, Error> FileBackedSlotHandle
 {
     auto deploy_result = DeploymentLoader::Load(slot.deployment_path, slot.deployment_format);
     if (!deploy_result.has_value())
-        return score::crypto::KeySlotState::kEmpty;
+    {
+        if (deploy_result.error() == Error::kResourceNotAllocated)
+            return score::crypto::KeySlotState::kEmpty;
+        return score::crypto::make_unexpected(deploy_result.error());
+    }
 
     const auto& deploy_info = deploy_result.value();
     const auto path_it = deploy_info.key_properties.find(std::string{deployment_keys::kKeyPath});
     if (path_it == deploy_info.key_properties.end() || path_it->second.empty())
         return score::crypto::KeySlotState::kEmpty;
 
-    return file_io::FileExists(path_it->second) ? score::crypto::KeySlotState::kOccupied
-                                                : score::crypto::KeySlotState::kEmpty;
+    const auto exists = file_io::FileExists(path_it->second);
+    if (!exists)
+        return score::crypto::make_unexpected(exists.error());
+    return exists.value() ? score::crypto::KeySlotState::kOccupied : score::crypto::KeySlotState::kEmpty;
 }
 
 score::crypto::Expected<score::crypto::KeySlotInfo, Error> FileBackedSlotHandler::GetSlotInfo(const KeySlotConfig& slot)
