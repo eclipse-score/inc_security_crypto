@@ -41,7 +41,7 @@ class FileBackedSlotHandler final : public ICertSlotHandler
         const CertSlotConfig&) override;
     score::crypto::Expected<score::crypto::CertificateSlotInfo, common::DaemonErrorCode> GetSlotInfo(
         const CertSlotConfig&) override;
-    bool HasCrl(const CertSlotConfig&) override;
+    score::crypto::Expected<bool, common::DaemonErrorCode> HasCrl(const CertSlotConfig&) override;
     score::crypto::Expected<std::monostate, common::DaemonErrorCode> StoreCertificate(const CertSlotConfig&,
                                                                                       const CertObject&) override;
     score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearSlot(const CertSlotConfig&) override;
@@ -50,10 +50,11 @@ class FileBackedSlotHandler final : public ICertSlotHandler
         const CertSlotConfig&,
         score::crypto::span<const uint8_t>,
         score::crypto::FormatType,
-        std::int64_t next_update_epoch_s = 0) override;
+        std::optional<score::crypto::CrlMetadata> metadata = std::nullopt) override;
     score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearCrl(const CertSlotConfig&) override;
     score::crypto::Expected<int64_t, common::DaemonErrorCode> GetCrlNextUpdate(const CertSlotConfig&) override;
     score::crypto::FormatType GetCrlFormat(const CertSlotConfig&) override;
+    std::optional<score::crypto::CrlMetadata> GetCrlMetadata(const CertSlotConfig&) override;
 
   private:
     using Handler = CrlHandler;

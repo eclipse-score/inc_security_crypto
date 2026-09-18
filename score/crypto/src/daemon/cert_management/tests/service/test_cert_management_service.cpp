@@ -103,6 +103,9 @@ class CertManagementServiceTest : public ::testing::Test
         slot_cfg.storage_backend = "DEFAULT";
         slot_cfg.deployment_path = m_descriptor_path.string();
         slot_cfg.deployment_format = "kv";
+        // uid=0 matches kClientA/kClientB (see ClientId layout note above) so tests
+        // below can exercise slot-CRL write paths (ImportCrl) as well as reads.
+        slot_cfg.access_policy.allowed_write_uids = {0U};
         m_slot_handle = m_registry->RegisterSlot(slot_cfg);
         // Map uid=0 app resource "root_ca" → slot "test/root-ca"
         m_registry->RegisterAppResource(0U, std::string{kAppResource}, std::string{kSlotName});
@@ -405,6 +408,254 @@ TEST_F(CertManagementServiceTest, SessionCrl_StoresInMemoryNotOnDisk)
 TEST_F(CertManagementServiceTest, SessionCrl_UnknownNode_ReturnsError)
 {
     EXPECT_FALSE(m_service->ResolveCertEntryForOperation(kClientA, 999U).has_value());
+}
+
+// ---------------------------------------------------------------------------
+// ResolveCertWithCrlMetadataForOperation
+//
+// This is the function behind GET_CERTIFICATE_OBJECT (mediator typed-object
+// query): it must report CRL metadata from the session association when
+// present, and otherwise fall back to the slot's persisted CRL metadata when
+// the entry was loaded from a slot. Ephemeral (non-slot) certs have no
+// fallback. Regression coverage for a prior inconsistency where the CERT:MANAGEMENT
+// executor's now-removed CERT_GET_METADATA path only checked the session CRL and
+// silently dropped persisted slot CRL metadata.
+// ---------------------------------------------------------------------------
+
+score::crypto::CrlMetadata MakeCrlMetadata(std::uint8_t seed)
+{
+    score::crypto::CrlMetadata metadata;
+    metadata.fingerprint.fill(seed);
+    metadata.issuer_fingerprint.fill(static_cast<std::uint8_t>(seed + 1U));
+    metadata.this_update = 1000 + seed;
+    metadata.next_update = 2000 + seed;
+    metadata.crl_number = 3000U + seed;
+    return metadata;
+}
+
+TEST_F(CertManagementServiceTest, ResolveCertWithCrlMetadata_NoCrlAnywhere_ReturnsNoMetadata)
+{
+    const auto result = LoadCert(kClientA);
+    ASSERT_NE(result.node_id, 0U);
+
+    const auto resolved = m_service->ResolveCertWithCrlMetadataForOperation(kClientA, result.node_id);
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(resolved->cert->GetSubject(), kSubjectInitial);
+    EXPECT_FALSE(resolved->crl_metadata.has_value());
+}
+
+TEST_F(CertManagementServiceTest, ResolveCertWithCrlMetadata_SlotHasPersistedCrl_FallsBackToSlotMetadata)
+{
+    const auto result = LoadCert(kClientA);
+    ASSERT_NE(result.node_id, 0U);
+    ASSERT_FALSE(result.entry->HasSessionCrl());
+
+    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    const auto slot_metadata = MakeCrlMetadata(0x11U);
+    ASSERT_TRUE(m_service->GetSlotManager()
+                    ->ImportCrl(m_slot_handle, kClientA, crl_bytes, score::crypto::FormatType::kDer, slot_metadata)
+                    .has_value());
+
+    const auto resolved = m_service->ResolveCertWithCrlMetadataForOperation(kClientA, result.node_id);
+    ASSERT_TRUE(resolved.has_value());
+    ASSERT_TRUE(resolved->crl_metadata.has_value());
+    EXPECT_EQ(resolved->crl_metadata->fingerprint, slot_metadata.fingerprint);
+    EXPECT_EQ(resolved->crl_metadata->crl_number, slot_metadata.crl_number);
+}
+
+TEST_F(CertManagementServiceTest, ResolveCertWithCrlMetadata_SessionCrlPresent_TakesPrecedenceOverSlotCrl)
+{
+    const auto result = LoadCert(kClientA);
+    ASSERT_NE(result.node_id, 0U);
+
+    // Persist a CRL on the slot itself...
+    const std::vector<std::uint8_t> slot_crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    const auto slot_metadata = MakeCrlMetadata(0x11U);
+    ASSERT_TRUE(m_service->GetSlotManager()
+                    ->ImportCrl(m_slot_handle, kClientA, slot_crl_bytes, score::crypto::FormatType::kDer, slot_metadata)
+                    .has_value());
+
+    // ...but attach a *different* session-scoped CRL to this entry.
+    const std::vector<std::uint8_t> session_crl_bytes{0xD0U, 0xD1U};
+    const auto session_metadata = MakeCrlMetadata(0x22U);
+    result.entry->AttachSessionCrl(session_crl_bytes, score::crypto::FormatType::kDer, session_metadata);
+
+    const auto resolved = m_service->ResolveCertWithCrlMetadataForOperation(kClientA, result.node_id);
+    ASSERT_TRUE(resolved.has_value());
+    ASSERT_TRUE(resolved->crl_metadata.has_value());
+    // Session metadata wins — the slot's persisted CRL must not leak through.
+    EXPECT_EQ(resolved->crl_metadata->fingerprint, session_metadata.fingerprint);
+    EXPECT_EQ(resolved->crl_metadata->crl_number, session_metadata.crl_number);
+}
+
+TEST_F(CertManagementServiceTest, ResolveCertWithCrlMetadata_EphemeralCert_NoSlotFallback_ReturnsNoMetadata)
+{
+    std::ifstream file(m_cert_path, std::ios::binary);
+    ASSERT_TRUE(file.is_open());
+    const std::vector<std::uint8_t> bytes{std::istreambuf_iterator<char>(file), {}};
+    auto parsed = m_parser->ParseCertificate(bytes.data(), bytes.size(), score::crypto::FormatType::kPem);
+    ASSERT_TRUE(parsed.has_value());
+
+    const auto slot_node_id = m_service->ResolveCertSlot(std::string{kAppResource}, kClientA);
+    ASSERT_TRUE(slot_node_id.has_value());
+
+    cert::CertRegistrationParams params;
+    params.client_id = kClientA;
+    params.parent_id = slot_node_id.value();
+    params.slot_handle = cert::CertSlotHandle{};  // ephemeral — no slot backing
+    const auto registered = m_service->RegisterCertMaterial(params, *parsed);
+    ASSERT_TRUE(registered.has_value());
+
+    const auto resolved = m_service->ResolveCertWithCrlMetadataForOperation(kClientA, registered->node_id);
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_FALSE(resolved->crl_metadata.has_value());
+}
+
+TEST_F(CertManagementServiceTest, ResolveCertWithCrlMetadata_SlotNodeNotYetLoaded_ReadsCrlFromSlot)
+{
+    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    const auto slot_metadata = MakeCrlMetadata(0x33U);
+    ASSERT_TRUE(m_service->GetSlotManager()
+                    ->ImportCrl(m_slot_handle, kClientA, crl_bytes, score::crypto::FormatType::kDer, slot_metadata)
+                    .has_value());
+
+    // Resolve the bare slot node (kCertSlot), never Load()-ed into a CertEntry.
+    const auto slot_node_id = m_service->ResolveCertSlot(std::string{kAppResource}, kClientA);
+    ASSERT_TRUE(slot_node_id.has_value());
+
+    const auto resolved = m_service->ResolveCertWithCrlMetadataForOperation(kClientA, slot_node_id.value());
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(resolved->cert->GetSubject(), kSubjectInitial);
+    ASSERT_TRUE(resolved->crl_metadata.has_value());
+    EXPECT_EQ(resolved->crl_metadata->crl_number, slot_metadata.crl_number);
+}
+
+TEST_F(CertManagementServiceTest, ResolveCertWithCrlMetadata_UnknownNode_ReturnsError)
+{
+    EXPECT_FALSE(m_service->ResolveCertWithCrlMetadataForOperation(kClientA, 999U).has_value());
+}
+
+// ---------------------------------------------------------------------------
+// ResolveCrlForOperation
+//
+// This is the `with_crl` propagation source resolver: it returns the actual
+// CRL bytes (not just metadata) to copy into a destination slot/trust-store
+// member via SaveCertificateWithCrl / AddCertificateToTrustStore(with_crl).
+// Same session-vs-slot precedence as ResolveCertWithCrlMetadataForOperation,
+// but had zero prior test coverage.
+// ---------------------------------------------------------------------------
+
+TEST_F(CertManagementServiceTest, ResolveCrl_NoCrlAnywhere_ReturnsNulloptSuccess)
+{
+    const auto result = LoadCert(kClientA);
+    ASSERT_NE(result.node_id, 0U);
+
+    const auto resolved = m_service->ResolveCrlForOperation(kClientA, result.node_id);
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_FALSE(resolved->has_value());
+}
+
+TEST_F(CertManagementServiceTest, ResolveCrl_SlotHasPersistedCrl_NoSessionCrl_ReturnsSlotCrlBytes)
+{
+    const auto result = LoadCert(kClientA);
+    ASSERT_NE(result.node_id, 0U);
+
+    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    const auto slot_metadata = MakeCrlMetadata(0x11U);
+    ASSERT_TRUE(m_service->GetSlotManager()
+                    ->ImportCrl(m_slot_handle, kClientA, crl_bytes, score::crypto::FormatType::kDer, slot_metadata)
+                    .has_value());
+
+    const auto resolved = m_service->ResolveCrlForOperation(kClientA, result.node_id);
+    ASSERT_TRUE(resolved.has_value());
+    ASSERT_TRUE(resolved->has_value());
+    EXPECT_EQ((*resolved)->bytes, crl_bytes);
+    EXPECT_EQ((*resolved)->format, score::crypto::FormatType::kDer);
+    ASSERT_TRUE((*resolved)->metadata.has_value());
+    EXPECT_EQ((*resolved)->metadata->crl_number, slot_metadata.crl_number);
+}
+
+TEST_F(CertManagementServiceTest, ResolveCrl_SessionCrlPresent_TakesPrecedenceOverSlotCrl)
+{
+    const auto result = LoadCert(kClientA);
+    ASSERT_NE(result.node_id, 0U);
+
+    // Persist a different CRL on the slot itself...
+    const std::vector<std::uint8_t> slot_crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    ASSERT_TRUE(
+        m_service->GetSlotManager()
+            ->ImportCrl(
+                m_slot_handle, kClientA, slot_crl_bytes, score::crypto::FormatType::kDer, MakeCrlMetadata(0x11U))
+            .has_value());
+
+    // ...but attach a session-scoped CRL to this entry.
+    const std::vector<std::uint8_t> session_crl_bytes{0xD0U, 0xD1U};
+    const auto session_metadata = MakeCrlMetadata(0x22U);
+    result.entry->AttachSessionCrl(session_crl_bytes, score::crypto::FormatType::kPem, session_metadata);
+
+    const auto resolved = m_service->ResolveCrlForOperation(kClientA, result.node_id);
+    ASSERT_TRUE(resolved.has_value());
+    ASSERT_TRUE(resolved->has_value());
+    // Session CRL wins — the slot's persisted CRL must not leak through.
+    EXPECT_EQ((*resolved)->bytes, session_crl_bytes);
+    EXPECT_EQ((*resolved)->format, score::crypto::FormatType::kPem);
+    ASSERT_TRUE((*resolved)->metadata.has_value());
+    EXPECT_EQ((*resolved)->metadata->crl_number, session_metadata.crl_number);
+}
+
+TEST_F(CertManagementServiceTest, ResolveCrl_EphemeralCert_NoSessionCrl_ReturnsNulloptSuccess)
+{
+    std::ifstream file(m_cert_path, std::ios::binary);
+    ASSERT_TRUE(file.is_open());
+    const std::vector<std::uint8_t> bytes{std::istreambuf_iterator<char>(file), {}};
+    auto parsed = m_parser->ParseCertificate(bytes.data(), bytes.size(), score::crypto::FormatType::kPem);
+    ASSERT_TRUE(parsed.has_value());
+
+    const auto slot_node_id = m_service->ResolveCertSlot(std::string{kAppResource}, kClientA);
+    ASSERT_TRUE(slot_node_id.has_value());
+
+    cert::CertRegistrationParams params;
+    params.client_id = kClientA;
+    params.parent_id = slot_node_id.value();
+    params.slot_handle = cert::CertSlotHandle{};  // ephemeral — no slot backing, no fallback
+    const auto registered = m_service->RegisterCertMaterial(params, *parsed);
+    ASSERT_TRUE(registered.has_value());
+
+    // No session CRL attached either: must resolve to "no CRL" success, not an
+    // error, even though the ephemeral entry has no slot to fall back to.
+    const auto resolved = m_service->ResolveCrlForOperation(kClientA, registered->node_id);
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_FALSE(resolved->has_value());
+}
+
+TEST_F(CertManagementServiceTest, ResolveCrl_BareSlotNodeNotYetLoaded_ReadsCrlFromSlot)
+{
+    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
+    ASSERT_TRUE(
+        m_service->GetSlotManager()
+            ->ImportCrl(m_slot_handle, kClientA, crl_bytes, score::crypto::FormatType::kDer, MakeCrlMetadata(0x33U))
+            .has_value());
+
+    const auto slot_node_id = m_service->ResolveCertSlot(std::string{kAppResource}, kClientA);
+    ASSERT_TRUE(slot_node_id.has_value());
+
+    const auto resolved = m_service->ResolveCrlForOperation(kClientA, slot_node_id.value());
+    ASSERT_TRUE(resolved.has_value());
+    ASSERT_TRUE(resolved->has_value());
+    EXPECT_EQ((*resolved)->bytes, crl_bytes);
+}
+
+// A completely unknown node_id resolves neither to a CertDataNode nor a
+// CertSlotDataNode, so both internal lookups fail and there is no source to
+// report — this is treated as "no CRL available", not an error. Documents
+// the actual (perhaps surprising) contract rather than asserting it is ideal;
+// callers reach this function only after already resolving cert_node_id
+// earlier in the same operation, so an unknown id should not occur in practice.
+TEST_F(CertManagementServiceTest, ResolveCrl_UnknownNode_ReturnsNulloptNotError)
+{
+    const auto resolved = m_service->ResolveCrlForOperation(kClientA, 999U);
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_FALSE(resolved->has_value());
 }
 
 }  // namespace

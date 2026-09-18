@@ -29,7 +29,7 @@
 //   - AddMember — stores a cert into an empty exclusive slot, persists to disk
 //   - RemoveMember — removes anchor by real SHA-256 fingerprint
 //   - AcknowledgeMemberUpdate — re-enables a disabled slot with fresh load
-//   - ConditionalExternal — fingerprint mismatch auto-disables on reload; AcknowledgeMemberUpdate re-enables
+//   - ConditionalExternal — slot updates disable members until acknowledged
 
 #include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
@@ -502,7 +502,9 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
     cert::TrustStoreConfig ts_cfg;
     ts_cfg.store_name = "cond-store";
     ts_cfg.access_policy.allowed_write_uids = {0U};
-    ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
+    ts_cfg.conditional_slot_initialization = cert::ConditionalSlotInitialization::kEnableAndAcceptCurrent;
+    ts_cfg.members.push_back(
+        cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kConditionalExternal});
 
     cert::TrustStoreManager manager;
     manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
@@ -542,9 +544,7 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
 }
 
 // ---------------------------------------------------------------------------
-// ConditionalExternal — fingerprint mismatch triggers auto-disable; the entire
-// scenario from initial acceptance through rotation, mismatch detection,
-// and re-acknowledgement is exercised here.
+// ConditionalExternal members require acknowledgment after a slot update.
 //
 // Steps:
 //  1. kConditionalExternal member with kEnableAndAcceptCurrent init policy:
@@ -562,7 +562,10 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
 TEST_F(TrustStoreManagerTest, ConditionalExternal_FingerprintMismatch_AutoDisablesUntilAcknowledged)
 {
     auto registry = std::make_shared<cert::CertSlotRegistry>();
-    const auto slot = registry->RegisterSlot(MakeSlotConfig("root-anchor", m_root_slot_kv));
+    auto slot_config = MakeSlotConfig("root-anchor", m_root_slot_kv);
+    slot_config.access_policy.allowed_uids = {0U};
+    slot_config.access_policy.allowed_write_uids = {0U};
+    const auto slot = registry->RegisterSlot(slot_config);
 
     cert::TrustStoreConfig ts_cfg;
     ts_cfg.store_name = "cond-store";
@@ -571,8 +574,9 @@ TEST_F(TrustStoreManagerTest, ConditionalExternal_FingerprintMismatch_AutoDisabl
     ts_cfg.members.push_back(
         cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kConditionalExternal});
 
+    auto slot_manager = MakeSlotManager(registry);
     cert::TrustStoreManager manager;
-    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
+    manager.Load({ts_cfg}, registry, slot_manager);
 
     const auto ts_handle = manager.ResolveByName("cond-store");
     auto store = manager.GetStore(ts_handle);
@@ -589,28 +593,23 @@ TEST_F(TrustStoreManagerTest, ConditionalExternal_FingerprintMismatch_AutoDisabl
         // 'initial' drops here; the only remaining strong ref is inside TrustStoreHandler::m_slots.
     }
 
-    // Step 2: Rotate cert on disk without acknowledgement.
-    ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate_updated.pem",
-                                           m_root_cert,
-                                           std::filesystem::copy_options::overwrite_existing));
+    // Step 2: Update the member slot through the certificate-slot write path.
+    const auto updated = ParseCert("score/tests/test_vectors/certificate/basic/certificate_updated.pem");
+    ASSERT_NE(updated, nullptr);
+    ASSERT_TRUE(slot_manager->StoreCertificate(slot, kClientA, *updated).has_value());
+    manager.NotifySlotChanged(ts_handle, slot);
 
-    // Step 3: ReleaseRef — last client ref gone → MaybeEvictAnchorCache → ClearAnchorCache
-    // (m_loaded = false, m_slots cleared, weak_ptr in m_slot_cert_cache expires).
-    manager.ReleaseRef(ts_handle, kClientA);
-
-    // Step 4: GetAnchors() triggers LoadAnchorsIntoHandler which loads cert B from disk,
-    // compares fingerprint(B) with the recorded fingerprint(A), detects mismatch,
-    // sets state.enabled = false, and calls NotifySlotUpdate with nullptr.
+    // Step 3: The direct slot update disables the conditional member until it is acknowledged.
     {
-        auto after_rotate = store->GetAnchors();
-        ASSERT_TRUE(after_rotate.has_value());
-        EXPECT_EQ(after_rotate->size(), 0U);
+        auto after_update = store->GetAnchors();
+        ASSERT_TRUE(after_update.has_value());
+        EXPECT_EQ(after_update->size(), 0U);
     }
 
-    // Step 5: Acknowledge — fresh load of cert B records new fingerprint and re-enables.
+    // Step 4: Acknowledge the update and load the replacement certificate.
     ASSERT_TRUE(manager.AcknowledgeMemberUpdate(ts_handle, slot, kClientA).has_value());
 
-    // Step 6: GetAnchors() returns cert B without another reload cycle (m_loaded is
+    // Step 5: GetAnchors() returns cert B without another reload cycle (m_loaded is
     // still true; AcknowledgeMemberUpdate updated m_slots directly via NotifySlotUpdate).
     auto after_ack = store->GetAnchors();
     ASSERT_TRUE(after_ack.has_value());
@@ -652,7 +651,8 @@ TEST_F(TrustStoreManagerTest, AddMember_WithCrlBytes_StoresAndPersistsCrl)
     cert::FileBackedSlotHandler fresh_handler{m_parser};
     const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
     ASSERT_TRUE(fresh_handler.LoadCertificate(cfg).has_value());
-    ASSERT_TRUE(fresh_handler.HasCrl(cfg));
+    ASSERT_TRUE(fresh_handler.HasCrl(cfg).has_value());
+    ASSERT_TRUE(fresh_handler.HasCrl(cfg).value());
     const auto loaded_crl = fresh_handler.LoadCrl(cfg);
     ASSERT_TRUE(loaded_crl.has_value());
     EXPECT_EQ(*loaded_crl, crl);
@@ -688,7 +688,8 @@ TEST_F(TrustStoreManagerTest, AddMember_ExistingExclusiveMember_UpsertsCrl)
     {
         cert::FileBackedSlotHandler fh{m_parser};
         const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
-        EXPECT_FALSE(fh.HasCrl(cfg));
+        ASSERT_TRUE(fh.HasCrl(cfg).has_value());
+        EXPECT_FALSE(fh.HasCrl(cfg).value());
     }
 
     // Second add: same cert, with CRL — upsert path.
@@ -698,7 +699,8 @@ TEST_F(TrustStoreManagerTest, AddMember_ExistingExclusiveMember_UpsertsCrl)
 
     cert::FileBackedSlotHandler fresh_handler{m_parser};
     const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
-    ASSERT_TRUE(fresh_handler.HasCrl(cfg));
+    ASSERT_TRUE(fresh_handler.HasCrl(cfg).has_value());
+    ASSERT_TRUE(fresh_handler.HasCrl(cfg).value());
     const auto loaded_crl = fresh_handler.LoadCrl(cfg);
     ASSERT_TRUE(loaded_crl.has_value());
     EXPECT_EQ(*loaded_crl, crl);
@@ -810,7 +812,8 @@ TEST_F(TrustStoreManagerTest, ImportCrlForMember_WritesToExclusiveSlot)
     // Verify persistence: fresh handler must read the CRL.
     cert::FileBackedSlotHandler fresh_handler{m_parser};
     const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
-    ASSERT_TRUE(fresh_handler.HasCrl(cfg));
+    ASSERT_TRUE(fresh_handler.HasCrl(cfg).has_value());
+    ASSERT_TRUE(fresh_handler.HasCrl(cfg).value());
     const auto loaded_crl = fresh_handler.LoadCrl(cfg);
     ASSERT_TRUE(loaded_crl.has_value());
     EXPECT_EQ(*loaded_crl, crl);

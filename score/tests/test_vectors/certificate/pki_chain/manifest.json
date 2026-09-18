@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "description": "Three-level PKI: root CA -> intermediate CA -> leaf. For chain-verification and OCSP tests. No certs committed yet — generate in order below.",
+  "description": "Three-level PKI: root CA -> intermediate CA -> leaf. Used by integration chain and CRL verification tests.",
   "defaults": {
     "cert_dir": ".",
     "key_dir": "private",

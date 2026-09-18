@@ -13,7 +13,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_CORE_CERT_MANAGEMENT_SERVICE_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_CORE_CERT_MANAGEMENT_SERVICE_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/cert_management/core/cert_registry.hpp"
 #include "score/crypto/src/daemon/cert_management/nodes/cert_data_node.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -41,6 +42,22 @@ struct ResolvedCertSlot
 {
     CertSlotHandle handle;
     const CertSlotConfig* config{nullptr};
+};
+
+/// CRL resolved for propagation to another cert resource, returned by ResolveCrlForOperation.
+struct ResolvedCrl
+{
+    std::vector<std::uint8_t> bytes;
+    score::crypto::FormatType format{score::crypto::FormatType::kDer};
+    std::optional<score::crypto::CrlMetadata> metadata;
+};
+
+/// Certificate plus its associated CRL metadata (if any), returned by
+/// ResolveCertWithCrlMetadataForOperation.
+struct ResolvedCertWithCrlMetadata
+{
+    CertObject::Sptr cert;
+    std::optional<score::crypto::CrlMetadata> crl_metadata;
 };
 
 class CertManagementService final
@@ -113,16 +130,27 @@ class CertManagementService final
         data_manager::ClientId client_id,
         data_manager::DataNodeId slot_node_id);
 
-    /// Look up a CertDataNode by node_id and return the underlying CertObject.
+    /// Look up a certificate or certificate-slot node and return its CertObject.
     score::crypto::Expected<CertObject::Sptr, common::DaemonErrorCode> ResolveCertForOperation(
         data_manager::ClientId client_id,
         data_manager::DataNodeId cert_node_id);
 
-    /// Look up a CertDataNode by node_id and return the underlying CertEntry.
+    /// Look up a certificate or certificate-slot node and return its CertObject together with
+    /// the CRL metadata associated with it (session CRL, else entry-linked or direct slot CRL).
+    score::crypto::Expected<ResolvedCertWithCrlMetadata, common::DaemonErrorCode>
+    ResolveCertWithCrlMetadataForOperation(data_manager::ClientId client_id, data_manager::DataNodeId cert_node_id);
+
+    /// Look up a certificate data node and return its CertEntry.
     ///
     /// Use instead of ResolveCertForOperation when the session CRL association
     /// (CertEntry::GetSessionCrl) is also needed.
     score::crypto::Expected<std::shared_ptr<CertEntry>, common::DaemonErrorCode> ResolveCertEntryForOperation(
+        data_manager::ClientId client_id,
+        data_manager::DataNodeId cert_node_id);
+
+    /// Resolves a `with_crl` propagation source: session CRL on the entry, else persistent CRL on
+    /// its slot (direct or entry-linked). std::nullopt (success) means no CRL is available.
+    score::crypto::Expected<std::optional<ResolvedCrl>, common::DaemonErrorCode> ResolveCrlForOperation(
         data_manager::ClientId client_id,
         data_manager::DataNodeId cert_node_id);
 

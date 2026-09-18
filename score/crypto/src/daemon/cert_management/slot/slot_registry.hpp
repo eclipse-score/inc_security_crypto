@@ -94,7 +94,7 @@ class CertSlotRegistry : public std::enable_shared_from_this<CertSlotRegistry>
 
     /// @brief Return a snapshot of all registered slot configs.
     ///
-    /// Used by services that need to iterate all slots (e.g., DeleteExpiredCrls).
+    /// Used by services that need to iterate all registered slots.
     std::vector<CertSlotHandle> GetAllHandles() const;
 
     /// @brief Register an application-local resource ID mapping.

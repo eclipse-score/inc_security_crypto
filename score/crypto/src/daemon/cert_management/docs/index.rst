@@ -91,13 +91,6 @@ This drives several design decisions:
   application's verification context cannot evict another application's
   active anchor cache.
 
-Backwards Compatibility Impact
--------------------------------
-
-The component introduces no changes to existing certificate-management
-callers. The certificate-management, certificate-verification, and
-CSR-generation context interfaces are defined in ``score/crypto/src/api/``.
-
 Security Impact
 ---------------
 
@@ -111,7 +104,8 @@ Security Impact
 * Trust store mutations (``AddMember``, ``RemoveMember``,
   ``DisableMember``, ``EnableMember``) carry a separate write permission
   check on the trust store policy, independent of the member slot's
-  write policy.
+  write policy, and are dispatched through the ``CERT:TRUST_STORE`` context
+  handler.
 
 Safety Impact
 -------------

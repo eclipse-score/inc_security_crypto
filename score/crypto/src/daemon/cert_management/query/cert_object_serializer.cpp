@@ -19,7 +19,8 @@
 namespace score::crypto::daemon::cert_management::query
 {
 
-common::ResponseParameters SerializeCertObject(const CertObject& cert)
+common::ResponseParameters SerializeCertObject(const CertObject& cert,
+                                               std::optional<score::crypto::CrlMetadata> crl_metadata)
 {
     const auto& meta = cert.GetChainMetadata();
     common::ResponseParameters out;
@@ -32,6 +33,13 @@ common::ResponseParameters SerializeCertObject(const CertObject& cert)
     out.push_back(common::OwnedBuffer{meta.akid.begin(), meta.akid.end()});
     out.push_back(common::OwnedString{meta.serial_number_hex});
     out.push_back(common::OwnedBuffer{meta.fingerprint.begin(), meta.fingerprint.end()});
+    out.push_back(static_cast<std::uint8_t>(crl_metadata.has_value() ? 1U : 0U));
+    const auto crl = crl_metadata.value_or(score::crypto::CrlMetadata{});
+    out.push_back(common::OwnedBuffer{crl.fingerprint.begin(), crl.fingerprint.end()});
+    out.push_back(common::OwnedBuffer{crl.issuer_fingerprint.begin(), crl.issuer_fingerprint.end()});
+    out.push_back(static_cast<std::uint64_t>(crl.this_update));
+    out.push_back(static_cast<std::uint64_t>(crl.next_update));
+    out.push_back(crl.crl_number);
     return out;
 }
 
@@ -43,18 +51,9 @@ SerializeCertSlotInfo(CertSlotManager& mgr, CertSlotHandle slot, data_manager::C
         return score::crypto::make_unexpected(info_res.error());
 
     const bool has_crl = info_res.value().has_crl;
-    int64_t crl_next = 0;
-    if (has_crl)
-    {
-        auto nu = mgr.GetCrlNextUpdate(slot, client_id);
-        if (nu.has_value())
-            crl_next = nu.value();
-    }
-
     common::ResponseParameters out;
     out.push_back(static_cast<std::uint8_t>(info_res.value().state));
     out.push_back(static_cast<std::uint8_t>(has_crl ? 1U : 0U));
-    out.push_back(static_cast<std::uint64_t>(crl_next));
     return out;
 }
 

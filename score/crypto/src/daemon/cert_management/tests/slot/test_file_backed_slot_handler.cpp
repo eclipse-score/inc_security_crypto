@@ -58,14 +58,14 @@ class FakeParser final : public provider::ICertParser
         return std::vector<cert::CertObject::Sptr>{*parsed};
     }
 
-    score::crypto::Expected<std::int64_t, Error> ValidateCrl(const std::uint8_t*,
-                                                             std::size_t,
-                                                             score::crypto::FormatType,
-                                                             const std::uint8_t*,
-                                                             std::size_t,
-                                                             score::crypto::FormatType) override
+    score::crypto::Expected<score::crypto::CrlMetadata, Error> ValidateCrl(const std::uint8_t*,
+                                                                           std::size_t,
+                                                                           score::crypto::FormatType,
+                                                                           const std::uint8_t*,
+                                                                           std::size_t,
+                                                                           score::crypto::FormatType) override
     {
-        return 0;
+        return score::crypto::CrlMetadata{};
     }
 };
 
@@ -127,12 +127,37 @@ TEST_F(FileBackedSlotHandlerTest, StoresLoadsAndClearsCrl)
     const std::vector<std::uint8_t> crl{4U, 5U, 6U};
     const auto crl_span = score::crypto::span<const std::uint8_t>{crl.data(), crl.size()};
     ASSERT_TRUE(m_handler->StoreCrl(m_slot, crl_span, score::crypto::FormatType::kDer).has_value());
-    EXPECT_TRUE(m_handler->HasCrl(m_slot));
+    ASSERT_TRUE(m_handler->HasCrl(m_slot).has_value());
+    EXPECT_TRUE(m_handler->HasCrl(m_slot).value());
     ASSERT_TRUE(m_handler->LoadCrl(m_slot).has_value());
     EXPECT_EQ(*m_handler->LoadCrl(m_slot), crl);
 
     ASSERT_TRUE(m_handler->ClearCrl(m_slot).has_value());
-    EXPECT_FALSE(m_handler->HasCrl(m_slot));
+    ASSERT_TRUE(m_handler->HasCrl(m_slot).has_value());
+    EXPECT_FALSE(m_handler->HasCrl(m_slot).value());
+}
+
+TEST_F(FileBackedSlotHandlerTest, DerivesMetadataForPreconfiguredCrlWithoutCachedMetadata)
+{
+    cert::CertChainMetadata certificate_metadata;
+    certificate_metadata.subject_canonical = "CN=file-test";
+    certificate_metadata.issuer_canonical = "CN=file-test";
+    auto certificate = std::make_shared<cert::CertObject>(
+        std::move(certificate_metadata), std::vector<std::uint8_t>{1U, 2U, 3U}, score::crypto::FormatType::kDer);
+    ASSERT_TRUE(m_handler->StoreCertificate(m_slot, *certificate).has_value());
+
+    const std::vector<std::uint8_t> crl{4U, 5U, 6U};
+    ASSERT_TRUE(m_handler
+                    ->StoreCrl(m_slot,
+                               score::crypto::span<const std::uint8_t>{crl.data(), crl.size()},
+                               score::crypto::FormatType::kDer)
+                    .has_value());
+
+    const auto metadata = m_handler->GetCrlMetadata(m_slot);
+    ASSERT_TRUE(metadata.has_value());
+    EXPECT_EQ(metadata->this_update, 0);
+    EXPECT_EQ(metadata->next_update, 0);
+    EXPECT_EQ(metadata->crl_number, 0U);
 }
 
 // Storing a new certificate must invalidate any existing CRL: the CRL was
@@ -154,14 +179,16 @@ TEST_F(FileBackedSlotHandlerTest, StoreCertificate_ClearsExistingCrl)
                                score::crypto::span<const std::uint8_t>{crl_bytes.data(), crl_bytes.size()},
                                score::crypto::FormatType::kDer)
                     .has_value());
-    ASSERT_TRUE(m_handler->HasCrl(m_slot));
+    ASSERT_TRUE(m_handler->HasCrl(m_slot).has_value());
+    ASSERT_TRUE(m_handler->HasCrl(m_slot).value());
 
     // Storing a new cert must invalidate the stale CRL.
     // crl_path is preserved in the descriptor (for future StoreCrl re-use)
     // but the CRL file is removed, so HasCrl() must return false.
     ASSERT_TRUE(m_handler->StoreCertificate(m_slot, *certificate).has_value());
 
-    EXPECT_FALSE(m_handler->HasCrl(m_slot));  // file gone → FileExists false
+    ASSERT_TRUE(m_handler->HasCrl(m_slot).has_value());
+    EXPECT_FALSE(m_handler->HasCrl(m_slot).value());
     EXPECT_FALSE(std::filesystem::exists(m_crl));
 
     // crl_path is preserved in the descriptor so a subsequent StoreCrl re-uses
@@ -172,7 +199,8 @@ TEST_F(FileBackedSlotHandlerTest, StoreCertificate_ClearsExistingCrl)
                                score::crypto::span<const std::uint8_t>{new_crl.data(), new_crl.size()},
                                score::crypto::FormatType::kDer)
                     .has_value());
-    EXPECT_TRUE(m_handler->HasCrl(m_slot));
+    ASSERT_TRUE(m_handler->HasCrl(m_slot).has_value());
+    EXPECT_TRUE(m_handler->HasCrl(m_slot).value());
     EXPECT_TRUE(std::filesystem::exists(m_crl));
 }
 
@@ -182,7 +210,8 @@ TEST_F(FileBackedSlotHandlerTest, StoreCertificate_ClearsExistingCrl)
 // detection doesn't go unnoticed.
 TEST_F(FileBackedSlotHandlerTest, HasCrl_FalseForFreshSlot)
 {
-    EXPECT_FALSE(m_handler->HasCrl(m_slot));
+    ASSERT_TRUE(m_handler->HasCrl(m_slot).has_value());
+    EXPECT_FALSE(m_handler->HasCrl(m_slot).value());
 }
 
 // GetSlotState on a fresh slot must report kEmpty without a prior store.
@@ -247,19 +276,18 @@ TEST_F(FileBackedSlotHandlerTest, ClearCrl_IsIdempotent)
     ASSERT_TRUE(m_handler->ClearCrl(m_slot).has_value());
     // Second call must succeed — CRL file is already gone.
     ASSERT_TRUE(m_handler->ClearCrl(m_slot).has_value());
-    EXPECT_FALSE(m_handler->HasCrl(m_slot));
+    ASSERT_TRUE(m_handler->HasCrl(m_slot).has_value());
+    EXPECT_FALSE(m_handler->HasCrl(m_slot).value());
 }
 
-// StoreCrl with next_update_epoch_s == 0 must NOT write a crl_next_update key
-// to the descriptor.  Subsequent GetCrlNextUpdate must return kResourceNotAllocated.
-TEST_F(FileBackedSlotHandlerTest, StoreCrl_ZeroNextUpdate_DoesNotWriteNextUpdateKey)
+// StoreCrl without metadata must not write a crl_next_update key to the descriptor.
+TEST_F(FileBackedSlotHandlerTest, StoreCrl_WithoutMetadata_DoesNotWriteNextUpdateKey)
 {
     const std::vector<std::uint8_t> crl{0x01U, 0x02U};
     ASSERT_TRUE(m_handler
                     ->StoreCrl(m_slot,
                                score::crypto::span<const std::uint8_t>{crl.data(), crl.size()},
-                               score::crypto::FormatType::kDer,
-                               0 /* next_update_epoch_s = 0 */)
+                               score::crypto::FormatType::kDer)
                     .has_value());
 
     const auto nu = m_handler->GetCrlNextUpdate(m_slot);
@@ -267,17 +295,19 @@ TEST_F(FileBackedSlotHandlerTest, StoreCrl_ZeroNextUpdate_DoesNotWriteNextUpdate
     EXPECT_EQ(nu.error(), Error::kResourceNotAllocated);
 }
 
-// StoreCrl with a non-zero next_update_epoch_s must persist the epoch and
-// GetCrlNextUpdate must read it back.
-TEST_F(FileBackedSlotHandlerTest, StoreCrl_NonZeroNextUpdate_RoundTrips)
+// StoreCrl with validated metadata must persist nextUpdate and expose it
+// through the existing freshness query.
+TEST_F(FileBackedSlotHandlerTest, StoreCrl_MetadataPersistsNextUpdate)
 {
     constexpr std::int64_t kEpoch = 1800000000LL;
     const std::vector<std::uint8_t> crl{0x03U, 0x04U};
+    score::crypto::CrlMetadata metadata;
+    metadata.next_update = kEpoch;
     ASSERT_TRUE(m_handler
                     ->StoreCrl(m_slot,
                                score::crypto::span<const std::uint8_t>{crl.data(), crl.size()},
                                score::crypto::FormatType::kDer,
-                               kEpoch)
+                               metadata)
                     .has_value());
 
     const auto nu = m_handler->GetCrlNextUpdate(m_slot);
