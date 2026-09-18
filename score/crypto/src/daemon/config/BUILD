@@ -37,10 +37,20 @@ cc_library(
     includes = ["inc"],
     visibility = ["//:__subpackages__"],
     deps = [
+        "//score/crypto/src/backend:pkcs11_backend_defines",
+        "//score/crypto/src/backend:score_backend_defines",
         "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/provider/pkcs11:pkcs11_token_config",
-        "//score/crypto/src/daemon/provider/score_provider:score_provider_config",
-    ],
+    ] + select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [
+            "//score/crypto/src/daemon/provider/pkcs11:pkcs11_token_config",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:score_backend_enabled": [
+            "//score/crypto/src/daemon/provider/score_provider:score_provider_config",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 # FlatBuffers configuration parser

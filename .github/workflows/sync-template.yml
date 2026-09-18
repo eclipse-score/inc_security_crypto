@@ -31,7 +31,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: false # needed see #557 and #627
       - name: Sync Template Changes
-        uses: AndreasAugustin/actions-template-sync@v2.5.3
+        uses: AndreasAugustin/actions-template-sync@v2.6.0
         with:
           source_gh_token: ${{ secrets.SCORE_APPROVALS_PAT }}
           target_gh_token: ${{ secrets.SCORE_APPROVALS_PAT}}

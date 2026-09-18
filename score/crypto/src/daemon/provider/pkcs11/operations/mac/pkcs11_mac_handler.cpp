@@ -12,14 +12,32 @@
  ********************************************************************************/
 #include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_handler.hpp"
 
+#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
+#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/mac_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/detail/pkcs11_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_executor.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 
 #include "score/mw/log/logging.h"
 
+#include <pkcs11.h>
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string_view>
+#include <utility>
 #include <variant>
 
 namespace score::crypto::daemon::provider::pkcs11
@@ -30,16 +48,17 @@ using common::OperationIdentifier;
 using common::RequestParameters;
 using common::ResponseParameters;
 using common::StreamOperationState;
-using score::crypto::daemon::common::DaemonErrorCode;
 
 // ---------------------------------------------------------------------------
 // Supported algorithms
 // ---------------------------------------------------------------------------
-static constexpr const char* kSupportedAlgorithms[] = {
+static constexpr std::array<const char*, 3> kSupportedAlgorithms = {
     "HMAC-SHA256",
     "HMAC-SHA384",
     "HMAC-SHA512",
 };
+static constexpr std::size_t kOperationModeParameterIndex = 4U;
+static constexpr std::size_t kMinimumContextCreationParameters = kOperationModeParameterIndex + 1U;
 
 // ---------------------------------------------------------------------------
 // Algorithm mapping
@@ -75,8 +94,7 @@ Pkcs11MacHandler::~Pkcs11MacHandler()
     {
         m_executor->Abort(m_op_session, m_ctx.operation_mode);
     }
-    // Release the key lock (for session objects) before returning m_session to pool.
-    m_resolved_key = {};
+    m_resolved_key = {};  // destructor clears the in-use flag automatically
     if (m_provider != nullptr && m_session != CK_INVALID_HANDLE)
     {
         m_provider->ReleaseSession(m_session, kRequirements);
@@ -88,14 +106,8 @@ Pkcs11MacHandler::~Pkcs11MacHandler()
 // ---------------------------------------------------------------------------
 bool Pkcs11MacHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
 {
-    for (const char* supported : kSupportedAlgorithms)
-    {
-        if (algorithm == supported)
-        {
-            return true;
-        }
-    }
-    return false;
+    return std::find(std::begin(kSupportedAlgorithms), std::end(kSupportedAlgorithms), algorithm) !=
+           std::end(kSupportedAlgorithms);
 }
 
 std::size_t Pkcs11MacHandler::GetMacSize() const noexcept
@@ -148,39 +160,43 @@ Pkcs11MacHandler::InitializeContext(const handler::InitializationParams& init_pa
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) - type tag verified above
         const auto* pkcs11_key = static_cast<const Pkcs11KeyHandler*>(init_params.bound_key_handler);
 
-        // Resolve the key: for session objects tries to acquire the key's mutex
-        // (non-blocking); returns kResourceBusy if the key is already in use by
-        // another handler.  For token objects runs C_FindObjects on m_session.
-        Pkcs11KeyStore::ResolvedKey resolved = pkcs11_key->ResolveObject(m_session);
-        if (resolved.contended)
+        // Resolve the key: for session objects acquires the exclusive in-use flag
+        // (non-blocking); returns kResourceBusy if the key is already held by another
+        // handler.  For token objects runs C_FindObjects on m_session.
+        auto resolved = pkcs11_key->ResolveObject(m_session);
+        if (!resolved.has_value())
         {
-            score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: key is already in use by another handler";
-            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kResourceBusy);
-        }
-        if (!resolved.IsValid())
-        {
-            score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: failed to resolve key object handle";
-            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+            if (resolved.error() == score::crypto::daemon::common::DaemonErrorCode::kResourceBusy)
+            {
+                score::mw::log::LogError()
+                    << LOG_PREFIX << "InitializeContext: key is already in use by another handler";
+            }
+            else
+            {
+                score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: failed to resolve key object handle";
+            }
+            return score::crypto::make_unexpected(resolved.error());
         }
 
         // Store the resolved session and object.  C_SignInit/C_VerifyInit is deferred to the
         // executor and called lazily before the first sign/verify operation.
-        m_op_session = resolved.session;
-        m_ctx.session = resolved.session;
-        m_ctx.key_object = resolved.object;
+        m_op_session = resolved->session();
+        m_ctx.session = resolved->session();
+        m_ctx.key_object = resolved->object();
         m_ctx.mac_size = GetMacSize();
 
         // operation_mode is MAC-specific: read from param[4] of the CTX_CREATE wire call.
-        if (init_params.context_creation_params.size() >= 5)
+        if (init_params.context_creation_params.size() >= kMinimumContextCreationParameters)
         {
-            const auto* mode_val = std::get_if<std::uint8_t>(&init_params.context_creation_params[4]);
+            const auto* mode_val =
+                std::get_if<std::uint8_t>(&init_params.context_creation_params[kOperationModeParameterIndex]);
             if (mode_val != nullptr)
             {
                 m_ctx.operation_mode = static_cast<score::crypto::OperationMode>(*mode_val);
             }
         }
 
-        m_resolved_key = std::move(resolved);  // keeps the mutex locked for session objects
+        m_resolved_key = std::move(*resolved);  // holds in-use flag for session objects
         m_state = StreamOperationState::STREAM_INITIALIZED;
         m_init_params = init_params;  // Saved so Reset() can restore the key binding.
     }
@@ -194,16 +210,13 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
     {
         m_executor->Abort(m_op_session, m_ctx.operation_mode);
     }
-    // Release the key lock before calling InitializeContext so that it can
-    // re-acquire it cleanly (avoids self-deadlock on the same mutex).
-    m_resolved_key = {};
+    m_resolved_key = {};  // move-assigns empty key; operator= clears the flag before replacing
     m_op_session = CK_INVALID_HANDLE;
     m_ctx.key_object = CK_INVALID_HANDLE;
     m_ctx.session = CK_INVALID_HANDLE;
     m_state = StreamOperationState::IDLE;
 
-    // Re-run InitializeContext with the saved params to restore the key binding
-    // and return to STREAM_INITIALIZED, matching the OpenSSL handler Reset() semantics.
+    // Re-run InitializeContext with the saved params to restore the key binding.
     return InitializeContext(m_init_params);
 }
 

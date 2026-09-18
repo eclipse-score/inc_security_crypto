@@ -287,6 +287,21 @@ package "PKCS#11 Provider" <<Rectangle>> #E8F5E9 {
         .. C_CreateObject ..
     }
 
+    class ResolvedKey {
+        - m_session : CK_SESSION_HANDLE
+        - m_object : CK_OBJECT_HANDLE
+        - m_flag : shared_ptr<atomic_flag>
+        --
+        + {static} Acquire(session, object, flag) : Expected<ResolvedKey>
+        .. test_and_set flag; kResourceBusy if already held ..
+        + {static} ForToken(session, object) : Expected<ResolvedKey>
+        .. no flag — token keys allow concurrent access ..
+        + session() : CK_SESSION_HANDLE
+        + object() : CK_OBJECT_HANDLE
+        .. ~ResolvedKey(): clears flag (if held) on any thread ..
+        .. move-only; copy deleted to prevent double-release ..
+    }
+
     class Pkcs11KeyHandler {
         - m_key_store : weak_ptr<Pkcs11KeyStore>
         - m_handle : ProviderKeyHandle
@@ -299,6 +314,8 @@ package "PKCS#11 Provider" <<Rectangle>> #E8F5E9 {
         + Export() : Expected<SecureKeyBytes>
         .. always kNotPermitted ..
         + GetSessionKey() : pair<CK_SESSION_HANDLE, CK_OBJECT_HANDLE>
+        + ResolveObject(handler_session) : Expected<ResolvedKey>
+        .. delegates to Pkcs11KeyStore::ResolveObject ..
     }
 
     class Pkcs11KeySlotHandler {
@@ -310,12 +327,15 @@ package "PKCS#11 Provider" <<Rectangle>> #E8F5E9 {
 
     class Pkcs11KeyStore {
         - m_map_mutex : mutex
-        - m_map : unordered_map<uint64_t, pair<CK_SESSION,CK_OBJECT>>
+        - m_keys : unordered_map<uint64_t, SessionKey>
         --
         + Register(session, object, algo, size) : ProviderKeyHandle
-        + RegisterTokenObject(object, algo, size) : ProviderKeyHandle
+        + RegisterTokenObject(search_template, algo, size) : ProviderKeyHandle
+        + ResolveObject(opaque_id, handler_session) : Expected<ResolvedKey>
+        .. session keys: Acquire() sets atomic_flag; kResourceBusy if contended ..
+        .. token keys: ForToken() wraps C_FindObjects result; no exclusion ..
         + Lookup(opaque_id) : pair<CK_SESSION, CK_OBJECT>
-        + Release(opaque_id, handle) : Expected<bool>
+        + Release(opaque_id, handle) : Expected<monostate>
         .. session keys: C_DestroyObject on release ..
         .. token objects: map entry removed, object preserved ..
     }
@@ -545,7 +565,9 @@ Pkcs11KeyFactory ..|> IKeyFactory
 OpenSslKeyHandler ..|> IKeyHandler
 Pkcs11KeyHandler ..|> IKeyHandler
 Pkcs11KeyHandler --> Pkcs11KeyStore : weak_ptr
+Pkcs11KeyHandler ..> ResolvedKey : ResolveObject returns
 Pkcs11KeyFactory --> Pkcs11KeyStore : shared_ptr
+Pkcs11KeyStore ..> ResolvedKey : ResolveObject returns
 
 MacHandler --|> Handler
 OpenSslHmacHandler --|> MacHandler

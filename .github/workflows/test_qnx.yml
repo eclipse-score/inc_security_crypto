@@ -32,6 +32,9 @@ jobs:
             bazel-test-target: >-
               //score/...
             extra-bazel-test-flags: "--test_timeout=180,900,2700,10800" # Increase default test timeout by factor 3
+          - bazel-config: x86_64-qnx-itf
+            bazel-test-target: >-
+              //score/...
           - bazel-config: aarch64-qnx
             bazel-test-target: >-
               //score/...
