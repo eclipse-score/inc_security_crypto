@@ -192,9 +192,8 @@ The public API surface is organized into the following interface groups:
    (copy semantics — object remains valid after persist), export
    (``GetCertificateExportSize`` + ``ExportCertificate``), format
    conversion (``GetConvertedCertificateSize`` + ``ConvertCertificateFormat``),
-   ``ClearCertificate``, ``GetCertificateSlotInfo``, CRL management
-   (``ImportCrl``, ``DeleteCrl``, ``DeleteExpiredCrls``,
-   ``DeleteExpiredCertificates``),
+   ``ClearCertificate``, CRL management
+   (``ImportCrl``, ``DeleteCrl``, and CRL metadata inspection),
    public key extraction (``LoadCertificatePublicKey`` — returns a
    ``CryptoResourceGuard`` wrapping an ephemeral ``kKey`` resource,
    following the same guard model as key-producing methods), and OCSP
@@ -211,6 +210,20 @@ The public API surface is organized into the following interface groups:
    Builder-style certificate chain verification. Configures
    certificate, chain, verification trust store, and revocation check
    policy via fluent setters, then executes verification with ``Verify()``.
+
+.. real_arc_int:: ITrustStoreManagementContext
+   :id: real_arc_int__crypto__i_trust_store_mgmt_ctx
+   :version: 1
+   :security: YES
+   :safety: QM
+   :status: invalid
+   :language: cpp
+
+   Trust-store membership management. Adds and removes certificate
+   members, enables or disables members, acknowledges
+   conditional-member updates, and imports CRLs for exclusive members
+   managed by the trust store. Read-only inspection is provided
+   through ``ITrustStoreObject``.
 
 .. real_arc_int:: ICsrGenerationContext
    :id: real_arc_int__crypto__i_csr_gen_context
