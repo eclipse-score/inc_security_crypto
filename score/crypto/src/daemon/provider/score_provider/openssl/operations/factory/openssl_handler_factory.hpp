@@ -49,6 +49,8 @@ class OpenSslHandlerFactory final
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
     CreateCertManagementHandler() override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
+    CreateCertVerificationHandler() override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
     CreateTrustStoreManagementHandler() override;
 };
 

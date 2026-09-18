@@ -28,6 +28,7 @@ inline constexpr OperationActor OP_ACTOR_HASH_HANDLER = 4;
 inline constexpr OperationActor OP_ACTOR_KEY_MANAGEMENT = 5;
 inline constexpr OperationActor OP_ACTOR_MAC_HANDLER = 6;
 inline constexpr OperationActor OP_ACTOR_CERT_MANAGEMENT = 7;
+inline constexpr OperationActor OP_ACTOR_CERT_VERIFICATION = 8;
 
 // Starting point for custom actors
 inline constexpr OperationActor CUSTOM_ACTOR_START = 1 << (std::numeric_limits<OperationActor>::digits - 1);
