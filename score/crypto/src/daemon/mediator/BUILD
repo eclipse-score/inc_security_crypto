@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
     name = "mediator_operations",
@@ -19,47 +19,7 @@ cc_library(
     visibility = [
         "//:__subpackages__",
     ],
-    deps = [
-        "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
-    ],
-)
-
-cc_library(
-    name = "context_algorithm",
-    hdrs = ["context_algorithm.hpp"],
-    visibility = ["//:__subpackages__"],
-    deps = [
-        "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/common:algorithm_catalog",
-    ],
-)
-
-cc_test(
-    name = "provider_type_preference_test",
-    srcs = ["provider_type_preference_test.cpp"],
-    deps = [
-        ":mediator_operations",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "mediator_operations_test",
-    srcs = ["mediator_operations_test.cpp"],
-    deps = [
-        ":mediator_operations",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "context_algorithm_test",
-    srcs = ["context_algorithm_test.cpp"],
-    deps = [
-        ":context_algorithm",
-        "@googletest//:gtest_main",
-    ],
+    deps = ["//score/crypto/src/daemon/common"],
 )
 
 cc_library(
@@ -74,11 +34,10 @@ cc_library(
     includes = ["."],
     visibility = ["//:__subpackages__"],
     deps = [
-        ":context_algorithm",
         ":mediator_operations",
-        "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/cert_management",
+        "//score/crypto/src/daemon/cert_management:cert_object_serializer",
         "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/common:key_compatibility",
         "//score/crypto/src/daemon/common:operation_names",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",
