@@ -73,6 +73,7 @@ cc_library(
 cc_library(
     name = "provider_openssl_headers",
     hdrs = [
+        "operations/cert_verification/openssl_cert_verification_handler.hpp",
         "operations/factory/openssl_handler_factory.hpp",
         "operations/hash/openssl_hash_handler.hpp",
         "operations/key_management/openssl_key_management_handler.hpp",
@@ -95,6 +96,7 @@ cc_library(
         "//score/crypto/src/daemon/provider/executors:trust_store_mgmt_executor",
         "//score/crypto/src/daemon/provider/score_provider",
         "//score/crypto/src/daemon/provider/score_provider/operations/cert_management:score_cert_management_handler",
+        "//score/crypto/src/daemon/provider/score_provider/operations/cert_verification:score_cert_verification_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/factory:score_handler_factory",
         "//score/crypto/src/daemon/provider/score_provider/operations/hash:score_hash_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/key_management:score_key_management_handler",
@@ -110,6 +112,7 @@ cc_library(
         "detail/openssl_algorithm_info.hpp",
         "key_management/openssl_key_factory.cpp",
         "key_management/openssl_key_handler.cpp",
+        "operations/cert_verification/src/openssl_cert_verification_handler.cpp",
         "operations/factory/openssl_handler_factory.cpp",
         "operations/hash/openssl_hash_handler.cpp",
         "operations/key_management/openssl_key_management_handler.cpp",

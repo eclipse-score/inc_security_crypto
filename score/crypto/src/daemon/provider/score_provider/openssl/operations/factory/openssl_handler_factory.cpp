@@ -16,10 +16,12 @@
 #include "score/crypto/src/daemon/provider/executors/cert_mgmt_executor.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
 #include "score/crypto/src/daemon/provider/executors/trust_store_mgmt_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cert_verification/openssl_cert_verification_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/hash/openssl_hash_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/key_management/openssl_key_management_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cert_management/score_cert_management_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/cert_verification/cert_verification_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/hash/hash_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/trust_store_management/score_trust_store_management_handler.hpp"
@@ -85,6 +87,13 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCertManagementHandler()
     return std::make_shared<score_provider::operations::cert_management::ScoreCertManagementHandler>(
         std::move(executor));
 }
+
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCertVerificationHandler()
+{
+    auto executor = std::make_unique<score_provider::operations::cert_verification::CertVerificationExecutor>();
+    return std::make_shared<OpenSslCertVerificationHandler>(std::move(executor), m_cert_service);
+}
+
 
 score::Result<HandlerSptr> OpenSslHandlerFactory::CreateTrustStoreManagementHandler()
 {
