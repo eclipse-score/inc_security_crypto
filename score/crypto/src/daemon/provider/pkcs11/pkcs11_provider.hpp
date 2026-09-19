@@ -34,6 +34,8 @@
 namespace score::crypto::daemon::provider::pkcs11
 {
 
+namespace cert_management = ::score::crypto::daemon::cert_management;
+
 // Forward declarations
 class Pkcs11KeyStore;
 class Pkcs11KeyFactory;
@@ -86,6 +88,13 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
     [[nodiscard]] common::ProviderId GetProviderId() const override;
     [[nodiscard]] const common::ProviderName& GetProviderName() const override;
 
+    // --- Capability advertisement ---
+
+    [[nodiscard]] common::ProviderCapability GetProviderCapabilities() override
+    {
+        return common::ProviderCapability::kCrypto | common::ProviderCapability::kKeyManagement;
+    }
+
     // --- Crypto capability ---
 
     [[nodiscard]] std::shared_ptr<handler::ICryptoHandlerFactory> GetCryptoHandlerFactory() override;
@@ -117,6 +126,10 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
     /// handles remain valid across calls.
     [[nodiscard]] std::shared_ptr<key_management::IKeySlotHandler> GetKeySlotHandler(
         const key_management::KeySlotConfig& config) override;
+
+    [[nodiscard]] std::shared_ptr<cert_management::ICertSlotHandler> GetCertSlotHandler(
+        const cert_management::CertSlotConfig& config,
+        std::shared_ptr<provider::cert_management::ICertParser> parser) override;
 
     // --- Session pool API (called by handlers via factory) ---
 

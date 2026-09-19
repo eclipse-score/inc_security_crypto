@@ -24,6 +24,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],
@@ -41,6 +42,7 @@ cc_library(
     deps = [
         ":context_bases",
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/config:context_configs",
         "//score/crypto/src/api/objects:crypto_objects",
         "@score_baselibs//score/language/futurecpp",
@@ -49,25 +51,56 @@ cc_library(
 )
 
 cc_library(
+    name = "cert_contexts",
+    hdrs = [
+        "i_certificate_management_context.hpp",
+        "i_certificate_verification_context.hpp",
+        "i_trust_store_management_context.hpp",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":context_bases",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/api/certificate:ocsp_export",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/config:cert_context_configs",
+        "//score/crypto/src/api/objects:cert_objects",
+        "@score_baselibs//score/language/futurecpp",
+        "@score_baselibs//score/result",
+    ],
+)
+
+cc_library(
     name = "crypto_contexts_impl",
     srcs = [
+        "src/cert_management_context_impl.cpp",
+        "src/cert_verification_context_impl.cpp",
         "src/hash_context_impl.cpp",
         "src/key_management_context_impl.cpp",
         "src/mac_context_impl.cpp",
+        "src/trust_store_management_context_impl.cpp",
     ],
     hdrs = [
+        "src/cert_management_context_impl.hpp",
+        "src/cert_verification_context_impl.hpp",
         "src/hash_context_impl.hpp",
         "src/key_management_context_impl.hpp",
         "src/mac_context_impl.hpp",
+        "src/trust_store_management_context_impl.hpp",
     ],
     includes = ["."],
     visibility = ["//:__subpackages__"],
     deps = [
+        ":cert_contexts",
         ":crypto_contexts",
         "//score/crypto/src/api:operations",
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/common:release_callback_iface",
+        "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/control_plane",
         "//score/crypto/src/api/data_plane:data_plane_client",
+        "//score/crypto/src/api/objects:cert_objects_impl",
     ],
 )

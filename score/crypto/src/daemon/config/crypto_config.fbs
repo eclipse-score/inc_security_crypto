@@ -12,11 +12,15 @@
 // *******************************************************************************
 
 // Crypto Configuration Schema
-// Currently only includes key slot configuration
+// Covers key slot configuration and certificate management configuration.
 
 file_identifier "CCFG";  // Crypto Configuration
 
 namespace score.crypto.daemon.config.keyslot;
+
+// ---------------------------------------------------------------------------
+// Key slot configuration (existing)
+// ---------------------------------------------------------------------------
 
 /// Single key slot definition from the configuration source
 /// Mirrors KeyConfig::KeySlotEntry structure
@@ -39,10 +43,10 @@ table KeySlotEntry {
   deployment_format: string (required);
 }
 
-/// Per-application resource ID to slot name mapping
+/// Per-application resource ID to key slot name mapping
 /// Applications reference keys by portable application-local names
 /// (e.g., "signing_key")
-table AppResourceEntry {
+table AppKeySlotEntry {
   /// UID of the application that owns this mapping
   uid: uint32;
   /// Application-local resource name
@@ -51,17 +55,132 @@ table AppResourceEntry {
   slot_name: string (required);
 }
 
-/// Key slot config contains all slot and app resource definitions
+/// Key slot config contains all slot and app key slot definitions
 table KeySlotConfig {
   /// All key slot definitions
   slot_entries: [KeySlotEntry] (required);
-  /// All per-app resource mappings
-  app_resource_entries: [AppResourceEntry] (required);
+  /// All per-app key slot mappings
+  app_key_slot_entries: [AppKeySlotEntry] (required);
 }
 
-/// Top-level configuration root_type
+// ---------------------------------------------------------------------------
+// Certificate management configuration (new)
+// ---------------------------------------------------------------------------
+
+/// Trust store membership kind — mirrors CertificateConfig::TrustStoreMemberKind
+enum TrustStoreMemberKind : byte {
+  /// Externally managed; read-only from trust store perspective
+  kSharedStatic = 0,
+  /// Trust-store-owned exclusive slot; mutable via management API
+  kExclusiveMutable = 1,
+  /// External slot; disabled after unexpected content change
+  kConditionalExternal = 2
+}
+
+/// Default initialisation policy for conditional members
+enum ConditionalSlotInit : byte {
+  /// Accept current cert fingerprint on first load
+  kEnableAndAcceptCurrent = 0,
+  /// Slot is disabled until operator acknowledgement
+  kDisableUntilAccepted = 1
+}
+
+/// One member slot within a trust store
+table TrustStoreMemberEntry {
+  /// Name of the cert slot that acts as a trust anchor
+  slot_name: string (required);
+  /// Membership kind — governs mutability and conditional-acceptance behaviour
+  kind: TrustStoreMemberKind = kSharedStatic;
+}
+
+/// Single certificate slot definition
+/// Mirrors CertificateConfig::CertSlotEntry
+table CertSlotEntry {
+  /// Human-readable slot identifier (e.g., "device_cert", "root_ca")
+  slot_name: string (required);
+  /// Storage backend: "DEFAULT" (FileBackedSlotHandler) or a provider name
+  storage_backend: string = "DEFAULT";
+  /// UIDs permitted to read/load from the slot
+  allowed_uids: [uint32];
+  /// UIDs permitted to write into the slot
+  allowed_write_uids: [uint32];
+  /// Absolute path to the KV deployment descriptor
+  deployment_path: string (required);
+  /// Descriptor format (default "kv")
+  deployment_format: string = "kv";
+  /// Integrity enforcement: "disabled" (default) or "required"
+  integrity_policy: string = "disabled";
+}
+
+/// Single trust store definition
+/// Mirrors CertificateConfig::TrustStoreEntry
+table TrustStoreEntry {
+  /// Human-readable store name (e.g., "tls_roots", "ota_roots")
+  store_name: string (required);
+  /// Ordered list of typed member certificate slots
+  members: [TrustStoreMemberEntry];
+  /// Default initialisation policy for conditional-external members
+  conditional_slot_init: ConditionalSlotInit = kDisableUntilAccepted;
+  /// UIDs permitted to query this trust store
+  allowed_uids: [uint32];
+  /// UIDs permitted to mutate membership (add/remove/enable/disable)
+  allowed_write_uids: [uint32];
+  /// Absolute path for persisting trust store state (enabled/disabled flags, accepted fingerprints)
+  deployment_path: string (required);
+  /// State descriptor format (default "kv")
+  deployment_format: string = "kv";
+}
+
+/// Per-application resource ID to certificate slot name mapping
+/// Applications reference cert slots by portable local names rather than
+/// daemon slot names
+table AppCertSlotEntry {
+  /// UID of the application that owns this mapping
+  uid: uint32;
+  /// Application-local resource name (e.g., "device_cert")
+  app_resource_id: string (required);
+  /// Actual cert slot name registered in the CertSlotRegistry
+  slot_name: string (required);
+}
+
+/// Per-application resource ID to trust store name mapping
+table AppTrustStoreEntry {
+  /// UID of the application that owns this mapping
+  uid: uint32;
+  /// Application-local resource name (e.g., "tls_roots")
+  app_resource_id: string (required);
+  /// Actual trust store name registered in the daemon
+  trust_store_name: string (required);
+}
+
+/// Certificate slot configuration — all cert slots, trust stores, and app resource mappings
+table CertSlotConfig {
+  /// All certificate slot definitions
+  slot_entries: [CertSlotEntry];
+  /// All trust store definitions
+  trust_store_entries: [TrustStoreEntry];
+  /// Per-app cert slot resource ID mappings
+  app_cert_slot_entries: [AppCertSlotEntry];
+  /// Per-app trust store resource ID mappings
+  app_trust_store_entries: [AppTrustStoreEntry];
+}
+
+// ---------------------------------------------------------------------------
+// Top-level configuration root
+// ---------------------------------------------------------------------------
+
+/// Top-level configuration root_type.
+///
+/// Both sections are optional — the daemon starts with empty registries for any
+/// section that is absent.  Supported deployment profiles:
+///
+///   Key management only  — provide key_slot_config, omit cert_slot_config.
+///   Cert management only — provide cert_slot_config, omit key_slot_config.
+///   Full stack           — provide both sections.
+///   Minimal / test       — omit both sections (empty config is valid).
 table CryptoConfig {
-  key_slot_config: KeySlotConfig (required);
+  key_slot_config: KeySlotConfig;
+  cert_slot_config: CertSlotConfig;
 }
 
 root_type CryptoConfig;

@@ -13,12 +13,18 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/factory/openssl_handler_factory.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/provider/executors/cert_mgmt_executor.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
+#include "score/crypto/src/daemon/provider/executors/trust_store_mgmt_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cert_verification/openssl_cert_verification_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/hash/openssl_hash_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/key_management/openssl_key_management_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/cert_management/score_cert_management_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/cert_verification/cert_verification_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/hash/hash_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/trust_store_management/score_trust_store_management_handler.hpp"
 #include "score/result/result.h"
 
 namespace score::crypto::daemon::provider::score_provider::openssl::handler
@@ -26,10 +32,17 @@ namespace score::crypto::daemon::provider::score_provider::openssl::handler
 
 using HandlerSptr = ::score::crypto::daemon::provider::handler::Handler::Sptr;
 
-OpenSslHandlerFactory::OpenSslHandlerFactory(std::shared_ptr<key_management::IKeyFactory> km_handler,
-                                             std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
-                                             key_management::KeyManagementService::Sptr km_service)
-    : ScoreHandlerFactory{std::move(km_handler), std::move(slot_handler), std::move(km_service)}
+OpenSslHandlerFactory::OpenSslHandlerFactory(
+    std::shared_ptr<key_management::IKeyFactory> km_handler,
+    std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
+    key_management::KeyManagementService::Sptr km_service,
+    std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> cert_parser,
+    ::score::crypto::daemon::cert_management::CertManagementService::Sptr cert_service)
+    : ScoreHandlerFactory{std::move(km_handler),
+                          std::move(slot_handler),
+                          std::move(km_service),
+                          std::move(cert_parser),
+                          std::move(cert_service)}
 {
 }
 
@@ -66,6 +79,27 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateKeyManagementHandler()
     auto executor =
         std::make_unique<crypto_executor::KeyManagementExecutor>(m_key_factory, m_slot_handler, m_km_service);
     return std::make_shared<OpenSslKeyManagementHandler>(std::move(executor));
+}
+
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCertManagementHandler()
+{
+    auto executor = std::make_unique<crypto_executor::CertManagementExecutor>(m_cert_parser, m_cert_service);
+    return std::make_shared<score_provider::operations::cert_management::ScoreCertManagementHandler>(
+        std::move(executor));
+}
+
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCertVerificationHandler()
+{
+    auto executor = std::make_unique<score_provider::operations::cert_verification::CertVerificationExecutor>();
+    return std::make_shared<OpenSslCertVerificationHandler>(std::move(executor), m_cert_service);
+}
+
+
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateTrustStoreManagementHandler()
+{
+    auto executor = std::make_unique<crypto_executor::TrustStoreManagementExecutor>(m_cert_parser, m_cert_service);
+    return std::make_shared<score_provider::operations::trust_store_management::ScoreTrustStoreManagementHandler>(
+        std::move(executor));
 }
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

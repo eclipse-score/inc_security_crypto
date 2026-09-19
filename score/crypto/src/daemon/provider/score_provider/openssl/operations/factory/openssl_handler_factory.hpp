@@ -30,9 +30,12 @@ class OpenSslHandlerFactory final
     : public ::score::crypto::daemon::provider::score_provider::operations::factory::ScoreHandlerFactory
 {
   public:
-    OpenSslHandlerFactory(std::shared_ptr<key_management::IKeyFactory> factory,
-                          std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
-                          key_management::KeyManagementService::Sptr km_service);
+    OpenSslHandlerFactory(
+        std::shared_ptr<key_management::IKeyFactory> factory,
+        std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
+        key_management::KeyManagementService::Sptr km_service,
+        std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> cert_parser = nullptr,
+        ::score::crypto::daemon::cert_management::CertManagementService::Sptr cert_service = nullptr);
 
     ~OpenSslHandlerFactory() override = default;
 
@@ -43,6 +46,12 @@ class OpenSslHandlerFactory final
         const common::AlgorithmId& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
     CreateKeyManagementHandler() override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
+    CreateCertManagementHandler() override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
+    CreateCertVerificationHandler() override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
+    CreateTrustStoreManagementHandler() override;
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

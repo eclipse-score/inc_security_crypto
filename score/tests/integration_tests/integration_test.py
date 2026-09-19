@@ -185,3 +185,62 @@ class TestCryptoDaemon:
                 "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
             },
         )
+
+    def test_score_cert_management_integration(
+        self, request: pytest.FixtureRequest, target: Target, target_os: str, install_dir: str
+    ):
+        """Run the focused certificate-management GTest binary."""
+        if not request.config.getoption("--openssl-backend-enabled"):
+            pytest.skip("Certificate integration tests require the OpenSSL backend")
+
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_cert_management_integration_test"),
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
+            },
+        )
+
+    def test_score_cert_management_write_access_control(
+        self, request: pytest.FixtureRequest, target: Target, target_os: str, install_dir: str
+    ):
+        """Run the denied certificate-slot write test as UID 1000."""
+        if not request.config.getoption("--openssl-backend-enabled"):
+            pytest.skip("Certificate integration tests require the OpenSSL backend")
+        if target_os == "QNX":
+            pytest.skip("The QNX integration target has no portable user-switch command")
+
+        command = (
+            "setpriv --reuid=1000 --regid=1000 --clear-groups "
+            f"env LD_LIBRARY_PATH={install_dir}/lib "
+            f"TEST_VECTORS_DIR={install_dir}/share/test_vectors "
+            f"{install_dir}/bin/score_cert_management_integration_test "
+            "--gtest_color=no "
+            "--gtest_filter=CertificateManagementIntegrationTest.RejectsCertificateSlotWriteWithoutPermission"
+        )
+        exit_code, output = target.execute(command)
+        output_str = output.decode()
+        logger.info(f"test_score_cert_management_write_access_control output:\n{output_str}")
+        assert exit_code == 0, (
+            "score_cert_management write-access test failed with exit code "
+            f"{exit_code}. Output:\n{output_str}"
+        )
+
+    def test_score_cert_verification_integration(
+        self, request: pytest.FixtureRequest, target: Target, target_os: str, install_dir: str
+    ):
+        """Run practical multi-anchor, chain-policy, and CRL verification tests."""
+        if not request.config.getoption("--openssl-backend-enabled"):
+            pytest.skip("Certificate integration tests require the OpenSSL backend")
+
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_cert_verification_integration_test"),
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
+            },
+        )

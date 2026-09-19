@@ -36,6 +36,17 @@ namespace score::crypto::daemon::data_plane
 {
 class IShmFactory;
 }  // namespace score::crypto::daemon::data_plane
+namespace score::crypto::daemon::provider::cert_management
+{
+class ICertParser;
+}  // namespace score::crypto::daemon::provider::cert_management
+
+namespace score::crypto::daemon::cert_management
+{
+class CertManagementService;
+class ICertSlotHandler;
+struct CertSlotConfig;
+}  // namespace score::crypto::daemon::cert_management
 
 namespace score::crypto::daemon::provider
 {
@@ -121,6 +132,39 @@ class IProvider
         return nullptr;
     }
 
+    /// Return the provider's certificate parser for FileBackedSlotHandler injection at startup.
+    ///
+    /// Returns nullptr if the provider does not support certificate parsing. Only called
+    /// by CertManagementModule::Create() to obtain a parser for file-backed slots.
+    /// Cert context operations (verify, CSR, etc.) are handled by ICryptoHandlerFactory.
+    virtual std::shared_ptr<provider::cert_management::ICertParser> GetCertParser()
+    {
+        return nullptr;
+    }
+
+    /// @brief Inject the daemon-wide certificate management service.
+    ///
+    /// Called once at daemon startup before any cert handler is created.
+    /// Providers that do not support cert management may ignore this (default no-op).
+    virtual void SetCertManagementService(
+        std::shared_ptr<::score::crypto::daemon::cert_management::CertManagementService> /*service*/)
+    {
+    }
+
+    /// Return a handler for a provider-owned certificate storage slot.
+    ///
+    /// Returns nullptr when this provider does not implement certificate-slot
+    /// storage. The caller selects the provider by name via slot.storage_backend
+    /// (name-based lookup), NOT via the kCertManagement capability bit. A provider
+    /// may implement this method without advertising kCertManagement — that bit
+    /// exclusively governs GetCertParser() selection.
+    virtual std::shared_ptr<::score::crypto::daemon::cert_management::ICertSlotHandler> GetCertSlotHandler(
+        const ::score::crypto::daemon::cert_management::CertSlotConfig& /*config*/,
+        std::shared_ptr<provider::cert_management::ICertParser> /*parser*/)
+    {
+        return nullptr;
+    }
+
     /// @brief Return a key slot handler for the given slot configuration.
     ///
     /// Returns nullptr if the provider does not support key slot management.
@@ -146,6 +190,26 @@ class IProvider
     virtual std::shared_ptr<data_plane::IShmFactory> GetShmFactory()
     {
         return nullptr;
+    }
+
+    // -----------------------------------------------------------------------
+    // Capability advertisement
+    // -----------------------------------------------------------------------
+
+    /// @brief Report the functional capabilities this provider offers.
+    ///
+    /// Concrete providers MUST override this and return their full capability set
+    /// explicitly. The default returns kNone so an unoverridden provider is never
+    /// selected by GetProviderForCapability() — a silent miss is always preferable
+    /// to a mis-routed operation. Derivation from accessor returns is intentionally
+    /// avoided: as capability entry points evolve, heuristic derivation becomes
+    /// incorrect.
+    ///
+    /// Used by ProviderManager::GetProviderForCapability() to pick a default
+    /// provider for a functional area rather than by hardware/software category.
+    [[nodiscard]] virtual common::ProviderCapability GetProviderCapabilities()
+    {
+        return common::ProviderCapability::kNone;
     }
 };
 
