@@ -336,7 +336,7 @@ Scope
 ^^^^^
 
 Applies to ``kPersistent`` resources only: ``kKeySlot``, ``kCertificate``,
-``kCertSlot``, ``kVerificationTrustStore``. Ephemeral (``kKey``) IDs remain session-scoped
+``kCertSlot``, ``kCertificateTrustStore``. Ephemeral (``kKey``) IDs remain session-scoped
 (valid only within the ``IKeyManagementContext`` session that produced them).
 
 IPC Schema

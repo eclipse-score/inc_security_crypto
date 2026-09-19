@@ -14,7 +14,6 @@
 #include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
 #include "score/crypto/src/api/config/mac_context_config.hpp"
@@ -22,6 +21,10 @@
 #include "score/crypto/src/api/contexts/src/key_management_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/mac_context_impl.hpp"
 #include "score/crypto/src/api/src/provider_type_converter.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
@@ -128,7 +131,7 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
                                   .forDataNodeId(m_connection->GetConnectionNodeId())
                                   .operation(score::crypto::daemon::mediator::operations::ResolveResource())
                                   .with_in_string(resource_id)
-                                  .with_in_val_uint8(static_cast<std::uint8_t>(type))
+                                  .with_in_val_uint64(static_cast<std::uint64_t>(type))
                                   .build();
 
     if (!control_req_result.has_value())

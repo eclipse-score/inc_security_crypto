@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_API_OBJECTS_I_CRYPTO_OBJECT_HPP
 #define SCORE_CRYPTO_SRC_API_OBJECTS_I_CRYPTO_OBJECT_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 
 #include <memory>
 

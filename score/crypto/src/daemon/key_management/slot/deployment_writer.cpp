@@ -13,8 +13,8 @@
 
 #include "score/crypto/src/daemon/key_management/slot/deployment_writer.hpp"
 
-#include "score/crypto/src/daemon/key_management/slot/deployment/deployment_path_utils.hpp"
-#include "score/crypto/src/daemon/key_management/slot/deployment/kv/kv_deployment_writer.hpp"
+#include "score/crypto/src/daemon/common/storage/deployment_path_utils.hpp"
+#include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 
 #include "score/mw/log/logging.h"
 
@@ -26,7 +26,7 @@ namespace score::crypto::daemon::key_management
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 DeploymentWriter::Write(const std::string& path, const std::string& format, const SlotDeploymentInfo& info)
 {
-    if (!IsDeploymentPathSafe(path))
+    if (!score::crypto::daemon::common::storage::IsDeploymentPathSafe(path))
     {
         score::mw::log::LogError() << LOG_PREFIX << "Unsafe deployment path rejected:" << path;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
@@ -34,7 +34,10 @@ DeploymentWriter::Write(const std::string& path, const std::string& format, cons
 
     if (format == "kv")
     {
-        return KvDeploymentWriter{}.Write(path, info);
+        score::crypto::daemon::common::storage::DeploymentDescriptor descriptor{};
+        descriptor.sections["metadata"] = info.metadata;
+        descriptor.sections["key"] = info.key_properties;
+        return score::crypto::daemon::common::storage::KvDeploymentWriter{}.Write(path, descriptor);
     }
     // To add a new format: include its header above and add a branch here.
     // Example: if (format == "json") { return JsonDeploymentWriter{}.Write(path, info); }

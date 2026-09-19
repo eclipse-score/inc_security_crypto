@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_API_COMMON_SRC_I_RELEASE_CALLBACK_HPP
 #define SCORE_CRYPTO_SRC_API_COMMON_SRC_I_RELEASE_CALLBACK_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/result/result.h"
 
 #include <memory>
