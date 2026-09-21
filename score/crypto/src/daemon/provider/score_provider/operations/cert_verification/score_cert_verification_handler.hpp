@@ -19,6 +19,7 @@
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_object.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/i_trust_store_handler.hpp"
+#include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
 #include "score/crypto/src/daemon/provider/executors/cert_mgmt_context.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 
@@ -86,6 +87,7 @@ class ScoreCertVerificationHandler : public handler::Handler
 
     ScoreCertVerificationHandler(
         std::unique_ptr<CertVerificationExecutor> executor,
+        std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> cert_parser,
         std::shared_ptr<::score::crypto::daemon::cert_management::CertManagementService> service);
 
     ~ScoreCertVerificationHandler() override;
@@ -152,19 +154,17 @@ class ScoreCertVerificationHandler : public handler::Handler
     /// Only infrastructure failures should return an error via Expected.
     [[nodiscard]] virtual Expected<VerifyOutcome, common::DaemonErrorCode> DoVerify(const VerificationInput& input);
 
-    /// Encodes one verified certificate in the requested format. Providers
-    /// override this when conversion from the stored format is required.
-    [[nodiscard]] virtual Expected<common::OwnedBuffer, common::DaemonErrorCode> EncodeCertificate(
-        const CertSptr& cert,
-        score::crypto::FormatType format) const;
-
   private:
     using CertService = ::score::crypto::daemon::cert_management::CertManagementService;
     using CertEntrySptr = std::shared_ptr<::score::crypto::daemon::cert_management::CertEntry>;
 
     [[nodiscard]] Expected<CertEntrySptr, common::DaemonErrorCode> ResolveCertEntry(uint64_t node_id) const;
+    [[nodiscard]] Expected<common::OwnedBuffer, common::DaemonErrorCode> EncodeCertificate(
+        const CertSptr& cert,
+        score::crypto::FormatType format) const;
 
     std::unique_ptr<CertVerificationExecutor> m_executor;
+    std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> m_cert_parser;
     std::shared_ptr<CertService> m_service;
     crypto_executor::CertMgmtExecutionContext m_ctx{};
 
