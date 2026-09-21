@@ -31,7 +31,6 @@ cc_library(
     hdrs = [
         "crypto_resource_guard.hpp",
         "error_domain.hpp",
-        "fixed_capacity_string.hpp",
         "i_memory.hpp",
         "i_memory_allocator.hpp",
     ],
