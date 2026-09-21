@@ -182,12 +182,3 @@ documented with full context, alternatives considered, and consequences in
 * :need:`dec_rec__crypto_cert_mgmt__provider_boundary` — provider interaction is
   limited to ``ICertParser``; no private key or HSM handle crosses the cert
   management boundary.
-
-Current limitations
---------------------
-
-CRL validation and CRL-based verification are implemented, including selected
-CRL metadata reporting. OCSP remains deferred. Hardware-key CSR signing
-requires a cross-context service using ``Sign`` and ``GetPublicKeyDer``
-without exporting private key material. Provider and daemon dispatch
-integration is outside this component's storage and lifecycle boundary.
