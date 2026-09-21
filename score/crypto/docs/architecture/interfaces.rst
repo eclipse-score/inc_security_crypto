@@ -187,7 +187,8 @@ The public API surface is organized into the following interface groups:
 
    Certificate lifecycle management — the certificate-domain mirror of
    ``IKeyManagementContext``. Handles: ``ParseCertificate`` /
-   ``ParseCertificates`` (returns ``ICertificateObject::Uptr`` backed by
+   ``ParseCertificates`` (a sequence of PEM certificate blocks or complete
+   DER-encoded X.509 objects; returns ``ICertificateObject::Uptr`` backed by
    a daemon-assigned ephemeral handle), ``SaveCertificate(id, slot)``
    (copy semantics — object remains valid after persist), export
    (``GetCertificateExportSize`` + ``ExportCertificate``), format

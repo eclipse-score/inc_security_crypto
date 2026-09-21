@@ -79,11 +79,18 @@ class ICertificateManagementContext : public IContext
     virtual score::Result<CryptoResourceGuard> ParseCertificate(score::cpp::span<const uint8_t> cert_data,
                                                                 FormatType format) = 0;
 
-    /// @brief Parses multiple certificates from a PEM bundle or DER chain.
+    /// @brief Parses a sequence of X.509 certificates from PEM or DER data.
     ///
-    /// @param cert_data PEM bundle or concatenated certificate data
+    /// For FormatType::kPem, cert_data contains consecutive PEM-encoded
+    /// certificate blocks. For FormatType::kDer, cert_data contains
+    /// consecutive complete DER-encoded X.509 objects. Protocol-specific
+    /// framing or certificate-container formats are not part of this input.
+    /// This operation parses the objects and does not validate their chain
+    /// relationships or trust.
+    ///
+    /// @param cert_data PEM bundle or concatenated DER certificate data
     /// @param format Encoding format of the data
-    /// @return Ordered vector of guards (first = leaf/first in bundle).
+    /// @return Ordered vector of guards (first = first certificate in the data).
     ///         Each guard owns one daemon-assigned ephemeral resource.
     virtual score::Result<std::vector<CryptoResourceGuard>> ParseCertificates(score::cpp::span<const uint8_t> cert_data,
                                                                               FormatType format) = 0;
