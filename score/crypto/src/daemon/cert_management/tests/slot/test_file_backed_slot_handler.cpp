@@ -58,6 +58,12 @@ class FakeParser final : public provider::ICertParser
         return std::vector<cert::CertObject::Sptr>{*parsed};
     }
 
+    score::crypto::Expected<std::vector<std::uint8_t>, Error> EncodeCertificate(const cert::CertObject&,
+                                                                                score::crypto::FormatType) override
+    {
+        return score::crypto::make_unexpected(Error::kUnsupportedOperation);
+    }
+
     score::crypto::Expected<score::crypto::CrlMetadata, Error> ValidateCrl(const std::uint8_t*,
                                                                            std::size_t,
                                                                            score::crypto::FormatType,
