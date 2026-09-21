@@ -32,12 +32,11 @@ class CertObject;
 namespace score::crypto::daemon::provider::cert_management
 {
 
-/// Narrow provider capability: parse certificate bytes into a provider-neutral
-/// CertObject. This is the only cross-boundary cert interface on IProvider —
-/// used exclusively by FileBackedSlotHandler at startup to reconstruct a
-/// CertObject from persisted bytes. All other cert operations (verification,
-/// CSR generation, format conversion, public-key extraction) are performed
-/// inside certificate context handlers created by ICryptoHandlerFactory.
+/// Narrow provider capability for parsing certificate bytes into a
+/// provider-neutral CertObject and encoding that object for certificate
+/// management export. All other cert operations (verification, CSR generation,
+/// and public-key extraction) are performed inside certificate context handlers
+/// created by ICryptoHandlerFactory.
 class ICertParser
 {
   public:
@@ -49,11 +48,24 @@ class ICertParser
                                                   common::DaemonErrorCode>
     ParseCertificate(const std::uint8_t* bytes, std::size_t size, score::crypto::FormatType format) = 0;
 
-    /// Parse one or more concatenated certificates (e.g. a PEM bundle).
+    /// Parse a sequence of X.509 certificates from PEM or DER data.
+    ///
+    /// PEM input is a sequence of certificate blocks. DER input is a sequence
+    /// of complete DER-encoded X.509 objects. Protocol-specific framing and
+    /// certificate-container formats are outside this parser contract. The
+    /// operation decodes the objects but does not validate chain relationships
+    /// or trust.
     [[nodiscard]] virtual score::crypto::Expected<
         std::vector<std::shared_ptr<score::crypto::daemon::cert_management::CertObject>>,
         common::DaemonErrorCode>
     ParseCertificates(const std::uint8_t* bytes, std::size_t size, score::crypto::FormatType format) = 0;
+
+    /// Encode a parsed certificate in the requested DER or PEM format.
+    ///
+    /// Each provider must define how parsed certificates are encoded.
+    [[nodiscard]] virtual score::crypto::Expected<std::vector<std::uint8_t>, common::DaemonErrorCode> EncodeCertificate(
+        const score::crypto::daemon::cert_management::CertObject& certificate,
+        score::crypto::FormatType format) = 0;
 
     /// Validate raw CRL bytes against the CA certificate that should have issued it.
     ///

@@ -27,8 +27,8 @@ namespace score::crypto::daemon::provider::score_provider::openssl
 /// OpenSSL's X509 stack. Stateless beyond the provider ID; created on demand
 /// by OpenSSL::GetCertParser() for injection into FileBackedSlotHandler.
 ///
-/// Verification, CSR generation, public-key extraction, and format conversion
-/// are certificate context-handler responsibilities, not parser concerns.
+/// Verification, CSR generation, and public-key extraction remain certificate
+/// context-handler responsibilities; encoding is provided for management export.
 class OpenSslCertParser final : public cert_management::ICertParser
 {
   public:
@@ -47,6 +47,10 @@ class OpenSslCertParser final : public cert_management::ICertParser
     [[nodiscard]] score::crypto::Expected<std::vector<::score::crypto::daemon::cert_management::CertObject::Sptr>,
                                           common::DaemonErrorCode>
     ParseCertificates(const std::uint8_t* bytes, std::size_t size, score::crypto::FormatType format) override;
+
+    [[nodiscard]] score::crypto::Expected<std::vector<std::uint8_t>, common::DaemonErrorCode> EncodeCertificate(
+        const ::score::crypto::daemon::cert_management::CertObject& certificate,
+        score::crypto::FormatType format) override;
 
     [[nodiscard]] score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> ValidateCrl(
         const std::uint8_t* crl_data,

@@ -97,6 +97,33 @@ TEST(OpenSslCertParserTest, RejectsMalformedCertificate)
     EXPECT_FALSE(result.has_value());
 }
 
+TEST(OpenSslCertParserTest, EncodesCertificateInRequestedFormat)
+{
+    const auto pem = ReadCertificateVector();
+    ASSERT_FALSE(pem.empty());
+    OpenSslCertParser parser{ProviderId{1U}};
+    const auto parsed =
+        parser.ParseCertificate(reinterpret_cast<const std::uint8_t*>(pem.data()), pem.size(), FormatType::kPem);
+    ASSERT_TRUE(parsed.has_value());
+
+    const auto der = parser.EncodeCertificate(*(*parsed), FormatType::kDer);
+    ASSERT_TRUE(der.has_value());
+    ASSERT_FALSE(der->empty());
+    EXPECT_EQ(der->front(), 0x30U);
+
+    const auto pem_again = parser.EncodeCertificate(*(*parsed), FormatType::kPem);
+    ASSERT_TRUE(pem_again.has_value());
+    const std::string encoded_pem{pem_again->begin(), pem_again->end()};
+    EXPECT_NE(encoded_pem.find("-----BEGIN CERTIFICATE-----"), std::string::npos);
+
+    const auto reparsed = parser.ParseCertificate(der->data(), der->size(), FormatType::kDer);
+    ASSERT_TRUE(reparsed.has_value());
+    EXPECT_TRUE(std::equal((*parsed)->GetFingerprint().begin(),
+                           (*parsed)->GetFingerprint().end(),
+                           (*reparsed)->GetFingerprint().begin(),
+                           (*reparsed)->GetFingerprint().end()));
+}
+
 // ---------------------------------------------------------------------------
 // ValidateCrl tests
 //

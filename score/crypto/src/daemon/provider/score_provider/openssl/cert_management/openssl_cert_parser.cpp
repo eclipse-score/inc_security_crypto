@@ -252,6 +252,46 @@ OpenSslCertParser::ParseCertificates(const std::uint8_t* bytes, std::size_t size
     return result;
 }
 
+score::crypto::Expected<std::vector<std::uint8_t>, common::DaemonErrorCode> OpenSslCertParser::EncodeCertificate(
+    const CertObject& certificate,
+    score::crypto::FormatType format)
+{
+    if (format != score::crypto::FormatType::kDer && format != score::crypto::FormatType::kPem)
+        return score::crypto::make_unexpected(Error::kInvalidFormat);
+
+    const auto raw_bytes = certificate.GetRawBytes();
+    auto x509 = ParseX509(raw_bytes.data(), raw_bytes.size(), certificate.GetFormat());
+    if (!x509)
+        return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
+
+    if (format == score::crypto::FormatType::kDer)
+    {
+        const int encoded_size = i2d_X509(x509.get(), nullptr);
+        if (encoded_size <= 0)
+            return score::crypto::make_unexpected(Error::kOperationFailed);
+
+        std::vector<std::uint8_t> output(static_cast<std::size_t>(encoded_size));
+        unsigned char* cursor = output.data();
+        if (i2d_X509(x509.get(), &cursor) != encoded_size)
+            return score::crypto::make_unexpected(Error::kOperationFailed);
+        return output;
+    }
+
+    BIO* raw_bio = BIO_new(BIO_s_mem());
+    if (raw_bio == nullptr)
+        return score::crypto::make_unexpected(Error::kInternalError);
+    std::unique_ptr<BIO, decltype(&BIO_free)> bio{raw_bio, &BIO_free};
+    if (PEM_write_bio_X509(bio.get(), x509.get()) != 1)
+        return score::crypto::make_unexpected(Error::kOperationFailed);
+
+    char* data = nullptr;
+    const long encoded_size = BIO_get_mem_data(bio.get(), &data);
+    if (encoded_size <= 0 || data == nullptr)
+        return score::crypto::make_unexpected(Error::kOperationFailed);
+    const auto* encoded_begin = reinterpret_cast<const std::uint8_t*>(data);
+    return std::vector<std::uint8_t>{encoded_begin, encoded_begin + encoded_size};
+}
+
 // ---------------------------------------------------------------------------
 // CRL validation
 // ---------------------------------------------------------------------------
