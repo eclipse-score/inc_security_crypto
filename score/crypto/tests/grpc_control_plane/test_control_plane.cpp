@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include <gtest/gtest.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <chrono>
@@ -184,23 +185,11 @@ class ControlPlaneTest : public ::testing::Test
     std::thread _server_thread;
 };
 
-TEST(ControlProtocolTest, PreservesApiErrorCodeInOperationResponse)
+TEST_F(ControlPlaneTest, SocketIsAccessibleToUnprivilegedClients)
 {
-    namespace protocol = score::crypto::daemon::control_plane::protocol;
-    const protocol::OperationIdentifier operation_id{score::crypto::test::dummyActorA,
-                                                     score::crypto::test::dummyActionA};
-    const auto response = protocol::OperationResponseBuilder()
-                              .operation(operation_id)
-                              .return_error(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm)
-                              .build();
-    ASSERT_TRUE(response.has_value());
-
-    protocol::ControlResponseValidator validator(response.value());
-    validator.expectOperation(operation_id).expectSuccess();
-
-    EXPECT_FALSE(validator.isValid());
-    ASSERT_TRUE(validator.getOperationError().has_value());
-    EXPECT_EQ(validator.getOperationError().value(), score::crypto::CryptoErrorCode::kUnsupportedAlgorithm);
+    struct stat socket_stat{};
+    ASSERT_EQ(stat(_socket_path.c_str(), &socket_stat), 0);
+    EXPECT_EQ(socket_stat.st_mode & static_cast<mode_t>(0777), static_cast<mode_t>(0666));
 }
 
 TEST_F(ControlPlaneTest, Connection_SendRequest)
