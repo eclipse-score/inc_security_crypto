@@ -579,7 +579,7 @@
   <section id="interfaces">
 <span id="crypto-interfaces"></span><h1>Interfaces<a class="headerlink" href="#interfaces" title="Link to this heading">#</a></h1>
 <p>The public API surface is organized into the following interface groups:</p>
-<div class="need_container docutils container" id="SNCB-409e00e9">
+<div class="need_container docutils container" id="SNCB-0214b798">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_crypto_stack">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -630,7 +630,7 @@ deadline enforcement.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-c5b15806">
+<div class="need_container docutils container" id="SNCB-d4e34b74">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__crypto_resource_guard">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -686,7 +686,7 @@ IPC and auto-deactivates the guard on success.</p>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-f9c30d36">
+<div class="need_container docutils container" id="SNCB-395feee3">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_crypto_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -744,7 +744,7 @@ resolution (with ACL), twelve <code class="docutils literal notranslate"><span c
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-a58c4a62">
+<div class="need_container docutils container" id="SNCB-74a0c911">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_memory_allocator">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -792,7 +792,7 @@ specific resolved provider instance (<code class="docutils literal notranslate">
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-3bcecc57">
+<div class="need_container docutils container" id="SNCB-9e7bfd93">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__streaming_contexts">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -852,7 +852,7 @@ only streaming state is cleared.</p>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-15317616">
+<div class="need_container docutils container" id="SNCB-26d4f281">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_key_mgmnt_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -929,7 +929,7 @@ wrapping (e.g., AES-GCM key wrap).</p>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-7a118f83">
+<div class="need_container docutils container" id="SNCB-b3c5a9c0">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_cert_mgmt_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -958,7 +958,8 @@ wrapping (e.g., AES-GCM key wrap).</p>
 </tr>
 <tr class="content row-odd"><td class="content" colspan="6"><p>Certificate lifecycle management — the certificate-domain mirror of
 <code class="docutils literal notranslate"><span class="pre">IKeyManagementContext</span></code>. Handles: <code class="docutils literal notranslate"><span class="pre">ParseCertificate</span></code> /
-<code class="docutils literal notranslate"><span class="pre">ParseCertificates</span></code> (returns <code class="docutils literal notranslate"><span class="pre">ICertificateObject::Uptr</span></code> backed by
+<code class="docutils literal notranslate"><span class="pre">ParseCertificates</span></code> (a sequence of PEM certificate blocks or complete
+DER-encoded X.509 objects; returns <code class="docutils literal notranslate"><span class="pre">ICertificateObject::Uptr</span></code> backed by
 a daemon-assigned ephemeral handle), <code class="docutils literal notranslate"><span class="pre">SaveCertificate(id,</span> <span class="pre">slot)</span></code>
 (copy semantics — object remains valid after persist), export
 (<code class="docutils literal notranslate"><span class="pre">GetCertificateExportSize</span></code> + <code class="docutils literal notranslate"><span class="pre">ExportCertificate</span></code>), format
@@ -984,7 +985,7 @@ request construction (<code class="docutils literal notranslate"><span class="pr
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-da8640af">
+<div class="need_container docutils container" id="SNCB-0211a5a4">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_cert_ver_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1029,7 +1030,7 @@ policy via fluent setters, then executes verification with <code class="docutils
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-923debb6">
+<div class="need_container docutils container" id="SNCB-ce499904">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_trust_store_mgmt_ctx">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1076,7 +1077,7 @@ through <code class="docutils literal notranslate"><span class="pre">ITrustStore
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-52242573">
+<div class="need_container docutils container" id="SNCB-9a9bcd99">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_csr_gen_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1122,7 +1123,7 @@ SAN extensions via fluent setters, then generates with
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-5c8e012e">
+<div class="need_container docutils container" id="SNCB-08279511">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__typed_objects">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1179,7 +1180,7 @@ Obtained via <code class="docutils literal notranslate"><span class="pre">ICrypt
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-d19bee86">
+<div class="need_container docutils container" id="SNCB-ef647cdb">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__crypto_resource_id">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1229,7 +1230,7 @@ configuration path.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-1ea97fd2">
+<div class="need_container docutils container" id="SNCB-218ccdbe">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__base_context_config">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1285,7 +1286,7 @@ Key-bearing configs accept a <code class="docutils literal notranslate"><span cl
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-a008a040">
+<div class="need_container docutils container" id="SNCB-a27a9c70">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__kdf_parameters">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1337,7 +1338,7 @@ optionally by <code class="docutils literal notranslate"><span class="pre">Agree
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-bcc8b9b3">
+<div class="need_container docutils container" id="SNCB-836149d2">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__key_operation_params">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1401,7 +1402,7 @@ struct — it is expressed via the method overload signature
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-9b146078">
+<div class="need_container docutils container" id="SNCB-e9650017">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_hash_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1448,7 +1449,7 @@ exposed — use <code class="docutils literal notranslate"><span class="pre">Get
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-b97bc232">
+<div class="need_container docutils container" id="SNCB-be83f12e">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_mac_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1496,7 +1497,7 @@ instead.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-f9a2aed8">
+<div class="need_container docutils container" id="SNCB-61930025">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_cipher_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1547,7 +1548,7 @@ Direction (encrypt/decrypt) selected via
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-0f0de86c">
+<div class="need_container docutils container" id="SNCB-e2ab89f5">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_aead_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1597,7 +1598,7 @@ dual finalization paths (<code class="docutils literal notranslate"><span class=
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-82d34c66">
+<div class="need_container docutils container" id="SNCB-4431db4d">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_sign_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1644,7 +1645,7 @@ Adds <code class="docutils literal notranslate"><span class="pre">SignFinalize()
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-b7e91df1">
+<div class="need_container docutils container" id="SNCB-4207d7f3">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_verify_sign_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1689,7 +1690,7 @@ Adds <code class="docutils literal notranslate"><span class="pre">VerifyFinalize
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-1246ee83">
+<div class="need_container docutils container" id="SNCB-97131b4a">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_random_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
