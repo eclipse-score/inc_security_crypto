@@ -91,9 +91,8 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCertManagementHandler()
 score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCertVerificationHandler()
 {
     auto executor = std::make_unique<score_provider::operations::cert_verification::CertVerificationExecutor>();
-    return std::make_shared<OpenSslCertVerificationHandler>(std::move(executor), m_cert_service);
+    return std::make_shared<OpenSslCertVerificationHandler>(std::move(executor), m_cert_parser, m_cert_service);
 }
-
 
 score::Result<HandlerSptr> OpenSslHandlerFactory::CreateTrustStoreManagementHandler()
 {

@@ -271,54 +271,15 @@ std::unordered_map<std::string, CertSptr> BuildFingerprintIndex(const CertSptr& 
 
 }  // namespace
 
-Expected<common::OwnedBuffer, common::DaemonErrorCode> OpenSslCertVerificationHandler::EncodeCertificate(
-    const CertSptr& cert,
-    score::crypto::FormatType format) const
-{
-    if (!cert)
-        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
-    if (format != score::crypto::FormatType::kDer && format != score::crypto::FormatType::kPem)
-        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
-
-    auto x509 = CertToX509(*cert);
-    if (!x509)
-        return make_unexpected(common::DaemonErrorCode::kCertificateParsingFailed);
-
-    if (format == score::crypto::FormatType::kDer)
-    {
-        const int size = i2d_X509(x509.get(), nullptr);
-        if (size <= 0)
-            return make_unexpected(common::DaemonErrorCode::kOperationFailed);
-
-        common::OwnedBuffer output(static_cast<std::size_t>(size));
-        unsigned char* cursor = output.data();
-        if (i2d_X509(x509.get(), &cursor) != size)
-            return make_unexpected(common::DaemonErrorCode::kOperationFailed);
-        return output;
-    }
-
-    auto* raw_bio = BIO_new(BIO_s_mem());
-    if (raw_bio == nullptr)
-        return make_unexpected(common::DaemonErrorCode::kInternalError);
-    std::unique_ptr<BIO, decltype(&BIO_free)> bio{raw_bio, &BIO_free};
-    if (PEM_write_bio_X509(bio.get(), x509.get()) != 1)
-        return make_unexpected(common::DaemonErrorCode::kOperationFailed);
-
-    BUF_MEM* memory = nullptr;
-    BIO_get_mem_ptr(bio.get(), &memory);
-    if (memory == nullptr || memory->data == nullptr)
-        return make_unexpected(common::DaemonErrorCode::kOperationFailed);
-    return common::OwnedBuffer(memory->data, memory->data + memory->length);
-}
-
 // ---------------------------------------------------------------------------
 // Construction
 // ---------------------------------------------------------------------------
 
 OpenSslCertVerificationHandler::OpenSslCertVerificationHandler(
     std::unique_ptr<score_provider::operations::cert_verification::CertVerificationExecutor> executor,
+    std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> cert_parser,
     std::shared_ptr<::score::crypto::daemon::cert_management::CertManagementService> service)
-    : ScoreCertVerificationHandler{std::move(executor), std::move(service)}
+    : ScoreCertVerificationHandler{std::move(executor), std::move(cert_parser), std::move(service)}
 {
 }
 

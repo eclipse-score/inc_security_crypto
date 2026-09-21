@@ -33,8 +33,9 @@ constexpr std::string_view LOG_PREFIX = "[SCORE_CERT_VERIFY_HANDLER] ";
 
 ScoreCertVerificationHandler::ScoreCertVerificationHandler(
     std::unique_ptr<CertVerificationExecutor> executor,
+    std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> cert_parser,
     std::shared_ptr<::score::crypto::daemon::cert_management::CertManagementService> service)
-    : m_executor{std::move(executor)}, m_service{std::move(service)}
+    : m_executor{std::move(executor)}, m_cert_parser{std::move(cert_parser)}, m_service{std::move(service)}
 {
 }
 
@@ -351,13 +352,15 @@ Expected<common::OwnedBuffer, common::DaemonErrorCode> ScoreCertVerificationHand
 {
     if (!cert)
         return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+    if (!m_cert_parser)
+        return make_unexpected(common::DaemonErrorCode::kInternalError);
     if (format != score::crypto::FormatType::kDer && format != score::crypto::FormatType::kPem)
         return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
-    if (cert->GetFormat() != format)
-        return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
 
-    const auto raw = cert->GetRawBytes();
-    return common::OwnedBuffer(raw.begin(), raw.end());
+    const auto encoded = m_cert_parser->EncodeCertificate(*cert, format);
+    if (!encoded.has_value())
+        return make_unexpected(encoded.error());
+    return common::OwnedBuffer(encoded->begin(), encoded->end());
 }
 
 Expected<std::size_t, common::DaemonErrorCode> ScoreCertVerificationHandler::GetVerifiedChainExportSize(
