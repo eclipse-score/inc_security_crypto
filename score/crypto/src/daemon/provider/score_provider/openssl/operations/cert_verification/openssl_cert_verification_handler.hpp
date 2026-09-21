@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_CERT_VERIFICATION_OPENSSL_CERT_VERIFICATION_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_CERT_VERIFICATION_OPENSSL_CERT_VERIFICATION_HANDLER_HPP
 
+#include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cert_verification/score_cert_verification_handler.hpp"
 
 #include <memory>
@@ -36,6 +37,7 @@ class OpenSslCertVerificationHandler final
   public:
     OpenSslCertVerificationHandler(
         std::unique_ptr<score_provider::operations::cert_verification::CertVerificationExecutor> executor,
+        std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> cert_parser,
         std::shared_ptr<::score::crypto::daemon::cert_management::CertManagementService> service);
 
     ~OpenSslCertVerificationHandler() override = default;
@@ -47,10 +49,6 @@ class OpenSslCertVerificationHandler final
 
   protected:
     [[nodiscard]] Expected<VerifyOutcome, common::DaemonErrorCode> DoVerify(const VerificationInput& input) override;
-
-    [[nodiscard]] Expected<common::OwnedBuffer, common::DaemonErrorCode> EncodeCertificate(
-        const CertSptr& cert,
-        score::crypto::FormatType format) const override;
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler
