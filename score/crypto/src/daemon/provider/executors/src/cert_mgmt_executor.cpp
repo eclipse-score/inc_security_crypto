@@ -313,14 +313,22 @@ Expected<common::ResponseParameters, Error> CertManagementExecutor::HandleExport
     auto cert_nid_res = ExtractU64(request, 0U);
     if (!cert_nid_res.has_value())
         return score::crypto::make_unexpected(cert_nid_res.error());
+    auto format_res = ExtractU8(request, 1U);
+    if (!format_res.has_value())
+        return score::crypto::make_unexpected(format_res.error());
 
     auto cert_res = m_service->ResolveCertForOperation(ctx.client_id, cert_nid_res.value());
     if (!cert_res.has_value())
         return score::crypto::make_unexpected(cert_res.error());
+    if (!m_cert_parser)
+        return score::crypto::make_unexpected(Error::kInternalError);
 
-    const auto& cert = *cert_res.value();
-    const auto raw = cert.GetRawBytes();
-    common::OwnedBuffer buf(raw.begin(), raw.end());
+    const auto encoded =
+        m_cert_parser->EncodeCertificate(*cert_res.value(), static_cast<score::crypto::FormatType>(format_res.value()));
+    if (!encoded.has_value())
+        return score::crypto::make_unexpected(encoded.error());
+
+    common::OwnedBuffer buf(encoded->begin(), encoded->end());
 
     common::ResponseParameters out;
     out.push_back(std::move(buf));
@@ -335,13 +343,23 @@ Expected<common::ResponseParameters, Error> CertManagementExecutor::HandleGetExp
     auto cert_nid_res = ExtractU64(request, 0U);
     if (!cert_nid_res.has_value())
         return score::crypto::make_unexpected(cert_nid_res.error());
+    auto format_res = ExtractU8(request, 1U);
+    if (!format_res.has_value())
+        return score::crypto::make_unexpected(format_res.error());
 
     auto cert_res = m_service->ResolveCertForOperation(ctx.client_id, cert_nid_res.value());
     if (!cert_res.has_value())
         return score::crypto::make_unexpected(cert_res.error());
+    if (!m_cert_parser)
+        return score::crypto::make_unexpected(Error::kInternalError);
+
+    const auto encoded =
+        m_cert_parser->EncodeCertificate(*cert_res.value(), static_cast<score::crypto::FormatType>(format_res.value()));
+    if (!encoded.has_value())
+        return score::crypto::make_unexpected(encoded.error());
 
     common::ResponseParameters out;
-    out.push_back(static_cast<std::uint64_t>(cert_res.value()->GetRawBytes().size()));
+    out.push_back(static_cast<std::uint64_t>(encoded->size()));
     return out;
 }
 
