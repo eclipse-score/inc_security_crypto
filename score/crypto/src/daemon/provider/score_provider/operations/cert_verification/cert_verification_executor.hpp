@@ -95,7 +95,8 @@ class CertVerificationExecutor
         common::RequestParameters& request);
 
     [[nodiscard]] static Expected<common::ResponseParameters, common::DaemonErrorCode> ExecuteGetSelectedCrlMetadata(
-        ScoreCertVerificationHandler& handler);
+        ScoreCertVerificationHandler& handler,
+        common::RequestParameters& request);
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::operations::cert_verification

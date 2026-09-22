@@ -18,6 +18,7 @@
 #include "score/crypto/src/api/common/src/i_release_callback.hpp"
 #include "score/crypto/src/api/contexts/i_certificate_management_context.hpp"
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 #include "score/crypto/src/api/objects/i_cert_slot_object.hpp"
 #include "score/crypto/src/api/objects/i_certificate_object.hpp"
 #include "score/crypto/src/api/objects/src/cert_slot_object_impl.hpp"
@@ -56,7 +57,8 @@ class CertManagementContextImpl final : public ICertificateManagementContext
 {
   public:
     CertManagementContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-                              uint64_t context_id);
+                              uint64_t context_id,
+                              std::shared_ptr<IBufferTranscoder> transcoder = nullptr);
 
     ~CertManagementContextImpl() override;
 
@@ -110,8 +112,13 @@ class CertManagementContextImpl final : public ICertificateManagementContext
     score::Result<std::monostate> DeleteCrl(const CryptoResourceId& cert_slot) override;
 
   private:
+    static score::Result<daemon::control_plane::protocol::ControlRequest> MakeControlRequest(
+        daemon::control_plane::protocol::OperationRequestBuilder builder,
+        daemon::control_plane::protocol::DataNodeId context_id);
+
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     daemon::control_plane::protocol::DataNodeId m_context_id;
+    std::shared_ptr<IBufferTranscoder> m_transcoder;
 
     class ContextReleaseCallbackImpl;
     std::shared_ptr<IReleaseCallback> m_context_release_callback;

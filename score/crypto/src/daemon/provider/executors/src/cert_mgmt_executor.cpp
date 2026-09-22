@@ -16,6 +16,7 @@
 #include "score/crypto/src/daemon/provider/cert_management/cert_management_operations.hpp"
 #include "score/mw/log/logging.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <string_view>
 
@@ -307,9 +308,13 @@ Expected<common::ResponseParameters, Error> CertManagementExecutor::HandleSave(c
 // Parameter layout:
 //   request[0] = cert_node_id (uint64)
 //   request[1] = desired format (uint8)
+//   request[2] = output buffer (span<uint8_t>)
 Expected<common::ResponseParameters, Error> CertManagementExecutor::HandleExport(const CertMgmtExecutionContext& ctx,
                                                                                  common::RequestParameters& request)
 {
+    if (request.size() < 3U)
+        return score::crypto::make_unexpected(Error::kInsufficientParameters);
+
     auto cert_nid_res = ExtractU64(request, 0U);
     if (!cert_nid_res.has_value())
         return score::crypto::make_unexpected(cert_nid_res.error());
@@ -328,10 +333,14 @@ Expected<common::ResponseParameters, Error> CertManagementExecutor::HandleExport
     if (!encoded.has_value())
         return score::crypto::make_unexpected(encoded.error());
 
-    common::OwnedBuffer buf(encoded->begin(), encoded->end());
+    auto* output = std::get_if<score::crypto::span<uint8_t>>(&request[2]);
+    if (output == nullptr || output->data() == nullptr || output->size() == 0U || output->size() < encoded->size())
+        return score::crypto::make_unexpected(Error::kInsufficientBufferSize);
+
+    std::copy(encoded->begin(), encoded->end(), output->begin());
 
     common::ResponseParameters out;
-    out.push_back(std::move(buf));
+    out.push_back(static_cast<std::uint64_t>(encoded->size()));
     return out;
 }
 
