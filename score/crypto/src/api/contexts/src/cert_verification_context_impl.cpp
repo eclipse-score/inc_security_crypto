@@ -28,7 +28,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <utility>
 
@@ -101,14 +100,33 @@ class CertVerificationContextImpl::ContextReleaseCallbackImpl final : public IRe
 
 CertVerificationContextImpl::CertVerificationContextImpl(
     std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-    uint64_t context_id)
+    uint64_t context_id,
+    std::shared_ptr<IBufferTranscoder> transcoder)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
+      m_transcoder(std::move(transcoder)),
       m_context_release_callback(std::make_shared<ContextReleaseCallbackImpl>(m_connection, m_context_id))
 {
 }
 
 CertVerificationContextImpl::~CertVerificationContextImpl() = default;
+
+score::Result<proto::ControlRequest> CertVerificationContextImpl::MakeControlRequest(
+    proto::OperationRequestBuilder builder,
+    proto::DataNodeId context_id)
+{
+    auto operation_result = builder.build();
+    if (!operation_result.has_value())
+    {
+        return score::Result<proto::ControlRequest>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build operation request")};
+    }
+
+    proto::ControlRequest request{};
+    request.operation = operation_result.value();
+    request.data_node_id = context_id;
+    return request;
+}
 
 // ---------------------------------------------------------------------------
 // Internal helper — send a no-parameter opcode, validate success
@@ -400,36 +418,24 @@ score::Result<std::size_t> CertVerificationContextImpl::ExportVerifiedChain(Form
                                                                             score::cpp::span<uint8_t> out) const
 {
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_VERIFICATION, cv_ops::CERT_EXPORT_VERIFIED_CHAIN};
-    auto req = proto::ControlRequestBuilder()
-                   .forDataNodeId(m_context_id)
-                   .operation(op_id)
-                   .with_in_val_uint8(static_cast<std::uint8_t>(format))
-                   .build();
-    if (!req.has_value())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build chain export request")};
-    auto resp = m_connection->SendRequest(req.value());
+    proto::OperationRequestBuilder builder;
+    builder.operation(op_id).with_in_val_uint8(static_cast<std::uint8_t>(format));
+    auto tspan_result = m_transcoder->Acquire(out, /*is_output=*/true);
+    if (!tspan_result.has_value())
+        return score::Result<std::size_t>{score::unexpect, tspan_result.error()};
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendOutputBuffer(builder, tspan);
+
+    auto request_result = CertVerificationContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    if (!request_result.has_value())
+        return score::Result<std::size_t>{score::unexpect, request_result.error()};
+    auto resp = m_connection->SendRequest(request_result.value());
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
         return score::Result<std::size_t>{score::unexpect,
                                           MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
-    auto count = validator.getParameterAt<std::uint64_t>(0, 0);
-    auto bytes = validator.getParameterAt<daemon::common::OwnedBuffer>(0, 1);
-    if (!count.has_value())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Chain export response missing count")};
-    if (!bytes.has_value())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Chain export response missing bytes")};
-    if (out.empty())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Chain export output span is empty")};
-    if (out.size() < bytes.value().size())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Chain export output span too small")};
-    std::copy(bytes.value().begin(), bytes.value().end(), out.data());
-    return bytes.value().size();
+    return m_transcoder->ExtractOutputBuffer(tspan, validator);
 }
 
 score::Result<std::size_t> CertVerificationContextImpl::GetVerifiedCertificateExportSize(std::size_t index,
@@ -466,44 +472,37 @@ score::Result<std::size_t> CertVerificationContextImpl::ExportVerifiedCertificat
                                                                                   score::cpp::span<uint8_t> out) const
 {
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_VERIFICATION, cv_ops::CERT_EXPORT_VERIFIED_CERT};
-    auto req = proto::ControlRequestBuilder()
-                   .forDataNodeId(m_context_id)
-                   .operation(op_id)
-                   .with_in_val_uint64(static_cast<std::uint64_t>(index))
-                   .with_in_val_uint8(static_cast<std::uint8_t>(format))
-                   .build();
-    if (!req.has_value())
-        return score::Result<std::size_t>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kOperationFailed, "Failed to build certificate export request")};
-    auto resp = m_connection->SendRequest(req.value());
+    proto::OperationRequestBuilder builder;
+    builder.operation(op_id)
+        .with_in_val_uint64(static_cast<std::uint64_t>(index))
+        .with_in_val_uint8(static_cast<std::uint8_t>(format));
+    auto tspan_result = m_transcoder->Acquire(out, /*is_output=*/true);
+    if (!tspan_result.has_value())
+        return score::Result<std::size_t>{score::unexpect, tspan_result.error()};
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendOutputBuffer(builder, tspan);
+
+    auto request_result = CertVerificationContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    if (!request_result.has_value())
+        return score::Result<std::size_t>{score::unexpect, request_result.error()};
+    auto resp = m_connection->SendRequest(request_result.value());
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
         return score::Result<std::size_t>{score::unexpect,
                                           MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
-    auto bytes = validator.getParameterAt<daemon::common::OwnedBuffer>(0, 0);
-    if (!bytes.has_value())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Certificate export response missing bytes")};
-    if (out.empty())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Certificate export output span is empty")};
-    if (out.size() < bytes.value().size())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Certificate export output span too small")};
-    std::copy(bytes.value().begin(), bytes.value().end(), out.data());
-    return bytes.value().size();
+    return m_transcoder->ExtractOutputBuffer(tspan, validator);
 }
 
 score::Result<std::size_t> CertVerificationContextImpl::GetSelectedCrlMetadataCount() const
 {
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_VERIFICATION, cv_ops::CERT_GET_SELECTED_CRL_METADATA};
-    auto req = proto::ControlRequestBuilder().forDataNodeId(m_context_id).operation(op_id).build();
-    if (!req.has_value())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build GET_SELECTED_CRL_METADATA")};
-    auto resp = m_connection->SendRequest(req.value());
+    proto::OperationRequestBuilder builder;
+    builder.operation(op_id);
+    auto request_result = CertVerificationContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    if (!request_result.has_value())
+        return score::Result<std::size_t>{score::unexpect, request_result.error()};
+    auto resp = m_connection->SendRequest(request_result.value());
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -520,51 +519,50 @@ score::Result<std::size_t> CertVerificationContextImpl::GetSelectedCrlMetadataCo
 score::Result<std::size_t> CertVerificationContextImpl::GetSelectedCrlMetadata(score::cpp::span<CrlMetadata> out) const
 {
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_VERIFICATION, cv_ops::CERT_GET_SELECTED_CRL_METADATA};
-    auto req = proto::ControlRequestBuilder().forDataNodeId(m_context_id).operation(op_id).build();
-    if (!req.has_value())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build GET_SELECTED_CRL_METADATA")};
-    auto resp = m_connection->SendRequest(req.value());
+    proto::OperationRequestBuilder builder;
+    builder.operation(op_id);
+    score::cpp::span<uint8_t> output_bytes{reinterpret_cast<uint8_t*>(out.data()),
+                                           out.size() * CrlMetadataWireLayout::kEntrySize};
+    auto tspan_result = m_transcoder->Acquire(output_bytes, /*is_output=*/true);
+    if (!tspan_result.has_value())
+        return score::Result<std::size_t>{score::unexpect, tspan_result.error()};
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendOutputBuffer(builder, tspan);
+    auto request_result = CertVerificationContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    if (!request_result.has_value())
+        return score::Result<std::size_t>{score::unexpect, request_result.error()};
+    auto resp = m_connection->SendRequest(request_result.value());
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
         return score::Result<std::size_t>{score::unexpect,
                                           MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     auto count = validator.getParameterAt<std::uint64_t>(0, 0);
-    auto bytes = validator.getParameterAt<daemon::common::OwnedBuffer>(0, 1);
     if (!count.has_value())
         return score::Result<std::size_t>{
             score::unexpect,
             MakeError(CryptoErrorCode::kOperationFailed, "Selected CRL metadata response missing count")};
-    if (!bytes.has_value())
-        return score::Result<std::size_t>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kOperationFailed, "Selected CRL metadata response missing bytes")};
+    auto bytes_written = m_transcoder->ExtractOutputBuffer(tspan, validator, 1U);
+    if (!bytes_written.has_value())
+        return score::Result<std::size_t>{score::unexpect, bytes_written.error()};
     const auto entry_count = static_cast<std::size_t>(count.value());
-    if (bytes.value().size() != entry_count * CrlMetadataWireLayout::kEntrySize)
+    if (bytes_written.value() != entry_count * CrlMetadataWireLayout::kEntrySize)
         return score::Result<std::size_t>{
             score::unexpect,
             MakeError(CryptoErrorCode::kOperationFailed, "Selected CRL metadata buffer size is invalid")};
-    if (out.empty())
-        return score::Result<std::size_t>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kOperationFailed, "Selected CRL metadata output span is empty")};
     if (out.size() < entry_count)
         return score::Result<std::size_t>{
             score::unexpect,
             MakeError(CryptoErrorCode::kOperationFailed, "Selected CRL metadata output span too small")};
     for (std::size_t i = 0U; i < entry_count; ++i)
     {
-        const auto* entry = bytes.value().data() + i * CrlMetadataWireLayout::kEntrySize;
-        std::memcpy(out[i].fingerprint.data(),
-                    entry + CrlMetadataWireLayout::kCrlFingerprintOffset,
-                    CrlMetadataWireLayout::kFingerprintSize);
-        std::memcpy(out[i].issuer_fingerprint.data(),
-                    entry + CrlMetadataWireLayout::kIssuerFingerprintOffset,
-                    CrlMetadataWireLayout::kFingerprintSize);
-        std::memcpy(&out[i].this_update, entry + CrlMetadataWireLayout::kThisUpdateOffset, sizeof(out[i].this_update));
-        std::memcpy(&out[i].next_update, entry + CrlMetadataWireLayout::kNextUpdateOffset, sizeof(out[i].next_update));
-        std::memcpy(&out[i].crl_number, entry + CrlMetadataWireLayout::kCrlNumberOffset, sizeof(out[i].crl_number));
+        const auto* entry = output_bytes.data() + i * CrlMetadataWireLayout::kEntrySize;
+        CrlMetadata metadata{};
+        auto decode_result = CrlMetadataWireLayout::Decode(
+            score::cpp::span<const uint8_t>{entry, CrlMetadataWireLayout::kEntrySize}, metadata);
+        if (!decode_result.has_value())
+            return score::Result<std::size_t>{score::unexpect, decode_result.error()};
+        out[i] = metadata;
     }
     return entry_count;
 }
