@@ -17,6 +17,7 @@
 #include "score/crypto/src/api/common/src/i_release_callback.hpp"
 #include "score/crypto/src/api/contexts/i_trust_store_management_context.hpp"
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 #include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
@@ -48,7 +49,8 @@ class TrustStoreManagementContextImpl final : public ITrustStoreManagementContex
 {
   public:
     TrustStoreManagementContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-                                    uint64_t context_id);
+                                    uint64_t context_id,
+                                    std::shared_ptr<IBufferTranscoder> transcoder = nullptr);
 
     ~TrustStoreManagementContextImpl() override;
 
@@ -80,8 +82,13 @@ class TrustStoreManagementContextImpl final : public ITrustStoreManagementContex
                                                                const CryptoResourceId& slot) override;
 
   private:
+    static score::Result<daemon::control_plane::protocol::ControlRequest> MakeControlRequest(
+        daemon::control_plane::protocol::OperationRequestBuilder builder,
+        daemon::control_plane::protocol::DataNodeId context_id);
+
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     daemon::control_plane::protocol::DataNodeId m_context_id;
+    std::shared_ptr<IBufferTranscoder> m_transcoder;
 
     class ContextReleaseCallbackImpl;
     std::shared_ptr<IReleaseCallback> m_context_release_callback;

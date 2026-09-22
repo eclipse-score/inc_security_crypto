@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cert_verification/openssl_cert_verification_handler.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/daemon/provider/cert_management/cert_types.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cert_verification/cert_verification_executor.hpp"
 #include "score/mw/log/logging.h"
@@ -522,10 +523,6 @@ OpenSslCertVerificationHandler::DoVerify(const VerificationInput& input)
         auto* chain = X509_STORE_CTX_get0_chain(ctx.get());
         if (chain == nullptr)
             return;
-        const auto append_i64 = [&selected_crl_metadata](std::int64_t value) {
-            for (std::size_t i = 0U; i < sizeof(value); ++i)
-                selected_crl_metadata.push_back(static_cast<std::uint8_t>(value >> (i * 8U)));
-        };
         for (const auto& candidate : selected_crls)
         {
             bool matches_path = false;
@@ -541,14 +538,15 @@ OpenSslCertVerificationHandler::DoVerify(const VerificationInput& input)
             }
             if (!matches_path)
                 continue;
-            selected_crl_metadata.insert(
-                selected_crl_metadata.end(), candidate.crl_fingerprint.begin(), candidate.crl_fingerprint.end());
-            selected_crl_metadata.insert(
-                selected_crl_metadata.end(), candidate.issuer_fingerprint.begin(), candidate.issuer_fingerprint.end());
-            append_i64(candidate.this_update);
-            append_i64(candidate.next_update);
-            for (std::size_t i = 0U; i < sizeof(candidate.crl_number); ++i)
-                selected_crl_metadata.push_back(static_cast<std::uint8_t>(candidate.crl_number >> (i * 8U)));
+            score::crypto::CrlMetadata metadata{};
+            metadata.fingerprint = candidate.crl_fingerprint;
+            metadata.issuer_fingerprint = candidate.issuer_fingerprint;
+            metadata.this_update = candidate.this_update;
+            metadata.next_update = candidate.next_update;
+            metadata.crl_number = candidate.crl_number;
+            std::array<std::uint8_t, score::crypto::CrlMetadataWireLayout::kEntrySize> encoded{};
+            score::crypto::CrlMetadataWireLayout::Encode(metadata, encoded);
+            selected_crl_metadata.insert(selected_crl_metadata.end(), encoded.begin(), encoded.end());
         }
     };
 

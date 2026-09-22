@@ -14,12 +14,15 @@
 #ifndef SCORE_CRYPTO_SRC_API_TYPES_CERTIFICATE_HPP
 #define SCORE_CRYPTO_SRC_API_TYPES_CERTIFICATE_HPP
 
+#include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/types/common.hpp"
+#include "score/span.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <variant>
 
 namespace score::crypto
 {
@@ -104,6 +107,51 @@ struct CrlMetadataWireLayout final
     static constexpr std::size_t kNextUpdateOffset = kThisUpdateOffset + sizeof(std::int64_t);
     static constexpr std::size_t kCrlNumberOffset = kNextUpdateOffset + sizeof(std::int64_t);
     static constexpr std::size_t kEntrySize = kCrlNumberOffset + sizeof(std::uint64_t);
+
+    static void Encode(const CrlMetadata& metadata, std::array<uint8_t, kEntrySize>& encoded) noexcept
+    {
+        for (std::size_t i = 0U; i < kFingerprintSize; ++i)
+        {
+            encoded[kCrlFingerprintOffset + i] = metadata.fingerprint[i];
+            encoded[kIssuerFingerprintOffset + i] = metadata.issuer_fingerprint[i];
+        }
+
+        const auto append_uint64 = [&encoded](std::size_t offset, std::uint64_t value) {
+            for (std::size_t i = 0U; i < sizeof(value); ++i)
+                encoded[offset + i] = static_cast<uint8_t>(value >> (i * 8U));
+        };
+        append_uint64(kThisUpdateOffset, static_cast<std::uint64_t>(metadata.this_update));
+        append_uint64(kNextUpdateOffset, static_cast<std::uint64_t>(metadata.next_update));
+        append_uint64(kCrlNumberOffset, metadata.crl_number);
+    }
+
+    static score::Result<std::monostate> Decode(score::cpp::span<const uint8_t> encoded, CrlMetadata& metadata) noexcept
+    {
+        if (encoded.size() != kEntrySize)
+        {
+            return score::Result<std::monostate>{
+                score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Invalid CRL metadata wire size")};
+        }
+
+        CrlMetadata decoded{};
+        for (std::size_t i = 0U; i < kFingerprintSize; ++i)
+        {
+            decoded.fingerprint[i] = encoded[kCrlFingerprintOffset + i];
+            decoded.issuer_fingerprint[i] = encoded[kIssuerFingerprintOffset + i];
+        }
+
+        const auto read_uint64 = [&encoded](std::size_t offset) {
+            std::uint64_t value{0U};
+            for (std::size_t i = 0U; i < sizeof(value); ++i)
+                value |= static_cast<std::uint64_t>(encoded[offset + i]) << (i * 8U);
+            return value;
+        };
+        decoded.this_update = static_cast<std::int64_t>(read_uint64(kThisUpdateOffset));
+        decoded.next_update = static_cast<std::int64_t>(read_uint64(kNextUpdateOffset));
+        decoded.crl_number = read_uint64(kCrlNumberOffset);
+        metadata = decoded;
+        return std::monostate{};
+    }
 };
 
 struct CertificateSlotInfo

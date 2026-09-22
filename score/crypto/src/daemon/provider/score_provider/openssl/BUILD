@@ -142,5 +142,6 @@ cc_library(
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
+        "//score/crypto/src/api/types:certificate_types",
     ],
 )

@@ -45,6 +45,23 @@ namespace proto = ::score::crypto::daemon::control_plane::protocol;
 namespace actors = ::score::crypto::daemon::common::actors;
 namespace cm_ops = ::score::crypto::daemon::provider::cert_management;
 
+score::Result<proto::ControlRequest> CertManagementContextImpl::MakeControlRequest(
+    proto::OperationRequestBuilder builder,
+    proto::DataNodeId context_id)
+{
+    auto operation_result = builder.build();
+    if (!operation_result.has_value())
+    {
+        return score::Result<proto::ControlRequest>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build operation request")};
+    }
+
+    proto::ControlRequest request{};
+    request.operation = operation_result.value();
+    request.data_node_id = context_id;
+    return request;
+}
+
 // ===========================================================================
 // ContextReleaseCallbackImpl — sends CTX_CLOSE on last reference drop
 // ===========================================================================
@@ -147,9 +164,11 @@ class CertManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCall
 
 CertManagementContextImpl::CertManagementContextImpl(
     std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-    uint64_t context_id)
+    uint64_t context_id,
+    std::shared_ptr<IBufferTranscoder> transcoder)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
+      m_transcoder(std::move(transcoder)),
       m_context_release_callback(std::make_shared<ContextReleaseCallbackImpl>(m_connection, m_context_id)),
       m_release_callback(std::make_shared<ReleaseCallbackImpl>(m_connection, m_context_id, m_context_release_callback))
 {
@@ -167,17 +186,19 @@ score::Result<CryptoResourceGuard> CertManagementContextImpl::ParseCertificate(
 {
     // Request: [0]=format (uint8), [1]=cert bytes (data buffer)
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_MANAGEMENT, cm_ops::CERT_PARSE};
-    auto req = proto::ControlRequestBuilder()
-                   .forDataNodeId(m_context_id)
-                   .operation(op_id)
-                   .with_in_val_uint8(static_cast<std::uint8_t>(format))
-                   .with_in_data_buffer(cert_data)
-                   .build();
-    if (!req.has_value())
-        return score::Result<CryptoResourceGuard>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CERT_PARSE")};
+    proto::OperationRequestBuilder builder;
+    builder.operation(op_id).with_in_val_uint8(static_cast<std::uint8_t>(format));
+    auto tspan_result = m_transcoder->Acquire(cert_data);
+    if (!tspan_result.has_value())
+        return score::Result<CryptoResourceGuard>{score::unexpect, tspan_result.error()};
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendInputBuffer(builder, tspan);
 
-    auto resp = m_connection->SendRequest(req.value());
+    auto request_result = CertManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    if (!request_result.has_value())
+        return score::Result<CryptoResourceGuard>{score::unexpect, request_result.error()};
+
+    auto resp = m_connection->SendRequest(request_result.value());
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -206,17 +227,19 @@ score::Result<std::vector<CryptoResourceGuard>> CertManagementContextImpl::Parse
 {
     // Request: [0]=format (uint8), [1]=cert bytes (data buffer)
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_MANAGEMENT, cm_ops::CERT_PARSE_CHAIN};
-    auto req = proto::ControlRequestBuilder()
-                   .forDataNodeId(m_context_id)
-                   .operation(op_id)
-                   .with_in_val_uint8(static_cast<std::uint8_t>(format))
-                   .with_in_data_buffer(cert_data)
-                   .build();
-    if (!req.has_value())
-        return score::Result<std::vector<CryptoResourceGuard>>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CERT_PARSE_CHAIN")};
+    proto::OperationRequestBuilder builder;
+    builder.operation(op_id).with_in_val_uint8(static_cast<std::uint8_t>(format));
+    auto tspan_result = m_transcoder->Acquire(cert_data);
+    if (!tspan_result.has_value())
+        return score::Result<std::vector<CryptoResourceGuard>>{score::unexpect, tspan_result.error()};
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendInputBuffer(builder, tspan);
 
-    auto resp = m_connection->SendRequest(req.value());
+    auto request_result = CertManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    if (!request_result.has_value())
+        return score::Result<std::vector<CryptoResourceGuard>>{score::unexpect, request_result.error()};
+
+    auto resp = m_connection->SendRequest(request_result.value());
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -341,36 +364,26 @@ score::Result<std::size_t> CertManagementContextImpl::ExportCertificate(const Cr
                                                                         FormatType format,
                                                                         score::cpp::span<uint8_t> output)
 {
-    // Request: [0]=cert_node_id (uint64), [1]=format (uint8)
+    // Request: [0]=cert_node_id (uint64), [1]=format (uint8), [2]=output buffer
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_MANAGEMENT, cm_ops::CERT_EXPORT};
-    auto req = proto::ControlRequestBuilder()
-                   .forDataNodeId(m_context_id)
-                   .operation(op_id)
-                   .with_in_val_uint64(cert.id)
-                   .with_in_val_uint8(static_cast<std::uint8_t>(format))
-                   .build();
-    if (!req.has_value())
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CERT_EXPORT")};
-    auto resp = m_connection->SendRequest(req.value());
+    proto::OperationRequestBuilder builder;
+    builder.operation(op_id).with_in_val_uint64(cert.id).with_in_val_uint8(static_cast<std::uint8_t>(format));
+    auto tspan_result = m_transcoder->Acquire(output, /*is_output=*/true);
+    if (!tspan_result.has_value())
+        return score::Result<std::size_t>{score::unexpect, tspan_result.error()};
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendOutputBuffer(builder, tspan);
+
+    auto request_result = CertManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    if (!request_result.has_value())
+        return score::Result<std::size_t>{score::unexpect, request_result.error()};
+    auto resp = m_connection->SendRequest(request_result.value());
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
         return score::Result<std::size_t>{score::unexpect,
                                           MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
-
-    auto buf_res = validator.getParameterAt<daemon::common::OwnedBuffer>(0, 0);
-    if (!buf_res.has_value())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "CERT_EXPORT response missing bytes")};
-
-    const auto& buf = buf_res.value();
-    if (static_cast<std::size_t>(output.size()) < buf.size())
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "CERT_EXPORT output span too small")};
-
-    std::copy(buf.begin(), buf.end(), output.data());
-    return buf.size();
+    return m_transcoder->ExtractOutputBuffer(tspan, validator);
 }
 
 // ===========================================================================
@@ -475,17 +488,19 @@ score::Result<std::monostate> CertManagementContextImpl::ImportCrl(score::cpp::s
 {
     // Request: [0]=certificate_node_id (uint64), [1]=format (uint8), [2]=CRL bytes
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_MANAGEMENT, cm_ops::CRL_IMPORT};
-    auto req = proto::ControlRequestBuilder()
-                   .forDataNodeId(m_context_id)
-                   .operation(op_id)
-                   .with_in_val_uint64(issuer_cert.id)
-                   .with_in_val_uint8(static_cast<std::uint8_t>(format))
-                   .with_in_data_buffer(crl_data)
-                   .build();
-    if (!req.has_value())
-        return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CRL_IMPORT")};
-    auto resp = m_connection->SendRequest(req.value());
+    proto::OperationRequestBuilder builder;
+    builder.operation(op_id).with_in_val_uint64(issuer_cert.id).with_in_val_uint8(static_cast<std::uint8_t>(format));
+    auto tspan_result = m_transcoder->Acquire(crl_data);
+    if (!tspan_result.has_value())
+        return score::Result<std::monostate>{score::unexpect, tspan_result.error()};
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendInputBuffer(builder, tspan);
+
+    auto request_result = CertManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    if (!request_result.has_value())
+        return score::Result<std::monostate>{score::unexpect, request_result.error()};
+
+    auto resp = m_connection->SendRequest(request_result.value());
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -500,17 +515,19 @@ score::Result<std::monostate> CertManagementContextImpl::ImportCrlToSlot(score::
 {
     // Request: [0]=slot_node_id (uint64), [1]=format (uint8), [2]=CRL bytes
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_MANAGEMENT, cm_ops::CRL_IMPORT_TO_SLOT};
-    auto req = proto::ControlRequestBuilder()
-                   .forDataNodeId(m_context_id)
-                   .operation(op_id)
-                   .with_in_val_uint64(cert_slot.id)
-                   .with_in_val_uint8(static_cast<std::uint8_t>(format))
-                   .with_in_data_buffer(crl_data)
-                   .build();
-    if (!req.has_value())
-        return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CRL_IMPORT_TO_SLOT")};
-    auto resp = m_connection->SendRequest(req.value());
+    proto::OperationRequestBuilder builder;
+    builder.operation(op_id).with_in_val_uint64(cert_slot.id).with_in_val_uint8(static_cast<std::uint8_t>(format));
+    auto tspan_result = m_transcoder->Acquire(crl_data);
+    if (!tspan_result.has_value())
+        return score::Result<std::monostate>{score::unexpect, tspan_result.error()};
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendInputBuffer(builder, tspan);
+
+    auto request_result = CertManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    if (!request_result.has_value())
+        return score::Result<std::monostate>{score::unexpect, request_result.error()};
+
+    auto resp = m_connection->SendRequest(request_result.value());
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
