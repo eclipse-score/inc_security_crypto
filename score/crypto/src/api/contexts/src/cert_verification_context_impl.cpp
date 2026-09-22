@@ -41,6 +41,27 @@ namespace proto = ::score::crypto::daemon::control_plane::protocol;
 namespace actors = ::score::crypto::daemon::common::actors;
 namespace cv_ops = ::score::crypto::daemon::provider::cert_verification;
 
+namespace
+{
+
+score::Result<proto::ControlRequest> MakeControlRequest(proto::OperationRequestBuilder builder,
+                                                        proto::DataNodeId context_id)
+{
+    auto operation_result = builder.build();
+    if (!operation_result.has_value())
+    {
+        return score::Result<proto::ControlRequest>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build operation request")};
+    }
+
+    proto::ControlRequest request{};
+    request.operation = operation_result.value();
+    request.data_node_id = context_id;
+    return request;
+}
+
+}  // namespace
+
 // ---------------------------------------------------------------------------
 // ContextReleaseCallbackImpl — sends CTX_CLOSE on last reference drop
 // ---------------------------------------------------------------------------
@@ -110,23 +131,6 @@ CertVerificationContextImpl::CertVerificationContextImpl(
 }
 
 CertVerificationContextImpl::~CertVerificationContextImpl() = default;
-
-score::Result<proto::ControlRequest> CertVerificationContextImpl::MakeControlRequest(
-    proto::OperationRequestBuilder builder,
-    proto::DataNodeId context_id)
-{
-    auto operation_result = builder.build();
-    if (!operation_result.has_value())
-    {
-        return score::Result<proto::ControlRequest>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build operation request")};
-    }
-
-    proto::ControlRequest request{};
-    request.operation = operation_result.value();
-    request.data_node_id = context_id;
-    return request;
-}
 
 // ---------------------------------------------------------------------------
 // Internal helper — send a no-parameter opcode, validate success
@@ -426,7 +430,7 @@ score::Result<std::size_t> CertVerificationContextImpl::ExportVerifiedChain(Form
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendOutputBuffer(builder, tspan);
 
-    auto request_result = CertVerificationContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     auto resp = m_connection->SendRequest(request_result.value());
@@ -482,7 +486,7 @@ score::Result<std::size_t> CertVerificationContextImpl::ExportVerifiedCertificat
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendOutputBuffer(builder, tspan);
 
-    auto request_result = CertVerificationContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     auto resp = m_connection->SendRequest(request_result.value());
@@ -499,7 +503,7 @@ score::Result<std::size_t> CertVerificationContextImpl::GetSelectedCrlMetadataCo
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_VERIFICATION, cv_ops::CERT_GET_SELECTED_CRL_METADATA};
     proto::OperationRequestBuilder builder;
     builder.operation(op_id);
-    auto request_result = CertVerificationContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     auto resp = m_connection->SendRequest(request_result.value());
@@ -528,7 +532,7 @@ score::Result<std::size_t> CertVerificationContextImpl::GetSelectedCrlMetadata(s
         return score::Result<std::size_t>{score::unexpect, tspan_result.error()};
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendOutputBuffer(builder, tspan);
-    auto request_result = CertVerificationContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     auto resp = m_connection->SendRequest(request_result.value());

@@ -45,9 +45,11 @@ namespace proto = ::score::crypto::daemon::control_plane::protocol;
 namespace actors = ::score::crypto::daemon::common::actors;
 namespace cm_ops = ::score::crypto::daemon::provider::cert_management;
 
-score::Result<proto::ControlRequest> CertManagementContextImpl::MakeControlRequest(
-    proto::OperationRequestBuilder builder,
-    proto::DataNodeId context_id)
+namespace
+{
+
+score::Result<proto::ControlRequest> MakeControlRequest(proto::OperationRequestBuilder builder,
+                                                        proto::DataNodeId context_id)
 {
     auto operation_result = builder.build();
     if (!operation_result.has_value())
@@ -61,6 +63,8 @@ score::Result<proto::ControlRequest> CertManagementContextImpl::MakeControlReque
     request.data_node_id = context_id;
     return request;
 }
+
+}  // namespace
 
 // ===========================================================================
 // ContextReleaseCallbackImpl — sends CTX_CLOSE on last reference drop
@@ -194,7 +198,7 @@ score::Result<CryptoResourceGuard> CertManagementContextImpl::ParseCertificate(
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendInputBuffer(builder, tspan);
 
-    auto request_result = CertManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<CryptoResourceGuard>{score::unexpect, request_result.error()};
 
@@ -235,7 +239,7 @@ score::Result<std::vector<CryptoResourceGuard>> CertManagementContextImpl::Parse
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendInputBuffer(builder, tspan);
 
-    auto request_result = CertManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<std::vector<CryptoResourceGuard>>{score::unexpect, request_result.error()};
 
@@ -374,7 +378,7 @@ score::Result<std::size_t> CertManagementContextImpl::ExportCertificate(const Cr
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendOutputBuffer(builder, tspan);
 
-    auto request_result = CertManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     auto resp = m_connection->SendRequest(request_result.value());
@@ -496,7 +500,7 @@ score::Result<std::monostate> CertManagementContextImpl::ImportCrl(score::cpp::s
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendInputBuffer(builder, tspan);
 
-    auto request_result = CertManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<std::monostate>{score::unexpect, request_result.error()};
 
@@ -523,7 +527,7 @@ score::Result<std::monostate> CertManagementContextImpl::ImportCrlToSlot(score::
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendInputBuffer(builder, tspan);
 
-    auto request_result = CertManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<std::monostate>{score::unexpect, request_result.error()};
 

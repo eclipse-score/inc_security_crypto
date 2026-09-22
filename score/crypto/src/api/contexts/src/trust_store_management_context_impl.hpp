@@ -82,10 +82,6 @@ class TrustStoreManagementContextImpl final : public ITrustStoreManagementContex
                                                                const CryptoResourceId& slot) override;
 
   private:
-    static score::Result<daemon::control_plane::protocol::ControlRequest> MakeControlRequest(
-        daemon::control_plane::protocol::OperationRequestBuilder builder,
-        daemon::control_plane::protocol::DataNodeId context_id);
-
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     daemon::control_plane::protocol::DataNodeId m_context_id;
     std::shared_ptr<IBufferTranscoder> m_transcoder;
