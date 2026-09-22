@@ -92,7 +92,7 @@ Expected<common::ResponseParameters, common::DaemonErrorCode> CertVerificationEx
     if (action == cv_ops::CERT_EXPORT_VERIFIED_CERT)
         return ExecuteExportVerifiedCertificate(handler, request);
     if (action == cv_ops::CERT_GET_SELECTED_CRL_METADATA)
-        return ExecuteGetSelectedCrlMetadata(handler);
+        return ExecuteGetSelectedCrlMetadata(handler, request);
 
     score::mw::log::LogError() << LOG_PREFIX << "Unknown action 0x" << score::mw::log::LogHex16{action};
     return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
@@ -265,15 +265,20 @@ Expected<common::ResponseParameters, common::DaemonErrorCode> CertVerificationEx
     ScoreCertVerificationHandler& handler,
     common::RequestParameters& request)
 {
+    if (request.size() < 2U)
+        return make_unexpected(common::DaemonErrorCode::kInsufficientParameters);
     auto format = ExtractU8(request, 0U);
     if (!format.has_value())
         return make_unexpected(format.error());
     auto bytes = handler.ExportVerifiedChain(static_cast<score::crypto::FormatType>(format.value()));
     if (!bytes.has_value())
         return make_unexpected(bytes.error());
+    auto* output = std::get_if<score::cpp::span<uint8_t>>(&request[1]);
+    if (output == nullptr || output->data() == nullptr || output->size() == 0U || output->size() < bytes->size())
+        return make_unexpected(common::DaemonErrorCode::kInsufficientBufferSize);
+    std::memcpy(output->data(), bytes->data(), bytes->size());
     common::ResponseParameters out;
     out.push_back(static_cast<std::uint64_t>(bytes.value().size()));
-    out.push_back(std::move(bytes.value()));
     return out;
 }
 
@@ -300,6 +305,8 @@ Expected<common::ResponseParameters, common::DaemonErrorCode>
 CertVerificationExecutor::ExecuteExportVerifiedCertificate(ScoreCertVerificationHandler& handler,
                                                            common::RequestParameters& request)
 {
+    if (request.size() < 3U)
+        return make_unexpected(common::DaemonErrorCode::kInsufficientParameters);
     auto index = ExtractU64(request, 0U);
     auto format = ExtractU8(request, 1U);
     if (!index.has_value())
@@ -310,23 +317,40 @@ CertVerificationExecutor::ExecuteExportVerifiedCertificate(ScoreCertVerification
                                                    static_cast<score::crypto::FormatType>(format.value()));
     if (!bytes.has_value())
         return make_unexpected(bytes.error());
+    auto* output = std::get_if<score::cpp::span<uint8_t>>(&request[2]);
+    if (output == nullptr || output->data() == nullptr || output->size() == 0U || output->size() < bytes->size())
+        return make_unexpected(common::DaemonErrorCode::kInsufficientBufferSize);
+    std::memcpy(output->data(), bytes->data(), bytes->size());
     common::ResponseParameters out;
-    out.push_back(std::move(bytes.value()));
+    out.push_back(static_cast<std::uint64_t>(bytes.value().size()));
     return out;
 }
 
 Expected<common::ResponseParameters, common::DaemonErrorCode> CertVerificationExecutor::ExecuteGetSelectedCrlMetadata(
-    ScoreCertVerificationHandler& handler)
+    ScoreCertVerificationHandler& handler,
+    common::RequestParameters& request)
 {
     auto metadata = handler.GetSelectedCrlMetadata();
     if (!metadata.has_value())
         return make_unexpected(metadata.error());
-    common::ResponseParameters out;
     if (metadata.value().size() % score::crypto::CrlMetadataWireLayout::kEntrySize != 0U)
         return make_unexpected(common::DaemonErrorCode::kInternalError);
-    out.push_back(
-        static_cast<std::uint64_t>(metadata.value().size() / score::crypto::CrlMetadataWireLayout::kEntrySize));
-    out.push_back(std::move(metadata.value()));
+    const auto entry_count =
+        static_cast<std::uint64_t>(metadata.value().size() / score::crypto::CrlMetadataWireLayout::kEntrySize);
+    if (request.empty())
+    {
+        common::ResponseParameters out;
+        out.push_back(entry_count);
+        out.push_back(std::move(metadata.value()));
+        return out;
+    }
+    auto* output = std::get_if<score::cpp::span<uint8_t>>(&request[0]);
+    if (output == nullptr || output->data() == nullptr || output->size() < metadata.value().size())
+        return make_unexpected(common::DaemonErrorCode::kInsufficientBufferSize);
+    std::memcpy(output->data(), metadata->data(), metadata->size());
+    common::ResponseParameters out;
+    out.push_back(entry_count);
+    out.push_back(static_cast<std::uint64_t>(metadata.value().size()));
     return out;
 }
 

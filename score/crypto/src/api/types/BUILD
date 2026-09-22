@@ -24,7 +24,11 @@ cc_library(
     name = "certificate_types",
     hdrs = ["certificate.hpp"],
     visibility = ["//visibility:public"],
-    deps = [":common_types"],
+    deps = [
+        ":common_types",
+        "//score/crypto/src/api/common:crypto_common",
+        "@score_baselibs//score/result",
+    ],
 )
 
 cc_library(

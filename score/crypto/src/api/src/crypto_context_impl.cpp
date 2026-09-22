@@ -495,7 +495,7 @@ score::Result<std::unique_ptr<ICertificateManagementContext>> CryptoContextImpl:
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "CERT:MANAGEMENT CTX_CREATE missing context_id")};
 
-    return std::make_unique<CertManagementContextImpl>(m_connection, ctx_id_res.value());
+    return std::make_unique<CertManagementContextImpl>(m_connection, ctx_id_res.value(), m_transcoder);
 }
 
 // ---------------------------------------------------------------------------
@@ -538,7 +538,7 @@ score::Result<std::unique_ptr<ICertificateVerificationContext>> CryptoContextImp
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "CERT:VERIFICATION CTX_CREATE missing context_id")};
 
-    return std::make_unique<CertVerificationContextImpl>(m_connection, ctx_id_res.value());
+    return std::make_unique<CertVerificationContextImpl>(m_connection, ctx_id_res.value(), m_transcoder);
 }
 
 // ---------------------------------------------------------------------------
@@ -581,7 +581,7 @@ score::Result<std::unique_ptr<ITrustStoreManagementContext>> CryptoContextImpl::
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "CERT:TRUST_STORE CTX_CREATE missing context_id")};
 
-    return std::make_unique<TrustStoreManagementContextImpl>(m_connection, ctx_id_res.value());
+    return std::make_unique<TrustStoreManagementContextImpl>(m_connection, ctx_id_res.value(), m_transcoder);
 }
 
 // ---------------------------------------------------------------------------
