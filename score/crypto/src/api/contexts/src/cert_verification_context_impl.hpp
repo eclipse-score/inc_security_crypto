@@ -16,8 +16,8 @@
 
 #include "score/crypto/src/api/common/src/i_release_callback.hpp"
 #include "score/crypto/src/api/contexts/i_certificate_verification_context.hpp"
-#include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
+#include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
@@ -85,10 +85,6 @@ class CertVerificationContextImpl final : public ICertificateVerificationContext
     score::Result<std::size_t> GetSelectedCrlMetadata(score::cpp::span<CrlMetadata> out) const override;
 
   private:
-    static score::Result<daemon::control_plane::protocol::ControlRequest> MakeControlRequest(
-        daemon::control_plane::protocol::OperationRequestBuilder builder,
-        daemon::control_plane::protocol::DataNodeId context_id);
-
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     daemon::control_plane::protocol::DataNodeId m_context_id;
     std::shared_ptr<IBufferTranscoder> m_transcoder;
