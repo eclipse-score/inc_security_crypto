@@ -40,6 +40,27 @@ namespace proto = ::score::crypto::daemon::control_plane::protocol;
 namespace actors = ::score::crypto::daemon::common::actors;
 namespace cm_ops = ::score::crypto::daemon::provider::cert_management;
 
+namespace
+{
+
+score::Result<proto::ControlRequest> MakeControlRequest(proto::OperationRequestBuilder builder,
+                                                        proto::DataNodeId context_id)
+{
+    auto operation_result = builder.build();
+    if (!operation_result.has_value())
+    {
+        return score::Result<proto::ControlRequest>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build operation request")};
+    }
+
+    proto::ControlRequest request{};
+    request.operation = operation_result.value();
+    request.data_node_id = context_id;
+    return request;
+}
+
+}  // namespace
+
 // ===========================================================================
 // ContextReleaseCallbackImpl — sends CTX_CLOSE on last reference drop
 // ===========================================================================
@@ -111,23 +132,6 @@ TrustStoreManagementContextImpl::TrustStoreManagementContextImpl(
 }
 
 TrustStoreManagementContextImpl::~TrustStoreManagementContextImpl() = default;
-
-score::Result<proto::ControlRequest> TrustStoreManagementContextImpl::MakeControlRequest(
-    proto::OperationRequestBuilder builder,
-    proto::DataNodeId context_id)
-{
-    auto operation_result = builder.build();
-    if (!operation_result.has_value())
-    {
-        return score::Result<proto::ControlRequest>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build operation request")};
-    }
-
-    proto::ControlRequest request{};
-    request.operation = operation_result.value();
-    request.data_node_id = context_id;
-    return request;
-}
 
 // ===========================================================================
 // Trust store mutations
@@ -222,7 +226,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::RemoveCertificate
         return score::Result<std::monostate>{score::unexpect, tspan_result.error()};
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendInputBuffer(builder, tspan);
-    auto request_result = TrustStoreManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<std::monostate>{score::unexpect, request_result.error()};
     auto resp = m_connection->SendRequest(request_result.value());
@@ -325,7 +329,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::ImportCrlForTrust
         return score::Result<std::monostate>{score::unexpect, tspan_result.error()};
     TranscoderSpan tspan = std::move(tspan_result.value());
     m_transcoder->AppendInputBuffer(builder, tspan);
-    auto request_result = TrustStoreManagementContextImpl::MakeControlRequest(std::move(builder), m_context_id);
+    auto request_result = MakeControlRequest(std::move(builder), m_context_id);
     if (!request_result.has_value())
         return score::Result<std::monostate>{score::unexpect, request_result.error()};
     auto resp = m_connection->SendRequest(request_result.value());
