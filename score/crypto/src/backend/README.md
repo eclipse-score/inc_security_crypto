@@ -102,6 +102,13 @@ bazel build //score/crypto/src/daemon:crypto_daemon \
 Config parsing (`Pkcs11Config::ParseConfig`) lives in `backend/pkcs11/` and is
 independent of the selected library.
 
+## Requirements for the PKCS#11 Library
+
+The selected PKCS#11 library must successfully initialize when `C_Initialize`
+is called with `CKF_OS_LOCKING_OK` set and no application mutex callbacks
+supplied. The daemon uses this mode because it may access the library from
+multiple threads. Libraries that reject the flag or require application-provided mutex callbacks are currently not supported.
+
 ## Common Configurations
 
 | Use Case | Flags |
