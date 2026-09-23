@@ -27,7 +27,7 @@ DEPS = [
     "@score_crates//:libc",
     "@score_crates//:serde",
     "@score_crates//:serde_json",
-    "@score_baselibs_rust//src/log/score_log",
+    "@score_baselibs//src/log/score_log",
     "@score_logging//score/mw/log/rust/score_log_bridge",
 
     # --- Community Fallback (Crate Universe) ---

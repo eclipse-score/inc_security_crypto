@@ -14,6 +14,7 @@
 build --per_file_copt=external/score_baselibs.*/.*@-Wno-deprecated-declarations
 build --per_file_copt=external/score_logging.*/.*@-Wno-deprecated-declarations
 common --@score_baselibs//score/json:base_library=nlohmann # TODO : https://github.com/eclipse-score/baselibs/issues/57
+common --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 build --java_language_version=17
 build --tool_java_language_version=17
 build --java_runtime_version=remotejdk_17
@@ -59,6 +60,7 @@ build:shared_qnx --@score_baselibs//score/memory/shared/flags:use_typedshmd=fals
 # -------------------------------------------------------------------------------
 build:x86_64-linux --config=shared
 build:x86_64-linux --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+build:x86_64-linux --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 build:x86_64-linux --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
 build:x86_64-linux --features=use_pthread
 
