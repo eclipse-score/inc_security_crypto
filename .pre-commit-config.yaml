@@ -35,7 +35,7 @@ repos:
         files: ^\.github/workflows/
       - id: generate-compile-commands
         name: bazel-compile-commands (for clang-tidy)
-        entry: bazel-compile-commands --compiler /usr/bin/clang -R "-fno-canonical-system-headers=" //...
+        entry: bazel-compile-commands --compiler /usr/bin/clang -R "-fno-canonical-system-headers=" -b '--define=pkcs11_lib=/dummy/path/to/make/pkcs11_lib_path/gen_rule/happy' //...
         language: system
         files: \.(c|cpp|h|hpp)$
         pass_filenames: false
