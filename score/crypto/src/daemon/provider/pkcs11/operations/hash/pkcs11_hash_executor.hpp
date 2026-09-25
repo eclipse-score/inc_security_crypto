@@ -26,24 +26,25 @@ namespace score::crypto::daemon::provider::pkcs11
 {
 
 class Pkcs11Module;
-struct Pkcs11Capabilities;
 
 /// @brief Executor (visitor) that translates generic operation IDs to PKCS#11 C_Digest* calls.
 ///
 /// Owns no session state — receives the session handle and mechanism from the handler.
 /// Reuses handler_utils::ValidateStreamOperationSequence for stream state management.
-///
-/// Version-aware dispatch:
-///   - v2.40 (SoftHSM): uses C_DigestInit + C_Digest for single-shot
-///   - v3.0+: uses C_MessageDigestInit + C_MessageDigest (when supportsMessageDigest is true)
-///     This avoids occupying the session's active-operation slot for single-shot digests.
+/// Single-shot hashing uses the PKCS#11 v2.40-compatible C_DigestInit + C_Digest sequence.
 class Pkcs11HashExecutor final
 {
   public:
     /// @brief Construct executor with reference to the PKCS#11 module.
     /// @param module Non-owning reference to the initialised Pkcs11Module.
-    /// Capabilities are cached from the module at construction time.
     explicit Pkcs11HashExecutor(const Pkcs11Module& module) noexcept;
+
+    /// @brief Construct executor from an injected PKCS#11 dispatch table.
+    /// @param function_list Non-owning reference to a function list that outlives this executor.
+    ///
+    /// This overload provides a deterministic seam for testing provider error handling without
+    /// requiring a physical token or modifying a process-global PKCS#11 function list.
+    explicit Pkcs11HashExecutor(CK_FUNCTION_LIST& function_list) noexcept;
 
     ~Pkcs11HashExecutor() = default;
 
@@ -72,11 +73,10 @@ class Pkcs11HashExecutor final
     /// All dispatch goes through the function list cached at construction — not
     /// through direct C-linkage symbols — so this correctly targets the library
     /// that owns the session.
-    /// @note Safe to call when the session has no active operation (error is ignored).
-    void Abort(CK_SESSION_HANDLE session) noexcept;
-
-    /// @brief Query whether the underlying token supports v3.0 message-based digest.
-    [[nodiscard]] bool SupportsMessageDigest() const noexcept;
+    /// @return Success when cleanup completed or no digest operation was active; otherwise
+    ///         the mapped provider error.
+    [[nodiscard]] Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Abort(
+        CK_SESSION_HANDLE session) noexcept;
 
   private:
     /// @brief Validate a streaming operation action against the current state and compute the next
@@ -105,9 +105,7 @@ class Pkcs11HashExecutor final
                             CK_MECHANISM& mechanism,
                             common::RequestParameters& request) noexcept;
 
-    const Pkcs11Module& m_module;
-    CK_FUNCTION_LIST* m_functionList;  ///< cached at construction from m_module.GetFunctionList()
-    bool m_supportsMessageDigest;      ///< cached from Pkcs11Capabilities at construction
+    CK_FUNCTION_LIST* m_functionList;  ///< Non-owning PKCS#11 dispatch table.
 };
 
 }  // namespace score::crypto::daemon::provider::pkcs11

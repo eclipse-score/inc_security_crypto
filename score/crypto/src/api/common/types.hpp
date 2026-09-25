@@ -20,6 +20,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <optional>
 
 namespace score
@@ -44,12 +45,18 @@ using ResourceId = FixedCapacityString<64>;
 /// at the daemon level without modifying the client library — any algorithm name
 /// up to 64 characters is accepted at runtime.
 ///
-/// Examples: "AES-256-CBC", "SHA-256", "ECDSA-P256", "ML-KEM-768", "ML-DSA-65",
+/// Examples: "AES-256-CBC", "SHA256", "ECDSA-P256", "ML-KEM-768", "ML-DSA-65",
 /// "SLH-DSA-SHA2-128s", "XMSS-SHA2_10_256"
 ///
 /// Implicit conversion to std::string_view enables zero-copy interop.
 /// Explicit conversion to std::string available for IPC serialization.
 using AlgorithmId = FixedCapacityString<64>;
+
+/// @brief Sentinel used when a resource is not bound to a crypto provider.
+///
+/// Provider IDs are assigned from zero, so zero is a valid provider. The
+/// maximum uint16_t value is reserved and must never be assigned by the daemon.
+inline constexpr uint16_t kUnboundProviderId = std::numeric_limits<uint16_t>::max();
 
 /// @brief Type of crypto resource managed by the daemon.
 ///
@@ -57,17 +64,17 @@ using AlgorithmId = FixedCapacityString<64>;
 /// kKeySlot and kCertSlot identify only persistent storage locations.
 enum class ResourceType : uint8_t
 {
-    kProvider,                ///< Crypto provider / device
-    kKeySlot,                 ///< Persistent key storage slot
-    kCertSlot,                ///< Persistent certificate storage slot
-    kVerificationTrustStore,  ///< Named group of trusted CA certificates used for certificate chain
-                              ///< verification.
-    kKey,                     ///< Key material (generated / loaded / derived / imported)
-    kCertificate,             ///< Parsed or stored certificate object
-    kCrl,                     ///< Certificate Revocation List — shares the same numeric id
-                              ///< as the issuer certificate resource (differentiated by type field)
-    kSecureObject,            ///< Secure storage entry
-    kDataObject               ///< Generic data blob
+    kProvider = 0U,                ///< Crypto provider / device
+    kKeySlot = 1U,                 ///< Persistent key storage slot
+    kCertSlot = 2U,                ///< Persistent certificate storage slot
+    kVerificationTrustStore = 3U,  ///< Named group of trusted CA certificates used for certificate chain
+                                   ///< verification.
+    kKey = 4U,                     ///< Key material (generated / loaded / derived / imported)
+    kCertificate = 5U,             ///< Parsed or stored certificate object
+    kCrl = 6U,                     ///< Certificate Revocation List — shares the same numeric id
+                                   ///< as the issuer certificate resource (differentiated by type field)
+    kSecureObject = 7U,            ///< Secure storage entry
+    kDataObject = 8U               ///< Generic data blob
 };
 
 /// @brief Persistence classification of a crypto resource.
@@ -89,10 +96,10 @@ struct CryptoResourceId
     uint64_t id{0U};                                                   ///< Daemon-assigned, unique per session
     ResourceType type{ResourceType::kKeySlot};                         ///< Resource classification
     ResourcePersistence persistence{ResourcePersistence::kEphemeral};  ///< Lifetime
-    uint16_t primary_provider{0U};                                     ///< Daemon-assigned numeric provider index.
+    uint16_t primary_provider{kUnboundProviderId};                     ///< Daemon-assigned numeric provider index.
                                                                        ///< Embeds device binding: identifies which
                                                                        ///< provider/device owns this resource.
-                                                                       ///< 0 = unbound (e.g., trust anchors).
+                                                                       ///< kUnboundProviderId when not provider-bound.
 
     constexpr bool operator==(const CryptoResourceId& other) const noexcept
     {
@@ -109,11 +116,11 @@ struct CryptoResourceId
 /// @brief Preference for selecting a crypto provider when not explicitly specified.
 enum class ProviderType : uint8_t
 {
-    kDefault,            ///< Daemon selects the most appropriate provider
-    kHardware,           ///< Require a hardware provider (HSM/TEE)
-    kSoftware,           ///< Require a software provider (OpenSSL/wolfSSL)
-    kHardwarePreferred,  ///< Prefer hardware, fall back to software
-    kSoftwarePreferred   ///< Prefer software, fall back to hardware
+    kDefault = 0U,            ///< Daemon selects the most appropriate provider
+    kHardware = 1U,           ///< Require a hardware provider (HSM/TEE)
+    kSoftware = 2U,           ///< Require a software provider (OpenSSL/wolfSSL)
+    kHardwarePreferred = 3U,  ///< Prefer hardware, fall back to software
+    kSoftwarePreferred = 4U   ///< Prefer software, fall back to hardware
 };
 
 /// @brief Certificate and key data encoding format.

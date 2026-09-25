@@ -131,10 +131,12 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
 
     /// @brief Return a session from a handler being destroyed.
     ///
-    /// 1. Mark session slot idle in the appropriate pool.
+    /// 1. Mark the session slot idle, or close it when it must be discarded.
     /// 2. If usedAuth==User -> decrement active-user-handler count.
     /// 3. If count reaches zero -> C_Logout (token reverts to Public).
-    void ReleaseSession(CK_SESSION_HANDLE session, const Pkcs11HandlerRequirements& usedRequirements) noexcept;
+    void ReleaseSession(CK_SESSION_HANDLE session,
+                        const Pkcs11HandlerRequirements& usedRequirements,
+                        Pkcs11SessionDisposition disposition = Pkcs11SessionDisposition::kReusable) noexcept;
 
     /// @brief Validate that a session handle is still usable.
     ///
@@ -142,6 +144,19 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
     /// invalidated (e.g. after token removal or HSM error).
     /// @return true if the session is valid and open, false otherwise.
     [[nodiscard]] bool ValidateSession(CK_SESSION_HANDLE session) const noexcept;
+
+    /// @brief Query whether the configured token exposes a PKCS#11 mechanism
+    ///        with all required capabilities.
+    ///
+    /// This is used by handler factories before allocating a context so an
+    /// algorithm listed by the software implementation is not advertised when
+    /// the selected token does not actually implement its mechanism for the
+    /// requested operation.
+    /// @param mechanism Mechanism to query.
+    /// @param requiredFlags PKCS#11 CKF_* capability flags that must all be set.
+    [[nodiscard]] Expected<bool, score::crypto::daemon::common::DaemonErrorCode> SupportsMechanism(
+        CK_MECHANISM_TYPE mechanism,
+        CK_FLAGS requiredFlags) const noexcept;
 
   private:
     /// @brief A pooled session entry.

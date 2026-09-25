@@ -25,33 +25,69 @@ namespace score::crypto::daemon::common
 // Hash algorithm properties (provider-independent)
 // ---------------------------------------------------------------------------
 
+enum class HashAlgorithmStatus
+{
+    kRecommended,
+    kLegacy,
+};
+
+enum class HashAlgorithm
+{
+    kSha256,
+    kSha384,
+    kSha512,
+    kSha224,
+    kSha1,
+    kMd5,
+};
+
 struct HashAlgorithmInfo
 {
+    HashAlgorithm algorithm;
     std::string_view name;
-    std::size_t digest_size;  ///< Output size in bytes
+    std::size_t digest_size;     ///< Output size in bytes
+    HashAlgorithmStatus status;  ///< Recommendation for new integrations
 };
 
 inline constexpr HashAlgorithmInfo kHashAlgorithms[] = {
-    {"SHA256", 32U},
-    {"SHA384", 48U},
-    {"SHA512", 64U},
-    {"SHA224", 28U},
-    {"SHA1", 20U},
-    {"MD5", 16U},
+    {HashAlgorithm::kSha256, "SHA256", 32U, HashAlgorithmStatus::kRecommended},
+    {HashAlgorithm::kSha384, "SHA384", 48U, HashAlgorithmStatus::kRecommended},
+    {HashAlgorithm::kSha512, "SHA512", 64U, HashAlgorithmStatus::kRecommended},
+    {HashAlgorithm::kSha224, "SHA224", 28U, HashAlgorithmStatus::kLegacy},
+    {HashAlgorithm::kSha1, "SHA1", 20U, HashAlgorithmStatus::kLegacy},
+    {HashAlgorithm::kMd5, "MD5", 16U, HashAlgorithmStatus::kLegacy},
 };
 
-/// @brief Look up digest size by algorithm name.
-/// @return digest size in bytes, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<std::size_t> LookupDigestSize(std::string_view algorithm) noexcept
+/// @brief Look up provider-independent hash algorithm metadata.
+/// @return algorithm metadata, or std::nullopt if unknown.
+[[nodiscard]] inline constexpr std::optional<HashAlgorithmInfo> LookupHashAlgorithmInfo(
+    std::string_view algorithm) noexcept
 {
     for (const auto& entry : kHashAlgorithms)
     {
         if (entry.name == algorithm)
         {
-            return entry.digest_size;
+            return entry;
         }
     }
     return std::nullopt;
+}
+
+/// @brief Look up digest size by algorithm name.
+/// @return digest size in bytes, or std::nullopt if unknown.
+[[nodiscard]] inline constexpr std::optional<std::size_t> LookupDigestSize(std::string_view algorithm) noexcept
+{
+    const auto info = LookupHashAlgorithmInfo(algorithm);
+    return info.has_value() ? std::optional<std::size_t>{info->digest_size} : std::nullopt;
+}
+
+/// @brief Return whether an algorithm is recommended for new integrations.
+///
+/// Legacy algorithms remain available for compatibility.
+[[nodiscard]] inline constexpr bool IsRecommendedHashAlgorithm(std::string_view algorithm) noexcept
+{
+    const auto info = LookupHashAlgorithmInfo(algorithm);
+    return info.has_value() && (info->status == HashAlgorithmStatus::kRecommended);
 }
 
 // ---------------------------------------------------------------------------

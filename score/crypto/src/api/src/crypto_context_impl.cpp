@@ -64,8 +64,16 @@ score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContex
 {
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
 
+    if (config.provider.has_value() && (config.provider->type != ResourceType::kProvider))
+    {
+        return score::Result<std::unique_ptr<IHashContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kInvalidResourceType, "Hash context provider must have type kProvider")};
+    }
+
     // Send CTX_CREATE to the daemon to create a server-side hash context.
-    // The daemon will validate the algorithm and return the context_id and digest_size.
+    // The daemon validates the algorithm and returns the context_id. Digest
+    // size is queried through the created hash context.
     auto request_builder = proto::ControlRequestBuilder()
                                .forDataNodeId(m_connection->GetConnectionNodeId())
                                .operation(score::crypto::daemon::mediator::operations::CreateContext())
@@ -76,6 +84,18 @@ score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContex
     {
         request_builder =
             request_builder.with_in_val_uint8(ProviderTypeConverter::ToWireValue(config.provider_type.value()));
+    }
+    else
+    {
+        request_builder = request_builder.with_no_param();
+    }
+
+    // Hash has no key binding or operation mode. Keep the generic CTX_CREATE
+    // layout stable and append the optional explicit provider at param[5].
+    request_builder = request_builder.with_no_param().with_no_param();
+    if (config.provider.has_value())
+    {
+        request_builder = request_builder.with_in_val_uint16(config.provider->primary_provider);
     }
     else
     {
@@ -98,8 +118,10 @@ score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContex
 
     if (!validator.isValid())
     {
-        return score::Result<std::unique_ptr<IHashContext>>{
-            score::unexpect, MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE daemon response invalid")};
+        const auto error_code =
+            validator.getErrorCode().value_or(score::crypto::CryptoErrorCode::kContextCreationFailed);
+        return score::Result<std::unique_ptr<IHashContext>>{score::unexpect,
+                                                            MakeError(error_code, validator.getError())};
     }
 
     auto ctx_id_result = validator.getParameterAt<std::uint64_t>(0, 0);
@@ -144,8 +166,8 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
 
     if (!validator.isValid())
     {
-        return score::Result<CryptoResourceId>{
-            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE daemon response invalid")};
+        const auto error_code = validator.getErrorCode().value_or(score::crypto::CryptoErrorCode::kInternalError);
+        return score::Result<CryptoResourceId>{score::unexpect, MakeError(error_code, validator.getError())};
     }
 
     auto id_result = validator.getParameterAt<std::uint64_t>(0, 0);
@@ -197,6 +219,13 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
 {
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
 
+    if (config.provider.has_value() && (config.provider->type != ResourceType::kProvider))
+    {
+        return score::Result<std::unique_ptr<IMacContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kInvalidResourceType, "MAC context provider must have type kProvider")};
+    }
+
     if (config.key.id == 0)
     {
         return score::Result<std::unique_ptr<IMacContext>>{
@@ -233,6 +262,15 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
     // Serialize operation_mode (param[4]) so the daemon can route to C_Sign* or C_Verify*.
     request_builder = request_builder.with_in_val_uint8(static_cast<std::uint8_t>(config.operation_mode));
 
+    if (config.provider.has_value())
+    {
+        request_builder = request_builder.with_in_val_uint16(config.provider->primary_provider);
+    }
+    else
+    {
+        request_builder = request_builder.with_no_param();
+    }
+
     auto control_req_result = request_builder.build();
     if (!control_req_result.has_value())
     {
@@ -250,9 +288,9 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
 
     if (!validator.isValid())
     {
-        return score::Result<std::unique_ptr<IMacContext>>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE MAC daemon response invalid")};
+        const auto error_code = validator.getErrorCode().value_or(CryptoErrorCode::kContextCreationFailed);
+        return score::Result<std::unique_ptr<IMacContext>>{score::unexpect,
+                                                           MakeError(error_code, validator.getError())};
     }
 
     auto ctx_id_result = validator.getParameterAt<std::uint64_t>(0, 0);
@@ -274,6 +312,14 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
 {
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
 
+    if (config.provider.has_value() && (config.provider->type != ResourceType::kProvider))
+    {
+        return score::Result<std::unique_ptr<IKeyManagementContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kInvalidResourceType,
+                      "Key management context provider must have type kProvider")};
+    }
+
     // Send CTX_CREATE to the daemon to create a server-side key management context.
     auto request_builder = proto::ControlRequestBuilder()
                                .forDataNodeId(m_connection->GetConnectionNodeId())
@@ -285,6 +331,18 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
     {
         request_builder =
             request_builder.with_in_val_uint8(ProviderTypeConverter::ToWireValue(config.provider_type.value()));
+    }
+    else
+    {
+        request_builder = request_builder.with_no_param();
+    }
+
+    // Key-management context creation has neither a bound key nor an operation
+    // mode. Preserve their slots before appending the explicit provider.
+    request_builder = request_builder.with_no_param().with_no_param();
+    if (config.provider.has_value())
+    {
+        request_builder = request_builder.with_in_val_uint16(config.provider->primary_provider);
     }
     else
     {
@@ -306,9 +364,9 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
 
     if (!validator.isValid())
     {
-        return score::Result<std::unique_ptr<IKeyManagementContext>>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kContextCreationFailed, "CTX_CREATE KEY_MGMT daemon response invalid")};
+        const auto error_code = validator.getErrorCode().value_or(CryptoErrorCode::kContextCreationFailed);
+        return score::Result<std::unique_ptr<IKeyManagementContext>>{score::unexpect,
+                                                                     MakeError(error_code, validator.getError())};
     }
 
     auto ctx_id_result = validator.getParameterAt<std::uint64_t>(0, 0);

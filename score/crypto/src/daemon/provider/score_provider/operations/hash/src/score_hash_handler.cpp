@@ -49,28 +49,26 @@ Expected<std::monostate, DaemonErrorCode> ScoreHashHandler::Reset()
 // Default typed operations — return unsupported unless overridden
 // ---------------------------------------------------------------------------
 
-Expected<std::monostate, DaemonErrorCode> ScoreHashHandler::InitHash(
-    const std::optional<common::RequestParameter> /*initialDataOrIV*/)
+Expected<std::monostate, DaemonErrorCode> ScoreHashHandler::InitHash()
 {
     return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
 
-Expected<std::monostate, DaemonErrorCode> ScoreHashHandler::UpdateHash(const common::RequestParameter& /*dataToHash*/)
+Expected<std::monostate, DaemonErrorCode> ScoreHashHandler::UpdateHash(
+    const score::cpp::span<const std::uint8_t> /*dataToHash*/)
 {
     return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
 
 Expected<ResponseParameters, DaemonErrorCode> ScoreHashHandler::FinalizeHash(
-    common::RequestParameter /*hashOutput*/,
-    const std::optional<common::RequestParameter> /*finalDataToHash*/)
+    const score::cpp::span<std::uint8_t> /*hashOutput*/)
 {
     return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
 
 Expected<ResponseParameters, DaemonErrorCode> ScoreHashHandler::SingleShotHash(
-    const common::RequestParameter& /*dataToHash*/,
-    common::RequestParameter /*outputHash*/,
-    std::optional<common::RequestParameter> /*iv*/)
+    const score::cpp::span<const std::uint8_t> /*dataToHash*/,
+    const score::cpp::span<std::uint8_t> /*outputHash*/)
 {
     return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
@@ -78,8 +76,13 @@ Expected<ResponseParameters, DaemonErrorCode> ScoreHashHandler::SingleShotHash(
 Expected<ResponseParameters, DaemonErrorCode> ScoreHashHandler::GetDigestSize() const
 {
     const auto size = common::LookupDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+    if (!size.has_value())
+    {
+        return make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+
     ResponseParameters response;
-    response.push_back(size.value_or(64U));
+    response.push_back(static_cast<std::uint64_t>(size.value()));
     return response;
 }
 

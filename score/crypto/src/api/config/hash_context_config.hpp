@@ -24,13 +24,14 @@ namespace crypto
 
 /// @brief Configuration for hash context creation.
 ///
-/// Requires only an algorithm (e.g., "SHA-256", "SHA-384", "SHA3-256", "SHAKE-256").
+/// Requires only an algorithm. The canonical identifiers supported for new
+/// integrations are "SHA256", "SHA384", and "SHA512" (without hyphens).
 /// No key slot is needed for hash operations.
 ///
 /// @par Example
 /// @code
 ///   HashContextConfig config;
-///   config.SetAlgorithm("SHA-256");
+///   config.SetAlgorithm("SHA256");
 ///   auto ctx = crypto_context->CreateHashContext(config);
 /// @endcode
 struct HashContextConfig : public BaseContextConfig

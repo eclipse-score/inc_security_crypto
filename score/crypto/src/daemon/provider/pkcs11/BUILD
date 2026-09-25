@@ -43,6 +43,10 @@ cc_library(
     visibility = [
         "//:__subpackages__",
     ],
+    deps = [
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_info",
+    ],
 )
 
 cc_library(

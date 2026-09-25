@@ -41,7 +41,7 @@ using OperationAction = common::OperationAction;
 
 // HASH_INIT
 // Request:  data_node_id = context_id,
-//           param[0]: optional DataBuffer — initial data to hash or IV
+//           no operation parameters
 // Response: status_code (SUCCESS/error)
 //           no output parameters
 // Effect:   Calls InitHash(), initializes hash stream context, transitions state IDLE → INITIALIZED
@@ -57,8 +57,7 @@ inline constexpr OperationAction HASH_UPDATE = 2;
 
 // HASH_FINALIZE
 // Request:  data_node_id = context_id,
-//           param[0]: optional DataBuffer — output buffer for hash digest (modified in-place)
-//           param[1]: optional DataBuffer — final data chunk to include
+//           param[0]: DataBuffer — output buffer for hash digest (modified in-place)
 // Response: status_code (SUCCESS/error)
 //           param[0]: uint64_t — digest length in bytes (hash bytes written to request param[0])
 // Effect:   Calls FinalizeHash(), computes final hash into param[0] buffer, clears stream context, transitions state →
@@ -68,8 +67,7 @@ inline constexpr OperationAction HASH_FINALIZE = 3;
 // HASH_SS (Single-Shot Hash)
 // Request:  data_node_id = context_id,
 //           param[0]: DataBuffer — data to hash
-//           param[1]: optional DataBuffer — output buffer for hash digest (modified in-place)
-//           param[2]: optional DataBuffer — initialization vector (unused for hash)
+//           param[1]: DataBuffer — output buffer for hash digest (modified in-place)
 // Response: status_code (SUCCESS/error)
 //           param[0]: uint64_t — digest length in bytes (hash bytes written to request param[1])
 // Effect:   Calls SingleShotHash(), requires IDLE state, performs init+update+finalize in one call
