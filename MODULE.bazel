@@ -344,11 +344,11 @@ bazel_dep(name = "googletest", version = "1.18.0")
 
 bazel_dep(name = "score_qnx_unit_tests", version = "0.2.0", dev_dependency = True)
 
-# 0.2.0 + provide TEST_TMPDIR
+# fix/qemu-cpu-and-output: vendor-aware CPU model + test output redirect
 git_override(
     module_name = "score_qnx_unit_tests",
-    commit = "1c3aca517a9af681b2c114c994340fe647cddbd7",
-    remote = "https://github.com/eclipse-score/qnx_unit_tests.git",
+    commit = "aaf951cfd1c7f78fb03d26a6e0589c167d1920a5",
+    remote = "https://github.com/etas-contrib/score_qnx_unit_tests.git",
 )
 
 bazel_dep(name = "score_itf", version = "0.5.0", dev_dependency = True)
