@@ -14,7 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_ACCESS_POLICY_ENFORCER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_ACCESS_POLICY_ENFORCER_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"

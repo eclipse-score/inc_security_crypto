@@ -17,8 +17,9 @@
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/common/src/crypto_resource_guard_factory.hpp"
 #include "score/crypto/src/api/common/src/i_release_callback.hpp"
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/config/key_operation_params.hpp"
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/api/types/key.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"

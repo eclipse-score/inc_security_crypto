@@ -22,6 +22,7 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/key_management:key_handler_iface",
@@ -96,6 +97,13 @@ cc_library(
 cc_library(
     name = "mac_handler_operations",
     hdrs = ["operations/mac_handler_operations.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = ["//score/crypto/src/daemon/common"],
+)
+
+cc_library(
+    name = "cert_verification_operations",
+    hdrs = ["operations/cert_verification_operations.hpp"],
     visibility = ["//:__subpackages__"],
     deps = ["//score/crypto/src/daemon/common"],
 )

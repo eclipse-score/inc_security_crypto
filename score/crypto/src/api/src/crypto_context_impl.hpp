@@ -14,9 +14,9 @@
 #ifndef SCORE_CRYPTO_SRC_API_SRC_CRYPTO_CONTEXT_IMPL_HPP
 #define SCORE_CRYPTO_SRC_API_SRC_CRYPTO_CONTEXT_IMPL_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
@@ -62,6 +62,12 @@ class CryptoContextImpl final : public ICryptoContext
     score::Result<std::unique_ptr<IMacContext>> CreateMacContext(const MacContextConfig& config) override;
     score::Result<std::unique_ptr<IKeyManagementContext>> CreateKeyManagementContext(
         const KeyManagementContextConfig& config) override;
+    score::Result<std::unique_ptr<ICertificateManagementContext>> CreateCertificateManagementContext(
+        const CertificateContextConfig& config) override;
+    score::Result<std::unique_ptr<ICertificateVerificationContext>> CreateCertificateVerificationContext(
+        const CertificateVerificationContextConfig& config) override;
+    score::Result<std::unique_ptr<ITrustStoreManagementContext>> CreateTrustStoreManagementContext(
+        const TrustStoreManagementContextConfig& config) override;
 
     // -- Queries --
     score::Result<AlgorithmCapabilities> QueryCapabilities(const AlgorithmId& algorithm) override;
@@ -72,6 +78,9 @@ class CryptoContextImpl final : public ICryptoContext
     // -- Typed Object Access --
     score::Result<std::unique_ptr<IKeyObject>> GetKeyObject(const CryptoResourceId& id) override;
     score::Result<std::unique_ptr<IKeySlotObject>> GetKeySlotObject(const CryptoResourceId& id) override;
+    score::Result<std::unique_ptr<ICertificateObject>> GetCertificateObject(const CryptoResourceId& id) override;
+    score::Result<std::unique_ptr<ICertSlotObject>> GetCertSlotObject(const CryptoResourceId& id) override;
+    score::Result<std::unique_ptr<ITrustStoreObject>> GetTrustStoreObject(const CryptoResourceId& id) override;
 
   private:
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;

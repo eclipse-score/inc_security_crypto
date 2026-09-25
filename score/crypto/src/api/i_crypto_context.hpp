@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_API_I_CRYPTO_CONTEXT_HPP
 #define SCORE_CRYPTO_SRC_API_I_CRYPTO_CONTEXT_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/result/result.h"
 
 #include <cstdint>
@@ -34,35 +34,38 @@ namespace crypto
 class HashContextConfig;
 class KeyManagementContextConfig;
 class MacContextConfig;
+class CertificateContextConfig;
+class CertificateVerificationContextConfig;
+class TrustStoreManagementContextConfig;
 
 // Operation contexts (returned as std::unique_ptr)
 class IHashContext;
 class IKeyManagementContext;
 class IMacContext;
+class ICertificateManagementContext;
+class ICertificateVerificationContext;
+class ITrustStoreManagementContext;
 
 // Typed object interfaces (returned as std::unique_ptr)
 class IKeyObject;
 class IKeySlotObject;
+class ICertificateObject;
+class ICertSlotObject;
+class ITrustStoreObject;
 
 // The following forward declarations are for contexts not yet active (IPC implementation pending).
 // class AeadContextConfig;
-// class CertificateContextConfig;
-// class CertificateVerificationContextConfig;
 // class CipherContextConfig;
 // class CsrGenerationContextConfig;
 // class RandomContextConfig;
 // class SignContextConfig;
 // class VerifySignatureContextConfig;
 // class IAeadContext;
-// class ICertificateManagementContext;
-// class ICertificateVerificationContext;
 // class ICipherContext;
 // class ICsrGenerationContext;
 // class IRandomContext;
 // class ISignContext;
 // class IVerifySignatureContext;
-// class ICertificateObject;
-// class ICertSlotObject;
 // class IProviderObject;
 
 // TODO: Consider splitting this interface into multiple smaller interfaces (e.g. IContextFactory, ICapabilityQuerier).
@@ -137,6 +140,26 @@ class ICryptoContext
     virtual score::Result<std::unique_ptr<IKeyManagementContext>> CreateKeyManagementContext(
         const KeyManagementContextConfig& config) = 0;
 
+    /// @brief Creates a certificate management context.
+    /// @param config Certificate management configuration (provider optional)
+    virtual score::Result<std::unique_ptr<ICertificateManagementContext>> CreateCertificateManagementContext(
+        const CertificateContextConfig& config) = 0;
+
+    /// @brief Creates a certificate verification context.
+    /// @param config Certificate verification configuration (provider optional)
+    virtual score::Result<std::unique_ptr<ICertificateVerificationContext>> CreateCertificateVerificationContext(
+        const CertificateVerificationContextConfig& config) = 0;
+
+    /// @brief Creates a trust-store management context.
+    ///
+    /// Trust-store membership curation (add/remove/enable/disable members, import
+    /// CRL for a member) is a capability distinct from certificate lifecycle
+    /// management; see ITrustStoreManagementContext.
+    ///
+    /// @param config Trust-store management configuration (provider optional)
+    virtual score::Result<std::unique_ptr<ITrustStoreManagementContext>> CreateTrustStoreManagementContext(
+        const TrustStoreManagementContextConfig& config) = 0;
+
     // The following factory methods are declared but not yet active.
     // Each is implemented in score/crypto/src/api/future/contexts/
     // and will be moved here together with its IPC implementation.
@@ -155,12 +178,6 @@ class ICryptoContext
 
     // virtual score::Result<std::unique_ptr<IRandomContext>> CreateRandomContext(
     //     const RandomContextConfig& config) = 0;
-
-    // virtual score::Result<std::unique_ptr<ICertificateManagementContext>> CreateCertificateManagementContext(
-    //     const CertificateContextConfig& config) = 0;
-
-    // virtual score::Result<std::unique_ptr<ICertificateVerificationContext>> CreateCertificateVerificationContext(
-    //     const CertificateVerificationContextConfig& config) = 0;
 
     // virtual score::Result<std::unique_ptr<ICsrGenerationContext>> CreateCsrGenerationContext(
     //     const CsrGenerationContextConfig& config) = 0;
@@ -215,17 +232,34 @@ class ICryptoContext
     /// @return IKeySlotObject for slot state / allowed-algorithm queries
     virtual score::Result<std::unique_ptr<IKeySlotObject>> GetKeySlotObject(const CryptoResourceId& id) = 0;
 
-    // FUTURE: Uncomment when the corresponding object interface is promoted
-    //         from score/crypto/src/api/future/objects/.
-    // ICertificateObject is the unified certificate view — used for both
-    // ephemeral (ParseCertificate result) and persistent (loaded from slot)
-    // certificates. Always has a valid GetId().
+    /// @brief Obtains a typed certificate object for the given resource.
+    ///
+    /// ICertificateObject is the unified, non-owning certificate view — used
+    /// for both ephemeral (ParseCertificate result) and persistent certificates.
+    /// For an ephemeral certificate, the caller must retain its
+    /// CryptoResourceGuard while using this view.
+    ///
+    /// @param id CryptoResourceId whose type must be kCertificate or kCertSlot
+    /// @return ICertificateObject for subject/issuer/validity queries
+    virtual score::Result<std::unique_ptr<ICertificateObject>> GetCertificateObject(const CryptoResourceId& id) = 0;
 
-    // virtual score::Result<std::unique_ptr<ICertificateObject>> GetCertificateObject(
-    //     const CryptoResourceId& id) = 0;
+    /// @brief Obtains a typed certificate-slot object for the given resource.
+    /// @param id CryptoResourceId whose type must be kCertSlot
+    /// @return ICertSlotObject for slot state / CRL presence queries
+    virtual score::Result<std::unique_ptr<ICertSlotObject>> GetCertSlotObject(const CryptoResourceId& id) = 0;
 
-    // virtual score::Result<std::unique_ptr<ICertSlotObject>> GetCertSlotObject(
-    //     const CryptoResourceId& id) = 0;
+    /// @brief Obtains a read-only typed view of a named trust store.
+    ///
+    /// Returns a point-in-time snapshot of the trust store's member list:
+    /// fingerprints, membership kind (shared-static / exclusive / conditional-external),
+    /// and enabled/disabled state. The object is immutable after construction.
+    ///
+    /// Mutations (add, remove, enable, disable, CRL import) are performed via
+    /// ICertificateManagementContext.
+    ///
+    /// @param id CryptoResourceId whose type must be kCertificateTrustStore
+    /// @return ITrustStoreObject with a snapshot of all occupied member slots
+    virtual score::Result<std::unique_ptr<ITrustStoreObject>> GetTrustStoreObject(const CryptoResourceId& id) = 0;
 
     // virtual score::Result<std::unique_ptr<IProviderObject>> GetProviderObject(
     //     const CryptoResourceId& id) = 0;
