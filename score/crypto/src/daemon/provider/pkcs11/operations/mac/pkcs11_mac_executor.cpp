@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_executor.hpp"
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/mac_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"

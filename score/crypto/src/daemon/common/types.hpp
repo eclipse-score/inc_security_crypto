@@ -180,6 +180,52 @@ inline CryptoProviderType CryptoProviderTypeFromString(const std::string& typeSt
     }
 }
 
+/**
+ * @brief Functional capabilities a crypto provider can offer.
+ *
+ * Capabilities are orthogonal to CryptoProviderType (HARDWARE/SOFTWARE/...): a
+ * single provider may offer several at once. ProviderManager uses them to select
+ * a default provider for a specific functional area (e.g. certificate
+ * operations) instead of relying on the hardware/software category alone — a
+ * DEFAULT provider is not guaranteed to support every functional area.
+ *
+ * Values are a bitmask so a provider's full capability set fits in one field.
+ */
+enum class ProviderCapability : std::uint8_t
+{
+    kNone = 0x00U,            ///< No functional capability advertised
+    kCrypto = 0x01U,          ///< Symmetric cipher / hash / MAC handlers (GetCryptoHandlerFactory)
+    kKeyManagement = 0x02U,   ///< Key generation / storage (GetKeyFactory / GetKeySlotHandler)
+    kCertManagement = 0x04U,  ///< Certificate parsing / verification (GetCertParser).
+                              ///  Does NOT imply cert-slot storage — slot handlers are
+                              ///  selected by name (slot.storage_backend), not by this bit.
+};
+
+/// @brief Bitwise OR for combining provider capabilities.
+inline constexpr ProviderCapability operator|(ProviderCapability lhs, ProviderCapability rhs) noexcept
+{
+    return static_cast<ProviderCapability>(static_cast<std::uint8_t>(lhs) | static_cast<std::uint8_t>(rhs));
+}
+
+/// @brief Bitwise AND for testing provider capabilities.
+inline constexpr ProviderCapability operator&(ProviderCapability lhs, ProviderCapability rhs) noexcept
+{
+    return static_cast<ProviderCapability>(static_cast<std::uint8_t>(lhs) & static_cast<std::uint8_t>(rhs));
+}
+
+/// @brief Bitwise OR-assign for accumulating provider capabilities.
+inline constexpr ProviderCapability& operator|=(ProviderCapability& lhs, ProviderCapability rhs) noexcept
+{
+    lhs = lhs | rhs;
+    return lhs;
+}
+
+/// @brief True when @p caps includes every capability bit in @p required.
+inline constexpr bool HasCapability(ProviderCapability caps, ProviderCapability required) noexcept
+{
+    return (caps & required) == required;
+}
+
 }  // namespace score::crypto::daemon::common
 
 /**

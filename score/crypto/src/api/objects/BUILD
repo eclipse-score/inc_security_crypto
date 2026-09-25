@@ -27,6 +27,25 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+        "@score_baselibs//score/language/futurecpp",
+        "@score_baselibs//score/result",
+    ],
+)
+
+cc_library(
+    name = "cert_objects",
+    hdrs = [
+        "i_cert_slot_object.hpp",
+        "i_certificate_object.hpp",
+        "i_trust_store_object.hpp",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":crypto_objects",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],

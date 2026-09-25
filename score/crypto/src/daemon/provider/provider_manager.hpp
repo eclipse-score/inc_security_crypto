@@ -161,6 +161,38 @@ class ProviderManager
     std::shared_ptr<IProvider> GetProvider(common::CryptoProviderType cryptoType) const;
 
     /**
+     * @brief Select the preferred initialized provider that offers a capability.
+     *
+     * Filters registered providers to those that are initialized and advertise
+     * @p capability (via IProvider::GetProviderCapabilities()), then chooses
+     * among them using the per-capability default preference order defined in
+     * ProviderManager. Falls back to the lowest-id capable provider when no
+     * preferred-category provider is found.
+     *
+     * Per-capability defaults: kCertManagement → SOFTWARE first (parsing/verification
+     * are inherently software); kKeyManagement and kCrypto → HARDWARE first.
+     *
+     * @param capability  The functional capability the provider must offer.
+     * @return The selected provider, or nullptr if none offers the capability.
+     */
+    [[nodiscard]] std::shared_ptr<IProvider> GetProviderForCapability(common::ProviderCapability capability) const;
+
+    /**
+     * @brief Select the preferred initialized provider with an explicit category order.
+     *
+     * Same as GetProviderForCapability(capability) but lets the caller override
+     * the preference order. Use this overload only when testing ordering behavior
+     * or when a specific call site needs a non-default preference.
+     *
+     * @param capability      The functional capability the provider must offer.
+     * @param preferenceOrder Category priority among capable providers.
+     * @return The selected provider, or nullptr if none offers the capability.
+     */
+    [[nodiscard]] std::shared_ptr<IProvider> GetProviderForCapability(
+        common::ProviderCapability capability,
+        const std::vector<common::CryptoProviderType>& preferenceOrder) const;
+
+    /**
      * @brief Set a provider as default for a specific crypto provider type
      *
      * This allows configuring the same provider to serve as the default

@@ -27,5 +27,22 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+    ],
+)
+
+cc_library(
+    name = "cert_context_configs",
+    hdrs = [
+        "certificate_context_config.hpp",
+        "certificate_verification_context_config.hpp",
+        "trust_store_management_context_config.hpp",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":context_configs",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
     ],
 )

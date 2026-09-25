@@ -30,10 +30,11 @@ package "Context Base" {
 package "Certificate Management" {
     interface ICertificateManagementContext {
         __ Parsing __
-        + ParseCertificate(cert_data, format) : Result<ICertificateObject::Uptr>
-        + ParseCertificates(cert_data, format) : Result<vector<ICertificateObject::Uptr>>
+        + ParseCertificate(cert_data, format) : Result<CryptoResourceGuard>
+        + ParseCertificates(cert_data, format) : Result<vector<CryptoResourceGuard>>
         __ Persistence (copy semantics) __
         + SaveCertificate(id, slot) : Result<std::monostate>
+        + SaveCertificateWithCrl(id, slot) : Result<std::monostate>
         __ Export __
         + GetCertificateExportSize(cert) : Result<size_t>
         + ExportCertificate(cert, format, output) : Result<size_t>
@@ -41,19 +42,38 @@ package "Certificate Management" {
         + ConvertCertificateFormat(input, in_fmt, out_fmt, output) : Result<size_t>
         __ Slot Management __
         + ClearCertificate(slot) : Result<std::monostate>
-        + GetCertificateSlotInfo(slot) : Result<CertificateSlotInfo>
+        + LoadCertificate(slot) : Result<CryptoResourceGuard>
         __ CRL Management __
-        + ImportCrl(crl_data, format, issuer_cert, persist) : Result<CryptoResourceGuard>
-        + DeleteCrl(crl) : Result<std::monostate>
-        + DeleteExpiredCrls() : Result<size_t>
-        + DeleteExpiredCertificates() : Result<size_t>
+        + ImportCrl(crl_data, format, certificate) : Result<std::monostate>
+        + ImportCrlToSlot(crl_data, format, cert_slot) : Result<std::monostate>
+        + DeleteCrl(cert_slot) : Result<std::monostate>
         __ Key Extraction __
         + LoadCertificatePublicKey(cert) : Result<pair<CryptoResourceGuard, AlgorithmId>>
-        __ OCSP __
-        + GetOcspRequestData(cert, issuer_cert) : Result<IOcspRequestExport::Uptr>
+        __ OCSP (reserved) __
+        + GetOcspRequestData(...) : deferred
     }
 
     ICertificateManagementContext --|> IContext : inherits
+}
+
+' ============================================================
+' Trust-Store Management
+' ============================================================
+package "Trust-Store Management" {
+    interface ITrustStoreManagementContext {
+        __ Membership __
+        + AddCertificateToTrustStoreWithCrl(trust_store, cert) : Result<std::monostate>
+        + RemoveCertificateFromTrustStore(trust_store, cert) : Result<std::monostate>
+        + RemoveCertificateFromTrustStore(trust_store, fingerprint) : Result<std::monostate>
+        + EnableTrustStoreMember(trust_store, slot) : Result<std::monostate>
+        + DisableTrustStoreMember(trust_store, slot) : Result<std::monostate>
+        + AcknowledgeTrustStoreMemberUpdate(trust_store, slot) : Result<std::monostate>
+        __ Member CRL __
+        + ImportCrlForTrustStoreMember(trust_store, slot, crl_data, format) : Result<std::monostate>
+        + DeleteCrlForTrustStoreMember(trust_store, slot) : Result<std::monostate>
+    }
+
+    ITrustStoreManagementContext --|> IContext : inherits
 }
 
 ' ============================================================
@@ -65,13 +85,19 @@ package "Certificate Verification" {
         + SetCertificate(cert) : Result<std::monostate>
         + SetCertificateChain(chain) : Result<std::monostate>
         + SetVerificationTrustStore(trust_store) : Result<std::monostate>
-        + SetAdditionalTrustAnchors(anchors : span) : Result<std::monostate>
-        + SetOcspResponse(response_data) : Result<std::monostate>
-        + SetCrl(crl) : Result<std::monostate>
+        + SetAdditionalCertificates(certificates : span) : Result<std::monostate>
+        + SetOcspResponses(responses : span) : deferred
         + SetVerificationTime(epoch_seconds) : Result<std::monostate>
         + SetRevocationCheckPolicy(policy) : Result<std::monostate>
+        + SetEvidenceMode(mode) : Result<std::monostate>
         __ Execution __
         + Verify() : Result<CertVerifyResult>
+        + GetVerifiedChainExportSize(format) : Result<size_t>
+        + ExportVerifiedChain(format, output) : Result<size_t>
+        + GetVerifiedCertificateExportSize(index, format) : Result<size_t>
+        + ExportVerifiedCertificate(index, format, output) : Result<size_t>
+        + GetSelectedCrlMetadataCount() : Result<size_t>
+        + GetSelectedCrlMetadata(out : span<CrlMetadata>) : Result<size_t>
     }
 
     ICertificateVerificationContext --|> IContext : inherits
@@ -111,6 +137,11 @@ package "Configuration" {
         + SetProviderType(type) : CertificateContextConfig&
     }
 
+    class TrustStoreManagementContextConfig <<struct>> {
+        + SetProvider(prov) : TrustStoreManagementContextConfig&
+        + SetProviderType(type) : TrustStoreManagementContextConfig&
+    }
+
     class CertificateVerificationContextConfig <<struct>> {
         + revocation_policy : optional<RevocationCheckPolicy>
         ---
@@ -134,6 +165,7 @@ package "Configuration" {
 ' Relationships
 ' ============================================================
 CertificateContextConfig ..> ICertificateManagementContext : configures
+TrustStoreManagementContextConfig ..> ITrustStoreManagementContext : configures
 CertificateVerificationContextConfig ..> ICertificateVerificationContext : configures
 CsrGenerationContextConfig ..> ICsrGenerationContext : configures
 
