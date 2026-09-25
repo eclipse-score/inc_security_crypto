@@ -38,7 +38,7 @@ bool_flag(
 
 bool_flag(
     name = "score_crypto_score_primula_enabled",
-    build_setting_default = False,
+    build_setting_default = True,
     visibility = ["//visibility:public"],
 )
 

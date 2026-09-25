@@ -11,12 +11,32 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_rust//rust:defs.bzl", "rust_library")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_static_library")
 
 rust_library(
     name = "iav_primula",
-    srcs = ["src/main.rs"],
+    srcs = [
+        "src/ffi.rs",
+    ],
     crate_name = "iav_primula",
+    crate_root = "src/ffi.rs",
     edition = "2021",
+    visibility = ["//visibility:public"],
+)
+
+rust_static_library(
+    name = "iav_primula_staticlib",
+    srcs = [
+        "src/ffi.rs",
+    ],
+    crate_name = "iav_primula",
+    crate_root = "src/ffi.rs",
+    edition = "2021",
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "iav_primula_ffi_headers",
+    hdrs = ["include/iav_primula_ffi.h"],
     visibility = ["//visibility:public"],
 )

@@ -56,7 +56,12 @@ cc_library(
         "//score/crypto/src/daemon/provider/score_provider:score_backend_adapter",
         "//score/crypto/src/backend/score_provider/openssl:openssl_backend_define",
         # To add a new score backend: add its *_backend_define dep here (step 3).
-    ],
+    ] + select({
+        "//score/crypto/src/backend:primula_backend_active": [
+            "//score/crypto/src/backend/score_provider/iav_primula:primula_backend_define",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 # Heavy: aggregates all active sub-backend adapter targets.
@@ -72,5 +77,10 @@ cc_library(
     deps = [
         "//score/crypto/src/backend/score_provider/openssl:openssl_backend",
         # To add a new score backend: add its *_backend dep here (step 4).
-    ],
+    ] + select({
+        "//score/crypto/src/backend:primula_backend_active": [
+            "//score/crypto/src/backend/score_provider/iav_primula:primula_backend",
+        ],
+        "//conditions:default": [],
+    }),
 )
