@@ -347,7 +347,7 @@ bazel_dep(name = "score_qnx_unit_tests", version = "0.2.0", dev_dependency = Tru
 # fix/qemu-cpu-and-output: vendor-aware CPU model + test output redirect
 git_override(
     module_name = "score_qnx_unit_tests",
-    commit = "aaf951cfd1c7f78fb03d26a6e0589c167d1920a5",
+    commit = "88ec909b4841bec35d5def0cfb128e58e5c2e764",
     remote = "https://github.com/etas-contrib/score_qnx_unit_tests.git",
 )
 
