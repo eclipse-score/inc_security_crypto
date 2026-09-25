@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_API_OBJECTS_I_KEY_OBJECT_HPP
 
 #include "score/crypto/src/api/objects/i_crypto_object.hpp"
+#include "score/crypto/src/api/types/key.hpp"
 
 #include <cstddef>
 #include <memory>

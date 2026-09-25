@@ -11,14 +11,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
+#define SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
 
-#include "score/crypto/src/api/certificate/i_ocsp_request_export.hpp"
 #include "score/crypto/src/api/common/crypto_resource_guard.hpp"
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/contexts/i_context.hpp"
-#include "score/crypto/src/api/future/objects/i_certificate_object.hpp"
+#include "score/crypto/src/api/objects/i_certificate_object.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/result/result.h"
 #include "score/span.hpp"
 
@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <memory>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace score
@@ -36,25 +37,21 @@ namespace crypto
 
 /// @brief Interface for certificate lifecycle management operations.
 ///
-/// Mirrors the structure of IKeyManagementContext for certificates:
-/// - **Parse** raw bytes into a daemon-backed ICertificateObject with an
-///   ephemeral resource ID.
-/// - **SaveCertificate** copies an ephemeral certificate to a persistent slot
-///   (copy semantics — the ephemeral cert remains valid until the
-///   ICertificateObject goes out of scope).
+/// - **Parse** raw bytes into a guarded ephemeral certificate resource.
+/// - **SaveCertificate** copies an ephemeral certificate to a persistent slot.
 /// - **Export / convert** using a two-call pattern: query the required buffer
 ///   size first, then fill the caller-supplied span.
-/// - **Slot management**, **CRL management**, and **trust store management**
-///   are all co-located here.
+/// - **Certificate-slot and slot-CRL lifecycle** including loading, saving,
+///   clearing, and persistent CRL import.
 ///
 /// **ParseCertificate lifecycle**:
 /// @code
 ///   auto cert = cert_mgmt->ParseCertificate(der_bytes, FormatType::kDer).value();
-///   // cert->GetId() is valid — daemon assigned an ephemeral kCertificate ID.
-///   // Inspect before committing:
-///   if (cert->GetNotAfter() < current_time) { return Error; }
-///   cert_mgmt->SaveCertificate(cert->GetId(), target_slot).value();
-///   // cert goes out of scope → destructor → daemon releases ephemeral copy.
+///   auto view = crypto_context->GetCertificateObject(cert).value();
+///   // Inspect the certificate while cert owns the daemon resource.
+///   if (view->GetNotAfter() < current_time) { return Error; }
+///   cert_mgmt->SaveCertificate(cert, target_slot).value();
+///   // cert goes out of scope → guard releases the ephemeral certificate.
 /// @endcode
 class ICertificateManagementContext : public IContext
 {
@@ -74,37 +71,40 @@ class ICertificateManagementContext : public IContext
     ///
     /// Sends the raw bytes to the daemon, which validates the certificate
     /// structure and assigns an ephemeral kCertificate resource ID.
-    /// The returned ICertificateObject::GetId() is immediately valid.
+    /// The returned guard owns the ephemeral kCertificate resource.
     ///
     /// @param cert_data DER or PEM encoded certificate bytes
     /// @param format Encoding format of the input data
-    /// @return ICertificateObject with a daemon-assigned ephemeral ID.
-    ///         Destroying the object releases the ephemeral ID.
-    virtual score::Result<ICertificateObject::Uptr> ParseCertificate(score::cpp::span<const uint8_t> cert_data,
-                                                                     FormatType format) = 0;
+    /// @return CryptoResourceGuard owning the daemon-assigned ephemeral resource.
+    virtual score::Result<CryptoResourceGuard> ParseCertificate(score::cpp::span<const uint8_t> cert_data,
+                                                                FormatType format) = 0;
 
-    /// @brief Parses multiple certificates from a PEM bundle or DER chain.
+    /// @brief Parses a sequence of X.509 certificates from PEM or DER data.
     ///
-    /// @param cert_data PEM bundle or concatenated certificate data
+    /// For FormatType::kPem, cert_data contains consecutive PEM-encoded
+    /// certificate blocks. For FormatType::kDer, cert_data contains
+    /// consecutive complete DER-encoded X.509 objects. Protocol-specific
+    /// framing or certificate-container formats are not part of this input.
+    /// This operation parses the objects and does not validate their chain
+    /// relationships or trust.
+    ///
+    /// @param cert_data PEM bundle or concatenated DER certificate data
     /// @param format Encoding format of the data
-    /// @return Ordered vector of ICertificateObject (first = leaf/first in bundle).
-    ///         Each object has a daemon-assigned ephemeral ID.
-    virtual score::Result<std::vector<ICertificateObject::Uptr>> ParseCertificates(
-        score::cpp::span<const uint8_t> cert_data,
-        FormatType format) = 0;
+    /// @return Ordered vector of guards (first = first certificate in the data).
+    ///         Each guard owns one daemon-assigned ephemeral resource.
+    virtual score::Result<std::vector<CryptoResourceGuard>> ParseCertificates(score::cpp::span<const uint8_t> cert_data,
+                                                                              FormatType format) = 0;
 
     // ---- Persistence ----
 
     /// @brief Copies an ephemeral certificate to a persistent certificate slot.
     ///
-    /// Copy semantics: the ephemeral certificate (and its ICertificateObject)
-    /// remains valid after this call. The object releases the ephemeral copy
-    /// independently when it is destroyed.
+    /// Copy semantics: the source guard continues to own the ephemeral
+    /// certificate after this call.
     ///
     /// Typical usage: parse → inspect fields → save to slot.
     ///
-    /// @param cert CryptoResourceId of the certificate to save (type = kCertificate).
-    ///        Pass the result of ICertificateObject::GetId() directly.
+    /// @param cert        CryptoResourceId of the certificate to save (type = kCertificate or kCertSlot)
     /// @param target_slot Handle to the target slot (type = kCertSlot)
     /// @return std::monostate on success, error if slot is occupied or access is denied
     virtual score::Result<std::monostate> SaveCertificate(const CryptoResourceId& cert,
@@ -168,48 +168,11 @@ class ICertificateManagementContext : public IContext
     /// @return std::monostate on success, error if the slot is not found or access is denied
     virtual score::Result<std::monostate> ClearCertificate(const CryptoResourceId& slot) = 0;
 
-    /// @brief Queries the occupancy and metadata of a certificate slot.
-    /// @param slot Handle to the slot (type = kCertSlot)
-    /// @return CertificateSlotInfo with occupancy, algorithm, and provider binding
-    virtual score::Result<CertificateSlotInfo> GetCertificateSlotInfo(const CryptoResourceId& slot) = 0;
+    /// @brief Loads a certificate from a persistent slot into an ephemeral resource.
+    /// The returned guard may be reused with multiple certificate contexts.
+    virtual score::Result<CryptoResourceGuard> LoadCertificate(const CryptoResourceId& slot) = 0;
 
-    // ---- CRL management ----
-
-    /// @brief Imports a Certificate Revocation List and associates it with its issuer.
-    ///
-    /// The returned CryptoResourceId uses ResourceType::kCrl and carries the
-    /// same numeric id as the resolved issuer certificate — callers can look up
-    /// the applicable CRL for any issuer by re-resolving with ResourceType::kCrl.
-    ///
-    /// @param crl_data Encoded CRL data
-    /// @param format Encoding format of the CRL
-    /// @param issuer_cert Handle to the issuer certificate
-    ///        (type = kCertificate or kCertSlot). The daemon validates that the
-    ///        CRL issuer DN matches and that the CRL signature is correct.
-    /// @param persist When true, the CRL survives the guard's destructor
-    ///        (kPersistent — daemon retains the CRL when the client releases its
-    ///        reference). When false, the CRL is deleted when the guard is destroyed.
-    /// @return Guard wrapping a handle with type = kCrl. Pass guard.GetId() to
-    ///         SetCrl() or re-resolve via ResourceType::kCrl on the issuer id.
-    virtual score::Result<CryptoResourceGuard> ImportCrl(score::cpp::span<const uint8_t> crl_data,
-                                                         FormatType format,
-                                                         const CryptoResourceId& issuer_cert,
-                                                         bool persist) = 0;
-
-    /// @brief Removes a specific CRL from the store.
-    /// @param crl Handle to the CRL to delete (type = kCrl)
-    /// @return std::monostate on success, error if the CRL is not found
-    virtual score::Result<std::monostate> DeleteCrl(const CryptoResourceId& crl) = 0;
-
-    /// @brief Bulk-deletes expired CRLs from the store.
-    /// @return Number of CRLs deleted
-    virtual score::Result<std::size_t> DeleteExpiredCrls() = 0;
-
-    /// @brief Bulk-deletes expired certificates from persistent slots.
-    /// @return Number of certificates deleted
-    virtual score::Result<std::size_t> DeleteExpiredCertificates() = 0;
-
-    // ---- Key extraction and OCSP ----
+    // ---- Key extraction ----
 
     /// @brief Extracts the public key from a certificate as an ephemeral key resource.
     ///
@@ -223,17 +186,64 @@ class ICertificateManagementContext : public IContext
     virtual score::Result<std::pair<CryptoResourceGuard, AlgorithmId>> LoadCertificatePublicKey(
         const CryptoResourceId& cert) = 0;
 
-    /// @brief Constructs an OCSP request for a certificate's revocation status.
+    // ---- Persistence with CRL propagation ----
+
+    /// @brief Copies a certificate to a persistent slot and propagates its CRL.
     ///
-    /// The returned object exposes the DER-encoded OCSP request and the responder URL.
-    /// Send the request to the URL via HTTP POST, then feed the response to
-    /// ICertificateVerificationContext::SetOcspResponse().
+    /// The daemon propagates the CRL already held for @p cert:
+    /// - If a session-scoped CRL is associated via ImportCrl() with a
+    ///   kCertificate source, that CRL is used.
+    /// - Otherwise the CRL is read from @p cert's slot's persistent [crl] section
+    ///   (only applicable when cert is a kCertSlot source).
     ///
-    /// @param cert Handle to the certificate to check (type = kCertificate or kCertSlot)
-    /// @param issuer_cert Handle to the issuer certificate (required for OCSP request construction)
-    /// @return Export object providing the encoded request and responder URL
-    virtual score::Result<IOcspRequestExport::Uptr> GetOcspRequestData(const CryptoResourceId& cert,
-                                                                       const CryptoResourceId& issuer_cert) = 0;
+    /// No CRL re-validation occurs — the daemon reuses the CRL it already accepted.
+    ///
+    /// @param cert        CryptoResourceId of the certificate to save (type = kCertificate or kCertSlot)
+    /// @param target_slot Handle to the target slot (type = kCertSlot)
+    virtual score::Result<std::monostate> SaveCertificateWithCrl(const CryptoResourceId& cert,
+                                                                 const CryptoResourceId& target_slot) = 0;
+
+    // ---- CRL management ----
+
+    /// @brief Imports a session-scoped CRL for a `kCertificate` resource.
+    ///
+    /// The association follows the lifetime of @p issuer_cert. No slot write
+    /// access is required. The session CRL is consumed by
+    /// SaveCertificateWithCrl and AddCertificateToTrustStoreWithCrl
+    /// without re-passing raw bytes.
+    ///
+    /// @param crl_data    Encoded CRL data
+    /// @param format      Encoding format of the CRL
+    /// @param issuer_cert Handle to a `kCertificate` resource. Obtain one by
+    ///                    parsing a certificate or loading it from a slot.
+    /// @return std::monostate on success, error if validation fails or access is denied
+    virtual score::Result<std::monostate> ImportCrl(score::cpp::span<const uint8_t> crl_data,
+                                                    FormatType format,
+                                                    const CryptoResourceId& issuer_cert) = 0;
+
+    /// @brief Imports a CRL to a persistent certificate slot.
+    /// @param crl_data    Encoded CRL data
+    /// @param format      Encoding format of the CRL
+    /// @param cert_slot   Handle to the certificate slot (type = kCertSlot)
+    /// @return std::monostate on success, error if validation fails or access is denied
+    virtual score::Result<std::monostate> ImportCrlToSlot(score::cpp::span<const uint8_t> crl_data,
+                                                          FormatType format,
+                                                          const CryptoResourceId& cert_slot) = 0;
+
+    /// @brief Removes the CRL stored in a certificate slot.
+    /// @param cert_slot Handle to the slot whose CRL should be removed (type = kCertSlot)
+    /// @return std::monostate on success, error if no CRL is present or access is denied
+    virtual score::Result<std::monostate> DeleteCrl(const CryptoResourceId& cert_slot) = 0;
+
+    // ---- OCSP (reserved for future support) ----
+    // /// @brief Constructs an OCSP request for a certificate's revocation status.
+    // ///
+    // /// @param cert Handle to the certificate to check (type = kCertificate or kCertSlot)
+    // /// @param issuer_cert Handle to the issuer certificate
+    // /// @return Export object providing the DER-encoded request and responder URL
+    // virtual score::Result<IOcspRequestExport::Uptr> GetOcspRequestData(
+    //     const CryptoResourceId& cert,
+    //     const CryptoResourceId& issuer_cert) = 0;
 
   protected:
     ICertificateManagementContext() = default;
@@ -243,4 +253,4 @@ class ICertificateManagementContext : public IContext
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CONTEXTS_I_CERTIFICATE_MANAGEMENT_CONTEXT_HPP
