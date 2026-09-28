@@ -88,8 +88,8 @@ common::ProviderName ProviderManager::ResolveDefaultProviderName(
     // so it can be retried on a later lookup via EnsureProviderInitialized().
     std::unordered_map<common::CryptoProviderType, common::ProviderName> initializedByType;
     std::unordered_map<common::CryptoProviderType, common::ProviderName> registeredByType;
-    common::ProviderName anyInitializedName;
-    common::ProviderName anyRegisteredName;
+    common::ProviderName initializedFallback;
+    common::ProviderName registeredFallback;
 
     // Iterate in numeric-id (registration) order for deterministic selection.
     for (common::ProviderId id = 0; id < m_provider_by_id.size(); ++id)
@@ -100,16 +100,16 @@ common::ProviderName ProviderManager::ResolveDefaultProviderName(
             continue;
         }
         registeredByType.emplace(entry.cryptoType, entry.name);
-        if (anyRegisteredName.empty())
+        if (registeredFallback.empty())
         {
-            anyRegisteredName = entry.name;
+            registeredFallback = entry.name;
         }
         if (entry.instance->IsInitialized())
         {
             initializedByType.emplace(entry.cryptoType, entry.name);
-            if (anyInitializedName.empty())
+            if (initializedFallback.empty())
             {
-                anyInitializedName = entry.name;
+                initializedFallback = entry.name;
             }
         }
     }
@@ -123,9 +123,9 @@ common::ProviderName ProviderManager::ResolveDefaultProviderName(
             return it->second;
         }
     }
-    if (!anyInitializedName.empty())
+    if (!initializedFallback.empty())
     {
-        return anyInitializedName;
+        return initializedFallback;
     }
 
     // Fallback: nothing initialized yet — resolve to a registered provider so a
@@ -138,7 +138,7 @@ common::ProviderName ProviderManager::ResolveDefaultProviderName(
             return it->second;
         }
     }
-    return anyRegisteredName;
+    return registeredFallback;
 }
 
 bool ProviderManager::BuildTypeMappings(
@@ -273,14 +273,14 @@ std::shared_ptr<IProvider> ProviderManager::GetProvider(common::CryptoProviderTy
 std::shared_ptr<IProvider> ProviderManager::GetProviderForCapability(common::ProviderCapability capability) const
 {
     using Cap = common::ProviderCapability;
-    using Cat = common::CryptoProviderType;
+    using PType = common::CryptoProviderType;
     // Per-capability defaults: cert operations are software-first; everything else hardware-first.
-    static const std::unordered_map<Cap, std::vector<Cat>> kDefaultPref{
-        {Cap::kCertManagement, {Cat::SOFTWARE, Cat::HARDWARE}},
-        {Cap::kKeyManagement, {Cat::HARDWARE, Cat::SOFTWARE}},
-        {Cap::kCrypto, {Cat::HARDWARE, Cat::SOFTWARE}},
+    static const std::unordered_map<Cap, std::vector<PType>> kDefaultPref{
+        {Cap::kCertManagement, {PType::SOFTWARE, PType::HARDWARE}},
+        {Cap::kKeyManagement, {PType::HARDWARE, PType::SOFTWARE}},
+        {Cap::kCrypto, {PType::HARDWARE, PType::SOFTWARE}},
     };
-    static const std::vector<Cat> kFallback{Cat::HARDWARE, Cat::SOFTWARE};
+    static const std::vector<PType> kFallback{PType::HARDWARE, PType::SOFTWARE};
     const auto it = kDefaultPref.find(capability);
     return GetProviderForCapability(capability, it != kDefaultPref.end() ? it->second : kFallback);
 }
@@ -290,25 +290,26 @@ std::shared_ptr<IProvider> ProviderManager::GetProviderForCapability(
     const std::vector<common::CryptoProviderType>& preferenceOrder) const
 {
     std::unordered_map<common::CryptoProviderType, std::shared_ptr<IProvider>> byType;
-    std::shared_ptr<IProvider> firstCapable;
+    std::shared_ptr<IProvider> fallback;
 
     // Iterate in numeric-id order so the fallback selection is deterministic.
     for (common::ProviderId id = 0; id < m_provider_by_id.size(); ++id)
     {
         auto& entry = const_cast<ProviderEntry&>(m_providers.at(m_name_by_id[id]));
-        if (!EnsureProviderInitialized(entry))
+        if (!entry.instance || !common::HasCapability(entry.instance->GetProviderCapabilities(), capability))
         {
             continue;
         }
-        if (!common::HasCapability(entry.instance->GetProviderCapabilities(), capability))
+
+        if (!EnsureProviderInitialized(entry))
         {
             continue;
         }
         // First capable provider of each category wins; earlier ids take priority.
         byType.emplace(entry.cryptoType, entry.instance);
-        if (!firstCapable)
+        if (!fallback)
         {
-            firstCapable = entry.instance;
+            fallback = entry.instance;
         }
     }
 
@@ -320,7 +321,7 @@ std::shared_ptr<IProvider> ProviderManager::GetProviderForCapability(
             return it->second;
         }
     }
-    return firstCapable;
+    return fallback;
 }
 
 bool ProviderManager::SetDefaultProviderForType(common::CryptoProviderType cryptoType, common::ProviderId providerId)
