@@ -34,7 +34,7 @@ class Pkcs11Provider;
 /// @brief Predefined handler IDs supported by the PKCS#11 factory.
 inline constexpr const char* const kHashHandlerId = "HASH";
 inline constexpr const char* const kMacHandlerId = "MAC";
-inline constexpr const char* const kKeyManagementHandlerId = "KEY_MANAGEMENT";
+inline constexpr const char* const kKeyManagementHandlerId = "KEY:MANAGEMENT";
 
 /// @brief Factory that creates PKCS#11-backed crypto handlers.
 ///

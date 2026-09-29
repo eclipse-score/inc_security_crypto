@@ -67,7 +67,7 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
   private:
     static constexpr const char* HASH = "HASH";
     static constexpr const char* MAC = "MAC";
-    static constexpr const char* KEY_MANAGEMENT = "KEY_MANAGEMENT";
+    static constexpr const char* KEY_MANAGEMENT = "KEY:MANAGEMENT";
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::operations::factory

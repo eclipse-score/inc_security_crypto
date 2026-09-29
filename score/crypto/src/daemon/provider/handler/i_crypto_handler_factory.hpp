@@ -17,7 +17,6 @@
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/result/result.h"
 #include <memory>
-#include <string>
 
 namespace score::crypto
 {
@@ -38,16 +37,24 @@ class ICryptoHandlerFactory
 
     virtual ~ICryptoHandlerFactory() = default;
 
+    ICryptoHandlerFactory(const ICryptoHandlerFactory&) = delete;
+    ICryptoHandlerFactory& operator=(const ICryptoHandlerFactory&) = delete;
+    ICryptoHandlerFactory(ICryptoHandlerFactory&&) = delete;
+    ICryptoHandlerFactory& operator=(ICryptoHandlerFactory&&) = delete;
+
     /**
      * @brief Create a handler for the given handler type and algorithm.
      *
-     * @param handlerId  Handler type (e.g. "HASH", "MAC", "KEY_MANAGEMENT").
+     * @param handlerId  Handler type (e.g. "HASH", "MAC", "KEY:MANAGEMENT").
      * @param algorithm  Requested algorithm (e.g. "SHA256", "HMAC-SHA256").
      * @return The created Handler on success, or an error if the type or
      *         algorithm is not supported.
      */
     virtual ::score::Result<Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
                                                          const common::AlgorithmId& algorithm) = 0;
+
+  protected:
+    ICryptoHandlerFactory() = default;
 };
 
 }  // namespace handler

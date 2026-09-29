@@ -281,7 +281,7 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
     auto request_builder = proto::ControlRequestBuilder()
                                .forDataNodeId(m_connection->GetConnectionNodeId())
                                .operation(score::crypto::daemon::mediator::operations::CreateContext())
-                               .with_in_string("KEY_MANAGEMENT")
+                               .with_in_string("KEY:MANAGEMENT")
                                .with_in_string("");  // no algorithm for key management
 
     if (config.provider_type.has_value())
