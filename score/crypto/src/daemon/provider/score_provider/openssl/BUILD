@@ -40,6 +40,7 @@ cc_library(
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     visibility = ["//:__subpackages__"],
+    deps = ["//score/crypto/src/daemon/common:algorithm_info"],
 )
 
 cc_library(

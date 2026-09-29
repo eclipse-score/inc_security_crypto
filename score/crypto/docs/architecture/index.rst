@@ -90,14 +90,13 @@ Static Architecture
 The components are designed to cover the expectations from the feature architecture
 (i.e. if already exists a definition it should be taken over and enriched).
 
-.. code-block:: rst
-
-   .. comp:: Crypto
-      :id: comp__crypto
-      :security: YES
-      :safety: QM
-      :status: invalid
-      :implements:
+.. comp:: Crypto
+   :id: comp__crypto
+   :version: 1
+   :security: YES
+   :safety: QM
+   :status: valid
+   :belongs_to: feat__security_crypto
 
 .. image:: component_overview.png
    :align: center

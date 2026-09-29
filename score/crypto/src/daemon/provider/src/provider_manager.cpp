@@ -161,6 +161,16 @@ bool ProviderManager::RegisterProvider(const common::ProviderName& providerName,
         return false;
     }
 
+    // The maximum ProviderId is reserved as the wire-level "unbound" value.
+    // Reject registration before the vector index could collide with it or
+    // overflow during the narrowing conversion below.
+    if (m_provider_by_id.size() >= static_cast<std::size_t>(common::kInvalidProviderId))
+    {
+        score::mw::log::LogError() << "[ProviderManager] Provider ID space exhausted; cannot register: "
+                                   << providerName;
+        return false;
+    }
+
     // Assign numeric ID: next index in m_provider_by_id
     common::ProviderId numeric_id = static_cast<common::ProviderId>(m_provider_by_id.size());
 

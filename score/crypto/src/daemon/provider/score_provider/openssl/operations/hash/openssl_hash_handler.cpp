@@ -17,50 +17,32 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/hash/openssl_hash_handler.hpp"
 
 #include "score/mw/log/logging.h"
-#include <cassert>
 #include <cstdint>
-#include <cstring>
 
 #include <memory>
-#include <optional>
-#include <sstream>
-#include <thread>
-#include <vector>
 
 namespace score::crypto::daemon::provider::score_provider::openssl::handler
 {
 
 // Using declarations for convenience
 using common::DaemonErrorCode;
-using common::RequestParameters;
 using common::ResponseParameters;
 using common::StreamOperationState;
-using ::score::crypto::daemon::provider::handler::handler_utils::CheckAndGetSpan;
-
-// Static array initialization
-static constexpr const char* SUPPORTED_ALGORITHMS[] = {"SHA256", "SHA384", "SHA512", "SHA224", "SHA1", "MD5"};
 
 bool OpenSslHashHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
 {
-    for (const char* supported : SUPPORTED_ALGORITHMS)
-    {
-        if (algorithm == supported)
-        {
-            return true;
-        }
-    }
-    return false;
+    return ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(algorithm) != nullptr;
 }
 
 OpenSslHashHandler::OpenSslHashHandler(
     std::unique_ptr<::score::crypto::daemon::provider::score_provider::operations::hash::HashExecutor> executor,
-    common::AlgorithmId algorithm)
-    : ScoreHashHandler(std::move(executor), algorithm), mCurrentStreamContext(nullptr)
+    common::AlgorithmId algorithm,
+    const DigestUpdateFunction digestUpdate)
+    : ScoreHashHandler(std::move(executor), algorithm), mCurrentStreamContext(nullptr), mDigestUpdate(digestUpdate)
 {
     // Operation support is defined by the executor
 }
@@ -72,14 +54,8 @@ OpenSslHashHandler::~OpenSslHashHandler()
 
 Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::ValidateAlgorithm(const std::string& algorithm) const
 {
-    for (const char* supported : SUPPORTED_ALGORITHMS)
-    {
-        if (algorithm == supported)
-        {
-            return std::monostate{};
-        }
-    }
-    return make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
+    return GetEVPMD(algorithm) != nullptr ? Expected<std::monostate, DaemonErrorCode>{std::monostate{}}
+                                          : make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
 }
 
 Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::InitializeContext(
@@ -120,13 +96,9 @@ Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::Reset()
     return {};
 }
 
-Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::InitHash(
-    const std::optional<common::RequestParameter> initialDataOrIV)
+Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::InitHash()
 {
-    std::ostringstream tid;
-    tid << std::this_thread::get_id();
-    score::mw::log::LogDebug() << "DEBUG: InitHash called with algorithm:" << m_algorithm << ", thread ID:" << tid.str()
-                               << ", this:" << reinterpret_cast<uintptr_t>(this);
+    score::mw::log::LogDebug() << "[OPENSSL_HASH] Initializing stream for algorithm:" << m_algorithm;
     const EVP_MD* md = GetEVPMD(m_algorithm);
     if (md == nullptr)
     {
@@ -146,28 +118,16 @@ Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::InitHash(
     // Reset the context (OpenSSL-specific)
     if (EVP_DigestInit_ex(mCurrentStreamContext, md, nullptr) != 1)
     {
+        CleanupStreamContext();
+        m_state = StreamOperationState::IDLE;
         return make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
-    }
-
-    // If initial data is provided, process it (OpenSSL-specific)
-    if (initialDataOrIV.has_value())
-    {
-        const auto inputSpan = CheckAndGetSpan<const uint8_t>(initialDataOrIV.value());
-        if (!inputSpan.has_value())
-        {
-            return make_unexpected(inputSpan.error());
-        }
-
-        if (EVP_DigestUpdate(mCurrentStreamContext, inputSpan.value().data(), inputSpan.value().size()) != 1)
-        {
-            return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
-        }
     }
 
     return std::monostate{};
 }
 
-Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::UpdateHash(const common::RequestParameter& dataToHash)
+Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::UpdateHash(
+    const score::cpp::span<const std::uint8_t> dataToHash)
 {
     // Validate stream context exists (OpenSSL-specific)
     if (mCurrentStreamContext == nullptr)
@@ -175,14 +135,12 @@ Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::UpdateHash(const c
         return make_unexpected(DaemonErrorCode::kStreamNotInitialized);
     }
 
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(dataToHash);
-    if (!inputSpan.has_value())
+    const std::uint8_t emptyInput{0U};
+    const auto* inputData = dataToHash.empty() ? &emptyInput : dataToHash.data();
+    if (mDigestUpdate(mCurrentStreamContext, inputData, dataToHash.size()) != 1)
     {
-        return make_unexpected(inputSpan.error());
-    }
-
-    if (EVP_DigestUpdate(mCurrentStreamContext, inputSpan.value().data(), inputSpan.value().size()) != 1)
-    {
+        CleanupStreamContext();
+        m_state = StreamOperationState::IDLE;
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
@@ -190,56 +148,35 @@ Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::UpdateHash(const c
 }
 
 Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::FinalizeHash(
-    common::RequestParameter hashOutput,
-    const std::optional<common::RequestParameter> finalDataToHash)
+    const score::cpp::span<std::uint8_t> hashOutput)
 {
     if (mCurrentStreamContext == nullptr)
     {
         return make_unexpected(DaemonErrorCode::kStreamNotInitialized);
     }
 
-    // Process final data if provided (OpenSSL-specific)
-    if (finalDataToHash.has_value())
-    {
-        const auto inputSpan = CheckAndGetSpan<const uint8_t>(finalDataToHash.value());
-        if (!inputSpan.has_value())
-        {
-            CleanupStreamContext();
-            return make_unexpected(inputSpan.error());
-        }
-
-        if (EVP_DigestUpdate(mCurrentStreamContext, inputSpan.value().data(), inputSpan.value().size()) != 1)
-        {
-            CleanupStreamContext();
-            return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
-        }
-    }
-
     // Get the hash size (OpenSSL-specific)
-    unsigned int digestSize = EVP_MD_CTX_size(mCurrentStreamContext);
-    if (digestSize == 0)
+    const int digestSizeResult = EVP_MD_CTX_size(mCurrentStreamContext);
+    if (digestSizeResult <= 0)
     {
         CleanupStreamContext();
+        m_state = StreamOperationState::IDLE;
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
+    const auto digestSize = static_cast<std::size_t>(digestSizeResult);
 
-    // Extract and validate the caller-provided SHM output buffer
-    const auto outputSpan = CheckAndGetSpan<uint8_t>(hashOutput);
-    if (!outputSpan.has_value())
+    // On an undersized output buffer the digest operation remains active so
+    // the caller can retry Finalize() with a corrected buffer.
+    if (hashOutput.size() < digestSize)
     {
-        CleanupStreamContext();
-        return make_unexpected(outputSpan.error());
-    }
-    if (outputSpan.value().size() < digestSize)
-    {
-        CleanupStreamContext();
         return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
     }
 
     unsigned int digestLen = 0;
-    if (EVP_DigestFinal_ex(mCurrentStreamContext, outputSpan.value().data(), &digestLen) != 1)
+    if (EVP_DigestFinal_ex(mCurrentStreamContext, hashOutput.data(), &digestLen) != 1)
     {
         CleanupStreamContext();
+        m_state = StreamOperationState::IDLE;
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
@@ -252,12 +189,9 @@ Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::Finali
 }
 
 Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::SingleShotHash(
-    const common::RequestParameter& dataToHash,
-    common::RequestParameter outputHash,
-    std::optional<common::RequestParameter> initializationVector)
+    const score::cpp::span<const std::uint8_t> dataToHash,
+    const score::cpp::span<std::uint8_t> outputHash)
 {
-    (void)initializationVector;
-
     if (m_algorithm.empty())
     {
         return make_unexpected(DaemonErrorCode::kInsufficientParameters);
@@ -275,32 +209,23 @@ Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::Single
         return make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
-    unsigned int digestSize = EVP_MD_size(md);
-
-    // Extract input data
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(dataToHash);
-    if (!inputSpan.has_value())
+    const int digestSizeResult = EVP_MD_size(md);
+    if (digestSizeResult <= 0)
     {
-        return make_unexpected(inputSpan.error());
+        return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
+    const auto digestSize = static_cast<std::size_t>(digestSizeResult);
 
-    // Extract and validate the caller-provided SHM output buffer
-    const auto outputSpan = CheckAndGetSpan<uint8_t>(outputHash);
-    if (!outputSpan.has_value())
-    {
-        return make_unexpected(outputSpan.error());
-    }
-
-    if (outputSpan.value().size() < digestSize)
+    if (outputHash.size() < digestSize)
     {
         return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
     }
 
     // Single OpenSSL call: handles context creation, init, update, final, and cleanup internally
     unsigned int digestLen = 0;
-    if (EVP_Digest(
-            inputSpan.value().data(), inputSpan.value().size(), outputSpan.value().data(), &digestLen, md, nullptr) !=
-        1)
+    const std::uint8_t emptyInput{0U};
+    const auto* inputData = dataToHash.empty() ? &emptyInput : dataToHash.data();
+    if (EVP_Digest(inputData, dataToHash.size(), outputHash.data(), &digestLen, md, nullptr) != 1)
     {
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }

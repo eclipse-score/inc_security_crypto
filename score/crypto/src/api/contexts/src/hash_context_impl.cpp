@@ -45,6 +45,17 @@ namespace proto = ::score::crypto::daemon::control_plane::protocol;
 namespace actors = ::score::crypto::daemon::common::actors;
 namespace hash_ops = ::score::crypto::daemon::provider::handler::hash_handler_operations;
 
+namespace
+{
+
+CryptoErrorCode GetResponseError(const proto::ControlResponseValidator& validator,
+                                 const CryptoErrorCode fallback) noexcept
+{
+    return validator.getErrorCode().value_or(fallback);
+}
+
+}  // namespace
+
 HashContextImpl::HashContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                  uint64_t context_id,
                                  AlgorithmId algorithm,
@@ -151,14 +162,9 @@ score::Result<std::monostate> HashContextImpl::Init(std::optional<score::cpp::sp
 
     if (!validator.isValid())
     {
-        // TODO(error-unification phase-4): Extract the specific CryptoErrorCode from the daemon
-        // response (via validator.getErrorCode() or ControlResponseValidator extension) and
-        // return it directly instead of the generic kOperationFailed. This gives callers
-        // actionable error information (e.g. kStreamNotInitialized vs kAlgorithmExecutionFailed)
-        // rather than a single catch-all code. Applies to all Init/Update/Finalize/SingleShot
-        // operations in every context impl (hash, mac, cipher, key_mgmt).
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(GetResponseError(validator, CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
@@ -195,8 +201,9 @@ score::Result<std::monostate> HashContextImpl::Update(score::cpp::span<const uin
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(GetResponseError(validator, CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
@@ -233,8 +240,9 @@ score::Result<std::size_t> HashContextImpl::Finalize(score::cpp::span<uint8_t> o
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(GetResponseError(validator, CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(tspan, validator);
@@ -280,8 +288,9 @@ score::Result<std::size_t> HashContextImpl::SingleShot(score::cpp::span<const ui
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(GetResponseError(validator, CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(output_tspan, validator);
@@ -308,8 +317,9 @@ score::Result<std::monostate> HashContextImpl::Reset()
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(GetResponseError(validator, CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};

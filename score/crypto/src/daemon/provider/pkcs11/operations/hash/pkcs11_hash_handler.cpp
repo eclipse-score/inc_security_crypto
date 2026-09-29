@@ -31,9 +31,6 @@ using common::ResponseParameters;
 using common::StreamOperationState;
 using score::crypto::daemon::common::DaemonErrorCode;
 
-// --- Supported algorithms (same set as OpenSSL HashHandler) ---
-static constexpr const char* kSupportedAlgorithms[] = {"SHA256", "SHA384", "SHA512", "SHA224", "SHA1", "MD5"};
-
 // --- Algorithm → CKM_* mapping ---
 
 CK_MECHANISM_TYPE Pkcs11HashHandler::MapAlgorithm(const std::string_view algorithm) noexcept
@@ -41,11 +38,11 @@ CK_MECHANISM_TYPE Pkcs11HashHandler::MapAlgorithm(const std::string_view algorit
     return detail::LookupHashMechanism(algorithm);
 }
 
-std::uint64_t Pkcs11HashHandler::GetDigestSize() const noexcept
+std::optional<std::uint64_t> Pkcs11HashHandler::GetDigestSize() const noexcept
 {
-    return static_cast<std::uint64_t>(
-        score::crypto::daemon::common::LookupDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()})
-            .value_or(64U));  // safe default (largest supported)
+    const auto size =
+        score::crypto::daemon::common::LookupDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+    return size.has_value() ? std::optional<std::uint64_t>{static_cast<std::uint64_t>(size.value())} : std::nullopt;
 }
 
 // --- Construction / destruction ---
@@ -64,22 +61,32 @@ Pkcs11HashHandler::Pkcs11HashHandler(std::unique_ptr<Pkcs11HashExecutor> executo
     m_ctx.mechanism.mechanism = MapAlgorithm(m_algorithm);
     m_ctx.mechanism.pParameter = nullptr;
     m_ctx.mechanism.ulParameterLen = 0U;
-    m_ctx.digest_size = static_cast<std::size_t>(GetDigestSize());
+    m_ctx.digest_size = static_cast<std::size_t>(GetDigestSize().value_or(0U));
 }
 
 Pkcs11HashHandler::~Pkcs11HashHandler()
 {
+    if (m_ctx.session == CK_INVALID_HANDLE)
+    {
+        return;
+    }
+
     // Abort any active PKCS#11 operation before returning the session to the pool.
     // This ensures the session is in IDLE state when released for reuse by the next handler.
     // If streaming was not completed (e.g. early destruction), C_DigestFinal is called
     // with a dummy buffer to cleanly abort the operation state.
-    m_executor->Abort(m_ctx.session);
+    const auto cleanupResult = m_executor->Abort(m_ctx.session);
 
     // Return the dedicated session to the provider pool.
     // Guard against nullptr provider (e.g. unit tests that mock without a provider).
-    if ((m_provider != nullptr) && (m_ctx.session != CK_INVALID_HANDLE))
+    if (m_provider != nullptr)
     {
-        m_provider->ReleaseSession(m_ctx.session, kRequirements);
+        // A failed abort leaves the token operation state unspecified. Never
+        // return such a session to a soft-cleanup pool; closing it guarantees
+        // that the next handler receives a fresh PKCS#11 session.
+        const auto disposition =
+            cleanupResult.has_value() ? Pkcs11SessionDisposition::kReusable : Pkcs11SessionDisposition::kDiscard;
+        m_provider->ReleaseSession(m_ctx.session, kRequirements, disposition);
         m_ctx.session = CK_INVALID_HANDLE;
     }
 }
@@ -88,14 +95,9 @@ Pkcs11HashHandler::~Pkcs11HashHandler()
 
 bool Pkcs11HashHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
 {
-    for (const char* supported : kSupportedAlgorithms)
-    {
-        if (algorithm == supported)
-        {
-            return true;
-        }
-    }
-    return false;
+    const std::string_view algorithmView{algorithm.data(), algorithm.size()};
+    return score::crypto::daemon::common::LookupDigestSize(algorithmView).has_value() &&
+           (MapAlgorithm(algorithmView) != CK_UNAVAILABLE_INFORMATION);
 }
 
 // --- Handler interface: InitializeContext ---
@@ -104,24 +106,17 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
     const handler::InitializationParams& /*init_params*/)
 {
     // Validate algorithm (m_algorithm is set at construction).
-    bool found{false};
-    for (const char* supported : kSupportedAlgorithms)
-    {
-        if (m_algorithm == supported)
-        {
-            found = true;
-            break;
-        }
-    }
-    if (!found)
+    const auto digestSize = GetDigestSize();
+    const auto mechanism = MapAlgorithm(m_algorithm);
+    if (!digestSize.has_value() || (mechanism == CK_UNAVAILABLE_INFORMATION))
     {
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
-    m_ctx.mechanism.mechanism = MapAlgorithm(m_algorithm);
+    m_ctx.mechanism.mechanism = mechanism;
     m_ctx.mechanism.pParameter = nullptr;
     m_ctx.mechanism.ulParameterLen = 0U;
-    m_ctx.digest_size = static_cast<std::size_t>(GetDigestSize());
+    m_ctx.digest_size = static_cast<std::size_t>(digestSize.value());
     m_state = StreamOperationState::IDLE;
 
     return std::monostate{};
@@ -144,29 +139,31 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     // Handle GET_DIGEST_SIZE locally — no PKCS#11 call needed.
     if (operationId.operationAction == ops::HASH_GET_DIGEST_SIZE)
     {
+        if (!request.empty())
+        {
+            return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+        }
+        const auto digestSize = GetDigestSize();
+        if (!digestSize.has_value())
+        {
+            return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+        }
         ResponseParameters response;
-        response.push_back(GetDigestSize());
+        response.push_back(digestSize.value());
         return response;
-    }
-
-    if (operationId.operationAction == ops::HASH_SS && request.size() < 2U)
-    {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
-    }
-    if (operationId.operationAction == ops::HASH_FINALIZE && request.empty())
-    {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
     StreamOperationState nextState{m_state};
     const auto response = m_executor->Execute(m_ctx, operationId.operationAction, request, m_state, nextState);
 
+    // The executor may complete cleanup after a provider failure. Apply the
+    // resulting state even when the requested operation itself failed.
+    m_state = nextState;
+
     if (!response.has_value())
     {
         return response;
     }
-
-    m_state = nextState;
 
     return response.value();
 }
@@ -177,9 +174,10 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
 {
     // Delegate the abort to the executor so that all PKCS#11 dispatch is
     // centralised there and goes through the function list, not direct C-linkage.
-    if (m_state != StreamOperationState::IDLE)
+    const auto abortResult = m_executor->Abort(m_ctx.session);
+    if (!abortResult.has_value())
     {
-        m_executor->Abort(m_ctx.session);
+        return make_unexpected(abortResult.error());
     }
 
     m_state = StreamOperationState::IDLE;

@@ -268,7 +268,7 @@ void SessionGuard::Close() noexcept
 // Pkcs11Module
 // ============================================================================
 
-Pkcs11Module::Pkcs11Module() noexcept : m_functionList{nullptr}, m_moduleGuard{}, m_capabilities{} {}
+Pkcs11Module::Pkcs11Module() noexcept : m_functionList{nullptr}, m_moduleGuard{} {}
 
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11Module::Init(
     CK_C_INITIALIZE_ARGS* initArgs) noexcept
@@ -292,19 +292,6 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
         return initResult;
     }
 
-    // Query library info for version and capabilities
-    CK_INFO info{};
-    const CK_RV infoRv = m_functionList->C_GetInfo(&info);
-    if (infoRv == CKR_OK)
-    {
-        m_capabilities.versionMajor = info.cryptokiVersion.major;
-        m_capabilities.versionMinor = info.cryptokiVersion.minor;
-
-        // PKCS#11 v3.0+ supports C_MessageDigest* APIs
-        constexpr std::uint8_t kPkcs11V3Major{3U};
-        m_capabilities.supportsMessageDigest = (m_capabilities.versionMajor >= kPkcs11V3Major);
-    }
-
     return std::monostate{};
 }
 
@@ -316,11 +303,6 @@ CK_FUNCTION_LIST* Pkcs11Module::GetFunctionList() const noexcept
 bool Pkcs11Module::IsInitialized() const noexcept
 {
     return m_functionList != nullptr;
-}
-
-const Pkcs11Capabilities& Pkcs11Module::GetCapabilities() const noexcept
-{
-    return m_capabilities;
 }
 
 score::crypto::daemon::common::DaemonErrorCode Pkcs11Module::MapErrorReturn(const CK_RV rv) noexcept

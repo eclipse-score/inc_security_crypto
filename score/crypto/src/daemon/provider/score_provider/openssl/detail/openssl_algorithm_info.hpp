@@ -14,6 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_OPENSSL_ALGORITHM_INFO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_OPENSSL_ALGORITHM_INFO_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
+
 #include <openssl/evp.h>
 
 #include <cstddef>
@@ -22,33 +24,30 @@
 namespace score::crypto::daemon::provider::openssl::detail
 {
 
-/// @brief Algorithm → OpenSSL EVP_MD mapping entry.
-struct OpensslDigestInfo
-{
-    std::string_view name;
-    const EVP_MD* (*evp_md_fn)();  ///< Function pointer returning the EVP_MD (avoids static init order)
-};
-
-/// @brief Static table of supported hash algorithms and their OpenSSL EVP_MD providers.
-inline const OpensslDigestInfo kDigestAlgorithms[] = {
-    {"SHA256", EVP_sha256},
-    {"SHA384", EVP_sha384},
-    {"SHA512", EVP_sha512},
-    {"SHA224", EVP_sha224},
-    {"SHA1", EVP_sha1},
-    {"MD5", EVP_md5},
-};
-
 /// @brief Look up the EVP_MD for a hash algorithm name.
 /// @return EVP_MD pointer, or nullptr if the algorithm is not supported.
 [[nodiscard]] inline const EVP_MD* LookupHashEVPMD(std::string_view algorithm) noexcept
 {
-    for (const auto& entry : kDigestAlgorithms)
+    const auto info = common::LookupHashAlgorithmInfo(algorithm);
+    if (!info.has_value())
     {
-        if (entry.name == algorithm)
-        {
-            return entry.evp_md_fn();
-        }
+        return nullptr;
+    }
+
+    switch (info->algorithm)
+    {
+        case common::HashAlgorithm::kSha256:
+            return EVP_sha256();
+        case common::HashAlgorithm::kSha384:
+            return EVP_sha384();
+        case common::HashAlgorithm::kSha512:
+            return EVP_sha512();
+        case common::HashAlgorithm::kSha224:
+            return EVP_sha224();
+        case common::HashAlgorithm::kSha1:
+            return EVP_sha1();
+        case common::HashAlgorithm::kMd5:
+            return EVP_md5();
     }
     return nullptr;
 }

@@ -66,6 +66,129 @@ integer constants (``HASH_INIT``, ``HASH_UPDATE``, ``HASH_FINALIZE``,
 Both provider families include these headers directly — the constants are not
 specific to any algorithm family or provider.
 
+Hash Algorithm Contract
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Hash algorithm identifiers are case-sensitive wire-level values. The standard
+algorithm name and the identifier passed to ``HashContextConfig`` are distinct:
+
+.. list-table:: Hash algorithms prepared for Baselibs migration
+   :header-rows: 1
+
+   * - Standard name
+     - Canonical API identifier
+     - Digest size
+     - OpenSSL mapping
+     - PKCS#11 mapping
+   * - SHA-256
+     - ``SHA256``
+     - 32 bytes
+     - ``EVP_sha256``
+     - ``CKM_SHA256``
+   * - SHA-384
+     - ``SHA384``
+     - 48 bytes
+     - ``EVP_sha384``
+     - ``CKM_SHA384``
+   * - SHA-512
+     - ``SHA512``
+     - 64 bytes
+     - ``EVP_sha512``
+     - ``CKM_SHA512``
+
+OpenSSL support is determined from the provider's EVP mapping. PKCS#11 support
+requires both a daemon mapping and a token that implements the corresponding
+mechanism. A configured hardware provider therefore may reject an algorithm
+that the software provider supports; the daemon must return an explicit error
+rather than silently select another algorithm or digest size.
+
+For PKCS#11, ``Pkcs11HandlerFactory`` resolves the canonical identifier to a
+``CK_MECHANISM_TYPE`` and calls ``C_GetMechanismInfo`` for the provider's
+selected slot before acquiring a session or constructing the hash handler. A
+mechanism is accepted for hashing only when its returned flags include
+``CKF_DIGEST``; merely being listed by the token is not sufficient.
+``CKR_MECHANISM_INVALID`` is reported to the client as
+``CryptoErrorCode::kUnsupportedAlgorithm``; other PKCS#11 query failures are
+translated through the daemon error mapping.
+
+Both streaming and single-shot operations accept empty input. A streaming
+caller may invoke ``Init()`` followed directly by ``Finalize()`` without an
+intermediate ``Update()``; the result is the standard digest of the empty byte
+sequence.
+
+SHA-224, SHA-1, and MD5 remain available for compatibility with existing
+callers but are not approved targets for new Baselibs migrations. SHA-3, SHAKE,
+CRC32, and CRC32 AUTOSAR are outside the current hash provider contract.
+
+Baselibs Migration Boundary
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The algorithm mapping for consumers moving from ``score/hash`` is:
+
+.. list-table:: Baselibs to Crypto hash mapping
+   :header-rows: 1
+
+   * - Baselibs value
+     - Crypto identifier
+     - Crypto usage
+   * - ``HashAlgorithm::kSha256``
+     - ``SHA256``
+     - ``IHashContext`` streaming or single-shot
+   * - ``HashAlgorithm::kSha384``
+     - ``SHA384``
+     - ``IHashContext`` streaming or single-shot
+   * - ``HashAlgorithm::kSha512``
+     - ``SHA512``
+     - ``IHashContext`` streaming or single-shot
+
+The Crypto API returns raw digest bytes into a caller-owned buffer. Baselibs
+``Hash``, ``TypedHash``, hexadecimal conversion, and ``std::istream`` helpers are
+not reproduced here. A migrating consumer reads stream chunks and calls
+``Update()`` itself, and owns any representation adapter it still requires.
+
+.. list-table:: Baselibs API migration guide
+   :header-rows: 1
+
+   * - Baselibs API
+     - Crypto API
+     - Migration note
+   * - ``HashCalculatorFactory::CreateHashCalculator(algorithm)``
+     - ``ICryptoContext::CreateHashContext(config)``
+     - Put the canonical string identifier in ``HashContextConfig`` and handle
+       context-creation errors.
+   * - ``IHashCalculator::Update(data)``
+     - ``IHashContext::Init()`` followed by ``Update(data)``
+     - ``Init`` is explicit and ``Update`` may be called zero or more times.
+   * - ``IHashCalculator::Finalize()``
+     - ``IHashContext::Finalize(output)``
+     - Allocate caller-owned output using ``GetDigestSize`` and consume only
+       the returned byte count.
+   * - ``IHashCalculatorFactory::CalculateHash(algorithm, data)``
+     - ``IHashContext::SingleShot(input, output)``
+     - Context creation is separate from execution, which permits reuse.
+   * - ``CalculateHash(algorithm, std::istream&)`` and
+       ``UpdateFromStream(std::istream&)``
+     - Caller-managed read loop plus ``Update``
+     - Stream ownership, chunk sizing, read errors, and maximum-read behavior
+       remain the consumer's responsibility.
+   * - ``Hash`` / ``TypedHash`` result objects
+     - Raw digest in caller-owned ``span<uint8_t>``
+     - Preserve any algorithm tag, fixed-size wrapper, equality policy, or
+       serialization in a consumer-side adapter.
+   * - Baselibs hexadecimal helpers
+     - Consumer-owned encoding adapter
+     - Do not hex-encode bytes before passing them to the hash operation.
+
+An undersized ``Finalize`` output is retryable: the caller may supply a larger
+buffer and call ``Finalize`` again without replaying the input. Other provider or
+transport errors must be handled according to their returned error code; callers
+must not assume that every failure preserves a streaming operation.
+
+This mapping does not include CRC variants or the Baselibs native safety SHA-256
+implementation. The client, IPC/shared-memory transport, daemon, and provider
+path described here is QM functionality and is not an ISO 26262-qualified
+replacement unless the complete deployed path is independently qualified.
+
 Provider Configuration
 ~~~~~~~~~~~~~~~~~~~~~~
 

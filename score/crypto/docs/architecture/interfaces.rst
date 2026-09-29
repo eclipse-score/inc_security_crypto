@@ -350,7 +350,10 @@ The public API surface is organized into the following interface groups:
    exposes ``Init()``, ``Update()``, ``Reset()``, and ``Finalize()``
    from the base classes via ``using``-declarations plus ``SingleShot()``
    and ``GetDigestSize()``. ``GetOutputSize()`` is intentionally not
-   exposed — use ``GetDigestSize()`` instead.
+   exposed — use ``GetDigestSize()`` instead. New integrations use the
+   case-sensitive identifiers ``SHA256``, ``SHA384``, and ``SHA512``;
+   provider and token mechanism availability is checked at context creation
+   or operation execution.
 
 .. real_arc_int:: IMacContext
    :id: real_arc_int__crypto__i_mac_context

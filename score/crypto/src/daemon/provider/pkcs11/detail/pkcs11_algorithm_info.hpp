@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 
 #include <pkcs11.h>
@@ -80,30 +81,29 @@ inline constexpr Pkcs11AlgoEntry kAlgoEntries[] = {
 // Hash algorithm → CK_MECHANISM_TYPE
 // ---------------------------------------------------------------------------
 
-struct Pkcs11HashMechanism
-{
-    std::string_view name;
-    CK_MECHANISM_TYPE mechanism;
-};
-
-inline constexpr Pkcs11HashMechanism kHashMechanisms[] = {
-    {"SHA256", CKM_SHA256},
-    {"SHA384", CKM_SHA384},
-    {"SHA512", CKM_SHA512},
-    {"SHA224", CKM_SHA224},
-    {"SHA1", CKM_SHA_1},
-    {"MD5", CKM_MD5},
-};
-
 /// @brief Look up the PKCS#11 mechanism type for a hash algorithm.
 [[nodiscard]] inline CK_MECHANISM_TYPE LookupHashMechanism(std::string_view algorithm) noexcept
 {
-    for (const auto& entry : kHashMechanisms)
+    const auto info = common::LookupHashAlgorithmInfo(algorithm);
+    if (!info.has_value())
     {
-        if (entry.name == algorithm)
-        {
-            return entry.mechanism;
-        }
+        return CK_UNAVAILABLE_INFORMATION;
+    }
+
+    switch (info->algorithm)
+    {
+        case common::HashAlgorithm::kSha256:
+            return CKM_SHA256;
+        case common::HashAlgorithm::kSha384:
+            return CKM_SHA384;
+        case common::HashAlgorithm::kSha512:
+            return CKM_SHA512;
+        case common::HashAlgorithm::kSha224:
+            return CKM_SHA224;
+        case common::HashAlgorithm::kSha1:
+            return CKM_SHA_1;
+        case common::HashAlgorithm::kMd5:
+            return CKM_MD5;
     }
     return CK_UNAVAILABLE_INFORMATION;
 }
