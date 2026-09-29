@@ -109,6 +109,8 @@ class ICertificateVerificationContext : public IContext
     /// The default is ChainTerminationPolicy::kRootRequired. With
     /// kTrustStoreTerminated, verification stops at the first certificate in
     /// the effective trust-anchor set, including explicit trusted certificates.
+    /// @param policy Rule for where the verified chain may terminate.
+    /// @return std::monostate on success, or an error if the policy cannot be applied.
     virtual score::Result<std::monostate> SetChainTerminationPolicy(ChainTerminationPolicy policy) = 0;
 
     /// @brief Supplies additional untrusted certificates for chain building.
@@ -161,14 +163,31 @@ class ICertificateVerificationContext : public IContext
     /// @note Overrides the default policy set in the config.
     virtual score::Result<std::monostate> SetRevocationCheckPolicy(RevocationCheckPolicy policy) = 0;
 
-    /// @brief Selects which evidence is retained after verification.
-    /// @note The default is kNone. Configure before Verify().
+    /// @brief Sets the evidence-coverage behavior for subsequent verification attempts.
+    /// @param policy Fail closed when required fresh evidence is unavailable, or continue best-effort.
+    /// @return std::monostate on success.
+    /// @note Defaults to the policy in CertificateVerificationContextConfig, which is kFailClosed.
+    virtual score::Result<std::monostate> SetRevocationCoveragePolicy(RevocationCoveragePolicy policy) = 0;
+
+    /// @brief Selects which evidence is retained for the verification attempt.
+    /// @note The default is kNone. Configure before Verify(). With kChainAndCrl,
+    ///       selected CRL metadata can be queried after either a valid or failed
+    ///       verification result.
+    /// @param mode Evidence to retain for this verification attempt.
+    /// @return std::monostate on success, or an error if the mode is unsupported.
     virtual score::Result<std::monostate> SetEvidenceMode(VerificationEvidenceMode mode) = 0;
 
     // ---- Execution ----
 
     /// @brief Executes the configured certificate verification.
-    /// @return Verification result indicating validity or failure reason
+    ///
+    /// A completed verification returns a `CertVerifyResult`, including for
+    /// negative outcomes such as expiration, revocation, or an untrusted chain.
+    /// Only `CertVerifyResult::kValid` means the certificate passed the checks
+    /// that ran. If verification cannot be performed or completed, this returns
+    /// an error result carrying a `CryptoErrorCode` instead of an outcome value.
+    /// @return Verification outcome when evaluation completes, or a `CryptoErrorCode`
+    ///         if verification cannot be performed or completed.
     /// @note At minimum, a certificate (or chain) and trust anchor must be set.
     virtual score::Result<CertVerifyResult> Verify() = 0;
 
@@ -180,23 +199,47 @@ class ICertificateVerificationContext : public IContext
     ///
     /// Certificates are ordered leaf-first. PEM output is a concatenated PEM
     /// chain; DER output is concatenated DER certificates in the same order.
+    /// @param format Encoding to use for the exported chain.
+    /// @return Required output-buffer size in bytes, or an error if no verified
+    ///         chain is available.
     virtual score::Result<std::size_t> GetVerifiedChainExportSize(FormatType format) const = 0;
 
     /// @brief Exports the verified chain in leaf-first order.
+    /// @param format Encoding to use for the exported chain.
+    /// @param out Caller-provided buffer; size it using GetVerifiedChainExportSize().
+    /// @return Number of bytes written, or an error if the buffer is too small
+    ///         or no verified chain is available.
     virtual score::Result<std::size_t> ExportVerifiedChain(FormatType format, score::cpp::span<uint8_t> out) const = 0;
 
     /// @brief Returns the encoded size of one certificate in the verified chain.
+    /// @param index Zero-based index in the leaf-first verified chain.
+    /// @param format Encoding to use for the certificate.
+    /// @return Required output-buffer size in bytes, or an error if the index is
+    ///         invalid or no verified chain is available.
     virtual score::Result<std::size_t> GetVerifiedCertificateExportSize(std::size_t index, FormatType format) const = 0;
 
     /// @brief Exports one certificate from the verified chain.
+    /// @param index Zero-based index in the leaf-first verified chain.
+    /// @param format Encoding to use for the certificate.
+    /// @param out Caller-provided buffer; size it using GetVerifiedCertificateExportSize().
+    /// @return Number of bytes written, or an error if the index is invalid,
+    ///         the buffer is too small, or no verified chain is available.
     virtual score::Result<std::size_t> ExportVerifiedCertificate(std::size_t index,
                                                                  FormatType format,
                                                                  score::cpp::span<uint8_t> out) const = 0;
 
-    /// @brief Returns the number of retained CRL evidence entries.
+    /// @brief Returns the number of CRLs selected during the verification attempt.
+    /// @note Requires kChainAndCrl evidence mode. The count is available after
+    ///       Verify() returns a verification result, whether valid or failed.
+    /// @return Number of retained CRL metadata entries, or an error if the evidence is unavailable.
     virtual score::Result<std::size_t> GetSelectedCrlMetadataCount() const = 0;
 
-    /// @brief Fills caller-provided storage with selected CRL metadata.
+    /// @brief Fills caller-provided storage with metadata for selected CRLs.
+    /// @note Requires kChainAndCrl evidence mode. Missing metadata for an issuer
+    ///       means no CRL was selected for it; it does not establish non-revocation.
+    /// @param out Caller-provided storage for selected CRL metadata; query
+    ///        GetSelectedCrlMetadataCount() to determine the required size.
+    /// @return Number of entries written, or an error if the evidence is unavailable.
     virtual score::Result<std::size_t> GetSelectedCrlMetadata(score::cpp::span<CrlMetadata> out) const = 0;
 
   protected:

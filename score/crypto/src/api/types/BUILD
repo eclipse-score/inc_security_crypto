@@ -16,7 +16,6 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 cc_library(
     name = "common_types",
     hdrs = ["common.hpp"],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = ["//score/crypto/src/api/common:crypto_common_base"],
 )
@@ -24,7 +23,6 @@ cc_library(
 cc_library(
     name = "certificate_types",
     hdrs = ["certificate.hpp"],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = [":common_types"],
 )
@@ -32,7 +30,6 @@ cc_library(
 cc_library(
     name = "key_types",
     hdrs = ["key.hpp"],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = [":common_types"],
 )
@@ -40,7 +37,6 @@ cc_library(
 cc_library(
     name = "types",
     hdrs = ["common.hpp", "certificate.hpp", "key.hpp"],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = [":certificate_types", ":key_types"],
 )

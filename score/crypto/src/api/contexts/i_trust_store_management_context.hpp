@@ -41,6 +41,14 @@ namespace crypto
 /// remain on `ICertificateManagementContext`. Read-only trust-store
 /// inspection remains on `ITrustStoreObject`, obtained via
 /// `ICryptoContext::GetTrustStoreObject()`.
+///
+/// Slot parameters may be any live `kCertSlot` `CryptoResourceId` resolved for
+/// the caller. `MemberInfo::slot_id` is a convenient way to obtain a member's
+/// handle, but is not required; the daemon verifies membership in the named
+/// trust store and enforces each operation's member-kind restrictions.
+/// Membership and enablement are persistent, trust-store-wide state. Mutations
+/// affect verification by every client using the same trust store; they are not
+/// scoped to the context or client that performs the call.
 class ITrustStoreManagementContext : public IContext
 {
   public:
@@ -98,10 +106,18 @@ class ITrustStoreManagementContext : public IContext
 
     /// @brief Enables a disabled trust store member identified by its slot resource.
     ///
-    /// Use the slot_id from MemberInfo to obtain the slot handle.
+    /// For a `kConditionalExternal` member, enabling does not acknowledge new
+    /// content or change its accepted fingerprint. The current certificate must
+    /// match an existing accepted fingerprint; otherwise this returns
+    /// `CryptoErrorCode::kInvalidOperation` without enabling the member. Use
+    /// AcknowledgeTrustStoreMemberUpdate to accept changed content.
+    ///
+    /// If using an `ITrustStoreObject` snapshot to find the member, pass its `slot_id`.
     ///
     /// @param trust_store Handle to the trust store (type = kCertificateTrustStore)
     /// @param slot        Handle to the member slot (type = kCertSlot)
+    /// @return std::monostate on success; an error if the caller lacks write
+    ///         access, the slot is not a member, or conditional content is unaccepted.
     virtual score::Result<std::monostate> EnableTrustStoreMember(const CryptoResourceId& trust_store,
                                                                  const CryptoResourceId& slot) = 0;
 
@@ -110,7 +126,7 @@ class ITrustStoreManagementContext : public IContext
     /// A disabled member is excluded from anchor resolution; it remains in the store
     /// and can be re-enabled. Use RemoveCertificateFromTrustStore to permanently remove.
     ///
-    /// Use the slot_id from MemberInfo to obtain the slot handle.
+    /// If using an `ITrustStoreObject` snapshot to find the member, pass its `slot_id`.
     ///
     /// @param trust_store Handle to the trust store (type = kCertificateTrustStore)
     /// @param slot        Handle to the member slot (type = kCertSlot)
@@ -121,17 +137,32 @@ class ITrustStoreManagementContext : public IContext
     ///
     /// A kConditionalExternal member is automatically disabled when its slot content
     /// changes without acknowledgement (see MemberInfo state). This
-    /// re-baselines the accepted fingerprint to the slot's current content and
-    /// re-enables the member. Not equivalent to EnableTrustStoreMember: enabling alone
-    /// does not update the accepted fingerprint, so the member would be disabled again
-    /// on the next anchor reload if the content is still unacknowledged.
+    /// re-baselines the accepted fingerprint and re-enables the member only if the
+    /// slot still contains the certificate version the caller inspected. The expected
+    /// fingerprint should be the certificate-content fingerprint shown in
+    /// `MemberInfo::sha256_fingerprint` for the version the caller inspected. That is
+    /// distinct from the trust store's persisted accepted fingerprint. Not equivalent
+    /// to EnableTrustStoreMember: enabling alone does not update the accepted
+    /// fingerprint, so the member would be disabled again on the next anchor reload if
+    /// the content is still unacknowledged.
     ///
-    /// Use the slot_id from MemberInfo to obtain the slot handle.
+    /// If using an `ITrustStoreObject` snapshot to find the member, pass its `slot_id`.
+    /// The daemon compares @p expected_sha256_fingerprint with the currently loaded
+    /// certificate before changing the accepted fingerprint or enablement state.
+    /// A mismatch returns `CryptoErrorCode::kInvalidOperation` without acknowledging
+    /// the new content. This check detects changes since the caller's snapshot; it does
+    /// not lock out an external writer after the daemon performs the comparison.
     ///
     /// @param trust_store Handle to the trust store (type = kCertificateTrustStore)
     /// @param slot        Handle to the conditional-external member slot (type = kCertSlot)
-    virtual score::Result<std::monostate> AcknowledgeTrustStoreMemberUpdate(const CryptoResourceId& trust_store,
-                                                                            const CryptoResourceId& slot) = 0;
+    /// @param expected_sha256_fingerprint 32-byte SHA-256 fingerprint of the certificate
+    ///        version the caller inspected.
+    /// @return std::monostate on a matching fingerprint; error if the fingerprint is
+    ///         malformed, stale, or the member cannot be acknowledged.
+    virtual score::Result<std::monostate> AcknowledgeTrustStoreMemberUpdate(
+        const CryptoResourceId& trust_store,
+        const CryptoResourceId& slot,
+        score::cpp::span<const uint8_t> expected_sha256_fingerprint) = 0;
 
     /// @brief Imports a CRL for a trust store exclusive member identified by its slot resource.
     ///
@@ -139,7 +170,7 @@ class ITrustStoreManagementContext : public IContext
     /// For shared-static or conditional-external members, use
     /// `ICertificateManagementContext::ImportCrlToSlot` directly on the slot.
     ///
-    /// Use the slot_id from MemberInfo to obtain the slot handle.
+    /// If using an `ITrustStoreObject` snapshot to find the member, pass its `slot_id`.
     ///
     /// @param trust_store Handle to the trust store (type = kCertificateTrustStore)
     /// @param slot        Handle to the exclusive member slot (type = kCertSlot)

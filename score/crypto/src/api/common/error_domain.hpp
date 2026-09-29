@@ -53,10 +53,10 @@ enum class CryptoErrorCode : score::result::ErrorCode
     kOperationTimedOut = 0x01020004,     ///< Operation exceeded configured timeout deadline
 
     // ---- Parameter / validation errors (0x01030000) ----
-    kInvalidArgument = 0x01030001,         ///< Invalid argument provided
-    kResourceNotFound = 0x01030002,        ///< Requested resource not found
-    kInvalidResourceId = 0x01030003,       ///< Resource ID does not resolve to a valid resource
-    kInvalidResourceType = 0x01030004,     ///< Resource type mismatch
+    kInvalidArgument = 0x01030001,      ///< Invalid argument provided
+    kResourceNotFound = 0x01030002,     ///< Well-formed resource ID refers to no live resource
+    kInvalidResourceId = 0x01030003,    ///< Resource ID is malformed or cannot be resolved by the requested operation
+    kInvalidResourceType = 0x01030004,  ///< Resource type mismatch
     kInsufficientBufferSize = 0x01030005,  ///< Output buffer too small
     kInvalidFormat = 0x01030006,           ///< Data format not recognized (DER/PEM)
     kParamTruncated = 0x01030007,          ///< Input parameter exceeded fixed-capacity storage and was
@@ -99,14 +99,8 @@ enum class CryptoErrorCode : score::result::ErrorCode
 
     // ---- Certificate errors (0x01090000) ----
     kCertificateParsingFailed = 0x01090001,  ///< Certificate data could not be parsed
-    kCertificateExpired = 0x01090002,        ///< Certificate has expired
-    kCertificateRevoked = 0x01090003,        ///< Certificate has been revoked
-    kCertificateVerifyFailed = 0x01090004,   ///< Certificate verification failed
-    kCertChainVerifyFailed = 0x01090005,     ///< Certificate chain verification failed
-    kCrlImportFailed = 0x01090006,           ///< CRL import failed
-    kCsrGenerationFailed = 0x01090007,       ///< CSR generation failed
-    kOcspError = 0x01090008,                 ///< OCSP request/response error
-    kTrustAnchorNotFound = 0x01090009,       ///< Trust anchor resource not found or empty
+    kCsrGenerationFailed = 0x01090002,       ///< CSR generation failed
+    kOcspError = 0x01090003,                 ///< OCSP request/response error
 
     // ---- Provider errors (0x010A0000) ----
     kProviderNotAvailable = 0x010A0001,       ///< Requested provider is not available

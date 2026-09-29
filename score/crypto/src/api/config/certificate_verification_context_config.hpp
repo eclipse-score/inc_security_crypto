@@ -35,11 +35,14 @@ namespace crypto
 /// An optional default RevocationCheckPolicy can be set at config time;
 /// it can be overridden per-verification via SetRevocationCheckPolicy()
 /// on the context itself.
+/// Revocation coverage defaults to fail-closed and can be overridden per
+/// verification via SetRevocationCoveragePolicy() on the context.
 ///
 /// @par Example
 /// @code
 ///   CertificateVerificationContextConfig config;
 ///   config.SetRevocationPolicy(RevocationCheckPolicy::kOcspWithCrlFallback);
+///   config.SetRevocationCoveragePolicy(RevocationCoveragePolicy::kBestEffort);
 ///   auto ctx = crypto_context->CreateCertificateVerificationContext(config);
 ///   ctx->SetCertificate(cert);
 ///   ctx->SetVerificationTrustStore(trust_anchor);
@@ -49,6 +52,8 @@ struct CertificateVerificationContextConfig : public BaseContextConfig
 {
     /// @brief Default revocation check policy for verifications using this context.
     std::optional<RevocationCheckPolicy> revocation_policy{std::nullopt};
+    /// @brief Coverage behavior when selected revocation evidence is missing or stale.
+    RevocationCoveragePolicy revocation_coverage_policy{RevocationCoveragePolicy::kFailClosed};
 
     // -- Fluent builder --
 
@@ -67,6 +72,12 @@ struct CertificateVerificationContextConfig : public BaseContextConfig
     CertificateVerificationContextConfig& SetRevocationPolicy(RevocationCheckPolicy policy) noexcept
     {
         revocation_policy = policy;
+        return *this;
+    }
+
+    CertificateVerificationContextConfig& SetRevocationCoveragePolicy(RevocationCoveragePolicy policy) noexcept
+    {
+        revocation_coverage_policy = policy;
         return *this;
     }
 

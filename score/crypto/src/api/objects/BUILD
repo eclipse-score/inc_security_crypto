@@ -23,7 +23,6 @@ cc_library(
         "i_public_key_object.hpp",
         "i_symmetric_key_object.hpp",
     ],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
@@ -40,7 +39,6 @@ cc_library(
         "i_certificate_object.hpp",
         "i_trust_store_object.hpp",
     ],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
         ":crypto_objects",

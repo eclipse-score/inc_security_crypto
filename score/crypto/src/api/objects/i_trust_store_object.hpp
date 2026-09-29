@@ -52,7 +52,11 @@ class ITrustStoreObject : public ICryptoObject
     /// @brief Returns the point-in-time snapshot of all occupied trust store members.
     ///
     /// Each entry corresponds to a certificate slot that currently holds a certificate.
-    /// Empty slots (not yet populated) are omitted.
+    /// Empty slots (not yet populated) are omitted. This snapshot is optional for
+    /// management calls when the caller already has a live `kCertSlot` handle.
+    /// Occupied disabled members are included. Their `sha256_fingerprint` identifies
+    /// the certificate content represented by the snapshot; it is not the trust
+    /// store's persisted accepted fingerprint for conditional-external members.
     virtual const std::vector<MemberInfo>& GetMembers() const noexcept = 0;
 
     // ---- Convenience accessors (defined in terms of GetMembers()) ----

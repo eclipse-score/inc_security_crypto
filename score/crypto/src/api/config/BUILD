@@ -23,7 +23,6 @@ cc_library(
         "mac_context_config.hpp",
         "permission_builder.hpp",
     ],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
@@ -38,7 +37,6 @@ cc_library(
         "certificate_verification_context_config.hpp",
         "trust_store_management_context_config.hpp",
     ],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
         ":context_configs",

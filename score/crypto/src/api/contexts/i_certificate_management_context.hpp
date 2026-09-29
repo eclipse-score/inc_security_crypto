@@ -97,18 +97,38 @@ class ICertificateManagementContext : public IContext
 
     // ---- Persistence ----
 
-    /// @brief Copies an ephemeral certificate to a persistent certificate slot.
+    /// @brief Stores a certificate in a persistent slot, replacing any existing certificate there.
     ///
-    /// Copy semantics: the source guard continues to own the ephemeral
-    /// certificate after this call.
+    /// The source may be an ephemeral `kCertificate` resource or a persistent
+    /// `kCertSlot` resource. Saving does not consume the source resource.
     ///
-    /// Typical usage: parse → inspect fields → save to slot.
+    /// Typical usage: parse or load a certificate, inspect it, then save it to a slot.
     ///
-    /// @param cert        CryptoResourceId of the certificate to save (type = kCertificate or kCertSlot)
-    /// @param target_slot Handle to the target slot (type = kCertSlot)
-    /// @return std::monostate on success, error if slot is occupied or access is denied
+    /// @param cert Source certificate handle (type = kCertificate or kCertSlot).
+    /// @param target_slot Target persistent certificate slot (type = kCertSlot).
+    /// @return std::monostate on success; an error if a handle cannot be resolved,
+    ///         access is denied, or storing the certificate fails.
     virtual score::Result<std::monostate> SaveCertificate(const CryptoResourceId& cert,
                                                           const CryptoResourceId& target_slot) = 0;
+
+    /// @brief Stores a certificate in a persistent slot and propagates its associated CRL, if present.
+    ///
+    /// An existing certificate in the target slot is replaced. The daemon uses
+    /// the session-scoped CRL associated with the source certificate when present;
+    /// otherwise it uses the persistent CRL associated with the source slot, if any.
+    /// If no associated CRL is available, the certificate is saved without a CRL.
+    ///
+    /// No CRL re-validation occurs — the daemon reuses the CRL it already accepted.
+    /// Propagating that CRL is a slot persistence operation, not a CRL import.
+    /// This operation is not atomic: the certificate may already have been stored
+    /// if propagating its CRL subsequently fails.
+    ///
+    /// @param cert Source certificate handle (type = kCertificate or kCertSlot).
+    /// @param target_slot Target persistent certificate slot (type = kCertSlot).
+    /// @return std::monostate on success; an error if a handle cannot be resolved,
+    ///         access is denied, or storing the certificate or CRL fails.
+    virtual score::Result<std::monostate> SaveCertificateWithCrl(const CryptoResourceId& cert,
+                                                                 const CryptoResourceId& target_slot) = 0;
 
     // ---- Export ----
 
@@ -116,7 +136,7 @@ class ICertificateManagementContext : public IContext
     ///
     /// Call this before ExportCertificate() to allocate a correctly-sized buffer.
     ///
-    /// @param cert Handle to the certificate (type = kCertificate)
+    /// @param cert Handle to the certificate
     /// @param format Desired output encoding (DER or PEM)
     /// @return Required buffer size in bytes, or error on failure
     virtual score::Result<std::size_t> GetCertificateExportSize(const CryptoResourceId& cert, FormatType format) = 0;
@@ -186,23 +206,6 @@ class ICertificateManagementContext : public IContext
     virtual score::Result<std::pair<CryptoResourceGuard, AlgorithmId>> LoadCertificatePublicKey(
         const CryptoResourceId& cert) = 0;
 
-    // ---- Persistence with CRL propagation ----
-
-    /// @brief Copies a certificate to a persistent slot and propagates its CRL.
-    ///
-    /// The daemon propagates the CRL already held for @p cert:
-    /// - If a session-scoped CRL is associated via ImportCrl() with a
-    ///   kCertificate source, that CRL is used.
-    /// - Otherwise the CRL is read from @p cert's slot's persistent [crl] section
-    ///   (only applicable when cert is a kCertSlot source).
-    ///
-    /// No CRL re-validation occurs — the daemon reuses the CRL it already accepted.
-    ///
-    /// @param cert        CryptoResourceId of the certificate to save (type = kCertificate or kCertSlot)
-    /// @param target_slot Handle to the target slot (type = kCertSlot)
-    virtual score::Result<std::monostate> SaveCertificateWithCrl(const CryptoResourceId& cert,
-                                                                 const CryptoResourceId& target_slot) = 0;
-
     // ---- CRL management ----
 
     /// @brief Imports a session-scoped CRL for a `kCertificate` resource.
@@ -216,7 +219,8 @@ class ICertificateManagementContext : public IContext
     /// @param format      Encoding format of the CRL
     /// @param issuer_cert Handle to a `kCertificate` resource. Obtain one by
     ///                    parsing a certificate or loading it from a slot.
-    /// @return std::monostate on success, error if validation fails or access is denied
+    /// @return std::monostate on success; an error if the handle is invalid,
+    ///         CRL validation fails, or the operation cannot complete.
     virtual score::Result<std::monostate> ImportCrl(score::cpp::span<const uint8_t> crl_data,
                                                     FormatType format,
                                                     const CryptoResourceId& issuer_cert) = 0;
@@ -225,7 +229,8 @@ class ICertificateManagementContext : public IContext
     /// @param crl_data    Encoded CRL data
     /// @param format      Encoding format of the CRL
     /// @param cert_slot   Handle to the certificate slot (type = kCertSlot)
-    /// @return std::monostate on success, error if validation fails or access is denied
+    /// @return std::monostate on success; an error if the slot cannot be resolved,
+    ///         validation fails, write access is denied, or persistence fails.
     virtual score::Result<std::monostate> ImportCrlToSlot(score::cpp::span<const uint8_t> crl_data,
                                                           FormatType format,
                                                           const CryptoResourceId& cert_slot) = 0;

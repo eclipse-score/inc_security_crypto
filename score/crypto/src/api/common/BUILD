@@ -16,7 +16,6 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 cc_library(
     name = "crypto_common_base",
     hdrs = ["fixed_capacity_string.hpp"],
-    includes = ["."],
     visibility = ["//visibility:public"],
 )
 
@@ -34,7 +33,6 @@ cc_library(
         "i_memory.hpp",
         "i_memory_allocator.hpp",
     ],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
         ":crypto_common_base",
@@ -49,7 +47,6 @@ cc_library(
 cc_library(
     name = "release_callback_iface",
     hdrs = ["src/i_release_callback.hpp"],
-    includes = ["."],
     visibility = [
         "//score/crypto:__subpackages__",
     ],

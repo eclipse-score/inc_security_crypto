@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_API_OBJECTS_I_CERT_SLOT_OBJECT_HPP
 
 #include "score/crypto/src/api/objects/i_crypto_object.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
 
 #include <memory>
 
@@ -26,7 +27,7 @@ namespace crypto
 
 /// @brief Typed view of a persistent certificate storage location.
 ///
-/// Provides occupancy query for a resource whose type is kCertSlot.
+/// Provides state and CRL-presence queries for a resource whose type is kCertSlot.
 /// Obtained via ICryptoContext::GetCertSlotObject().
 class ICertSlotObject : public ICryptoObject
 {
@@ -40,8 +41,11 @@ class ICertSlotObject : public ICryptoObject
     ICertSlotObject(ICertSlotObject&&) = default;
     ICertSlotObject& operator=(ICertSlotObject&&) = default;
 
-    /// @brief Whether the certificate slot currently holds a certificate.
-    virtual bool IsOccupied() const noexcept = 0;
+    /// @brief Returns the certificate slot state and whether it stores a CRL.
+    virtual CertificateSlotInfo GetInfo() const = 0;
+
+    /// @brief Returns the current state of the certificate slot.
+    virtual CertificateSlotState GetState() const noexcept = 0;
 
     /// @brief Whether the slot currently stores a persistent CRL.
     virtual bool HasCrl() const noexcept = 0;
