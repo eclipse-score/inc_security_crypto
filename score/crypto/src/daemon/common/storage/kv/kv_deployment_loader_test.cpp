@@ -33,6 +33,17 @@ std::filesystem::path TestPath(const std::string& suffix)
             std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "_" + suffix);
 }
 
+std::filesystem::path AtomicWriteTestPath()
+{
+#if defined(__QNX__)
+    const auto directory = std::filesystem::path{"/persistent"};
+#else
+    const auto directory = std::filesystem::temp_directory_path();
+#endif
+    return directory / ("score_crypto_kv_deployment_loader_" +
+                        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "_round_trip");
+}
+
 std::string WriteDescriptor(const std::string& suffix, const std::string& content)
 {
     const auto path = TestPath(suffix);
@@ -160,7 +171,7 @@ TEST(KvDeploymentLoaderTest, EntryBeforeFirstSectionIsRejected)
 
 TEST(KvDeploymentLoaderTest, WriterOutputLoadsWithTheSameValues)
 {
-    const auto path = TestPath("round_trip").string();
+    const auto path = AtomicWriteTestPath().string();
     DeploymentDescriptor descriptor;
     descriptor.AddSection("certificate");
     descriptor.AddSection("empty");
