@@ -21,65 +21,51 @@
 namespace score::crypto::daemon::common::storage
 {
 
-/// @brief Generic section-based key-value deployment descriptor.
+/// @brief Generic section-based deployment descriptor.
 ///
 /// Represents the parsed content of a deployment descriptor file as a nested map:
 ///   section name -> { key -> value }
 ///
-/// This is the generic in-memory representation. Specific components
-/// (cert_management, future components) interpret section names and keys
-/// according to their own schema.
+/// Format-specific validation is performed by the corresponding loader or writer.
 struct DeploymentDescriptor
 {
-    /// @brief Section name -> (key -> value) map.
-    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> sections;
+    using Section = std::unordered_map<std::string, std::string>;
+    using Sections = std::unordered_map<std::string, Section>;
 
     /// @brief Get a value from a section, returning an empty string if absent.
-    [[nodiscard]] const std::string& Get(const std::string& section, const std::string& key) const noexcept
-    {
-        const auto sit = sections.find(section);
-        if (sit == sections.end())
-        {
-            return kEmptyString;
-        }
-        const auto kit = sit->second.find(key);
-        return (kit != sit->second.end()) ? kit->second : kEmptyString;
-    }
+    [[nodiscard]] const std::string& Get(const std::string& section, const std::string& key) const noexcept;
 
     /// @brief Get a value from a section, returning an owning default if absent.
     [[nodiscard]] std::string Get(const std::string& section,
                                   const std::string& key,
-                                  std::string_view default_val) const
-    {
-        const auto sit = sections.find(section);
-        if (sit == sections.end())
-        {
-            return std::string{default_val};
-        }
-        const auto kit = sit->second.find(key);
-        return (kit != sit->second.end()) ? kit->second : std::string{default_val};
-    }
+                                  std::string_view default_val) const;
 
     /// @brief True if the named section is present (even if empty).
-    [[nodiscard]] bool HasSection(const std::string& section) const noexcept
-    {
-        return sections.count(section) > 0U;
-    }
+    [[nodiscard]] bool HasSection(const std::string& section) const noexcept;
 
-    /// @brief Set a key in a section (creates section if absent).
-    void Set(const std::string& section, const std::string& key, const std::string& value)
-    {
-        sections[section][key] = value;
-    }
+    /// @brief True if the named key is present in the section.
+    [[nodiscard]] bool HasKey(const std::string& section, const std::string& key) const noexcept;
+
+    /// @brief Get all entries in a section, or an empty section if absent.
+    [[nodiscard]] const Section& GetSection(const std::string& section) const noexcept;
+
+    /// @brief Read-only view of all sections.
+    [[nodiscard]] const Sections& GetSections() const noexcept;
+
+    /// @brief Add an empty section.
+    void AddSection(const std::string& section);
+
+    /// @brief Set an entry, creating its section if absent.
+    void Set(const std::string& section, const std::string& key, const std::string& value);
 
     /// @brief Remove the named section entirely.
-    void RemoveSection(const std::string& section)
-    {
-        sections.erase(section);
-    }
+    void RemoveSection(const std::string& section);
 
   private:
     static const std::string kEmptyString;
+    static const Section kEmptySection;
+
+    Sections m_sections;
 };
 
 }  // namespace score::crypto::daemon::common::storage

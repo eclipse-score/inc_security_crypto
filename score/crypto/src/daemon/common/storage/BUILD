@@ -47,6 +47,8 @@ cc_library(
     name = "kv_deployment",
     srcs = [
         "kv/kv_deployment_loader.cpp",
+        "kv/kv_deployment_validator.hpp",
+        "kv/kv_deployment_validator.cpp",
         "kv/kv_deployment_writer.cpp",
     ],
     hdrs = [
@@ -65,7 +67,7 @@ cc_test(
     name = "test_deployment_descriptor",
     srcs = ["tests/test_deployment_descriptor.cpp"],
     deps = [
-        ":deployment_iface",
+        ":kv_deployment",
         "@googletest//:gtest_main",
     ],
 )

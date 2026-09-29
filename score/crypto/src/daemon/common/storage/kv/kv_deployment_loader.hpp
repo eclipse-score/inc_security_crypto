@@ -37,8 +37,9 @@ namespace score::crypto::daemon::common::storage
 /// - Lines starting with '#' are comments (ignored).
 /// - Blank lines are ignored.
 /// - Section headers switch the active section.
-/// - Lines without '=' are silently skipped.
+/// - Non-empty, non-comment lines without '=' are rejected.
 /// - Keys and values are whitespace-trimmed.
+/// - Entries outside a section and invalid keys/values are rejected.
 /// - A key that appears more than once within the same section is rejected:
 ///   Load() logs the descriptor path, section, and key, then returns
 ///   DaemonErrorCode::kInvalidArgument.

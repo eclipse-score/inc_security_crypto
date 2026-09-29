@@ -34,9 +34,20 @@ DeploymentWriter::Write(const std::string& path, const std::string& format, cons
 
     if (format == "kv")
     {
-        score::crypto::daemon::common::storage::DeploymentDescriptor descriptor{};
-        descriptor.sections["metadata"] = info.metadata;
-        descriptor.sections["key"] = info.key_properties;
+        using score::crypto::daemon::common::DaemonErrorCode;
+        using score::crypto::daemon::common::storage::DeploymentDescriptor;
+
+        DeploymentDescriptor descriptor;
+        descriptor.AddSection("metadata");
+        descriptor.AddSection("key");
+        for (const auto& [key, value] : info.metadata)
+        {
+            descriptor.Set("metadata", key, value);
+        }
+        for (const auto& [key, value] : info.key_properties)
+        {
+            descriptor.Set("key", key, value);
+        }
         return score::crypto::daemon::common::storage::KvDeploymentWriter{}.Write(path, descriptor);
     }
     // To add a new format: include its header above and add a branch here.

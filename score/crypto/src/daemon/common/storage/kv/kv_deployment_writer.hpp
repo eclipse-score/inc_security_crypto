@@ -16,8 +16,6 @@
 
 #include "score/crypto/src/daemon/common/storage/i_deployment_writer.hpp"
 
-#include <string_view>
-
 namespace score::crypto::daemon::common::storage
 {
 
@@ -29,6 +27,10 @@ namespace score::crypto::daemon::common::storage
 class KvDeploymentWriter final : public IDeploymentWriter
 {
   public:
+    /// @brief Validates and writes a descriptor in KV format.
+    /// @param path Pre-validated destination path.
+    /// @param descriptor Descriptor to serialize.
+    /// @return Success if written; an error if validation or file I/O fails.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Write(
         const std::string& path,
         const DeploymentDescriptor& descriptor) override;

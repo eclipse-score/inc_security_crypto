@@ -14,6 +14,7 @@
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 
 #include "score/crypto/src/daemon/common/storage/file_io.hpp"
+#include "score/crypto/src/daemon/common/storage/kv/kv_deployment_validator.hpp"
 
 #include <sstream>
 
@@ -24,8 +25,14 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
     const std::string& path,
     const DeploymentDescriptor& descriptor)
 {
+    const KvDeploymentValidator validator{};
+    if (!validator.Validate(descriptor.GetSections()))
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
+
     std::ostringstream oss;
-    for (const auto& [section, entries] : descriptor.sections)
+    for (const auto& [section, entries] : descriptor.GetSections())
     {
         oss << '[' << section << ']' << '\n';
         for (const auto& [key, value] : entries)

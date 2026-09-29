@@ -42,8 +42,8 @@ score::crypto::Expected<SlotDeploymentInfo, score::crypto::daemon::common::Daemo
         }
 
         SlotDeploymentInfo info{};
-        info.metadata = descriptor->sections["metadata"];
-        info.key_properties = descriptor->sections["key"];
+        info.metadata = descriptor->GetSection("metadata");
+        info.key_properties = descriptor->GetSection("key");
         return info;
     }
     // To add a new format: include its header above and add a branch here.

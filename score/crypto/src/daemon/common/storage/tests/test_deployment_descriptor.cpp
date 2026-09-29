@@ -32,7 +32,7 @@ TEST(DeploymentDescriptorTest, MissingKeyWithoutDefaultReturnsStableEmptyString)
     EXPECT_EQ(&value, &descriptor.Get("certificate", "cert_path"));
 }
 
-TEST(DeploymentDescriptorTest, ExplicitDefaultReturnsOwningValue)
+TEST(DeploymentDescriptorTest, MissingKeyWithDefaultReturnsDefaultValue)
 {
     DeploymentDescriptor descriptor;
 
@@ -51,6 +51,26 @@ TEST(DeploymentDescriptorTest, ExistingValueWithoutDefaultReturnsDescriptorValue
 
     EXPECT_EQ(value, "/certificate/path");
     static_assert(std::is_same_v<decltype((descriptor.Get("certificate", "cert_path"))), const std::string&>);
+}
+
+TEST(DeploymentDescriptorTest, ExistingValueWithDefaultReturnsDescriptorValue)
+{
+    DeploymentDescriptor descriptor;
+    descriptor.Set("certificate", "cert_path", "/certificate/path");
+
+    const auto value = descriptor.Get("certificate", "cert_path", "/default/path");
+
+    EXPECT_EQ(value, "/certificate/path");
+}
+
+TEST(DeploymentDescriptorTest, StoresValuesWithoutFormatSpecificValidation)
+{
+    DeploymentDescriptor descriptor;
+
+    descriptor.Set("certificate", "#_my_key", "my_value_\n_has_two_lines");
+
+    EXPECT_TRUE(descriptor.HasKey("certificate", "#_my_key"));
+    EXPECT_EQ(descriptor.Get("certificate", "#_my_key"), "my_value_\n_has_two_lines");
 }
 
 }  // namespace
