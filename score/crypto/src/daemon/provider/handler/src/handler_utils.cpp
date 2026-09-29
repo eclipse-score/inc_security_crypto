@@ -50,6 +50,30 @@ ExtractOutputBufferData(common::RequestParameter& userData, uint8_t*& buffer, si
     return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidDataType);
 }
 
+Expected<StreamOperation, score::crypto::daemon::common::DaemonErrorCode> MapStreamAction(
+    const common::OperationAction action) noexcept
+{
+    // The three streaming actions carry the same values in every actor's
+    // operations header, which the actors' own constants document.
+    constexpr common::OperationAction kInitAction = 1;
+    constexpr common::OperationAction kUpdateAction = 2;
+    constexpr common::OperationAction kFinalizeAction = 3;
+
+    if (action == kInitAction)
+    {
+        return StreamOperation::kInit;
+    }
+    if (action == kUpdateAction)
+    {
+        return StreamOperation::kUpdate;
+    }
+    if (action == kFinalizeAction)
+    {
+        return StreamOperation::kFinalize;
+    }
+    return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
+}
+
 Expected<common::StreamOperationState, score::crypto::daemon::common::DaemonErrorCode> ValidateStreamOperationSequence(
     common::StreamOperationState currentState,
     StreamOperation streamOperation) noexcept
