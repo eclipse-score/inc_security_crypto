@@ -65,7 +65,7 @@ cc_library(
 
 cc_test(
     name = "test_deployment_descriptor",
-    srcs = ["tests/test_deployment_descriptor.cpp"],
+    srcs = ["deployment_descriptor_test.cpp"],
     deps = [
         ":kv_deployment",
         "@googletest//:gtest_main",
@@ -74,7 +74,7 @@ cc_test(
 
 cc_test(
     name = "test_file_io",
-    srcs = ["tests/test_file_io.cpp"],
+    srcs = ["file_io_test.cpp"],
     deps = [
         ":file_io",
         "@googletest//:gtest_main",
@@ -83,7 +83,7 @@ cc_test(
 
 cc_test(
     name = "test_kv_deployment_loader",
-    srcs = ["tests/test_kv_deployment_loader.cpp"],
+    srcs = ["kv/kv_deployment_loader_test.cpp"],
     deps = [
         ":kv_deployment",
         "@googletest//:gtest_main",
