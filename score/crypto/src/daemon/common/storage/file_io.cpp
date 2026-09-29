@@ -24,10 +24,14 @@ score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> ReadFile(con
                                                                              std::size_t max_size)
 {
     const auto exists = FileExists(path);
-    if (!exists)
+    if (!exists.has_value())
+    {
         return score::crypto::make_unexpected(exists.error());
-    if (!*exists)
+    }
+    if (!exists.value())
+    {
         return score::crypto::make_unexpected(DaemonErrorCode::kResourceNotAllocated);
+    }
 
     score::filesystem::FileFactory factory{};
     auto open_result = factory.Open(score::filesystem::Path{path}, std::ios::binary | std::ios::in);

@@ -18,7 +18,6 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -302,20 +301,19 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         }
     }
 
-    // Scoped context types encode the capability as a prefix ("CERT:VERIFICATION", "KEY:MANAGEMENT").
-    // Unscoped types ("HASH", "MAC") fall back to type-based provider selection.
-    // To add a new scope: add one entry to kScopeCapability.
-    static const std::unordered_map<std::string_view, common::ProviderCapability> kScopeCapability{
-        {"CERT", common::ProviderCapability::kCertManagement},
-        {"KEY", common::ProviderCapability::kKeyManagement},
-    };
     common::ProviderCapability required_capability = common::ProviderCapability::kNone;
     const auto colon_pos = context_type.find(':');
     if (colon_pos != std::string_view::npos)
     {
-        const auto it = kScopeCapability.find(context_type.substr(0, colon_pos));
-        if (it != kScopeCapability.end())
-            required_capability = it->second;
+        const auto scope = context_type.substr(0, colon_pos);
+        for (const auto& scope_capability : operations::kContextScopeCapabilities)
+        {
+            if (scope == scope_capability.scope)
+            {
+                required_capability = scope_capability.capability;
+                break;
+            }
+        }
     }
 
     // --- Resolve target provider (considers key/slot affinity when available) ---

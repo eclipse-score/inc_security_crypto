@@ -25,6 +25,9 @@
 namespace score::crypto::daemon::common
 {
 
+/// @brief Encodes bytes as lowercase hexadecimal text.
+/// @param bytes Bytes to encode.
+/// @return Two hexadecimal characters per byte; an empty string for empty input.
 [[nodiscard]] inline std::string EncodeHex(score::crypto::span<const uint8_t> bytes)
 {
     static constexpr char kHex[] = "0123456789abcdef";
@@ -38,6 +41,9 @@ namespace score::crypto::daemon::common
     return result;
 }
 
+/// @brief Decodes a hexadecimal string into bytes.
+/// @param value Even-length hexadecimal text; uppercase and lowercase digits are accepted.
+/// @return Decoded bytes, or std::nullopt if the input has odd length or contains non-hexadecimal characters.
 [[nodiscard]] inline std::optional<std::vector<uint8_t>> DecodeHex(const std::string& value)
 {
     if ((value.size() % 2U) != 0U)
