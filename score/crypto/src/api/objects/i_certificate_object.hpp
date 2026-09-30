@@ -11,17 +11,20 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_CERTIFICATE_OBJECT_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_CERTIFICATE_OBJECT_HPP
+#ifndef SCORE_CRYPTO_SRC_API_OBJECTS_I_CERTIFICATE_OBJECT_HPP
+#define SCORE_CRYPTO_SRC_API_OBJECTS_I_CERTIFICATE_OBJECT_HPP
 
 #include "score/crypto/src/api/objects/i_crypto_object.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/result/result.h"
 #include "score/span.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <string>
+#include <string_view>
 
 namespace score
 {
@@ -31,19 +34,16 @@ namespace crypto
 
 /// @brief Typed view of a certificate resource.
 ///
-/// The single certificate abstraction used for both ephemeral (parsed from bytes)
-/// and persistent (loaded from a slot) certificates. All instances are
+/// The single certificate view abstraction used for both ephemeral (parsed from
+/// bytes) and persistent (loaded from a slot) certificates. All instances are
 /// daemon-backed and carry a valid `GetId()` from the moment they are obtained.
 ///
-/// **Lifecycle**: destroying this object releases the daemon-side resource.
-/// For ephemeral certificates created by ParseCertificate(), the daemon frees
-/// the resource when the last ICertificateObject referring to it is destroyed.
-/// For persistent certificates loaded from a slot, the slot and its content
-/// are unaffected — only the in-memory view object is released.
+/// **Lifecycle**: this object is non-owning. A parsed certificate's
+/// CryptoResourceGuard owns the daemon-side resource and must outlive this view.
+/// For persistent certificates, the slot owns the stored content.
 ///
 /// **Persistence**: use ICertificateManagementContext::SaveCertificate() to
-/// copy an ephemeral certificate to a persistent slot. The ephemeral copy
-/// remains valid and is released independently when this object is destroyed.
+/// copy an ephemeral certificate to a persistent slot.
 ///
 /// Provides field access, serial number, public key metadata, and public key
 /// export. Certificates with PQC keys (ML-DSA, SLH-DSA, XMSS, LMS) may
@@ -76,8 +76,20 @@ class ICertificateObject : public ICryptoObject
     /// @return Algorithm string (e.g., "RSA-2048", "ECDSA-P256", "ML-DSA-65")
     virtual AlgorithmId GetPublicKeyAlgorithm() const noexcept = 0;
 
-    /// @brief Returns the certificate serial number as a hex-encoded string.
+    /// @brief Returns the certificate serial number as an uppercase hex string (e.g., "01ABCDEF").
     virtual std::string GetSerialNumber() const = 0;
+
+    /// @brief Returns the SHA-256 fingerprint of the certificate as a 32-byte array.
+    ///
+    /// The fingerprint is the SHA-256 digest of the DER-encoded certificate. Together
+    /// with the issuer DN and serial number it uniquely identifies a certificate.
+    virtual std::array<uint8_t, kSha256FingerprintSize> GetFingerprint() const noexcept = 0;
+
+    /// @brief Returns metadata for the CRL associated with this certificate.
+    ///
+    /// The result is empty when no session-scoped or persistent CRL is
+    /// associated with the certificate.
+    virtual std::optional<CrlMetadata> GetCrlMetadata() const noexcept = 0;
 
     /// @brief Returns the byte size of the DER-encoded SubjectPublicKeyInfo.
     ///
@@ -105,4 +117,4 @@ class ICertificateObject : public ICryptoObject
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_OBJECTS_I_CERTIFICATE_OBJECT_HPP
+#endif  // SCORE_CRYPTO_SRC_API_OBJECTS_I_CERTIFICATE_OBJECT_HPP

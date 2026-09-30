@@ -301,6 +301,21 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         }
     }
 
+    common::ProviderCapability required_capability = common::ProviderCapability::kNone;
+    const auto colon_pos = context_type.find(':');
+    if (colon_pos != std::string_view::npos)
+    {
+        const auto scope = context_type.substr(0, colon_pos);
+        for (const auto& scope_capability : operations::kContextScopeCapabilities)
+        {
+            if (scope == scope_capability.scope)
+            {
+                required_capability = scope_capability.capability;
+                break;
+            }
+        }
+    }
+
     // --- Resolve target provider (considers key/slot affinity when available) ---
     std::shared_ptr<provider::IProvider> provider;
     if (m_km_service && has_key_binding)
@@ -317,6 +332,11 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         }
         provider = m_provider_manager->GetProvider(resolved_id_res.value());
     }
+    else if (required_capability != common::ProviderCapability::kNone &&
+             requested_provider_type == common::CryptoProviderType::DEFAULT)
+    {
+        provider = m_provider_manager->GetProviderForCapability(required_capability);
+    }
     else
     {
         provider = m_provider_manager->GetProvider(requested_provider_type);
@@ -326,6 +346,16 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No providers available for type: "
                                    << static_cast<int>(requested_provider_type);
         responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        return false;
+    }
+
+    if (required_capability != common::ProviderCapability::kNone &&
+        !common::HasCapability(provider->GetProviderCapabilities(), required_capability))
+    {
+        score::mw::log::LogError()
+            << "[SCORE_API_MED] ERROR - Selected provider lacks required capability for context: " << context_type;
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
         return false;
     }
 
@@ -343,7 +373,8 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Handler or algorithm not supported:" << context_type
                                    << "/" << algorithm;
-        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
         return false;
     }
 
@@ -413,8 +444,10 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         return false;
     }
 
-    const std::string_view provider_selection =
-        has_key_binding ? " (key-affinity resolved)" : " (type-based selection)";
+    const std::string_view provider_selection = has_key_binding ? " (key-affinity resolved)"
+                                                : required_capability != common::ProviderCapability::kNone
+                                                    ? " (capability-based selection)"
+                                                    : " (type-based selection)";
     score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
                                  << "] selected provider: name='" << provider->GetProviderName()
                                  << "' id=" << provider->GetProviderId() << provider_selection

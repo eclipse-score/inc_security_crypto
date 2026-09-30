@@ -11,11 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP
-#define SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP
+#ifndef SCORE_CRYPTO_SRC_API_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP
+#define SCORE_CRYPTO_SRC_API_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/config/base_context_config.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 
 #include <optional>
 
@@ -34,11 +35,14 @@ namespace crypto
 /// An optional default RevocationCheckPolicy can be set at config time;
 /// it can be overridden per-verification via SetRevocationCheckPolicy()
 /// on the context itself.
+/// Revocation coverage defaults to fail-closed and can be overridden per
+/// verification via SetRevocationCoveragePolicy() on the context.
 ///
 /// @par Example
 /// @code
 ///   CertificateVerificationContextConfig config;
 ///   config.SetRevocationPolicy(RevocationCheckPolicy::kOcspWithCrlFallback);
+///   config.SetRevocationCoveragePolicy(RevocationCoveragePolicy::kBestEffort);
 ///   auto ctx = crypto_context->CreateCertificateVerificationContext(config);
 ///   ctx->SetCertificate(cert);
 ///   ctx->SetVerificationTrustStore(trust_anchor);
@@ -48,14 +52,10 @@ struct CertificateVerificationContextConfig : public BaseContextConfig
 {
     /// @brief Default revocation check policy for verifications using this context.
     std::optional<RevocationCheckPolicy> revocation_policy{std::nullopt};
+    /// @brief Coverage behavior when selected revocation evidence is missing or stale.
+    RevocationCoveragePolicy revocation_coverage_policy{RevocationCoveragePolicy::kFailClosed};
 
     // -- Fluent builder --
-
-    CertificateVerificationContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
-    {
-        BaseContextConfig::SetAlgorithm(alg);
-        return *this;
-    }
 
     CertificateVerificationContextConfig& SetProvider(const CryptoResourceId& prov) noexcept
     {
@@ -75,6 +75,12 @@ struct CertificateVerificationContextConfig : public BaseContextConfig
         return *this;
     }
 
+    CertificateVerificationContextConfig& SetRevocationCoveragePolicy(RevocationCoveragePolicy policy) noexcept
+    {
+        revocation_coverage_policy = policy;
+        return *this;
+    }
+
     CertificateVerificationContextConfig& SetExtendedParameter(const std::string& key, const std::string& value)
     {
         BaseContextConfig::SetExtendedParameter(key, value);
@@ -86,4 +92,4 @@ struct CertificateVerificationContextConfig : public BaseContextConfig
 
 }  // namespace score
 
-#endif  // SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP
+#endif  // SCORE_CRYPTO_SRC_API_CONFIG_CERTIFICATE_VERIFICATION_CONTEXT_CONFIG_HPP

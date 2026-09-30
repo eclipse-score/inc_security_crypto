@@ -15,8 +15,8 @@
 #define SCORE_CRYPTO_SRC_API_FUTURE_CONTEXTS_I_CSR_GENERATION_CONTEXT_HPP
 
 #include "score/crypto/src/api/certificate/i_csr_export.hpp"
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/contexts/i_context.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/result/result.h"
 
 #include <memory>

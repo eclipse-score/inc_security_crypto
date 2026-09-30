@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_API_I_CRYPTO_CONTEXT_HPP
 #define SCORE_CRYPTO_SRC_API_I_CRYPTO_CONTEXT_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/result/result.h"
 
 #include <cstdint>

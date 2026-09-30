@@ -70,6 +70,7 @@ package "Slot Objects" {
 
     interface ICertSlotObject {
         + IsOccupied() : bool
+        + HasCrl() : bool
     }
 
     IKeySlotObject --|> ICryptoObject : inherits
@@ -86,6 +87,7 @@ package "Certificate Objects" {
         + GetNotBefore() : int64_t
         + GetNotAfter() : int64_t
         + GetPublicKeyAlgorithm() : AlgorithmId
+        + GetCrlMetadata() : optional<CrlMetadata>
     }
 
     ICertificateObject --|> ICryptoObject : inherits
