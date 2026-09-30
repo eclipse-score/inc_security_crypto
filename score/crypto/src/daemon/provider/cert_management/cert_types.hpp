@@ -34,30 +34,8 @@ using ::score::crypto::daemon::cert_management::CertSlotHandle;
 using ::score::crypto::daemon::cert_management::TrustStoreHandle;
 
 using ::score::crypto::ChainTerminationPolicy;
-enum class CertVerifyErrorCode : std::uint16_t
-{
-    kNone = 0,
-    kExpired,
-    kNotYetValid,
-    kRevoked,
-    kNoRootFound,
-    kChainIncomplete,
-    kSignatureInvalid,
-    kInvalidPurpose,
-    kUnknownAlgorithm,
-    kUnknownError
-};
-
 using ::score::crypto::RevocationCheckPolicy;
-
-/// Verification result. The established chain is returned as neutral CertObjects
-/// (leaf-first, terminating anchor last), never as provider-bound handles.
-struct CertVerifyResult
-{
-    bool is_valid{false};
-    CertVerifyErrorCode error_code{CertVerifyErrorCode::kNone};
-    std::vector<CertObject::Sptr> verified_chain;
-};
+using ::score::crypto::RevocationCoveragePolicy;
 
 struct CrlImportRequest
 {

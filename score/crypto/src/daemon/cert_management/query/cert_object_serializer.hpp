@@ -70,7 +70,7 @@ SerializeCertSlotInfo(CertSlotManager& mgr, CertSlotHandle slot, data_manager::C
 ///   [1+i*7+0] slot_node_id (uint64), [1+i*7+1] fingerprint (OwnedBuffer 32B),
 ///   [1+i*7+2] subject (OwnedString),  [1+i*7+3] issuer (OwnedString),
 ///   [1+i*7+4] serial_number (OwnedString), [1+i*7+5] kind (uint8),
-///   [1+i*7+6] is_enabled (uint8)
+///   [1+i*7+6] status (uint8, MemberStatus)
 common::ResponseParameters SerializeTrustStoreMembers(const std::vector<TrustStoreManager::MemberSnapshot>& snapshot,
                                                       CertManagementService& service,
                                                       std::uint64_t client_id);

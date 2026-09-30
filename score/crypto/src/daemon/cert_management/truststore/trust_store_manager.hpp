@@ -90,6 +90,10 @@ class TrustStoreManager
     ///   - Resolves typed members (slot_name → CertSlotHandle via registry)
     ///   - Populates m_slot_memberships reverse index and m_member_states from descriptor
     ///   - Does NOT load cert content — certs are loaded lazily on first GetAnchors()
+    ///
+    /// @param store_configs  Trust store configurations; the vector index becomes the TrustStoreId.
+    /// @param slot_registry  Registry used to resolve member slot names to CertSlotHandle.
+    /// @param slot_manager   Provides per-slot handlers; if null, no slot I/O is possible.
     void Load(const std::vector<TrustStoreConfig>& store_configs,
               CertSlotRegistry::Sptr slot_registry,
               CertSlotManager::Sptr slot_manager = {});
@@ -98,10 +102,26 @@ class TrustStoreManager
     // Store access
     // -----------------------------------------------------------------------
 
+    /// @brief Return the shared handler of a trust store.
+    /// @param handle Trust store handle.
+    /// @return The handler, or nullptr if @p handle is invalid or out of range.
     [[nodiscard]] ITrustStoreHandler::Sptr GetStore(TrustStoreHandle handle) const;
+
+    /// @brief Look up a trust store by its configured name.
+    /// @param name Configured trust store name.
+    /// @return The store handle, or an invalid handle if no store has that name.
     [[nodiscard]] TrustStoreHandle ResolveByName(const std::string& name) const;
 
+    /// @brief Map an application-visible resource ID to a named trust store for one uid.
+    /// @param uid             User ID the mapping applies to.
+    /// @param app_resource_id Application-scoped resource identifier.
+    /// @param store_name      Configured name of the trust store it resolves to.
     void RegisterAppResource(uint32_t uid, const std::string& app_resource_id, const std::string& store_name);
+
+    /// @brief Resolve an application resource ID to a trust store for the uid of @p client_id.
+    /// @param app_resource_id Application-scoped resource identifier.
+    /// @param client_id       Calling client; its uid selects the mapping.
+    /// @return The store handle, or kInvalidResourceId if the uid, ID or store name is unknown.
     [[nodiscard]] score::crypto::Expected<TrustStoreHandle, score::crypto::daemon::common::DaemonErrorCode>
     ResolveAppResource(const std::string& app_resource_id, data_manager::ClientId client_id) const;
 
@@ -112,6 +132,9 @@ class TrustStoreManager
     /// @brief Return the set of trust store IDs that contain a given cert slot.
     ///
     /// Used by CertManagementService::SaveCertificate to fan out NotifyUpdate().
+    ///
+    /// @param slot_handle Certificate slot to look up.
+    /// @return Handles of all stores referencing the slot; empty if none.
     [[nodiscard]] std::vector<TrustStoreHandle> GetMembershipsForSlot(CertSlotHandle slot_handle) const;
 
     // -----------------------------------------------------------------------
@@ -124,6 +147,9 @@ class TrustStoreManager
     /// store to a verification context. Certs are loaded lazily on first GetAnchors().
     /// Refs are per-client so that releasing one application's contexts does not affect
     /// another application's active references to the same shared trust store.
+    ///
+    /// @param handle    Trust store being bound.
+    /// @param client_id Client owning the verification context.
     void AddRef(TrustStoreHandle handle, data_manager::ClientId client_id);
 
     /// @brief Decrement the active-context count for @p client_id on @p handle.
@@ -131,6 +157,9 @@ class TrustStoreManager
     /// When a client's count for the store reaches zero and no other client holds refs,
     /// the anchor cache is cleared. CertObject strong-refs drop; memory is freed unless
     /// another active trust store shares the same slot's cert via the weak_ptr cache.
+    ///
+    /// @param handle    Trust store being released.
+    /// @param client_id Client that owned the verification context.
     void ReleaseRef(TrustStoreHandle handle, data_manager::ClientId client_id);
 
     /// @brief Release all refs held by @p client_id across all trust stores.
@@ -138,6 +167,8 @@ class TrustStoreManager
     /// Called by CertManagementService::CleanupClient() on client crash or disconnect.
     /// Unconditionally removes all per-client counts for the dead client, then evicts
     /// anchor caches for any trust store that has no remaining active clients.
+    ///
+    /// @param client_id Client that crashed or disconnected.
     void CleanupClient(data_manager::ClientId client_id);
 
     /// @brief Invalidate one member slot in the given trust store.
@@ -146,6 +177,12 @@ class TrustStoreManager
     /// Called by CertManagementService::NotifySlotCertChanged() after StoreCertificate.
     /// Unchanged member slots retain their cached strong-refs; only the changed slot
     /// pays a reload cost on the next GetAnchors() call.
+    ///
+    /// A kConditionalExternal member is additionally disabled (and the state persisted)
+    /// until acknowledged via AcknowledgeMemberUpdate().
+    ///
+    /// @param handle       Trust store that references the slot.
+    /// @param changed_slot Slot whose certificate changed.
     void NotifySlotChanged(TrustStoreHandle handle, CertSlotHandle changed_slot);
 
     /// @brief Add a certificate to a trust store's runtime anchor set.
@@ -166,6 +203,16 @@ class TrustStoreManager
     ///
     /// Write access to the trust store must be checked by CertManagementService
     /// before calling this method.
+    ///
+    /// @param handle       Target trust store.
+    /// @param cert         Certificate to add; must not be null.
+    /// @param client_id    Calling client, used for the write-permission check.
+    /// @param crl_bytes    Optional validated CRL to store with the certificate.
+    /// @param crl_format   Encoding of @p crl_bytes.
+    /// @param crl_metadata Optional CRL metadata persisted with the CRL.
+    /// @return success, or kInvalidArgument (bad handle or null cert), kAccessDenied,
+    ///         kUnsupportedOperation (CRL given for a non-exclusive member), a slot I/O error,
+    ///         or kTrustStoreCapacityExceeded (no empty exclusive slot).
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> AddMember(
         TrustStoreHandle handle,
         CertObject::Sptr cert,
@@ -182,6 +229,15 @@ class TrustStoreManager
     ///
     /// Returns kInvalidResourceId if @p slot is not a member of the trust store.
     /// Returns kUnsupportedOperation if the slot is not kExclusiveMutable.
+    ///
+    /// @param handle    Target trust store.
+    /// @param slot      Member slot receiving the CRL.
+    /// @param crl_data  Validated CRL bytes; must not be empty.
+    /// @param format    Encoding of @p crl_data.
+    /// @param client_id Calling client, used for the write-permission check.
+    /// @param metadata  Optional CRL metadata persisted with the CRL.
+    /// @return success, or kInvalidResourceId, kInvalidArgument (empty CRL), kAccessDenied,
+    ///         kUnsupportedOperation, or a slot I/O error.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     ImportCrlForMember(TrustStoreHandle handle,
                        CertSlotHandle slot,
@@ -190,6 +246,13 @@ class TrustStoreManager
                        data_manager::ClientId client_id,
                        std::optional<score::crypto::CrlMetadata> metadata = std::nullopt);
 
+    /// @brief Delete the persistent CRL of an exclusive trust store member slot.
+    ///
+    /// @param handle    Target trust store.
+    /// @param slot      Member slot whose CRL is cleared.
+    /// @param client_id Calling client, used for the write-permission check.
+    /// @return success, or kInvalidResourceId (slot not a member), kAccessDenied,
+    ///         kUnsupportedOperation (slot not kExclusiveMutable), or a slot I/O error.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     DeleteCrlForMember(TrustStoreHandle handle, CertSlotHandle slot, data_manager::ClientId client_id);
 
@@ -197,15 +260,56 @@ class TrustStoreManager
     ///
     /// Persists the change to the trust store descriptor and calls NotifyUpdate().
     /// Write access must be checked before calling.
+    ///
+    /// @param handle      Target trust store.
+    /// @param fingerprint SHA-256 fingerprint of the certificate to remove.
+    /// @param client_id   Calling client, used for the write-permission check.
+    /// @return success, or kInvalidResourceId, kAccessDenied, kInvalidArgument (no exclusive
+    ///         member holds that fingerprint), or a slot I/O error.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     RemoveMember(TrustStoreHandle handle, const std::vector<uint8_t>& fingerprint, data_manager::ClientId client_id);
 
+    /// @brief Enable a member so its certificate becomes an active anchor.
+    ///
+    /// For kConditionalExternal members the slot is freshly loaded and must match the
+    /// accepted fingerprint; enabling never advances the accepted fingerprint.
+    ///
+    /// @param handle    Target trust store.
+    /// @param slot      Member slot to enable.
+    /// @param client_id Calling client, used for the write-permission check.
+    /// @return success, or kInvalidResourceId, kAccessDenied, kInvalidArgument (slot is not a
+    ///         member), or kInvalidOperation (conditional member with an empty slot, no accepted
+    ///         fingerprint, or content that differs from it).
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     EnableMember(TrustStoreHandle handle, CertSlotHandle slot, data_manager::ClientId client_id);
+
+    /// @brief Disable a member; it stays in the store and can be re-enabled.
+    ///
+    /// @param handle    Target trust store.
+    /// @param slot      Member slot to disable.
+    /// @param client_id Calling client, used for the write-permission check.
+    /// @return success, or kInvalidResourceId, kAccessDenied, or kInvalidArgument (slot is not a
+    ///         member).
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     DisableMember(TrustStoreHandle handle, CertSlotHandle slot, data_manager::ClientId client_id);
+
+    /// @brief Accept the current content of a kConditionalExternal member and re-enable it.
+    ///
+    /// Compare-and-acknowledge: the slot is freshly loaded and its SHA-256 fingerprint must
+    /// equal @p expected_sha256_fingerprint. On mismatch no state changes.
+    ///
+    /// @param handle                      Target trust store.
+    /// @param slot                        Conditional member slot to acknowledge.
+    /// @param expected_sha256_fingerprint 32-byte fingerprint of the content the caller inspected.
+    /// @param client_id                   Calling client, used for the write-permission check.
+    /// @return success, or kInvalidResourceId, kAccessDenied, kInvalidArgument (fingerprint not
+    ///         32 bytes), kUnsupportedOperation (member is not conditional-external), or
+    ///         kInvalidOperation (empty slot or content differs from the expected fingerprint).
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    AcknowledgeMemberUpdate(TrustStoreHandle handle, CertSlotHandle slot, data_manager::ClientId client_id);
+    AcknowledgeMemberUpdate(TrustStoreHandle handle,
+                            CertSlotHandle slot,
+                            score::crypto::span<const uint8_t> expected_sha256_fingerprint,
+                            data_manager::ClientId client_id);
 
     // -----------------------------------------------------------------------
     // Snapshot for read-only typed object access (ITrustStoreObject)
@@ -224,13 +328,20 @@ class TrustStoreManager
         std::string issuer;                      ///< RFC 4514 Issuer DN.
         std::string serial_number;               ///< Uppercase hex serial number.
         TrustStoreMemberKind kind{TrustStoreMemberKind::kSharedStatic};
-        bool is_enabled{true};
+        score::crypto::MemberStatus status{score::crypto::MemberStatus::kEnabled};  ///< Effective member status.
     };
 
     /// @brief Load and return a snapshot of all occupied member slots for trust store @p id.
     ///
     /// Certs are loaded via the shared cache where possible; fresh loads are taken for
     /// uncached slots. Non-const because it may populate handler and cert caches.
+    ///
+    /// kConditionalExternal members are always loaded fresh so that `status` reflects current
+    /// slot content: kFingerprintMismatch when it differs from the accepted fingerprint,
+    /// kAwaitingAcknowledgement when none was accepted and the store requires acceptance.
+    ///
+    /// @param handle Trust store to snapshot.
+    /// @return One entry per occupied, resolvable member; empty if @p handle is invalid.
     [[nodiscard]] std::vector<MemberSnapshot> GetMembersSnapshot(TrustStoreHandle handle);
 
     // -----------------------------------------------------------------------
@@ -238,12 +349,16 @@ class TrustStoreManager
     // -----------------------------------------------------------------------
 
     /// @brief Return the TrustStoreConfig for a given store handle.
+    /// @param handle Trust store handle.
+    /// @return Pointer to the config, or nullptr if @p handle is out of range.
     [[nodiscard]] const TrustStoreConfig* GetStoreConfig(TrustStoreHandle handle) const;
 
   private:
+    /// Runtime state of one member slot within one trust store.
     struct MemberState
     {
-        bool enabled{true};
+        bool enabled{true};  ///< Whether the member contributes anchors.
+        /// Conditional-external baseline; unset until accepted.
         std::optional<std::array<uint8_t, 32U>> accepted_fingerprint;
     };
 
@@ -274,11 +389,16 @@ class TrustStoreManager
     /// Must be called with m_mutex held.
     ICertSlotHandler* GetHandler(CertSlotHandle slot);
 
+    /// Read member states for store @p id from its deployment descriptor. No cert I/O.
     void LoadState(TrustStoreId id);
+
+    /// Write member states for store @p id to its deployment descriptor, keeping other sections.
+    /// Must be called with m_mutex held.
     score::crypto::Expected<std::monostate, common::DaemonErrorCode> PersistState(TrustStoreId id) const;
 
     /// Populate handler's anchor cache for one trust store. Called by the AnchorLoader
     /// lambda captured inside each TrustStoreHandler. Acquires m_mutex.
+    /// Disables conditional members whose content no longer matches the accepted fingerprint.
     void LoadAnchorsIntoHandler(TrustStoreId id, TrustStoreHandler& handler);
 
     /// Evict the anchor cache for @p handle if no client currently holds a ref to it.

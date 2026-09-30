@@ -86,7 +86,7 @@ common::ResponseParameters SerializeTrustStoreMembers(const std::vector<TrustSto
         out.push_back(common::OwnedString{entry.snap->issuer});
         out.push_back(common::OwnedString{entry.snap->serial_number});
         out.push_back(static_cast<std::uint8_t>(entry.snap->kind));
-        out.push_back(static_cast<std::uint8_t>(entry.snap->is_enabled ? 1U : 0U));
+        out.push_back(static_cast<std::uint8_t>(entry.snap->status));
     }
     return out;
 }

@@ -519,6 +519,10 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
     ASSERT_EQ(initial->size(), 1U);
     EXPECT_EQ((*initial)[0]->GetSubject(), kSubjectInitial);
 
+    ASSERT_TRUE(manager.DisableMember(ts_handle, slot, kClientA).has_value());
+    ASSERT_TRUE(manager.EnableMember(ts_handle, slot, kClientA).has_value());
+    ASSERT_TRUE(manager.DisableMember(ts_handle, slot, kClientA).has_value());
+
     // Rotate cert on disk so that AcknowledgeMemberUpdate reloads a different cert.
     ASSERT_TRUE(std::filesystem::copy_file("score/tests/test_vectors/certificate/basic/certificate_updated.pem",
                                            m_root_cert,
@@ -532,8 +536,47 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
         EXPECT_EQ(after_disable->size(), 0U);
     }
 
-    // Acknowledge — fresh load from disk, records accepted_fingerprint, re-enables.
-    ASSERT_TRUE(manager.AcknowledgeMemberUpdate(ts_handle, slot, kClientA).has_value());
+    // A stale caller snapshot cannot acknowledge newly changed slot content.
+    const auto stale_snapshot = manager.GetMembersSnapshot(ts_handle);
+    ASSERT_EQ(stale_snapshot.size(), 1U);
+    EXPECT_EQ(stale_snapshot[0].status, score::crypto::MemberStatus::kFingerprintMismatch);
+    const auto updated_cert = ParseCert("score/tests/test_vectors/certificate/basic/certificate_updated.pem");
+    ASSERT_NE(updated_cert, nullptr);
+    const auto updated_fingerprint = updated_cert->GetFingerprint();
+    const std::vector<std::uint8_t> snapshot_fingerprint(stale_snapshot[0].fingerprint.begin(),
+                                                         stale_snapshot[0].fingerprint.end());
+    const std::vector<std::uint8_t> expected_snapshot_fingerprint(updated_fingerprint.begin(),
+                                                                  updated_fingerprint.end());
+    EXPECT_EQ(snapshot_fingerprint, expected_snapshot_fingerprint);
+
+    const auto original_cert = ParseCert("score/tests/test_vectors/certificate/basic/certificate.pem");
+    ASSERT_NE(original_cert, nullptr);
+    const auto original_fingerprint = original_cert->GetFingerprint();
+    const auto malformed_ack = manager.AcknowledgeMemberUpdate(
+        ts_handle, slot, score::crypto::span<const std::uint8_t>{original_fingerprint.data(), 0U}, kClientA);
+    ASSERT_FALSE(malformed_ack.has_value());
+    EXPECT_EQ(malformed_ack.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+
+    const auto enable_before_ack = manager.EnableMember(ts_handle, slot, kClientA);
+    ASSERT_FALSE(enable_before_ack.has_value());
+    EXPECT_EQ(enable_before_ack.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
+
+    const auto stale_ack = manager.AcknowledgeMemberUpdate(
+        ts_handle,
+        slot,
+        score::crypto::span<const std::uint8_t>{original_fingerprint.data(), original_fingerprint.size()},
+        kClientA);
+    ASSERT_FALSE(stale_ack.has_value());
+    EXPECT_EQ(stale_ack.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
+
+    // Acknowledge — fresh load matches the inspected fingerprint, records it, and re-enables.
+    ASSERT_TRUE(manager
+                    .AcknowledgeMemberUpdate(
+                        ts_handle,
+                        slot,
+                        score::crypto::span<const std::uint8_t>{updated_fingerprint.data(), updated_fingerprint.size()},
+                        kClientA)
+                    .has_value());
 
     auto after_ack = store->GetAnchors();
     ASSERT_TRUE(after_ack.has_value());
@@ -541,6 +584,43 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
     // AcknowledgeMemberUpdate reloaded from disk — must now show the rotated cert.
     EXPECT_EQ((*after_ack)[0]->GetSubject(), kSubjectUpdated);
     EXPECT_EQ((*after_ack)[0]->GetFingerprint().size(), 32U);
+}
+
+TEST_F(TrustStoreManagerTest, EnableConditionalMemberWithoutAcceptedFingerprintIsRejected)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    const auto slot = registry->RegisterSlot(MakeSlotConfig("root-anchor", m_root_slot_kv));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "cond-store";
+    ts_cfg.access_policy.allowed_write_uids = {0U};
+    ts_cfg.conditional_slot_initialization = cert::ConditionalSlotInitialization::kDisableUntilAccepted;
+    ts_cfg.members.push_back(
+        cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kConditionalExternal});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
+    const auto ts_handle = manager.ResolveByName("cond-store");
+    auto store = manager.GetStore(ts_handle);
+    ASSERT_NE(store, nullptr);
+
+    const auto anchors = store->GetAnchors();
+    ASSERT_TRUE(anchors.has_value());
+    EXPECT_TRUE(anchors->empty());
+    const auto before = manager.GetMembersSnapshot(ts_handle);
+    ASSERT_EQ(before.size(), 1U);
+    EXPECT_EQ(before[0].status, score::crypto::MemberStatus::kAwaitingAcknowledgement);
+
+    const auto result = manager.EnableMember(ts_handle, slot, kClientA);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
+
+    const auto after = manager.GetMembersSnapshot(ts_handle);
+    ASSERT_EQ(after.size(), 1U);
+    EXPECT_EQ(after[0].status, score::crypto::MemberStatus::kAwaitingAcknowledgement);
+    const auto anchors_after = store->GetAnchors();
+    ASSERT_TRUE(anchors_after.has_value());
+    EXPECT_TRUE(anchors_after->empty());
 }
 
 // ---------------------------------------------------------------------------
@@ -607,7 +687,14 @@ TEST_F(TrustStoreManagerTest, ConditionalExternal_FingerprintMismatch_AutoDisabl
     }
 
     // Step 4: Acknowledge the update and load the replacement certificate.
-    ASSERT_TRUE(manager.AcknowledgeMemberUpdate(ts_handle, slot, kClientA).has_value());
+    const auto updated_fingerprint = updated->GetFingerprint();
+    ASSERT_TRUE(manager
+                    .AcknowledgeMemberUpdate(
+                        ts_handle,
+                        slot,
+                        score::crypto::span<const std::uint8_t>{updated_fingerprint.data(), updated_fingerprint.size()},
+                        kClientA)
+                    .has_value());
 
     // Step 5: GetAnchors() returns cert B without another reload cycle (m_loaded is
     // still true; AcknowledgeMemberUpdate updated m_slots directly via NotifySlotUpdate).

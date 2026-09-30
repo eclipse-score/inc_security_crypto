@@ -43,10 +43,29 @@ cc_library(
     ],
 )
 
+# OpenSSL certificate and CRL primitives shared by the certificate provider components.
+cc_library(
+    name = "openssl_cert_utils",
+    srcs = ["detail/openssl_cert_utils.cpp"],
+    hdrs = ["detail/openssl_cert_utils.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//score/crypto/src/daemon/provider:__subpackages__"],
+    deps = [
+        "//score/crypto/src/api/types:certificate_types",
+        "//third_party/openssl:openssl_shared",
+    ],
+)
+
 cc_library(
     name = "openssl_cert_parser_library",
     srcs = ["cert_management/openssl_cert_parser.cpp"],
-    implementation_deps = ["//third_party/openssl:openssl_shared"],
+    implementation_deps = [
+        ":openssl_cert_utils",
+        "//third_party/openssl:openssl_shared",
+    ],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
         "//conditions:default": ["@platforms//:incompatible"],

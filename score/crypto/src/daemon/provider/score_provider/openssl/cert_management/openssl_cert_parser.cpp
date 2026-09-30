@@ -12,17 +12,13 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_cert_utils.hpp"
 
 #include <openssl/err.h>
 #include <openssl/pem.h>
-#include <openssl/sha.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-#include <charconv>
-#include <array>
-#include <cstring>
-#include <ctime>
 #include <memory>
 #include <string>
 #include <vector>
@@ -34,15 +30,11 @@ namespace
 using CertObject = ::score::crypto::daemon::cert_management::CertObject;
 using Metadata = ::score::crypto::daemon::cert_management::CertChainMetadata;
 using Error = common::DaemonErrorCode;
-
-struct X509Deleter
-{
-    void operator()(X509* value) const noexcept
-    {
-        X509_free(value);
-    }
-};
-using X509Ptr = std::unique_ptr<X509, X509Deleter>;
+namespace openssl_detail = ::score::crypto::daemon::provider::openssl::detail;
+using openssl_detail::Asn1TimeToEpoch;
+using openssl_detail::ParseX509;
+using X509Ptr = openssl_detail::UniqueX509;
+using X509CrlPtr = openssl_detail::UniqueX509Crl;
 
 std::string NameToString(X509_NAME* name)
 {
@@ -57,20 +49,6 @@ std::string NameToString(X509_NAME* name)
     char* data = nullptr;
     const long size = BIO_get_mem_data(bio.get(), &data);
     return size > 0 && data != nullptr ? std::string{data, static_cast<std::size_t>(size)} : std::string{};
-}
-
-bool Asn1TimeToEpoch(const ASN1_TIME* value, int64_t& result)
-{
-    if (value == nullptr)
-        return false;
-    std::tm calendar{};
-    if (ASN1_TIME_to_tm(value, &calendar) != 1)
-        return false;
-    const std::time_t epoch = timegm(&calendar);
-    if (epoch == static_cast<std::time_t>(-1))
-        return false;
-    result = static_cast<int64_t>(epoch);
-    return true;
 }
 
 template <typename T>
@@ -141,12 +119,9 @@ score::crypto::Expected<CertObject::Sptr, Error> BuildObject(X509* certificate,
         AUTHORITY_KEYID_free(akid);
     }
 
-    unsigned int digest_size = 0U;
-    std::array<unsigned char, SHA256_DIGEST_LENGTH> digest{};
-    if (X509_digest(certificate, EVP_sha256(), digest.data(), &digest_size) != 1 || digest_size != SHA256_DIGEST_LENGTH)
-    {
+    openssl_detail::Sha256Digest digest{};
+    if (!openssl_detail::ComputeSha256(certificate, digest))
         return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
-    }
     metadata.fingerprint.assign(digest.begin(), digest.end());
 
     BASIC_CONSTRAINTS* constraints =
@@ -158,22 +133,6 @@ score::crypto::Expected<CertObject::Sptr, Error> BuildObject(X509* certificate,
     }
 
     return std::make_shared<CertObject>(std::move(metadata), std::vector<std::uint8_t>{bytes, bytes + size}, format);
-}
-
-X509Ptr ParseX509(const std::uint8_t* bytes, std::size_t size, score::crypto::FormatType format)
-{
-    if (bytes == nullptr || size == 0U)
-        return {nullptr};
-    if (format == score::crypto::FormatType::kDer)
-    {
-        const unsigned char* cursor = bytes;
-        return X509Ptr{d2i_X509(nullptr, &cursor, static_cast<long>(size))};
-    }
-    BIO* raw_bio = BIO_new_mem_buf(bytes, static_cast<int>(size));
-    if (raw_bio == nullptr)
-        return {nullptr};
-    std::unique_ptr<BIO, decltype(&BIO_free)> bio{raw_bio, &BIO_free};
-    return X509Ptr{PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr)};
 }
 
 }  // namespace
@@ -296,83 +255,6 @@ score::crypto::Expected<std::vector<std::uint8_t>, common::DaemonErrorCode> Open
 // CRL validation
 // ---------------------------------------------------------------------------
 
-namespace
-{
-struct X509CrlDeleter
-{
-    void operator()(X509_CRL* p) const noexcept
-    {
-        X509_CRL_free(p);
-    }
-};
-using X509CrlPtr = std::unique_ptr<X509_CRL, X509CrlDeleter>;
-
-// Parse raw CRL bytes (DER or PEM) into an OpenSSL CRL object.
-X509CrlPtr ParseCrlBytes(const std::uint8_t* data, std::size_t size, score::crypto::FormatType format)
-{
-    if (format == score::crypto::FormatType::kDer)
-    {
-        const uint8_t* ptr = data;
-        return X509CrlPtr(d2i_X509_CRL(nullptr, &ptr, static_cast<long>(size)));
-    }
-    auto* bio_raw = BIO_new_mem_buf(data, static_cast<int>(size));
-    if (!bio_raw)
-        return nullptr;
-    std::unique_ptr<BIO, decltype(&BIO_free)> bio{bio_raw, &BIO_free};
-    return X509CrlPtr(PEM_read_bio_X509_CRL(bio.get(), nullptr, nullptr, nullptr));
-}
-
-// Convert an ASN1_TIME to a Unix epoch (seconds). Returns 0 if unavailable.
-std::int64_t Asn1TimeToEpoch(const ASN1_TIME* asn1)
-{
-    if (!asn1)
-        return 0;
-    struct tm t{};
-    if (ASN1_TIME_to_tm(asn1, &t) != 1)
-        return 0;
-
-    return static_cast<std::int64_t>(timegm(&t));
-}
-
-bool Sha256CertificateDigest(const X509* certificate, std::array<std::uint8_t, 32U>& output)
-{
-    unsigned int digest_size = 0U;
-    return X509_digest(certificate, EVP_sha256(), output.data(), &digest_size) == 1 && digest_size == output.size();
-}
-
-bool Sha256CrlDigest(const X509_CRL* crl, std::array<std::uint8_t, 32U>& output)
-{
-    unsigned int digest_size = 0U;
-    return X509_CRL_digest(crl, EVP_sha256(), output.data(), &digest_size) == 1 && digest_size == output.size();
-}
-
-std::uint64_t CrlNumber(const X509_CRL* crl)
-{
-    auto* number = static_cast<ASN1_INTEGER*>(X509_CRL_get_ext_d2i(crl, NID_crl_number, nullptr, nullptr));
-    if (number == nullptr)
-        return 0U;
-
-    BIGNUM* big_number = ASN1_INTEGER_to_BN(number, nullptr);
-    ASN1_INTEGER_free(number);
-    if (big_number == nullptr || BN_num_bits(big_number) > 64)
-    {
-        BN_free(big_number);
-        return 0U;
-    }
-
-    char* hex = BN_bn2hex(big_number);
-    BN_free(big_number);
-    if (hex == nullptr)
-        return 0U;
-
-    std::uint64_t result = 0U;
-    const auto* end = hex + std::strlen(hex);
-    const auto [parsed_end, ec] = std::from_chars(hex, end, result, 16);
-    OPENSSL_free(hex);
-    return ec == std::errc{} && parsed_end == end ? result : 0U;
-}
-}  // namespace
-
 score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> OpenSslCertParser::ValidateCrl(
     const std::uint8_t* crl_data,
     std::size_t crl_size,
@@ -385,7 +267,7 @@ score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> Ope
         return score::crypto::make_unexpected(Error::kInvalidArgument);
 
     // 1. Parse the CRL.
-    X509CrlPtr crl = ParseCrlBytes(crl_data, crl_size, crl_format);
+    X509CrlPtr crl = openssl_detail::ParseX509Crl(crl_data, crl_size, crl_format);
     if (!crl)
     {
         ERR_clear_error();
@@ -393,21 +275,7 @@ score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> Ope
     }
 
     // 2. Parse the issuer certificate.
-    X509Ptr issuer_x509;
-    if (issuer_cert_format == score::crypto::FormatType::kDer)
-    {
-        const uint8_t* ptr = issuer_cert_data;
-        issuer_x509.reset(d2i_X509(nullptr, &ptr, static_cast<long>(issuer_cert_size)));
-    }
-    else
-    {
-        auto* bio_raw = BIO_new_mem_buf(issuer_cert_data, static_cast<int>(issuer_cert_size));
-        if (bio_raw)
-        {
-            std::unique_ptr<BIO, decltype(&BIO_free)> bio{bio_raw, &BIO_free};
-            issuer_x509.reset(PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
-        }
-    }
+    X509Ptr issuer_x509 = ParseX509(issuer_cert_data, issuer_cert_size, issuer_cert_format);
     if (!issuer_x509)
     {
         ERR_clear_error();
@@ -429,12 +297,9 @@ score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> Ope
     }
 
     score::crypto::CrlMetadata metadata;
-    if (!Sha256CrlDigest(crl.get(), metadata.fingerprint) ||
-        !Sha256CertificateDigest(issuer_x509.get(), metadata.issuer_fingerprint))
+    if (!openssl_detail::ReadCrlMetadata(crl.get(), metadata) ||
+        !openssl_detail::ComputeSha256(issuer_x509.get(), metadata.issuer_fingerprint))
         return score::crypto::make_unexpected(Error::kInternalError);
-    metadata.this_update = Asn1TimeToEpoch(X509_CRL_get0_lastUpdate(crl.get()));
-    metadata.next_update = Asn1TimeToEpoch(X509_CRL_get0_nextUpdate(crl.get()));
-    metadata.crl_number = CrlNumber(crl.get());
     return metadata;
 }
 
