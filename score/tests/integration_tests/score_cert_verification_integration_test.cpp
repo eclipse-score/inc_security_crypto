@@ -126,6 +126,18 @@ class CertificateVerificationIntegrationTest : public ::testing::Test
     score::crypto::CryptoResourceId m_intermediate_trust_store{};
 };
 
+TEST_F(CertificateVerificationIntegrationTest, RejectsInvalidRevocationPolicies)
+{
+    auto verification = CreateVerificationContext();
+    ASSERT_NE(verification, nullptr);
+
+    const auto invalid_check_policy = static_cast<score::crypto::RevocationCheckPolicy>(0xFFU);
+    EXPECT_FALSE(verification->SetRevocationCheckPolicy(invalid_check_policy).has_value());
+
+    const auto invalid_coverage_policy = static_cast<score::crypto::RevocationCoveragePolicy>(0xFFU);
+    EXPECT_FALSE(verification->SetRevocationCoveragePolicy(invalid_coverage_policy).has_value());
+}
+
 TEST_F(CertificateVerificationIntegrationTest, VerifiesSelfSignedRootAgainstTrustStore)
 {
     auto root = ParseCertificate("certificate/pki_chain/root_ca.pem");
@@ -374,7 +386,7 @@ TEST_F(CertificateVerificationIntegrationTest, RejectsLeafWhenIntermediateIsMiss
 
     auto result = verification->Verify();
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, score::crypto::CertVerifyResult::kNoRootFound);
+    EXPECT_EQ(*result, score::crypto::CertVerifyResult::kChainIncomplete);
 }
 
 TEST_F(CertificateVerificationIntegrationTest, TrustStoreTerminatedAcceptsTrustedIntermediate)
@@ -411,7 +423,7 @@ TEST_F(CertificateVerificationIntegrationTest, RootRequiredRejectsTrustedInterme
 
     auto result = verification->Verify();
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, score::crypto::CertVerifyResult::kNoRootFound);
+    EXPECT_EQ(*result, score::crypto::CertVerifyResult::kChainIncomplete);
 }
 
 TEST_F(CertificateVerificationIntegrationTest, RejectsRevokedLeafWithIntermediateCrl)

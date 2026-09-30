@@ -37,6 +37,7 @@ inline constexpr OperationAction CERT_VERIFY_SET_ADDITIONAL = 0xD5U;
 inline constexpr OperationAction CERT_VERIFY_SET_VERIFICATION_TIME = 0xD6U;
 inline constexpr OperationAction CERT_VERIFY_SET_REVOCATION_POLICY = 0xD7U;
 inline constexpr OperationAction CERT_VERIFY_SET_EVIDENCE_MODE = 0xD8U;
+inline constexpr OperationAction CERT_VERIFY_SET_REVOCATION_COVERAGE_POLICY = 0xD9U;
 inline constexpr OperationAction CERT_GET_SELECTED_CRL_METADATA = 0xB5U;
 
 // Provider-specific operation IDs must be >= CUSTOM_OP_START.

@@ -79,6 +79,8 @@ Expected<common::ResponseParameters, common::DaemonErrorCode> CertVerificationEx
         return ExecuteSetVerificationTime(handler, request);
     if (action == cv_ops::CERT_VERIFY_SET_REVOCATION_POLICY)
         return ExecuteSetRevocationPolicy(handler, request);
+    if (action == cv_ops::CERT_VERIFY_SET_REVOCATION_COVERAGE_POLICY)
+        return ExecuteSetRevocationCoveragePolicy(handler, request);
     if (action == cv_ops::CERT_VERIFY_SET_EVIDENCE_MODE)
         return ExecuteSetEvidenceMode(handler, request);
     if (action == cv_ops::CERT_VERIFY)
@@ -215,7 +217,22 @@ Expected<common::ResponseParameters, common::DaemonErrorCode> CertVerificationEx
     auto policy = ExtractU8(request, 0U);
     if (!policy.has_value())
         return make_unexpected(policy.error());
+    if (policy.value() > static_cast<std::uint8_t>(score::crypto::RevocationCheckPolicy::kOcspWithCrlFallback))
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
     handler.SetRevocationPolicy(policy.value());
+    return OkResponse();
+}
+
+Expected<common::ResponseParameters, common::DaemonErrorCode>
+CertVerificationExecutor::ExecuteSetRevocationCoveragePolicy(ScoreCertVerificationHandler& handler,
+                                                             common::RequestParameters& request)
+{
+    auto policy = ExtractU8(request, 0U);
+    if (!policy.has_value())
+        return make_unexpected(policy.error());
+    if (policy.value() > static_cast<std::uint8_t>(score::crypto::RevocationCoveragePolicy::kBestEffort))
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+    handler.SetRevocationCoveragePolicy(static_cast<score::crypto::RevocationCoveragePolicy>(policy.value()));
     return OkResponse();
 }
 

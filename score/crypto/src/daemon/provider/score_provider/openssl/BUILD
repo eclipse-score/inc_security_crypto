@@ -90,6 +90,53 @@ cc_library(
     visibility = ["//:__subpackages__"],
 )
 
+# Verification-specific OpenSSL helpers: CRL selection, revocation coverage, result mapping.
+cc_library(
+    name = "openssl_cert_verification_detail",
+    srcs = [
+        "operations/cert_verification/detail/openssl_crl_selection.cpp",
+        "operations/cert_verification/detail/openssl_revocation_coverage.cpp",
+        "operations/cert_verification/detail/openssl_verify_result_mapping.cpp",
+        "operations/cert_verification/detail/openssl_x509_utils.cpp",
+    ],
+    hdrs = [
+        "operations/cert_verification/detail/openssl_crl_selection.hpp",
+        "operations/cert_verification/detail/openssl_revocation_coverage.hpp",
+        "operations/cert_verification/detail/openssl_verify_result_mapping.hpp",
+        "operations/cert_verification/detail/openssl_x509_utils.hpp",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//score/crypto/src/daemon/provider:__subpackages__"],
+    deps = [
+        ":openssl_cert_utils",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/common",
+        "//third_party/openssl:openssl_shared",
+        "@score_baselibs//score/mw/log",
+    ],
+)
+
+cc_test(
+    name = "test_openssl_verify_result_mapping",
+    srcs = ["operations/cert_verification/detail/openssl_verify_result_mapping_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":openssl_cert_verification_detail",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/daemon/common",
+        "//third_party/openssl:openssl_shared",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "provider_openssl_headers",
     hdrs = [
@@ -154,6 +201,7 @@ cc_library(
         "provider_openssl.cpp",
     ],
     implementation_deps = [
+        ":openssl_cert_verification_detail",
         "//third_party/openssl:openssl_shared",
     ],
     includes = ["."],
