@@ -47,7 +47,8 @@ class TrustStoreObjectImpl final : public ITrustStoreObject
     const std::vector<MemberInfo>& GetMembers() const noexcept override;
 
     const MemberInfo* FindMember(const CryptoResourceId& slot) const noexcept override;
-    const MemberInfo* FindMemberByFingerprint(score::cpp::span<const uint8_t> fingerprint) const noexcept override;
+    const MemberInfo* FindMemberByFingerprint(
+        score::cpp::span<const uint8_t, kSha256FingerprintSize> fingerprint) const noexcept override;
     std::vector<CryptoResourceId> GetEnabledMemberSlotIds() const override;
     std::vector<CryptoResourceId> GetDisabledMemberSlotIds() const override;
 

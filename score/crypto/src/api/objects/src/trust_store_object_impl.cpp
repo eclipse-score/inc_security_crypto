@@ -55,12 +55,8 @@ const MemberInfo* TrustStoreObjectImpl::FindMember(const CryptoResourceId& slot)
 }
 
 const MemberInfo* TrustStoreObjectImpl::FindMemberByFingerprint(
-    score::cpp::span<const uint8_t> fingerprint) const noexcept
+    score::cpp::span<const uint8_t, kSha256FingerprintSize> fingerprint) const noexcept
 {
-    if (fingerprint.size() != kSha256FingerprintSize)
-    {
-        return nullptr;
-    }
     for (const auto& member : GetMembers())
     {
         if (std::equal(fingerprint.begin(), fingerprint.end(), member.sha256_fingerprint.begin()))
@@ -76,7 +72,7 @@ std::vector<CryptoResourceId> TrustStoreObjectImpl::GetEnabledMemberSlotIds() co
     std::vector<CryptoResourceId> result;
     for (const auto& member : GetMembers())
     {
-        if (member.is_enabled)
+        if (member.status == MemberStatus::kEnabled)
         {
             result.push_back(member.slot_id);
         }
@@ -89,7 +85,7 @@ std::vector<CryptoResourceId> TrustStoreObjectImpl::GetDisabledMemberSlotIds() c
     std::vector<CryptoResourceId> result;
     for (const auto& member : GetMembers())
     {
-        if (!member.is_enabled)
+        if (member.status != MemberStatus::kEnabled)
         {
             result.push_back(member.slot_id);
         }

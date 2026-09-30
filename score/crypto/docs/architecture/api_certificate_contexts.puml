@@ -88,10 +88,10 @@ package "Trust-Store Management" {
         + AddCertificateToTrustStore(trust_store, cert) : Result<std::monostate>
         + AddCertificateToTrustStoreWithCrl(trust_store, cert) : Result<std::monostate>
         + RemoveCertificateFromTrustStore(trust_store, cert) : Result<std::monostate>
-        + RemoveCertificateFromTrustStore(trust_store, fingerprint : span<const uint8_t>) : Result<std::monostate>
+        + RemoveCertificateFromTrustStore(trust_store, fingerprint : span<const uint8_t, kSha256FingerprintSize>) : Result<std::monostate>
         + EnableTrustStoreMember(trust_store, slot) : Result<std::monostate>
         + DisableTrustStoreMember(trust_store, slot) : Result<std::monostate>
-        + AcknowledgeTrustStoreMemberUpdate(trust_store, slot, expected_sha256_fingerprint : span<const uint8_t>) : Result<std::monostate>
+        + AcknowledgeTrustStoreMemberUpdate(trust_store, slot, expected_sha256_fingerprint : span<const uint8_t, kSha256FingerprintSize>) : Result<std::monostate>
         __ Member CRL __
         + ImportCrlForTrustStoreMember(trust_store, slot, crl_data, format) : Result<std::monostate>
         + DeleteCrlForTrustStoreMember(trust_store, slot) : Result<std::monostate>

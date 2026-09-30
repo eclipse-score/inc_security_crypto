@@ -19,10 +19,7 @@ namespace score
 namespace crypto
 {
 
-CertSlotObjectImpl::CertSlotObjectImpl(CryptoResourceId id, bool is_occupied, bool has_crl)
-    : m_id(id), m_is_occupied(is_occupied), m_has_crl(has_crl)
-{
-}
+CertSlotObjectImpl::CertSlotObjectImpl(CryptoResourceId id, CertificateSlotInfo info) : m_id(id), m_info(info) {}
 
 CryptoResourceId CertSlotObjectImpl::GetId() const noexcept
 {
@@ -34,14 +31,19 @@ ResourceType CertSlotObjectImpl::GetType() const noexcept
     return ResourceType::kCertSlot;
 }
 
-bool CertSlotObjectImpl::IsOccupied() const noexcept
+CertificateSlotInfo CertSlotObjectImpl::GetInfo() const
 {
-    return m_is_occupied;
+    return m_info;
+}
+
+CertificateSlotState CertSlotObjectImpl::GetState() const noexcept
+{
+    return m_info.state;
 }
 
 bool CertSlotObjectImpl::HasCrl() const noexcept
 {
-    return m_has_crl;
+    return m_info.has_crl;
 }
 
 }  // namespace crypto

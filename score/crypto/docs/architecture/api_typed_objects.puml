@@ -69,7 +69,8 @@ package "Slot Objects" {
     }
 
     interface ICertSlotObject {
-        + IsOccupied() : bool
+        + GetInfo() : CertificateSlotInfo
+        + GetState() : CertificateSlotState
         + HasCrl() : bool
     }
 

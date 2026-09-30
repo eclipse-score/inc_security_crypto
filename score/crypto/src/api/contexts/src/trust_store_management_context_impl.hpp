@@ -67,13 +67,15 @@ class TrustStoreManagementContextImpl final : public ITrustStoreManagementContex
                                                                   const CryptoResourceId& cert) override;
     score::Result<std::monostate> RemoveCertificateFromTrustStore(
         const CryptoResourceId& trust_store,
-        score::cpp::span<const uint8_t> sha256_fingerprint) override;
+        score::cpp::span<const uint8_t, kSha256FingerprintSize> sha256_fingerprint) override;
     score::Result<std::monostate> EnableTrustStoreMember(const CryptoResourceId& trust_store,
                                                          const CryptoResourceId& slot) override;
     score::Result<std::monostate> DisableTrustStoreMember(const CryptoResourceId& trust_store,
                                                           const CryptoResourceId& slot) override;
-    score::Result<std::monostate> AcknowledgeTrustStoreMemberUpdate(const CryptoResourceId& trust_store,
-                                                                    const CryptoResourceId& slot) override;
+    score::Result<std::monostate> AcknowledgeTrustStoreMemberUpdate(
+        const CryptoResourceId& trust_store,
+        const CryptoResourceId& slot,
+        score::cpp::span<const uint8_t, kSha256FingerprintSize> expected_sha256_fingerprint) override;
     score::Result<std::monostate> ImportCrlForTrustStoreMember(const CryptoResourceId& trust_store,
                                                                const CryptoResourceId& slot,
                                                                score::cpp::span<const uint8_t> crl_data,
