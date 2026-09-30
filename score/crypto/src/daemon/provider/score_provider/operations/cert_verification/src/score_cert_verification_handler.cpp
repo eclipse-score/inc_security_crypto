@@ -76,6 +76,7 @@ Expected<std::monostate, common::DaemonErrorCode> ScoreCertVerificationHandler::
     m_additional_cert_entries.clear();
     m_verification_time_epoch_s.reset();
     m_revocation_policy = 0U;
+    m_revocation_coverage_policy = score::crypto::RevocationCoveragePolicy::kFailClosed;
     m_evidence_mode = score::crypto::VerificationEvidenceMode::kNone;
     m_selected_crl_metadata.clear();
     m_verified_chain.clear();
@@ -189,6 +190,11 @@ void ScoreCertVerificationHandler::SetRevocationPolicy(uint8_t policy) noexcept
     m_revocation_policy = policy;
 }
 
+void ScoreCertVerificationHandler::SetRevocationCoveragePolicy(score::crypto::RevocationCoveragePolicy policy) noexcept
+{
+    m_revocation_coverage_policy = policy;
+}
+
 void ScoreCertVerificationHandler::SetEvidenceMode(uint8_t mode) noexcept
 {
     m_evidence_mode = static_cast<score::crypto::VerificationEvidenceMode>(mode);
@@ -216,6 +222,7 @@ Expected<uint8_t, common::DaemonErrorCode> ScoreCertVerificationHandler::Verify(
     input.trust_store_node_id = m_trust_store_node_id;
     input.verification_time_epoch_s = m_verification_time_epoch_s;
     input.revocation_policy = m_revocation_policy;
+    input.revocation_coverage_policy = m_revocation_coverage_policy;
     input.evidence_mode = m_evidence_mode;
 
     // Reset cached chain state from any prior Verify() call.
@@ -287,8 +294,6 @@ Expected<uint8_t, common::DaemonErrorCode> ScoreCertVerificationHandler::Verify(
         if (const auto result = append_crl(entry); !result)
             return make_unexpected(result.error());
     }
-    for (const auto& entry : m_trusted_cert_entries)
-        append_crl(entry);
 
     // Trust-store mode: add pre-resolved anchors to any explicit anchors. The
     // effective trust set is the union of both sources, deduplicated by fingerprint.

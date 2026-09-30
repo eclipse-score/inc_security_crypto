@@ -14,23 +14,21 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cert_verification/openssl_cert_verification_handler.hpp"
 #include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/daemon/provider/cert_management/cert_types.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cert_verification/detail/openssl_crl_selection.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cert_verification/detail/openssl_revocation_coverage.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cert_verification/detail/openssl_verify_result_mapping.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cert_verification/detail/openssl_x509_utils.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cert_verification/cert_verification_executor.hpp"
 #include "score/mw/log/logging.h"
 
-#include <openssl/bn.h>
 #include <openssl/err.h>
-#include <openssl/evp.h>
-#include <openssl/pem.h>
-#include <openssl/sha.h>
 #include <openssl/x509.h>
-#include <openssl/x509v3.h>
 
-#include <algorithm>
-#include <array>
 #include <ctime>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -43,232 +41,20 @@ namespace
 
 constexpr std::string_view LOG_PREFIX = "[OPENSSL_CERT_VERIFY] ";
 using Error = common::DaemonErrorCode;
-using CertObject = ::score::crypto::daemon::cert_management::CertObject;
-using CertSptr = std::shared_ptr<CertObject>;
-
-// ---------------------------------------------------------------------------
-// RAII wrappers
-// ---------------------------------------------------------------------------
-
-struct X509Deleter
-{
-    void operator()(X509* p) const noexcept
-    {
-        X509_free(p);
-    }
-};
-using UniqueX509 = std::unique_ptr<X509, X509Deleter>;
-
-struct X509StoreDeleter
-{
-    void operator()(X509_STORE* p) const noexcept
-    {
-        X509_STORE_free(p);
-    }
-};
-using UniqueX509Store = std::unique_ptr<X509_STORE, X509StoreDeleter>;
-
-struct X509StoreCtxDeleter
-{
-    void operator()(X509_STORE_CTX* p) const noexcept
-    {
-        X509_STORE_CTX_free(p);
-    }
-};
-using UniqueX509StoreCtx = std::unique_ptr<X509_STORE_CTX, X509StoreCtxDeleter>;
-
-struct StackX509Deleter
-{
-    void operator()(STACK_OF(X509) * p) const noexcept
-    {
-        sk_X509_pop_free(p, X509_free);
-    }
-};
-using UniqueStackX509 = std::unique_ptr<STACK_OF(X509), StackX509Deleter>;
-
-struct X509CrlDeleter
-{
-    void operator()(X509_CRL* p) const noexcept
-    {
-        X509_CRL_free(p);
-    }
-};
-using UniqueX509Crl = std::unique_ptr<X509_CRL, X509CrlDeleter>;
-
-// ---------------------------------------------------------------------------
-// Parse a CertObject into an X509* (DER or PEM).
-// ---------------------------------------------------------------------------
-UniqueX509 CertToX509(const CertObject& cert)
-{
-    const auto& raw = cert.GetRawBytes();
-    if (raw.empty())
-        return nullptr;
-
-    if (cert.GetFormat() == score::crypto::FormatType::kDer)
-    {
-        const uint8_t* ptr = raw.data();
-        return UniqueX509(d2i_X509(nullptr, &ptr, static_cast<long>(raw.size())));
-    }
-
-    // PEM path
-    auto* raw_bio = BIO_new_mem_buf(raw.data(), static_cast<int>(raw.size()));
-    if (raw_bio == nullptr)
-        return nullptr;
-    std::unique_ptr<BIO, decltype(&BIO_free)> bio{raw_bio, &BIO_free};
-    return UniqueX509(PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
-}
-
-// ---------------------------------------------------------------------------
-// Compute SHA-256 fingerprint of an X509* (32 bytes in hex-free form).
-// Returns empty string on failure.
-// ---------------------------------------------------------------------------
-std::string FingerprintOf(X509* x)
-{
-    std::array<uint8_t, SHA256_DIGEST_LENGTH> fp{};
-    uint32_t fp_len = static_cast<uint32_t>(fp.size());
-    if (X509_digest(x, EVP_sha256(), fp.data(), &fp_len) != 1 || fp_len != SHA256_DIGEST_LENGTH)
-        return {};
-    return std::string(reinterpret_cast<const char*>(fp.data()), fp_len);
-}
-
-Expected<std::array<std::uint8_t, 32U>, Error> DigestCrl(X509_CRL* crl)
-{
-    if (crl == nullptr)
-        return make_unexpected(Error::kInvalidArgument);
-
-    std::array<std::uint8_t, SHA256_DIGEST_LENGTH> result{};
-    unsigned int length = static_cast<unsigned int>(result.size());
-    if (X509_CRL_digest(crl, EVP_sha256(), result.data(), &length) != 1 || length != result.size())
-        return make_unexpected(Error::kOperationFailed);
-    return result;
-}
-
-std::int64_t Asn1TimeToEpoch(const ASN1_TIME* value)
-{
-    if (value == nullptr)
-        return 0;
-    std::tm calendar{};
-    if (ASN1_TIME_to_tm(value, &calendar) != 1)
-        return 0;
-    return static_cast<std::int64_t>(timegm(&calendar));
-}
-
-std::uint64_t CrlNumber(X509_CRL* crl)
-{
-    int critical = 0;
-    ASN1_INTEGER* number = static_cast<ASN1_INTEGER*>(X509_CRL_get_ext_d2i(crl, NID_crl_number, &critical, nullptr));
-    if (number == nullptr)
-        return 0U;
-    std::unique_ptr<ASN1_INTEGER, decltype(&ASN1_INTEGER_free)> number_guard{number, &ASN1_INTEGER_free};
-    BIGNUM* value = ASN1_INTEGER_to_BN(number, nullptr);
-    if (value == nullptr || BN_is_negative(value) || BN_num_bits(value) > 64)
-    {
-        BN_free(value);
-        return 0U;
-    }
-    std::uint8_t encoded[sizeof(std::uint64_t)]{};
-    const int length = BN_bn2binpad(value, encoded, sizeof(encoded));
-    BN_free(value);
-    if (length != static_cast<int>(sizeof(encoded)))
-        return 0U;
-    std::uint64_t result = 0U;
-    for (const auto byte : encoded)
-        result = (result << 8U) | byte;
-    return result;
-}
-
-Expected<std::optional<std::array<std::uint8_t, 32U>>, Error> IssuerFingerprint(X509_CRL* crl,
-                                                                                const std::vector<CertSptr>& candidates)
-{
-    if (crl == nullptr)
-        return make_unexpected(Error::kInvalidArgument);
-
-    const auto* issuer = X509_CRL_get_issuer(crl);
-    if (issuer == nullptr)
-        return make_unexpected(Error::kCertificateParsingFailed);
-
-    for (const auto& candidate : candidates)
-    {
-        if (!candidate)
-            continue;
-        auto x509 = CertToX509(*candidate);
-        if (x509 && X509_NAME_cmp(issuer, X509_get_subject_name(x509.get())) == 0)
-        {
-            const auto fingerprint = candidate->GetFingerprint();
-            if (fingerprint.size() != SHA256_DIGEST_LENGTH)
-                return make_unexpected(Error::kInvalidArgument);
-
-            std::array<std::uint8_t, SHA256_DIGEST_LENGTH> result{};
-            std::copy(fingerprint.begin(), fingerprint.end(), result.begin());
-            return result;
-        }
-    }
-    return std::nullopt;
-}
-
-// ---------------------------------------------------------------------------
-// Map X509 verification error code to CertVerifyResult numeric value.
-// ---------------------------------------------------------------------------
-uint8_t MapX509Error(int x509_err)
-{
-    using R = ::score::crypto::daemon::provider::cert_management::CertVerifyErrorCode;
-    switch (x509_err)
-    {
-        case X509_V_ERR_CERT_HAS_EXPIRED:
-            return static_cast<uint8_t>(R::kExpired);
-        case X509_V_ERR_CERT_NOT_YET_VALID:
-            return static_cast<uint8_t>(R::kNotYetValid);
-        case X509_V_ERR_CERT_REVOKED:
-            return static_cast<uint8_t>(R::kRevoked);
-        case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:
-        case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
-        case X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE:
-        case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
-        case X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN:
-        case X509_V_ERR_CERT_UNTRUSTED:
-            return static_cast<uint8_t>(R::kNoRootFound);
-        case X509_V_ERR_CERT_CHAIN_TOO_LONG:
-            return static_cast<uint8_t>(R::kChainIncomplete);
-        case X509_V_ERR_CERT_SIGNATURE_FAILURE:
-            return static_cast<uint8_t>(R::kSignatureInvalid);
-        case X509_V_ERR_INVALID_PURPOSE:
-            return static_cast<uint8_t>(R::kInvalidPurpose);
-        case X509_V_ERR_UNABLE_TO_GET_CRL:
-        case X509_V_ERR_UNABLE_TO_DECRYPT_CRL_SIGNATURE:
-        case X509_V_ERR_CRL_SIGNATURE_FAILURE:
-        case X509_V_ERR_CRL_NOT_YET_VALID:
-        case X509_V_ERR_CRL_HAS_EXPIRED:
-            return static_cast<uint8_t>(R::kUnknownError);
-        default:
-            return static_cast<uint8_t>(R::kUnknownError);
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Build a fingerprint → CertSptr index from all input cert sets.
-// ---------------------------------------------------------------------------
-std::unordered_map<std::string, CertSptr> BuildFingerprintIndex(const CertSptr& leaf,
-                                                                const std::vector<CertSptr>& chain,
-                                                                const std::vector<CertSptr>& additional,
-                                                                const std::vector<CertSptr>& trusted)
-{
-    std::unordered_map<std::string, CertSptr> idx;
-    auto insert = [&](const CertSptr& c) {
-        if (!c)
-            return;
-        const auto fp = c->GetFingerprint();  // span<const uint8_t>
-        if (!fp.empty())
-            idx.emplace(std::string(reinterpret_cast<const char*>(fp.data()), fp.size()), c);
-    };
-    insert(leaf);
-    for (const auto& c : chain)
-        insert(c);
-    for (const auto& c : additional)
-        insert(c);
-    for (const auto& c : trusted)
-        insert(c);
-    return idx;
-}
+namespace openssl_detail = ::score::crypto::daemon::provider::openssl::detail;
+using openssl_detail::BuildFingerprintIndex;
+using openssl_detail::CertSptr;
+using openssl_detail::CertToX509;
+using openssl_detail::FingerprintOf;
+using openssl_detail::MapX509Error;
+using openssl_detail::MapX509OperationError;
+using openssl_detail::ParsedCrl;
+using openssl_detail::RevocationCoverageState;
+using openssl_detail::UniqueStackX509;
+using openssl_detail::UniqueX509;
+using openssl_detail::UniqueX509Store;
+using openssl_detail::UniqueX509StoreCtx;
+using openssl_detail::VerifyCrlCoverageCallback;
 
 }  // namespace
 
@@ -298,8 +84,8 @@ OpenSslCertVerificationHandler::DoVerify(const VerificationInput& input)
     }
     if (input.trusted.empty())
     {
-        score::mw::log::LogError() << LOG_PREFIX << "DoVerify: no trust anchors";
-        return make_unexpected(Error::kInvalidArgument);
+        score::mw::log::LogWarn() << LOG_PREFIX << "DoVerify: no trust anchors configured";
+        return VerifyOutcome{static_cast<uint8_t>(::score::crypto::CertVerifyResult::kNoRootFound), {}, {}};
     }
 
     // Build fingerprint index for chain reconstruction after verification.
@@ -353,7 +139,7 @@ OpenSslCertVerificationHandler::DoVerify(const VerificationInput& input)
     if (!leaf_x509)
     {
         score::mw::log::LogError() << LOG_PREFIX << "DoVerify: failed to parse leaf certificate";
-        return make_unexpected(Error::kInvalidArgument);
+        return make_unexpected(Error::kCertificateParsingFailed);
     }
 
     // --- Untrusted intermediates stack (chain + additional, deduplicated by pointer/fingerprint) ---
@@ -376,15 +162,6 @@ OpenSslCertVerificationHandler::DoVerify(const VerificationInput& input)
         push_intermediate(c);
 
     common::OwnedBuffer selected_crl_metadata;
-    struct ParsedCrl
-    {
-        UniqueX509Crl value;
-        std::array<std::uint8_t, 32U> issuer_fingerprint{};
-        std::array<std::uint8_t, 32U> crl_fingerprint{};
-        std::int64_t this_update{0};
-        std::int64_t next_update{0};
-        std::uint64_t crl_number{0U};
-    };
     std::vector<ParsedCrl> selected_crls;
 
     // --- Revocation check policy (must be applied to the store before CTX init) ---
@@ -395,85 +172,11 @@ OpenSslCertVerificationHandler::DoVerify(const VerificationInput& input)
             break;  // no revocation check — default
         case RevPol::kCrlOnly:
         {
-            if (input.crls.empty())
-            {
-                score::mw::log::LogError() << LOG_PREFIX << "DoVerify: CRL check requested but no CRLs available";
-                return make_unexpected(Error::kUnsupportedOperation);
-            }
-            bool any_loaded = false;
-            std::vector<ParsedCrl> candidates;
-            for (const auto& crl_entry : input.crls)
-            {
-                UniqueX509Crl crl;
-                if (crl_entry.format == score::crypto::FormatType::kDer)
-                {
-                    const uint8_t* ptr = crl_entry.bytes.data();
-                    crl.reset(d2i_X509_CRL(nullptr, &ptr, static_cast<long>(crl_entry.bytes.size())));
-                }
-                else
-                {
-                    auto* bio_raw = BIO_new_mem_buf(crl_entry.bytes.data(), static_cast<int>(crl_entry.bytes.size()));
-                    if (bio_raw != nullptr)
-                    {
-                        std::unique_ptr<BIO, decltype(&BIO_free)> bio{bio_raw, &BIO_free};
-                        crl.reset(PEM_read_bio_X509_CRL(bio.get(), nullptr, nullptr, nullptr));
-                    }
-                }
-                if (!crl)
-                {
-                    score::mw::log::LogWarn() << LOG_PREFIX << "DoVerify: failed to parse a CRL, skipping";
-                    continue;
-                }
-                const auto issuer_fp_res = IssuerFingerprint(crl.get(), issuer_candidates);
-                if (!issuer_fp_res.has_value())
-                {
-                    score::mw::log::LogError() << LOG_PREFIX << "DoVerify: invalid CRL issuer fingerprint";
-                    return make_unexpected(issuer_fp_res.error());
-                }
-                if (!issuer_fp_res.value().has_value())
-                {
-                    score::mw::log::LogWarn()
-                        << LOG_PREFIX << "DoVerify: CRL issuer not present in verification inputs";
-                    continue;
-                }
-                const auto crl_fp_res = DigestCrl(crl.get());
-                if (!crl_fp_res.has_value())
-                {
-                    score::mw::log::LogError() << LOG_PREFIX << "DoVerify: failed to fingerprint CRL";
-                    return make_unexpected(crl_fp_res.error());
-                }
-                const auto& issuer_fp = issuer_fp_res.value().value();
-                const auto& crl_fp = crl_fp_res.value();
-                const auto this_update = Asn1TimeToEpoch(X509_CRL_get0_lastUpdate(crl.get()));
-                const auto next_update = Asn1TimeToEpoch(X509_CRL_get0_nextUpdate(crl.get()));
-                const auto crl_number = CrlNumber(crl.get());
-                candidates.push_back(
-                    ParsedCrl{std::move(crl), issuer_fp, crl_fp, this_update, next_update, crl_number});
-            }
+            auto selected_res = openssl_detail::SelectCrlsPerIssuer(input.crls, issuer_candidates);
+            if (!selected_res.has_value())
+                return make_unexpected(selected_res.error());
+            selected_crls = std::move(selected_res.value());
 
-            std::unordered_map<std::string, std::size_t> selected;
-            for (std::size_t i = 0U; i < candidates.size(); ++i)
-            {
-                const auto key = std::string(reinterpret_cast<const char*>(candidates[i].issuer_fingerprint.data()),
-                                             candidates[i].issuer_fingerprint.size());
-                const auto current = selected.find(key);
-                const auto& candidate = candidates[i];
-                const auto& current_candidate = current == selected.end() ? candidate : candidates[current->second];
-                const bool has_higher_number =
-                    candidate.crl_number != 0U && (current == selected.end() || current_candidate.crl_number == 0U ||
-                                                   candidate.crl_number > current_candidate.crl_number);
-                const bool same_number_newer_time = candidate.crl_number == current_candidate.crl_number &&
-                                                    candidate.this_update > current_candidate.this_update;
-                if (current == selected.end() || has_higher_number || same_number_newer_time)
-                {
-                    selected[key] = i;
-                }
-            }
-
-            for (const auto& selected_entry : selected)
-            {
-                selected_crls.push_back(std::move(candidates[selected_entry.second]));
-            }
             for (auto& candidate : selected_crls)
             {
                 if (X509_STORE_add_crl(store.get(), candidate.value.get()) != 1)
@@ -482,12 +185,8 @@ OpenSslCertVerificationHandler::DoVerify(const VerificationInput& input)
                     score::mw::log::LogWarn() << LOG_PREFIX << "DoVerify: selected CRL could not be added";
                     continue;
                 }
-                any_loaded = true;
             }
-            if (any_loaded)
-            {
-                X509_STORE_set_flags(store.get(), X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
-            }
+            X509_STORE_set_flags(store.get(), X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
             break;
         }
         case RevPol::kOcspOnly:
@@ -517,37 +216,29 @@ OpenSslCertVerificationHandler::DoVerify(const VerificationInput& input)
         X509_STORE_CTX_set_time(ctx.get(), 0U, static_cast<time_t>(*input.verification_time_epoch_s));
     }
 
+    RevocationCoverageState coverage_state;
+    coverage_state.best_effort =
+        input.revocation_coverage_policy == ::score::crypto::RevocationCoveragePolicy::kBestEffort;
+    if (static_cast<RevPol>(input.revocation_policy) == RevPol::kCrlOnly)
+    {
+        X509_STORE_CTX_set_app_data(ctx.get(), &coverage_state);
+        X509_STORE_CTX_set_verify_cb(ctx.get(), VerifyCrlCoverageCallback);
+    }
+
     const auto collectSelectedCrlMetadata = [&]() {
         if (input.evidence_mode != score::crypto::VerificationEvidenceMode::kChainAndCrl)
             return;
-        auto* chain = X509_STORE_CTX_get0_chain(ctx.get());
-        if (chain == nullptr)
-            return;
-        for (const auto& candidate : selected_crls)
-        {
-            bool matches_path = false;
-            for (int i = 0; i < sk_X509_num(chain); ++i)
-            {
-                auto* certificate = sk_X509_value(chain, i);
-                if (certificate != nullptr &&
-                    X509_NAME_cmp(X509_CRL_get_issuer(candidate.value.get()), X509_get_issuer_name(certificate)) == 0)
-                {
-                    matches_path = true;
-                    break;
-                }
-            }
-            if (!matches_path)
-                continue;
-            score::crypto::CrlMetadata metadata{};
-            metadata.fingerprint = candidate.crl_fingerprint;
-            metadata.issuer_fingerprint = candidate.issuer_fingerprint;
-            metadata.this_update = candidate.this_update;
-            metadata.next_update = candidate.next_update;
-            metadata.crl_number = candidate.crl_number;
-            std::array<std::uint8_t, score::crypto::CrlMetadataWireLayout::kEntrySize> encoded{};
-            score::crypto::CrlMetadataWireLayout::Encode(metadata, encoded);
-            selected_crl_metadata.insert(selected_crl_metadata.end(), encoded.begin(), encoded.end());
-        }
+        selected_crl_metadata =
+            openssl_detail::EncodeSelectedCrlMetadata(selected_crls, X509_STORE_CTX_get0_chain(ctx.get()));
+    };
+
+    const auto has_stale_revocation_entry = [&]() {
+        if (static_cast<RevPol>(input.revocation_policy) != RevPol::kCrlOnly)
+            return false;
+        const auto verification_time =
+            input.verification_time_epoch_s.value_or(static_cast<int64_t>(std::time(nullptr)));
+        return openssl_detail::HasStaleRevocationEntry(
+            selected_crls, issuer_candidates, X509_STORE_CTX_get0_chain(ctx.get()), verification_time);
     };
 
     // --- Verify ---
@@ -559,16 +250,30 @@ OpenSslCertVerificationHandler::DoVerify(const VerificationInput& input)
         score::mw::log::LogWarn() << LOG_PREFIX << "DoVerify: verification failed: "
                                   << std::string_view{X509_verify_cert_error_string(verify_err)}
                                   << " (code=" << verify_err << ")";
+        if (verify_err == X509_V_ERR_CERT_REVOKED && has_stale_revocation_entry())
+        {
+            return VerifyOutcome{static_cast<uint8_t>(::score::crypto::CertVerifyResult::kRevocationStatusUnavailable),
+                                 {},
+                                 std::move(selected_crl_metadata)};
+        }
         // Return a VerifyOutcome with a non-zero result_code; chain is empty.
-        return VerifyOutcome{MapX509Error(verify_err), {}, std::move(selected_crl_metadata)};
+        const auto mapped_result = MapX509Error(verify_err);
+        if (!mapped_result.has_value())
+            return make_unexpected(MapX509OperationError(verify_err));
+        return VerifyOutcome{*mapped_result, {}, std::move(selected_crl_metadata)};
+    }
+
+    if (has_stale_revocation_entry())
+    {
+        collectSelectedCrlMetadata();
+        return VerifyOutcome{static_cast<uint8_t>(::score::crypto::CertVerifyResult::kRevocationStatusUnavailable),
+                             {},
+                             std::move(selected_crl_metadata)};
     }
 
     if (input.evidence_mode == score::crypto::VerificationEvidenceMode::kNone)
     {
-        return VerifyOutcome{
-            static_cast<uint8_t>(::score::crypto::daemon::provider::cert_management::CertVerifyErrorCode::kNone),
-            {},
-            {}};
+        return VerifyOutcome{static_cast<uint8_t>(::score::crypto::CertVerifyResult::kValid), {}, {}};
     }
 
     collectSelectedCrlMetadata();
@@ -601,10 +306,9 @@ OpenSslCertVerificationHandler::DoVerify(const VerificationInput& input)
     }
 
     score::mw::log::LogVerbose() << LOG_PREFIX << "DoVerify: success, chain length=" << verified.size();
-    return VerifyOutcome{
-        static_cast<uint8_t>(::score::crypto::daemon::provider::cert_management::CertVerifyErrorCode::kNone),
-        std::move(verified),
-        std::move(selected_crl_metadata)};
+    return VerifyOutcome{static_cast<uint8_t>(::score::crypto::CertVerifyResult::kValid),
+                         std::move(verified),
+                         std::move(selected_crl_metadata)};
 }
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

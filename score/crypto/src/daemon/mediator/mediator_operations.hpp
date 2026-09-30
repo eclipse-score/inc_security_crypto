@@ -210,7 +210,7 @@ inline constexpr OperationAction GET_CERT_SLOT_OBJECT = 7;
 //           param[1+i*7+3]: OwnedString — issuer DN
 //           param[1+i*7+4]: OwnedString — serial_number_hex
 //           param[1+i*7+5]: uint8      — MemberKind
-//           param[1+i*7+6]: uint8      — is_enabled (1=true)
+//           param[1+i*7+6]: uint8      — MemberStatus
 // Effect:   Queries TrustStoreManager directly; no provider context is created.
 inline constexpr OperationAction GET_TRUST_STORE_OBJECT = 8;
 
