@@ -426,7 +426,19 @@ score::Result<std::unique_ptr<ICertificateVerificationContext>> CryptoContextImp
             score::unexpect,
             MakeError(CryptoErrorCode::kContextCreationFailed, "CERT:VERIFICATION CTX_CREATE missing context_id")};
 
-    return std::make_unique<CertVerificationContextImpl>(m_connection, ctx_id_res.value(), m_transcoder);
+    auto context = std::make_unique<CertVerificationContextImpl>(m_connection, ctx_id_res.value(), m_transcoder);
+    if (config.revocation_policy.has_value())
+    {
+        auto policy_result = context->SetRevocationCheckPolicy(*config.revocation_policy);
+        if (!policy_result.has_value())
+            return score::Result<std::unique_ptr<ICertificateVerificationContext>>{score::unexpect,
+                                                                                   policy_result.error()};
+    }
+    auto coverage_result = context->SetRevocationCoveragePolicy(config.revocation_coverage_policy);
+    if (!coverage_result.has_value())
+        return score::Result<std::unique_ptr<ICertificateVerificationContext>>{score::unexpect,
+                                                                               coverage_result.error()};
+    return std::unique_ptr<ICertificateVerificationContext>{std::move(context)};
 }
 
 // ---------------------------------------------------------------------------
@@ -621,12 +633,13 @@ score::Result<std::unique_ptr<ICertSlotObject>> CryptoContextImpl::GetCertSlotOb
 
     auto state_res = validator.getParameterAt<std::uint8_t>(0, 0);
     auto has_crl_res = validator.getParameterAt<std::uint8_t>(0, 1);
-    if (!state_res.has_value() || !has_crl_res.has_value())
+    if (!state_res.has_value() || !has_crl_res.has_value() ||
+        state_res.value() > static_cast<std::uint8_t>(CertificateSlotState::kLocked) || has_crl_res.value() > 1U)
         return score::Result<std::unique_ptr<ICertSlotObject>>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "GetCertSlotObject: response missing state")};
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "GetCertSlotObject: invalid slot info")};
 
-    const bool is_occupied = (static_cast<CertificateSlotState>(state_res.value()) == CertificateSlotState::kOccupied);
-    return std::unique_ptr<ICertSlotObject>{new CertSlotObjectImpl(id, is_occupied, has_crl_res.value() != 0U)};
+    const CertificateSlotInfo info{static_cast<CertificateSlotState>(state_res.value()), has_crl_res.value() != 0U};
+    return std::unique_ptr<ICertSlotObject>{new CertSlotObjectImpl(id, info)};
 }
 
 score::Result<std::unique_ptr<ITrustStoreObject>> CryptoContextImpl::GetTrustStoreObject(const CryptoResourceId& id)
@@ -663,7 +676,7 @@ score::Result<std::unique_ptr<ITrustStoreObject>> CryptoContextImpl::GetTrustSto
     // Per-member layout (7 params each, base = 1 + i*7):
     //   base+0: slot_node_id (uint64), base+1: fingerprint (OwnedBuffer 32B),
     //   base+2: subject (OwnedString), base+3: issuer (OwnedString),
-    //   base+4: serial_number (OwnedString), base+5: kind (uint8), base+6: is_enabled (uint8)
+    //   base+4: serial_number (OwnedString), base+5: kind (uint8), base+6: status (uint8)
     for (std::size_t i = 0U; i < count; ++i)
     {
         const int base = static_cast<int>(1U + i * 7U);
@@ -673,9 +686,10 @@ score::Result<std::unique_ptr<ITrustStoreObject>> CryptoContextImpl::GetTrustSto
         auto iss_res = validator.getParameterAt<daemon::common::OwnedString>(0, base + 3);
         auto serial_res = validator.getParameterAt<daemon::common::OwnedString>(0, base + 4);
         auto kind_res = validator.getParameterAt<std::uint8_t>(0, base + 5);
-        auto enabled_res = validator.getParameterAt<std::uint8_t>(0, base + 6);
+        auto status_res = validator.getParameterAt<std::uint8_t>(0, base + 6);
 
-        if (!nid_res.has_value() || !fp_res.has_value() || !kind_res.has_value() || !enabled_res.has_value())
+        if (!nid_res.has_value() || !fp_res.has_value() || !kind_res.has_value() || !status_res.has_value() ||
+            status_res.value() > static_cast<std::uint8_t>(MemberStatus::kAwaitingAcknowledgement))
             return score::Result<std::unique_ptr<ITrustStoreObject>>{
                 score::unexpect,
                 MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: incomplete member entry")};
@@ -695,7 +709,7 @@ score::Result<std::unique_ptr<ITrustStoreObject>> CryptoContextImpl::GetTrustSto
         if (serial_res.has_value())
             info.serial_number = std::move(serial_res.value());
         info.kind = static_cast<MemberKind>(kind_res.value());
-        info.is_enabled = (enabled_res.value() != 0U);
+        info.status = static_cast<MemberStatus>(status_res.value());
         members.push_back(std::move(info));
     }
 
