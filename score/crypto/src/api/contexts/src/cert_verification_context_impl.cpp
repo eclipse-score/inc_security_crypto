@@ -324,6 +324,29 @@ score::Result<std::monostate> CertVerificationContextImpl::SetRevocationCheckPol
     return std::monostate{};
 }
 
+score::Result<std::monostate> CertVerificationContextImpl::SetRevocationCoveragePolicy(RevocationCoveragePolicy policy)
+{
+    const auto wire_policy = static_cast<std::uint8_t>(policy);
+    const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_VERIFICATION,
+                                           cv_ops::CERT_VERIFY_SET_REVOCATION_COVERAGE_POLICY};
+    auto req = proto::ControlRequestBuilder()
+                   .forDataNodeId(m_context_id)
+                   .operation(op_id)
+                   .with_in_val_uint8(wire_policy)
+                   .build();
+    if (!req.has_value())
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kOperationFailed, "Failed to build SET_REVOCATION_COVERAGE_POLICY")};
+    auto resp = m_connection->SendRequest(req.value());
+    auto validator = proto::ControlResponseValidator::FromResult(resp);
+    validator.expectOperation(op_id).expectSuccess();
+    if (!validator.isValid())
+        return score::Result<std::monostate>{score::unexpect,
+                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+    return std::monostate{};
+}
+
 score::Result<std::monostate> CertVerificationContextImpl::SetEvidenceMode(VerificationEvidenceMode mode)
 {
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_VERIFICATION, cv_ops::CERT_VERIFY_SET_EVIDENCE_MODE};
@@ -377,6 +400,10 @@ score::Result<CertVerifyResult> CertVerificationContextImpl::Verify()
         return score::Result<CertVerifyResult>{
             score::unexpect,
             MakeError(CryptoErrorCode::kOperationFailed, "CERT_VERIFY response missing certificate count")};
+
+    if (result_res.value() > static_cast<std::uint8_t>(CertVerifyResult::kInvalidPurpose))
+        return score::Result<CertVerifyResult>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "CERT_VERIFY returned an invalid result")};
 
     const auto verify_result = static_cast<CertVerifyResult>(result_res.value());
     m_verify_result = verify_result;

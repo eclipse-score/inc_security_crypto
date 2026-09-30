@@ -214,7 +214,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::RemoveCertificate
 
 score::Result<std::monostate> TrustStoreManagementContextImpl::RemoveCertificateFromTrustStore(
     const CryptoResourceId& trust_store,
-    score::cpp::span<const uint8_t> sha256_fingerprint)
+    score::cpp::span<const uint8_t, kSha256FingerprintSize> sha256_fingerprint)
 {
     // Direct fingerprint-based removal: TRUST_STORE_REMOVE_CERT (0xC1)
     // Request: [0]=ts_node_id (uint64), [1]=fingerprint bytes (data buffer)
@@ -288,16 +288,19 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::DisableTrustStore
 
 score::Result<std::monostate> TrustStoreManagementContextImpl::AcknowledgeTrustStoreMemberUpdate(
     const CryptoResourceId& trust_store,
-    const CryptoResourceId& slot)
+    const CryptoResourceId& slot,
+    score::cpp::span<const uint8_t, kSha256FingerprintSize> expected_sha256_fingerprint)
 {
-    // Request: [0]=ts_node_id (uint64), [1]=slot_node_id (uint64)
+    // Request: [0]=ts_node_id (uint64), [1]=slot_node_id (uint64), [2]=expected SHA-256 fingerprint.
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_MANAGEMENT, cm_ops::TRUST_STORE_ACK_UPDATE};
-    auto req = proto::ControlRequestBuilder()
-                   .forDataNodeId(m_context_id)
-                   .operation(op_id)
-                   .with_in_val_uint64(trust_store.id)
-                   .with_in_val_uint64(slot.id)
-                   .build();
+    proto::OperationRequestBuilder builder;
+    builder.operation(op_id).with_in_val_uint64(trust_store.id).with_in_val_uint64(slot.id);
+    auto fingerprint_span = m_transcoder->Acquire(expected_sha256_fingerprint);
+    if (!fingerprint_span.has_value())
+        return score::Result<std::monostate>{score::unexpect, fingerprint_span.error()};
+    TranscoderSpan transcoded_fingerprint = std::move(fingerprint_span.value());
+    m_transcoder->AppendInputBuffer(builder, transcoded_fingerprint);
+    auto req = MakeControlRequest(std::move(builder), m_context_id);
     if (!req.has_value())
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build TRUST_STORE_ACK_UPDATE")};
@@ -305,8 +308,17 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::AcknowledgeTrustS
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
+    {
+        if (!resp.has_value())
+            return score::Result<std::monostate>{score::unexpect, MakeError(resp.error(), validator.getError())};
+        const auto& operations = resp.value().operation.operations;
+        if (!operations.empty() && operations.front().result != proto::OPERATION_RESULT_SUCCESS)
+            return score::Result<std::monostate>{
+                score::unexpect,
+                MakeError(static_cast<CryptoErrorCode>(operations.front().result), validator.getError())};
         return score::Result<std::monostate>{score::unexpect,
                                              MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+    }
     return std::monostate{};
 }
 

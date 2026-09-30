@@ -30,7 +30,7 @@ namespace crypto
 class CertSlotObjectImpl final : public ICertSlotObject
 {
   public:
-    CertSlotObjectImpl(CryptoResourceId id, bool is_occupied, bool has_crl);
+    CertSlotObjectImpl(CryptoResourceId id, CertificateSlotInfo info);
     ~CertSlotObjectImpl() override = default;
 
     CertSlotObjectImpl(const CertSlotObjectImpl&) = delete;
@@ -40,13 +40,13 @@ class CertSlotObjectImpl final : public ICertSlotObject
 
     CryptoResourceId GetId() const noexcept override;
     ResourceType GetType() const noexcept override;
-    bool IsOccupied() const noexcept override;
+    CertificateSlotInfo GetInfo() const override;
+    CertificateSlotState GetState() const noexcept override;
     bool HasCrl() const noexcept override;
 
   private:
     CryptoResourceId m_id;
-    bool m_is_occupied;
-    bool m_has_crl;
+    CertificateSlotInfo m_info;
 };
 
 }  // namespace crypto

@@ -55,25 +55,32 @@ enum class CertificateSlotState : uint8_t
 enum class CertVerifyResult : uint8_t
 {
     /// @brief The certificate passed the checks that were performed.
-    kValid,
+    kValid = 0U,
     /// @brief The certificate was past its notAfter time at the verification time.
-    kExpired,
+    kExpired = 1U,
     /// @brief The certificate was before its notBefore time at the verification time.
-    kNotYetValid,
+    kNotYetValid = 2U,
     /// @brief Available revocation evidence identifies the certificate as revoked.
-    kRevoked,
-    /// @brief Under kFailClosed, fresh revocation evidence was unavailable for a certificate that needed checking.
+    kRevoked = 3U,
+    /// @brief Current revocation status could not be established for a certificate that needed checking.
     ///
-    /// This includes a missing applicable CRL or OCSP response for a required issuer.
-    kRevocationStatusUnavailable,
+    /// This includes missing or stale required evidence. A stale CRL entry is
+    /// indeterminate, including certificateHold and removeFromCRL entries, because
+    /// a later CRL may have changed the certificate's status.
+    kRevocationStatusUnavailable = 4U,
     /// @brief A candidate path was built, but none of its certificates matched a configured trust anchor.
-    kNoRootFound,
+    kNoRootFound = 5U,
     /// @brief A complete issuer path could not be built, for example because a required intermediate is missing.
-    kChainIncomplete,
+    kChainIncomplete = 6U,
     /// @brief A certificate signature in the chain failed verification.
-    kSignatureInvalid,
-    /// @brief The certificate is not valid for the requested purpose.
-    kInvalidPurpose
+    kSignatureInvalid = 7U,
+    /// @brief The certificate is not valid for the requested application purpose.
+    ///
+    /// Intended for future purpose-aware verification, such as distinguishing a
+    /// TLS server certificate from a TLS client certificate. The current
+    /// verification API does not expose a purpose selector, so callers cannot
+    /// request this check through Verify().
+    kInvalidPurpose = 8U
 };
 
 /// @brief Selects where a verified certificate chain is allowed to terminate.

@@ -16,8 +16,8 @@
 
 #include "score/crypto/src/api/common/src/i_release_callback.hpp"
 #include "score/crypto/src/api/contexts/i_certificate_verification_context.hpp"
-#include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 #include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
@@ -69,6 +69,7 @@ class CertVerificationContextImpl final : public ICertificateVerificationContext
         score::cpp::span<const CryptoResourceId> certificates) override;
     score::Result<std::monostate> SetVerificationTime(int64_t epoch_seconds) override;
     score::Result<std::monostate> SetRevocationCheckPolicy(RevocationCheckPolicy policy) override;
+    score::Result<std::monostate> SetRevocationCoveragePolicy(RevocationCoveragePolicy policy) override;
     score::Result<std::monostate> SetEvidenceMode(VerificationEvidenceMode mode) override;
 
     // ---- Execution ----
