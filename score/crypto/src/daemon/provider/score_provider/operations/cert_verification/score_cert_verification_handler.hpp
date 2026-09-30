@@ -68,6 +68,8 @@ class ScoreCertVerificationHandler : public handler::Handler
         std::optional<int64_t> verification_time_epoch_s;
         /// Revocation check policy (0=kNone; matches RevocationCheckPolicy numeric values).
         uint8_t revocation_policy{0U};
+        score::crypto::RevocationCoveragePolicy revocation_coverage_policy{
+            score::crypto::RevocationCoveragePolicy::kFailClosed};
         score::crypto::VerificationEvidenceMode evidence_mode{score::crypto::VerificationEvidenceMode::kNone};
         std::vector<::score::crypto::daemon::cert_management::CrlEntry> crls;
         /// Trust store handler — non-null in trust-store mode when revocation_policy != kNone.
@@ -124,6 +126,7 @@ class ScoreCertVerificationHandler : public handler::Handler
 
     void SetVerificationTime(int64_t epoch_s) noexcept;
     void SetRevocationPolicy(uint8_t policy) noexcept;
+    void SetRevocationCoveragePolicy(score::crypto::RevocationCoveragePolicy policy) noexcept;
     void SetEvidenceMode(uint8_t mode) noexcept;
 
     /// Assembles VerificationInput from retained certificate entries and
@@ -177,6 +180,8 @@ class ScoreCertVerificationHandler : public handler::Handler
     std::vector<CertEntrySptr> m_additional_cert_entries;
     std::optional<int64_t> m_verification_time_epoch_s;
     uint8_t m_revocation_policy{0U};
+    score::crypto::RevocationCoveragePolicy m_revocation_coverage_policy{
+        score::crypto::RevocationCoveragePolicy::kFailClosed};
     score::crypto::VerificationEvidenceMode m_evidence_mode{score::crypto::VerificationEvidenceMode::kNone};
 
     // Cached result from last successful Verify()

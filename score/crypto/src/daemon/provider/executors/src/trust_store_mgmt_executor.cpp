@@ -177,6 +177,8 @@ Expected<common::ResponseParameters, Error> TrustStoreManagementExecutor::Handle
     auto fp_res = ExtractBytes(request, 1U);
     if (!fp_res.has_value())
         return score::crypto::make_unexpected(fp_res.error());
+    if (fp_res->size() != score::crypto::kSha256FingerprintSize)
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
 
     auto ts_handle_res = m_service->ResolveTrustStoreForOperation(ctx.client_id, ts_nid_res.value());
     if (!ts_handle_res.has_value())
@@ -286,6 +288,11 @@ Expected<common::ResponseParameters, Error> TrustStoreManagementExecutor::Handle
     auto slot_nid_res = ExtractU64(request, 1U);
     if (!slot_nid_res.has_value())
         return score::crypto::make_unexpected(slot_nid_res.error());
+    auto expected_fingerprint_res = ExtractBytes(request, 2U);
+    if (!expected_fingerprint_res.has_value())
+        return score::crypto::make_unexpected(expected_fingerprint_res.error());
+    if (expected_fingerprint_res->size() != score::crypto::kSha256FingerprintSize)
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
 
     auto ts_handle_res = m_service->ResolveTrustStoreForOperation(ctx.client_id, ts_nid_res.value());
     if (!ts_handle_res.has_value())
@@ -295,7 +302,7 @@ Expected<common::ResponseParameters, Error> TrustStoreManagementExecutor::Handle
         return score::crypto::make_unexpected(Error::kInvalidArgument);
 
     auto result = m_service->GetTrustStoreManager()->AcknowledgeMemberUpdate(
-        ts_handle_res.value(), slot_res.value().handle, ctx.client_id);
+        ts_handle_res.value(), slot_res.value().handle, expected_fingerprint_res.value(), ctx.client_id);
     if (!result.has_value())
         return score::crypto::make_unexpected(result.error());
     return OkResponse();

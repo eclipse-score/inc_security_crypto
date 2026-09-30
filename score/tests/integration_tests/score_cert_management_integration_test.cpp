@@ -176,7 +176,7 @@ TEST_F(CertificateManagementIntegrationTest, SavesExportsAndClearsCertificateSlo
 
     auto slot_object = m_context->GetCertSlotObject(m_device_slot);
     ASSERT_TRUE(slot_object.has_value());
-    ASSERT_TRUE((*slot_object)->IsOccupied());
+    ASSERT_EQ((*slot_object)->GetState(), score::crypto::CertificateSlotState::kOccupied);
 
     auto export_size = m_management->GetCertificateExportSize(*certificate, score::crypto::FormatType::kDer);
     ASSERT_TRUE(export_size.has_value());
@@ -198,7 +198,7 @@ TEST_F(CertificateManagementIntegrationTest, SavesExportsAndClearsCertificateSlo
     ASSERT_TRUE(m_management->ClearCertificate(m_device_slot).has_value());
     auto cleared_slot = m_context->GetCertSlotObject(m_device_slot);
     ASSERT_TRUE(cleared_slot.has_value());
-    EXPECT_FALSE((*cleared_slot)->IsOccupied());
+    EXPECT_EQ((*cleared_slot)->GetState(), score::crypto::CertificateSlotState::kEmpty);
 }
 
 TEST_F(CertificateManagementIntegrationTest, LoadsCertificateSlotIntoReusableGuard)
@@ -228,9 +228,7 @@ TEST_F(CertificateManagementIntegrationTest, TrustStoreObjectFindsAndTogglesMemb
     const auto& member = (*trust_store)->GetMembers().front();
     const auto* found_by_slot = (*trust_store)->FindMember(member.slot_id);
     ASSERT_NE(found_by_slot, nullptr);
-    const score::cpp::span<const std::uint8_t> fingerprint{member.sha256_fingerprint.data(),
-                                                           member.sha256_fingerprint.size()};
-    EXPECT_NE((*trust_store)->FindMemberByFingerprint(fingerprint), nullptr);
+    EXPECT_NE((*trust_store)->FindMemberByFingerprint(member.sha256_fingerprint), nullptr);
 
     ASSERT_TRUE(m_trust_store_mgmt->DisableTrustStoreMember(m_trust_store, member.slot_id).has_value());
     auto disabled = m_context->GetTrustStoreObject(m_trust_store);
@@ -263,8 +261,7 @@ TEST_F(CertificateManagementIntegrationTest, AddsCertificateParsedByManagementCo
     ASSERT_TRUE(certificate_view.has_value());
     auto trust_store = m_context->GetTrustStoreObject(m_trust_store);
     ASSERT_TRUE(trust_store.has_value());
-    const auto fingerprint_bytes = (*certificate_view)->GetFingerprint();
-    const score::cpp::span<const std::uint8_t> fingerprint{fingerprint_bytes.data(), fingerprint_bytes.size()};
+    const auto fingerprint = (*certificate_view)->GetFingerprint();
     ASSERT_NE((*trust_store)->FindMemberByFingerprint(fingerprint), nullptr);
 
     EXPECT_FALSE(m_trust_store_mgmt->RemoveCertificateFromTrustStore(m_trust_store, fingerprint).has_value());
@@ -285,8 +282,7 @@ TEST_F(CertificateManagementIntegrationTest, AddsNewCertificateIntoEmptyExclusiv
 
     auto certificate_view = m_context->GetCertificateObject(*certificate);
     ASSERT_TRUE(certificate_view.has_value());
-    const auto fingerprint_bytes = (*certificate_view)->GetFingerprint();
-    const score::cpp::span<const std::uint8_t> fingerprint{fingerprint_bytes.data(), fingerprint_bytes.size()};
+    const auto fingerprint = (*certificate_view)->GetFingerprint();
 
     ASSERT_TRUE(m_trust_store_mgmt->AddCertificateToTrustStore(m_mutable_trust_store, *certificate).has_value());
 
@@ -295,7 +291,7 @@ TEST_F(CertificateManagementIntegrationTest, AddsNewCertificateIntoEmptyExclusiv
     const auto* member = (*trust_store)->FindMemberByFingerprint(fingerprint);
     ASSERT_NE(member, nullptr);
     EXPECT_EQ(member->kind, score::crypto::MemberKind::kExclusiveMutable);
-    EXPECT_TRUE(member->is_enabled);
+    EXPECT_EQ(member->status, score::crypto::MemberStatus::kEnabled);
 
     // Now that the slot is genuinely owned by the trust store, removal must succeed
     // (unlike the shared-static case above).
@@ -314,8 +310,7 @@ TEST_F(CertificateManagementIntegrationTest, EnablesAndDisablesExclusiveTrustSto
 
     auto certificate_view = m_context->GetCertificateObject(*certificate);
     ASSERT_TRUE(certificate_view.has_value());
-    const auto fingerprint_bytes = (*certificate_view)->GetFingerprint();
-    const score::cpp::span<const std::uint8_t> fingerprint{fingerprint_bytes.data(), fingerprint_bytes.size()};
+    const auto fingerprint = (*certificate_view)->GetFingerprint();
 
     auto trust_store = m_context->GetTrustStoreObject(m_mutable_trust_store);
     ASSERT_TRUE(trust_store.has_value());
@@ -328,14 +323,14 @@ TEST_F(CertificateManagementIntegrationTest, EnablesAndDisablesExclusiveTrustSto
     ASSERT_TRUE(disabled.has_value());
     const auto* disabled_member = (*disabled)->FindMember(slot_id);
     ASSERT_NE(disabled_member, nullptr);
-    EXPECT_FALSE(disabled_member->is_enabled);
+    EXPECT_EQ(disabled_member->status, score::crypto::MemberStatus::kDisabled);
 
     ASSERT_TRUE(m_trust_store_mgmt->EnableTrustStoreMember(m_mutable_trust_store, slot_id).has_value());
     auto enabled = m_context->GetTrustStoreObject(m_mutable_trust_store);
     ASSERT_TRUE(enabled.has_value());
     const auto* enabled_member = (*enabled)->FindMember(slot_id);
     ASSERT_NE(enabled_member, nullptr);
-    EXPECT_TRUE(enabled_member->is_enabled);
+    EXPECT_EQ(enabled_member->status, score::crypto::MemberStatus::kEnabled);
 
     ASSERT_TRUE(m_trust_store_mgmt->RemoveCertificateFromTrustStore(m_mutable_trust_store, fingerprint).has_value());
 }
@@ -356,8 +351,7 @@ TEST_F(CertificateManagementIntegrationTest, ImportsCrlForExclusiveTrustStoreMem
 
     auto certificate_view = m_context->GetCertificateObject(*certificate);
     ASSERT_TRUE(certificate_view.has_value());
-    const auto fingerprint_bytes = (*certificate_view)->GetFingerprint();
-    const score::cpp::span<const std::uint8_t> fingerprint{fingerprint_bytes.data(), fingerprint_bytes.size()};
+    const auto fingerprint = (*certificate_view)->GetFingerprint();
 
     auto trust_store = m_context->GetTrustStoreObject(m_mutable_trust_store);
     ASSERT_TRUE(trust_store.has_value());
@@ -459,7 +453,7 @@ TEST_F(CertificateManagementIntegrationTest, ImportsCrlPersistentToSlotAndReflec
 
     auto slot_object = m_context->GetCertSlotObject(m_device_slot);
     ASSERT_TRUE(slot_object.has_value());
-    EXPECT_TRUE((*slot_object)->IsOccupied());
+    EXPECT_EQ((*slot_object)->GetState(), score::crypto::CertificateSlotState::kOccupied);
     EXPECT_TRUE((*slot_object)->HasCrl());
 
     auto certificate_view = m_context->GetCertificateObject(m_device_slot);
@@ -511,13 +505,13 @@ TEST_F(CertificateManagementIntegrationTest, SaveCertificateWithCrlPropagatesSes
 
     auto slot_object = m_context->GetCertSlotObject(m_device_slot);
     ASSERT_TRUE(slot_object.has_value());
-    EXPECT_TRUE((*slot_object)->IsOccupied());
+    EXPECT_EQ((*slot_object)->GetState(), score::crypto::CertificateSlotState::kOccupied);
     EXPECT_TRUE((*slot_object)->HasCrl());
 
     ASSERT_TRUE(m_management->ClearCertificate(m_device_slot).has_value());
     auto cleared_slot_object = m_context->GetCertSlotObject(m_device_slot);
     ASSERT_TRUE(cleared_slot_object.has_value());
-    EXPECT_FALSE((*cleared_slot_object)->IsOccupied());
+    EXPECT_EQ((*cleared_slot_object)->GetState(), score::crypto::CertificateSlotState::kEmpty);
     EXPECT_FALSE((*cleared_slot_object)->HasCrl());
 }
 
@@ -549,8 +543,7 @@ TEST_F(CertificateManagementIntegrationTest, AddLoadedSlotCertificateWithCrlProp
 
     auto certificate_view = m_context->GetCertificateObject(*loaded);
     ASSERT_TRUE(certificate_view.has_value());
-    const auto fingerprint_bytes = (*certificate_view)->GetFingerprint();
-    const score::cpp::span<const std::uint8_t> fingerprint{fingerprint_bytes.data(), fingerprint_bytes.size()};
+    const auto fingerprint = (*certificate_view)->GetFingerprint();
 
     auto trust_store = m_context->GetTrustStoreObject(m_mutable_trust_store);
     ASSERT_TRUE(trust_store.has_value());

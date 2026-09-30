@@ -156,7 +156,11 @@ score::crypto::Expected<Pkcs11CertSlotHandler::LocatedCertificate, Error> Pkcs11
     CK_ULONG count = 0U;
     result = functions->C_FindObjects(*session, objects, 2U, &count);
     const CK_RV final_result = functions->C_FindObjectsFinal(*session);
-    if (result != CKR_OK || final_result != CKR_OK || count != 1U || objects[0] == CK_INVALID_HANDLE)
+    if (result != CKR_OK || final_result != CKR_OK)
+        return score::crypto::make_unexpected(Error::kResourceNotAllocated);
+    if (count == 0U || objects[0] == CK_INVALID_HANDLE)
+        return score::crypto::make_unexpected(Error::kResourceNotFound);
+    if (count != 1U)
         return score::crypto::make_unexpected(Error::kResourceNotAllocated);
 
     release.provider.reset();
@@ -343,7 +347,13 @@ score::crypto::Expected<score::crypto::CertificateSlotState, Error> Pkcs11CertSl
 {
     auto located = Locate(slot);
     if (!located)
-        return score::crypto::CertificateSlotState::kEmpty;
+    {
+        if (located.error() == Error::kResourceNotFound)
+            return score::crypto::CertificateSlotState::kEmpty;
+        if (located.error() == Error::kAccessDenied || located.error() == Error::kProviderBusy)
+            return score::crypto::CertificateSlotState::kLocked;
+        return score::crypto::make_unexpected(located.error());
+    }
     SessionRelease release{m_provider, located->session};
     return score::crypto::CertificateSlotState::kOccupied;
 }

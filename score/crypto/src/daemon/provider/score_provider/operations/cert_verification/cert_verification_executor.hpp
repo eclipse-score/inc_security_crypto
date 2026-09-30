@@ -73,6 +73,9 @@ class CertVerificationExecutor
         ScoreCertVerificationHandler& handler,
         common::RequestParameters& request);
 
+    [[nodiscard]] static Expected<common::ResponseParameters, common::DaemonErrorCode>
+    ExecuteSetRevocationCoveragePolicy(ScoreCertVerificationHandler& handler, common::RequestParameters& request);
+
     [[nodiscard]] static Expected<common::ResponseParameters, common::DaemonErrorCode> ExecuteSetEvidenceMode(
         ScoreCertVerificationHandler& handler,
         common::RequestParameters& request);
