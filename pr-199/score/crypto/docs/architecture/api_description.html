@@ -592,8 +592,8 @@ configuration, verifies access control, and returns a <code class="docutils lite
 <p><code class="docutils literal notranslate"><span class="pre">CryptoResourceId</span></code> is a compact ~16-byte struct:</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">CryptoResourceId</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">id</span><span class="p">;</span><span class="w">                   </span><span class="c1">// daemon-assigned, unique per session</span>
-<span class="w">    </span><span class="n">ResourceType</span><span class="w"> </span><span class="n">type</span><span class="p">;</span><span class="w">             </span><span class="c1">// kProvider, kKeySlot, kCertSlot, kVerificationTrustStore,</span>
-<span class="w">                                   </span><span class="c1">// kKey, kCertificate, kCrl, kSecureObject, kDataObject</span>
+<span class="w">    </span><span class="n">ResourceType</span><span class="w"> </span><span class="n">type</span><span class="p">;</span><span class="w">             </span><span class="c1">// kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,</span>
+<span class="w">                                   </span><span class="c1">// kKey, kCertificate, kSecureObject, kDataObject</span>
 <span class="w">    </span><span class="n">ResourcePersistence</span><span class="w"> </span><span class="n">persistence</span><span class="p">;</span><span class="w"> </span><span class="c1">// kPersistent or kEphemeral</span>
 <span class="w">    </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">primary_provider</span><span class="p">;</span><span class="w">     </span><span class="c1">// owning device/provider index (0 = unbound)</span>
 <span class="p">};</span>
@@ -761,6 +761,7 @@ promoting DRY code reuse:</p>
 ├── IRandomContext (Generate, Seed)
 ├── IKeyManagementContext (key lifecycle operations)
 ├── ICertificateManagementContext (certificate lifecycle operations)
+├── ITrustStoreManagementContext (trust-store membership curation)
 ├── ICertificateVerificationContext (builder-style chain verification)
 └── ICsrGenerationContext (builder-style CSR generation)
 </pre></div>
@@ -975,10 +976,13 @@ specified, the daemon auto-resolves the provider from
 <li><p><strong>Parsing</strong>: <code class="docutils literal notranslate"><span class="pre">ParseCertificate()</span></code> returns an <code class="docutils literal notranslate"><span class="pre">ICertificateObject::Uptr</span></code> with
 field accessors (subject, issuer, serial, validity dates, algorithm). The object
 is backed by a daemon-assigned ephemeral <code class="docutils literal notranslate"><span class="pre">CryptoResourceId</span></code>.</p></li>
-<li><p><strong>Persistence</strong>: <code class="docutils literal notranslate"><span class="pre">SaveCertificate(id,</span> <span class="pre">slot)</span></code> promotes a parsed certificate to a slot
+<li><p><strong>Persistence</strong>: <code class="docutils literal notranslate"><span class="pre">SaveCertificate(id,</span> <span class="pre">slot)</span></code> promotes a parsed certificate to a slot;
+<code class="docutils literal notranslate"><span class="pre">SaveCertificateWithCrl(id,</span> <span class="pre">slot)</span></code> also propagates the associated CRL
 (copy semantics — the parsed object remains valid after the call)</p></li>
 <li><p><strong>Export</strong>: <code class="docutils literal notranslate"><span class="pre">GetCertificateExportSize()</span></code> + <code class="docutils literal notranslate"><span class="pre">ExportCertificate()</span></code> two-call pattern</p></li>
-<li><p><strong>CRL</strong>: <code class="docutils literal notranslate"><span class="pre">ImportCrl()</span></code>, <code class="docutils literal notranslate"><span class="pre">DeleteCrl()</span></code>, <code class="docutils literal notranslate"><span class="pre">DeleteExpiredCrls()</span></code> for offline revocation</p></li>
+<li><p><strong>CRL</strong>: <code class="docutils literal notranslate"><span class="pre">ImportCrl()</span></code> for session-scoped CRLs on loaded certificates,
+<code class="docutils literal notranslate"><span class="pre">ImportCrlToSlot()</span></code> and <code class="docutils literal notranslate"><span class="pre">DeleteCrl()</span></code> for persistent slot-scoped
+revocation, with CRL metadata available for inspection</p></li>
 <li><p><strong>Key extraction</strong>: <code class="docutils literal notranslate"><span class="pre">LoadCertificatePublicKey()</span></code> extracts the public key
 as a <code class="docutils literal notranslate"><span class="pre">CryptoResourceGuard</span></code> wrapping an ephemeral <code class="docutils literal notranslate"><span class="pre">CryptoResourceId</span></code>
 with <code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">==</span> <span class="pre">kKey</span></code>, following the same guard model as key-producing methods.
@@ -986,6 +990,16 @@ Use <code class="docutils literal notranslate"><span class="pre">ICryptoContext:
 <li><p><strong>OCSP</strong>: <code class="docutils literal notranslate"><span class="pre">GetOcspRequestData()</span></code> generates a request; the response is
 consumed via <code class="docutils literal notranslate"><span class="pre">ICertificateVerificationContext::SetOcspResponse()</span></code></p></li>
 </ul>
+<p><strong>ITrustStoreManagementContext</strong> handles trust-store membership curation:</p>
+<ul class="simple">
+<li><p>adding and removing certificate members</p></li>
+<li><p>enabling, disabling, and acknowledging member updates</p></li>
+<li><p>importing CRLs for trust-store-owned exclusive members</p></li>
+<li><p>deleting CRLs from trust-store-owned exclusive members</p></li>
+</ul>
+<p>It uses <code class="docutils literal notranslate"><span class="pre">TrustStoreManagementContextConfig</span></code> and the certificate-management
+provider capability, but routes to the distinct <code class="docutils literal notranslate"><span class="pre">CERT:TRUST_STORE</span></code> daemon
+context. <code class="docutils literal notranslate"><span class="pre">ITrustStoreObject</span></code> remains a read-only snapshot interface.</p>
 <p><strong>ICertificateVerificationContext</strong> provides builder-style chain verification:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">SetCertificate()</span></code>, <code class="docutils literal notranslate"><span class="pre">SetCertificateChain()</span></code>, <code class="docutils literal notranslate"><span class="pre">SetVerificationTrustStore()</span></code>, <code class="docutils literal notranslate"><span class="pre">SetAdditionalTrustAnchors()</span></code></p></li>

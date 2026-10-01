@@ -674,7 +674,7 @@ injects the shared <code class="docutils literal notranslate"><span class="pre">
 <p>The following diagram shows the key class relationships:</p>
 <figure class="align-center" id="id4">
 <p class="plantuml">
-<object data="../../../../_images/plantuml-1a76e07a07d19755376ec797a7996a979a2423cf.svg" type="image/svg+xml" style="width:7629px;height:2838px;background:#FFFFFF;"></object></p>
+<object data="../../../../_images/plantuml-3a14f02f58991267bae36ac1bb8490f386592df8.svg" type="image/svg+xml" style="width:7629px;height:2838px;background:#FFFFFF;"></object></p>
 <figcaption>
 <p><span class="caption-number">Fig. 9 </span><span class="caption-text">Key Management — Class Diagram</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
 </figcaption>
@@ -1216,23 +1216,24 @@ is stored in a deployment descriptor file referenced by
 <p>The <code class="docutils literal notranslate"><span class="pre">DeploymentLoader</span></code> / <code class="docutils literal notranslate"><span class="pre">DeploymentWriter</span></code> classes are thin façades.  After
 validating the path they delegate to a format-specific implementation that
 implements <code class="docutils literal notranslate"><span class="pre">IDeploymentLoader</span></code> / <code class="docutils literal notranslate"><span class="pre">IDeploymentWriter</span></code>:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>slot/
-  deployment_loader.hpp/.cpp        ← façade (public API unchanged for all callers)
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>key_management/slot/
+  deployment_loader.hpp/.cpp        ← façade (delegates to common/storage/ impls)
   deployment_writer.hpp/.cpp        ← façade
-  deployment/
-    deployment_path_utils.hpp       ← IsDeploymentPathSafe() — shared guard
-    i_deployment_loader.hpp         ← pure-virtual interface
-    i_deployment_writer.hpp         ← pure-virtual interface
-    kv/
-      kv_deployment_loader.hpp/.cpp ← current implementation
-      kv_deployment_writer.hpp/.cpp
-    json/                           ← reserved (add JsonDeploymentLoader when needed)
-    flatbuffer/                     ← reserved
+
+daemon/common/storage/              ← shared by key_management and cert_management
+  deployment_path_utils.hpp         ← IsDeploymentPathSafe() — shared guard
+  i_deployment_loader.hpp           ← pure-virtual interface
+  i_deployment_writer.hpp           ← pure-virtual interface
+  kv/
+    kv_deployment_loader.hpp/.cpp   ← current implementation
+    kv_deployment_writer.hpp/.cpp   ← writes atomically via file_io::WriteFile
+  json/                             ← reserved (add JsonDeploymentLoader when needed)
+  flatbuffer/                       ← reserved
 </pre></div>
 </div>
 <p>To add a new format: implement <code class="docutils literal notranslate"><span class="pre">IDeploymentLoader</span></code> / <code class="docutils literal notranslate"><span class="pre">IDeploymentWriter</span></code> under
-<code class="docutils literal notranslate"><span class="pre">slot/deployment/&lt;format&gt;/</span></code>, then add one <code class="docutils literal notranslate"><span class="pre">if</span></code>-branch in each façade <code class="docutils literal notranslate"><span class="pre">.cpp</span></code>
-and one dep in <code class="docutils literal notranslate"><span class="pre">slot/deployment/BUILD</span></code>.  No other files change.</p>
+<code class="docutils literal notranslate"><span class="pre">daemon/common/storage/&lt;format&gt;/</span></code>, then add one <code class="docutils literal notranslate"><span class="pre">if</span></code>-branch in each façade <code class="docutils literal notranslate"><span class="pre">.cpp</span></code>
+and one dep in <code class="docutils literal notranslate"><span class="pre">daemon/common/storage/BUILD</span></code>.  No other files change.</p>
 <p><strong>Key=value format (``”kv”``) — file layout</strong></p>
 <div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="c1"># comments are ignored; blank lines are ignored</span>
 <span class="k">[metadata]</span>
