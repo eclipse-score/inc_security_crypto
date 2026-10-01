@@ -26,8 +26,24 @@ score_coverage_scope(
     visibility = ["//visibility:private"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
-        "//score/crypto/src/ipc/grpc_adapter:grpc_control_server",
+
+        # TEMPORARY: Explicit API roots until certificate contexts and objects
+        # are integrated into crypto_stack's production dependency graph.
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/config:cert_context_configs",
+        "//score/crypto/src/api/contexts:cert_contexts",
+        "//score/crypto/src/api/objects:cert_objects",
+        "//score/crypto/src/api/future/common:future_common",
+
         "//score/crypto/src/daemon:crypto_daemon",
+        "//score/crypto/src/backend:active_pkcs11_backend",
+        "//score/crypto/src/backend:pkcs11_backend_defines",
+        "//score/crypto/src/backend:score_backend_defines",
+        "//score/crypto/src/backend/score_provider:backend",
+        "//score/crypto/src/daemon/provider:provider_manager_factory",
+        "//score/crypto/src/daemon/cert_management:cert_object_serializer",
+
+        "//score/crypto/src/ipc/grpc_adapter:grpc_control_server",
         "//score/cryptoki:cryptoki_cdylib_wrapped",
         "//score/cryptoki:cryptoki_headers",
         "//score/cryptoki:cryptoki_lib",
