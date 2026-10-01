@@ -86,7 +86,7 @@ score::Result<std::monostate> CryptoResourceGuard::Release() noexcept
     if (!active_ || !release_handle_)
     {
         return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kInvalidResourceId, "Release() called on an inactive guard")};
+            score::unexpect, MakeError(CryptoErrorCode::kResourceNotFound, "Release() called on an inactive guard")};
     }
     auto* cb = static_cast<IReleaseCallback*>(release_handle_.get());
     auto result = cb->ReleaseResource(id_);

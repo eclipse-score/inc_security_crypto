@@ -92,7 +92,7 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
   private:
     static constexpr const char* HASH = "HASH";
     static constexpr const char* MAC = "MAC";
-    static constexpr const char* KEY_MANAGEMENT = "KEY_MANAGEMENT";
+    static constexpr const char* KEY_MANAGEMENT = "KEY:MANAGEMENT";
     static constexpr const char* SIGN = "SIGN";
     static constexpr const char* VERIFY = "VERIFY";
     static constexpr const char* KEM = "KEM";

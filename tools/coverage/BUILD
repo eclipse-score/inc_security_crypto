@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@score_tooling//coverage:defs.bzl", "score_coverage_reporter", "score_coverage_scope")
+load("@score_coverage//:defs.bzl", "score_coverage_reporter", "score_coverage_scope")
 
 # Coverage scope: the dependency-forest roots of every production
 # (non-testonly, non-QNX-only) cc_library / rust_library under //score/... -
@@ -26,7 +26,15 @@ score_coverage_scope(
     visibility = ["//visibility:private"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
+
+        # TEMPORARY: Explicit API roots until certificate contexts and objects
+        # are integrated into crypto_stack's production dependency graph.
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/config:cert_context_configs",
+        "//score/crypto/src/api/contexts:cert_contexts",
+        "//score/crypto/src/api/objects:cert_objects",
         "//score/crypto/src/api/future/common:future_common",
+
         "//score/crypto/src/backend:active_pkcs11_backend",
         "//score/crypto/src/backend:pkcs11_backend_defines",
         "//score/crypto/src/backend:score_backend_defines",

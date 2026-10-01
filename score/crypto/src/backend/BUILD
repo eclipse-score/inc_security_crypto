@@ -77,7 +77,7 @@ config_setting(
         ":score_crypto_score_backend_enabled": "True",
         ":score_crypto_score_openssl_enabled": "True",
     },
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
 )
 
 # ============================================================================

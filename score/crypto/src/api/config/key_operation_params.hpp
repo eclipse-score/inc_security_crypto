@@ -14,7 +14,9 @@
 #ifndef SCORE_CRYPTO_SRC_API_CONFIG_KEY_OPERATION_PARAMS_HPP
 #define SCORE_CRYPTO_SRC_API_CONFIG_KEY_OPERATION_PARAMS_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/api/types/key.hpp"
 #include "score/span.hpp"
 
 #include <cstdint>

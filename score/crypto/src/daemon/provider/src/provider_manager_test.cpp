@@ -31,8 +31,11 @@ namespace
 class ConfigurableStubProvider final : public provider::IProvider
 {
   public:
-    ConfigurableStubProvider(const std::string& name, common::ProviderId id, bool fail_init)
-        : m_name{name}, m_id{id}, m_fail_init{fail_init}
+    ConfigurableStubProvider(const std::string& name,
+                             common::ProviderId id,
+                             bool fail_init,
+                             common::ProviderCapability capabilities = common::ProviderCapability::kNone)
+        : m_name{name}, m_id{id}, m_fail_init{fail_init}, m_capabilities{capabilities}
     {
     }
 
@@ -65,10 +68,16 @@ class ConfigurableStubProvider final : public provider::IProvider
         return m_name;
     }
 
+    common::ProviderCapability GetProviderCapabilities() override
+    {
+        return m_capabilities;
+    }
+
   private:
     std::string m_name;
     common::ProviderId m_id;
     bool m_fail_init;
+    common::ProviderCapability m_capabilities;
     bool m_initialized{false};
 };
 }  // namespace
@@ -185,4 +194,123 @@ TEST(ProviderManagerInitStateTest, FailedProviderRemainsRegisteredButUnavailable
     // The registry still knows about both entries even when one is unavailable.
     EXPECT_TRUE(mgr.GetProviderType("OK_PROVIDER").has_value());
     EXPECT_TRUE(mgr.GetProviderType("FAIL_PROVIDER").has_value());
+}
+
+// ===========================================================================
+// GetProviderForCapability
+// ===========================================================================
+
+namespace
+{
+// SW provider offers crypto + cert; HW provider offers crypto + key management.
+provider::ProviderManager::Sptr MakeCapabilityManager()
+{
+    score::crypto::daemon::config::Config config;
+    auto mgr = std::make_shared<provider::ProviderManager>(config.GetProviderInitConfig());
+
+    mgr->RegisterProvider(
+        "SW_PROVIDER",
+        std::make_shared<ConfigurableStubProvider>(
+            "SW_PROVIDER", 0, false, common::ProviderCapability::kCrypto | common::ProviderCapability::kCertManagement),
+        common::CryptoProviderType::SOFTWARE);
+
+    mgr->RegisterProvider(
+        "HW_PROVIDER",
+        std::make_shared<ConfigurableStubProvider>(
+            "HW_PROVIDER", 1, false, common::ProviderCapability::kCrypto | common::ProviderCapability::kKeyManagement),
+        common::CryptoProviderType::HARDWARE);
+
+    mgr->Initialize();
+    return mgr;
+}
+}  // namespace
+
+TEST(ProviderManagerCapabilityTest, ReturnsOnlyCapableProvider)
+{
+    auto mgr = MakeCapabilityManager();
+    // Only the SW provider advertises certificate capability.
+    auto cert_prov = mgr->GetProviderForCapability(common::ProviderCapability::kCertManagement);
+    ASSERT_NE(cert_prov, nullptr);
+    EXPECT_EQ(cert_prov->GetProviderName(), "SW_PROVIDER");
+}
+
+TEST(ProviderManagerCapabilityTest, PreferenceOrderPicksAmongCapableProviders)
+{
+    auto mgr = MakeCapabilityManager();
+    // Both providers offer crypto; preference decides which is returned.
+    auto sw_first =
+        mgr->GetProviderForCapability(common::ProviderCapability::kCrypto,
+                                      {common::CryptoProviderType::SOFTWARE, common::CryptoProviderType::HARDWARE});
+    ASSERT_NE(sw_first, nullptr);
+    EXPECT_EQ(sw_first->GetProviderName(), "SW_PROVIDER");
+
+    auto hw_first =
+        mgr->GetProviderForCapability(common::ProviderCapability::kCrypto,
+                                      {common::CryptoProviderType::HARDWARE, common::CryptoProviderType::SOFTWARE});
+    ASSERT_NE(hw_first, nullptr);
+    EXPECT_EQ(hw_first->GetProviderName(), "HW_PROVIDER");
+}
+
+TEST(ProviderManagerCapabilityTest, ReturnsNullWhenNoProviderOffersCapability)
+{
+    score::crypto::daemon::config::Config config;
+    provider::ProviderManager mgr(config.GetProviderInitConfig());
+    mgr.RegisterProvider(
+        "SW_PROVIDER",
+        std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false, common::ProviderCapability::kCrypto),
+        common::CryptoProviderType::SOFTWARE);
+    mgr.Initialize();
+
+    EXPECT_EQ(mgr.GetProviderForCapability(common::ProviderCapability::kCertManagement), nullptr);
+}
+
+TEST(ProviderManagerCapabilityTest, FallsBackToCapableProviderOutsidePreference)
+{
+    auto mgr = MakeCapabilityManager();
+    // Key management is only on HW; a SOFTWARE-only preference still finds it
+    // via the lowest-id capable fallback rather than returning nullptr.
+    auto key_prov = mgr->GetProviderForCapability(common::ProviderCapability::kKeyManagement,
+                                                  {common::CryptoProviderType::SOFTWARE});
+    ASSERT_NE(key_prov, nullptr);
+    EXPECT_EQ(key_prov->GetProviderName(), "HW_PROVIDER");
+}
+
+TEST(ProviderManagerCapabilityTest, UninitializedProviderIsNotSelected)
+{
+    score::crypto::daemon::config::Config config;
+    provider::ProviderManager mgr(config.GetProviderInitConfig());
+    // Capable on paper, but initialization fails so it must be skipped.
+    mgr.RegisterProvider("FAIL_PROVIDER",
+                         std::make_shared<ConfigurableStubProvider>(
+                             "FAIL_PROVIDER", 0, true, common::ProviderCapability::kCertManagement),
+                         common::CryptoProviderType::SOFTWARE);
+    mgr.Initialize();
+
+    EXPECT_EQ(mgr.GetProviderForCapability(common::ProviderCapability::kCertManagement), nullptr);
+}
+
+// ===========================================================================
+// Default provider resolution prefers successfully-initialized providers
+// ===========================================================================
+
+TEST(ProviderManagerDefaultResolutionTest, DefaultSkipsFailedPreferredProvider)
+{
+    score::crypto::daemon::config::Config config;
+    provider::ProviderManager mgr(config.GetProviderInitConfig());
+
+    // Preferred category (HARDWARE) is registered but fails to initialize;
+    // the SOFTWARE provider initializes successfully.
+    mgr.RegisterProvider("HW_PROVIDER",
+                         std::make_shared<ConfigurableStubProvider>("HW_PROVIDER", 0, /*fail_init=*/true),
+                         common::CryptoProviderType::HARDWARE);
+    mgr.RegisterProvider("SW_PROVIDER",
+                         std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 1, /*fail_init=*/false),
+                         common::CryptoProviderType::SOFTWARE);
+    mgr.Initialize();
+
+    // DEFAULT must resolve to the initialized SOFTWARE provider rather than the
+    // failed HARDWARE provider that the preference order would otherwise pick.
+    auto def = mgr.GetProvider(common::CryptoProviderType::DEFAULT);
+    ASSERT_NE(def, nullptr);
+    EXPECT_EQ(def->GetProviderName(), "SW_PROVIDER");
 }

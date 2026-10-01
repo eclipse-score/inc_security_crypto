@@ -14,9 +14,11 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <string_view>
 
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -48,12 +50,33 @@ using OperationAction = common::OperationAction;
 // Common Mediator Operations
 // ============================================================================
 
+/// @brief Maps a CTX_CREATE context-type scope prefix to its required capability.
+struct ContextScopeCapability final
+{
+    std::string_view scope;
+    common::ProviderCapability capability;
+};
+
+/// @brief Scope prefixes recognized by CTX_CREATE for capability-based provider routing.
+///
+/// The scope is the case-sensitive substring before the first ':' in the context type.
+/// Context types without a recognized scope add no capability constraint.
+inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities{{
+    {"CERT", common::ProviderCapability::kCertManagement},
+    {"KEY", common::ProviderCapability::kKeyManagement},
+}};
+
 // CTX_CREATE
 // Request:  data_node_id = connection_id (parent node),
-//           param[0]: string — handler type (e.g. "HASH")
+//           param[0]: string — handler context type (e.g. "HASH" or "CERT:...")
 //           param[1]: string — algorithm name (e.g. "SHA256", "SHA512")
 //           param[2]: optional uint8 — provider type preference (defaults to DEFAULT)
 //           param[3]: optional uint64_t — node_id of key resource (CryptoResourceId.id)
+// Capability routing: a recognized scope uses capability-based selection when the provider
+// preference is DEFAULT. Explicit provider preferences and key-bound selection are still
+// checked against the scope's required capability. Unrecognized or absent scopes add no
+// capability constraint and follow existing provider selection rules (provider-type
+// preference or key affinity). The full context type is passed to the handler factory unchanged.
 // Response: status_code (SUCCESS/error)
 //           uint64_t — daemon-assigned context_id (DataNodeId)
 // Effect:   Creates cryptographic context, initializes handler with specified algorithm

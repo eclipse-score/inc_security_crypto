@@ -51,11 +51,12 @@ enum class DaemonErrorCode : std::uint32_t
 
     // ---- Parameter / validation ----
     kInvalidArgument = 0x0301,         ///< Argument value is out of range or malformed
-    kInvalidResourceId = 0x0302,       ///< Resource identifier does not resolve to a known resource
+    kInvalidResourceId = 0x0302,       ///< Resource ID is malformed or cannot be resolved by the requested operation
     kInvalidResourceType = 0x0303,     ///< Resource type does not match the expected type
     kInsufficientBufferSize = 0x0304,  ///< Output buffer provided by the caller is too small
     kInvalidFormat = 0x0305,           ///< Data format not recognised (e.g. DER/PEM)
     kParamTruncated = 0x0306,          ///< Parameter silently truncated (exceeds fixed-capacity storage)
+    kResourceNotFound = 0x0307,        ///< Well-formed resource ID refers to no live resource
 
     // ---- Streaming ----
     kStreamNotInitialized = 0x0401,  ///< Init() not called before Update()/Finalize()
@@ -91,14 +92,8 @@ enum class DaemonErrorCode : std::uint32_t
 
     // ---- Certificate ----
     kCertificateParsingFailed = 0x0901,
-    kCertificateExpired = 0x0902,
-    kCertificateRevoked = 0x0903,
-    kCertificateVerifyFailed = 0x0904,
-    kCertChainVerifyFailed = 0x0905,
-    kCrlImportFailed = 0x0906,
-    kCsrGenerationFailed = 0x0907,
-    kOcspError = 0x0908,
-    kTrustAnchorNotFound = 0x0909,
+    kCsrGenerationFailed = 0x0902,
+    kOcspError = 0x0903,
 
     // ---- Provider ----
     kProviderNotAvailable = 0x0A01,
@@ -161,6 +156,8 @@ inline score::crypto::CryptoErrorCode ToCryptoErrorCode(DaemonErrorCode code) no
         // ---- Parameter ----
         case DaemonErrorCode::kInvalidArgument:
             return C::kInvalidArgument;
+        case DaemonErrorCode::kResourceNotFound:
+            return C::kResourceNotFound;
         case DaemonErrorCode::kInvalidResourceId:
             return C::kInvalidResourceId;
         case DaemonErrorCode::kInvalidResourceType:
@@ -223,22 +220,10 @@ inline score::crypto::CryptoErrorCode ToCryptoErrorCode(DaemonErrorCode code) no
         // ---- Certificate ----
         case DaemonErrorCode::kCertificateParsingFailed:
             return C::kCertificateParsingFailed;
-        case DaemonErrorCode::kCertificateExpired:
-            return C::kCertificateExpired;
-        case DaemonErrorCode::kCertificateRevoked:
-            return C::kCertificateRevoked;
-        case DaemonErrorCode::kCertificateVerifyFailed:
-            return C::kCertificateVerifyFailed;
-        case DaemonErrorCode::kCertChainVerifyFailed:
-            return C::kCertChainVerifyFailed;
-        case DaemonErrorCode::kCrlImportFailed:
-            return C::kCrlImportFailed;
         case DaemonErrorCode::kCsrGenerationFailed:
             return C::kCsrGenerationFailed;
         case DaemonErrorCode::kOcspError:
             return C::kOcspError;
-        case DaemonErrorCode::kTrustAnchorNotFound:
-            return C::kTrustAnchorNotFound;
         // ---- Provider ----
         case DaemonErrorCode::kProviderNotAvailable:
             return C::kProviderNotAvailable;

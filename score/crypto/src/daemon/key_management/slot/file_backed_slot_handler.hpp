@@ -19,8 +19,6 @@
 
 #include <cstddef>
 #include <memory>
-#include <string_view>
-#include <vector>
 
 namespace score::crypto::daemon::key_management
 {
@@ -70,15 +68,10 @@ class FileBackedSlotHandler final : public IKeySlotHandler
     GetSlotInfo(const KeySlotConfig& slot) override;
 
   private:
-    [[nodiscard]] score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::daemon::common::DaemonErrorCode>
-    ReadKeyFile(const std::string& file_path) const;
-
     IKeyFactory::Sptr m_factory;
 
-    /// Maximum key file size to guard against reading unreasonably large files.
+    /// Maximum accepted key file size (8 KiB).
     static constexpr std::size_t kMaxKeyFileSize = 8U * 1024U;
-
-    static constexpr std::string_view LOG_PREFIX = "[FILE_BACKED_SLOT_HANDLER]";
 };
 
 }  // namespace score::crypto::daemon::key_management

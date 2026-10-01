@@ -123,7 +123,7 @@ test --test_output=errors
 build:aarch64-qnx --strategy=CargoBuildScriptRun=local
 common --lockfile_mode=error
 
-# LLVM source-based coverage (@score_tooling//coverage): --config=llvm_cov
+# LLVM source-based coverage (@score_coverage): --config=llvm_cov
 import %workspace%/tools/coverage/coverage.bazelrc
 
 # Import optional user-specific configurations after repository defaults.

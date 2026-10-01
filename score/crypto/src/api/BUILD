@@ -47,6 +47,8 @@ cc_library(
     deps = [
         "//score/crypto/src/api:operations",
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/config:cert_context_configs",
         "//score/crypto/src/api/config:context_configs",
         "//score/crypto/src/api/contexts:context_bases",
         "//score/crypto/src/api/contexts:crypto_contexts",

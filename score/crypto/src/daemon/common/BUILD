@@ -18,12 +18,14 @@ cc_library(
     hdrs = [
         "actors.hpp",
         "daemon_error.hpp",
+        "hex.hpp",
         "secure_memory.hpp",
         "types.hpp",
     ],
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "@score_baselibs//score/result",
     ],
 )
