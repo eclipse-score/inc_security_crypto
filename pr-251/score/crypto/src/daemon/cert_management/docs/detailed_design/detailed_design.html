@@ -73,7 +73,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../../../search.html" />
-    <link rel="next" title="Detailed Design" href="../../../../../docs/detailed_design/index.html" />
+    <link rel="next" title="Data Manager" href="../../../data_manager/docs/index.html" />
     <link rel="prev" title="Detailed Design" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -500,14 +500,18 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../../../data_manager/docs/index.html">Data Manager</a></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">Certificate Management Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Detailed Design</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">Certificate Management Detailed Design</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../../../docs/architecture/daemon_architecture.html">Crypto Daemon Component Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../index.html">Certificate Management Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
+<li class="toctree-l3 current active has-children"><a class="reference internal" href="index.html">Detailed Design</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">Certificate Management Detailed Design</a></li>
 </ul>
 </details></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../data_manager/docs/index.html">Data Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/architecture/key_management_architecture.html">Key Management Architecture</a></li>
 </ul>
 </details></li>
 </ul>
@@ -563,6 +567,9 @@
     <li class="breadcrumb-item"><a href="../../../../../docs/index.html" class="nav-link">Crypto</a></li>
     
     
+    <li class="breadcrumb-item"><a href="../../../../../docs/architecture/daemon_architecture.html" class="nav-link">Crypto Daemon Component Architecture</a></li>
+    
+    
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Certificate Management Component</a></li>
     
     
@@ -587,7 +594,7 @@
                   
   <section id="certificate-management-detailed-design">
 <h1>Certificate Management Detailed Design<a class="headerlink" href="#certificate-management-detailed-design" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-e2a55b58">
+<div class="need_container docutils container" id="SNCB-5a1dbd77">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_detailed_design">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -595,7 +602,7 @@
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">draft</span></span></span></div>
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
 <div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
 <div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
 </div>
@@ -609,7 +616,7 @@
 <div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">cert_management</span><span class="needs_spacer">, </span><span class="needs_data">detailed_design</span></span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="reference internal" href="../../../../../docs/architecture/index.html#wp__cmpt_request_dummy" title="doc__crypto_cert_management_detailed_design">wp__cmpt_request_dummy</a></span></span></div>
+<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/implementation/implementation_workproducts.html#wp__sw_implementation">wp__sw_implementation</a></span></span></div>
 </span></div>
 </div>
 </td>
@@ -649,29 +656,36 @@ another client that loaded the same slot.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">FileBackedSlotHandler</span></code> and <code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code></dt><dd><p>Read and write certificate/CRL data using the deployment descriptor and
 shared atomic file I/O. The slot handler delegates parsing to <code class="docutils literal notranslate"><span class="pre">ICertParser</span></code>.
-<code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code> is composed into both <code class="docutils literal notranslate"><span class="pre">FileBackedSlotHandler</span></code> and
-<code class="docutils literal notranslate"><span class="pre">Pkcs11CertSlotHandler</span></code> and handles all <code class="docutils literal notranslate"><span class="pre">[crl]</span></code> section operations.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">Pkcs11CertSlotHandler</span></code></dt><dd><p>Storage backend for PKCS#11 token certificate slots. Implements
-<code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code> using <code class="docutils literal notranslate"><span class="pre">C_FindObjects</span></code> / <code class="docutils literal notranslate"><span class="pre">CKA_VALUE</span></code> for load and
-<code class="docutils literal notranslate"><span class="pre">C_CreateObject</span></code> / <code class="docutils literal notranslate"><span class="pre">C_DestroyObject</span></code> for write and clear. CRL operations
-delegate to a composed <code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code> (identical to the file-backed handler
-because PKCS#11 tokens have no native CRL object type).</p>
+<code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code> is composed into <code class="docutils literal notranslate"><span class="pre">FileBackedSlotHandler</span></code> and handles all
+<code class="docutils literal notranslate"><span class="pre">[crl]</span></code> section operations.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> and <code class="docutils literal notranslate"><span class="pre">TrustStoreHandler</span></code></dt><dd><p>Resolve typed slot memberships, maintain reverse indices, load anchors
 lazily, persist mutable member state, and manage per-client references.
 Slot handlers are created on demand (lazy cache in <code class="docutils literal notranslate"><span class="pre">GetOrCreateHandler</span></code>).
 Reference counting is per-client: one client releasing its verification
-context cannot evict another client’s active anchor cache.</p>
+context cannot evict another client’s active anchor cache.
+<code class="docutils literal notranslate"><span class="pre">GetMemberSlotHandles</span></code> lists occupied member identities without resolving
+certificate content; <code class="docutils literal notranslate"><span class="pre">GetMemberSnapshot</span></code> resolves one member’s detail on
+demand.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">AccessPolicyEnforcer</span></code></dt><dd><p>Applies UID-based read/write policy. Mutation is default-deny when no writer
 UID is explicitly configured.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">CertObjectSerializer</span></code> (<code class="docutils literal notranslate"><span class="pre">query/</span></code>)</dt><dd><p>Free functions that encode <code class="docutils literal notranslate"><span class="pre">CertObject</span></code>, <code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code> state, and
-trust-store member snapshots into the <code class="docutils literal notranslate"><span class="pre">common::ResponseParameters</span></code> IPC wire
-format. Both <code class="docutils literal notranslate"><span class="pre">CertManagementExecutor</span></code> (executor path) and the mediator’s
-typed-object handlers call the same functions, guaranteeing a
-single wire-layout definition for certificate, slot, and trust-store objects.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">CertObjectResponseBuilder</span></code> (<code class="docutils literal notranslate"><span class="pre">query/</span></code>)</dt><dd><p>Free functions that encode <code class="docutils literal notranslate"><span class="pre">CertObject</span></code>, <code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code> state, and
+trust-store member snapshots into the <code class="docutils literal notranslate"><span class="pre">common::ResponseParameters</span></code> IPC
+wire format. Exposed as the single intended encoding path so that an
+executor and any mediator typed-object handlers built on top of it share
+one wire-layout definition for certificate, slot, and trust-store objects
+instead of duplicating it. <code class="docutils literal notranslate"><span class="pre">BuildTrustStoreMemberIdListResponse</span></code> (member
+identities only) and <code class="docutils literal notranslate"><span class="pre">BuildTrustStoreMemberObjectResponse</span></code> (one member’s
+detail) let a caller resolve trust-store membership one entry at a time
+rather than requiring a response sized by total, configuration-driven
+membership. Every function checks its built payload with
+<code class="docutils literal notranslate"><span class="pre">common::EstimateResponseSize</span></code> against
+<code class="docutils literal notranslate"><span class="pre">common::kMaxResponsePayloadBytes</span></code> and returns <code class="docutils literal notranslate"><span class="pre">kResponseTooLarge</span></code>
+instead of an oversized result — the estimate is recomputed from the actual
+built output each call, so it does not need updating when a wire layout’s
+field set changes.</p>
 </dd>
 </dl>
 </section>
@@ -718,12 +732,14 @@ through the injected parser.</p>
 <section id="provider-boundary-and-scope">
 <h2>Provider boundary and scope<a class="headerlink" href="#provider-boundary-and-scope" title="Link to this heading">#</a></h2>
 <p>The core component does not depend on OpenSSL or PKCS#11 concrete types.
-OpenSSL supplies parsing and verification implementations; PKCS#11 supplies
-certificate-slot storage. Hardware-key CSR signing uses a cross-context
-service without exporting private key material. OCSP remains a provider-boundary
-extension.</p>
+OpenSSL supplies the <code class="docutils literal notranslate"><span class="pre">ICertParser</span></code> implementation used for parsing; provider
+context handlers built on the same <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> values are expected to
+supply verification and CSR generation. PKCS#11 is expected to supply its own
+<code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code> for certificate-slot storage. Hardware-key CSR signing is
+expected to use a cross-context service without exporting private key
+material. OCSP remains a provider-boundary extension.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-27e8b74a8b8fdaad21de0b3b426d6e9373a7c11d.svg" type="image/svg+xml" style="width:4429px;height:3231px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-3227f3f7d502ad39ffbb008396526814e807feeb.svg" type="image/svg+xml" style="width:3376px;height:3042px;background:#FFFFFF;"></object></p>
 </section>
 </section>
 
@@ -747,11 +763,11 @@ extension.</p>
       </div>
     </a>
     <a class="right-next"
-       href="../../../../../docs/detailed_design/index.html"
+       href="../../../data_manager/docs/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Detailed Design</p>
+        <p class="prev-next-title">Data Manager</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

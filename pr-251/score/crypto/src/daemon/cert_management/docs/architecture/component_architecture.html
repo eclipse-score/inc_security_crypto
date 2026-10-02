@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Certificate Management Component Architecture &#8212; Crypto Project  documentation</title>
+    <title>Certificate Management Architecture &#8212; Crypto Project  documentation</title>
   
   
   
@@ -500,15 +500,19 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../../../data_manager/docs/index.html">Data Manager</a></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">Certificate Management Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">Certificate Management Component Architecture</a></li>
-<li class="toctree-l3"><a class="reference internal" href="design_decisions.html">Design Decisions</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../../../docs/architecture/daemon_architecture.html">Crypto Daemon Component Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../index.html">Certificate Management Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
+<li class="toctree-l3 current active has-children"><a class="reference internal" href="index.html">Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">Certificate Management Architecture</a></li>
+<li class="toctree-l4"><a class="reference internal" href="design_decisions.html">Design Decisions</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../data_manager/docs/index.html">Data Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/architecture/key_management_architecture.html">Key Management Architecture</a></li>
 </ul>
 </details></li>
 </ul>
@@ -564,12 +568,15 @@
     <li class="breadcrumb-item"><a href="../../../../../docs/index.html" class="nav-link">Crypto</a></li>
     
     
+    <li class="breadcrumb-item"><a href="../../../../../docs/architecture/daemon_architecture.html" class="nav-link">Crypto Daemon Component Architecture</a></li>
+    
+    
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Certificate Management Component</a></li>
     
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">Architecture</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Certificate Management Component Architecture</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Certificate Management Architecture</span></li>
   </ul>
 </nav>
 </div>
@@ -586,17 +593,17 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="certificate-management-component-architecture">
-<h1>Certificate Management Component Architecture<a class="headerlink" href="#certificate-management-component-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-0a3802f1">
+  <section id="certificate-management-architecture">
+<h1>Certificate Management Architecture<a class="headerlink" href="#certificate-management-architecture" title="Link to this heading">#</a></h1>
+<div class="need_container docutils container" id="SNCB-4fa91dd4">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_architecture">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">Certificate Management Component Architecture</span></span></span></div>
+<div class="line"><span><span class="needs_title"><span class="needs_data">Certificate Management Architecture</span></span></span></div>
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">draft</span></span></span></div>
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
 <div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
 <div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
 </div>
@@ -610,7 +617,7 @@
 <div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">cert_management</span><span class="needs_spacer">, </span><span class="needs_data">architecture</span></span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="reference internal" href="../../../../../docs/architecture/index.html#wp__cmpt_request_dummy" title="doc__crypto_cert_management_architecture">wp__cmpt_request_dummy</a></span></span></div>
+<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/architecture_design/architecture_workproducts.html#wp__component_arch">wp__component_arch</a></span></span></div>
 </span></div>
 </div>
 </td>
@@ -632,11 +639,11 @@
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-08dc69c5">
+<div class="need_container docutils container" id="SNCB-baba1081">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto_cert_management">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">Certificate Management Component</span></span></span></div>
+<div class="line"><span><span class="needs_title"><span class="needs_data">Certificate Management</span></span></span></div>
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
@@ -653,7 +660,8 @@
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
 <div class="line"><span><span><div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span><div class="line">belongs to: <span class="belongs_to"><span><a class="reference internal" href="../../../../../../../examples/docs/architecture_modeling_example.html#feat__mtef" title="comp__crypto_cert_management">feat__mtef</a></span></span></div>
+<div class="line"><span><div class="line">forms part of: <span class="consists_of"><span><a class="reference internal" href="../../../../../docs/architecture/daemon_architecture.html#comp__crypto_daemon" title="comp__crypto_cert_management">comp__crypto_daemon</a></span></span></div>
+<div class="line">belongs to: <span class="belongs_to"><span><a class="reference internal" href="../../../../../../../docs/features/security_crypto/architecture/index.html#feat__security_crypto" title="comp__crypto_cert_management">feat__security_crypto</a></span></span></div>
 <div class="line">satisfies: <span class="satisfied_by"><span><a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_management__parse" title="comp__crypto_cert_management">comp_req__crypto_cert_management__parse</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_management__persistence" title="comp__crypto_cert_management">comp_req__crypto_cert_management__persistence</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_management__slots" title="comp__crypto_cert_management">comp_req__crypto_cert_management__slots</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_mgmt__access_control" title="comp__crypto_cert_management">comp_req__crypto_cert_mgmt__access_control</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_mgmt__trust_stores" title="comp__crypto_cert_management">comp_req__crypto_cert_mgmt__trust_stores</a></span></span></div>
 </span></div>
 </div>
@@ -693,15 +701,22 @@ store contracts, configuration types, and public handles.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nodes/</span></code> contains DataManager nodes for certificate slots, loaded
 certificates, and trust stores.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">slot/</span></code> contains slot registration, file-backed storage
-(<code class="docutils literal notranslate"><span class="pre">FileBackedSlotHandler</span></code>), PKCS#11 storage (<code class="docutils literal notranslate"><span class="pre">Pkcs11CertSlotHandler</span></code>),
-deployment dispatch, and co-located CRL storage (<code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code>).</p></li>
+(<code class="docutils literal notranslate"><span class="pre">FileBackedSlotHandler</span></code>), deployment dispatch, and co-located CRL storage
+(<code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">truststore/</span></code> contains trust-store membership, anchor caching, persistence,
 and per-client references.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">policy/</span></code> contains the shared slot/trust-store access-policy checks.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">query/</span></code> contains <code class="docutils literal notranslate"><span class="pre">CertObjectSerializer</span></code> — the single source of IPC
-wire-format encoding for certificate, slot, and trust-store objects. Both
-the executor and the mediator’s typed-object handlers depend on this module;
-changing the wire layout requires one edit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">query/</span></code> contains <code class="docutils literal notranslate"><span class="pre">CertObjectResponseBuilder</span></code> — free functions that
+encode certificate, slot, and trust-store objects into the IPC response
+wire format. This component exposes it as the single intended encoding path
+so that an executor and any mediator typed-object handlers built on top of
+it share one wire-layout definition instead of duplicating it. Every builder
+checks its output against <code class="docutils literal notranslate"><span class="pre">common::kMaxResponsePayloadBytes</span></code> and returns
+<code class="docutils literal notranslate"><span class="pre">kResponseTooLarge</span></code> rather than an oversized payload. Trust-store member
+identities and per-member detail are resolved through separate functions
+(<code class="docutils literal notranslate"><span class="pre">BuildTrustStoreMemberIdListResponse</span></code>, <code class="docutils literal notranslate"><span class="pre">BuildTrustStoreMemberObjectResponse</span></code>)
+so a caller can resolve one member at a time rather than needing a single
+response sized by total, configuration-driven membership.</p></li>
 <li><p>Public value definitions are owned by <code class="docutils literal notranslate"><span class="pre">api/types</span></code>: <code class="docutils literal notranslate"><span class="pre">common.hpp</span></code> contains
 cross-domain resource/provider types, <code class="docutils literal notranslate"><span class="pre">certificate.hpp</span></code> contains certificate,
 CRL, OCSP, and verification types, and <code class="docutils literal notranslate"><span class="pre">key.hpp</span></code> contains key slot and
@@ -709,10 +724,11 @@ permission types. <code class="docutils literal notranslate"><span class="pre">a
 domain-specific type contracts.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">provider/</span></code> supplies parsing and provider-specific context handlers. The
 selected certificate-management provider must expose <code class="docutils literal notranslate"><span class="pre">ICertParser</span></code>;
-certificate management does not require a particular provider.
-The public certificate contexts route by scoped type: <code class="docutils literal notranslate"><span class="pre">CERT:MANAGEMENT</span></code>
-owns certificate lifecycle operations, while <code class="docutils literal notranslate"><span class="pre">CERT:TRUST_STORE</span></code> owns
-trust-store membership curation. Both handlers share the same
+certificate management does not require a particular provider. The
+component defines two scoped context types for provider handlers built on
+top of it: <code class="docutils literal notranslate"><span class="pre">CERT:MANAGEMENT</span></code> for certificate-slot lifecycle operations
+and <code class="docutils literal notranslate"><span class="pre">CERT:TRUST_STORE</span></code> for trust-store membership curation. Handlers
+registered under either type are expected to share the same
 <code class="docutils literal notranslate"><span class="pre">CertManagementService</span></code> and certificate-management capability.</p></li>
 </ul>
 </section>
@@ -725,7 +741,7 @@ an explicit load and returns a guarded ephemeral <code class="docutils literal n
 Applications can retain that guard and reuse the loaded certificate across
 multiple contexts; destroying the guard releases the client-owned data node.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-2a339107493af8b3fdd43a62d78d72665e5309ae.svg" type="image/svg+xml" style="width:3377px;height:1132px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-5e47425546e1e850f633549fa2b82e727ed36c58.svg" type="image/svg+xml" style="width:2921px;height:1268px;background:#FFFFFF;"></object></p>
 </section>
 <section id="runtime-boundaries">
 <h2>Runtime boundaries<a class="headerlink" href="#runtime-boundaries" title="Link to this heading">#</a></h2>
@@ -763,17 +779,28 @@ internal to storage and provider decoding.</p></li>
 <code class="docutils literal notranslate"><span class="pre">CERT:MANAGEMENT</span></code> context retains certificate-slot and slot-CRL lifecycle.</p></li>
 <li><p>Shared deployment writes are atomic; a partially written descriptor must not
 replace the previous valid descriptor.</p></li>
+<li><p>A built IPC response payload must stay within <code class="docutils literal notranslate"><span class="pre">common::kMaxResponsePayloadBytes</span></code>;
+a query path whose output size depends on configuration or certificate
+content (DN length, trust-store member count) rejects with
+<code class="docutils literal notranslate"><span class="pre">kResponseTooLarge</span></code> rather than emitting an oversized payload.</p></li>
 </ul>
 </section>
 <section id="key-interfaces">
 <h2>Key interfaces<a class="headerlink" href="#key-interfaces" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code> is implemented by certificate storage backends such as
-<code class="docutils literal notranslate"><span class="pre">FileBackedSlotHandler</span></code> and <code class="docutils literal notranslate"><span class="pre">Pkcs11CertSlotHandler</span></code>. The handler factory is
-injected into <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> so the core component does not depend on a
-concrete provider backend.</p>
+<code class="docutils literal notranslate"><span class="pre">FileBackedSlotHandler</span></code>. A handler factory (<code class="docutils literal notranslate"><span class="pre">SlotHandlerFactory</span></code> for
+provider-backed slots) is injected into <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code>, which owns handler
+creation and per-slot caching, so the core component does not depend on a
+concrete provider backend. <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> resolves slot handlers through
+<code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> rather than holding a factory of its own.</p>
 <p><code class="docutils literal notranslate"><span class="pre">ITrustStoreHandler</span></code> exposes anchor retrieval and chain-building lookups.
 <code class="docutils literal notranslate"><span class="pre">TrustStoreHandler</span></code> receives an anchor-loader callback from
 <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> and loads its anchor content on demand.</p>
+<p><code class="docutils literal notranslate"><span class="pre">TrustStoreManager::GetMemberSlotHandles</span></code> lists a trust store’s occupied
+member identities without resolving certificate content, and
+<code class="docutils literal notranslate"><span class="pre">GetMemberSnapshot</span></code> resolves one member’s detail on demand. Querying member
+by member keeps each call’s cost independent of total, configuration-driven
+trust-store membership.</p>
 <p><code class="docutils literal notranslate"><span class="pre">ICertParser</span></code> is the narrow provider boundary for converting DER or PEM
 bytes into a provider-neutral <code class="docutils literal notranslate"><span class="pre">CertObject</span></code>. Verification, CSR generation,
 format conversion, and public-key extraction are provider context operations,
@@ -793,31 +820,17 @@ clients.</p>
 typed member slot and caches the resulting <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> through a weak
 reference. The trust-store handler holds strong references while active.</p>
 <p>After a certificate update, <code class="docutils literal notranslate"><span class="pre">CertManagementService</span></code> finds every trust store
-that references the slot and calls <code class="docutils literal notranslate"><span class="pre">NotifySlotChanged</span></code>. The affected cache
+that references the slot and calls <code class="docutils literal notranslate"><span class="pre">NotifySlotCertChanged</span></code>, which forwards
+to <code class="docutils literal notranslate"><span class="pre">TrustStoreManager::NotifySlotChanged</span></code>. The affected cache
 entry is invalidated, and the next anchor request reloads and reparses the
 certificate. Per-client references prevent one client’s cleanup from evicting
 another client’s active cache.</p>
 </section>
 <section id="design-decisions">
 <h2>Design decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h2>
-<p>The five structural decisions that shape the component’s storage model are
-documented with full context, alternatives considered, and consequences in
-<a class="reference internal" href="design_decisions.html#crypto-cert-management-design-decisions"><span class="std std-ref">Design Decisions</span></a>:</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="design_decisions.html#dec_rec__crypto_cert_mgmt__ts_ref_slots" title="dec_rec__crypto_cert_mgmt__ts_ref_slots"><em class="xref need">Trust Stores Reference Cert... (dec_rec__crypto_cert_mgmt__ts_ref_slots)</em></a> — trust-store members are
-named cert slot references, not raw paths.</p></li>
-<li><p><a class="reference internal" href="design_decisions.html#dec_rec__crypto_cert_mgmt__crl_co_location" title="dec_rec__crypto_cert_mgmt__crl_co_location"><em class="xref need">CRL Co-located with the Cer... (dec_rec__crypto_cert_mgmt__crl_co_location)</em></a> — CRLs occupy an optional
-<code class="docutils literal notranslate"><span class="pre">[crl]</span></code> section of the cert slot descriptor; no independent CRL registry.</p></li>
-<li><p><a class="reference internal" href="design_decisions.html#dec_rec__crypto_cert_mgmt__deny_mutation" title="dec_rec__crypto_cert_mgmt__deny_mutation"><em class="xref need">Mutation Default-Deny with ... (dec_rec__crypto_cert_mgmt__deny_mutation)</em></a> — all mutations are
-default-deny; write access requires an explicit UID in the resource access
-policy.</p></li>
-<li><p><a class="reference internal" href="design_decisions.html#dec_rec__crypto_cert_mgmt__atomic_writes" title="dec_rec__crypto_cert_mgmt__atomic_writes"><em class="xref need">Atomic File Writes via Temp... (dec_rec__crypto_cert_mgmt__atomic_writes)</em></a> — file-backed cert and
-descriptor writes use the shared <code class="docutils literal notranslate"><span class="pre">file_io::WriteFile</span></code> temp-file + rename
-primitive.</p></li>
-<li><p><a class="reference internal" href="design_decisions.html#dec_rec__crypto_cert_mgmt__provider_boundary" title="dec_rec__crypto_cert_mgmt__provider_boundary"><em class="xref need">Provider Boundary — Parsing... (dec_rec__crypto_cert_mgmt__provider_boundary)</em></a> — provider interaction is
-limited to <code class="docutils literal notranslate"><span class="pre">ICertParser</span></code>; no private key or HSM handle crosses the cert
-management boundary.</p></li>
-</ul>
+<p>The structural decisions that shape the component’s storage model, including
+their rationale, alternatives, and consequences, are documented in
+<a class="reference internal" href="design_decisions.html#crypto-cert-management-design-decisions"><span class="std std-ref">Design Decisions</span></a>.</p>
 </section>
 </section>
 
