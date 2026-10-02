@@ -27,7 +27,9 @@ cc_test(
     ],
     deps = [
         "//score/crypto/src/daemon/cert_management:cert_management",
-        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_internal_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_runtime_headers",
+        "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/config:config_types",
         "//score/crypto/src/daemon/config:flatbuffer_config_parser",
         "@googletest//:gtest_main",
