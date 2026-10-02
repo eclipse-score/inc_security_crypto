@@ -12,7 +12,7 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _crypto_key_management_details:
+.. _crypto_key_management_architecture:
 
 Key Management Architecture
 ===========================
