@@ -11,16 +11,34 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/daemon/cert_management/query/cert_object_serializer.hpp"
+#include "score/crypto/src/daemon/cert_management/query/cert_object_response_builder.hpp"
 #include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
 
 #include <cstdint>
+#include <utility>
 
 namespace score::crypto::daemon::cert_management::query
 {
 
-common::ResponseParameters SerializeCertObject(const CertObject& cert,
-                                               std::optional<score::crypto::CrlMetadata> crl_metadata)
+namespace
+{
+
+/// Rejects a built payload that exceeds the IPC response budget instead of
+/// returning it. Centralises the check so every builder below applies the
+/// same conservative margin.
+score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> CheckBudget(
+    common::ResponseParameters params)
+{
+    if (common::EstimateResponseSize(params) > common::kMaxResponsePayloadBytes)
+        return score::crypto::make_unexpected(common::DaemonErrorCode::kResponseTooLarge);
+    return params;
+}
+
+}  // namespace
+
+score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> BuildCertObjectResponse(
+    const CertObject& cert,
+    std::optional<score::crypto::CrlMetadata> crl_metadata)
 {
     const auto& meta = cert.GetChainMetadata();
     common::ResponseParameters out;
@@ -40,11 +58,11 @@ common::ResponseParameters SerializeCertObject(const CertObject& cert,
     out.push_back(static_cast<std::uint64_t>(crl.this_update));
     out.push_back(static_cast<std::uint64_t>(crl.next_update));
     out.push_back(crl.crl_number);
-    return out;
+    return CheckBudget(std::move(out));
 }
 
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode>
-SerializeCertSlotInfo(CertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id)
+BuildCertSlotInfoResponse(CertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id)
 {
     auto info_res = mgr.GetSlotInfo(slot, client_id);
     if (!info_res.has_value())
@@ -57,38 +75,46 @@ SerializeCertSlotInfo(CertSlotManager& mgr, CertSlotHandle slot, data_manager::C
     return out;
 }
 
-common::ResponseParameters SerializeTrustStoreMembers(const std::vector<TrustStoreManager::MemberSnapshot>& snapshot,
-                                                      CertManagementService& service,
-                                                      std::uint64_t client_id)
+score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> BuildTrustStoreMemberIdListResponse(
+    const std::vector<CertSlotHandle>& slots,
+    CertManagementService& service,
+    std::uint64_t client_id)
 {
-    struct ResolvedEntry
+    std::vector<std::uint64_t> slot_node_ids;
+    slot_node_ids.reserve(slots.size());
+    for (const auto& slot : slots)
     {
-        std::uint64_t slot_node_id;
-        const TrustStoreManager::MemberSnapshot* snap;
-    };
-    std::vector<ResolvedEntry> entries;
-    entries.reserve(snapshot.size());
-    for (const auto& member : snapshot)
-    {
-        auto nid_res = service.ResolveCertSlot(member.slot_handle, client_id);
+        auto nid_res = service.ResolveCertSlot(slot, client_id);
         if (!nid_res.has_value())
             continue;  // slot not resolvable — omit silently rather than failing
-        entries.push_back({static_cast<std::uint64_t>(nid_res.value()), &member});
+        slot_node_ids.push_back(static_cast<std::uint64_t>(nid_res.value()));
     }
 
     common::ResponseParameters out;
-    out.push_back(static_cast<std::uint64_t>(entries.size()));
-    for (const auto& entry : entries)
-    {
-        out.push_back(entry.slot_node_id);
-        out.push_back(common::OwnedBuffer{entry.snap->fingerprint.begin(), entry.snap->fingerprint.end()});
-        out.push_back(common::OwnedString{entry.snap->subject});
-        out.push_back(common::OwnedString{entry.snap->issuer});
-        out.push_back(common::OwnedString{entry.snap->serial_number});
-        out.push_back(static_cast<std::uint8_t>(entry.snap->kind));
-        out.push_back(static_cast<std::uint8_t>(entry.snap->status));
-    }
-    return out;
+    out.push_back(static_cast<std::uint64_t>(slot_node_ids.size()));
+    for (const auto node_id : slot_node_ids)
+        out.push_back(node_id);
+    return CheckBudget(std::move(out));
+}
+
+score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> BuildTrustStoreMemberObjectResponse(
+    const TrustStoreManager::MemberSnapshot& member,
+    CertManagementService& service,
+    std::uint64_t client_id)
+{
+    auto nid_res = service.ResolveCertSlot(member.slot_handle, client_id);
+    if (!nid_res.has_value())
+        return score::crypto::make_unexpected(nid_res.error());
+
+    common::ResponseParameters out;
+    out.push_back(static_cast<std::uint64_t>(nid_res.value()));
+    out.push_back(common::OwnedBuffer{member.fingerprint.begin(), member.fingerprint.end()});
+    out.push_back(common::OwnedString{member.subject});
+    out.push_back(common::OwnedString{member.issuer});
+    out.push_back(common::OwnedString{member.serial_number});
+    out.push_back(static_cast<std::uint8_t>(member.kind));
+    out.push_back(static_cast<std::uint8_t>(member.status));
+    return CheckBudget(std::move(out));
 }
 
 }  // namespace score::crypto::daemon::cert_management::query
