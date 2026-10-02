@@ -18,12 +18,17 @@
 namespace score::crypto::daemon::provider::score_provider::operations::factory
 {
 
-ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFactory> key_factory,
-                                         std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
-                                         key_management::KeyManagementService::Sptr km_service)
+ScoreHandlerFactory::ScoreHandlerFactory(
+    std::shared_ptr<key_management::IKeyFactory> key_factory,
+    std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
+    key_management::KeyManagementService::Sptr km_service,
+    std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> cert_parser,
+    ::score::crypto::daemon::cert_management::CertManagementService::Sptr cert_service)
     : m_key_factory{std::move(key_factory)},
       m_slot_handler{std::move(slot_handler)},
-      m_km_service{std::move(km_service)}
+      m_km_service{std::move(km_service)},
+      m_cert_parser{std::move(cert_parser)},
+      m_cert_service{std::move(cert_service)}
 {
 }
 
@@ -41,6 +46,22 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
     if (handlerId == KEY_MANAGEMENT)
     {
         return CreateKeyManagementHandler();
+    }
+    if (handlerId == CERT_MANAGEMENT)
+    {
+        return CreateCertManagementHandler();
+    }
+    if (handlerId == CERT_VERIFICATION)
+    {
+        return CreateCertVerificationHandler();
+    }
+    if (handlerId == CERT_CSR_GENERATION)
+    {
+        return CreateCsrGenerationHandler();
+    }
+    if (handlerId == CERT_TRUST_STORE)
+    {
+        return CreateTrustStoreManagementHandler();
     }
 
     ::score::result::Error error(
@@ -78,6 +99,42 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
         static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
         ::score::crypto::kCryptoErrorDomain,
         "Key management handler not supported by this score provider");
+    return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
+}
+
+::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateCertManagementHandler()
+{
+    ::score::result::Error error(
+        static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
+        ::score::crypto::kCryptoErrorDomain,
+        "Certificate management handler not supported by this score provider");
+    return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
+}
+
+::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateCertVerificationHandler()
+{
+    ::score::result::Error error(
+        static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
+        ::score::crypto::kCryptoErrorDomain,
+        "Certificate verification handler not supported by this score provider");
+    return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
+}
+
+::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateCsrGenerationHandler()
+{
+    ::score::result::Error error(
+        static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
+        ::score::crypto::kCryptoErrorDomain,
+        "CSR generation handler not supported by this score provider");
+    return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
+}
+
+::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateTrustStoreManagementHandler()
+{
+    ::score::result::Error error(
+        static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
+        ::score::crypto::kCryptoErrorDomain,
+        "Trust-store management handler not supported by this score provider");
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
 

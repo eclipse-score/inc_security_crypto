@@ -37,6 +37,8 @@ cc_binary(
     linkstatic = True,
     visibility = ["//visibility:public"],
     deps = [
+        "//score/crypto/src/daemon/cert_management",
+        "//score/crypto/src/daemon/cert_management:cert_management_daemon_headers",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/control_plane",
         "//score/crypto/src/daemon/data_manager",

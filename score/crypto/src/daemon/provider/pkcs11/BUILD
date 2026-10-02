@@ -16,6 +16,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 cc_library(
     name = "provider_pkcs11_headers",
     hdrs = [
+        "cert_management/pkcs11_cert_slot_handler.hpp",
         "detail/pkcs11_algorithm_info.hpp",
         "key_management/pkcs11_key_factory.hpp",
         "key_management/pkcs11_key_handler.hpp",
@@ -43,11 +44,16 @@ cc_library(
     visibility = [
         "//:__subpackages__",
     ],
+    deps = [
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
+    ],
 )
 
 cc_library(
     name = "provider_pkcs11_library",
     srcs = [
+        "cert_management/pkcs11_cert_slot_handler.cpp",
         "key_management/pkcs11_key_factory.cpp",
         "key_management/pkcs11_key_handler.cpp",
         "key_management/pkcs11_key_slot_handler.cpp",
@@ -74,11 +80,13 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":provider_pkcs11_headers",
+        "//score/crypto/src/daemon/cert_management",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/data_plane",
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
         "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",

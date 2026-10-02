@@ -1,6 +1,5 @@
 {
-  "key_slot_config":
-  {
+  "key_slot_config": {
     "slot_entries": [
       {
         "slot_name": "test/AES-256",
@@ -19,8 +18,8 @@
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
-        "deployment_path" : "/opt/crypto/etc/test_aes256_cmac.kv",
-        "deployment_format" : "kv"
+        "deployment_path": "/opt/crypto/etc/test_aes256_cmac.kv",
+        "deployment_format": "kv"
       },
       {
         "slot_name": "test/pkcs11-AES-256",
@@ -29,8 +28,8 @@
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
-        "deployment_path" : "/opt/crypto/etc/test_pkcs11_hmac.kv",
-        "deployment_format" : "kv"
+        "deployment_path": "/opt/crypto/etc/test_pkcs11_hmac.kv",
+        "deployment_format": "kv"
       },
       {
         "slot_name": "HMAC_SHA256_IntegrationTestKey_OpenSSL",
@@ -39,8 +38,8 @@
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
-        "deployment_path" : "/opt/crypto/etc/integration_openssl_hmac.kv",
-        "deployment_format" : "kv"
+        "deployment_path": "/opt/crypto/etc/integration_openssl_hmac.kv",
+        "deployment_format": "kv"
       },
       {
         "slot_name": "HMAC_SHA256_IntegrationTestKey",
@@ -49,61 +48,145 @@
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
-        "deployment_path" : "/opt/crypto/etc/integration_softhsm_hmac.kv",
-        "deployment_format" : "kv"
+        "deployment_path": "/opt/crypto/etc/integration_softhsm_hmac.kv",
+        "deployment_format": "kv"
       }
     ],
     "app_key_slot_entries": [
+      { "uid": 0,    "app_resource_id": "test/hmac",    "slot_name": "test/AES-256" },
+      { "uid": 0,    "app_resource_id": "test/cmac",    "slot_name": "test/aes-256-cmac" },
+      { "uid": 0,    "app_resource_id": "test/pkcs11/hmac", "slot_name": "test/pkcs11-AES-256" },
+      { "uid": 0,    "app_resource_id": "HMAC_SHA256_IntegrationTestKey_OpenSSL", "slot_name": "HMAC_SHA256_IntegrationTestKey_OpenSSL" },
+      { "uid": 0,    "app_resource_id": "HMAC_SHA256_IntegrationTestKey",         "slot_name": "HMAC_SHA256_IntegrationTestKey" },
+      { "uid": 1000, "app_resource_id": "test/hmac",    "slot_name": "test/AES-256" },
+      { "uid": 1000, "app_resource_id": "test/cmac",    "slot_name": "test/aes-256-cmac" },
+      { "uid": 1000, "app_resource_id": "test/pkcs11/hmac", "slot_name": "test/pkcs11-AES-256" },
+      { "uid": 1000, "app_resource_id": "HMAC_SHA256_IntegrationTestKey_OpenSSL", "slot_name": "HMAC_SHA256_IntegrationTestKey_OpenSSL" },
+      { "uid": 1000, "app_resource_id": "HMAC_SHA256_IntegrationTestKey",         "slot_name": "HMAC_SHA256_IntegrationTestKey" }
+    ]
+  },
+  "cert_slot_config": {
+    "slot_entries": [
       {
-        "uid": 0,
-        "app_resource_id": "test/hmac",
-        "slot_name": "test/hmac-sha256"
+        "slot_name": "integration_root_ca",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_root_ca.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
       },
       {
-        "uid": 0,
-        "app_resource_id": "test/cmac",
-        "slot_name": "test/aes-256-cmac"
+        "slot_name": "integration_device_cert",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_device_cert.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
       },
       {
-        "uid": 0,
-        "app_resource_id": "test/pkcs11/hmac",
-        "slot_name": "test/pkcs11-hmac-sha256"
+        "slot_name": "integration_verification_root_ca",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_verification_root_ca.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
       },
       {
-        "uid": 0,
-        "app_resource_id": "HMAC_SHA256_IntegrationTestKey_OpenSSL",
-        "slot_name": "HMAC_SHA256_IntegrationTestKey_OpenSSL"
+        "slot_name": "integration_verification_intermediate_ca",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_verification_intermediate_ca.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
       },
       {
-        "uid": 0,
-        "app_resource_id": "HMAC_SHA256_IntegrationTestKey",
-        "slot_name": "HMAC_SHA256_IntegrationTestKey"
-      },
-      {
-        "uid": 1000,
-        "app_resource_id": "test/hmac",
-        "slot_name": "test/hmac-sha256"
-      },
-      {
-        "uid": 1000,
-        "app_resource_id": "test/cmac",
-        "slot_name": "test/aes-256-cmac"
-      },
-      {
-        "uid": 1000,
-        "app_resource_id": "test/pkcs11/hmac",
-        "slot_name": "test/pkcs11-hmac-sha256"
-      },
-      {
-        "uid": 1000,
-        "app_resource_id": "HMAC_SHA256_IntegrationTestKey_OpenSSL",
-        "slot_name": "HMAC_SHA256_IntegrationTestKey_OpenSSL"
-      },
-      {
-        "uid": 1000,
-        "app_resource_id": "HMAC_SHA256_IntegrationTestKey",
-        "slot_name": "HMAC_SHA256_IntegrationTestKey"
+        "slot_name": "integration_exclusive_slot",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_exclusive_slot.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
       }
+    ],
+    "trust_store_entries": [
+      {
+        "store_name": "integration_tls_roots",
+        "members": [
+          { "slot_name": "integration_root_ca", "kind": "kSharedStatic" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_tls_roots_state.kv",
+        "deployment_format": "kv"
+      },
+      {
+        "store_name": "integration_verification_tls_roots",
+        "members": [
+          { "slot_name": "integration_verification_root_ca", "kind": "kSharedStatic" },
+          { "slot_name": "integration_verification_intermediate_ca", "kind": "kSharedStatic" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_verification_tls_roots_state.kv",
+        "deployment_format": "kv"
+      },
+      {
+        "store_name": "integration_verification_root_trust",
+        "members": [
+          { "slot_name": "integration_verification_root_ca", "kind": "kSharedStatic" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_verification_root_trust_state.kv",
+        "deployment_format": "kv"
+      },
+      {
+        "store_name": "integration_verification_intermediate_roots",
+        "members": [
+          { "slot_name": "integration_verification_intermediate_ca", "kind": "kSharedStatic" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0],
+        "deployment_format": "kv",
+        "deployment_path": "/opt/crypto/etc/integration_verification_intermediate_roots_state.kv"
+      },
+      {
+        "store_name": "integration_mutable_trust_store",
+        "members": [
+          { "slot_name": "integration_exclusive_slot", "kind": "kExclusiveMutable" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_mutable_trust_store_state.kv",
+        "deployment_format": "kv"
+      }
+    ],
+    "app_cert_slot_entries": [
+      { "uid": 0,    "app_resource_id": "root_ca",     "slot_name": "integration_root_ca" },
+      { "uid": 0,    "app_resource_id": "device_cert", "slot_name": "integration_device_cert" },
+      { "uid": 0,    "app_resource_id": "verification_root_ca", "slot_name": "integration_verification_root_ca" },
+      { "uid": 0,    "app_resource_id": "verification_intermediate_ca", "slot_name": "integration_verification_intermediate_ca" },
+      { "uid": 1000, "app_resource_id": "device_cert", "slot_name": "integration_device_cert" }
+    ],
+    "app_trust_store_entries": [
+      { "uid": 0,    "app_resource_id": "tls_roots", "trust_store_name": "integration_tls_roots" },
+      { "uid": 0,    "app_resource_id": "verification_tls_roots", "trust_store_name": "integration_verification_tls_roots" },
+      { "uid": 0,    "app_resource_id": "verification_root_trust", "trust_store_name": "integration_verification_root_trust" },
+      { "uid": 0,    "app_resource_id": "verification_intermediate_roots", "trust_store_name": "integration_verification_intermediate_roots" },
+      { "uid": 1000, "app_resource_id": "tls_roots", "trust_store_name": "integration_tls_roots" },
+      { "uid": 1000, "app_resource_id": "verification_tls_roots", "trust_store_name": "integration_verification_tls_roots" },
+      { "uid": 1000, "app_resource_id": "verification_root_trust", "trust_store_name": "integration_verification_root_trust" },
+      { "uid": 1000, "app_resource_id": "verification_intermediate_roots", "trust_store_name": "integration_verification_intermediate_roots" },
+      { "uid": 0,    "app_resource_id": "mutable_trust_store", "trust_store_name": "integration_mutable_trust_store" },
+      { "uid": 1000, "app_resource_id": "mutable_trust_store", "trust_store_name": "integration_mutable_trust_store" }
     ]
   }
 }

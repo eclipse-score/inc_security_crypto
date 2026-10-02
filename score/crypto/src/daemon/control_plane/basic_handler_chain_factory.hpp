@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_BASIC_HANDLER_CHAIN_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_BASIC_HANDLER_CHAIN_FACTORY_HPP
 
+#include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
@@ -46,7 +47,8 @@ class BasicHandlerChainFactory : public IHandlerChainFactory
     BasicHandlerChainFactory(std::shared_ptr<data_manager::IDataManager> data_manager,
                              std::shared_ptr<provider::ProviderManager> provider_manager,
                              const config::Config& config,
-                             key_management::KeyManagementService::Sptr km_service = nullptr);
+                             key_management::KeyManagementService::Sptr km_service = nullptr,
+                             cert_management::CertManagementService::Sptr cm_service = nullptr);
 
     // Non-copyable - factories should not be duplicated
     BasicHandlerChainFactory(const BasicHandlerChainFactory&) = delete;
@@ -72,7 +74,8 @@ class BasicHandlerChainFactory : public IHandlerChainFactory
     std::shared_ptr<provider::ProviderManager> m_provider_manager;  // Shared across threads
     data_plane::IShmRegistry::Sptr m_shm_registry;                  // Shared across threads
     const config::Config& m_config;
-    key_management::KeyManagementService::Sptr m_km_service;  // Shared across threads
+    key_management::KeyManagementService::Sptr m_km_service;    // Shared across threads
+    cert_management::CertManagementService::Sptr m_cm_service;  // Shared across threads
 };
 
 }  // namespace score::crypto::daemon::control_plane

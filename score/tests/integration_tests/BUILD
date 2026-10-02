@@ -83,6 +83,42 @@ cc_binary(
 )
 
 cc_binary(
+    name = "score_cert_management_integration_test",
+    srcs = ["score_cert_management_integration_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    data = [
+        "//score/tests/test_vectors/certificate:basic",
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "score_cert_verification_integration_test",
+    srcs = ["score_cert_verification_integration_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    data = [
+        "//score/tests/test_vectors/certificate:pki_chain",
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
     name = "score_demo",
     srcs = ["score_demo.cpp"],
     data = [
@@ -110,8 +146,15 @@ integration_test(
     binaries = [
         ":score_api_hash_test",
         ":score_api_mac_test",
-        ":hash_performance_test",
+    ] + select({
+        "//score/crypto/src/backend:openssl_backend_active": [
+            ":score_cert_management_integration_test",
+            ":score_cert_verification_integration_test",
+        ],
+        "//conditions:default": [],
+    }) + [
         ":score_demo",
+        ":hash_performance_test",
         "//score/crypto/src/daemon:crypto_daemon",
     ] + select({
         "//score/crypto/src/backend:pkcs11_backend_enabled": [":init_pkcs11_token"],
@@ -122,13 +165,22 @@ integration_test(
         "//score/tests/test_vectors/config:integration_test_config",
     ],
     extra_args = select({
+        "//score/crypto/src/backend:openssl_backend_active": ["--openssl-backend-enabled"],
+        "//conditions:default": [],
+    }) + select({
         "//score/crypto/src/backend:pkcs11_backend_enabled": ["--pkcs11-backend-enabled"],
         "//conditions:default": [],
     }),
     file_pkgs = [
         "//score/tests/test_vectors/hash:hash_test_vectors_pkg",
         "//score/tests/test_vectors/mac:mac_test_vectors_pkg",
-    ],
+    ] + select({
+        "//score/crypto/src/backend:openssl_backend_active": [
+            "//score/tests/test_vectors/certificate:basic_pkg",
+            "//score/tests/test_vectors/certificate:pki_chain_pkg",
+        ],
+        "//conditions:default": [],
+    }),
     libraries = [
         "//score/crypto/src/api/control_plane",
         "//third_party/grpc:libgrpc_shared",

@@ -43,6 +43,12 @@ def pytest_addoption(parser: pytest.Parser):
         default=False,
         help="Enable PKCS#11-dependent integration-test setup.",
     )
+    parser.addoption(
+        "--openssl-backend-enabled",
+        action="store_true",
+        default=False,
+        help="Enable OpenSSL-dependent integration-test cases.",
+    )
 
 
 def _absolute_path(rel_path: Path) -> Path:
