@@ -132,10 +132,11 @@ class IProvider
         return nullptr;
     }
 
-    /// Return the provider's certificate parser for FileBackedSlotHandler injection at startup.
+    /// Return the provider's certificate parser for ICertSlotHandler injection.
     ///
     /// Returns nullptr if the provider does not support certificate parsing. Only called
-    /// by CertManagementModule::Create() to obtain a parser for file-backed slots.
+    /// by SlotHandlerFactory, which resolves and caches the parser lazily on first use
+    /// rather than at daemon startup.
     /// Cert context operations (verify, CSR, etc.) are handled by ICryptoHandlerFactory.
     virtual std::shared_ptr<provider::cert_management::ICertParser> GetCertParser()
     {

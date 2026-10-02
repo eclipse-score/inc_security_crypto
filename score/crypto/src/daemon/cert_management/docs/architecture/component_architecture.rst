@@ -139,9 +139,11 @@ Key interfaces
 --------------
 
 ``ICertSlotHandler`` is implemented by certificate storage backends such as
-``FileBackedSlotHandler``. The handler factory is injected into
-``TrustStoreManager`` so the core component does not depend on a concrete
-provider backend.
+``FileBackedSlotHandler``. A handler factory (``SlotHandlerFactory`` for
+provider-backed slots) is injected into ``CertSlotManager``, which owns handler
+creation and per-slot caching, so the core component does not depend on a
+concrete provider backend. ``TrustStoreManager`` resolves slot handlers through
+``CertSlotManager`` rather than holding a factory of its own.
 
 ``ITrustStoreHandler`` exposes anchor retrieval and chain-building lookups.
 ``TrustStoreHandler`` receives an anchor-loader callback from

@@ -23,22 +23,26 @@ class CertManagementModule final
 {
   public:
     using Sptr = std::shared_ptr<CertManagementModule>;
-    static Sptr Create(data_manager::IDataManager::Sptr,
-                       provider::ProviderManager::Sptr,
-                       const config::CertificateConfig&);
+
+    /// @brief Build the certificate-management subsystem and wire it to the given providers.
+    /// @param data_manager Daemon data manager used for client-tree DataNode registration.
+    /// @param provider_manager Provider registry consulted to resolve certificate parsers
+    ///        and provider-backed slot handlers; may be null if no providers are registered.
+    /// @param config Certificate slot and trust store configuration to load at startup.
+    /// @return A fully constructed CertManagementModule exposing the CertManagementService.
+    static Sptr Create(data_manager::IDataManager::Sptr data_manager,
+                       provider::ProviderManager::Sptr provider_manager,
+                       const config::CertificateConfig& config);
+
+    /// @brief Return the certificate-management service owned by this module.
     CertManagementService::Sptr GetService() const
     {
         return m_service;
-    }
-    provider::ProviderManager::Sptr GetProviderManager() const
-    {
-        return m_provider_manager;
     }
 
   private:
     CertManagementModule() = default;
     CertManagementService::Sptr m_service;
-    provider::ProviderManager::Sptr m_provider_manager;
 };
 }  // namespace score::crypto::daemon::cert_management
 #endif

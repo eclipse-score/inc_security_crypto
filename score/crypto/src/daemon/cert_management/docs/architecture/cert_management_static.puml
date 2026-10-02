@@ -42,6 +42,7 @@ package "cert_management" {
     [CertSlotRegistry]
     [ConfigDrivenSlotCatalog]
     [FileBackedSlotHandler]
+    [SlotHandlerFactory]
     [CrlHandler] #FCE4D6
   }
   package "truststore" {
@@ -100,11 +101,10 @@ note right of [CrlHandler]
 end note
 
 [CertManagementModule] --> [CertificateConfig] : loads slot/store config
-[CertManagementModule] --> [ProviderManager] : selects parser/backend
+[CertManagementModule] --> [ProviderManager] : injects CertManagementService into providers
 [CertManagementModule] --> [DataManager] : supplies resource tree
 [CertManagementModule] --> [CertManagementService] : creates and publishes
-[CertManagementModule] ..> ICertParser : obtains provider parser
-[CertManagementModule] ..> ICertSlotHandler : creates backend factory
+[CertManagementModule] ..> [SlotHandlerFactory] : constructs
 [CertManagementModule] --> [ConfigDrivenSlotCatalog]
 [CertManagementModule] --> [ConfigDrivenTrustStoreCatalog]
 
@@ -123,6 +123,10 @@ end note
 [CertSlotManager] --> ICertSlotHandler
 [CertSlotManager] --> [CertSlotRegistry]
 [CertSlotManager] --> [AccessPolicyEnforcer]
+[CertSlotManager] --> [SlotHandlerFactory] : resolves handler per slot (cached)
+[SlotHandlerFactory] --> [ProviderManager] : selects parser/backend (weak_ptr)
+[SlotHandlerFactory] ..> ICertParser : obtains provider parser
+[SlotHandlerFactory] ..> ICertSlotHandler : creates backend handler
 
 [ConfigDrivenSlotCatalog] --> [CertificateConfig]
 [ConfigDrivenTrustStoreCatalog] --> [CertificateConfig]

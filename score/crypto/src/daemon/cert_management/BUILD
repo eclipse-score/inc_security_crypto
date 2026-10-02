@@ -62,6 +62,20 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "slot_handler_factory_test",
+    srcs = ["slot/slot_handler_factory_test.cpp"],
+    deps = [
+        ":cert_management",
+        ":cert_management_headers",
+        ":cert_management_internal_headers",
+        "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider:provider_manager",
+        "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "cert_object_response_builder",
     srcs = ["query/cert_object_response_builder.cpp"],
@@ -161,6 +175,7 @@ cc_library(
         "interfaces/i_cert_slot_catalog.hpp",
         "slot/config_driven_slot_catalog.hpp",
         "slot/file_backed_slot_handler.hpp",
+        "slot/slot_handler_factory.hpp",
         "truststore/config_driven_trust_store_catalog.hpp",
     ],
     visibility = [
@@ -175,6 +190,7 @@ cc_library(
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/config:config_types",
+        "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
     ],
 )
@@ -218,6 +234,7 @@ cc_library(
         "slot/deployment_writer.cpp",
         "slot/file_backed_slot_handler.cpp",
         "slot/cert_slot_manager.cpp",
+        "slot/slot_handler_factory.cpp",
         "slot/slot_registry.cpp",
         "truststore/trust_store_handler.cpp",
         "truststore/trust_store_manager.cpp",

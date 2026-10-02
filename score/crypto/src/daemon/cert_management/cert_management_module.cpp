@@ -14,9 +14,8 @@
 
 #include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/config_driven_slot_catalog.hpp"
-#include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/slot_handler_factory.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/config_driven_trust_store_catalog.hpp"
-#include "score/mw/log/logging.h"
 
 namespace score::crypto::daemon::cert_management
 {
@@ -25,59 +24,26 @@ CertManagementModule::Sptr CertManagementModule::Create(data_manager::IDataManag
                                                         const config::CertificateConfig& config)
 {
     auto module = Sptr(new CertManagementModule());
-    module->m_provider_manager = std::move(provider_manager);
     auto slot_registry = std::make_shared<CertSlotRegistry>();
     ConfigDrivenSlotCatalog catalog{config};
     catalog.Load(*slot_registry);
     auto trust_store_manager = std::make_shared<TrustStoreManager>();
     ConfigDrivenTrustStoreCatalog trust_catalog{config};
-    // Resolve the cert parser once at startup; injected into every FileBackedSlotHandler.
-    // Contract: a provider that advertises kCertManagement must implement GetCertParser().
-    // Failure to do so is a misconfiguration — log it loudly so it is visible at startup
-    // rather than silently postponed until the first slot load attempt.
-    provider::cert_management::ICertParser::Sptr cert_parser;
-    if (module->m_provider_manager)
-    {
-        auto cert_prov =
-            module->m_provider_manager->GetProviderForCapability(common::ProviderCapability::kCertManagement);
-        if (cert_prov)
-        {
-            cert_parser = cert_prov->GetCertParser();
-            if (!cert_parser)
-                score::mw::log::LogError() << "[CertMgmt] Provider '" << cert_prov->GetProviderName()
-                                           << "' advertises kCertManagement but GetCertParser() returned null."
-                                           << " Providers claiming kCertManagement must implement GetCertParser()."
-                                           << " File-backed slot loads will fail until this is resolved.";
-        }
-        else
-        {
-            score::mw::log::LogWarn() << "[CertMgmt] No provider with kCertManagement capability registered."
-                                      << " File-backed certificate slot loads will fail.";
-        }
-    }
 
-    CertSlotHandlerFactory slot_handler_factory = [provider_manager = module->m_provider_manager,
-                                                   cert_parser](const CertSlotConfig& slot) -> ICertSlotHandler::Sptr {
-        if (slot.storage_backend == "DEFAULT")
-            return std::make_shared<FileBackedSlotHandler>(cert_parser);
-
-        if (!provider_manager)
-            return nullptr;
-
-        auto provider = provider_manager->GetProvider(slot.storage_backend);
-        if (!provider)
-            return nullptr;
-        return provider->GetCertSlotHandler(slot, cert_parser);
-    };
-
-    auto slot_manager = std::make_shared<CertSlotManager>(slot_registry, std::move(slot_handler_factory));
+    // SlotHandlerFactory holds ProviderManager only weakly: CertSlotManager outlives
+    // this Create() call and is reachable from a provider (e.g.
+    // OpenSSL::m_certManagementService), so a strong reference here would form a
+    // cycle back to ProviderManager. provider_manager is only needed for this
+    // call, so it is passed as a local parameter rather than a CertManagementModule
+    // member.
+    auto slot_manager = std::make_shared<CertSlotManager>(slot_registry, SlotHandlerFactory{provider_manager});
 
     trust_catalog.Load(*trust_store_manager, slot_registry, slot_manager);
     module->m_service = std::make_shared<CertManagementService>(
         std::move(data_manager), slot_registry, trust_store_manager, slot_manager);
-    if (module->m_provider_manager)
+    if (provider_manager)
     {
-        module->m_provider_manager->ForEachProvider([&](const auto& /*id*/, const auto& provider) {
+        provider_manager->ForEachProvider([&](const auto& /*id*/, const auto& provider) {
             provider->SetCertManagementService(module->m_service);
         });
     }
