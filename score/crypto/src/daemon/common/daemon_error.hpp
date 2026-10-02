@@ -57,6 +57,7 @@ enum class DaemonErrorCode : std::uint32_t
     kInvalidFormat = 0x0305,           ///< Data format not recognised (e.g. DER/PEM)
     kParamTruncated = 0x0306,          ///< Parameter silently truncated (exceeds fixed-capacity storage)
     kResourceNotFound = 0x0307,        ///< Well-formed resource ID refers to no live resource
+    kResponseTooLarge = 0x0308,        ///< Built response payload exceeds the IPC transport budget
 
     // ---- Streaming ----
     kStreamNotInitialized = 0x0401,  ///< Init() not called before Update()/Finalize()
@@ -169,6 +170,8 @@ inline score::crypto::CryptoErrorCode ToCryptoErrorCode(DaemonErrorCode code) no
             return C::kInvalidFormat;
         case DaemonErrorCode::kParamTruncated:
             return C::kParamTruncated;
+        case DaemonErrorCode::kResponseTooLarge:
+            return C::kInsufficientBufferSize;
         // ---- Streaming ----
         case DaemonErrorCode::kStreamNotInitialized:
             return C::kStreamNotInitialized;

@@ -168,8 +168,8 @@ std::optional<score::crypto::CrlMetadata> CrlHandler::GetCrlMetadata(const CertS
 
     const auto fingerprint = common::DecodeHex(descriptor->Get("crl", "crl_fingerprint"));
     const auto issuer_fingerprint = common::DecodeHex(descriptor->Get("crl", "crl_issuer_fingerprint"));
-    if (!fingerprint.has_value() || fingerprint->size() != 32U || !issuer_fingerprint.has_value() ||
-        issuer_fingerprint->size() != 32U)
+    if (!fingerprint.has_value() || fingerprint->size() != score::crypto::kSha256FingerprintSize ||
+        !issuer_fingerprint.has_value() || issuer_fingerprint->size() != score::crypto::kSha256FingerprintSize)
         return std::nullopt;
 
     score::crypto::CrlMetadata metadata;

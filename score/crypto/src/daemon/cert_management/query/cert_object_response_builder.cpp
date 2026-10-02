@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/cert_management/query/cert_object_response_builder.hpp"
+#include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
 
 #include <cstdint>
@@ -32,6 +33,20 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Che
     if (common::EstimateResponseSize(params) > common::kMaxResponsePayloadBytes)
         return score::crypto::make_unexpected(common::DaemonErrorCode::kResponseTooLarge);
     return params;
+}
+
+score::crypto::Expected<score::crypto::MemberKind, common::DaemonErrorCode> ToApiMemberKind(TrustStoreMemberKind kind)
+{
+    switch (kind)
+    {
+        case TrustStoreMemberKind::kSharedStatic:
+            return score::crypto::MemberKind::kSharedStatic;
+        case TrustStoreMemberKind::kExclusiveMutable:
+            return score::crypto::MemberKind::kExclusiveMutable;
+        case TrustStoreMemberKind::kConditionalExternal:
+            return score::crypto::MemberKind::kConditionalExternal;
+    }
+    return score::crypto::make_unexpected(common::DaemonErrorCode::kInvalidArgument);
 }
 
 }  // namespace
@@ -105,6 +120,9 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     auto nid_res = service.ResolveCertSlot(member.slot_handle, client_id);
     if (!nid_res.has_value())
         return score::crypto::make_unexpected(nid_res.error());
+    const auto kind_res = ToApiMemberKind(member.kind);
+    if (!kind_res.has_value())
+        return score::crypto::make_unexpected(kind_res.error());
 
     common::ResponseParameters out;
     out.push_back(static_cast<std::uint64_t>(nid_res.value()));
@@ -112,7 +130,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     out.push_back(common::OwnedString{member.subject});
     out.push_back(common::OwnedString{member.issuer});
     out.push_back(common::OwnedString{member.serial_number});
-    out.push_back(static_cast<std::uint8_t>(member.kind));
+    out.push_back(static_cast<std::uint8_t>(kind_res.value()));
     out.push_back(static_cast<std::uint8_t>(member.status));
     return CheckBudget(std::move(out));
 }

@@ -14,42 +14,143 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
-    name = "cert_object_serializer",
-    srcs = ["query/cert_object_serializer.cpp"],
-    hdrs = ["query/cert_object_serializer.hpp"],
-    includes = ["."],
-    visibility = ["//:__subpackages__"],
+    name = "cert_object_response_builder",
+    srcs = ["query/cert_object_response_builder.cpp"],
+    hdrs = ["query/cert_object_response_builder.hpp"],
+    visibility = [
+        "//score/crypto/src/daemon:__pkg__",
+        "//score/crypto/src/daemon:__subpackages__",
+        "//tools/coverage:__pkg__",
+    ],
+    linkstatic = True,
     deps = [
         ":cert_management",
         ":cert_management_headers",
+        ":cert_management_runtime_headers",
+        ":cert_management_daemon_headers",
+        "//score/crypto/src/api/types:certificate_types",
         "//score/crypto/src/daemon/common",
     ],
 )
 
 cc_library(
     name = "cert_management_headers",
-    hdrs = glob([
-        "interfaces/*.hpp",
-        "core/*.hpp",
-        "nodes/*.hpp",
-        "policy/*.hpp",
-        "slot/*.hpp",
-        "truststore/*.hpp",
-        "cert_management_module.hpp",
-    ]),
-    includes = ["."],
-    visibility = ["//:__subpackages__"],
+    hdrs = [
+        "interfaces/access_policy.hpp",
+        "interfaces/cert_object.hpp",
+        "interfaces/cert_slot_config.hpp",
+        "interfaces/cert_types.hpp",
+        "interfaces/i_cert_slot_handler.hpp",
+        "interfaces/i_trust_store_handler.hpp",
+    ],
+    visibility = [
+        "//score/crypto/src/daemon:__pkg__",
+        "//score/crypto/src/daemon:__subpackages__",
+    ],
+    linkstatic = True,
     deps = [
-        "//score/crypto/src/api/common:crypto_common",
-        "//score/crypto/src/api/types:types",
-        "//score/crypto/src/api/config:context_configs",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/api/types:common_types",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+    ],
+)
+
+cc_library(
+    name = "cert_management_runtime_headers",
+    hdrs = [
+        "core/cert_entry.hpp",
+        "core/cert_registry.hpp",
+        "interfaces/trust_store_config.hpp",
+        "nodes/cert_data_node.hpp",
+        "nodes/cert_slot_data_node.hpp",
+        "nodes/trust_store_data_node.hpp",
+        "policy/access_policy_enforcer.hpp",
+        "slot/cert_slot_manager.hpp",
+        "slot/slot_registry.hpp",
+        "truststore/trust_store_handler.hpp",
+        "truststore/trust_store_manager.hpp",
+    ],
+    visibility = ["//score/crypto/src/daemon:__subpackages__"],
+    linkstatic = True,
+    deps = [
+        ":cert_management_headers",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/api/types:common_types",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/data_manager",
+    ],
+)
+
+cc_library(
+    name = "cert_management_slot_backend_headers",
+    hdrs = [
+        "slot/crl_handler.hpp",
+        "slot/deployment_loader.hpp",
+        "slot/deployment_writer.hpp",
+    ],
+    visibility = [
+        "//score/crypto/src/daemon/cert_management:__pkg__",
+        "//score/crypto/src/daemon/cert_management:__subpackages__",
+        "//score/crypto/src/daemon/provider:__subpackages__",
+    ],
+    linkstatic = True,
+    deps = [
+        ":cert_management_headers",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/api/types:common_types",
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common/storage:deployment_iface",
-        "//score/crypto/src/daemon/data_manager",
-        "//score/crypto/src/daemon/key_management:key_handler_iface",
-        "//score/crypto/src/daemon/provider:provider_headers",
+    ],
+)
+
+cc_library(
+    name = "cert_management_internal_headers",
+    hdrs = [
+        "interfaces/i_cert_slot_catalog.hpp",
+        "slot/config_driven_slot_catalog.hpp",
+        "slot/file_backed_slot_handler.hpp",
+        "truststore/config_driven_trust_store_catalog.hpp",
+    ],
+    visibility = [
+        "//score/crypto/src/daemon/cert_management:__pkg__",
+        "//score/crypto/src/daemon/cert_management:__subpackages__",
+    ],
+    linkstatic = True,
+    deps = [
+        ":cert_management_headers",
+        ":cert_management_runtime_headers",
+        ":cert_management_slot_backend_headers",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/config:config_types",
         "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
+    ],
+)
+
+cc_library(
+    name = "cert_management_daemon_headers",
+    hdrs = [
+        "cert_management_module.hpp",
+        "core/cert_management_service.hpp",
+    ],
+    visibility = [
+        "//score/crypto/src/daemon:__pkg__",
+        "//score/crypto/src/daemon:__subpackages__",
+    ],
+    linkstatic = True,
+    deps = [
+        ":cert_management_headers",
+        ":cert_management_runtime_headers",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/api/types:common_types",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/config:config_types",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/provider:provider_headers",
     ],
 )
 
@@ -72,11 +173,17 @@ cc_library(
         "truststore/trust_store_handler.cpp",
         "truststore/trust_store_manager.cpp",
     ],
-    includes = ["."],
     linkstatic = True,
-    visibility = ["//:__subpackages__"],
+    visibility = [
+        "//score/crypto/src/daemon:__pkg__",
+        "//score/crypto/src/daemon:__subpackages__",
+    ],
     deps = [
         ":cert_management_headers",
+        ":cert_management_runtime_headers",
+        ":cert_management_slot_backend_headers",
+        ":cert_management_internal_headers",
+        ":cert_management_daemon_headers",
         "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "//score/crypto/src/daemon/config",

@@ -26,12 +26,13 @@ namespace
 {
 using Error = common::DaemonErrorCode;
 
-std::optional<std::array<uint8_t, 32U>> CopyFingerprint(score::crypto::span<const uint8_t> fingerprint)
+std::optional<std::array<uint8_t, score::crypto::kSha256FingerprintSize>> CopyFingerprint(
+    score::crypto::span<const uint8_t> fingerprint)
 {
-    if (fingerprint.size() != 32U)
+    if (fingerprint.size() != score::crypto::kSha256FingerprintSize)
         return std::nullopt;
 
-    std::array<uint8_t, 32U> copy{};
+    std::array<uint8_t, score::crypto::kSha256FingerprintSize> copy{};
     std::copy(fingerprint.begin(), fingerprint.end(), copy.begin());
     return copy;
 }
@@ -113,9 +114,9 @@ void TrustStoreManager::LoadState(TrustStoreId id)
         if (fingerprint != section.end())
         {
             const auto decoded = common::DecodeHex(fingerprint->second);
-            if (decoded && decoded->size() == 32U)
+            if (decoded && decoded->size() == score::crypto::kSha256FingerprintSize)
             {
-                std::array<uint8_t, 32U> accepted{};
+                std::array<uint8_t, score::crypto::kSha256FingerprintSize> accepted{};
                 std::copy(decoded->begin(), decoded->end(), accepted.begin());
                 state.accepted_fingerprint = accepted;
             }
@@ -840,87 +841,113 @@ const TrustStoreConfig* TrustStoreManager::GetStoreConfig(TrustStoreHandle handl
 // Member snapshot (for ITrustStoreObject read-only view)
 // ---------------------------------------------------------------------------
 
-std::vector<TrustStoreManager::MemberSnapshot> TrustStoreManager::GetMembersSnapshot(TrustStoreHandle handle)
+score::crypto::Expected<std::vector<CertSlotHandle>, common::DaemonErrorCode> TrustStoreManager::GetMemberSlotHandles(
+    TrustStoreHandle handle)
 {
     std::lock_guard lock(m_mutex);
     const TrustStoreId id = handle.index;
     if (id >= m_stores.size() || !m_slot_registry)
-        return {};
+        return score::crypto::make_unexpected(Error::kInvalidResourceId);
 
-    std::vector<MemberSnapshot> result;
-    const auto& store = m_stores[id];
-
-    for (const auto& member : store.config.members)
+    std::vector<CertSlotHandle> result;
+    result.reserve(m_stores[id].config.members.size());
+    for (const auto& member : m_stores[id].config.members)
     {
-        const auto slot = m_slot_registry->ResolveSlotInternal(member.slot_name);
-        if (!slot)
+        const auto resolved = ResolveMember(member);
+        if (!resolved)
             continue;
-
-        CertObject::Sptr cert;
-        if (member.kind == TrustStoreMemberKind::kConditionalExternal)
-        {
-            const auto backend = ResolveSlotBackend(*slot);
-            if (!backend)
-                continue;
-            auto fresh_cert = backend->handler->LoadCertificate(*backend->cfg);
-            if (!fresh_cert || !fresh_cert.value())
-                continue;
-            cert = std::move(fresh_cert.value());
-        }
-        else
-        {
-            cert = LoadOrGetCached(*slot);
-        }
-        if (!cert)
-            continue;  // slot is empty — omit from snapshot
-
-        MemberSnapshot snap;
-        snap.slot_handle = *slot;
-        snap.slot_name = member.slot_name;
-        snap.kind = member.kind;
-
-        const auto& meta = cert->GetChainMetadata();
-        snap.subject = meta.subject_canonical;
-        snap.issuer = meta.issuer_canonical;
-        snap.serial_number = meta.serial_number_hex;
-
-        const auto fp = cert->GetFingerprint();
-        if (fp.size() == 32U)
-            std::copy(fp.begin(), fp.end(), snap.fingerprint.begin());
-
-        // Default enabled=true, no baseline; override from state if present.
-        bool enabled = true;
-        std::optional<std::array<uint8_t, 32U>> accepted;
-        const auto states_it = m_member_states.find(id);
-        if (states_it != m_member_states.end())
-        {
-            const auto state_it = states_it->second.find(slot->index);
-            if (state_it != states_it->second.end())
-            {
-                enabled = state_it->second.enabled;
-                accepted = state_it->second.accepted_fingerprint;
-            }
-        }
-
-        snap.status = enabled ? score::crypto::MemberStatus::kEnabled : score::crypto::MemberStatus::kDisabled;
-        if (member.kind == TrustStoreMemberKind::kConditionalExternal)
-        {
-            // The certificate above is a fresh load, so this reflects current slot content.
-            if (accepted.has_value())
-            {
-                if (!std::equal(accepted->begin(), accepted->end(), snap.fingerprint.begin()))
-                    snap.status = score::crypto::MemberStatus::kFingerprintMismatch;
-            }
-            else if (store.config.conditional_slot_initialization ==
-                     ConditionalSlotInitialization::kDisableUntilAccepted)
-            {
-                snap.status = score::crypto::MemberStatus::kAwaitingAcknowledgement;
-            }
-        }
-
-        result.push_back(std::move(snap));
+        const auto state = resolved->handler->GetSlotState(*resolved->cfg);
+        if (!state || state.value() != score::crypto::CertificateSlotState::kOccupied)
+            continue;
+        result.push_back(resolved->slot);
     }
     return result;
+}
+
+score::crypto::Expected<TrustStoreManager::MemberSnapshot, common::DaemonErrorCode>
+TrustStoreManager::GetMemberSnapshot(TrustStoreHandle handle, CertSlotHandle slot)
+{
+    std::lock_guard lock(m_mutex);
+    const TrustStoreId id = handle.index;
+    if (id >= m_stores.size() || !m_slot_registry)
+        return score::crypto::make_unexpected(Error::kInvalidResourceId);
+
+    const TrustStoreMemberConfig* member = nullptr;
+    for (const auto& candidate : m_stores[id].config.members)
+    {
+        const auto resolved_slot = m_slot_registry->ResolveSlotInternal(candidate.slot_name);
+        if (resolved_slot && resolved_slot->index == slot.index)
+        {
+            member = &candidate;
+            break;
+        }
+    }
+    if (member == nullptr)
+        return score::crypto::make_unexpected(Error::kInvalidResourceId);
+
+    CertObject::Sptr cert;
+    if (member->kind == TrustStoreMemberKind::kConditionalExternal)
+    {
+        const auto backend = ResolveSlotBackend(slot);
+        if (!backend)
+            return score::crypto::make_unexpected(Error::kResourceNotFound);
+        auto fresh_cert = backend->handler->LoadCertificate(*backend->cfg);
+        if (!fresh_cert || !fresh_cert.value())
+            return score::crypto::make_unexpected(Error::kResourceNotFound);
+        cert = std::move(fresh_cert.value());
+    }
+    else
+    {
+        cert = LoadOrGetCached(slot);
+    }
+    if (!cert)
+        return score::crypto::make_unexpected(Error::kResourceNotFound);  // slot is currently empty
+
+    MemberSnapshot snap;
+    snap.slot_handle = slot;
+    snap.slot_name = member->slot_name;
+    snap.kind = member->kind;
+
+    const auto& meta = cert->GetChainMetadata();
+    snap.subject = meta.subject_canonical;
+    snap.issuer = meta.issuer_canonical;
+    snap.serial_number = meta.serial_number_hex;
+
+    const auto fp = cert->GetFingerprint();
+    if (fp.size() == score::crypto::kSha256FingerprintSize)
+        std::copy(fp.begin(), fp.end(), snap.fingerprint.begin());
+
+    // Default enabled=true, no baseline; override from state if present.
+    bool enabled = true;
+    std::optional<std::array<uint8_t, score::crypto::kSha256FingerprintSize>> accepted;
+    const auto states_it = m_member_states.find(id);
+    if (states_it != m_member_states.end())
+    {
+        const auto state_it = states_it->second.find(slot.index);
+        if (state_it != states_it->second.end())
+        {
+            enabled = state_it->second.enabled;
+            accepted = state_it->second.accepted_fingerprint;
+        }
+    }
+
+    snap.status = enabled ? score::crypto::MemberStatus::kEnabled : score::crypto::MemberStatus::kDisabled;
+    if (member->kind == TrustStoreMemberKind::kConditionalExternal)
+    {
+        // The certificate above is a fresh load, so this reflects current slot content.
+        if (accepted.has_value())
+        {
+            if (!std::equal(accepted->begin(), accepted->end(), snap.fingerprint.begin()))
+                snap.status = score::crypto::MemberStatus::kFingerprintMismatch;
+        }
+        else if (m_stores[id].config.conditional_slot_initialization ==
+                 ConditionalSlotInitialization::kDisableUntilAccepted)
+        {
+            snap.status = score::crypto::MemberStatus::kAwaitingAcknowledgement;
+        }
+    }
+
+    return snap;
 }
 
 }  // namespace score::crypto::daemon::cert_management

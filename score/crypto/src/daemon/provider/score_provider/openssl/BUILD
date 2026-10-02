@@ -40,6 +40,7 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
     ],
 )
 

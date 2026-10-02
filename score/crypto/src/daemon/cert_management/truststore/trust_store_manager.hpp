@@ -315,34 +315,48 @@ class TrustStoreManager
     // Snapshot for read-only typed object access (ITrustStoreObject)
     // -----------------------------------------------------------------------
 
-    /// @brief Point-in-time snapshot of a trust store's member list.
-    ///
-    /// Used by the cert management executor to populate the TRUST_STORE_GET_INFO response
-    /// consumed by ITrustStoreObject on the lib side. Slots with no cert present are omitted.
+    /// @brief Resolved, point-in-time detail of one trust store member.
     struct MemberSnapshot
     {
-        CertSlotHandle slot_handle{0U};          ///< Daemon-internal slot index (for enable/disable routing).
-        std::string slot_name;                   ///< Stable diagnostic/configuration name.
-        std::array<uint8_t, 32U> fingerprint{};  ///< SHA-256 fingerprint of the member certificate.
-        std::string subject;                     ///< RFC 4514 Subject DN.
-        std::string issuer;                      ///< RFC 4514 Issuer DN.
-        std::string serial_number;               ///< Uppercase hex serial number.
+        CertSlotHandle slot_handle{0U};  ///< Daemon-internal slot index (for enable/disable routing).
+        std::string slot_name;           ///< Stable diagnostic/configuration name.
+        std::array<uint8_t, score::crypto::kSha256FingerprintSize> fingerprint{};  ///< SHA-256 fingerprint.
+        std::string subject;                                                       ///< RFC 4514 Subject DN.
+        std::string issuer;                                                        ///< RFC 4514 Issuer DN.
+        std::string serial_number;                                                 ///< Uppercase hex serial number.
         TrustStoreMemberKind kind{TrustStoreMemberKind::kSharedStatic};
         score::crypto::MemberStatus status{score::crypto::MemberStatus::kEnabled};  ///< Effective member status.
     };
 
-    /// @brief Load and return a snapshot of all occupied member slots for trust store @p id.
+    /// @brief List the occupied member slot handles of a trust store, without resolving
+    /// certificate content.
     ///
-    /// Certs are loaded via the shared cache where possible; fresh loads are taken for
-    /// uncached slots. Non-const because it may populate handler and cert caches.
+    /// Only checks slot occupancy — no certificate parsing. Combined with GetMemberSnapshot(),
+    /// lets a caller resolve one trust store member's detail at a time rather than requiring a
+    /// single response sized by the full, configuration-driven member count.
     ///
-    /// kConditionalExternal members are always loaded fresh so that `status` reflects current
+    /// @param handle Trust store to list.
+    /// @return Occupied member slot handles, or kInvalidResourceId if @p handle is invalid.
+    [[nodiscard]] score::crypto::Expected<std::vector<CertSlotHandle>, common::DaemonErrorCode> GetMemberSlotHandles(
+        TrustStoreHandle handle);
+
+    /// @brief Load and return the snapshot of a single member slot of a trust store.
+    ///
+    /// Certs are loaded via the shared cache where possible; a fresh load is taken for an
+    /// uncached slot. Non-const because it may populate handler and cert caches.
+    ///
+    /// A kConditionalExternal member is always loaded fresh so that `status` reflects current
     /// slot content: kFingerprintMismatch when it differs from the accepted fingerprint,
     /// kAwaitingAcknowledgement when none was accepted and the store requires acceptance.
     ///
-    /// @param handle Trust store to snapshot.
-    /// @return One entry per occupied, resolvable member; empty if @p handle is invalid.
-    [[nodiscard]] std::vector<MemberSnapshot> GetMembersSnapshot(TrustStoreHandle handle);
+    /// @param handle Trust store the member belongs to.
+    /// @param slot   Member slot to snapshot; must be a member of @p handle.
+    /// @return The member's snapshot, or kInvalidResourceId if @p handle is invalid or @p slot is
+    ///         not a member of it, or kResourceNotFound if the slot is a member but currently
+    ///         empty.
+    [[nodiscard]] score::crypto::Expected<MemberSnapshot, common::DaemonErrorCode> GetMemberSnapshot(
+        TrustStoreHandle handle,
+        CertSlotHandle slot);
 
     // -----------------------------------------------------------------------
     // Configuration access
@@ -359,7 +373,7 @@ class TrustStoreManager
     {
         bool enabled{true};  ///< Whether the member contributes anchors.
         /// Conditional-external baseline; unset until accepted.
-        std::optional<std::array<uint8_t, 32U>> accepted_fingerprint;
+        std::optional<std::array<uint8_t, score::crypto::kSha256FingerprintSize>> accepted_fingerprint;
     };
 
     /// Result of resolving a TrustStoreMemberConfig to its live slot, handler, and config.
