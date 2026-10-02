@@ -21,9 +21,6 @@ participant "CertManagementService" as Service
 participant "CertSlotManager" as SlotMgr
 participant "FileBackedSlotHandler" as Handler
 participant "OpenSslCertParser" as Parser
-participant "Certificate Management Handler" as CertHandler
-participant "Trust-Store Management Handler" as TrustHandler
-participant "Trust-Store Management Executor" as TrustExecutor
 participant "CertObjectCache\n(weak_ptr, per slot)" as Cache
 participant "CertRegistry" as Registry
 participant "TrustStoreHandler" as StoreHandler
@@ -82,14 +79,6 @@ note right of Service
   CERT_LOAD when the loaded certificate
   should be shared across contexts.
 end note
-
-== Trust-store management routing ==
-
-"TrustStoreManagementContext" -> CertHandler : CTX_CREATE(CERT:TRUST_STORE)
-CertHandler -> TrustHandler : Create trust-store handler
-TrustHandler -> TrustExecutor : Add/remove/enable/disable/acknowledge
-TrustExecutor -> Service : TrustStoreManager operation
-Service --> "TrustStoreManagementContext" : result
 
 == Certificate load — second client (cache hit, shared bytes) ==
 

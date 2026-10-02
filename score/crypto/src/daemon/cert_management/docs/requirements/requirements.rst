@@ -18,10 +18,10 @@ Certificate Management Requirements
 .. document:: Certificate Management Requirements
    :id: doc__crypto_cert_management_requirements
    :version: 1
-   :status: draft
+   :status: valid
    :safety: QM
    :security: YES
-   :realizes: wp__cmpt_request_dummy
+   :realizes: wp__requirements_comp[version==1]
    :tags: cert_management, crypto_daemon
 
 Scope
@@ -99,13 +99,19 @@ Functional requirements
    authorized client UID. Empty write allowlists shall not grant access.
 
 
-Scope boundary
---------------
+Dependency expectations
+-----------------------
 
-Hardware-key CSR signing, CRL validation, and mediator routing are outside the
-certificate-management storage and lifecycle boundary described here. A
-provider integration may supply those capabilities through the corresponding
-provider and daemon services.
+The component persists CRL material alongside the issuing certificate's slot
+and exposes it through ``ICertSlotHandler`` / ``ITrustStoreHandler`` for a
+verification provider to consume; CRL-based revocation checking itself is
+performed by that provider's verification context handler, not by this
+component. Certificate signing requests are assembled by a CSR-generation
+context handler, which is expected to obtain the issuing signature from an
+exportable software key or, for hardware-bound keys, through a cross-context
+signing capability supplied by key management, without this component ever
+handling private key material. Dispatch of requests to these provider context
+handlers is the responsibility of the daemon mediator.
 
 .. needextend:: "c.this_doc()"
    :+tags: cert_management

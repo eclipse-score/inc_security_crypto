@@ -130,8 +130,8 @@ CRL Co-located with the Certificate Slot
 
 A CRL is stored in the optional ``[crl]`` section of the certificate slot's KV
 deployment descriptor alongside the ``[certificate]`` section. CRL storage and
-retrieval are encapsulated in ``CrlHandler``, which is composed into both
-``FileBackedSlotHandler`` and ``Pkcs11CertSlotHandler``.
+retrieval are encapsulated in ``CrlHandler``, which is composed into
+``FileBackedSlotHandler``.
 
 Context
 -------
@@ -172,17 +172,12 @@ remains an internal persistence detail. Persisted ``CrlMetadata`` is populated
 only through ``ImportCrl``/``StoreCrl``; a CRL placed into a slot's ``[crl]``
 section out of band (only ``crl_path``/``crl_format`` set, no fingerprint
 fields) has no cached metadata and ``GetCrlMetadata`` returns no value for it.
-This does not affect revocation checking: ``OpenSslCertVerificationHandler``
-never reads the descriptor's cached ``CrlMetadata`` — it re-parses each raw
-CRL and recomputes fingerprint, issuer fingerprint, ``thisUpdate``,
-``nextUpdate``, and ``cRLNumber`` directly from the CRL bytes on every
-``DoVerify()`` call. The cached descriptor fields exist solely to answer
-inspection queries (``ICertificateObject::GetCrlMetadata``) without
-deserialising the CRL.
-
-For PKCS#11 token slots (where no filesystem cert path exists), ``CrlHandler``
-stores CRL data in the deployment filesystem using the same ``crl_path``
-convention — the PKCS#11 token provides no native CRL object type.
+This has no revocation-checking implication: the cached descriptor fields are
+for inspection only. Revocation checking is a provider verification
+responsibility and is expected to parse raw CRL bytes directly rather than
+rely on this cache. The cached fields exist solely to answer inspection
+queries (``ICertificateObject::GetCrlMetadata``) without deserialising the
+CRL.
 
 Consequences
 ------------

@@ -22,14 +22,15 @@ Certificate Management Component
     :safety: QM
     :security: YES
     :tags: cert_management, crypto_daemon, certificate, trust_store
-    :realizes: wp__cmpt_request_dummy
+    :realizes: wp__cmpt_request
 
 .. toctree::
-   :hidden:
+    :caption: Certificate Management Documentation
+    :maxdepth: 1
 
-   requirements/index
-   architecture/index
-   detailed_design/index
+    requirements/index
+    architecture/index
+    detailed_design/index
 
 Abstract
 --------
@@ -133,11 +134,20 @@ Rejected Ideas
   CA cert slot in the KV descriptor. A standalone registry would require
   a separate resolution path and complicate the slot lifecycle.
 
-Current Limitations
--------------------
+Supported Capabilities and Dependency Expectations
+---------------------------------------------------
 
-* CSR generation with hardware-bound keys requires a cross-context signing
-  service. Private key material is not exported by certificate management.
-* CRL storage is supported, while CRL validation during certificate
-  verification is outside the current component behavior.
-* Certificate operations require provider and daemon dispatch integration.
+* The component stores and serves CRL data alongside the issuing
+  certificate's slot. A verification provider is expected to consume this
+  data to perform CRL-based revocation checking as part of its own
+  chain-verification logic; this component does not evaluate revocation
+  status itself.
+* CSR generation relies on a provider CSR-generation context handler to
+  assemble and sign the request. For hardware-bound keys, that handler is
+  expected to obtain the signature through a cross-context signing
+  capability from key management rather than exporting the private key;
+  certificate management never holds or exports private key material.
+* Certificate, verification, and CSR operations reach provider context
+  handlers through the daemon mediator. This component owns certificate,
+  CRL, slot, and trust-store lifecycle; request routing to context handlers
+  is a dependency it relies on, not a responsibility it implements.

@@ -18,10 +18,10 @@ Certificate Management Detailed Design
 .. document:: Certificate Management Detailed Design
    :id: doc__crypto_cert_management_detailed_design
    :version: 1
-   :status: draft
+   :status: valid
    :safety: QM
    :security: YES
-   :realizes: wp__cmpt_request_dummy
+   :realizes: wp__sw_implementation
    :tags: cert_management, detailed_design
 
 Implementation units
@@ -46,15 +46,8 @@ Implementation units
 ``FileBackedSlotHandler`` and ``CrlHandler``
    Read and write certificate/CRL data using the deployment descriptor and
    shared atomic file I/O. The slot handler delegates parsing to ``ICertParser``.
-   ``CrlHandler`` is composed into both ``FileBackedSlotHandler`` and
-   ``Pkcs11CertSlotHandler`` and handles all ``[crl]`` section operations.
-
-``Pkcs11CertSlotHandler``
-   Storage backend for PKCS#11 token certificate slots. Implements
-   ``ICertSlotHandler`` using ``C_FindObjects`` / ``CKA_VALUE`` for load and
-   ``C_CreateObject`` / ``C_DestroyObject`` for write and clear. CRL operations
-   delegate to a composed ``CrlHandler`` (identical to the file-backed handler
-   because PKCS#11 tokens have no native CRL object type).
+   ``CrlHandler`` is composed into ``FileBackedSlotHandler`` and handles all
+   ``[crl]`` section operations.
 
 ``TrustStoreManager`` and ``TrustStoreHandler``
    Resolve typed slot memberships, maintain reverse indices, load anchors
@@ -62,17 +55,30 @@ Implementation units
    Slot handlers are created on demand (lazy cache in ``GetOrCreateHandler``).
    Reference counting is per-client: one client releasing its verification
    context cannot evict another client's active anchor cache.
+   ``GetMemberSlotHandles`` lists occupied member identities without resolving
+   certificate content; ``GetMemberSnapshot`` resolves one member's detail on
+   demand.
 
 ``AccessPolicyEnforcer``
    Applies UID-based read/write policy. Mutation is default-deny when no writer
    UID is explicitly configured.
 
-``CertObjectSerializer`` (``query/``)
+``CertObjectResponseBuilder`` (``query/``)
    Free functions that encode ``CertObject``, ``ICertSlotHandler`` state, and
-   trust-store member snapshots into the ``common::ResponseParameters`` IPC wire
-   format. Both ``CertManagementExecutor`` (executor path) and the mediator's
-   typed-object handlers call the same functions, guaranteeing a
-   single wire-layout definition for certificate, slot, and trust-store objects.
+   trust-store member snapshots into the ``common::ResponseParameters`` IPC
+   wire format. Exposed as the single intended encoding path so that an
+   executor and any mediator typed-object handlers built on top of it share
+   one wire-layout definition for certificate, slot, and trust-store objects
+   instead of duplicating it. ``BuildTrustStoreMemberIdListResponse`` (member
+   identities only) and ``BuildTrustStoreMemberObjectResponse`` (one member's
+   detail) let a caller resolve trust-store membership one entry at a time
+   rather than requiring a response sized by total, configuration-driven
+   membership. Every function checks its built payload with
+   ``common::EstimateResponseSize`` against
+   ``common::kMaxResponsePayloadBytes`` and returns ``kResponseTooLarge``
+   instead of an oversized result — the estimate is recomputed from the actual
+   built output each call, so it does not need updating when a wire layout's
+   field set changes.
 
 Data and lifetime model
 -----------------------
@@ -119,9 +125,11 @@ Provider boundary and scope
 ----------------------------
 
 The core component does not depend on OpenSSL or PKCS#11 concrete types.
-OpenSSL supplies parsing and verification implementations; PKCS#11 supplies
-certificate-slot storage. Hardware-key CSR signing uses a cross-context
-service without exporting private key material. OCSP remains a provider-boundary
-extension.
+OpenSSL supplies the ``ICertParser`` implementation used for parsing; provider
+context handlers built on the same ``CertObject`` values are expected to
+supply verification and CSR generation. PKCS#11 is expected to supply its own
+``ICertSlotHandler`` for certificate-slot storage. Hardware-key CSR signing is
+expected to use a cross-context service without exporting private key
+material. OCSP remains a provider-boundary extension.
 
 .. uml:: cert_management_dynamic.puml

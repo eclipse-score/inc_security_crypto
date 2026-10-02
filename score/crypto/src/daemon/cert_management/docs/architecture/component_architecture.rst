@@ -12,25 +12,25 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-Certificate Management Component Architecture
-=============================================
+Certificate Management Architecture
+===================================
 
-.. document:: Certificate Management Component Architecture
+.. document:: Certificate Management Architecture
    :id: doc__crypto_cert_management_architecture
    :version: 1
-   :status: draft
+   :status: valid
    :safety: QM
    :security: YES
-   :realizes: wp__cmpt_request_dummy
+   :realizes: wp__component_arch
    :tags: cert_management, architecture
 
-.. comp:: Certificate Management Component
+.. comp:: Certificate Management
     :id: comp__crypto_cert_management
     :version: 1
     :security: YES
     :safety: QM
     :status: valid
-    :belongs_to: feat__mtef
+    :belongs_to: feat__security_crypto
 
 Purpose
 -------
@@ -51,15 +51,22 @@ The implementation is divided by responsibility:
 * ``nodes/`` contains DataManager nodes for certificate slots, loaded
   certificates, and trust stores.
 * ``slot/`` contains slot registration, file-backed storage
-  (``FileBackedSlotHandler``), PKCS#11 storage (``Pkcs11CertSlotHandler``),
-  deployment dispatch, and co-located CRL storage (``CrlHandler``).
+  (``FileBackedSlotHandler``), deployment dispatch, and co-located CRL storage
+  (``CrlHandler``).
 * ``truststore/`` contains trust-store membership, anchor caching, persistence,
   and per-client references.
 * ``policy/`` contains the shared slot/trust-store access-policy checks.
-* ``query/`` contains ``CertObjectSerializer`` — the single source of IPC
-  wire-format encoding for certificate, slot, and trust-store objects. Both
-  the executor and the mediator's typed-object handlers depend on this module;
-  changing the wire layout requires one edit.
+* ``query/`` contains ``CertObjectResponseBuilder`` — free functions that
+  encode certificate, slot, and trust-store objects into the IPC response
+  wire format. This component exposes it as the single intended encoding path
+  so that an executor and any mediator typed-object handlers built on top of
+  it share one wire-layout definition instead of duplicating it. Every builder
+  checks its output against ``common::kMaxResponsePayloadBytes`` and returns
+  ``kResponseTooLarge`` rather than an oversized payload. Trust-store member
+  identities and per-member detail are resolved through separate functions
+  (``BuildTrustStoreMemberIdListResponse``, ``BuildTrustStoreMemberObjectResponse``)
+  so a caller can resolve one member at a time rather than needing a single
+  response sized by total, configuration-driven membership.
 * Public value definitions are owned by ``api/types``: ``common.hpp`` contains
   cross-domain resource/provider types, ``certificate.hpp`` contains certificate,
   CRL, OCSP, and verification types, and ``key.hpp`` contains key slot and
@@ -67,10 +74,11 @@ The implementation is divided by responsibility:
   domain-specific type contracts.
 * ``provider/`` supplies parsing and provider-specific context handlers. The
   selected certificate-management provider must expose ``ICertParser``;
-  certificate management does not require a particular provider.
-  The public certificate contexts route by scoped type: ``CERT:MANAGEMENT``
-  owns certificate lifecycle operations, while ``CERT:TRUST_STORE`` owns
-  trust-store membership curation. Both handlers share the same
+  certificate management does not require a particular provider. The
+  component defines two scoped context types for provider handlers built on
+  top of it: ``CERT:MANAGEMENT`` for certificate-slot lifecycle operations
+  and ``CERT:TRUST_STORE`` for trust-store membership curation. Handlers
+  registered under either type are expected to share the same
   ``CertManagementService`` and certificate-management capability.
 
 Public certificate loading
@@ -122,18 +130,28 @@ Architecture constraints
   ``CERT:MANAGEMENT`` context retains certificate-slot and slot-CRL lifecycle.
 * Shared deployment writes are atomic; a partially written descriptor must not
   replace the previous valid descriptor.
+* A built IPC response payload must stay within ``common::kMaxResponsePayloadBytes``;
+  a query path whose output size depends on configuration or certificate
+  content (DN length, trust-store member count) rejects with
+  ``kResponseTooLarge`` rather than emitting an oversized payload.
 
 Key interfaces
 --------------
 
 ``ICertSlotHandler`` is implemented by certificate storage backends such as
-``FileBackedSlotHandler`` and ``Pkcs11CertSlotHandler``. The handler factory is
-injected into ``TrustStoreManager`` so the core component does not depend on a
-concrete provider backend.
+``FileBackedSlotHandler``. The handler factory is injected into
+``TrustStoreManager`` so the core component does not depend on a concrete
+provider backend.
 
 ``ITrustStoreHandler`` exposes anchor retrieval and chain-building lookups.
 ``TrustStoreHandler`` receives an anchor-loader callback from
 ``TrustStoreManager`` and loads its anchor content on demand.
+
+``TrustStoreManager::GetMemberSlotHandles`` lists a trust store's occupied
+member identities without resolving certificate content, and
+``GetMemberSnapshot`` resolves one member's detail on demand. Querying member
+by member keeps each call's cost independent of total, configuration-driven
+trust-store membership.
 
 ``ICertParser`` is the narrow provider boundary for converting DER or PEM
 bytes into a provider-neutral ``CertObject``. Verification, CSR generation,
@@ -157,7 +175,8 @@ typed member slot and caches the resulting ``CertObject`` through a weak
 reference. The trust-store handler holds strong references while active.
 
 After a certificate update, ``CertManagementService`` finds every trust store
-that references the slot and calls ``NotifySlotChanged``. The affected cache
+that references the slot and calls ``NotifySlotCertChanged``, which forwards
+to ``TrustStoreManager::NotifySlotChanged``. The affected cache
 entry is invalidated, and the next anchor request reloads and reparses the
 certificate. Per-client references prevent one client's cleanup from evicting
 another client's active cache.
@@ -165,20 +184,6 @@ another client's active cache.
 Design decisions
 ----------------
 
-The five structural decisions that shape the component's storage model are
-documented with full context, alternatives considered, and consequences in
-:ref:`crypto_cert_management_design_decisions`:
-
-* :need:`dec_rec__crypto_cert_mgmt__ts_ref_slots` — trust-store members are
-  named cert slot references, not raw paths.
-* :need:`dec_rec__crypto_cert_mgmt__crl_co_location` — CRLs occupy an optional
-  ``[crl]`` section of the cert slot descriptor; no independent CRL registry.
-* :need:`dec_rec__crypto_cert_mgmt__deny_mutation` — all mutations are
-  default-deny; write access requires an explicit UID in the resource access
-  policy.
-* :need:`dec_rec__crypto_cert_mgmt__atomic_writes` — file-backed cert and
-  descriptor writes use the shared ``file_io::WriteFile`` temp-file + rename
-  primitive.
-* :need:`dec_rec__crypto_cert_mgmt__provider_boundary` — provider interaction is
-  limited to ``ICertParser``; no private key or HSM handle crosses the cert
-  management boundary.
+The structural decisions that shape the component's storage model, including
+their rationale, alternatives, and consequences, are documented in
+:ref:`crypto_cert_management_design_decisions`.
