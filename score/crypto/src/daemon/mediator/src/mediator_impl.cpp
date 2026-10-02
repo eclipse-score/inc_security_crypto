@@ -22,8 +22,9 @@
 #include <vector>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/daemon/cert_management/query/cert_object_serializer.hpp"
+#include "score/crypto/src/daemon/cert_management/query/cert_object_response_builder.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/operation_names.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
@@ -208,12 +209,21 @@ bool MediatorImpl::HandleMediatorOperation(const control_plane::ControlRequest& 
         }
         return success;
     }
-    else if (operationIdentifier.operationAction == operations::GET_TRUST_STORE_OBJECT)
+    else if (operationIdentifier.operationAction == operations::GET_TRUST_STORE_MEMBER_ID_LIST)
     {
-        auto success = HandleGetTrustStoreObject(request, operation, responseBuilder);
+        auto success = HandleGetTrustStoreMemberIdList(request, operation, responseBuilder);
         if (!success)
         {
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle GET_TRUST_STORE_OBJECT";
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle GET_TRUST_STORE_MEMBER_ID_LIST";
+        }
+        return success;
+    }
+    else if (operationIdentifier.operationAction == operations::GET_TRUST_STORE_MEMBER_OBJECT)
+    {
+        auto success = HandleGetTrustStoreMemberObject(request, operation, responseBuilder);
+        if (!success)
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle GET_TRUST_STORE_MEMBER_OBJECT";
         }
         return success;
     }
@@ -856,9 +866,16 @@ bool MediatorImpl::HandleGetCertificateObject(const control_plane::ControlReques
     }
 
     const auto& resolved = resolved_res.value();
-    auto out = cert_management::query::SerializeCertObject(*resolved.cert, resolved.crl_metadata);
+    auto out_res = cert_management::query::BuildCertObjectResponse(*resolved.cert, resolved.crl_metadata);
+    if (!out_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_CERTIFICATE_OBJECT: response build failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(out_res.error()));
+        return false;
+    }
+
     responseBuilder.return_crypto_operation_response(
-        operation.operationId, control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(out));
+        operation.operationId, control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(out_res.value()));
     return true;
 }
 
@@ -891,12 +908,12 @@ bool MediatorImpl::HandleGetCertSlotObject(const control_plane::ControlRequest& 
         return false;
     }
 
-    auto out_res = cert_management::query::SerializeCertSlotInfo(
+    auto out_res = cert_management::query::BuildCertSlotInfoResponse(
         *m_cert_service->GetSlotManager(), slot_res.value().handle, request.client_id);
     if (!out_res.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] GET_CERT_SLOT_OBJECT: GetSlotInfo failed";
-        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(out_res.error()));
         return false;
     }
 
@@ -905,13 +922,13 @@ bool MediatorImpl::HandleGetCertSlotObject(const control_plane::ControlRequest& 
     return true;
 }
 
-bool MediatorImpl::HandleGetTrustStoreObject(const control_plane::ControlRequest& request,
-                                             const control_plane::SingleOperationRequest& operation,
-                                             control_plane::protocol::OperationResponseBuilder& responseBuilder)
+bool MediatorImpl::HandleGetTrustStoreMemberIdList(const control_plane::ControlRequest& request,
+                                                   const control_plane::SingleOperationRequest& operation,
+                                                   control_plane::protocol::OperationResponseBuilder& responseBuilder)
 {
     if (!m_cert_service)
     {
-        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_OBJECT: cert service not available";
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_ID_LIST: cert service not available";
         responseBuilder.operation(operation.operationId)
             .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
         return false;
@@ -920,7 +937,7 @@ bool MediatorImpl::HandleGetTrustStoreObject(const control_plane::ControlRequest
     auto node_id_res = operation.getParameter<std::uint64_t>(0);
     if (!node_id_res.has_value())
     {
-        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_OBJECT: missing node_id parameter";
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_ID_LIST: missing node_id parameter";
         responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
@@ -928,16 +945,90 @@ bool MediatorImpl::HandleGetTrustStoreObject(const control_plane::ControlRequest
     auto ts_handle_res = m_cert_service->ResolveTrustStoreForOperation(request.client_id, node_id_res.value());
     if (!ts_handle_res.has_value())
     {
-        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_OBJECT: trust store resolution failed";
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_ID_LIST: trust store resolution failed";
         responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
 
-    const auto snapshot = m_cert_service->GetTrustStoreManager()->GetMembersSnapshot(ts_handle_res.value());
+    auto slots_res = m_cert_service->GetTrustStoreManager()->GetMemberSlotHandles(ts_handle_res.value());
+    if (!slots_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_ID_LIST: member list query failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(slots_res.error()));
+        return false;
+    }
 
-    auto out = cert_management::query::SerializeTrustStoreMembers(snapshot, *m_cert_service, request.client_id);
+    auto out_res = cert_management::query::BuildTrustStoreMemberIdListResponse(
+        slots_res.value(), *m_cert_service, request.client_id);
+    if (!out_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_ID_LIST: response build failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(out_res.error()));
+        return false;
+    }
+
     responseBuilder.return_crypto_operation_response(
-        operation.operationId, control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(out));
+        operation.operationId, control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(out_res.value()));
+    return true;
+}
+
+bool MediatorImpl::HandleGetTrustStoreMemberObject(const control_plane::ControlRequest& request,
+                                                   const control_plane::SingleOperationRequest& operation,
+                                                   control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    if (!m_cert_service)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: cert service not available";
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+        return false;
+    }
+
+    auto node_id_res = operation.getParameter<std::uint64_t>(0);
+    auto slot_node_id_res = operation.getParameter<std::uint64_t>(1);
+    if (!node_id_res.has_value() || !slot_node_id_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: missing parameter";
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto ts_handle_res = m_cert_service->ResolveTrustStoreForOperation(request.client_id, node_id_res.value());
+    if (!ts_handle_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: trust store resolution failed";
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto slot_res = m_cert_service->ResolveSlotForOperation(request.client_id, slot_node_id_res.value());
+    if (!slot_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: member slot resolution failed";
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto member_res =
+        m_cert_service->GetTrustStoreManager()->GetMemberSnapshot(ts_handle_res.value(), slot_res.value().handle);
+    if (!member_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: member snapshot failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(member_res.error()));
+        return false;
+    }
+
+    auto out_res = cert_management::query::BuildTrustStoreMemberObjectResponse(
+        member_res.value(), *m_cert_service, request.client_id);
+    if (!out_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: response build failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(out_res.error()));
+        return false;
+    }
+
+    responseBuilder.return_crypto_operation_response(
+        operation.operationId, control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(out_res.value()));
     return true;
 }
 

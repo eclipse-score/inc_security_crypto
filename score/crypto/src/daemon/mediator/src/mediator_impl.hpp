@@ -118,9 +118,12 @@ class MediatorImpl : public IMediator
     bool HandleGetCertSlotObject(const control_plane::ControlRequest& request,
                                  const control_plane::SingleOperationRequest& operation,
                                  control_plane::protocol::OperationResponseBuilder& responseBuilder);
-    bool HandleGetTrustStoreObject(const control_plane::ControlRequest& request,
-                                   const control_plane::SingleOperationRequest& operation,
-                                   control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleGetTrustStoreMemberIdList(const control_plane::ControlRequest& request,
+                                         const control_plane::SingleOperationRequest& operation,
+                                         control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleGetTrustStoreMemberObject(const control_plane::ControlRequest& request,
+                                         const control_plane::SingleOperationRequest& operation,
+                                         control_plane::protocol::OperationResponseBuilder& responseBuilder);
     bool ForwardSingleOperation(const control_plane::ControlRequest& request,
                                 const control_plane::SingleOperationRequest& operation,
                                 control_plane::protocol::OperationResponseBuilder& responseBuilder);

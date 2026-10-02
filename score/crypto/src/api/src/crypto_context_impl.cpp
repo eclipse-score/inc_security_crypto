@@ -647,46 +647,80 @@ score::Result<std::unique_ptr<ITrustStoreObject>> CryptoContextImpl::GetTrustSto
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
     namespace med_ops = ::score::crypto::daemon::mediator::operations;
 
-    auto req = proto::ControlRequestBuilder()
-                   .forDataNodeId(m_connection->GetConnectionNodeId())
-                   .operation(med_ops::GetTrustStoreObject())
-                   .with_in_val_uint64(id.id)
-                   .build();
-    if (!req.has_value())
+    // Phase 1: fetch member identities only. Kept as a separate call (rather than
+    // resolving full membership in one round trip) so the response stays small and
+    // bounded regardless of how many members a configuration-driven trust store has.
+    auto id_list_req = proto::ControlRequestBuilder()
+                           .forDataNodeId(m_connection->GetConnectionNodeId())
+                           .operation(med_ops::GetTrustStoreMemberIdList())
+                           .with_in_val_uint64(id.id)
+                           .build();
+    if (!id_list_req.has_value())
         return score::Result<std::unique_ptr<ITrustStoreObject>>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: build failed")};
 
-    auto resp = m_connection->SendRequest(req.value());
-    auto validator = proto::ControlResponseValidator::FromResult(resp);
-    validator.expectOperation(med_ops::GetTrustStoreObject()).expectSuccess();
-    if (!validator.isValid())
+    auto id_list_resp = m_connection->SendRequest(id_list_req.value());
+    auto id_list_validator = proto::ControlResponseValidator::FromResult(id_list_resp);
+    id_list_validator.expectOperation(med_ops::GetTrustStoreMemberIdList()).expectSuccess();
+    if (!id_list_validator.isValid())
         return score::Result<std::unique_ptr<ITrustStoreObject>>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, id_list_validator.getError())};
 
-    auto count_res = validator.getParameterAt<std::uint64_t>(0, 0);
+    auto count_res = id_list_validator.getParameterAt<std::uint64_t>(0, 0);
     if (!count_res.has_value())
         return score::Result<std::unique_ptr<ITrustStoreObject>>{
             score::unexpect,
-            MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: response missing count")};
+            MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: id-list response missing count")};
 
     const std::size_t count = static_cast<std::size_t>(count_res.value());
-    std::vector<MemberInfo> members{};
-    members.reserve(count);
-
-    // Per-member layout (7 params each, base = 1 + i*7):
-    //   base+0: slot_node_id (uint64), base+1: fingerprint (OwnedBuffer 32B),
-    //   base+2: subject (OwnedString), base+3: issuer (OwnedString),
-    //   base+4: serial_number (OwnedString), base+5: kind (uint8), base+6: status (uint8)
+    std::vector<std::uint64_t> slot_node_ids;
+    slot_node_ids.reserve(count);
     for (std::size_t i = 0U; i < count; ++i)
     {
-        const int base = static_cast<int>(1U + i * 7U);
-        auto nid_res = validator.getParameterAt<std::uint64_t>(0, base);
-        auto fp_res = validator.getParameterAt<daemon::common::OwnedBuffer>(0, base + 1);
-        auto sub_res = validator.getParameterAt<daemon::common::OwnedString>(0, base + 2);
-        auto iss_res = validator.getParameterAt<daemon::common::OwnedString>(0, base + 3);
-        auto serial_res = validator.getParameterAt<daemon::common::OwnedString>(0, base + 4);
-        auto kind_res = validator.getParameterAt<std::uint8_t>(0, base + 5);
-        auto status_res = validator.getParameterAt<std::uint8_t>(0, base + 6);
+        auto nid_res = id_list_validator.getParameterAt<std::uint64_t>(0, static_cast<int>(1U + i));
+        if (!nid_res.has_value())
+            return score::Result<std::unique_ptr<ITrustStoreObject>>{
+                score::unexpect,
+                MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: id-list entry missing")};
+        slot_node_ids.push_back(nid_res.value());
+    }
+
+    // Phase 2: resolve each member's detail individually. N+1 round trips in exchange
+    // for every response — this one and the id-list above — staying within the IPC
+    // payload budget regardless of trust-store size.
+    std::vector<MemberInfo> members;
+    members.reserve(count);
+    for (const auto slot_node_id : slot_node_ids)
+    {
+        auto member_req = proto::ControlRequestBuilder()
+                              .forDataNodeId(m_connection->GetConnectionNodeId())
+                              .operation(med_ops::GetTrustStoreMemberObject())
+                              .with_in_val_uint64(id.id)
+                              .with_in_val_uint64(slot_node_id)
+                              .build();
+        if (!member_req.has_value())
+            return score::Result<std::unique_ptr<ITrustStoreObject>>{
+                score::unexpect,
+                MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: member request build failed")};
+
+        auto member_resp = m_connection->SendRequest(member_req.value());
+        auto member_validator = proto::ControlResponseValidator::FromResult(member_resp);
+        member_validator.expectOperation(med_ops::GetTrustStoreMemberObject()).expectSuccess();
+        if (!member_validator.isValid())
+            return score::Result<std::unique_ptr<ITrustStoreObject>>{
+                score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, member_validator.getError())};
+
+        // Per-member layout (7 params):
+        //   0: slot_node_id (uint64), 1: fingerprint (OwnedBuffer 32B),
+        //   2: subject (OwnedString), 3: issuer (OwnedString),
+        //   4: serial_number (OwnedString), 5: kind (uint8), 6: status (uint8)
+        auto nid_res = member_validator.getParameterAt<std::uint64_t>(0, 0);
+        auto fp_res = member_validator.getParameterAt<daemon::common::OwnedBuffer>(0, 1);
+        auto sub_res = member_validator.getParameterAt<daemon::common::OwnedString>(0, 2);
+        auto iss_res = member_validator.getParameterAt<daemon::common::OwnedString>(0, 3);
+        auto serial_res = member_validator.getParameterAt<daemon::common::OwnedString>(0, 4);
+        auto kind_res = member_validator.getParameterAt<std::uint8_t>(0, 5);
+        auto status_res = member_validator.getParameterAt<std::uint8_t>(0, 6);
 
         if (!nid_res.has_value() || !fp_res.has_value() || !kind_res.has_value() || !status_res.has_value() ||
             status_res.value() > static_cast<std::uint8_t>(MemberStatus::kAwaitingAcknowledgement))

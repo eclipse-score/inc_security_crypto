@@ -52,8 +52,7 @@ cc_library(
     ],
     deps = [
         ":cert_mgmt_context",
-        "//score/crypto/src/daemon/cert_management",
-        "//score/crypto/src/daemon/cert_management:cert_object_serializer",
+        "//score/crypto/src/daemon/cert_management:cert_management_daemon_headers",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
         "//score/crypto/src/daemon/provider/handler:handler_headers",
@@ -70,7 +69,7 @@ cc_library(
     ],
     deps = [
         ":cert_mgmt_context",
-        "//score/crypto/src/daemon/cert_management",
+        "//score/crypto/src/daemon/cert_management:cert_management_daemon_headers",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
         "//score/crypto/src/daemon/provider/handler:handler_headers",
