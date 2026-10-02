@@ -500,14 +500,18 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../../../data_manager/docs/index.html">Data Manager</a></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">Certificate Management Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Requirements</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">Certificate Management Requirements</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../../../docs/architecture/daemon_architecture.html">Crypto Daemon Component Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../index.html">Certificate Management Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3 current active has-children"><a class="reference internal" href="index.html">Requirements</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">Certificate Management Requirements</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html">Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../data_manager/docs/index.html">Data Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/architecture/key_management_architecture.html">Key Management Architecture</a></li>
 </ul>
 </details></li>
 </ul>
@@ -563,6 +567,9 @@
     <li class="breadcrumb-item"><a href="../../../../../docs/index.html" class="nav-link">Crypto</a></li>
     
     
+    <li class="breadcrumb-item"><a href="../../../../../docs/architecture/daemon_architecture.html" class="nav-link">Crypto Daemon Component Architecture</a></li>
+    
+    
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Certificate Management Component</a></li>
     
     
@@ -587,7 +594,7 @@
                   
   <section id="certificate-management-requirements">
 <h1>Certificate Management Requirements<a class="headerlink" href="#certificate-management-requirements" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-44488d75">
+<div class="need_container docutils container" id="SNCB-89b430e0">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_requirements">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -595,7 +602,7 @@
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">draft</span></span></span></div>
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
 <div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
 <div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
 </div>
@@ -609,7 +616,7 @@
 <div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">cert_management</span><span class="needs_spacer">, </span><span class="needs_data">crypto_daemon</span><span class="needs_spacer">, </span><span class="needs_data">cert_management</span></span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="reference internal" href="../../../../../docs/architecture/index.html#wp__cmpt_request_dummy" title="doc__crypto_cert_management_requirements">wp__cmpt_request_dummy</a></span></span></div>
+<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/requirements_engineering/requirements_workproducts.html#wp__requirements_comp">wp__requirements_comp</a></span></span></div>
 </span></div>
 </div>
 </td>
@@ -639,7 +646,7 @@ component contract.</p>
 </section>
 <section id="functional-requirements">
 <h2>Functional requirements<a class="headerlink" href="#functional-requirements" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-18405b96">
+<div class="need_container docutils container" id="SNCB-23c90fc3">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_management__slots">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -686,7 +693,7 @@ handler.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-9f60fc7e">
+<div class="need_container docutils container" id="SNCB-d4822797">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_management__parse">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -733,7 +740,7 @@ Parsing shall be supplied through the narrow <code class="docutils literal notra
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-16523d2c">
+<div class="need_container docutils container" id="SNCB-99761f26">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_mgmt__trust_stores">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -780,7 +787,7 @@ caches.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-a6372ebd">
+<div class="need_container docutils container" id="SNCB-07acd3ee">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_management__persistence">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -827,7 +834,7 @@ shall be written atomically.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-068d38f5">
+<div class="need_container docutils container" id="SNCB-675a3fd7">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_mgmt__access_control">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -874,12 +881,18 @@ authorized client UID. Empty write allowlists shall not grant access.</p></td>
 </div>
 </div>
 </section>
-<section id="scope-boundary">
-<h2>Scope boundary<a class="headerlink" href="#scope-boundary" title="Link to this heading">#</a></h2>
-<p>Hardware-key CSR signing, CRL validation, and mediator routing are outside the
-certificate-management storage and lifecycle boundary described here. A
-provider integration may supply those capabilities through the corresponding
-provider and daemon services.</p>
+<section id="dependency-expectations">
+<h2>Dependency expectations<a class="headerlink" href="#dependency-expectations" title="Link to this heading">#</a></h2>
+<p>The component persists CRL material alongside the issuing certificate’s slot
+and exposes it through <code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code> / <code class="docutils literal notranslate"><span class="pre">ITrustStoreHandler</span></code> for a
+verification provider to consume; CRL-based revocation checking itself is
+performed by that provider’s verification context handler, not by this
+component. Certificate signing requests are assembled by a CSR-generation
+context handler, which is expected to obtain the issuing signature from an
+exportable software key or, for hardware-bound keys, through a cross-context
+signing capability supplied by key management, without this component ever
+handling private key material. Dispatch of requests to these provider context
+handlers is the responsibility of the daemon mediator.</p>
 </section>
 </section>
 
@@ -932,7 +945,7 @@ provider and daemon services.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scope">Scope</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functional-requirements">Functional requirements</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scope-boundary">Scope boundary</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dependency-expectations">Dependency expectations</a></li>
 </ul>
   </nav></div>
 

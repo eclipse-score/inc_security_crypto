@@ -74,7 +74,7 @@
     <link rel="index" title="Index" href="../../../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../../../search.html" />
     <link rel="next" title="Detailed Design" href="../detailed_design/index.html" />
-    <link rel="prev" title="Certificate Management Component Architecture" href="component_architecture.html" />
+    <link rel="prev" title="Certificate Management Architecture" href="component_architecture.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1" />
@@ -500,15 +500,19 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../../../data_manager/docs/index.html">Data Manager</a></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">Certificate Management Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="component_architecture.html">Certificate Management Component Architecture</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">Design Decisions</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../../../docs/architecture/daemon_architecture.html">Crypto Daemon Component Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../index.html">Certificate Management Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
+<li class="toctree-l3 current active has-children"><a class="reference internal" href="index.html">Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="component_architecture.html">Certificate Management Architecture</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">Design Decisions</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../data_manager/docs/index.html">Data Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/architecture/key_management_architecture.html">Key Management Architecture</a></li>
 </ul>
 </details></li>
 </ul>
@@ -564,6 +568,9 @@
     <li class="breadcrumb-item"><a href="../../../../../docs/index.html" class="nav-link">Crypto</a></li>
     
     
+    <li class="breadcrumb-item"><a href="../../../../../docs/architecture/daemon_architecture.html" class="nav-link">Crypto Daemon Component Architecture</a></li>
+    
+    
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Certificate Management Component</a></li>
     
     
@@ -590,7 +597,7 @@
 <span id="crypto-cert-management-design-decisions"></span><h1>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h1>
 <section id="trust-stores-reference-certificate-slots-not-raw-paths">
 <h2>Trust Stores Reference Certificate Slots, Not Raw Paths<a class="headerlink" href="#trust-stores-reference-certificate-slots-not-raw-paths" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-e7ef10a1">
+<div class="need_container docutils container" id="SNCB-48669918">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__ts_ref_slots">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -726,7 +733,7 @@ slot entry and a trust-store membership entry.</p></li>
 </section>
 <section id="crl-co-located-with-the-certificate-slot">
 <h2>CRL Co-located with the Certificate Slot<a class="headerlink" href="#crl-co-located-with-the-certificate-slot" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-bcccbe91">
+<div class="need_container docutils container" id="SNCB-f23f26a5">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__crl_co_location">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -772,8 +779,8 @@ slot entry and a trust-store membership entry.</p></li>
 </div>
 <p>A CRL is stored in the optional <code class="docutils literal notranslate"><span class="pre">[crl]</span></code> section of the certificate slot’s KV
 deployment descriptor alongside the <code class="docutils literal notranslate"><span class="pre">[certificate]</span></code> section. CRL storage and
-retrieval are encapsulated in <code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code>, which is composed into both
-<code class="docutils literal notranslate"><span class="pre">FileBackedSlotHandler</span></code> and <code class="docutils literal notranslate"><span class="pre">Pkcs11CertSlotHandler</span></code>.</p>
+retrieval are encapsulated in <code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code>, which is composed into
+<code class="docutils literal notranslate"><span class="pre">FileBackedSlotHandler</span></code>.</p>
 <section id="id1">
 <h3>Context<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <p>CRLs are revocation data for a specific issuing CA. Revocation status for a
@@ -810,16 +817,12 @@ remains an internal persistence detail. Persisted <code class="docutils literal 
 only through <code class="docutils literal notranslate"><span class="pre">ImportCrl</span></code>/<code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code>; a CRL placed into a slot’s <code class="docutils literal notranslate"><span class="pre">[crl]</span></code>
 section out of band (only <code class="docutils literal notranslate"><span class="pre">crl_path</span></code>/<code class="docutils literal notranslate"><span class="pre">crl_format</span></code> set, no fingerprint
 fields) has no cached metadata and <code class="docutils literal notranslate"><span class="pre">GetCrlMetadata</span></code> returns no value for it.
-This does not affect revocation checking: <code class="docutils literal notranslate"><span class="pre">OpenSslCertVerificationHandler</span></code>
-never reads the descriptor’s cached <code class="docutils literal notranslate"><span class="pre">CrlMetadata</span></code> — it re-parses each raw
-CRL and recomputes fingerprint, issuer fingerprint, <code class="docutils literal notranslate"><span class="pre">thisUpdate</span></code>,
-<code class="docutils literal notranslate"><span class="pre">nextUpdate</span></code>, and <code class="docutils literal notranslate"><span class="pre">cRLNumber</span></code> directly from the CRL bytes on every
-<code class="docutils literal notranslate"><span class="pre">DoVerify()</span></code> call. The cached descriptor fields exist solely to answer
-inspection queries (<code class="docutils literal notranslate"><span class="pre">ICertificateObject::GetCrlMetadata</span></code>) without
-deserialising the CRL.</p>
-<p>For PKCS#11 token slots (where no filesystem cert path exists), <code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code>
-stores CRL data in the deployment filesystem using the same <code class="docutils literal notranslate"><span class="pre">crl_path</span></code>
-convention — the PKCS#11 token provides no native CRL object type.</p>
+This has no revocation-checking implication: the cached descriptor fields are
+for inspection only. Revocation checking is a provider verification
+responsibility and is expected to parse raw CRL bytes directly rather than
+rely on this cache. The cached fields exist solely to answer inspection
+queries (<code class="docutils literal notranslate"><span class="pre">ICertificateObject::GetCrlMetadata</span></code>) without deserialising the
+CRL.</p>
 </section>
 <section id="id3">
 <h3>Consequences<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
@@ -850,7 +853,7 @@ revocation checking. There is no on-demand derivation path.</p></li>
 </section>
 <section id="mutation-default-deny-with-explicit-writer-uid">
 <h2>Mutation Default-Deny with Explicit Writer UID<a class="headerlink" href="#mutation-default-deny-with-explicit-writer-uid" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-0726eb67">
+<div class="need_container docutils container" id="SNCB-08d112bd">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__deny_mutation">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -996,7 +999,7 @@ currently a configuration invariant rather than one enforced by
 </section>
 <section id="atomic-file-writes-via-temp-file-and-rename">
 <h2>Atomic File Writes via Temp-File and Rename<a class="headerlink" href="#atomic-file-writes-via-temp-file-and-rename" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-2b7a6b81">
+<div class="need_container docutils container" id="SNCB-3de0366d">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__atomic_writes">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1104,7 +1107,7 @@ kilobytes); not suitable for large append-only data.</p></li>
 </section>
 <section id="provider-boundary-parsing-only-no-private-key-or-hsm-handle-crossing">
 <h2>Provider Boundary: Parsing Only; No Private Key or HSM Handle Crossing<a class="headerlink" href="#provider-boundary-parsing-only-no-private-key-or-hsm-handle-crossing" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-f3075ca1">
+<div class="need_container docutils container" id="SNCB-a18d0d9e">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__provider_boundary">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1239,7 +1242,7 @@ expose publicly.</p></li>
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Certificate Management Component Architecture</p>
+        <p class="prev-next-title">Certificate Management Architecture</p>
       </div>
     </a>
     <a class="right-next"
