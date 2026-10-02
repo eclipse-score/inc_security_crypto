@@ -134,7 +134,10 @@ cc_library(
         "truststore/trust_store_handler.hpp",
         "truststore/trust_store_manager.hpp",
     ],
-    visibility = ["//score/crypto/src/daemon:__subpackages__"],
+    visibility = [
+        "//score/crypto/src/daemon:__subpackages__",
+        "//score/crypto/tests/cert_management:__pkg__",
+    ],
     linkstatic = True,
     deps = [
         ":cert_management_headers",
@@ -181,6 +184,7 @@ cc_library(
     visibility = [
         "//score/crypto/src/daemon/cert_management:__pkg__",
         "//score/crypto/src/daemon/cert_management:__subpackages__",
+        "//score/crypto/tests/cert_management:__pkg__",
     ],
     linkstatic = True,
     deps = [
@@ -243,6 +247,7 @@ cc_library(
     visibility = [
         "//score/crypto/src/daemon:__pkg__",
         "//score/crypto/src/daemon:__subpackages__",
+        "//score/crypto/tests/cert_management:__pkg__",
     ],
     deps = [
         ":cert_management_headers",
