@@ -73,8 +73,8 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../../search.html" />
-    <link rel="next" title="Certificate Management Component" href="../../cert_management/docs/index.html" />
-    <link rel="prev" title="Crypto" href="../../../../docs/index.html" />
+    <link rel="next" title="Key Management Architecture" href="../../../../docs/architecture/key_management_architecture.html" />
+    <link rel="prev" title="Certificate Management Detailed Design" href="../../cert_management/docs/detailed_design/detailed_design.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1" />
@@ -500,8 +500,12 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Data Manager</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../cert_management/docs/index.html">Certificate Management Component</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../../docs/architecture/daemon_architecture.html">Crypto Daemon Component Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../cert_management/docs/index.html">Certificate Management Component</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Data Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/architecture/key_management_architecture.html">Key Management Architecture</a></li>
+</ul>
+</details></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../../../docs/detailed_design/index.html">Detailed Design</a></li>
@@ -554,6 +558,9 @@
     
     <li class="breadcrumb-item"><a href="../../../../docs/index.html" class="nav-link">Crypto</a></li>
     
+    
+    <li class="breadcrumb-item"><a href="../../../../docs/architecture/daemon_architecture.html" class="nav-link">Crypto Daemon Component Architecture</a></li>
+    
     <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Data Manager</span></li>
   </ul>
 </nav>
@@ -573,6 +580,50 @@
                   
   <section id="data-manager">
 <h1>Data Manager<a class="headerlink" href="#data-manager" title="Link to this heading">#</a></h1>
+<div class="need_container docutils container" id="SNCB-e39a4dd9">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto_data_manager">
+<tbody>
+<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
+<div class="line"><span><span class="needs_title"><span class="needs_data">Data Manager</span></span></span></div>
+</div>
+</td>
+<td class="head_center" colspan="2"><div class="needs_head line-block">
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
+<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
+<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
+</div>
+</td>
+<td class="head_right" colspan="2"><div class="needs_head_right line-block">
+<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
+</div>
+</td>
+</tr>
+<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
+<div class="line"><span><span><div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
+</span></span></div>
+<div class="line"><span><div class="line">forms part of: <span class="consists_of"><span><a class="reference internal" href="../../../../docs/architecture/daemon_architecture.html#comp__crypto_daemon" title="comp__crypto_data_manager">comp__crypto_daemon</a></span></span></div>
+<div class="line">belongs to: <span class="belongs_to"><span><a class="reference internal" href="../../../../../../docs/features/security_crypto/architecture/index.html#feat__security_crypto" title="comp__crypto_data_manager">feat__security_crypto</a></span></span></div>
+</span></div>
+</div>
+</td>
+<td class="meta" colspan="3"></td>
+</tr>
+<tr class="content row-odd"><td class="content" colspan="6"></td>
+</tr>
+<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp__crypto_data_manager" title="comp__crypto_data_manager">comp__crypto_data_manager</a></span></span></div>
+</div>
+</td>
+<td class="footer" colspan="2"><div class="needs_footer line-block">
+<div class="line"><span><span class="needs_type_name"><span class="needs_data">Component</span></span></span></div>
+</div>
+</td>
+<td class="footer_right" colspan="2"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
 <p>The Data Manager component provides a centralized store for managing “data
@@ -598,7 +649,7 @@ a busy-node tracking mechanism.</p></li>
 </section>
 <section id="design-decisions">
 <h2>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-090c3da7">
+<div class="need_container docutils container" id="SNCB-4bf8468f">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__central_data_node_manager">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -743,20 +794,20 @@ theoretical contention risk.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../../../../docs/index.html"
+       href="../../cert_management/docs/detailed_design/detailed_design.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Crypto</p>
+        <p class="prev-next-title">Certificate Management Detailed Design</p>
       </div>
     </a>
     <a class="right-next"
-       href="../../cert_management/docs/index.html"
+       href="../../../../docs/architecture/key_management_architecture.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Certificate Management Component</p>
+        <p class="prev-next-title">Key Management Architecture</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
