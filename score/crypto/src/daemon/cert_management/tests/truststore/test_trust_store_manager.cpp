@@ -172,6 +172,12 @@ class TrustStoreManagerTest : public ::testing::Test
 
 TEST_F(TrustStoreManagerTest, LoadsAnchorsLazilyAndBuildsSlotMembershipIndex)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_mgmt__trust_stores");
+    RecordProperty("Description",
+                   "Builds trust-store membership from typed certificate-slot references and lazily loads its anchor.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     auto registry = std::make_shared<cert::CertSlotRegistry>();
     const auto slot = registry->RegisterSlot(StaticSlotConfig("root-anchor"));
 
@@ -197,6 +203,68 @@ TEST_F(TrustStoreManagerTest, LoadsAnchorsLazilyAndBuildsSlotMembershipIndex)
 }
 
 // ---------------------------------------------------------------------------
+// GetMemberSlotHandles / GetMemberSnapshot — list a trust store's occupied
+// member identities, then resolve each member's detail individually.
+// ---------------------------------------------------------------------------
+
+TEST_F(TrustStoreManagerTest, GetMemberSlotHandles_ReturnsOnlyOccupiedMembers)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    const auto occupied_slot = registry->RegisterSlot(StaticSlotConfig("root-anchor"));
+    static_cast<void>(registry->RegisterSlot(MakeSlotConfig("empty-anchor", m_empty_slot_kv)));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "tls-roots";
+    ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
+    ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"empty-anchor", cert::TrustStoreMemberKind::kSharedStatic});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
+
+    const auto result = manager.GetMemberSlotHandles(cert::TrustStoreHandle{0U});
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 1U);
+    EXPECT_EQ((*result)[0], occupied_slot);
+}
+
+TEST_F(TrustStoreManagerTest, GetMemberSnapshot_ReturnsMemberDetail)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    const auto slot = registry->RegisterSlot(StaticSlotConfig("root-anchor"));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "tls-roots";
+    ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
+
+    const auto single = manager.GetMemberSnapshot(cert::TrustStoreHandle{0U}, slot);
+    ASSERT_TRUE(single.has_value());
+    EXPECT_EQ(single->slot_handle, slot);
+    EXPECT_EQ(single->subject, kSubjectInitial);
+    EXPECT_EQ(single->status, score::crypto::MemberStatus::kEnabled);
+}
+
+TEST_F(TrustStoreManagerTest, GetMemberSnapshot_SlotNotAMember_ReturnsInvalidResourceId)
+{
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    static_cast<void>(registry->RegisterSlot(StaticSlotConfig("root-anchor")));
+    const auto other_slot = registry->RegisterSlot(MakeSlotConfig("empty-anchor", m_empty_slot_kv));
+
+    cert::TrustStoreConfig ts_cfg;
+    ts_cfg.store_name = "tls-roots";
+    ts_cfg.members.push_back(cert::TrustStoreMemberConfig{"root-anchor", cert::TrustStoreMemberKind::kSharedStatic});
+
+    cert::TrustStoreManager manager;
+    manager.Load({ts_cfg}, registry, MakeSlotManager(registry));
+
+    const auto result = manager.GetMemberSnapshot(cert::TrustStoreHandle{0U}, other_slot);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Error::kInvalidResourceId);
+}
+
+// ---------------------------------------------------------------------------
 // Rejection of unknown handles — no I/O needed.
 // ---------------------------------------------------------------------------
 
@@ -205,6 +273,13 @@ TEST(TrustStoreManagerStandaloneTest, RejectsUnknownStoreAndSlotHandles)
     cert::TrustStoreManager manager;
     EXPECT_EQ(manager.GetStore(cert::TrustStoreHandle{0U}), nullptr);
     EXPECT_EQ(manager.GetMembershipsForSlot(cert::CertSlotHandle{4U}).size(), 0U);
+}
+
+TEST(TrustStoreManagerStandaloneTest, GetMemberSlotHandlesAndSnapshot_RejectUnknownStoreHandle)
+{
+    cert::TrustStoreManager manager;
+    EXPECT_FALSE(manager.GetMemberSlotHandles(cert::TrustStoreHandle{0U}).has_value());
+    EXPECT_FALSE(manager.GetMemberSnapshot(cert::TrustStoreHandle{0U}, cert::CertSlotHandle{0U}).has_value());
 }
 
 // ---------------------------------------------------------------------------
@@ -406,6 +481,14 @@ TEST_F(TrustStoreManagerTest, TwoStores_OneSlot_BothGetMemberships)
 
 TEST_F(TrustStoreManagerTest, AddMember_ToExclusiveSlot_AddsAnchorAndPersistsToDisk)
 {
+    RecordProperty("PartiallyVerifies",
+                   "comp_req__crypto_cert_mgmt__trust_stores, comp_req__crypto_cert_management__persistence");
+    RecordProperty(
+        "Description",
+        "Adds a certificate to an exclusive trust-store slot, exposes it as an anchor, and reloads it from disk.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     auto registry = std::make_shared<cert::CertSlotRegistry>();
     static_cast<void>(registry->RegisterSlot(MakeSlotConfig("empty-anchor", m_empty_slot_kv)));
 
@@ -537,14 +620,14 @@ TEST_F(TrustStoreManagerTest, AcknowledgeMemberUpdate_TransitionsDisabledMemberT
     }
 
     // A stale caller snapshot cannot acknowledge newly changed slot content.
-    const auto stale_snapshot = manager.GetMembersSnapshot(ts_handle);
-    ASSERT_EQ(stale_snapshot.size(), 1U);
-    EXPECT_EQ(stale_snapshot[0].status, score::crypto::MemberStatus::kFingerprintMismatch);
+    const auto stale_snapshot = manager.GetMemberSnapshot(ts_handle, slot);
+    ASSERT_TRUE(stale_snapshot.has_value());
+    EXPECT_EQ(stale_snapshot->status, score::crypto::MemberStatus::kFingerprintMismatch);
     const auto updated_cert = ParseCert("score/tests/test_vectors/certificate/basic/certificate_updated.pem");
     ASSERT_NE(updated_cert, nullptr);
     const auto updated_fingerprint = updated_cert->GetFingerprint();
-    const std::vector<std::uint8_t> snapshot_fingerprint(stale_snapshot[0].fingerprint.begin(),
-                                                         stale_snapshot[0].fingerprint.end());
+    const std::vector<std::uint8_t> snapshot_fingerprint(stale_snapshot->fingerprint.begin(),
+                                                         stale_snapshot->fingerprint.end());
     const std::vector<std::uint8_t> expected_snapshot_fingerprint(updated_fingerprint.begin(),
                                                                   updated_fingerprint.end());
     EXPECT_EQ(snapshot_fingerprint, expected_snapshot_fingerprint);
@@ -607,17 +690,17 @@ TEST_F(TrustStoreManagerTest, EnableConditionalMemberWithoutAcceptedFingerprintI
     const auto anchors = store->GetAnchors();
     ASSERT_TRUE(anchors.has_value());
     EXPECT_TRUE(anchors->empty());
-    const auto before = manager.GetMembersSnapshot(ts_handle);
-    ASSERT_EQ(before.size(), 1U);
-    EXPECT_EQ(before[0].status, score::crypto::MemberStatus::kAwaitingAcknowledgement);
+    const auto before = manager.GetMemberSnapshot(ts_handle, slot);
+    ASSERT_TRUE(before.has_value());
+    EXPECT_EQ(before->status, score::crypto::MemberStatus::kAwaitingAcknowledgement);
 
     const auto result = manager.EnableMember(ts_handle, slot, kClientA);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
 
-    const auto after = manager.GetMembersSnapshot(ts_handle);
-    ASSERT_EQ(after.size(), 1U);
-    EXPECT_EQ(after[0].status, score::crypto::MemberStatus::kAwaitingAcknowledgement);
+    const auto after = manager.GetMemberSnapshot(ts_handle, slot);
+    ASSERT_TRUE(after.has_value());
+    EXPECT_EQ(after->status, score::crypto::MemberStatus::kAwaitingAcknowledgement);
     const auto anchors_after = store->GetAnchors();
     ASSERT_TRUE(anchors_after.has_value());
     EXPECT_TRUE(anchors_after->empty());
@@ -1069,6 +1152,12 @@ TEST_F(TrustStoreManagerTest, EnableMember_UnregisteredSlot_ReturnsInvalidArgume
 
 TEST_F(TrustStoreManagerTest, PersistState_DisabledMemberSurvivesReload)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_management__persistence");
+    RecordProperty("Description",
+                   "Persists a disabled trust-store member and restores that state in a newly loaded manager.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     // Need a deployment path for the trust store itself (stores enabled/disabled state).
     const auto ts_kv = m_dir / "ts_state.kv";
     // Create an empty descriptor so DeploymentLoader finds the file on second load.

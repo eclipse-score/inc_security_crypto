@@ -146,6 +146,16 @@ class CertificateManagementIntegrationTest : public ::testing::Test
 
 TEST_F(CertificateManagementIntegrationTest, LoadsPersistsUpdatesAndInvalidatesTrustStoreAnchor)
 {
+    RecordProperty("PartiallyVerifies",
+                   "comp_req__crypto_cert_management__slots, "
+                   "comp_req__crypto_cert_management__persistence, "
+                   "comp_req__crypto_cert_mgmt__trust_stores");
+    RecordProperty("Description",
+                   "Loads and replaces a configured certificate, checks persisted metadata, and refreshes its "
+                   "trust-store anchor.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
     ASSERT_TRUE(slot.has_value());
     const auto slot_config = m_slot_registry->GetConfig(*slot);
@@ -202,6 +212,11 @@ TEST_F(CertificateManagementIntegrationTest, LoadsPersistsUpdatesAndInvalidatesT
 // Any UID can load a certificate; reads are unrestricted after resource resolution.
 TEST_F(CertificateManagementIntegrationTest, LoadCertificate_IsUnrestrictedForAnyUid)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_management__slots");
+    RecordProperty("Description", "Loads a certificate from its configured application slot for multiple client UIDs.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
     ASSERT_TRUE(slot.has_value());
 
@@ -212,6 +227,11 @@ TEST_F(CertificateManagementIntegrationTest, LoadCertificate_IsUnrestrictedForAn
 // StoreCertificate succeeds when the caller's UID is in allowed_write_uids.
 TEST_F(CertificateManagementIntegrationTest, StoreCertificate_GrantedForAuthorizedUid)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_management__slots");
+    RecordProperty("Description", "Stores a certificate to a configured slot when the client's UID is authorized.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
     ASSERT_TRUE(slot.has_value());
     const auto cert = m_slot_manager->LoadCertificate(*slot, MakeClientId(1U, 0U));
@@ -248,6 +268,12 @@ TEST_F(CertificateManagementIntegrationTest, ClearSlot_DeniedForUnauthorizedUid)
 // stored CRL becomes visible via HasCrl.
 TEST_F(CertificateManagementIntegrationTest, ImportCrl_GrantedForAuthorizedUid_StoresCrl)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_management__persistence");
+    RecordProperty("Description",
+                   "Imports a CRL into the configured certificate slot and makes the stored CRL discoverable.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
     ASSERT_TRUE(slot.has_value());
     ASSERT_FALSE(m_slot_manager->HasCrl(*slot).value());
@@ -332,6 +358,12 @@ TEST_F(CertificateManagementIntegrationTest, StoreCertificate_InvalidatesCertObj
 // including UID 0. This is the default-deny invariant.
 TEST_F(CertificateManagementIntegrationTest, WritesDeniedWhenAllowedWriteUidsIsEmpty)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_mgmt__access_control");
+    RecordProperty("Description",
+                   "A certificate slot with an empty write allowlist rejects StoreCertificate for UID 0.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "boundary-values");
+
     auto registry = std::make_shared<cert::CertSlotRegistry>();
     cert::CertSlotConfig cfg;
     cfg.slot_name = "test/locked-slot";
@@ -366,6 +398,12 @@ TEST_F(CertificateManagementIntegrationTest, WritesDeniedWhenAllowedWriteUidsIsE
 // allowed_write_uids, regardless of whether the member slot is valid.
 TEST_F(CertificateManagementIntegrationTest, TrustStoreMutation_DeniedForUnauthorizedUid)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_mgmt__access_control");
+    RecordProperty("Description",
+                   "A trust store rejects EnableMember and DisableMember for a UID outside its write allowlist.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "equivalence-classes");
+
     const auto trust_store = m_trust_store_manager->ResolveAppResource("tls_roots", 0U);
     ASSERT_TRUE(trust_store.has_value());
     const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);

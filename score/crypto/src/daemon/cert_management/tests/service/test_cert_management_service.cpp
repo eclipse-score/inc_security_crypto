@@ -289,6 +289,12 @@ TEST_F(CertManagementServiceTest, MediatorCleanupThenServiceCleanup_IsolatesClie
 
 TEST_F(CertManagementServiceTest, NotifySlotCertChanged_RefreshesAnchorSubjectInTrustStore)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_mgmt__trust_stores");
+    RecordProperty("Description",
+                   "Propagates a certificate-slot update and refreshes the affected trust-store anchor.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     // Wire up a trust store backed by the same slot.
     cert::TrustStoreConfig ts_cfg;
     ts_cfg.store_name = "test-roots";

@@ -12,6 +12,55 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_test(
+    name = "cert_object_response_builder_test",
+    srcs = ["query/cert_object_response_builder_test.cpp"],
+    deps = [
+        ":cert_management",
+        ":cert_management_headers",
+        ":cert_management_runtime_headers",
+        ":cert_object_response_builder",
+        "//score/crypto/src/daemon/common",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "cert_registry_test",
+    srcs = ["core/cert_registry_test.cpp"],
+    deps = [
+        ":cert_management",
+        ":cert_management_headers",
+        ":cert_management_runtime_headers",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "access_policy_enforcer_test",
+    srcs = ["policy/access_policy_enforcer_test.cpp"],
+    deps = [
+        ":cert_management",
+        ":cert_management_headers",
+        ":cert_management_runtime_headers",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "file_backed_slot_handler_test",
+    srcs = ["slot/file_backed_slot_handler_test.cpp"],
+    deps = [
+        ":cert_management",
+        ":cert_management_headers",
+        ":cert_management_internal_headers",
+        "//score/crypto/src/daemon/cert_management/tests:test_environment",
+        "//score/crypto/src/daemon/common/storage:kv_deployment",
+        "@googletest//:gtest_main",
+    ],
+)
 
 cc_library(
     name = "cert_object_response_builder",

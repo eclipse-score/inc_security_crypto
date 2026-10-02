@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/daemon/cert_management/core/cert_entry.hpp"
 #include "score/crypto/src/daemon/cert_management/core/cert_registry.hpp"
+#include "score/crypto/src/daemon/cert_management/core/cert_entry.hpp"
 
 #include <gtest/gtest.h>
 
