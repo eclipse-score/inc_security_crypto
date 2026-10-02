@@ -23,12 +23,7 @@ Component Architecture
    :status: draft
    :safety: QM
    :security: YES
-   :realizes: wp__cmpt_request_dummy
-
-.. workproduct:: Component Request Dummy
-   :id: wp__cmpt_request_dummy
-   :version: 1
-   :status: draft
+   :realizes: wp__component_arch
 
 Overview
 --------
@@ -78,7 +73,6 @@ Requirements Linked to Component Architecture
    dynamic_architecture
    interfaces
    provider_architecture
-   key_management_details
    chklst_arc_inspection
    design_decisions
    data_plane_architecture
@@ -90,14 +84,13 @@ Static Architecture
 The components are designed to cover the expectations from the feature architecture
 (i.e. if already exists a definition it should be taken over and enriched).
 
-.. code-block:: rst
-
-   .. comp:: Crypto
-      :id: comp__crypto
-      :security: YES
-      :safety: QM
-      :status: invalid
-      :implements:
+.. comp:: Crypto Library
+   :id: comp__crypto
+   :version: 1
+   :security: YES
+   :safety: QM
+   :status: invalid
+   :belongs_to: feat__security_crypto
 
 .. image:: component_overview.png
    :align: center

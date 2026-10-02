@@ -57,6 +57,7 @@ enum class DaemonErrorCode : std::uint32_t
     kInvalidFormat = 0x0305,           ///< Data format not recognised (e.g. DER/PEM)
     kParamTruncated = 0x0306,          ///< Parameter silently truncated (exceeds fixed-capacity storage)
     kResourceNotFound = 0x0307,        ///< Well-formed resource ID refers to no live resource
+    kResponseTooLarge = 0x0308,        ///< Built response payload exceeds the IPC transport budget
 
     // ---- Streaming ----
     kStreamNotInitialized = 0x0401,  ///< Init() not called before Update()/Finalize()
@@ -94,6 +95,7 @@ enum class DaemonErrorCode : std::uint32_t
     kCertificateParsingFailed = 0x0901,
     kCsrGenerationFailed = 0x0902,
     kOcspError = 0x0903,
+    kTrustStoreCapacityExceeded = 0x0904,  ///< All exclusive-mutable slots in the trust store are occupied
 
     // ---- Provider ----
     kProviderNotAvailable = 0x0A01,
@@ -168,6 +170,8 @@ inline score::crypto::CryptoErrorCode ToCryptoErrorCode(DaemonErrorCode code) no
             return C::kInvalidFormat;
         case DaemonErrorCode::kParamTruncated:
             return C::kParamTruncated;
+        case DaemonErrorCode::kResponseTooLarge:
+            return C::kInsufficientBufferSize;
         // ---- Streaming ----
         case DaemonErrorCode::kStreamNotInitialized:
             return C::kStreamNotInitialized;
@@ -224,6 +228,8 @@ inline score::crypto::CryptoErrorCode ToCryptoErrorCode(DaemonErrorCode code) no
             return C::kCsrGenerationFailed;
         case DaemonErrorCode::kOcspError:
             return C::kOcspError;
+        case DaemonErrorCode::kTrustStoreCapacityExceeded:
+            return C::kQuotaExceeded;
         // ---- Provider ----
         case DaemonErrorCode::kProviderNotAvailable:
             return C::kProviderNotAvailable;
