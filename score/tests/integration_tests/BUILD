@@ -100,10 +100,10 @@ cc_binary(
         "//score/crypto/src/api:crypto_stack",
         "//score/tests/utility",
         "@googletest//:gtest",
-    data = [
-        "//score/tests/test_vectors/certificate:basic",
-        "//score/tests/test_vectors/config:integration_test_config",
     ],
+)
+
+cc_binary(
     name = "score_api_random_test",
     srcs = ["score_api_random_test.cpp"],
     data = [
@@ -227,7 +227,6 @@ integration_test(
         ":score_api_key_permissions_test",
         ":hash_performance_test",
         ":score_demo",
-        ":hash_performance_test",
         "//score/crypto/src/daemon:crypto_daemon",
     ] + select({
         "//score/crypto/src/backend:pkcs11_backend_enabled": [":init_pkcs11_token"],

@@ -33,7 +33,8 @@ cc_library(
     }),
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/src/daemon/cert_management",
+        "//score/crypto/src/daemon/cert_management:cert_management_daemon_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_runtime_headers",
         "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
         "//score/crypto/src/daemon/provider/executors:cert_mgmt_context",
         "//score/crypto/src/daemon/provider/handler:cert_verification_operations",

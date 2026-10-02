@@ -138,6 +138,60 @@ TEST_F(CertificateVerificationIntegrationTest, RejectsInvalidRevocationPolicies)
     EXPECT_FALSE(verification->SetRevocationCoveragePolicy(invalid_coverage_policy).has_value());
 }
 
+TEST_F(CertificateVerificationIntegrationTest, MissingCrlCoverageFollowsCoveragePolicy)
+{
+    const auto chain_bytes = ReadFile(VectorPath("certificate/pki_chain/leaf.chain.pem"));
+    ASSERT_FALSE(chain_bytes.empty());
+    auto parsed = m_management->ParseCertificates(
+        score::cpp::span<const std::uint8_t>{chain_bytes.data(), chain_bytes.size()}, score::crypto::FormatType::kPem);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_EQ(parsed->size(), 3U);
+
+    const std::array<score::crypto::CryptoResourceId, 3U> chain_ids{
+        (*parsed)[0].Id(), (*parsed)[1].Id(), (*parsed)[2].Id()};
+    const std::array<score::crypto::CryptoResourceId, 1U> trust_anchors{(*parsed)[2].Id()};
+
+    auto fail_closed = CreateVerificationContext();
+    ASSERT_NE(fail_closed, nullptr);
+    ASSERT_TRUE(fail_closed
+                    ->SetCertificateChain(
+                        score::cpp::span<const score::crypto::CryptoResourceId>{chain_ids.data(), chain_ids.size()})
+                    .has_value());
+    ASSERT_TRUE(fail_closed
+                    ->SetTrustedCertificates(score::cpp::span<const score::crypto::CryptoResourceId>{
+                        trust_anchors.data(), trust_anchors.size()})
+                    .has_value());
+    ASSERT_TRUE(
+        fail_closed->SetChainTerminationPolicy(score::crypto::ChainTerminationPolicy::kRootRequired).has_value());
+    ASSERT_TRUE(fail_closed->SetRevocationCheckPolicy(score::crypto::RevocationCheckPolicy::kCrlOnly).has_value());
+    ASSERT_TRUE(
+        fail_closed->SetRevocationCoveragePolicy(score::crypto::RevocationCoveragePolicy::kFailClosed).has_value());
+
+    const auto fail_closed_result = fail_closed->Verify();
+    ASSERT_TRUE(fail_closed_result.has_value());
+    EXPECT_EQ(*fail_closed_result, score::crypto::CertVerifyResult::kRevocationStatusUnavailable);
+
+    auto best_effort = CreateVerificationContext();
+    ASSERT_NE(best_effort, nullptr);
+    ASSERT_TRUE(best_effort
+                    ->SetCertificateChain(
+                        score::cpp::span<const score::crypto::CryptoResourceId>{chain_ids.data(), chain_ids.size()})
+                    .has_value());
+    ASSERT_TRUE(best_effort
+                    ->SetTrustedCertificates(score::cpp::span<const score::crypto::CryptoResourceId>{
+                        trust_anchors.data(), trust_anchors.size()})
+                    .has_value());
+    ASSERT_TRUE(
+        best_effort->SetChainTerminationPolicy(score::crypto::ChainTerminationPolicy::kRootRequired).has_value());
+    ASSERT_TRUE(best_effort->SetRevocationCheckPolicy(score::crypto::RevocationCheckPolicy::kCrlOnly).has_value());
+    ASSERT_TRUE(
+        best_effort->SetRevocationCoveragePolicy(score::crypto::RevocationCoveragePolicy::kBestEffort).has_value());
+
+    const auto best_effort_result = best_effort->Verify();
+    ASSERT_TRUE(best_effort_result.has_value());
+    EXPECT_EQ(*best_effort_result, score::crypto::CertVerifyResult::kValid);
+}
+
 TEST_F(CertificateVerificationIntegrationTest, VerifiesSelfSignedRootAgainstTrustStore)
 {
     auto root = ParseCertificate("certificate/pki_chain/root_ca.pem");
