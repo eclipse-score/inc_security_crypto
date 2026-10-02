@@ -30,8 +30,8 @@ namespace score::crypto::daemon::provider::crypto_executor
 /// and the CertManagementService (for all slot / registry / read-only trust-store
 /// operations). Trust-store membership mutations live in TrustStoreManagementExecutor
 /// (CERT:TRUST_STORE context); trust-store info queries are served entirely by
-/// the mediator-level GET_TRUST_STORE_OBJECT op (no round-trip through this
-/// executor).
+/// the mediator-level GET_TRUST_STORE_MEMBER_ID_LIST / GET_TRUST_STORE_MEMBER_OBJECT
+/// ops (no round-trip through this executor).
 /// Per-context identity is passed through CertMgmtExecutionContext.
 class CertManagementExecutor final
 {
@@ -77,7 +77,8 @@ class CertManagementExecutor final
                                                                               common::RequestParameters& request);
     // Trust-store mutation handlers (add/remove/enable/disable/ack-update/import-CRL-for-member)
     // and trust-store info queries are handled by TrustStoreManagementExecutor and the
-    // mediator's GET_TRUST_STORE_OBJECT op respectively (CERT:TRUST_STORE context).
+    // mediator's GET_TRUST_STORE_MEMBER_ID_LIST / GET_TRUST_STORE_MEMBER_OBJECT ops
+    // respectively (CERT:TRUST_STORE context).
 
     cert_management::ICertParser::Sptr m_cert_parser;
     std::shared_ptr<::score::crypto::daemon::cert_management::CertManagementService> m_service;

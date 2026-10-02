@@ -354,11 +354,16 @@ Expected<common::ResponseParameters, common::DaemonErrorCode> CertVerificationEx
         return make_unexpected(common::DaemonErrorCode::kInternalError);
     const auto entry_count =
         static_cast<std::uint64_t>(metadata.value().size() / score::crypto::CrlMetadataWireLayout::kEntrySize);
+    // Count-only request (GetSelectedCrlMetadataCount()): the caller never attaches an
+    // output span and only reads param[0]. The metadata bytes themselves are bulk,
+    // variable-size data and must go through the data-plane output-span path below,
+    // never through the control-plane response — pushing them here would both waste
+    // bandwidth and risk exceeding the IPC payload budget for a verification with many
+    // selected CRLs.
     if (request.empty())
     {
         common::ResponseParameters out;
         out.push_back(entry_count);
-        out.push_back(std::move(metadata.value()));
         return out;
     }
     auto* output = std::get_if<score::cpp::span<uint8_t>>(&request[0]);

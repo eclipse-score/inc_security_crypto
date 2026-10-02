@@ -29,8 +29,9 @@ namespace crypto
 
 /// @brief Concrete ITrustStoreObject holding a point-in-time member snapshot.
 ///
-/// Constructed by ICryptoContext::GetTrustStoreObject() after a TRUST_STORE_GET_INFO
-/// round-trip. Immutable after construction — no IPC is sent on destruction.
+/// Constructed by ICryptoContext::GetTrustStoreObject() after a member-id-list round
+/// trip followed by one member-detail round trip per returned slot id. Immutable
+/// after construction — no IPC is sent on destruction.
 class TrustStoreObjectImpl final : public ITrustStoreObject
 {
   public:

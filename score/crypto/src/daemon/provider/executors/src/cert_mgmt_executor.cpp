@@ -12,7 +12,6 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/executors/cert_mgmt_executor.hpp"
-#include "score/crypto/src/daemon/cert_management/query/cert_object_serializer.hpp"
 #include "score/crypto/src/daemon/provider/cert_management/cert_management_operations.hpp"
 #include "score/mw/log/logging.h"
 
@@ -107,7 +106,8 @@ Expected<common::ResponseParameters, Error> CertManagementExecutor::Execute(
         return HandleCrlDelete(ctx, request);
     // Trust-store mutation ops (add/remove/enable/disable/ack-update/import-CRL-for-member)
     // are handled by TrustStoreManagementExecutor under the CERT:TRUST_STORE context.
-    // Trust-store info queries go directly through the mediator's GET_TRUST_STORE_OBJECT op.
+    // Trust-store info queries go directly through the mediator's
+    // GET_TRUST_STORE_MEMBER_ID_LIST / GET_TRUST_STORE_MEMBER_OBJECT ops.
 
     // Provider-specific operations are handled by certificate context handlers.
     if ((action == cm_ops::CERT_CONVERT) || (action == cm_ops::CERT_GET_CONVERT_SIZE) ||
