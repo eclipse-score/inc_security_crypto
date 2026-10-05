@@ -64,12 +64,19 @@ Expected<std::monostate, common::DaemonErrorCode> IavPrimulaVerifyHandler::Initi
     {
         return make_unexpected(base.error());
     }
-    if (init_params.bound_key_handler == nullptr)
+    const auto* bound_key = init_params.bound_key_handler;
+    if (bound_key == nullptr || init_params.provider_id == common::kInvalidProviderId)
     {
         return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
     }
-    const auto* key = dynamic_cast<const IavPrimulaKeyHandler*>(init_params.bound_key_handler);
-    if (key == nullptr || key->GetNativeHandle() == nullptr)
+    if (bound_key->GetProviderId() != init_params.provider_id)
+    {
+        return make_unexpected(common::DaemonErrorCode::kCrossProviderIncompatible);
+    }
+    // The Primula key factory creates IavPrimulaKeyHandler instances for this provider.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) -- provider identity checked above
+    const auto* key = static_cast<const IavPrimulaKeyHandler*>(bound_key);
+    if (key->GetNativeHandle() == nullptr)
     {
         return make_unexpected(common::DaemonErrorCode::kIncompatibleKeyType);
     }

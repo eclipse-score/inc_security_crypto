@@ -85,15 +85,18 @@ TEST(IavPrimulaApplicationIntegrationTest, CreatesVerifyHandlerAndReachesAlgorit
     EXPECT_EQ(primula_handler->GetAlgorithm(), "ML-DSA-44");
 
     // A non-null sentinel represents a bound native key handle for initialization.
-    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, {}};
+    key_management::ProviderKeyHandle key_handle{};
+    key_handle.provider_id = provider.GetProviderId();
+    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, key_handle};
     handler::InitializationParams params{};
+    params.provider_id = provider.GetProviderId();
     params.bound_key_handler = &key;
     ASSERT_TRUE(handler->InitializeContext(params).has_value());
     EXPECT_EQ(primula_handler->GetOperationState(), common::StreamOperationState::IDLE);
 
     // Public-only key material has no native handle and is incompatible with
     // the native-key-based verification implementation.
-    IavPrimulaKeyHandler public_only_key{nullptr, std::vector<std::uint8_t>(1312U), {}};
+    IavPrimulaKeyHandler public_only_key{nullptr, std::vector<std::uint8_t>(1312U), key_handle};
     params.bound_key_handler = &public_only_key;
     auto incompatible_key_initialization = handler->InitializeContext(params);
     ASSERT_FALSE(incompatible_key_initialization.has_value());
