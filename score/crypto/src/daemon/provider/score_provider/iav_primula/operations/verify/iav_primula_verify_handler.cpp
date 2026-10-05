@@ -66,7 +66,7 @@ Expected<std::monostate, common::DaemonErrorCode> IavPrimulaVerifyHandler::Initi
     }
     if (init_params.bound_key_handler == nullptr)
     {
-        return make_unexpected(common::DaemonErrorCode::kKeySlotEmpty);
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
     }
     const auto* key = dynamic_cast<const IavPrimulaKeyHandler*>(init_params.bound_key_handler);
     if (key == nullptr || key->GetNativeHandle() == nullptr)

@@ -44,7 +44,7 @@ TEST(IavPrimulaVerificationTest, RejectsUnsupportedAndMissingKeys)
     IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
     auto result = handler.InitializeContext({});
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), common::DaemonErrorCode::kKeySlotEmpty);
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidArgument);
 }
 
 // ---------------------------------------------------------------------------
