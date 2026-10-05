@@ -71,7 +71,7 @@ Expected<std::monostate, common::DaemonErrorCode> IavPrimulaVerifyHandler::Initi
     }
     if (bound_key->GetProviderId() != init_params.provider_id)
     {
-        return make_unexpected(common::DaemonErrorCode::kCrossProviderIncompatible);
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
     }
     // The Primula key factory creates IavPrimulaKeyHandler instances for this provider.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) -- provider identity checked above

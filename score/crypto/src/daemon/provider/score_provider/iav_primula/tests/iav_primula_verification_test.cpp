@@ -76,7 +76,7 @@ TEST(IavPrimulaVerificationTest, RejectsKeyFromAnotherProvider)
 
     auto result = handler.InitializeContext(params);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), common::DaemonErrorCode::kCrossProviderIncompatible);
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidArgument);
 }
 
 // ---------------------------------------------------------------------------
