@@ -101,4 +101,9 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+
+    // Rust Analyzer Settings
+    "rust-analyzer.linkedProjects": [
+        "${workspaceFolder}/score/cryptoki/Cargo.toml"
+    ]
 }
