@@ -14,7 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_TYPES_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_TYPES_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/daemon/common/context_mode.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -47,8 +48,7 @@ inline constexpr std::string_view kKeyManagement = "KEY_MANAGEMENT";
 /// happens once, and no later operation on the context can escape it.
 ///
 /// @param context_type CTX_CREATE param[0].
-/// @param mode         CTX_CREATE param[4] — a CipherDirection for CIPHER
-///                     contexts, an OperationMode for MAC/SIGN/VERIFY.
+/// @param mode         CTX_CREATE param[4], decoded with ExtractContextMode().
 ///
 /// @return The required permission, or std::nullopt when the context type
 ///         consumes no key permission:
@@ -62,7 +62,7 @@ inline constexpr std::string_view kKeyManagement = "KEY_MANAGEMENT";
 ///         std::nullopt as "no permission required".
 [[nodiscard]] inline constexpr std::optional<score::crypto::KeyOperationPermission> RequiredKeyPermission(
     std::string_view context_type,
-    std::optional<std::uint8_t> mode) noexcept
+    std::optional<ContextMode> mode) noexcept
 {
     using Permission = score::crypto::KeyOperationPermission;
 
@@ -82,17 +82,19 @@ inline constexpr std::string_view kKeyManagement = "KEY_MANAGEMENT";
     }
     if (context_type == context_types::kCipher)
     {
-        if (!mode.has_value())
+        if (mode == ContextMode::kEncrypt)
         {
-            // Direction is mandatory for cipher contexts, so this is a
-            // malformed request. Demanding both bits fails closed: a key
-            // granted only one direction cannot slip through on a request
-            // that declined to say which direction it wanted.
-            return Permission::kEncrypt | Permission::kDecrypt;
+            return Permission::kEncrypt;
         }
-        return (static_cast<score::crypto::CipherDirection>(mode.value()) == score::crypto::CipherDirection::kEncrypt)
-                   ? Permission::kEncrypt
-                   : Permission::kDecrypt;
+        if (mode == ContextMode::kDecrypt)
+        {
+            return Permission::kDecrypt;
+        }
+        // A cipher context must say which direction it wants. A missing mode,
+        // or one from the MAC/signature vocabulary, is a malformed request;
+        // demanding both bits fails closed, so a key granted only one direction
+        // cannot slip through on a request that did not say which it wanted.
+        return Permission::kEncrypt | Permission::kDecrypt;
     }
 
     return std::nullopt;

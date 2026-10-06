@@ -14,7 +14,6 @@
 #include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/config/cipher_context_config.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
@@ -33,6 +32,7 @@
 #include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/context_mode.hpp"
 #include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
@@ -78,8 +78,8 @@ namespace
 ///
 /// Wire layout is positional and shared by every context type:
 ///   [0] context_type, [1] algorithm, [2] provider_type (or no-param),
-///   [3] key_node_id (keyed contexts only), [4] mode byte (cipher direction
-///   or MAC/signature OperationMode).
+///   [3] key_node_id (keyed contexts only), [4] daemon_common::ContextMode,
+///   [5] CipherPadding (cipher contexts only).
 struct ContextCreationRequest
 {
     std::string_view context_type{};
@@ -88,7 +88,8 @@ struct ContextCreationRequest
     const AlgorithmId* algorithm{nullptr};
     std::optional<ProviderType> provider_type{std::nullopt};
     std::optional<std::uint64_t> key_node_id{std::nullopt};
-    std::optional<std::uint8_t> mode{std::nullopt};
+    std::optional<daemon_common::ContextMode> mode{std::nullopt};
+    std::optional<CipherPadding> padding{std::nullopt};
 };
 
 /// @brief Sends CTX_CREATE to the daemon and returns the new context's node id.
@@ -125,7 +126,12 @@ score::Result<std::uint64_t> CreateDaemonContext(
 
     if (request.mode.has_value())
     {
-        builder = builder.with_in_val_uint8(request.mode.value());
+        builder = builder.with_in_val_uint8(static_cast<std::uint8_t>(request.mode.value()));
+    }
+
+    if (request.padding.has_value())
+    {
+        builder = builder.with_in_val_uint8(static_cast<std::uint8_t>(request.padding.value()));
     }
 
     auto control_req_result = builder.build();
@@ -307,7 +313,7 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
     request.provider_type = config.provider_type;
     request.key_node_id = config.key.id;
     // Routes the daemon to C_Sign* or C_Verify* (EVP_MAC either way for OpenSSL).
-    request.mode = static_cast<std::uint8_t>(config.operation_mode);
+    request.mode = daemon_common::ToContextMode(config.operation_mode);
 
     auto context_id = CreateDaemonContext(m_connection, request);
     if (!context_id.has_value())
@@ -355,7 +361,8 @@ score::Result<std::unique_ptr<ICipherContext>> CryptoContextImpl::CreateCipherCo
     request.key_node_id = config.key.id;
     // The daemon routes to EVP_EncryptInit / EVP_DecryptInit (or C_EncryptInit /
     // C_DecryptInit) based on this byte.
-    request.mode = static_cast<std::uint8_t>(config.direction);
+    request.mode = daemon_common::ToContextMode(config.direction);
+    request.padding = config.padding;
 
     auto context_id = CreateDaemonContext(m_connection, request);
     if (!context_id.has_value())
@@ -381,7 +388,7 @@ score::Result<std::unique_ptr<ISignContext>> CryptoContextImpl::CreateSignContex
     request.key_node_id = config.key.id;
     // A signing context always uses the private half of the key pair, regardless
     // of what the caller left in BaseContextConfig::operation_mode.
-    request.mode = static_cast<std::uint8_t>(OperationMode::kGenerate);
+    request.mode = daemon_common::ToContextMode(OperationMode::kGenerate);
 
     auto context_id = CreateDaemonContext(m_connection, request);
     if (!context_id.has_value())
@@ -407,7 +414,7 @@ score::Result<std::unique_ptr<IVerifySignatureContext>> CryptoContextImpl::Creat
     request.provider_type = config.provider_type;
     request.key_node_id = config.key.id;
     // Signals the daemon to bind the public half of the key pair.
-    request.mode = static_cast<std::uint8_t>(OperationMode::kVerify);
+    request.mode = daemon_common::ToContextMode(OperationMode::kVerify);
 
     auto context_id = CreateDaemonContext(m_connection, request);
     if (!context_id.has_value())

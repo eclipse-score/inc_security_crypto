@@ -38,6 +38,10 @@ class VerifyExecutor
         common::RequestParameters& request);
 
   private:
+    /// @brief Runs one INIT / UPDATE / FINALIZE step after validating the transition.
+    [[nodiscard]] static Expected<common::ResponseParameters, common::DaemonErrorCode>
+    ExecuteStreaming(ScoreVerifyHandler& handler, common::OperationAction action, common::RequestParameters& request);
+
     [[nodiscard]] static Expected<common::ResponseParameters, common::DaemonErrorCode> ExecuteFinalize(
         ScoreVerifyHandler& handler,
         common::RequestParameters& request);

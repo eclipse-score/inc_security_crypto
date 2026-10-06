@@ -31,11 +31,13 @@
 ///   * With the NIST key loaded from a key slot the expected ciphertext is
 ///     known, so the test is a real known-answer test against CAVP.
 ///
-/// @note CAVP ciphertexts carry no padding while these contexts always apply
-///       PKCS#7, so an encryption produces the vector's ciphertext followed by
-///       one extra padding block. See the reference.md beside each vector set.
+/// @note CAVP ciphertexts carry no padding while these contexts apply PKCS#7 by
+///       default, so a default encryption produces the vector's ciphertext
+///       followed by one extra padding block. With CipherPadding::kNone the
+///       output is the vector byte for byte. See the reference.md beside each
+///       vector set.
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/config/cipher_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
 #include "score/crypto/src/api/config/key_operation_params.hpp"
@@ -160,10 +162,11 @@ std::unique_ptr<ICipherContext> MakeCipherContext(ICryptoContext& ctx,
                                                   const std::string& algorithm,
                                                   const std::optional<ProviderType>& provider_type,
                                                   const CryptoResourceGuard& key,
-                                                  CipherDirection direction)
+                                                  CipherDirection direction,
+                                                  CipherPadding padding = CipherPadding::kPkcs7)
 {
     CipherContextConfig config;
-    config.SetAlgorithm(algorithm).SetKey(key).SetDirection(direction);
+    config.SetAlgorithm(algorithm).SetKey(key).SetDirection(direction).SetPadding(padding);
     if (provider_type.has_value())
     {
         config.SetProviderType(provider_type.value());
@@ -553,14 +556,12 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
     EXPECT_EQ(recovered, vector.plaintext) << "Decryption did not recover the CAVP plaintext";
 
     // =========================================================================
-    // 6. The unpadded CAVP ciphertext on its own does not decrypt
+    // 6. Under the default padding the raw CAVP ciphertext does not decrypt
     // =========================================================================
     //
-    // Documented consequence of always-on PKCS#7: the vector's ciphertext has no
-    // padding block, so the padding check has nothing valid to strip. Whether
-    // that surfaces as an error or as different bytes, the plaintext must not
-    // come back — feeding CAVP ciphertext straight to a decrypt context is a
-    // usage error, not a supported path.
+    // The vector's ciphertext has no padding block, so a PKCS#7 context has
+    // nothing valid to strip. Whether that surfaces as an error or as different
+    // bytes, the plaintext must not come back.
     {
         ASSERT_TRUE(decrypt_ctx->Reset()) << "Reset before unpadded decrypt failed";
         std::vector<std::uint8_t> out(vector.ciphertext.size() + (2U * block_size));
@@ -570,8 +571,55 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
         if (result.has_value())
         {
             out.resize(result.value());
-            EXPECT_NE(out, vector.plaintext) << "Unpadded CAVP ciphertext must not decrypt cleanly";
+            EXPECT_NE(out, vector.plaintext) << "Unpadded CAVP ciphertext must not decrypt under PKCS#7";
         }
+    }
+
+    // =========================================================================
+    // 6b. With CipherPadding::kNone the stack reproduces the vector exactly
+    // =========================================================================
+    //
+    // This is the direct known-answer test: no padding block to strip off, so
+    // the ciphertext is compared whole, and the raw CAVP ciphertext decrypts.
+    {
+        auto raw_encrypt = MakeCipherContext(*ctx,
+                                             test_data.cipher_algorithm,
+                                             test_data.provider_type,
+                                             key,
+                                             CipherDirection::kEncrypt,
+                                             CipherPadding::kNone);
+        ASSERT_NE(raw_encrypt, nullptr);
+
+        std::vector<std::uint8_t> raw_ciphertext;
+        ASSERT_NO_FATAL_FAILURE(
+            SingleShotTransform(*raw_encrypt, vector.iv, vector.plaintext, block_size, raw_ciphertext));
+        EXPECT_EQ(raw_ciphertext, vector.ciphertext) << "Unpadded encryption must equal the CAVP ciphertext exactly";
+
+        auto raw_decrypt = MakeCipherContext(*ctx,
+                                             test_data.cipher_algorithm,
+                                             test_data.provider_type,
+                                             key,
+                                             CipherDirection::kDecrypt,
+                                             CipherPadding::kNone);
+        ASSERT_NE(raw_decrypt, nullptr);
+
+        std::vector<std::uint8_t> raw_recovered;
+        ASSERT_NO_FATAL_FAILURE(
+            SingleShotTransform(*raw_decrypt, vector.iv, vector.ciphertext, block_size, raw_recovered));
+        EXPECT_EQ(raw_recovered, vector.plaintext) << "Unpadded decryption must recover the CAVP plaintext";
+
+        // Without padding a message that is not a whole number of blocks has
+        // no valid encoding, so the operation is refused rather than padded.
+        ASSERT_GT(vector.plaintext.size(), block_size);
+        const std::vector<std::uint8_t> partial(
+            vector.plaintext.begin(), vector.plaintext.begin() + static_cast<std::ptrdiff_t>(block_size + 1U));
+        ASSERT_TRUE(raw_encrypt->Reset()) << "Reset before partial-block encrypt failed";
+        std::vector<std::uint8_t> partial_out(partial.size() + (2U * block_size));
+        auto partial_result =
+            raw_encrypt->SingleShot(score::cpp::span<const std::uint8_t>{vector.iv.data(), vector.iv.size()},
+                                    {partial.data(), partial.size()},
+                                    {partial_out.data(), partial_out.size()});
+        EXPECT_FALSE(partial_result.has_value()) << "A partial block must be refused when padding is kNone";
     }
 
     // =========================================================================

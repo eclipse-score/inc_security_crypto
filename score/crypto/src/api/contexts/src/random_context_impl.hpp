@@ -16,7 +16,7 @@
 
 #include "score/crypto/src/api/contexts/i_random_context.hpp"
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"

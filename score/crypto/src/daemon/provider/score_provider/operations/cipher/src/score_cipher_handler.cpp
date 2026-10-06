@@ -12,7 +12,10 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/score_cipher_handler.hpp"
+
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/common/cipher_padding.hpp"
+#include "score/crypto/src/daemon/common/context_mode.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/cipher_executor.hpp"
 
 #include <string_view>
@@ -24,12 +27,6 @@ namespace score::crypto::daemon::provider::score_provider::operations::cipher
 using common::DaemonErrorCode;
 using common::ResponseParameters;
 using common::StreamOperationState;
-
-namespace
-{
-/// CTX_CREATE wire slot carrying the cipher direction byte.
-constexpr std::size_t kDirectionParamIndex = 4U;
-}  // namespace
 
 ScoreCipherHandler::ScoreCipherHandler(std::unique_ptr<CipherExecutor> executor, const common::AlgorithmId& algorithm)
     : m_algorithm{algorithm}, m_state{StreamOperationState::IDLE}, m_executor{std::move(executor)}
@@ -45,14 +42,24 @@ Expected<ResponseParameters, DaemonErrorCode> ScoreCipherHandler::Execute(
 
 void ScoreCipherHandler::ExtractDirection(const handler::InitializationParams& init_params) noexcept
 {
-    if (init_params.context_creation_params.size() <= kDirectionParamIndex)
+    const auto mode = common::ExtractContextMode(init_params.context_creation_params);
+    if (!mode.has_value())
     {
         return;
     }
-    const auto* direction_val = std::get_if<std::uint8_t>(&init_params.context_creation_params[kDirectionParamIndex]);
-    if (direction_val != nullptr)
+    const auto direction = common::ToCipherDirection(mode.value());
+    if (direction.has_value())
     {
-        m_direction = static_cast<score::crypto::CipherDirection>(*direction_val);
+        m_direction = direction.value();
+    }
+}
+
+void ScoreCipherHandler::ExtractPadding(const handler::InitializationParams& init_params) noexcept
+{
+    const auto padding = common::ExtractCipherPadding(init_params.context_creation_params);
+    if (padding.has_value())
+    {
+        m_padding = padding.value();
     }
 }
 
@@ -60,6 +67,7 @@ Expected<std::monostate, DaemonErrorCode> ScoreCipherHandler::InitializeContext(
     const handler::InitializationParams& init_params)
 {
     ExtractDirection(init_params);
+    ExtractPadding(init_params);
     m_state = StreamOperationState::IDLE;
     return std::monostate{};
 }

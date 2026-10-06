@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 # Header-only library for the OpenSSL key management primitives.
 cc_library(
@@ -116,5 +116,22 @@ cc_library(
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
+    ],
+)
+
+cc_test(
+    name = "openssl_algorithm_info_test",
+    srcs = ["detail/openssl_algorithm_info_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":openssl_detail_headers",
+        ":provider_openssl_headers",
+        ":provider_openssl_library",
+        "//score/crypto/src/daemon/common:algorithm_info",
+        "//third_party/openssl:openssl_shared",
+        "@googletest//:gtest_main",
     ],
 )

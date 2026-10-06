@@ -25,7 +25,7 @@
 /// of bytes arrives, the whole buffer is written, and successive draws differ.
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/config/random_context_config.hpp"
 #include "score/crypto/src/api/contexts/i_random_context.hpp"
 #include "score/crypto/src/api/crypto_stack_factory.hpp"

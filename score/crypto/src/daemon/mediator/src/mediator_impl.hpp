@@ -72,9 +72,10 @@ class MediatorImpl : public IMediator
     /// @brief Resolves a client-supplied key reference and authorizes it for the context.
     ///
     /// Performs the two steps that must not be separated: binding the key to the
-    /// context node, and checking that the key's permissions actually cover what
-    /// the context intends to do with it. Called only when CTX_CREATE carried a
-    /// key reference.
+    /// context node, after checking that the key's permissions cover what the
+    /// context intends to do with it. The check reads metadata only, so a refused
+    /// request loads no key material. Called only when CTX_CREATE carried a key
+    /// reference.
     ///
     /// @param client_id       Authenticated client requesting the context.
     /// @param context_node_id Node the key is being bound to.

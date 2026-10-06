@@ -12,11 +12,14 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "common",
     hdrs = [
         "actors.hpp",
+        "cipher_padding.hpp",
+        "context_mode.hpp",
         "context_types.hpp",
         "daemon_error.hpp",
         "hex.hpp",
@@ -54,5 +57,24 @@ cc_library(
         "//score/crypto/src/daemon/provider/handler:sign_handler_operations",
         "//score/crypto/src/daemon/provider/handler:verify_handler_operations",
         "@score_baselibs//score/mw/log",
+    ],
+)
+
+cc_test(
+    name = "context_types_test",
+    srcs = ["context_types_test.cpp"],
+    deps = [
+        ":common",
+        "//score/crypto/src/api/common:crypto_common",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "operation_names_test",
+    srcs = ["operation_names_test.cpp"],
+    deps = [
+        ":operation_names",
+        "@googletest//:gtest_main",
     ],
 )

@@ -43,7 +43,7 @@
 /// @note NIST's largest prime curve is P-521 (not P-512), so that is the curve
 ///       used for the highest-strength cases here.
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
 #include "score/crypto/src/api/config/key_operation_params.hpp"
 #include "score/crypto/src/api/config/sign_context_config.hpp"

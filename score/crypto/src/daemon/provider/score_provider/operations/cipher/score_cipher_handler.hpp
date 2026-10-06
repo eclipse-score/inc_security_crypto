@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_CIPHER_SCORE_CIPHER_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_CIPHER_SCORE_CIPHER_HANDLER_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -43,9 +43,9 @@ class CipherExecutor;
 /// Typed methods default to kUnsupportedOperation so that a partially-implemented
 /// provider still compiles and returns a clear error at runtime.
 ///
-/// The cipher direction is fixed for the lifetime of the context: it is read from
-/// CTX_CREATE param[4] in InitializeContext() and never changes afterwards, so a
-/// context created for encryption can never accidentally decrypt.
+/// The cipher direction and padding are fixed for the lifetime of the context:
+/// both are read from the CTX_CREATE parameters in InitializeContext() and never
+/// change afterwards, so a context created for encryption can never decrypt.
 class ScoreCipherHandler : public handler::Handler
 {
   public:
@@ -96,6 +96,11 @@ class ScoreCipherHandler : public handler::Handler
         return m_direction;
     }
 
+    [[nodiscard]] score::crypto::CipherPadding GetPadding() const noexcept
+    {
+        return m_padding;
+    }
+
     // -----------------------------------------------------------------------
     // Typed cipher operations — override in concrete provider handlers
     // -----------------------------------------------------------------------
@@ -143,12 +148,19 @@ class ScoreCipherHandler : public handler::Handler
     common::AlgorithmId m_algorithm;
     common::StreamOperationState m_state{common::StreamOperationState::IDLE};
     score::crypto::CipherDirection m_direction{score::crypto::CipherDirection::kEncrypt};
+    score::crypto::CipherPadding m_padding{score::crypto::CipherPadding::kPkcs7};
 
-    /// @brief Reads the cipher direction from CTX_CREATE param[4].
+    /// @brief Reads the cipher direction from the CTX_CREATE ContextMode.
     ///
-    /// Leaves m_direction untouched when the parameter is absent or has the
-    /// wrong type, so the kEncrypt default applies.
+    /// Leaves m_direction untouched when the mode is absent or is not a cipher
+    /// direction, so the kEncrypt default applies.
     void ExtractDirection(const handler::InitializationParams& init_params) noexcept;
+
+    /// @brief Reads the padding scheme from the CTX_CREATE parameters.
+    ///
+    /// Leaves m_padding untouched when the slot is absent or malformed, so the
+    /// kPkcs7 default applies.
+    void ExtractPadding(const handler::InitializationParams& init_params) noexcept;
 
   private:
     std::unique_ptr<CipherExecutor> m_executor;

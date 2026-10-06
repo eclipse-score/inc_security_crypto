@@ -90,32 +90,36 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCipherHandler(const comm
     return std::make_shared<OpenSslCipherHandler>(std::move(cipher_executor), algorithm);
 }
 
+// Each signature family claims the algorithms it serves; an identifier no
+// family claims is unsupported. Further families (RSA, ML-DSA) add a branch.
 score::Result<HandlerSptr> OpenSslHandlerFactory::CreateSignHandler(const common::AlgorithmId& algorithm)
 {
-    if (!OpenSslEcdsaSignHandler::IsAlgorithmSupported(algorithm))
+    if (OpenSslEcdsaSignHandler::IsAlgorithmSupported(algorithm))
     {
-        score::result::Error error(
-            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
-            score::crypto::kCryptoErrorDomain,
-            "Algorithm not supported for handler: " + algorithm);
-        return score::Result<HandlerSptr>(score::unexpect, error);
+        auto sign_executor = std::make_unique<operations::sign::SignExecutor>();
+        return std::make_shared<OpenSslEcdsaSignHandler>(std::move(sign_executor), algorithm);
     }
-    auto sign_executor = std::make_unique<operations::sign::SignExecutor>();
-    return std::make_shared<OpenSslEcdsaSignHandler>(std::move(sign_executor), algorithm);
+
+    score::result::Error error(
+        static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+        score::crypto::kCryptoErrorDomain,
+        "Algorithm not supported for handler: " + algorithm);
+    return score::Result<HandlerSptr>(score::unexpect, error);
 }
 
 score::Result<HandlerSptr> OpenSslHandlerFactory::CreateVerifyHandler(const common::AlgorithmId& algorithm)
 {
-    if (!OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(algorithm))
+    if (OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(algorithm))
     {
-        score::result::Error error(
-            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
-            score::crypto::kCryptoErrorDomain,
-            "Algorithm not supported for handler: " + algorithm);
-        return score::Result<HandlerSptr>(score::unexpect, error);
+        auto verify_executor = std::make_unique<operations::verify::VerifyExecutor>();
+        return std::make_shared<OpenSslEcdsaVerifyHandler>(std::move(verify_executor), algorithm);
     }
-    auto verify_executor = std::make_unique<operations::verify::VerifyExecutor>();
-    return std::make_shared<OpenSslEcdsaVerifyHandler>(std::move(verify_executor), algorithm);
+
+    score::result::Error error(
+        static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+        score::crypto::kCryptoErrorDomain,
+        "Algorithm not supported for handler: " + algorithm);
+    return score::Result<HandlerSptr>(score::unexpect, error);
 }
 
 score::Result<HandlerSptr> OpenSslHandlerFactory::CreateRandomHandler(const common::AlgorithmId& algorithm)

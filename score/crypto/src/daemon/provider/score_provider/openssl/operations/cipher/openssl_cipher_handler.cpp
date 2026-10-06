@@ -15,6 +15,7 @@
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
 #include "score/mw/log/logging.h"
@@ -70,9 +71,11 @@ void OpenSslCipherHandler::CleanupContext() noexcept
 
 bool OpenSslCipherHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
 {
-    // The provider-independent table is the single source of truth for which AES
-    // modes this stack exposes; OpenSSL happens to accept the same names.
-    return algo_info::LookupCipher(algorithm).has_value();
+    // The provider list is the gate; the common table must also know the
+    // algorithm because the handler base reads its block and IV sizes there.
+    const std::string_view name{algorithm.data(), algorithm.size()};
+    return ::score::crypto::daemon::provider::openssl::detail::IsCipherSupported(name) &&
+           algo_info::LookupCipher(name).has_value();
 }
 
 bool OpenSslCipherHandler::GetBoundKeyMaterial(const std::uint8_t*& key_bytes, std::size_t& key_len) const noexcept
@@ -102,7 +105,7 @@ bool OpenSslCipherHandler::GetBoundKeyMaterial(const std::uint8_t*& key_bytes, s
         return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
-    // Picks up the encrypt/decrypt direction from CTX_CREATE param[4].
+    // Picks up the direction and padding from the CTX_CREATE parameters.
     auto base_result = ScoreCipherHandler::InitializeContext(init_params);
     if (!base_result.has_value())
     {
@@ -218,6 +221,14 @@ bool OpenSslCipherHandler::GetBoundKeyMaterial(const std::uint8_t*& key_bytes, s
     if (rv != 1)
     {
         score::mw::log::LogError() << LOG_PREFIX << "InitCipher: EVP cipher init failed";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
+    }
+
+    // EVP pads by default; the context's padding scheme decides whether it keeps doing so.
+    const int pad = (GetPadding() == score::crypto::CipherPadding::kPkcs7) ? 1 : 0;
+    if (EVP_CIPHER_CTX_set_padding(m_ctx, pad) != 1)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "InitCipher: EVP_CIPHER_CTX_set_padding failed";
         return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
     }
 

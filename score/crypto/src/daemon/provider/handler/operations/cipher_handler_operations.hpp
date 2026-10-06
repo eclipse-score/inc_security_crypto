@@ -15,8 +15,10 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_OPERATIONS_CIPHER_HANDLER_OPERATIONS_HPP
 
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/stream_operation.hpp"
 
 #include <limits>
+#include <optional>
 
 namespace score
 {
@@ -87,7 +89,10 @@ inline constexpr OperationAction CIPHER_SS = 4;
 //           no operation parameters
 // Response: status_code (SUCCESS/error)
 //           param[0]: uint64_t — cipher block size in bytes (16 for AES,
-//                     1 for stream modes such as CTR)
+//                     1 for stream modes such as CTR). This is the sizing unit
+//                     for output buffers, not the size of any one result:
+//                     Update and single-shot need input length plus one block,
+//                     Finalize at most one block.
 // Effect:   Stateless query; does not affect the stream state
 inline constexpr OperationAction CIPHER_GET_OUTPUT_SIZE = 5;
 
@@ -109,6 +114,25 @@ inline constexpr OperationAction CIPHER_RESET = 6;
 inline constexpr OperationAction CIPHER_GET_IV_SIZE = 7;
 
 inline constexpr OperationAction CIPHER_CUSTOM_OP_START = 1 << (std::numeric_limits<OperationAction>::digits - 1);
+
+/// @brief The stream state-machine step an action performs, if any.
+/// @return std::nullopt for an action that does not take part in the stream.
+[[nodiscard]] inline constexpr std::optional<StreamOperation> ToStreamOperation(OperationAction action) noexcept
+{
+    if (action == CIPHER_INIT)
+    {
+        return StreamOperation::kInit;
+    }
+    if (action == CIPHER_UPDATE)
+    {
+        return StreamOperation::kUpdate;
+    }
+    if (action == CIPHER_FINALIZE)
+    {
+        return StreamOperation::kFinalize;
+    }
+    return std::nullopt;
+}
 
 }  // namespace cipher_handler_operations
 }  // namespace handler

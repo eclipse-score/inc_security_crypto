@@ -42,6 +42,12 @@ namespace crypto
 /// kUnsupportedOperation. For ECB mode (no IV), pass std::nullopt.
 /// Update() uses the cipher-specific (input, output) signature.
 ///
+/// Output sizing: for a cipher, GetOutputSize() returns the block size (1 for
+/// a stream mode), not the size of any one result. An Update() output buffer
+/// must hold input.size() + block size, because a buffered partial block may be
+/// flushed ahead of the current chunk; Finalize() writes at most one block; a
+/// SingleShot() output buffer must hold input.size() + block size.
+///
 /// Compatible with classical ciphers (AES-CBC, AES-CTR, AES-ECB, ChaCha20)
 /// and PQC key-encapsulation based hybrid encryption schemes.
 ///

@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-/// @file test_context_types.cpp
+/// @file context_types_test.cpp
 /// @brief Verifies the classification every keyed context creation depends on.
 ///
 /// RequiredKeyPermission() and IsKeylessContextType() split the context types
@@ -21,8 +21,9 @@
 /// test, because the client only ever sends well-known type strings.
 
 #include "score/crypto/src/daemon/common/context_types.hpp"
+#include "score/crypto/src/daemon/common/context_mode.hpp"
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 
 #include <gtest/gtest.h>
 
@@ -36,7 +37,6 @@ namespace
 namespace common = score::crypto::daemon::common;
 namespace ctx = score::crypto::daemon::common::context_types;
 
-using score::crypto::CipherDirection;
 using score::crypto::KeyOperationPermission;
 
 /// Every context type the wire protocol defines.
@@ -86,8 +86,8 @@ TEST(ContextTypesTest, KeyedTypesDemandTheOperationTheyPerform)
 
 TEST(ContextTypesTest, CipherPermissionFollowsTheRequestedDirection)
 {
-    const auto encrypt = static_cast<std::uint8_t>(CipherDirection::kEncrypt);
-    const auto decrypt = static_cast<std::uint8_t>(CipherDirection::kDecrypt);
+    const auto encrypt = common::ContextMode::kEncrypt;
+    const auto decrypt = common::ContextMode::kDecrypt;
 
     EXPECT_EQ(common::RequiredKeyPermission(ctx::kCipher, encrypt), KeyOperationPermission::kEncrypt);
     EXPECT_EQ(common::RequiredKeyPermission(ctx::kCipher, decrypt), KeyOperationPermission::kDecrypt);
@@ -103,6 +103,34 @@ TEST(ContextTypesTest, CipherWithoutADirectionDemandsBothHalves)
     ASSERT_TRUE(required.has_value());
     EXPECT_TRUE(score::crypto::HasPermission(required.value(), KeyOperationPermission::kEncrypt));
     EXPECT_TRUE(score::crypto::HasPermission(required.value(), KeyOperationPermission::kDecrypt));
+}
+
+/// A MAC/signature mode on a cipher context is malformed and fails closed to both bits.
+TEST(ContextTypesTest, CipherWithSignatureModeFailsClosed)
+{
+    const auto both = KeyOperationPermission::kEncrypt | KeyOperationPermission::kDecrypt;
+    EXPECT_EQ(common::RequiredKeyPermission(ctx::kCipher, common::ContextMode::kGenerate), both);
+    EXPECT_EQ(common::RequiredKeyPermission(ctx::kCipher, common::ContextMode::kVerify), both);
+}
+
+/// The wire vocabulary round-trips both API enums and rejects anything outside it.
+TEST(ContextModeTest, RoundTripsApiEnumsAndRejectsUnknownBytes)
+{
+    using score::crypto::CipherDirection;
+    using score::crypto::OperationMode;
+
+    EXPECT_EQ(common::ToCipherDirection(common::ToContextMode(CipherDirection::kEncrypt)), CipherDirection::kEncrypt);
+    EXPECT_EQ(common::ToCipherDirection(common::ToContextMode(CipherDirection::kDecrypt)), CipherDirection::kDecrypt);
+    EXPECT_EQ(common::ToOperationMode(common::ToContextMode(OperationMode::kGenerate)), OperationMode::kGenerate);
+    EXPECT_EQ(common::ToOperationMode(common::ToContextMode(OperationMode::kVerify)), OperationMode::kVerify);
+
+    // A cipher direction is not a MAC mode and the reverse.
+    EXPECT_FALSE(common::ToOperationMode(common::ContextMode::kEncrypt).has_value());
+    EXPECT_FALSE(common::ToCipherDirection(common::ContextMode::kGenerate).has_value());
+
+    EXPECT_TRUE(common::ParseContextMode(static_cast<std::uint8_t>(common::ContextMode::kDecrypt)).has_value());
+    EXPECT_FALSE(common::ParseContextMode(static_cast<std::uint8_t>(common::ContextMode::kDecrypt) + 1U).has_value());
+    EXPECT_FALSE(common::ParseContextMode(0xFFU).has_value());
 }
 
 }  // namespace

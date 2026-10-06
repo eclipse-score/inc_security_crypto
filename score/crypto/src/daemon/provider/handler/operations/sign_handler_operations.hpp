@@ -15,8 +15,10 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_OPERATIONS_SIGN_HANDLER_OPERATIONS_HPP
 
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/stream_operation.hpp"
 
 #include <limits>
+#include <optional>
 
 namespace score
 {
@@ -86,6 +88,25 @@ inline constexpr OperationAction SIGN_GET_SIZE = 5;
 inline constexpr OperationAction SIGN_RESET = 6;
 
 inline constexpr OperationAction SIGN_CUSTOM_OP_START = 1 << (std::numeric_limits<OperationAction>::digits - 1);
+
+/// @brief The stream state-machine step an action performs, if any.
+/// @return std::nullopt for an action that does not take part in the stream.
+[[nodiscard]] inline constexpr std::optional<StreamOperation> ToStreamOperation(OperationAction action) noexcept
+{
+    if (action == SIGN_INIT)
+    {
+        return StreamOperation::kInit;
+    }
+    if (action == SIGN_UPDATE)
+    {
+        return StreamOperation::kUpdate;
+    }
+    if (action == SIGN_FINALIZE)
+    {
+        return StreamOperation::kFinalize;
+    }
+    return std::nullopt;
+}
 
 }  // namespace sign_handler_operations
 

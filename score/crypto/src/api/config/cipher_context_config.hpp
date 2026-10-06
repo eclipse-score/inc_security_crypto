@@ -57,6 +57,13 @@ struct CipherContextConfig : public BaseContextConfig
     /// @brief Cipher direction: encrypt or decrypt (required).
     CipherDirection direction{CipherDirection::kEncrypt};
 
+    /// @brief Padding scheme for block modes. PKCS#7 unless set otherwise.
+    ///
+    /// kNone matches the raw block-cipher test vectors (CAVP) and interoperates
+    /// with a peer that pads itself; the message length must then be a whole
+    /// number of blocks.
+    CipherPadding padding{CipherPadding::kPkcs7};
+
     // -- Fluent builder --
 
     CipherContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
@@ -74,6 +81,12 @@ struct CipherContextConfig : public BaseContextConfig
     CipherContextConfig& SetDirection(CipherDirection dir) noexcept
     {
         direction = dir;
+        return *this;
+    }
+
+    CipherContextConfig& SetPadding(CipherPadding pad) noexcept
+    {
+        padding = pad;
         return *this;
     }
 

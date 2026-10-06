@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-/// @file test_operation_names.cpp
+/// @file operation_names_test.cpp
 /// @brief Pins the actor and action names the mediator prints on a failed operation.
 ///
 /// A missing entry degrades silently: the operation still runs, and only the

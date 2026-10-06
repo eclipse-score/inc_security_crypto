@@ -14,6 +14,7 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/ecdsa_common.hpp"
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
 #include <openssl/bn.h>
@@ -37,8 +38,11 @@ constexpr std::string_view kLogPrefix = "[OPENSSL_ECDSA]";
 
 bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
 {
+    // The provider list is the gate; the common table must also resolve the
+    // curve and digest because the handlers read field size and digest there.
     const std::string_view algo{algorithm.data(), algorithm.size()};
-    return algo_info::IsEcdsaAlgorithm(algo) && algo_info::LookupSignatureDigest(algo).has_value();
+    return ::score::crypto::daemon::provider::openssl::detail::IsSignatureAlgorithmSupported(algo) &&
+           algo_info::IsEcdsaAlgorithm(algo) && algo_info::LookupSignatureDigest(algo).has_value();
 }
 
 // ---------------------------------------------------------------------------

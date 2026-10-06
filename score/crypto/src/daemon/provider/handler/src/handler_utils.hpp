@@ -17,6 +17,8 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/stream_operation.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -85,18 +87,7 @@ CheckAndGetSpan(typename detail::SpanTraits<T>::ParamType param) noexcept
     return *span;
 }
 
-/**
- * @brief Streaming operation kind used to drive the stream state machine.
- *
- * Maps a concrete operation (init/update/finalize) onto a state transition in
- * ValidateStreamOperationSequence().
- */
-enum class StreamOperation : std::uint8_t
-{
-    kInit,      ///< Initialize (or restart) a streaming operation.
-    kUpdate,    ///< Feed additional data into an active stream.
-    kFinalize,  ///< Complete the stream and produce the final result.
-};
+using StreamOperation = ::score::crypto::daemon::provider::handler::StreamOperation;
 
 /**
  * @brief Validate a streaming operation and return the resulting next state.
@@ -118,20 +109,6 @@ enum class StreamOperation : std::uint8_t
  */
 [[nodiscard]] Expected<common::StreamOperationState, ::score::crypto::daemon::common::DaemonErrorCode>
 ValidateStreamOperationSequence(common::StreamOperationState currentState, StreamOperation streamOperation) noexcept;
-
-/**
- * @brief Map a handler's INIT / UPDATE / FINALIZE action onto a StreamOperation.
- *
- * Every actor numbers its streaming actions 1, 2, 3 in that order, so one
- * mapping serves them all and each executor pairs this with its own
- * ValidateStreamOperationSequence() call.
- *
- * @param action The operation action from the request.
- * @return The matching StreamOperation, or kInvalidOperation for an action that
- *         does not take part in the stream state machine.
- */
-[[nodiscard]] Expected<StreamOperation, ::score::crypto::daemon::common::DaemonErrorCode> MapStreamAction(
-    common::OperationAction action) noexcept;
 
 }  // namespace handler_utils
 

@@ -76,7 +76,14 @@ Expected<ResponseParameters, DaemonErrorCode> VerifyExecutor::Execute(ScoreVerif
         return result;
     }
 
-    // Streaming operations: validate the state machine transition first.
+    return ExecuteStreaming(handler_ref, action, request);
+}
+
+// static
+Expected<ResponseParameters, DaemonErrorCode> VerifyExecutor::ExecuteStreaming(ScoreVerifyHandler& handler_ref,
+                                                                               const common::OperationAction action,
+                                                                               RequestParameters& request)
+{
     const StreamOperationState currentState = handler_ref.GetOperationState();
     StreamOperationState nextState = StreamOperationState::IDLE;
     const auto validation = ValidateStreamTransition(action, currentState, nextState);
@@ -116,17 +123,13 @@ Expected<ResponseParameters, DaemonErrorCode> VerifyExecutor::Execute(ScoreVerif
         return ResponseParameters{};
     }
 
-    if (action == verify_ops::VERIFY_FINALIZE)
+    // ValidateStreamTransition() only passes INIT, UPDATE and FINALIZE.
+    auto result = ExecuteFinalize(handler_ref, request);
+    if (result.has_value())
     {
-        auto result = ExecuteFinalize(handler_ref, request);
-        if (result.has_value())
-        {
-            handler_ref.SetOperationState(nextState);
-        }
-        return result;
+        handler_ref.SetOperationState(nextState);
     }
-
-    return make_unexpected(DaemonErrorCode::kInvalidOperation);
+    return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,10 +206,10 @@ Expected<std::monostate, DaemonErrorCode> VerifyExecutor::ValidateStreamTransiti
     const StreamOperationState currentState,
     StreamOperationState& nextState)
 {
-    const auto op = handler::handler_utils::MapStreamAction(action);
+    const auto op = handler::verify_handler_operations::ToStreamOperation(action);
     if (!op.has_value())
     {
-        return make_unexpected(op.error());
+        return make_unexpected(DaemonErrorCode::kInvalidOperation);
     }
 
     const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());
