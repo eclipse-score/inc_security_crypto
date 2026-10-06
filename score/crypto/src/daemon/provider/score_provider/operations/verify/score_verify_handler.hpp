@@ -23,6 +23,7 @@
 #include "score/span.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 
 namespace score::crypto::daemon::provider::score_provider::operations::verify
