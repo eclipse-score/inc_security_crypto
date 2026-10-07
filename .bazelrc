@@ -11,14 +11,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-build --per_file_copt=external/score_baselibs.*/.*@-Wno-deprecated-declarations
-build --per_file_copt=external/score_logging.*/.*@-Wno-deprecated-declarations
-common --@score_baselibs//score/json:base_library=nlohmann # TODO : https://github.com/eclipse-score/baselibs/issues/57
 common --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 build --java_language_version=17
 build --tool_java_language_version=17
 build --java_runtime_version=remotejdk_17
 build --tool_java_runtime_version=remotejdk_17
+
+# Treat deprecated declarations as errors
+build --cxxopt=-Werror=deprecated-declarations
+build --@rules_rust//rust/settings:extra_rustc_flag=-Ddeprecated
+
+# Suppress deprecated warnings for grpc_adapter implementation. grpc_adapter will be removed in future
+build --per_file_copt=score/crypto/src/ipc/grpc_adapter/.*@-Wno-error=deprecated-declarations
 
 # Only contact license server every 59 secs per tool and not for every tool invocation to avoid flooding the license server
 common --action_env=QNX_LICENSE_EXTSERVER_DELAY=59
@@ -39,7 +43,7 @@ build:shared --incompatible_strict_action_env
 build:shared --sandbox_writable_path=/var/tmp
 build:shared --host_platform=@score_bazel_platforms//:x86_64-linux
 # Disable typedshm as it's not needed in this build
-build:shared --@score_baselibs//score/memory/shared/flags:use_typedshmd=False
+build:shared --@score_communication//score/memory/shared/flags:use_typedshmd=False
 
 # Shared qnx configuration
 build:shared_qnx --config=shared
@@ -53,7 +57,7 @@ build:shared_qnx --cxxopt=-DGRPC_POSIX_SOCKET
 build:shared_qnx --cxxopt=-DGRPC_POSIX_SOCKETUTILS
 build:shared_qnx --cxxopt=-DGRPC_POSIX_WAKEUP_FD
 build:shared_qnx --cxxopt=-DIP_PKTINFO=0
-build:shared_qnx --@score_baselibs//score/memory/shared/flags:use_typedshmd=false
+build:shared_qnx --@score_communication//score/memory/shared/flags:use_typedshmd=false
 
 # -------------------------------------------------------------------------------
 # Config dedicated to host platform CPU:x86_64 and OS:Linux
