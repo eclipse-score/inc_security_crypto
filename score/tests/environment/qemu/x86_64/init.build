@@ -64,7 +64,7 @@
     waitfor /dev/fsnotify                   # Wait for filesystem notification device
 
     echo "---> Starting devb-ram"
-    devb-ram ram capacity=1 blk ramdisk=512m,cache=512k,vnode=1024 2>/dev/null  # Create 512MB RAM disk
+    devb-ram ram capacity=1 blk ramdisk=1g,cache=512k,vnode=1024 2>/dev/null  # Create 1GB RAM disk
     waitfor /dev/ram0                       # Wait for RAM disk device to be ready
 
     echo "---> mounting ram disk"
