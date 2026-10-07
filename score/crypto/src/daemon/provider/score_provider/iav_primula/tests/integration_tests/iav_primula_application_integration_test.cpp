@@ -52,8 +52,11 @@ TEST(IavPrimulaApplicationIntegrationTest, CreatesSignHandlerFromProviderToAlgor
 
     // Use a non-null sentinel to simulate a bound native key handle without
     // creating a real backend key.
-    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, {}};
+    key_management::ProviderKeyHandle key_handle{};
+    key_handle.provider_id = provider.GetProviderId();
+    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, key_handle};
     handler::InitializationParams params{};
+    params.provider_id = provider.GetProviderId();
     params.bound_key_handler = &key;
     ASSERT_TRUE(handler->InitializeContext(params).has_value());
     EXPECT_EQ(primula_handler->GetOperationState(), common::StreamOperationState::IDLE);
