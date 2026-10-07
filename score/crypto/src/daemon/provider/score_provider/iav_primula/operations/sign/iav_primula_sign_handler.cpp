@@ -84,7 +84,7 @@ Expected<std::monostate, DaemonErrorCode> IavPrimulaSignHandler::InitializeConte
 
     if (init_params.bound_key_handler == nullptr)
     {
-        return make_unexpected(DaemonErrorCode::kKeySlotEmpty);
+        return make_unexpected(DaemonErrorCode::kInvalidArgument);
     }
 
     if (init_params.provider_id == common::kInvalidProviderId ||

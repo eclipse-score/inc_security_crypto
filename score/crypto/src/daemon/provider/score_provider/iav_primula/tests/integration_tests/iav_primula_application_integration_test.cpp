@@ -64,7 +64,7 @@ TEST(IavPrimulaApplicationIntegrationTest, CreatesSignHandlerFromProviderToAlgor
     // Initialization without a bound key must be rejected.
     auto missing_key_initialization = handler->InitializeContext({});
     ASSERT_FALSE(missing_key_initialization.has_value());
-    EXPECT_EQ(missing_key_initialization.error(), common::DaemonErrorCode::kKeySlotEmpty);
+    EXPECT_EQ(missing_key_initialization.error(), common::DaemonErrorCode::kInvalidArgument);
     provider.Shutdown();
 }
 
