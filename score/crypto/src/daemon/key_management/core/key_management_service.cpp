@@ -326,15 +326,14 @@ KeyManagementService::ResolveKeyForOperation(data_manager::ClientId client_id,
 // BindKeyToContext
 // ---------------------------------------------------------------------------
 
-Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> KeyManagementService::PeekKeyPermissions(
+Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> KeyManagementService::PeekKeyHandle(
     data_manager::ClientId client_id,
     data_manager::DataNodeId key_node_id)
 {
     auto node_accessor = m_data_manager->getNodeAccessor(client_id, key_node_id);
     if (!node_accessor.has_value())
     {
-        score::mw::log::LogError() << LOG_PREFIX
-                                   << "PeekKeyPermissions: node lookup failed for key_node_id=" << key_node_id;
+        score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: node lookup failed for key_node_id=" << key_node_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
@@ -345,15 +344,15 @@ Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> KeyM
         auto slot_acc = std::move(node_accessor.value()).downCast<KeySlotDataNode>();
         if (!slot_acc.has_value())
         {
-            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyPermissions: kKeySlot downCast failed (internal)";
+            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: kKeySlot downCast failed (internal)";
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
         }
         auto slot_config_res = slot_acc.value()->GetConfig();
         if (!slot_config_res.has_value())
         {
             score::mw::log::LogError() << LOG_PREFIX
-                                       << "PeekKeyPermissions: KeySlotDataNode has no config (key_node_id="
-                                       << key_node_id << ")";
+                                       << "PeekKeyHandle: KeySlotDataNode has no config (key_node_id=" << key_node_id
+                                       << ")";
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
         const auto* slot_config = slot_config_res.value();
@@ -372,19 +371,19 @@ Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> KeyM
         auto ref_acc = std::move(node_accessor.value()).downCast<KeyDataNode>();
         if (!ref_acc.has_value())
         {
-            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyPermissions: kKeyData downCast failed (internal)";
+            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: kKeyData downCast failed (internal)";
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
         }
         auto key_entry = ref_acc.value()->GetKeyEntry();
         if (!key_entry)
         {
-            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyPermissions: KeyDataNode has no backing KeyEntry";
+            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: KeyDataNode has no backing KeyEntry";
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
         return key_entry->GetHandle();
     }
 
-    score::mw::log::LogError() << LOG_PREFIX << "PeekKeyPermissions: key_node_id=" << key_node_id
+    score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: key_node_id=" << key_node_id
                                << " is neither a KeySlotDataNode nor a KeyDataNode"
                                << " (node_type=" << static_cast<int>(node_type) << ")";
     return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);

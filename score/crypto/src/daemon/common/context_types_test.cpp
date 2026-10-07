@@ -14,16 +14,17 @@
 /// @file context_types_test.cpp
 /// @brief Verifies the classification every keyed context creation depends on.
 ///
-/// RequiredKeyPermission() and IsKeylessContextType() split the context types
-/// between them, and the mediator reads both to decide whether a key may bind.
-/// A type missing from both is refused; a keyed type wrongly listed as keyless
-/// binds without a permission check. Neither mistake shows up in an integration
+/// RequiredKeyPermission() decides whether a key may bind: a type with no
+/// permission, keyless or unknown, is refused. A keyed type missing from the
+/// mapping would be refused outright; a keyless type wrongly given a permission
+/// would accept a key it never uses. Neither mistake shows up in an integration
 /// test, because the client only ever sends well-known type strings.
 
 #include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/context_mode.hpp"
 
 #include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/api/types/key.hpp"
 
 #include <gtest/gtest.h>
 
@@ -50,31 +51,37 @@ constexpr std::string_view kAllContextTypes[] = {
     ctx::kKeyManagement,
 };
 
-TEST(ContextTypesTest, EveryKnownTypeIsEitherKeylessOrCarriesAPermission)
+/// Context types that bind no key at CTX_CREATE.
+constexpr std::string_view kKeylessContextTypes[] = {
+    ctx::kHash,
+    ctx::kRandom,
+    ctx::kKeyManagement,
+};
+
+TEST(ContextTypesTest, ExactlyTheKeyedTypesCarryAPermission)
 {
-    // The two functions must partition the set. A type in neither is refused at
-    // key binding; a type in both would let the keyless branch win and skip the
-    // permission check.
+    // A keyless type with a permission would accept a key it never uses; a keyed
+    // type without one would be refused outright.
     for (const auto type : kAllContextTypes)
     {
-        const bool keyless = common::IsKeylessContextType(type);
+        bool keyless = false;
+        for (const auto keyless_type : kKeylessContextTypes)
+        {
+            keyless = keyless || (type == keyless_type);
+        }
         const bool has_permission = common::RequiredKeyPermission(type, std::nullopt).has_value();
 
         EXPECT_NE(keyless, has_permission)
-            << "context type '" << type << "' must be exactly one of keyless or permission-carrying";
+            << "context type '" << type << "' must carry a permission exactly when it binds a key";
     }
 }
 
-TEST(ContextTypesTest, UnknownTypeIsNeitherKeylessNorPermitted)
+TEST(ContextTypesTest, UnknownTypeHasNoPermission)
 {
-    // The case the mediator's fail-closed branch exists for: an unrecognised
-    // type must not be mistaken for a keyless one, or it would bind any key
-    // without a check.
-    constexpr std::string_view kUnknown = "NOT_A_CONTEXT_TYPE";
-
-    EXPECT_FALSE(common::IsKeylessContextType(kUnknown));
-    EXPECT_FALSE(common::RequiredKeyPermission(kUnknown, std::nullopt).has_value());
-    EXPECT_FALSE(common::IsKeylessContextType(""));
+    // The mediator refuses a key on any type without a permission, so an
+    // unrecognised type cannot bind a key unchecked.
+    EXPECT_FALSE(common::RequiredKeyPermission("NOT_A_CONTEXT_TYPE", std::nullopt).has_value());
+    EXPECT_FALSE(common::RequiredKeyPermission("", std::nullopt).has_value());
 }
 
 TEST(ContextTypesTest, KeyedTypesDemandTheOperationTheyPerform)

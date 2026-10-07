@@ -312,7 +312,6 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
     request.algorithm = &config.algorithm;
     request.provider_type = config.provider_type;
     request.key_node_id = config.key.id;
-    // Routes the daemon to C_Sign* or C_Verify* (EVP_MAC either way for OpenSSL).
     request.mode = daemon_common::ToContextMode(config.operation_mode);
 
     auto context_id = CreateDaemonContext(m_connection, request);
@@ -359,8 +358,6 @@ score::Result<std::unique_ptr<ICipherContext>> CryptoContextImpl::CreateCipherCo
     request.algorithm = &config.algorithm;
     request.provider_type = config.provider_type;
     request.key_node_id = config.key.id;
-    // The daemon routes to EVP_EncryptInit / EVP_DecryptInit (or C_EncryptInit /
-    // C_DecryptInit) based on this byte.
     request.mode = daemon_common::ToContextMode(config.direction);
     request.padding = config.padding;
 

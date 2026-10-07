@@ -273,35 +273,34 @@ MediatorImpl::BindAndAuthorizeKey(std::uint64_t client_id,
     // does not permit is refused from metadata alone, so it cannot make the
     // provider load material it is not allowed to use, and the client learns
     // the outcome before it streams any data.
-    if (!common::IsKeylessContextType(context_type))
+    const auto required = common::RequiredKeyPermission(context_type, common::ExtractContextMode(params));
+    if (!required.has_value())
     {
-        const auto required = common::RequiredKeyPermission(context_type, common::ExtractContextMode(params));
-        if (!required.has_value())
-        {
-            // An unrecognised type has no permission mapping, so there is nothing
-            // to check it against. Refusing here keeps a request that names a
-            // type this build does not know from binding a key unchecked.
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding requested for unknown context type"
-                                       << " (context_type=" << context_type << ", key_node_id=" << key_node_id << ")";
-            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
-        }
+        // Either the type binds no key at CTX_CREATE, so a key reference on it
+        // is malformed, or this build does not know the type at all. Neither
+        // has a permission to check against, and both are refused rather than
+        // bound unchecked.
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding requested for a context type that"
+                                   << " takes no key or is unknown (context_type=" << context_type
+                                   << ", key_node_id=" << key_node_id << ")";
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
+    }
 
-        const auto handle = m_km_service->PeekKeyPermissions(client_id, key_node_id);
-        if (!handle.has_value())
-        {
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key lookup failed for key_node_id=" << key_node_id;
-            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
-        }
+    const auto handle = m_km_service->PeekKeyHandle(client_id, key_node_id);
+    if (!handle.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key lookup failed for key_node_id=" << key_node_id;
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
+    }
 
-        const auto granted = key_management::GrantedPermissionsFor(handle.value(), required.value());
-        if (!score::crypto::HasPermission(granted, required.value()))
-        {
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key does not permit this operation"
-                                       << " (context_type=" << context_type << ", key_node_id=" << key_node_id
-                                       << ", required=" << static_cast<std::uint32_t>(required.value())
-                                       << ", granted=" << static_cast<std::uint32_t>(granted) << ")";
-            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
-        }
+    const auto granted = key_management::GrantedPermissionsFor(handle.value(), required.value());
+    if (!score::crypto::HasPermission(granted, required.value()))
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key does not permit this operation"
+                                   << " (context_type=" << context_type << ", key_node_id=" << key_node_id
+                                   << ", required=" << static_cast<std::uint32_t>(required.value())
+                                   << ", granted=" << static_cast<std::uint32_t>(granted) << ")";
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
     }
 
     auto bind_res = m_km_service->BindKeyToContext(client_id, context_node_id, key_node_id, provider_id);

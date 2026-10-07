@@ -135,34 +135,34 @@ class KeyManagementHandlerTest : public ::testing::Test
 };
 
 // ============================================================================
-// PeekKeyPermissions: permission metadata before any key material is loaded
+// PeekKeyHandle: permission metadata before any key material is loaded
 // ============================================================================
 
-TEST_F(KeyManagementHandlerTest, PeekKeyPermissions_KnownSlot_ReturnsAllowedOperationsWithoutLoading)
+TEST_F(KeyManagementHandlerTest, PeekKeyHandle_KnownSlot_ReturnsAllowedOperationsWithoutLoading)
 {
     const auto slot_node = ResolveSlotToDataNode("test/hmac-sha256", kAllowedClient);
     ASSERT_NE(slot_node, 0U) << "slot resolution failed";
 
-    auto peek = m_service->PeekKeyPermissions(kAllowedClient, slot_node);
-    ASSERT_TRUE(peek.has_value()) << "PeekKeyPermissions failed for a known slot";
+    auto peek = m_service->PeekKeyHandle(kAllowedClient, slot_node);
+    ASSERT_TRUE(peek.has_value()) << "PeekKeyHandle failed for a known slot";
 
     // The slot's allowed_operations govern whatever key it holds.
     EXPECT_EQ(peek.value().permissions, score::crypto::KeyOperationPermission::kMac);
     EXPECT_FALSE(peek.value().is_asymmetric);
 }
 
-TEST_F(KeyManagementHandlerTest, PeekKeyPermissions_UnknownNode_ReturnsError)
+TEST_F(KeyManagementHandlerTest, PeekKeyHandle_UnknownNode_ReturnsError)
 {
     constexpr dm::DataNodeId kNoSuchNode = 0xFFFF'FFF0U;
-    auto peek = m_service->PeekKeyPermissions(kAllowedClient, kNoSuchNode);
+    auto peek = m_service->PeekKeyHandle(kAllowedClient, kNoSuchNode);
     ASSERT_FALSE(peek.has_value());
     EXPECT_EQ(peek.error(), common::DaemonErrorCode::kInvalidArgument);
 }
 
-TEST_F(KeyManagementHandlerTest, PeekKeyPermissions_NonKeyNode_ReturnsError)
+TEST_F(KeyManagementHandlerTest, PeekKeyHandle_NonKeyNode_ReturnsError)
 {
     // The fixture's parent node is a plain DataNode, neither slot nor key.
-    auto peek = m_service->PeekKeyPermissions(kAllowedClient, m_parent_id);
+    auto peek = m_service->PeekKeyHandle(kAllowedClient, m_parent_id);
     ASSERT_FALSE(peek.has_value());
     EXPECT_EQ(peek.error(), common::DaemonErrorCode::kInvalidArgument);
 }

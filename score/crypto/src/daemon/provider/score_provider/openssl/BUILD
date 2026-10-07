@@ -135,3 +135,41 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "openssl_key_handler_test",
+    srcs = ["key_management/openssl_key_handler_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":provider_openssl_library",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "openssl_key_management_handler_test",
+    srcs = ["operations/key_management/openssl_key_management_handler_test.cpp"],
+    data = [
+        "//score/crypto/tests/key_management/config:key_management_test_config",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":provider_openssl_library",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/config",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/key_management",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
+        "@googletest//:gtest_main",
+    ],
+)

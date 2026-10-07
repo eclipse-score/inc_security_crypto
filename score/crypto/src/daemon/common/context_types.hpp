@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_TYPES_HPP
 
 #include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/context_mode.hpp"
 
 #include <cstdint>
@@ -57,9 +58,8 @@ inline constexpr std::string_view kKeyManagement = "KEY_MANAGEMENT";
 ///             their own key references and are checked individually (kDerive
 ///             for DeriveKey, kWrap for WrapKey, kExport for ExportKey).
 ///         std::nullopt is also the answer for a context type this build does
-///         not recognise, which is not the same case. A caller holding a key
-///         must tell the two apart with IsKeylessContextType() before reading
-///         std::nullopt as "no permission required".
+///         not recognise. A caller that holds a key treats both the same way:
+///         there is no permission to check against, so the key is not bound.
 [[nodiscard]] inline constexpr std::optional<score::crypto::KeyOperationPermission> RequiredKeyPermission(
     std::string_view context_type,
     std::optional<ContextMode> mode) noexcept
@@ -98,22 +98,6 @@ inline constexpr std::string_view kKeyManagement = "KEY_MANAGEMENT";
     }
 
     return std::nullopt;
-}
-
-/// @brief Whether a context of this type binds no key at CTX_CREATE.
-///
-/// RequiredKeyPermission() returns std::nullopt both for a context that needs no
-/// permission and for a string it does not recognise, which are not the same
-/// thing. A caller holding a key must know which of the two it has, because "no
-/// permission required" authorises the key unconditionally.
-///
-/// @warning An unrecognised context type is not keyless. Treating it as such
-///          would let a request naming an unknown type bind any key without a
-///          permission check.
-[[nodiscard]] inline constexpr bool IsKeylessContextType(std::string_view context_type) noexcept
-{
-    return (context_type == context_types::kHash) || (context_type == context_types::kRandom) ||
-           (context_type == context_types::kKeyManagement);
 }
 
 }  // namespace score::crypto::daemon::common
