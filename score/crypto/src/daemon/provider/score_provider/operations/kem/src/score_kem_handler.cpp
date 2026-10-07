@@ -49,10 +49,6 @@ Expected<std::monostate, common::DaemonErrorCode> ScoreKemHandler::Reset()
 // Default typed operations — return unsupported unless overridden
 // ---------------------------------------------------------------------------
 
-Expected<common::ResponseParameters, common::DaemonErrorCode> ScoreKemHandler::GenerateKeyPair()
-{
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
-}
 Expected<common::ResponseParameters, common::DaemonErrorCode> ScoreKemHandler::Encapsulate(
     const common::RequestParameter&)
 {

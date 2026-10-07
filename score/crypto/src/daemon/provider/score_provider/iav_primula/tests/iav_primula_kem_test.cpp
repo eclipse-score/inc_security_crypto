@@ -31,22 +31,6 @@ using Executor = score::crypto::daemon::provider::score_provider::operations::ke
 // Algorithm and input validation
 // ---------------------------------------------------------------------------
 
-TEST(IavPrimulaKemTest, RejectsUnsupportedAlgorithm)
-{
-    IavPrimulaKemHandler handler{std::make_unique<Executor>(), "ML-KEM-999"};
-    auto result = handler.GenerateKeyPair();
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), common::DaemonErrorCode::kUnsupportedAlgorithm);
-}
-
-TEST(IavPrimulaKemTest, PropagatesBackendStatusForKeyGeneration)
-{
-    IavPrimulaKemHandler handler{std::make_unique<Executor>(), "ML-KEM-768"};
-    auto result = handler.GenerateKeyPair();
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), common::DaemonErrorCode::kOperationFailed);
-}
-
 TEST(IavPrimulaKemTest, RejectsInvalidEncapsulationInput)
 {
     IavPrimulaKemHandler handler{std::make_unique<Executor>(), "ML-KEM-768"};
@@ -101,14 +85,14 @@ TEST(IavPrimulaKemTest, PropagatesBackendStatusForValidDecapsulation)
 
 TEST(IavPrimulaKemTest, DispatchesOperationsAndReset)
 {
-    // Verify that the handler dispatches both a KEM operation and RESET.
+    // Verify that the handler dispatches a KEM operation and RESET.
     using namespace score::crypto::daemon::provider::handler::kem_handler_operations;
     IavPrimulaKemHandler handler{std::make_unique<Executor>(), "ML-KEM-768"};
-    common::OperationIdentifier keygen{0U, KEM_KEYGEN};
+    common::OperationIdentifier unsupported{0U, 1U};
     common::RequestParameters no_parameters{};
-    auto keygen_result = handler.Execute(keygen, no_parameters);
-    ASSERT_FALSE(keygen_result.has_value());
-    EXPECT_EQ(keygen_result.error(), common::DaemonErrorCode::kOperationFailed);
+    auto unsupported_result = handler.Execute(unsupported, no_parameters);
+    ASSERT_FALSE(unsupported_result.has_value());
+    EXPECT_EQ(unsupported_result.error(), common::DaemonErrorCode::kInvalidOperation);
     common::OperationIdentifier reset{0U, KEM_RESET};
     auto reset_result = handler.Execute(reset, no_parameters);
     ASSERT_TRUE(reset_result.has_value());
