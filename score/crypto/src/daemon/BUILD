@@ -45,7 +45,7 @@ cc_binary(
         "//score/crypto/src/daemon/provider:provider_manager_factory",
         "//score/crypto/src/ipc:ipc_config",
         "//score/crypto/src/ipc/grpc_adapter:grpc_control_server",
-        "@score_baselibs//score/memory/shared",
+        "@score_communication//score/memory/shared",
         "@score_baselibs//score/mw/log",
     ],
 )
