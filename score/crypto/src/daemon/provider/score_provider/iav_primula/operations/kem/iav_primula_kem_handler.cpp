@@ -50,7 +50,7 @@ Expected<std::monostate, common::DaemonErrorCode> IavPrimulaKemHandler::Initiali
     const handler::InitializationParams& init_params)
 {
     // Bind an optional IAV-Primula key. A key is required later for
-    // decapsulation, but not for key generation or encapsulation.
+    // decapsulation, but not for encapsulation.
     m_key = nullptr;
     if (init_params.bound_key_handler != nullptr)
     {
@@ -62,34 +62,6 @@ Expected<std::monostate, common::DaemonErrorCode> IavPrimulaKemHandler::Initiali
         m_key = key->GetNativeHandle();
     }
     return {};
-}
-
-Expected<common::ResponseParameters, common::DaemonErrorCode> IavPrimulaKemHandler::GenerateKeyPair()
-{
-    auto algorithm = GetAlgorithm();
-    if (!algorithm.has_value())
-    {
-        return make_unexpected(algorithm.error());
-    }
-
-    // Generate a temporary KEM key pair, export its public key, and release the
-    // native key handle before returning the public key.
-    iav_primula_key_handle* key = nullptr;
-    if (iav_kem_keypair_generate(algorithm.value(), &key) != IavStatusOk || key == nullptr)
-    {
-        return make_unexpected(common::DaemonErrorCode::kOperationFailed);
-    }
-
-    const auto info = common::LookupPqcAlgorithm(m_algorithm);
-    std::vector<std::uint8_t> public_key(info->public_key_size);
-    std::size_t length = public_key.size();
-    const auto status = iav_kem_public_key_export(key, public_key.data(), &length);
-    iav_key_destroy(key);
-    if (status != IavStatusOk || length != public_key.size())
-    {
-        return make_unexpected(common::DaemonErrorCode::kOperationFailed);
-    }
-    return common::ResponseParameters{common::OwnedBuffer{std::move(public_key)}};
 }
 
 Expected<common::ResponseParameters, common::DaemonErrorCode> IavPrimulaKemHandler::Encapsulate(

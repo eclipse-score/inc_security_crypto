@@ -22,8 +22,6 @@
 
 namespace score::crypto::daemon::provider::handler::kem_handler_operations
 {
-/// @brief Generate a KEM key pair.
-inline constexpr common::OperationAction KEM_KEYGEN = 1;
 /// @brief Encapsulate a shared secret using a peer public key.
 inline constexpr common::OperationAction KEM_ENCAPSULATE = 2;
 /// @brief Decapsulate a ciphertext with the bound private key.

@@ -31,8 +31,9 @@ class KemExecutor;
 /// @brief Provider-neutral base handler for one-shot KEM operations.
 ///
 /// Delegates operation dispatch to the injected KemExecutor. Concrete
-/// provider handlers override the typed KEM methods to implement key
-/// generation, encapsulation, and decapsulation.
+/// provider handlers override the typed KEM methods to implement
+/// encapsulation and decapsulation. Key generation is handled by the
+/// KeyManagement context.
 class ScoreKemHandler : public handler::Handler
 {
   public:
@@ -57,12 +58,6 @@ class ScoreKemHandler : public handler::Handler
 
     /// @brief Reset the KEM handler state.
     Expected<std::monostate, common::DaemonErrorCode> Reset() override;
-
-    /// @brief Generate a KEM key pair.
-    ///
-    /// Concrete providers override this method to return the generated public
-    /// key or provider-specific key-generation output.
-    virtual Expected<common::ResponseParameters, common::DaemonErrorCode> GenerateKeyPair();
 
     /// @brief Encapsulate a shared secret using a public key.
     ///

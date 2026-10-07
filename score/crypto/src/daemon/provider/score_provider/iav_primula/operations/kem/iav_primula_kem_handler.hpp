@@ -44,17 +44,12 @@ class IavPrimulaKemHandler final : public operations::kem::ScoreKemHandler
 
     /// @brief Bind an optional IAV-Primula key to the operation context.
     ///
-    /// A native key is required for decapsulation but not for key generation
-    /// or encapsulation.
+    /// A native key is required for decapsulation but not for encapsulation.
     ///
     /// @param init_params Context initialization parameters, including an
     ///                    optional bound key handler.
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
         const handler::InitializationParams& init_params) override;
-    /// @brief Generate a KEM key pair and return its public key.
-    ///
-    /// The native private key is released before the operation returns.
-    [[nodiscard]] Expected<common::ResponseParameters, common::DaemonErrorCode> GenerateKeyPair() override;
     /// @brief Encapsulate a shared secret using a public key.
     ///
     /// The response contains the ciphertext followed by the shared secret.

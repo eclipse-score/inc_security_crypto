@@ -29,14 +29,6 @@ Expected<common::ResponseParameters, common::DaemonErrorCode> KemExecutor::Execu
     // each operation type.
     switch (operation.operationAction)
     {
-        case ops::KEM_KEYGEN:
-        {
-            if (!request.empty())
-            {
-                return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
-            }
-            return handler.GenerateKeyPair();
-        }
         case ops::KEM_ENCAPSULATE:
         {
             if (request.empty())
