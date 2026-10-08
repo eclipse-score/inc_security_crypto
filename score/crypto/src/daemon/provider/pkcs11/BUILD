@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
     name = "provider_pkcs11_headers",
@@ -119,5 +119,24 @@ cc_library(
     deps = [
         ":pkcs11_token_config",
         ":provider_pkcs11_library",
+    ],
+)
+
+cc_test(
+    name = "pkcs11_key_management_handler_test",
+    srcs = ["operations/key_management/pkcs11_key_management_handler_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":provider_pkcs11_library",
+        "//score/crypto/src/backend:active_pkcs11_backend",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/key_management",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
+        "//score/crypto/tests/softhsm:softhsm_test_fixture",
+        "@googletest//:gtest_main",
     ],
 )

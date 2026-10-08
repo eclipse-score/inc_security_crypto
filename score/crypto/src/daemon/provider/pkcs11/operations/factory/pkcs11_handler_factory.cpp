@@ -40,17 +40,17 @@ Pkcs11HandlerFactory::Pkcs11HandlerFactory(const Pkcs11Module& module, Pkcs11Pro
 score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHandler(const common::HandlerId& handlerId,
                                                                           const common::AlgorithmId& algorithm)
 {
-    if (handlerId == kHashHandlerId)
+    if (handlerId == common::context_types::kHash)
     {
         return CreateHashHandler(algorithm);
     }
 
-    if (handlerId == kMacHandlerId)
+    if (handlerId == common::context_types::kMac)
     {
         return CreateMacHandler(algorithm);
     }
 
-    if (handlerId == kKeyManagementHandlerId)
+    if (handlerId == common::context_types::kKeyManagement)
     {
         return CreateKeyManagementHandler();
     }

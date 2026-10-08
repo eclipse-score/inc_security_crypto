@@ -162,6 +162,60 @@ class TestCryptoDaemon:
             },
         )
 
+    def test_score_api_cipher(
+        self, target: Target, target_os: str, install_dir: str, openssl_backend: None
+    ):
+        """Test SCORE symmetric encryption / decryption API."""
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_api_cipher_test"),
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
+            },
+        )
+
+    def test_score_api_random(
+        self, target: Target, target_os: str, install_dir: str, openssl_backend: None
+    ):
+        """Test SCORE random number generation API."""
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_api_random_test"),
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
+            },
+        )
+
+    def test_score_api_ecdsa(
+        self, target: Target, target_os: str, install_dir: str, openssl_backend: None
+    ):
+        """Test SCORE ECDSA key generation, signing and verification API."""
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_api_ecdsa_test"),
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
+            },
+        )
+
+    def test_score_api_key_permissions(self, target: Target, target_os: str, install_dir: str):
+        """Test SCORE key operation permission enforcement at context creation."""
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_api_key_permissions_test"),
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
+            },
+        )
+
     def test_hash_performance_test(self, target: Target, target_os: str, install_dir: str):
         """Test concurrent and sequential hash operations."""
         run_test_app(

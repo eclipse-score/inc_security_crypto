@@ -239,24 +239,12 @@ Expected<std::monostate, DaemonErrorCode> MacExecutor::ValidateStreamTransition(
                                                                                 const StreamOperationState currentState,
                                                                                 StreamOperationState& nextState)
 {
-    handler::handler_utils::StreamOperation op{};
-    if (action == handler::mac_handler_operations::MAC_INIT)
-    {
-        op = handler::handler_utils::StreamOperation::kInit;
-    }
-    else if (action == handler::mac_handler_operations::MAC_UPDATE)
-    {
-        op = handler::handler_utils::StreamOperation::kUpdate;
-    }
-    else if (action == handler::mac_handler_operations::MAC_FINALIZE)
-    {
-        op = handler::handler_utils::StreamOperation::kFinalize;
-    }
-    else
+    const auto op = handler::mac_handler_operations::ToStreamOperation(action);
+    if (!op.has_value())
     {
         return make_unexpected(DaemonErrorCode::kInvalidOperation);
     }
-    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op);
+    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());
     if (!result.has_value())
     {
         return make_unexpected(result.error());

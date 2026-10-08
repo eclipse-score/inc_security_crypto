@@ -45,7 +45,7 @@ cc_library(
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",
         "//score/crypto/src/daemon/mediator:mediator_operations",
-        "@score_baselibs//score/memory/shared",
+        "@score_communication//score/memory/shared",
         "@score_baselibs//score/mw/log",
     ],
 )

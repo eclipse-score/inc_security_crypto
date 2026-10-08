@@ -72,6 +72,8 @@ inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities
 //           param[1]: string — algorithm name (e.g. "SHA256", "SHA512")
 //           param[2]: optional uint8 — provider type preference (defaults to DEFAULT)
 //           param[3]: optional uint64_t — node_id of key resource (CryptoResourceId.id)
+//           param[4]: optional uint8 — common::ContextMode (keyed contexts)
+//           param[5]: optional uint8 — CipherPadding (cipher contexts)
 // Capability routing: a recognized scope uses capability-based selection when the provider
 // preference is DEFAULT. Explicit provider preferences and key-bound selection are still
 // checked against the scope's required capability. Unrecognized or absent scopes add no
