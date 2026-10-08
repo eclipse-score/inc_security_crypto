@@ -143,6 +143,24 @@ class KeyManagementService final
     // Context-level key binding
     // ------------------------------------------------------------------
 
+    /// The handle that governs a key's permissions, before it is loaded or bound.
+    ///
+    /// Returns a whole ProviderKeyHandle rather than one permission value because
+    /// GrantedPermissionsFor() needs is_asymmetric and public_key_permissions as
+    /// well as permissions to pick the half that applies. Answers from metadata
+    /// alone, so a request the key does not permit is refused without touching
+    /// key material. For a KeySlotDataNode the slot configuration's
+    /// allowed_operations are authoritative and come back as the handle's
+    /// permissions. For a KeyDataNode the live handle is returned.
+    ///
+    /// @param client_id   Owning client.
+    /// @param key_node_id DataNodeId of a KeySlotDataNode or KeyDataNode.
+    /// @return The handle whose permission fields govern the key; DaemonErrorCode
+    ///         when the node is unknown or is neither node kind.
+    [[nodiscard]] Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> PeekKeyHandle(
+        data_manager::ClientId client_id,
+        data_manager::DataNodeId key_node_id);
+
     /// Bind a key (loaded or slot) to a context at creation time.
     ///
     /// Accepts either a KeySlotDataNode ID (slot-direct path) or a

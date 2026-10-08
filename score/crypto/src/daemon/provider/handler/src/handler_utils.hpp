@@ -17,6 +17,8 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/stream_operation.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -85,18 +87,7 @@ CheckAndGetSpan(typename detail::SpanTraits<T>::ParamType param) noexcept
     return *span;
 }
 
-/**
- * @brief Streaming operation kind used to drive the stream state machine.
- *
- * Maps a concrete operation (init/update/finalize) onto a state transition in
- * ValidateStreamOperationSequence().
- */
-enum class StreamOperation : std::uint8_t
-{
-    kInit,      ///< Initialize (or restart) a streaming operation.
-    kUpdate,    ///< Feed additional data into an active stream.
-    kFinalize,  ///< Complete the stream and produce the final result.
-};
+using StreamOperation = ::score::crypto::daemon::provider::handler::StreamOperation;
 
 /**
  * @brief Validate a streaming operation and return the resulting next state.
