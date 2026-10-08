@@ -12,17 +12,26 @@
  ********************************************************************************/
 
 #include "score/mw/log/logging.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context_mode.hpp"
+#include "score/crypto/src/daemon/common/context_types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/key_compatibility.hpp"
 #include "score/crypto/src/daemon/common/operation_names.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
@@ -32,6 +41,8 @@
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/data_plane/src/shm_data_node.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
+#include "score/crypto/src/daemon/mediator/context_algorithm.hpp"
 #include "score/crypto/src/daemon/mediator/i_mediator.hpp"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/crypto/src/daemon/mediator/src/mediator_impl.hpp"
@@ -48,32 +59,25 @@ using ControlResponse = control_plane::ControlResponse;
 namespace score::crypto::daemon::mediator
 {
 
-/// @brief Decode a ProviderType wire value (from the IPC protocol) into the
-///        daemon-internal CryptoProviderType capability classification.
-///
-/// The wire encoding is the uint8_t value of the client-side mw::crypto::ProviderType
-/// enumerator (0=kDefault, 1=kHardware, 2=kSoftware, 3=kHardwarePreferred, 4=kSoftwarePreferred).
-/// kHardwarePreferred / kSoftwarePreferred are resolved to their primary type; the
-/// daemon's ProviderManager::GetProvider() handles fallback to SOFTWARE/HARDWARE if
-/// the preferred type is not registered.
-static common::CryptoProviderType FromWireProviderType(std::uint8_t wire_value) noexcept
+namespace
 {
-    // Wire values match mw::crypto::ProviderType enumerator positions:
-    //   0=kDefault, 1=kHardware, 2=kSoftware, 3=kHardwarePreferred, 4=kSoftwarePreferred
-    switch (wire_value)
-    {
-        case 1:
-            return common::CryptoProviderType::HARDWARE;
-        case 2:
-            return common::CryptoProviderType::SOFTWARE;
-        case 3:
-            return common::CryptoProviderType::HARDWARE;
-        case 4:
-            return common::CryptoProviderType::SOFTWARE;
-        default:
-            return common::CryptoProviderType::DEFAULT;
-    }
+
+bool IsContextParameterPresent(const control_plane::SingleOperationRequest& operation,
+                               const std::size_t parameter_index) noexcept
+{
+    return (operation.parameters.size() > parameter_index) &&
+           !std::holds_alternative<common::NoParam>(operation.parameters[parameter_index]);
 }
+
+bool IsFallbackEligible(const score::crypto::CryptoErrorCode error) noexcept
+{
+    return (error == score::crypto::CryptoErrorCode::kUnsupportedOperation) ||
+           (error == score::crypto::CryptoErrorCode::kUnsupportedAlgorithm) ||
+           (error == score::crypto::CryptoErrorCode::kProviderNotAvailable) ||
+           (error == score::crypto::CryptoErrorCode::kIncompatibleKeyType);
+}
+
+}  // namespace
 
 MediatorImpl::MediatorImpl(MediatorDependencies deps) : IMediator(std::move(deps))
 {
@@ -94,7 +98,8 @@ control_plane::ControlResponse MediatorImpl::processRequest(control_plane::Contr
         // Stop processing requests, once one fails. They may depend on each other
         if (!HandleSingleOperation(request, operation, responseBuilder))
         {
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR at operation index:" << idx;
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR at operation index:"
+                                       << static_cast<std::uint64_t>(idx);
             break;
         }
     }
@@ -106,7 +111,8 @@ control_plane::ControlResponse MediatorImpl::processRequest(control_plane::Contr
     response.request_id = request.request_id;
     response.operation = opResponse;
 
-    score::mw::log::LogVerbose() << "[SCORE_API_MED] Response operations: " << opResponse.operations.size();
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] Response operations: "
+                                 << static_cast<std::uint64_t>(opResponse.operations.size());
 
     return response;
 }
@@ -248,137 +254,333 @@ bool MediatorImpl::ForwardSingleOperation(const control_plane::ControlRequest& r
     return ExecuteOperation(exec_ctx, handler, responseBuilder);
 }
 
+score::crypto::Expected<key_management::IKeyHandler::Sptr, score::crypto::CryptoErrorCode>
+MediatorImpl::BindAndAuthorizeKey(std::uint64_t client_id,
+                                  std::uint64_t context_node_id,
+                                  std::uint64_t& key_node_id,
+                                  const common::ProviderId& provider_id,
+                                  std::string_view context_type,
+                                  const std::optional<AlgorithmDescriptor>& algorithm,
+                                  const common::RequestParameters& params)
+{
+    if (!m_km_service)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding requires key management service";
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+    }
+
+    // A context is bound to one key, one operation and one direction for its
+    // whole life, so a single check here covers every operation that will ever
+    // run on it. It runs before the key is loaded or bound: a request the key
+    // does not permit is refused from metadata alone, so it cannot make the
+    // provider load material it is not allowed to use, and the client learns
+    // the outcome before it streams any data.
+    const auto required = common::RequiredKeyPermission(context_type, common::ExtractContextMode(params));
+    if (!required.has_value())
+    {
+        // Either the type binds no key at CTX_CREATE, so a key reference on it
+        // is malformed, or this build does not know the type at all. Neither
+        // has a permission to check against, and both are refused rather than
+        // bound unchecked.
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding requested for a context type that"
+                                   << " takes no key or is unknown (context_type=" << context_type
+                                   << ", key_node_id=" << key_node_id << ")";
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
+    }
+
+    const auto handle = m_km_service->PeekKeyHandle(client_id, key_node_id);
+    if (!handle.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key lookup failed for key_node_id=" << key_node_id;
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
+    }
+
+    const auto granted = key_management::GrantedPermissionsFor(handle.value(), required.value());
+    if (!score::crypto::HasPermission(granted, required.value()))
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key does not permit this operation"
+                                   << " (context_type=" << context_type << ", key_node_id=" << key_node_id
+                                   << ", required=" << static_cast<std::uint32_t>(required.value())
+                                   << ", granted=" << static_cast<std::uint32_t>(granted) << ")";
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
+    }
+
+    // The key must also fit the algorithm: an EC key on another curve, an AES
+    // key of another length, or a key labelled for another operation is
+    // refused here for every provider rather than left to each provider to
+    // notice. Only a KEY:MANAGEMENT context has no algorithm, and it binds no
+    // key (refused above).
+    //
+    // A key slot that is not loaded yet has no material size (0). Its label is
+    // checked now and the length of its material after binding.
+    const auto& key_algorithm = handle.value().algorithm;
+    const std::size_t pre_bind_key_size = handle.value().key_size;
+    if (!algorithm.has_value() || !common::IsKeyCompatible(algorithm.value(), key_algorithm, pre_bind_key_size))
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key does not fit the algorithm"
+                                   << " (algorithm=" << (algorithm.has_value() ? algorithm->name : "")
+                                   << ", key_algorithm=" << key_algorithm.name << ", key_node_id=" << key_node_id
+                                   << ")";
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kIncompatibleKeyType);
+    }
+
+    auto bind_res = m_km_service->BindKeyToContext(client_id, context_node_id, key_node_id, provider_id);
+    if (!bind_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding failed for key_node_id=" << key_node_id;
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
+    }
+
+    if (pre_bind_key_size == 0U)
+    {
+        const auto& bound = bind_res.value().key_handler->GetHandle();
+        if (!common::IsKeyCompatible(algorithm.value(), bound.algorithm, bound.key_size))
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - loaded key does not fit the algorithm"
+                                       << " (algorithm=" << algorithm->name
+                                       << ", key_algorithm=" << bound.algorithm.name << ", key_size=" << bound.key_size
+                                       << ", key_node_id=" << key_node_id << ")";
+            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kIncompatibleKeyType);
+        }
+    }
+
+    key_node_id = static_cast<std::uint64_t>(bind_res.value().resolved_node_id);
+    return bind_res.value().key_handler;
+}
+
+score::crypto::Expected<MediatorImpl::ProviderHandlerSelection, score::crypto::CryptoErrorCode>
+MediatorImpl::ResolveProviderAndCreateHandler(const std::uint64_t client_id,
+                                              const std::optional<data_manager::DataNodeId>& key_node_id,
+                                              const std::string_view context_type,
+                                              const std::optional<AlgorithmDescriptor>& algorithm,
+                                              const common::CryptoProviderType primary_provider_type,
+                                              const std::optional<common::CryptoProviderType>& fallback_provider_type,
+                                              const common::ProviderCapability required_capability)
+{
+    const auto resolve_provider = [&](const common::CryptoProviderType provider_type)
+        -> score::crypto::Expected<std::shared_ptr<provider::IProvider>, score::crypto::CryptoErrorCode> {
+        if (m_km_service && key_node_id.has_value())
+        {
+            const auto resolved_id = m_km_service->ResolveTargetProvider(client_id, provider_type, key_node_id);
+            if (!resolved_id.has_value())
+            {
+                return score::crypto::make_unexpected(common::ToCryptoErrorCode(resolved_id.error()));
+            }
+
+            auto resolved_provider = m_provider_manager->GetProvider(resolved_id.value());
+            if (!resolved_provider)
+            {
+                return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kProviderNotAvailable);
+            }
+            return resolved_provider;
+        }
+
+        std::shared_ptr<provider::IProvider> resolved_provider;
+        if ((provider_type == common::CryptoProviderType::DEFAULT) &&
+            (required_capability != common::ProviderCapability::kNone))
+        {
+            resolved_provider = m_provider_manager->GetProviderForCapability(required_capability);
+        }
+        else
+        {
+            resolved_provider = m_provider_manager->GetProvider(provider_type);
+        }
+        if (!resolved_provider)
+        {
+            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kProviderNotAvailable);
+        }
+        return resolved_provider;
+    };
+
+    const std::array<std::optional<common::CryptoProviderType>, 2U> candidates{primary_provider_type,
+                                                                               fallback_provider_type};
+    std::optional<common::ProviderId> previous_provider_id{};
+    auto last_error = score::crypto::CryptoErrorCode::kProviderNotAvailable;
+
+    for (std::size_t candidate_index = 0U; candidate_index < candidates.size(); ++candidate_index)
+    {
+        if (!candidates[candidate_index].has_value())
+        {
+            continue;
+        }
+
+        auto candidate_result = resolve_provider(candidates[candidate_index].value());
+        if (!candidate_result.has_value())
+        {
+            last_error = candidate_result.error();
+            if (!IsFallbackEligible(last_error))
+            {
+                break;
+            }
+            continue;
+        }
+        auto candidate = candidate_result.value();
+
+        if (previous_provider_id.has_value() && (previous_provider_id.value() == candidate->GetProviderId()))
+        {
+            continue;
+        }
+        previous_provider_id = candidate->GetProviderId();
+
+        if ((required_capability != common::ProviderCapability::kNone) &&
+            !common::HasCapability(candidate->GetProviderCapabilities(), required_capability))
+        {
+            last_error = score::crypto::CryptoErrorCode::kUnsupportedOperation;
+            continue;
+        }
+
+        const auto crypto_ops = candidate->GetCryptoHandlerFactory();
+        if (!crypto_ops)
+        {
+            last_error = score::crypto::CryptoErrorCode::kUnsupportedOperation;
+            continue;
+        }
+
+        auto create_result = algorithm.has_value()
+                                 ? crypto_ops->CreateHandler(std::string(context_type), algorithm.value())
+                                 : crypto_ops->CreateKeyManagementHandler();
+        if (create_result.has_value())
+        {
+            return ProviderHandlerSelection{
+                std::move(candidate), std::move(create_result).value(), candidate_index > 0U};
+        }
+
+        last_error = static_cast<score::crypto::CryptoErrorCode>(*create_result.error());
+        if (!IsFallbackEligible(last_error))
+        {
+            break;
+        }
+    }
+
+    return score::crypto::make_unexpected(last_error);
+}
+
 bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::control_plane::ControlRequest& request,
                                                   const control_plane::SingleOperationRequest& operation,
                                                   control_plane::protocol::OperationResponseBuilder& responseBuilder)
 {
-    if (operation.parameters.size() < 2)
+    if ((operation.parameters.size() < 2U) || (operation.parameters.size() > operations::CTX_MAX_PARAMETER_COUNT))
     {
-        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Not enough parameters for request";
-        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Invalid CTX_CREATE parameter count: "
+                                   << static_cast<std::uint64_t>(operation.parameters.size());
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
-    auto context_type_res = operation.getParameter<std::string_view>(0);
+    auto context_type_res = operation.getParameter<std::string_view>(operations::CTX_PARAM_HANDLER_TYPE);
     if (!context_type_res.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Wrong parameter type for context_type";
-        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
     auto context_type = context_type_res.value();
 
-    auto algorithm_res = operation.getParameter<std::string_view>(1);
+    auto algorithm_res = operation.getParameter<std::string_view>(operations::CTX_PARAM_ALGORITHM);
     if (!algorithm_res.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Wrong parameter type for algorithm";
-        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
     auto algorithm = algorithm_res.value();
 
-    // Read optional provider type parameter (param[2])
-    // Default to DEFAULT provider type if not specified or invalid
-    common::CryptoProviderType requested_provider_type = common::CryptoProviderType::DEFAULT;
-    if (operation.parameters.size() >= 3)
+    operations::ProviderTypePreference provider_preference{common::CryptoProviderType::DEFAULT, std::nullopt};
+    if (IsContextParameterPresent(operation, operations::CTX_PARAM_PROVIDER_TYPE))
     {
-        auto provider_type_res = operation.getParameter<std::uint8_t>(2);
-        if (provider_type_res.has_value())
+        const auto provider_type_res = operation.getParameter<std::uint8_t>(operations::CTX_PARAM_PROVIDER_TYPE);
+        if (!provider_type_res.has_value())
         {
-            requested_provider_type = FromWireProviderType(provider_type_res.value());
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Wrong parameter type for provider preference";
+            responseBuilder.operation(operation.operationId)
+                .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            return false;
         }
+
+        const auto decoded_preference = operations::DecodeProviderTypePreference(provider_type_res.value());
+        if (!decoded_preference.has_value())
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Unknown provider preference value: "
+                                       << static_cast<unsigned int>(provider_type_res.value());
+            responseBuilder.operation(operation.operationId)
+                .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            return false;
+        }
+        provider_preference = decoded_preference.value();
     }
 
     // Read optional key_node_id parameter (param[3]) — for binding a key at context creation
     std::uint64_t key_node_id{0U};
     bool has_key_binding = false;
-    if (operation.parameters.size() >= 4)
+    if (IsContextParameterPresent(operation, operations::CTX_PARAM_KEY_NODE_ID))
     {
-        auto key_node_res = operation.getParameter<std::uint64_t>(3);
-        if (key_node_res.has_value())
+        const auto key_node_res = operation.getParameter<std::uint64_t>(operations::CTX_PARAM_KEY_NODE_ID);
+        if (!key_node_res.has_value())
         {
-            key_node_id = key_node_res.value();
-            has_key_binding = true;
-        }
-    }
-
-    common::ProviderCapability required_capability = common::ProviderCapability::kNone;
-    const auto colon_pos = context_type.find(':');
-    if (colon_pos != std::string_view::npos)
-    {
-        const auto scope = context_type.substr(0, colon_pos);
-        for (const auto& scope_capability : operations::kContextScopeCapabilities)
-        {
-            if (scope == scope_capability.scope)
-            {
-                required_capability = scope_capability.capability;
-                break;
-            }
-        }
-    }
-
-    // --- Resolve target provider (considers key/slot affinity when available) ---
-    std::shared_ptr<provider::IProvider> provider;
-    if (m_km_service && has_key_binding)
-    {
-        auto resolved_id_res = m_km_service->ResolveTargetProvider(
-            request.client_id, requested_provider_type, std::optional<data_manager::DataNodeId>{key_node_id});
-        if (!resolved_id_res.has_value())
-        {
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Provider resolution failed for keyed context"
-                                       << " (key_node_id=" << key_node_id << ")";
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Wrong parameter type for key resource";
             responseBuilder.operation(operation.operationId)
                 .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
             return false;
         }
-        provider = m_provider_manager->GetProvider(resolved_id_res.value());
+        key_node_id = key_node_res.value();
+        if (key_node_id == 0U)
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Invalid zero key resource identifier";
+            responseBuilder.operation(operation.operationId)
+                .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            return false;
+        }
+        has_key_binding = true;
     }
-    else if (required_capability != common::ProviderCapability::kNone &&
-             requested_provider_type == common::CryptoProviderType::DEFAULT)
+
+    // Keep the mediator limited to the common context contract: keyed context
+    // families must carry a key reference, while operation-mode semantics stay
+    // with the concrete handler.
+    const auto required_key_permission =
+        common::RequiredKeyPermission(context_type, common::ExtractContextMode(operation.parameters));
+    if (required_key_permission.has_value() && !has_key_binding)
     {
-        provider = m_provider_manager->GetProviderForCapability(required_capability);
-    }
-    else
-    {
-        provider = m_provider_manager->GetProvider(requested_provider_type);
-    }
-    if (!provider)
-    {
-        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No providers available for type: "
-                                   << static_cast<int>(requested_provider_type);
-        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Missing key resource for keyed context: "
+                                   << context_type;
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
 
-    if (required_capability != common::ProviderCapability::kNone &&
-        !common::HasCapability(provider->GetProviderCapabilities(), required_capability))
+    const common::ProviderCapability required_capability = operations::RequiredProviderCapability(context_type);
+
+    // Resolve the algorithm name once, before any provider is asked; a name
+    // the catalog does not know is refused here. std::nullopt is passed on for
+    // a KEY:MANAGEMENT context, which is bound to no algorithm.
+    std::optional<AlgorithmDescriptor> algorithm_descriptor{};
+    if (operations::ContextTakesAlgorithm(context_type))
     {
-        score::mw::log::LogError()
-            << "[SCORE_API_MED] ERROR - Selected provider lacks required capability for context: " << context_type;
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
-        return false;
+        algorithm_descriptor = operations::ResolveContextAlgorithm(context_type, algorithm);
+        if (!algorithm_descriptor.has_value())
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Unknown algorithm: " << algorithm;
+            responseBuilder.operation(operation.operationId)
+                .return_error(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm);
+            return false;
+        }
     }
 
-    auto crypto_ops = provider->GetCryptoHandlerFactory();
-    if (crypto_ops == nullptr)
+    const auto provider_handler = ResolveProviderAndCreateHandler(
+        request.client_id,
+        has_key_binding ? std::optional<data_manager::DataNodeId>{key_node_id} : std::nullopt,
+        context_type,
+        algorithm_descriptor,
+        provider_preference.primary,
+        provider_preference.fallback,
+        required_capability);
+    if (!provider_handler.has_value())
     {
-        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Crypto operations not available";
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
-        return false;
-    }
-
-    auto create_result = crypto_ops->CreateHandler(std::string(context_type), std::string(algorithm));
-    if (!create_result.has_value())
-    {
-        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Handler or algorithm not supported:" << context_type
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No compatible provider/handler for: " << context_type
                                    << "/" << algorithm;
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+        responseBuilder.operation(operation.operationId).return_error(provider_handler.error());
         return false;
     }
 
-    auto handler = create_result.value();
+    auto provider = provider_handler.value().provider;
+    auto handler = provider_handler.value().handler;
 
     // --- Create the context node FIRST so we have its node-id for InitializationParams ---
     auto client_id = request.client_id;
@@ -394,32 +596,30 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     }
     auto context_node_id = context_id_res.value();
 
-    // --- Optional key binding: resolve key and bind to context node ---
+    // --- Optional key binding: resolve key, bind to context node, authorize ---
     key_management::IKeyHandler::Sptr bound_key_handler;
     if (has_key_binding)
     {
-        if (!m_km_service)
-        {
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding requires key management service";
-            m_data_manager->deleteNode(client_id, context_node_id);
-            responseBuilder.operation(operation.operationId)
-                .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
-            return false;
-        }
-
-        auto bind_res =
-            m_km_service->BindKeyToContext(client_id, context_node_id, key_node_id, provider->GetProviderId());
+        auto bind_res = BindAndAuthorizeKey(client_id,
+                                            context_node_id,
+                                            key_node_id,
+                                            provider->GetProviderId(),
+                                            context_type,
+                                            algorithm_descriptor,
+                                            operation.parameters);
         if (!bind_res.has_value())
         {
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding failed for key_node_id=" << key_node_id;
-            m_data_manager->deleteNode(client_id, context_node_id);
-            responseBuilder.operation(operation.operationId)
-                .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            const auto cleanup_result = m_data_manager->deleteNode(client_id, context_node_id);
+            if (!cleanup_result.has_value())
+            {
+                score::mw::log::LogError()
+                    << "[SCORE_API_MED] ERROR - Failed to remove context after key-binding failure: "
+                    << static_cast<int>(cleanup_result.error());
+            }
+            responseBuilder.operation(operation.operationId).return_error(bind_res.error());
             return false;
         }
-
-        key_node_id = static_cast<std::uint64_t>(bind_res.value().resolved_node_id);
-        bound_key_handler = bind_res.value().key_handler;
+        bound_key_handler = bind_res.value();
     }
 
     // --- Build InitializationParams and initialize the handler ---
@@ -439,15 +639,22 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Handler initialization failed for context with error: "
                                    << static_cast<int>(init_result.error());
-        m_data_manager->deleteNode(client_id, context_node_id);
-        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInternalError);
+        const auto cleanup_result = m_data_manager->deleteNode(client_id, context_node_id);
+        if (!cleanup_result.has_value())
+        {
+            score::mw::log::LogError()
+                << "[SCORE_API_MED] ERROR - Failed to remove context after handler initialization failure: "
+                << static_cast<int>(cleanup_result.error());
+        }
+        responseBuilder.operation(operation.operationId).return_error(init_result.error());
         return false;
     }
 
-    const std::string_view provider_selection = has_key_binding ? " (key-affinity resolved)"
-                                                : required_capability != common::ProviderCapability::kNone
-                                                    ? " (capability-based selection)"
-                                                    : " (type-based selection)";
+    const std::string_view provider_selection =
+        provider_handler.value().used_fallback                     ? " (preferred-provider fallback)"
+        : has_key_binding                                          ? " (key-affinity resolved)"
+        : required_capability != common::ProviderCapability::kNone ? " (capability-based selection)"
+                                                                   : " (type-based selection)";
     score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << context_type << "/" << algorithm
                                  << "] selected provider: name='" << provider->GetProviderName()
                                  << "' id=" << provider->GetProviderId() << provider_selection
@@ -566,8 +773,29 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
         }
         else if (type_hint.has_value() && type_hint.value() != operations::SHM_WIRE_PROVIDER_TYPE_ABSENT)
         {
-            provider =
-                m_provider_manager->GetProvider(FromWireProviderType(static_cast<std::uint8_t>(type_hint.value())));
+            if (type_hint.value() > std::numeric_limits<std::uint8_t>::max())
+            {
+                score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] Invalid provider type hint";
+                responseBuilder.operation(operation.operationId)
+                    .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+                return false;
+            }
+
+            const auto provider_preference =
+                operations::DecodeProviderTypePreference(static_cast<std::uint8_t>(type_hint.value()));
+            if (!provider_preference.has_value())
+            {
+                score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] Unknown provider type hint";
+                responseBuilder.operation(operation.operationId)
+                    .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+                return false;
+            }
+
+            provider = m_provider_manager->GetProvider(provider_preference.value().primary);
+            if (!provider && provider_preference.value().fallback.has_value())
+            {
+                provider = m_provider_manager->GetProvider(provider_preference.value().fallback.value());
+            }
         }
         else
         {

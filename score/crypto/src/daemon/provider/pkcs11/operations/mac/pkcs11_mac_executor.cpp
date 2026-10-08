@@ -256,21 +256,14 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
     StreamOperationState currentState,
     StreamOperationState& nextState) noexcept
 {
-    namespace ops = handler::mac_handler_operations;
-    handler::handler_utils::StreamOperation op{};
-    if (action == ops::MAC_UPDATE)
-    {
-        op = handler::handler_utils::StreamOperation::kUpdate;
-    }
-    else if (action == ops::MAC_FINALIZE)
-    {
-        op = handler::handler_utils::StreamOperation::kFinalize;
-    }
-    else
+    // MAC_INIT is handled by HandleInit() and never reaches this validation;
+    // the shared mapping accepts it, the PKCS#11 flow does not route it here.
+    const auto op = handler::mac_handler_operations::ToStreamOperation(action);
+    if (!op.has_value())
     {
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
     }
-    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op);
+    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());
     if (!result.has_value())
     {
         return make_unexpected(result.error());
@@ -305,10 +298,15 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0], true);
     if (!inputSpan.has_value())
     {
         return make_unexpected(inputSpan.error());
+    }
+    // An empty chunk adds nothing to the MAC; skipping it spares the token a null pPart.
+    if (inputSpan.value().empty())
+    {
+        return std::monostate{};
     }
 
     // MISRA C++:2023 Rule 8.2.3 deviation — C_SignUpdate requires non-const pPart;
@@ -500,10 +498,15 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0], true);
     if (!inputSpan.has_value())
     {
         return make_unexpected(inputSpan.error());
+    }
+    // An empty chunk adds nothing to the MAC; skipping it spares the token a null pPart.
+    if (inputSpan.value().empty())
+    {
+        return std::monostate{};
     }
 
     // MISRA C++:2023 Rule 8.2.3 deviation — C_VerifyUpdate requires non-const pPart;

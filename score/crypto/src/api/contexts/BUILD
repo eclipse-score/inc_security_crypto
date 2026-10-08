@@ -11,14 +11,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
     name = "context_bases",
     hdrs = [
         "i_context.hpp",
         "i_streaming_context.hpp",
-        "i_streaming_output_context.hpp",
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
@@ -33,9 +32,13 @@ cc_library(
 cc_library(
     name = "crypto_contexts",
     hdrs = [
+        "i_cipher_context.hpp",
         "i_hash_context.hpp",
         "i_key_management_context.hpp",
         "i_mac_context.hpp",
+        "i_random_context.hpp",
+        "i_sign_context.hpp",
+        "i_verify_signature_context.hpp",
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
@@ -75,14 +78,22 @@ cc_library(
 cc_library(
     name = "crypto_contexts_impl",
     srcs = [
+        "src/cipher_context_impl.cpp",
         "src/hash_context_impl.cpp",
         "src/key_management_context_impl.cpp",
         "src/mac_context_impl.cpp",
+        "src/random_context_impl.cpp",
+        "src/sign_context_impl.cpp",
+        "src/verify_signature_context_impl.cpp",
     ],
     hdrs = [
+        "src/cipher_context_impl.hpp",
         "src/hash_context_impl.hpp",
         "src/key_management_context_impl.hpp",
         "src/mac_context_impl.hpp",
+        "src/random_context_impl.hpp",
+        "src/sign_context_impl.hpp",
+        "src/verify_signature_context_impl.hpp",
     ],
     includes = ["."],
     visibility = ["//:__subpackages__"],
@@ -94,5 +105,29 @@ cc_library(
         "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/control_plane",
         "//score/crypto/src/api/data_plane:data_plane_client",
+    ],
+)
+
+cc_test(
+    name = "cipher_context_impl_test",
+    srcs = ["src/cipher_context_impl_test.cpp"],
+    deps = [
+        ":crypto_contexts_impl",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "context_operation_error_code_test",
+    srcs = ["src/context_operation_error_code_test.cpp"],
+    deps = [
+        ":crypto_contexts_impl",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/api/data_plane:data_plane_client",
+        "//score/crypto/src/daemon/common",
+        "@googletest//:gtest_main",
     ],
 )

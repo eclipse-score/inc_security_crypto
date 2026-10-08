@@ -66,6 +66,34 @@ integer constants (``HASH_INIT``, ``HASH_UPDATE``, ``HASH_FINALIZE``,
 Both provider families include these headers directly — the constants are not
 specific to any algorithm family or provider.
 
+Hash Algorithm Contract
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Hash contexts expose a provider-neutral interface. The daemon resolves the
+requested algorithm against the provider selected for the deployment and
+returns ``CryptoErrorCode::kUnsupportedAlgorithm`` when that provider cannot
+perform it. The daemon does not silently substitute another algorithm or digest
+size. Algorithm availability can therefore differ between deployments without
+changing the public hash interface.
+
+The digest size required by a resolved algorithm is exposed through the hash
+context, allowing callers to allocate an output buffer without relying on
+provider-specific metadata.
+
+Both streaming and single-shot operations accept empty input. A streaming
+caller may invoke ``Init()`` followed directly by ``Finalize()`` without an
+intermediate ``Update()``; the result is the standard digest of the empty byte
+sequence.
+
+SHA-1 and MD5 are not exposed by the high-level Crypto API because no supported
+use case requires these cryptographically weak algorithms.
+
+An insufficient output buffer is a retryable finalization error. Provider
+adapters must either detect this condition before consuming the digest state or
+preserve the active provider operation when reporting it. Other provider or
+transport errors must be handled according to their returned error code; callers
+must not assume that every failure preserves a streaming operation.
+
 Provider Configuration
 ~~~~~~~~~~~~~~~~~~~~~~
 

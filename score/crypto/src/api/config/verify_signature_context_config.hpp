@@ -1,0 +1,91 @@
+/********************************************************************************
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ ********************************************************************************/
+
+#ifndef SCORE_CRYPTO_SRC_API_CONFIG_VERIFY_SIGNATURE_CONTEXT_CONFIG_HPP
+#define SCORE_CRYPTO_SRC_API_CONFIG_VERIFY_SIGNATURE_CONTEXT_CONFIG_HPP
+
+#include "score/crypto/src/api/config/base_context_config.hpp"
+
+namespace score
+{
+
+namespace crypto
+{
+
+/// @brief Configuration for signature verification context creation.
+///
+/// Requires an algorithm and a public key. Supports classical
+/// algorithms (RSA-PSS, ECDSA, Ed25519), e.g. "ECDSA-P256-SHA256".
+///
+/// @par Example
+/// @code
+///   VerifySignatureContextConfig config;
+///   config.SetAlgorithm("ECDSA-P256-SHA256").SetKey(public_key);
+///   auto ctx = crypto_context->CreateVerifySignatureContext(config);
+/// @endcode
+struct VerifySignatureContextConfig : public BaseContextConfig
+{
+    /// @brief Handle to the public verification key (required).
+    /// Must be a CryptoResourceId with type == kKey.
+    CryptoResourceId key{};
+
+    /// @brief Whether the input is a message or an already computed digest.
+    SignatureInputMode input_mode{SignatureInputMode::kMessage};
+
+    // -- Fluent builder --
+
+    VerifySignatureContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
+    {
+        BaseContextConfig::SetAlgorithm(alg);
+        return *this;
+    }
+
+    VerifySignatureContextConfig& SetKey(const CryptoResourceId& k) noexcept
+    {
+        key = k;
+        return *this;
+    }
+
+    /// @brief Selects whether the verified input is a message or an already computed digest.
+    /// @param mode Input mode to use for the context.
+    /// @return Reference to this config for chaining.
+    VerifySignatureContextConfig& SetInputMode(SignatureInputMode mode) noexcept
+    {
+        input_mode = mode;
+        return *this;
+    }
+
+    VerifySignatureContextConfig& SetProvider(const CryptoResourceId& prov) noexcept
+    {
+        BaseContextConfig::SetProvider(prov);
+        return *this;
+    }
+
+    VerifySignatureContextConfig& SetProviderType(ProviderType type) noexcept
+    {
+        BaseContextConfig::SetProviderType(type);
+        return *this;
+    }
+
+    VerifySignatureContextConfig& SetExtendedParameter(const std::string& parameter_key, const std::string& value)
+    {
+        BaseContextConfig::SetExtendedParameter(parameter_key, value);
+        return *this;
+    }
+};
+
+}  // namespace crypto
+
+}  // namespace score
+
+#endif  // SCORE_CRYPTO_SRC_API_CONFIG_VERIFY_SIGNATURE_CONTEXT_CONFIG_HPP

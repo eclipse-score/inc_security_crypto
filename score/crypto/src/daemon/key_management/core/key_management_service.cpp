@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_entry.hpp"
 #include "score/crypto/src/daemon/key_management/nodes/key_data_node.hpp"
@@ -291,7 +292,7 @@ Expected<SlotResolution, score::crypto::daemon::common::DaemonErrorCode> KeyMana
 // ResolveKeyForOperation
 // ---------------------------------------------------------------------------
 
-Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode>
+Expected<std::shared_ptr<KeyEntry>, score::crypto::daemon::common::DaemonErrorCode>
 KeyManagementService::ResolveKeyForOperation(data_manager::ClientId client_id,
                                              data_manager::DataNodeId key_node_id) const
 {
@@ -313,18 +314,87 @@ KeyManagementService::ResolveKeyForOperation(data_manager::ClientId client_id,
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
 
-    auto handler = key_node->GetKeyHandler();
-    if (!handler)
-    {
-        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
-    }
-
-    return handler;
+    // Return the owning KeyEntry (not just the IKeyHandler). The caller keeps it
+    // alive for the duration of the operation so a concurrent release from
+    // another context cannot run ~KeyEntry -> IKeyHandler::Release() and free the
+    // key material mid-use.
+    return key_node;
 }
 
 // ---------------------------------------------------------------------------
 // BindKeyToContext
 // ---------------------------------------------------------------------------
+
+Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> KeyManagementService::PeekKeyHandle(
+    data_manager::ClientId client_id,
+    data_manager::DataNodeId key_node_id)
+{
+    auto node_accessor = m_data_manager->getNodeAccessor(client_id, key_node_id);
+    if (!node_accessor.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: node lookup failed for key_node_id=" << key_node_id;
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
+
+    const auto node_type = node_accessor.value()->GetNodeType();
+
+    if (node_type == data_manager::DataNodeType::kKeySlot)
+    {
+        auto slot_acc = std::move(node_accessor.value()).downCast<KeySlotDataNode>();
+        if (!slot_acc.has_value())
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: kKeySlot downCast failed (internal)";
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
+        }
+        auto slot_config_res = slot_acc.value()->GetConfig();
+        if (!slot_config_res.has_value())
+        {
+            score::mw::log::LogError() << LOG_PREFIX
+                                       << "PeekKeyHandle: KeySlotDataNode has no config (key_node_id=" << key_node_id
+                                       << ")";
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+        }
+        const auto* slot_config = slot_config_res.value();
+        const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(slot_config->algorithm);
+        if (!algorithm.has_value())
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: slot algorithm '" << slot_config->algorithm
+                                       << "' is not in the catalog (key_node_id=" << key_node_id << ")";
+            return score::crypto::make_unexpected(
+                score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+        }
+
+        // A slot grants one permission set for whatever key it holds; it is not
+        // split into halves, so it governs every operation on the key.
+        ProviderKeyHandle handle{};
+        handle.provider_id = slot_config->GetPrimaryProviderId();
+        handle.permissions = slot_config->allowed_operations;
+        handle.algorithm = algorithm.value();
+        return handle;
+    }
+
+    if (node_type == data_manager::DataNodeType::kKeyData)
+    {
+        auto ref_acc = std::move(node_accessor.value()).downCast<KeyDataNode>();
+        if (!ref_acc.has_value())
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: kKeyData downCast failed (internal)";
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
+        }
+        auto key_entry = ref_acc.value()->GetKeyEntry();
+        if (!key_entry)
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: KeyDataNode has no backing KeyEntry";
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+        }
+        return key_entry->GetHandle();
+    }
+
+    score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: key_node_id=" << key_node_id
+                               << " is neither a KeySlotDataNode nor a KeyDataNode"
+                               << " (node_type=" << static_cast<int>(node_type) << ")";
+    return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+}
 
 Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyManagementService::BindKeyToContext(
     data_manager::ClientId client_id,

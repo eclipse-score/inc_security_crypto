@@ -12,11 +12,15 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "common",
     hdrs = [
         "actors.hpp",
+        "cipher_padding.hpp",
+        "context_mode.hpp",
+        "context_types.hpp",
         "daemon_error.hpp",
         "hex.hpp",
         "secure_memory.hpp",
@@ -26,19 +30,64 @@ cc_library(
     deps = [
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/types:types",
+        "//score/crypto/src/common:common_types",
         "@score_baselibs//score/result",
     ],
 )
 
-# Header-only utility: algorithm sizing tables for hash, MAC, and key algorithms.
+# Header-only algorithm catalog. Internal to the daemon: clients name algorithms
+# by string, so score/crypto/src/api must not depend on it.
+cc_library(
+    name = "algorithm_catalog",
+    hdrs = ["algorithm_catalog.hpp"],
+    visibility = ["//:__subpackages__"],
+)
+
+cc_test(
+    name = "algorithm_catalog_test",
+    srcs = ["algorithm_catalog_test.cpp"],
+    deps = [
+        ":algorithm_catalog",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Header-only utility: algorithm properties for the daemon, resolved through the algorithm catalog.
 cc_library(
     name = "algorithm_info",
     hdrs = ["algorithm_info.hpp"],
     visibility = ["//:__subpackages__"],
+    deps = [":algorithm_catalog"],
+)
+
+cc_test(
+    name = "algorithm_info_test",
+    srcs = ["algorithm_info_test.cpp"],
+    deps = [
+        ":algorithm_info",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Header-only utility: decides whether a key's algorithm fits an operation algorithm.
+cc_library(
+    name = "key_compatibility",
+    hdrs = ["key_compatibility.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = [":algorithm_catalog"],
+)
+
+cc_test(
+    name = "key_compatibility_test",
+    srcs = ["key_compatibility_test.cpp"],
+    deps = [
+        ":key_compatibility",
+        "@googletest//:gtest_main",
+    ],
 )
 
 # Header-only utility: human-readable names for OperationActor / OperationAction values.
-# Depends on the three operation-constants headers (each only deps on :common).
+# Depends on the operation-constants headers (each only deps on :common).
 cc_library(
     name = "operation_names",
     hdrs = ["operation_names.hpp"],
@@ -46,8 +95,31 @@ cc_library(
     deps = [
         ":common",
         "//score/crypto/src/daemon/key_management:key_management_operations",
+        "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/handler:mac_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:random_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:sign_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:verify_handler_operations",
         "@score_baselibs//score/mw/log",
+    ],
+)
+
+cc_test(
+    name = "context_types_test",
+    srcs = ["context_types_test.cpp"],
+    deps = [
+        ":common",
+        "//score/crypto/src/api/common:crypto_common",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "operation_names_test",
+    srcs = ["operation_names_test.cpp"],
+    deps = [
+        ":operation_names",
+        "@googletest//:gtest_main",
     ],
 )

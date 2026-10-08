@@ -15,8 +15,10 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_OPERATIONS_HASH_HANDLER_OPERATIONS_HPP
 
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/stream_operation.hpp"
 
 #include <limits>
+#include <optional>
 
 namespace score
 {
@@ -41,7 +43,7 @@ using OperationAction = common::OperationAction;
 
 // HASH_INIT
 // Request:  data_node_id = context_id,
-//           param[0]: optional DataBuffer — initial data to hash or IV
+//           no operation parameters
 // Response: status_code (SUCCESS/error)
 //           no output parameters
 // Effect:   Calls InitHash(), initializes hash stream context, transitions state IDLE → INITIALIZED
@@ -57,8 +59,7 @@ inline constexpr OperationAction HASH_UPDATE = 2;
 
 // HASH_FINALIZE
 // Request:  data_node_id = context_id,
-//           param[0]: optional DataBuffer — output buffer for hash digest (modified in-place)
-//           param[1]: optional DataBuffer — final data chunk to include
+//           param[0]: DataBuffer — output buffer for hash digest (modified in-place)
 // Response: status_code (SUCCESS/error)
 //           param[0]: uint64_t — digest length in bytes (hash bytes written to request param[0])
 // Effect:   Calls FinalizeHash(), computes final hash into param[0] buffer, clears stream context, transitions state →
@@ -68,8 +69,7 @@ inline constexpr OperationAction HASH_FINALIZE = 3;
 // HASH_SS (Single-Shot Hash)
 // Request:  data_node_id = context_id,
 //           param[0]: DataBuffer — data to hash
-//           param[1]: optional DataBuffer — output buffer for hash digest (modified in-place)
-//           param[2]: optional DataBuffer — initialization vector (unused for hash)
+//           param[1]: DataBuffer — output buffer for hash digest (modified in-place)
 // Response: status_code (SUCCESS/error)
 //           param[0]: uint64_t — digest length in bytes (hash bytes written to request param[1])
 // Effect:   Calls SingleShotHash(), requires IDLE state, performs init+update+finalize in one call
@@ -92,6 +92,25 @@ inline constexpr OperationAction HASH_GET_DIGEST_SIZE = 5;
 inline constexpr OperationAction HASH_RESET = 6;
 
 inline constexpr OperationAction HASH_CUSTOM_OP_START = 1 << (std::numeric_limits<OperationAction>::digits - 1);
+
+/// @brief The stream state-machine step an action performs, if any.
+/// @return std::nullopt for an action that does not take part in the stream.
+[[nodiscard]] inline constexpr std::optional<StreamOperation> ToStreamOperation(OperationAction action) noexcept
+{
+    if (action == HASH_INIT)
+    {
+        return StreamOperation::kInit;
+    }
+    if (action == HASH_UPDATE)
+    {
+        return StreamOperation::kUpdate;
+    }
+    if (action == HASH_FINALIZE)
+    {
+        return StreamOperation::kFinalize;
+    }
+    return std::nullopt;
+}
 
 }  // namespace hash_handler_operations
 }  // namespace handler

@@ -22,13 +22,13 @@ on:
 
 jobs:
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.19.0
+        uses: bazel-contrib/setup-bazel@0.19.1
 
       - name: Check coverage scope completeness
         run: ./.github/tools/check_coverage_scope.sh

@@ -77,6 +77,8 @@ config_setting(
         ":score_crypto_score_backend_enabled": "True",
         ":score_crypto_score_openssl_enabled": "True",
     },
+    # Public: the integration test selects on this, and py_itf_test does not
+    # accept a package-scoped config_setting as a select key.
     visibility = ["//visibility:public"],
 )
 

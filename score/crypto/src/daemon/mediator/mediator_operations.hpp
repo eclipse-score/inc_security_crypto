@@ -18,9 +18,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string_view>
 
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
@@ -59,12 +61,65 @@ struct ContextScopeCapability final
 
 /// @brief Scope prefixes recognized by CTX_CREATE for capability-based provider routing.
 ///
-/// The scope is the case-sensitive substring before the first ':' in the context type.
-/// Context types without a recognized scope add no capability constraint.
+/// The scope is the case-sensitive substring before the first ':' in the context type
+/// (common::context_types::ScopeOf). Context types without a recognized scope add no
+/// capability constraint.
 inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities{{
-    {"CERT", common::ProviderCapability::kCertManagement},
-    {"KEY", common::ProviderCapability::kKeyManagement},
+    {common::context_types::kCertScope, common::ProviderCapability::kCertManagement},
+    {common::context_types::kKeyScope, common::ProviderCapability::kKeyManagement},
 }};
+
+/// @brief The provider capability a CTX_CREATE of @p context_type requires.
+/// @return the capability mapped to the type's scope, or kNone if the type is
+///         unscoped or its scope is not in kContextScopeCapabilities.
+[[nodiscard]] inline constexpr common::ProviderCapability RequiredProviderCapability(
+    const std::string_view context_type) noexcept
+{
+    const auto scope = common::context_types::ScopeOf(context_type);
+    if (scope.empty())
+    {
+        return common::ProviderCapability::kNone;
+    }
+    for (const auto& scope_capability : kContextScopeCapabilities)
+    {
+        if (scope == scope_capability.scope)
+        {
+            return scope_capability.capability;
+        }
+    }
+    return common::ProviderCapability::kNone;
+}
+
+/// @brief Daemon-side interpretation of a public ProviderType wire value.
+struct ProviderTypePreference final
+{
+    common::CryptoProviderType primary;
+    std::optional<common::CryptoProviderType> fallback;
+};
+
+/// @brief Decode the stable ProviderType wire contract without losing preferred-provider fallback semantics.
+/// @return The decoded preference, or std::nullopt for an unknown wire value.
+[[nodiscard]] inline constexpr std::optional<ProviderTypePreference> DecodeProviderTypePreference(
+    const std::uint8_t wire_value) noexcept
+{
+    using ProviderType = common::CryptoProviderType;
+
+    switch (wire_value)
+    {
+        case 0U:
+            return ProviderTypePreference{ProviderType::DEFAULT, std::nullopt};
+        case 1U:
+            return ProviderTypePreference{ProviderType::HARDWARE, std::nullopt};
+        case 2U:
+            return ProviderTypePreference{ProviderType::SOFTWARE, std::nullopt};
+        case 3U:
+            return ProviderTypePreference{ProviderType::HARDWARE, ProviderType::SOFTWARE};
+        case 4U:
+            return ProviderTypePreference{ProviderType::SOFTWARE, ProviderType::HARDWARE};
+        default:
+            return std::nullopt;
+    }
+}
 
 // CTX_CREATE
 // Request:  data_node_id = connection_id (parent node),
@@ -72,6 +127,9 @@ inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities
 //           param[1]: string — algorithm name (e.g. "SHA256", "SHA512")
 //           param[2]: optional uint8 — provider type preference (defaults to DEFAULT)
 //           param[3]: optional uint64_t — node_id of key resource (CryptoResourceId.id)
+//           param[4]: optional uint8 — common::ContextMode (keyed contexts)
+//           param[5]: optional uint8 — CipherPadding (cipher contexts)
+//           param[6]: optional uint8 — SignatureInputMode (sign/verify contexts; param[5] is no-param)
 // Capability routing: a recognized scope uses capability-based selection when the provider
 // preference is DEFAULT. Explicit provider preferences and key-bound selection are still
 // checked against the scope's required capability. Unrecognized or absent scopes add no
@@ -81,6 +139,21 @@ inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities
 //           uint64_t — daemon-assigned context_id (DataNodeId)
 // Effect:   Creates cryptographic context, initializes handler with specified algorithm
 inline constexpr OperationAction CTX_CREATE = 1;
+
+// Stable CTX_CREATE parameter positions. Handler-specific extensions may use
+// later positions; the mediator validates only the common prefix.
+inline constexpr std::size_t CTX_PARAM_HANDLER_TYPE = 0U;
+inline constexpr std::size_t CTX_PARAM_ALGORITHM = 1U;
+inline constexpr std::size_t CTX_PARAM_PROVIDER_TYPE = 2U;
+inline constexpr std::size_t CTX_PARAM_KEY_NODE_ID = 3U;
+inline constexpr std::size_t CTX_PARAM_OPERATION_MODE = 4U;
+inline constexpr std::size_t CTX_PARAM_CIPHER_PADDING = 5U;
+
+/// @brief Defensive upper bound for malformed CTX_CREATE requests.
+///
+/// This is intentionally larger than the common prefix so handlers can add
+/// opaque parameters without requiring mediator changes.
+inline constexpr std::size_t CTX_MAX_PARAMETER_COUNT = 10U;
 
 // CTX_CLOSE
 // Request:  data_node_id = context_id (the context to close),

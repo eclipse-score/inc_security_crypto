@@ -22,11 +22,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #     name = "future_context_configs",
 #     hdrs = [
 #         "aead_context_config.hpp",
-#         "cipher_context_config.hpp",
 #         "csr_generation_context_config.hpp",
-#         "random_context_config.hpp",
-#         "sign_context_config.hpp",
-#         "verify_signature_context_config.hpp",
 #     ],
 #     deps = [
 #         "//score/crypto/src/api/common:crypto_common",

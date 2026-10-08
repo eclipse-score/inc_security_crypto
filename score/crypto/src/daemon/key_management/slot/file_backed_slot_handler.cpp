@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/crypto/src/daemon/common/storage/file_io.hpp"
 #include "score/crypto/src/daemon/key_management/detail/slot_info_builder.hpp"
@@ -54,10 +55,17 @@ score::crypto::Expected<IKeyHandler::Sptr, Error> FileBackedSlotHandler::LoadKey
 
     auto& buffer = read_result.value();
 
+    const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(slot.algorithm);
+    if (!algorithm.has_value())
+    {
+        common::SecureZeroizeAndClear(buffer);
+        return score::crypto::make_unexpected(Error::kUnsupportedAlgorithm);
+    }
+
     KeyImportRequest req{};
     req.key_data = buffer.data();
     req.key_data_size = buffer.size();
-    req.algorithm = slot.algorithm;
+    req.algorithm = algorithm.value();
     req.permissions = slot.allowed_operations;
 
     auto import_result = m_factory->ImportKey(req);

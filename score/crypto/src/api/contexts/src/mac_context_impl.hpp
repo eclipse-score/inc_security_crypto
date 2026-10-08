@@ -60,14 +60,11 @@ class MacContextImpl final : public IMacContext
 
     // -- IStreamingContext --
     score::Result<std::monostate> Init(std::optional<score::cpp::span<const uint8_t>> iv) override;
-    score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) override;
     score::Result<std::monostate> Reset() override;
 
-    // -- IStreamingOutputContext --
-    score::Result<std::size_t> Finalize(score::cpp::span<uint8_t> output) override;
-    std::size_t GetOutputSize() const noexcept override;
-
     // -- IMacContext --
+    score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) override;
+    score::Result<std::size_t> Finalize(score::cpp::span<uint8_t> output) override;
     score::Result<bool> Verify(score::cpp::span<const uint8_t> mac) override;
     std::size_t GetMacSize() const noexcept override;
 

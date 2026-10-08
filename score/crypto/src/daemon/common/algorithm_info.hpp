@@ -14,113 +14,81 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+
 #include <cstddef>
 #include <optional>
-#include <string_view>
+
+// Daemon helpers over score::crypto::kAlgorithmCatalog. The daemon resolves an
+// algorithm name to its catalog row once, where a request or a slot enters it
+// (CTX_CREATE in the mediator, the key management request parser, slot load);
+// providers and handlers receive that AlgorithmDescriptor and read its fields.
+// The helpers here answer the questions a row does not answer by itself.
 
 namespace score::crypto::daemon::common
 {
 
-// ---------------------------------------------------------------------------
-// Hash algorithm properties (provider-independent)
-// ---------------------------------------------------------------------------
-
-struct HashAlgorithmInfo
+/// @brief Digest length in bytes of a hash function, from its hash row in the catalog.
+/// @return the length, or std::nullopt for HashFunction::kNone.
+[[nodiscard]] inline constexpr std::optional<std::size_t> LookupDigestSize(::score::crypto::HashFunction hash) noexcept
 {
-    std::string_view name;
-    std::size_t digest_size;  ///< Output size in bytes
-};
-
-inline constexpr HashAlgorithmInfo kHashAlgorithms[] = {
-    {"SHA256", 32U},
-    {"SHA384", 48U},
-    {"SHA512", 64U},
-    {"SHA224", 28U},
-    {"SHA1", 20U},
-    {"MD5", 16U},
-};
-
-/// @brief Look up digest size by algorithm name.
-/// @return digest size in bytes, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<std::size_t> LookupDigestSize(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kHashAlgorithms)
+    if (hash == ::score::crypto::HashFunction::kNone)
     {
-        if (entry.name == algorithm)
+        return std::nullopt;
+    }
+    for (const auto& row : ::score::crypto::kAlgorithmCatalog)
+    {
+        if ((row.category == ::score::crypto::AlgorithmCategory::kHash) && (row.hash == hash))
         {
-            return entry.digest_size;
+            return row.output_size;
         }
     }
     return std::nullopt;
 }
 
-// ---------------------------------------------------------------------------
-// MAC algorithm properties (provider-independent)
-// ---------------------------------------------------------------------------
-
-struct MacAlgorithmInfo
+/// @brief Default key size of the key an algorithm labels.
+///
+/// Answers for rows that can label a key: key rows, symmetric cipher, AEAD
+/// and MAC rows, and Ed25519. A signature scheme such as
+/// "RSA-PSS-2048-SHA256" or "ECDSA-P256-SHA256" names no key and yields
+/// std::nullopt, so it cannot be mistaken for a request for that many random
+/// bytes. For elliptic curves this is the byte length of one coordinate.
+/// @return key size in bytes, or std::nullopt if the row labels no key.
+[[nodiscard]] inline constexpr std::optional<std::size_t> LookupKeySize(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
-    std::string_view name;
-    std::size_t mac_size;  ///< Output tag size in bytes
-};
-
-inline constexpr MacAlgorithmInfo kMacAlgorithms[] = {
-    {"HMAC-SHA256", 32U},
-    {"HMAC-SHA384", 48U},
-    {"HMAC-SHA512", 64U},
-};
-
-/// @brief Look up MAC output size by algorithm name.
-/// @return MAC size in bytes, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<std::size_t> LookupMacSize(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kMacAlgorithms)
+    if ((algorithm.key_type == ::score::crypto::KeyType::kNone) ||
+        ((algorithm.category == ::score::crypto::AlgorithmCategory::kSignature) &&
+         (algorithm.key_type != ::score::crypto::KeyType::kEd25519)))
     {
-        if (entry.name == algorithm)
-        {
-            return entry.mac_size;
-        }
+        return std::nullopt;
     }
-    return std::nullopt;
+    return (static_cast<std::size_t>(algorithm.key_bits) + 7U) / 8U;
+}
+
+/// @brief Byte length of one coordinate of the curve of an ECC row, which is
+///        also the length of r and s in an ECDSA signature.
+/// @return the length, or 0 for rows without a curve.
+[[nodiscard]] inline constexpr std::size_t EcFieldSize(const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
+{
+    return ::score::crypto::algorithm_catalog_detail::EccFieldSize(algorithm.curve);
 }
 
 // ---------------------------------------------------------------------------
-// Key algorithm properties (provider-independent)
+// Ed25519 properties
 // ---------------------------------------------------------------------------
 
-struct KeyAlgorithmInfo
-{
-    std::string_view name;
-    std::size_t key_size;  ///< Default key size in bytes
-};
+/// Ed25519 key size in bytes (RFC 8032).
+inline constexpr std::size_t kEd25519KeySize{
+    ::score::crypto::GetKeySizeBytes(::score::crypto::Algorithm::kEd25519).value_or(0U)};
 
-inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
-    {"HMAC-SHA256", 32U},
-    {"HMAC-SHA384", 48U},
-    {"HMAC-SHA512", 64U},
-    {"AES-128-CBC", 16U},
-    {"AES-192-CBC", 24U},
-    {"AES-256-CBC", 32U},
-    {"AES-128-GCM", 16U},
-    {"AES-192-GCM", 24U},
-    {"AES-256-GCM", 32U},
-    {"AES-128-CMAC", 16U},
-    {"AES-256-CMAC", 32U},
-};
+/// Ed25519 signature size in bytes (RFC 8032).
+inline constexpr std::size_t kEd25519SignatureSize{
+    ::score::crypto::GetAlgorithmDescriptor(::score::crypto::Algorithm::kEd25519).has_value()
+        ? ::score::crypto::GetAlgorithmDescriptor(::score::crypto::Algorithm::kEd25519)->output_size
+        : 0U};
 
-/// @brief Look up default key size by algorithm name.
-/// @return key size in bytes, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<std::size_t> LookupKeySize(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kKeyAlgorithms)
-    {
-        if (entry.name == algorithm)
-        {
-            return entry.key_size;
-        }
-    }
-    return std::nullopt;
-}
+static_assert((kEd25519KeySize == 32U) && (kEd25519SignatureSize == 64U), "Ed25519 sizes are fixed by RFC 8032");
 
 }  // namespace score::crypto::daemon::common
 

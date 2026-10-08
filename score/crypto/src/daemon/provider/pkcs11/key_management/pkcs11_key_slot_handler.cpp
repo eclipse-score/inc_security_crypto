@@ -52,6 +52,15 @@ Pkcs11KeySlotHandler::LoadKey(const key_management::KeySlotConfig& slot)
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
+    // The slot configuration stores the algorithm name; resolve it to its catalog row.
+    const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(slot.algorithm);
+    if (!algorithm.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "LoadKey: unknown algorithm '" << slot.algorithm << "' for slot '"
+                                   << slot.slot_name << "'";
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+
     // Load deployment info to get PKCS#11 object identifiers.
     auto deploy_result = key_management::DeploymentLoader::Load(slot.deployment_path, slot.deployment_format);
     if (!deploy_result.has_value())
@@ -164,7 +173,7 @@ Pkcs11KeySlotHandler::LoadKey(const key_management::KeySlotConfig& slot)
     // Some tokens don't support CKA_VALUE_LEN -- fall back to algorithm-derived size.
     if (rv != CKR_OK)
     {
-        const auto algo_info = detail::LookupAlgorithm(slot.algorithm);
+        const auto algo_info = detail::LookupAlgorithm(algorithm.value());
         value_len = algo_info.has_value() ? static_cast<CK_ULONG>(algo_info->value_len) : 0U;
     }
 
@@ -175,8 +184,8 @@ Pkcs11KeySlotHandler::LoadKey(const key_management::KeySlotConfig& slot)
     search_tmpl.id = id_bytes;
     search_tmpl.obj_class = obj_class;
 
-    const auto handle =
-        m_key_store->RegisterTokenObject(search_tmpl, slot.algorithm, static_cast<std::size_t>(value_len));
+    const auto handle = m_key_store->RegisterTokenObject(
+        search_tmpl, algorithm.value(), static_cast<std::size_t>(value_len), slot.allowed_operations);
 
     m_provider->ReleaseSession(session, reqs);
 

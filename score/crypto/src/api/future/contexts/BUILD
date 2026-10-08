@@ -18,43 +18,10 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
-# -- Cipher (symmetric encrypt/decrypt) --
-# cc_library(
-#     name = "cipher_context",
-#     hdrs = ["i_cipher_context.hpp"],
-#     deps = [
-#         "//score/crypto/src/api/contexts:context_bases",
-#         "//score/crypto/src/api/common:crypto_common",
-#         "@score_baselibs//score/result",
-#     ],
-# )
-
-# -- Sign / Verify --
-# cc_library(
-#     name = "sign_contexts",
-#     hdrs = ["i_sign_context.hpp", "i_verify_signature_context.hpp"],
-#     deps = [
-#         "//score/crypto/src/api/contexts:context_bases",
-#         "//score/crypto/src/api/common:crypto_common",
-#         "@score_baselibs//score/result",
-#     ],
-# )
-
 # -- AEAD --
 # cc_library(
 #     name = "aead_context",
 #     hdrs = ["i_aead_context.hpp"],
-#     deps = [
-#         "//score/crypto/src/api/contexts:context_bases",
-#         "//score/crypto/src/api/common:crypto_common",
-#         "@score_baselibs//score/result",
-#     ],
-# )
-
-# -- Random --
-# cc_library(
-#     name = "random_context",
-#     hdrs = ["i_random_context.hpp"],
 #     deps = [
 #         "//score/crypto/src/api/contexts:context_bases",
 #         "//score/crypto/src/api/common:crypto_common",

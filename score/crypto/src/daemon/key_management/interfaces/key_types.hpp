@@ -17,6 +17,7 @@
 #include "score/crypto/src/api/config/key_operation_params.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 
 #include <cstddef>
@@ -45,19 +46,70 @@ struct ProviderKeyHandle
     std::uint64_t opaque_id{0U};
     common::ProviderId provider_id{common::kInvalidProviderId};
     bool is_asymmetric{false};
+
+    /// Operations this key may perform. For an asymmetric key this governs the
+    /// private half only — see public_key_permissions and GrantedPermissionsFor().
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kNone};
-    common::AlgorithmId algorithm{};
+
+    /// Operations the public half may perform (asymmetric keys only).
+    ///
+    /// std::nullopt means unrestricted, which is the documented default of
+    /// GenerateKeyParams::public_key_permissions: a public key is public
+    /// information, so withholding kVerify/kEncrypt by default would cost
+    /// compatibility without protecting anything. Always nullopt for
+    /// symmetric keys, which have no second half.
+    std::optional<score::crypto::KeyOperationPermission> public_key_permissions{std::nullopt};
+
+    /// Catalog row the key was created or loaded for.
+    ::score::crypto::AlgorithmDescriptor algorithm{};
     std::size_t key_size{0U};
 };
+
+/// @brief The permission set that governs @p required for this key.
+///
+/// An asymmetric key carries two permission sets because its halves are used
+/// by different operations: the private half signs, decrypts, agrees and
+/// derives; the public half verifies, encrypts and wraps. Checking a verify
+/// request against the private half's permissions would deny a correctly
+/// provisioned sign-only key its legitimate public use, so the caller's
+/// intended operation selects which set applies.
+///
+/// A symmetric key has one half and one permission set, so `permissions`
+/// always applies.
+///
+/// @param handle   The key whose permissions are being consulted.
+/// @param required The single permission bit the caller intends to exercise.
+[[nodiscard]] inline score::crypto::KeyOperationPermission GrantedPermissionsFor(
+    const ProviderKeyHandle& handle,
+    score::crypto::KeyOperationPermission required) noexcept
+{
+    using Permission = score::crypto::KeyOperationPermission;
+
+    /// Operations that consume the public half of a key pair.
+    constexpr Permission kPublicHalfOperations = Permission::kVerify | Permission::kEncrypt | Permission::kWrap;
+
+    // HasPermission(kPublicHalfOperations, required) asks whether `required` is
+    // a subset of the public-half operations, i.e. "is this a public-half use?".
+    if (handle.is_asymmetric && score::crypto::HasPermission(kPublicHalfOperations, required))
+    {
+        return handle.public_key_permissions.value_or(Permission::kAll);
+    }
+
+    return handle.permissions;
+}
 
 // ---------------------------------------------------------------------------
 // Request parameter structs
 // ---------------------------------------------------------------------------
 
+// Algorithm fields that name a key are catalog rows resolved once where the
+// request is decoded; a name the catalog does not know never reaches a
+// provider. Mechanism names (agreement, wrapping) stay strings.
+
 /// Parameters for ephemeral symmetric or asymmetric key generation.
 struct KeyGenerationRequest
 {
-    common::AlgorithmId algorithm{};
+    ::score::crypto::AlgorithmDescriptor algorithm{};
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
     /// @brief Operations the public key is permitted to perform (asymmetric only).
     /// Use kExport bit to control public key exportability.
@@ -73,7 +125,7 @@ struct KeyImportRequest
 {
     const std::uint8_t* key_data{nullptr};
     std::size_t key_data_size{0U};
-    common::AlgorithmId algorithm{};
+    ::score::crypto::AlgorithmDescriptor algorithm{};
     score::crypto::FormatType format{score::crypto::FormatType::kDer};
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
     score::crypto::ExtendedParameters provider_properties{};
@@ -86,7 +138,7 @@ struct KeyImportRequest
 struct KeyDeriveRequest
 {
     ProviderKeyHandle base_key{};
-    common::AlgorithmId output_algorithm{};
+    ::score::crypto::AlgorithmDescriptor output_algorithm{};
     score::crypto::KdfParameters kdf{};
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
 };
@@ -103,7 +155,7 @@ struct KeyAgreeRequest
     /// Agreement mechanism (e.g., "ECDH", "X25519").
     common::AlgorithmId agreement_algorithm{};
     /// Algorithm of the agreed or derived output key.
-    common::AlgorithmId output_algorithm{};
+    ::score::crypto::AlgorithmDescriptor output_algorithm{};
     /// @brief Format of the peer public key data. Defaults to raw/uncompressed.
     std::optional<score::crypto::FormatType> public_key_format{std::nullopt};
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
@@ -138,7 +190,7 @@ struct UnwrapKeyRequest
     const std::uint8_t* wrapped_data{nullptr};
     std::size_t wrapped_data_size{0U};
     ProviderKeyHandle wrapping_key{};
-    common::AlgorithmId inner_key_algorithm{};
+    ::score::crypto::AlgorithmDescriptor inner_key_algorithm{};
     std::optional<common::AlgorithmId> wrapping_algorithm{std::nullopt};
     const std::uint8_t* iv{nullptr};
     std::size_t iv_size{0U};

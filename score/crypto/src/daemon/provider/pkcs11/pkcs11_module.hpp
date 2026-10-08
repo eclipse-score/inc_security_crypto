@@ -30,14 +30,6 @@
 namespace score::crypto::daemon::provider::pkcs11
 {
 
-/// @brief Capability flags queried once at module initialisation.
-struct Pkcs11Capabilities
-{
-    std::uint8_t versionMajor{0U};
-    std::uint8_t versionMinor{0U};
-    bool supportsMessageDigest{false};  ///< true if PKCS#11 v3.0+ C_MessageDigest* is available
-};
-
 /// @brief Session access type.
 ///
 /// ReadOnly: sufficient for digest, verify, sign, encrypt/decrypt, MAC, AEAD (reads keys, never creates).
@@ -154,6 +146,17 @@ enum class Pkcs11SessionCleanupStrategy : std::uint8_t
     /// Cons: Slower (two extra system calls), higher overhead, requires RW session to reopen
     /// Note: Applied only during soft-cleanup failure or when explicitly required.
     kHardCleanup = 1U
+};
+
+/// @brief Whether a released PKCS#11 session may be returned to the pool.
+///
+/// A handler selects kDiscard when operation cleanup fails and the session's
+/// internal state can no longer be trusted. This overrides the configured
+/// soft-cleanup policy for that one session.
+enum class Pkcs11SessionDisposition : std::uint8_t
+{
+    kReusable = 0U,
+    kDiscard = 1U
 };
 
 /// @brief Sentinel value for Pkcs11ProviderConfig::slotId indicating that the slot
@@ -304,9 +307,6 @@ class Pkcs11Module final
     /// @brief Returns the function list pointer. Only valid after successful Init().
     [[nodiscard]] CK_FUNCTION_LIST* GetFunctionList() const noexcept;
 
-    /// @brief Returns capability flags queried at init time.
-    [[nodiscard]] const Pkcs11Capabilities& GetCapabilities() const noexcept;
-
     /// @brief Returns true if Init() has completed successfully.
     /// Use this to avoid calling Init() on a shared module that was already initialised.
     [[nodiscard]] bool IsInitialized() const noexcept;
@@ -317,7 +317,6 @@ class Pkcs11Module final
   private:
     CK_FUNCTION_LIST* m_functionList;
     ModuleGuard m_moduleGuard;
-    Pkcs11Capabilities m_capabilities;
 };
 
 }  // namespace score::crypto::daemon::provider::pkcs11

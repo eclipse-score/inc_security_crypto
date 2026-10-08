@@ -14,6 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_FACTORY_PKCS11_HANDLER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_FACTORY_PKCS11_HANDLER_FACTORY_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
@@ -22,6 +24,7 @@
 #include "score/result/result.h"
 
 #include <memory>
+#include <string_view>
 
 namespace score::crypto::daemon::provider::pkcs11
 {
@@ -30,11 +33,6 @@ namespace score::crypto::daemon::provider::pkcs11
 // pkcs11_provider.hpp includes pkcs11_handler_factory.hpp, so we cannot
 // include pkcs11_provider.hpp here.  The full definition is available in the .cpp.
 class Pkcs11Provider;
-
-/// @brief Predefined handler IDs supported by the PKCS#11 factory.
-inline constexpr const char* const kHashHandlerId = "HASH";
-inline constexpr const char* const kMacHandlerId = "MAC";
-inline constexpr const char* const kKeyManagementHandlerId = "KEY:MANAGEMENT";
 
 /// @brief Factory that creates PKCS#11-backed crypto handlers.
 ///
@@ -60,12 +58,14 @@ class Pkcs11HandlerFactory final : public handler::ICryptoHandlerFactory
     /// Acquires a session from the provider pool using the handler type's
     /// static kRequirements. The session is released on handler destruction.
     [[nodiscard]] score::Result<handler::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
-                                                                      const common::AlgorithmId& algorithm) override;
+                                                                      const AlgorithmDescriptor& algorithm) override;
+
+    /// Creates the KEY:MANAGEMENT handler, which is bound to no algorithm.
+    [[nodiscard]] score::Result<handler::Handler::Sptr> CreateKeyManagementHandler() override;
 
   private:
-    [[nodiscard]] score::Result<handler::Handler::Sptr> CreateHashHandler(const common::AlgorithmId& algorithm);
-    [[nodiscard]] score::Result<handler::Handler::Sptr> CreateMacHandler(const common::AlgorithmId& algorithm);
-    [[nodiscard]] score::Result<handler::Handler::Sptr> CreateKeyManagementHandler();
+    [[nodiscard]] score::Result<handler::Handler::Sptr> CreateHashHandler(const AlgorithmDescriptor& algorithm);
+    [[nodiscard]] score::Result<handler::Handler::Sptr> CreateMacHandler(const AlgorithmDescriptor& algorithm);
 
     const Pkcs11Module& m_module;
     Pkcs11Provider& m_provider;  ///< non-owning; provider always outlives the factory

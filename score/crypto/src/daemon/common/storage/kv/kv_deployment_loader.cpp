@@ -48,7 +48,7 @@ score::crypto::Expected<DeploymentDescriptor, score::crypto::daemon::common::Dae
     auto read_result = ReadFile(path, kMaxDescriptorSize);
     if (!read_result.has_value())
     {
-        score::mw::log::LogError() << kLogPrefix << "Cannot open: " << path;
+        score::mw::log::LogError() << kLogPrefix << "Failed to read deployment descriptor.";
         return score::crypto::make_unexpected(read_result.error());
     }
 
@@ -71,8 +71,7 @@ score::crypto::Expected<DeploymentDescriptor, score::crypto::daemon::common::Dae
             current_section = trimmed.substr(1U, trimmed.size() - 2U);
             if (!validator.IsValidSection(current_section))
             {
-                score::mw::log::LogError()
-                    << kLogPrefix << "Invalid section \"" << current_section << "\" in descriptor: " << path;
+                score::mw::log::LogError() << kLogPrefix << "Deployment descriptor contains an invalid section.";
                 return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
             }
             descriptor.AddSection(current_section);
@@ -80,13 +79,13 @@ score::crypto::Expected<DeploymentDescriptor, score::crypto::daemon::common::Dae
         }
         if (current_section.empty())
         {
-            score::mw::log::LogError() << kLogPrefix << "Entry outside a section in descriptor: " << path;
+            score::mw::log::LogError() << kLogPrefix << "Deployment descriptor contains an entry before any section.";
             return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
         const auto eq_pos = trimmed.find('=');
         if (eq_pos == std::string::npos)
         {
-            score::mw::log::LogError() << kLogPrefix << "Invalid key-value line in descriptor: " << path;
+            score::mw::log::LogError() << kLogPrefix << "Deployment descriptor contains a malformed key-value entry.";
             return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
         const std::string key = Trim(trimmed.substr(0U, eq_pos));
@@ -94,14 +93,12 @@ score::crypto::Expected<DeploymentDescriptor, score::crypto::daemon::common::Dae
 
         if (descriptor.HasKey(current_section, key))
         {
-            score::mw::log::LogError() << kLogPrefix << "Duplicate key in descriptor: " << path
-                                       << " section=" << current_section << " key=" << key;
+            score::mw::log::LogError() << kLogPrefix << "Deployment descriptor contains a duplicate key.";
             return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
         if (!validator.IsValidEntry(current_section, key, value))
         {
-            score::mw::log::LogError() << kLogPrefix << "Invalid key or value in descriptor: " << path
-                                       << " section=" << current_section << " key=" << key << " value=" << value;
+            score::mw::log::LogError() << kLogPrefix << "Deployment descriptor contains an invalid entry.";
             return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
         descriptor.Set(current_section, key, value);

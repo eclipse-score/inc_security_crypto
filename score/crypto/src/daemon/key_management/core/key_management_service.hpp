@@ -143,6 +143,24 @@ class KeyManagementService final
     // Context-level key binding
     // ------------------------------------------------------------------
 
+    /// The handle that governs a key's permissions, before it is loaded or bound.
+    ///
+    /// Returns a whole ProviderKeyHandle rather than one permission value because
+    /// GrantedPermissionsFor() needs is_asymmetric and public_key_permissions as
+    /// well as permissions to pick the half that applies. Answers from metadata
+    /// alone, so a request the key does not permit is refused without touching
+    /// key material. For a KeySlotDataNode the slot configuration's
+    /// allowed_operations are authoritative and come back as the handle's
+    /// permissions. For a KeyDataNode the live handle is returned.
+    ///
+    /// @param client_id   Owning client.
+    /// @param key_node_id DataNodeId of a KeySlotDataNode or KeyDataNode.
+    /// @return The handle whose permission fields govern the key; DaemonErrorCode
+    ///         when the node is unknown or is neither node kind.
+    [[nodiscard]] Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> PeekKeyHandle(
+        data_manager::ClientId client_id,
+        data_manager::DataNodeId key_node_id);
+
     /// Bind a key (loaded or slot) to a context at creation time.
     ///
     /// Accepts either a KeySlotDataNode ID (slot-direct path) or a
@@ -207,13 +225,20 @@ class KeyManagementService final
         data_manager::ClientId client_id,
         data_manager::DataNodeId slot_node_id);
 
-    /// Resolve a key DataNode ID (a KeyDataNode) back to its IKeyHandler.
+    /// Resolve a key DataNode ID (a KeyDataNode) back to its backing KeyEntry.
     ///
     /// Used by executor handlers that need a ProviderKeyHandle or the raw
     /// IKeyHandler to build provider-level request structs (WrapKey, ExportKey, ...).
-    [[nodiscard]] Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode> ResolveKeyForOperation(
-        data_manager::ClientId client_id,
-        data_manager::DataNodeId key_node_id) const;
+    ///
+    /// Returns the owning KeyEntry (not just the IKeyHandler) so the caller can
+    /// keep it alive for the full duration of the operation. The KeyEntry
+    /// destructor calls IKeyHandler::Release(), which frees the underlying key
+    /// material regardless of how many IKeyHandler shared_ptrs still exist;
+    /// holding only the handler would therefore not prevent a concurrent release
+    /// (from another key-management context sharing the same key) from freeing
+    /// the key material mid-operation, causing a use-after-free.
+    [[nodiscard]] Expected<std::shared_ptr<KeyEntry>, score::crypto::daemon::common::DaemonErrorCode>
+    ResolveKeyForOperation(data_manager::ClientId client_id, data_manager::DataNodeId key_node_id) const;
 
     // ------------------------------------------------------------------
     // Accessors

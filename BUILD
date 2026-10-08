@@ -11,15 +11,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@score_docs_as_code//:docs.bzl", "docs")
 load("@rules_uv//uv:pip.bzl", "pip_compile")
 load("@rules_uv//uv:venv.bzl", "create_venv")
+load("@score_docs_as_code//:docs.bzl", "docs")
 
 docs(
-    data = [
-        "@score_process_description//:needs_json",
-    ],
     source_dir = ".",
+    external_needs = [
+        "@score_process_description//:needs_json",
+        "@score_platform//:needs_json",
+    ],
 )
 
 # The LLVM coverage pipeline (//tools/coverage) resolves the workspace root

@@ -14,11 +14,23 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/factory/openssl_handler_factory.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cipher/openssl_cipher_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/hash/openssl_hash_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/key_management/openssl_key_management_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/random/openssl_random_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/sign/openssl_ecdsa_sign_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/sign/openssl_ed25519_sign_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/sign/openssl_rsa_pss_sign_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/verify/openssl_ecdsa_verify_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/verify/openssl_ed25519_verify_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/verify/openssl_rsa_pss_verify_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/cipher/cipher_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/hash/hash_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/random/random_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/sign/sign_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/verify/verify_executor.hpp"
 #include "score/result/result.h"
 
 namespace score::crypto::daemon::provider::score_provider::openssl::handler
@@ -33,28 +45,28 @@ OpenSslHandlerFactory::OpenSslHandlerFactory(std::shared_ptr<key_management::IKe
 {
 }
 
-score::Result<HandlerSptr> OpenSslHandlerFactory::CreateHashHandler(const common::AlgorithmId& algorithm)
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateHashHandler(const AlgorithmDescriptor& algorithm)
 {
     if (!OpenSslHashHandler::IsAlgorithmSupported(algorithm))
     {
         score::result::Error error(
             static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
             score::crypto::kCryptoErrorDomain,
-            "Algorithm not supported for handler: " + algorithm);
+            "Algorithm not supported for handler: " + std::string{algorithm.name});
         return score::Result<HandlerSptr>(score::unexpect, error);
     }
     auto hash_executor = std::make_unique<operations::hash::HashExecutor>();
     return std::make_shared<OpenSslHashHandler>(std::move(hash_executor), algorithm);
 }
 
-score::Result<HandlerSptr> OpenSslHandlerFactory::CreateMacHandler(const common::AlgorithmId& algorithm)
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateMacHandler(const AlgorithmDescriptor& algorithm)
 {
     if (!OpenSslHmacHandler::IsAlgorithmSupported(algorithm))
     {
         score::result::Error error(
             static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
             score::crypto::kCryptoErrorDomain,
-            "Algorithm not supported for handler: " + algorithm);
+            "Algorithm not supported for handler: " + std::string{algorithm.name});
         return score::Result<HandlerSptr>(score::unexpect, error);
     }
     auto mac_executor = std::make_unique<operations::mac::MacExecutor>();
@@ -66,6 +78,86 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateKeyManagementHandler()
     auto executor =
         std::make_unique<crypto_executor::KeyManagementExecutor>(m_key_factory, m_slot_handler, m_km_service);
     return std::make_shared<OpenSslKeyManagementHandler>(std::move(executor));
+}
+
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCipherHandler(const AlgorithmDescriptor& algorithm)
+{
+    if (!OpenSslCipherHandler::IsAlgorithmSupported(algorithm))
+    {
+        score::result::Error error(
+            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+            score::crypto::kCryptoErrorDomain,
+            "Algorithm not supported for handler: " + std::string{algorithm.name});
+        return score::Result<HandlerSptr>(score::unexpect, error);
+    }
+    auto cipher_executor = std::make_unique<operations::cipher::CipherExecutor>();
+    return std::make_shared<OpenSslCipherHandler>(std::move(cipher_executor), algorithm);
+}
+
+// Each signature family claims the algorithms it serves; an identifier no
+// family claims is unsupported. Further families (RSA, ML-DSA) add a branch.
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateSignHandler(const AlgorithmDescriptor& algorithm)
+{
+    if (OpenSslEcdsaSignHandler::IsAlgorithmSupported(algorithm))
+    {
+        auto sign_executor = std::make_unique<operations::sign::SignExecutor>();
+        return std::make_shared<OpenSslEcdsaSignHandler>(std::move(sign_executor), algorithm);
+    }
+    if (OpenSslRsaPssSignHandler::IsAlgorithmSupported(algorithm))
+    {
+        auto sign_executor = std::make_unique<operations::sign::SignExecutor>();
+        return std::make_shared<OpenSslRsaPssSignHandler>(std::move(sign_executor), algorithm);
+    }
+    if (OpenSslEd25519SignHandler::IsAlgorithmSupported(algorithm))
+    {
+        auto sign_executor = std::make_unique<operations::sign::SignExecutor>();
+        return std::make_shared<OpenSslEd25519SignHandler>(std::move(sign_executor), algorithm);
+    }
+
+    score::result::Error error(
+        static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+        score::crypto::kCryptoErrorDomain,
+        "Algorithm not supported for handler: " + std::string{algorithm.name});
+    return score::Result<HandlerSptr>(score::unexpect, error);
+}
+
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateVerifyHandler(const AlgorithmDescriptor& algorithm)
+{
+    if (OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(algorithm))
+    {
+        auto verify_executor = std::make_unique<operations::verify::VerifyExecutor>();
+        return std::make_shared<OpenSslEcdsaVerifyHandler>(std::move(verify_executor), algorithm);
+    }
+    if (OpenSslRsaPssVerifyHandler::IsAlgorithmSupported(algorithm))
+    {
+        auto verify_executor = std::make_unique<operations::verify::VerifyExecutor>();
+        return std::make_shared<OpenSslRsaPssVerifyHandler>(std::move(verify_executor), algorithm);
+    }
+    if (OpenSslEd25519VerifyHandler::IsAlgorithmSupported(algorithm))
+    {
+        auto verify_executor = std::make_unique<operations::verify::VerifyExecutor>();
+        return std::make_shared<OpenSslEd25519VerifyHandler>(std::move(verify_executor), algorithm);
+    }
+
+    score::result::Error error(
+        static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+        score::crypto::kCryptoErrorDomain,
+        "Algorithm not supported for handler: " + std::string{algorithm.name});
+    return score::Result<HandlerSptr>(score::unexpect, error);
+}
+
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateRandomHandler(const AlgorithmDescriptor& algorithm)
+{
+    if (!OpenSslRandomHandler::IsAlgorithmSupported(algorithm))
+    {
+        score::result::Error error(
+            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+            score::crypto::kCryptoErrorDomain,
+            "Algorithm not supported for handler: " + std::string{algorithm.name});
+        return score::Result<HandlerSptr>(score::unexpect, error);
+    }
+    auto random_executor = std::make_unique<operations::random::RandomExecutor>();
+    return std::make_shared<OpenSslRandomHandler>(std::move(random_executor), algorithm);
 }
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

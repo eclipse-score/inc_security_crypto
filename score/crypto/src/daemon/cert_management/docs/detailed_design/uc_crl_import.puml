@@ -1,0 +1,74 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml uc_crl_import
+title Use Case: Import a CRL (Session-Scoped or Persistent)
+autonumber
+hide footbox
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ParticipantPadding 18
+skinparam sequenceMessageAlign center
+
+actor Application as App
+participant "Public context + IPC" as Context
+participant "CERT:MANAGEMENT\nhandler + executor" as Executor
+participant "ICertParser" as Parser
+participant "CertManagementService" as Service
+participant "CertEntry\n(per client)" as Entry
+participant "CertSlotManager" as SlotManager
+participant "CertSlotRegistry" as Registry
+participant "TrustStoreHandler" as StoreHandler
+participant "TrustStoreManager" as TrustManager
+
+App -> Context : ImportCrl(crl, format, certificate resource, persist)
+Context -> Executor : CRL_IMPORT
+group Planned: import-time validation
+  Executor -> Parser : ValidateCrl(crl, issuer certificate)
+  Parser --> Executor : CRL metadata, or error
+end
+
+alt planned: CRL rejected by validation
+  Executor --> Context : error response
+else persist = false
+  Executor -> Entry : AttachSessionCrl(CrlData)
+  note right of Entry
+    Held only by this client's CertEntry. Never written
+    to storage, never visible to another client or to
+    any trust store.
+  end note
+  Executor --> Context : success
+else persist = true (slot resource, write access required)
+  Executor -> Service : UpdateSlot(slot, client, CrlData)
+  Service -> SlotManager : StoreCrl(slot, client, CrlData)
+  SlotManager -> Registry : CheckWriteAccess(slot, client)
+  SlotManager -> SlotManager : store CRL, invalidate CRL cache entry
+  SlotManager --> Service : success
+  Service -> TrustManager : NotifySlotCrlChanged(slot)
+  loop each trust store referencing the slot
+    TrustManager -> StoreHandler : OnSlotCrlChanged(slot)
+    StoreHandler -> SlotManager : LoadCrlDataForTrustStore(slot)
+    SlotManager --> StoreHandler : shared CrlData::Sptrc
+    StoreHandler -> StoreHandler : replace the member's CRL;\na disabled member keeps none
+  end
+  Service --> Executor : success
+  Executor --> Context : success
+end
+Context --> App : result
+
+note over SlotManager, StoreHandler
+  The trust store refreshes from the slot's current snapshot and holds
+  the same shared CRL object as the slot manager. Concurrent imports are
+  therefore ordered by slot state, not by notification arrival.
+end note
+@enduml

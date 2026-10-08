@@ -21,6 +21,7 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/detail/pkcs11_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_executor.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
@@ -38,47 +39,62 @@ Pkcs11HandlerFactory::Pkcs11HandlerFactory(const Pkcs11Module& module, Pkcs11Pro
 }
 
 score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHandler(const common::HandlerId& handlerId,
-                                                                          const common::AlgorithmId& algorithm)
+                                                                          const AlgorithmDescriptor& algorithm)
 {
-    if (handlerId == kHashHandlerId)
+    if (handlerId == common::context_types::kHash)
     {
         return CreateHashHandler(algorithm);
     }
 
-    if (handlerId == kMacHandlerId)
+    if (handlerId == common::context_types::kMac)
     {
         return CreateMacHandler(algorithm);
     }
 
-    if (handlerId == kKeyManagementHandlerId)
-    {
-        return CreateKeyManagementHandler();
-    }
-
     const score::result::Error error(
-        static_cast<score::result::ErrorCode>(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation),
+        static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedOperation),
         score::crypto::kCryptoErrorDomain,
         "Handler not supported by PKCS#11 provider: " + handlerId);
     return score::Result<handler::Handler::Sptr>(score::unexpect, error);
 }
 
-score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHashHandler(const common::AlgorithmId& algorithm)
+score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHashHandler(const AlgorithmDescriptor& algorithm)
 {
     if (!Pkcs11HashHandler::IsAlgorithmSupported(algorithm))
     {
-        const score::result::Error error(static_cast<score::result::ErrorCode>(
-                                             score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm),
-                                         score::crypto::kCryptoErrorDomain,
-                                         "Algorithm not supported for PKCS#11 hash handler: " + algorithm);
+        const score::result::Error error(
+            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+            score::crypto::kCryptoErrorDomain,
+            "Algorithm not supported for PKCS#11 hash handler: " + std::string{algorithm.name});
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
     }
 
-    score::mw::log::LogDebug() << "[PKCS11_HANDLER_FACTORY] Creating HASH handler for algorithm:" << algorithm;
+    const auto mechanism = detail::LookupHashMechanism(algorithm);
+    const auto mechanism_support = m_provider.SupportsMechanism(mechanism, CKF_DIGEST);
+    if (!mechanism_support.has_value())
+    {
+        const auto error_code = score::crypto::daemon::common::ToCryptoErrorCode(mechanism_support.error());
+        const score::result::Error error(static_cast<score::result::ErrorCode>(error_code),
+                                         score::crypto::kCryptoErrorDomain,
+                                         "Failed to query PKCS#11 hash mechanism: " + std::string{algorithm.name});
+        return score::Result<handler::Handler::Sptr>(score::unexpect, error);
+    }
+    if (!mechanism_support.value())
+    {
+        const score::result::Error error(
+            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+            score::crypto::kCryptoErrorDomain,
+            "Selected PKCS#11 token does not support hash mechanism: " + std::string{algorithm.name});
+        return score::Result<handler::Handler::Sptr>(score::unexpect, error);
+    }
+
+    score::mw::log::LogDebug() << "[PKCS11_HANDLER_FACTORY] Creating HASH handler for algorithm:" << algorithm.name;
 
     Pkcs11SessionGuard guard(m_provider, Pkcs11HashHandler::kRequirements);
     if (!guard)
     {
-        const score::result::Error error(static_cast<score::result::ErrorCode>(guard.error()),
+        const auto error_code = score::crypto::daemon::common::ToCryptoErrorCode(guard.error());
+        const score::result::Error error(static_cast<score::result::ErrorCode>(error_code),
                                          score::crypto::kCryptoErrorDomain,
                                          "PKCS#11: failed to acquire session for handler");
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
@@ -90,21 +106,41 @@ score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHashHandler(co
     return handler;
 }
 
-score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateMacHandler(const common::AlgorithmId& algorithm)
+score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateMacHandler(const AlgorithmDescriptor& algorithm)
 {
     if (!Pkcs11MacHandler::IsAlgorithmSupported(algorithm))
     {
-        const score::result::Error error(static_cast<score::result::ErrorCode>(
-                                             score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm),
+        const score::result::Error error(
+            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+            score::crypto::kCryptoErrorDomain,
+            "Algorithm not supported for PKCS#11 MAC handler: " + std::string{algorithm.name});
+        return score::Result<handler::Handler::Sptr>(score::unexpect, error);
+    }
+
+    const auto mechanism = detail::LookupMacMechanism(algorithm);
+    const auto mechanism_support = m_provider.SupportsMechanism(mechanism, CKF_SIGN | CKF_VERIFY);
+    if (!mechanism_support.has_value())
+    {
+        const auto error_code = score::crypto::daemon::common::ToCryptoErrorCode(mechanism_support.error());
+        const score::result::Error error(static_cast<score::result::ErrorCode>(error_code),
                                          score::crypto::kCryptoErrorDomain,
-                                         "Algorithm not supported for PKCS#11 MAC handler: " + algorithm);
+                                         "Failed to query PKCS#11 MAC mechanism: " + std::string{algorithm.name});
+        return score::Result<handler::Handler::Sptr>(score::unexpect, error);
+    }
+    if (!mechanism_support.value())
+    {
+        const score::result::Error error(
+            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+            score::crypto::kCryptoErrorDomain,
+            "Selected PKCS#11 token does not support MAC mechanism: " + std::string{algorithm.name});
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
     }
 
     Pkcs11SessionGuard guard(m_provider, Pkcs11MacHandler::kRequirements);
     if (!guard)
     {
-        const score::result::Error error(static_cast<score::result::ErrorCode>(guard.error()),
+        const auto error_code = score::crypto::daemon::common::ToCryptoErrorCode(guard.error());
+        const score::result::Error error(static_cast<score::result::ErrorCode>(error_code),
                                          score::crypto::kCryptoErrorDomain,
                                          "PKCS#11: failed to acquire session for MAC handler");
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
@@ -123,7 +159,7 @@ score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateKeyManagementH
     if (!km_service)
     {
         const score::result::Error error(
-            static_cast<score::result::ErrorCode>(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument),
+            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kInvalidArgument),
             score::crypto::kCryptoErrorDomain,
             "PKCS#11 key management handler requires KeyManagementService");
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);

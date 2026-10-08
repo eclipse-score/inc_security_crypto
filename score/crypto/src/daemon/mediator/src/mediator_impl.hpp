@@ -16,6 +16,8 @@
 
 #include "score/crypto/src/daemon/mediator/i_mediator.hpp"
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
@@ -29,6 +31,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -64,10 +67,63 @@ class MediatorImpl : public IMediator
         score::crypto::daemon::control_plane::ControlRequest& request) override;
 
   private:
+    struct ProviderHandlerSelection
+    {
+        std::shared_ptr<provider::IProvider> provider;
+        provider::handler::Handler::Sptr handler;
+        bool used_fallback{false};
+    };
+
     bool HandleContextCreationOperation(
         const score::crypto::daemon::control_plane::ControlRequest& request,
         const control_plane::SingleOperationRequest& operation,
         score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
+
+    /// @brief Resolve a provider and create a compatible handler.
+    ///
+    /// @p algorithm is the resolved catalog row of the requested algorithm, or
+    /// std::nullopt for a KEY:MANAGEMENT context, which names no algorithm.
+    ///
+    /// Preferred-provider fallback is attempted only when the primary provider
+    /// is unavailable or rejects the requested context/algorithm. Exact provider
+    /// requests never fall back. Initialization is deliberately performed after
+    /// selection and is not retried because binding and provider initialization
+    /// can have side effects that must not be duplicated across providers.
+    score::crypto::Expected<ProviderHandlerSelection, score::crypto::CryptoErrorCode> ResolveProviderAndCreateHandler(
+        std::uint64_t client_id,
+        const std::optional<data_manager::DataNodeId>& key_node_id,
+        std::string_view context_type,
+        const std::optional<AlgorithmDescriptor>& algorithm,
+        common::CryptoProviderType primary_provider_type,
+        const std::optional<common::CryptoProviderType>& fallback_provider_type,
+        common::ProviderCapability required_capability);
+
+    /// @brief Resolves a client-supplied key reference and authorizes it for the context.
+    ///
+    /// Performs the two steps that must not be separated: binding the key to the
+    /// context node, after checking that the key's permissions cover what the
+    /// context intends to do with it. The check reads metadata only, so a refused
+    /// request loads no key material. Called only when CTX_CREATE carried a key
+    /// reference.
+    ///
+    /// @param client_id       Authenticated client requesting the context.
+    /// @param context_node_id Node the key is being bound to.
+    /// @param key_node_id     In: the client-supplied reference (key or slot).
+    ///                        Out: the resolved live key node id.
+    /// @param provider_id     Provider that will own the context.
+    /// @param context_type    CTX_CREATE param[0].
+    /// @param params          Full CTX_CREATE parameter list (param[4] carries the mode).
+    ///
+    /// @return The bound key handler, or the error code to report to the client.
+    ///         The caller owns cleanup of @p context_node_id on failure.
+    score::crypto::Expected<key_management::IKeyHandler::Sptr, score::crypto::CryptoErrorCode> BindAndAuthorizeKey(
+        std::uint64_t client_id,
+        std::uint64_t context_node_id,
+        std::uint64_t& key_node_id,
+        const common::ProviderId& provider_id,
+        std::string_view context_type,
+        const std::optional<AlgorithmDescriptor>& algorithm,
+        const common::RequestParameters& params);
 
     // Private helpers
     // Shared operation execution helper - handles parameter extraction, execution, and response building

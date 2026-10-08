@@ -1,0 +1,338 @@
+/********************************************************************************
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ ********************************************************************************/
+
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/sign/openssl_ecdsa_sign_handler.hpp"
+
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
+
+#include "score/mw/log/logging.h"
+
+#include <cstring>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace score::crypto::daemon::provider::score_provider::openssl::handler
+{
+
+using common::StreamOperationState;
+using ::score::crypto::daemon::common::DaemonErrorCode;
+namespace algo_info = ::score::crypto::daemon::common;
+
+OpenSslEcdsaSignHandler::OpenSslEcdsaSignHandler(
+    std::unique_ptr<::score::crypto::daemon::provider::score_provider::operations::sign::SignExecutor> executor,
+    const AlgorithmDescriptor& algorithm)
+    : ScoreSignHandler{std::move(executor), algorithm}
+{
+}
+
+OpenSslEcdsaSignHandler::~OpenSslEcdsaSignHandler() = default;
+
+bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
+{
+    return (algorithm.key_type == ::score::crypto::KeyType::kEcc) &&
+           ::score::crypto::daemon::provider::openssl::detail::IsSignatureSupported(algorithm);
+}
+
+// ---------------------------------------------------------------------------
+// Handler interface
+// ---------------------------------------------------------------------------
+
+::score::crypto::Expected<std::monostate, DaemonErrorCode> OpenSslEcdsaSignHandler::InitializeContext(
+    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
+{
+    auto base_result = ScoreSignHandler::InitializeContext(init_params);
+    if (!base_result.has_value())
+    {
+        return base_result;
+    }
+
+    const auto input_mode = ::score::crypto::daemon::common::ParseInputMode(init_params.context_creation_params);
+    if (!input_mode.has_value())
+    {
+        return ::score::crypto::make_unexpected(input_mode.error());
+    }
+
+    auto bound = m_stream.Bind(init_params, m_algorithm);
+    if (!bound.has_value())
+    {
+        return bound;
+    }
+
+    m_prehashed = input_mode.value() == ::score::crypto::SignatureInputMode::kPrehashed;
+    m_prehashed_data.clear();
+
+    m_state = StreamOperationState::IDLE;
+    return std::monostate{};
+}
+
+::score::crypto::Expected<std::monostate, DaemonErrorCode> OpenSslEcdsaSignHandler::Reset()
+{
+    return InitializeContext(m_stream.InitParams());
+}
+
+// ---------------------------------------------------------------------------
+// ScoreSignHandler interface
+// ---------------------------------------------------------------------------
+
+::score::crypto::Expected<std::monostate, DaemonErrorCode> OpenSslEcdsaSignHandler::InitSign()
+{
+    EVP_PKEY* pkey = m_stream.Key();
+    if (pkey == nullptr)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "InitSign: no bound key";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kStreamNotInitialized);
+    }
+
+    const char* const digest_name =
+        ::score::crypto::daemon::provider::openssl::detail::ToOpenSslDigestName(m_algorithm.hash);
+    if (digest_name == nullptr)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "InitSign: no digest for algorithm" << m_algorithm.name;
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+
+    auto restarted = m_stream.Restart();
+    if (!restarted.has_value())
+    {
+        return restarted;
+    }
+
+    if (m_prehashed)
+    {
+        m_prehashed_data.clear();
+        return std::monostate{};
+    }
+
+    const std::string digest{digest_name};
+    if (EVP_DigestSignInit_ex(m_stream.Context(), nullptr, digest.c_str(), nullptr, nullptr, pkey, nullptr) != 1)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "InitSign: EVP_DigestSignInit failed";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
+    }
+
+    return std::monostate{};
+}
+
+::score::crypto::Expected<std::monostate, DaemonErrorCode> OpenSslEcdsaSignHandler::UpdateSign(
+    score::cpp::span<const std::uint8_t> data)
+{
+    if (m_stream.Context() == nullptr)
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kStreamNotInitialized);
+    }
+
+    if (m_prehashed)
+    {
+        const auto expected_digest_size = ::score::crypto::daemon::common::LookupDigestSize(m_algorithm.hash);
+        if (!expected_digest_size.has_value() || m_prehashed_data.size() > expected_digest_size.value() ||
+            data.size() > expected_digest_size.value() - m_prehashed_data.size())
+        {
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
+        m_prehashed_data.insert(m_prehashed_data.end(), data.begin(), data.end());
+        return std::monostate{};
+    }
+
+    if (EVP_DigestSignUpdate(m_stream.Context(), data.data(), data.size()) != 1)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "UpdateSign: EVP_DigestSignUpdate failed";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+    }
+
+    return std::monostate{};
+}
+
+namespace
+{
+/// @brief Writes a DER ECDSA-Sig-Value into @p out as fixed-length P1363 r‖s.
+///
+/// @param out Already length-checked against 2 * @p field_size.
+::score::crypto::Expected<std::size_t, DaemonErrorCode> EmitP1363(const std::vector<std::uint8_t>& der,
+                                                                  std::size_t field_size,
+                                                                  score::cpp::span<std::uint8_t> out)
+{
+    auto p1363 = signature::DerToP1363(der.data(), der.size(), field_size);
+    if (!p1363.has_value())
+    {
+        return ::score::crypto::make_unexpected(p1363.error());
+    }
+    std::memcpy(out.data(), p1363.value().data(), p1363.value().size());
+    return p1363.value().size();
+}
+}  // namespace
+
+::score::crypto::Expected<std::size_t, DaemonErrorCode> OpenSslEcdsaSignHandler::FinalizeSign(
+    score::cpp::span<std::uint8_t> signature)
+{
+    if (m_stream.Context() == nullptr)
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kStreamNotInitialized);
+    }
+
+    auto target = ResolveSignatureBuffer(signature);
+    if (!target.has_value())
+    {
+        return ::score::crypto::make_unexpected(target.error());
+    }
+
+    if (m_prehashed)
+    {
+        const auto expected_digest_size = ::score::crypto::daemon::common::LookupDigestSize(m_algorithm.hash);
+        if (!expected_digest_size.has_value() || m_prehashed_data.size() != expected_digest_size.value())
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "FinalizeSign: prehashed input size " << m_prehashed_data.size()
+                                       << " does not match expected digest size for " << m_algorithm.name;
+            m_state = StreamOperationState::IDLE;
+            m_prehashed_data.clear();
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
+        const EVP_MD* digest = ::score::crypto::daemon::provider::openssl::detail::ToEvpMd(m_algorithm.hash);
+        EVP_PKEY_CTX* pctx = digest == nullptr ? nullptr : EVP_PKEY_CTX_new(m_stream.Key(), nullptr);
+        if (pctx == nullptr || EVP_PKEY_sign_init(pctx) != 1 || EVP_PKEY_CTX_set_signature_md(pctx, digest) != 1)
+        {
+            if (pctx != nullptr)
+                EVP_PKEY_CTX_free(pctx);
+            m_state = StreamOperationState::IDLE;
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+        }
+        std::size_t der_len = 0U;
+        if (EVP_PKEY_sign(pctx, nullptr, &der_len, m_prehashed_data.data(), m_prehashed_data.size()) != 1)
+        {
+            EVP_PKEY_CTX_free(pctx);
+            m_state = StreamOperationState::IDLE;
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+        }
+        std::vector<std::uint8_t> der(der_len);
+        const int sign_result =
+            EVP_PKEY_sign(pctx, der.data(), &der_len, m_prehashed_data.data(), m_prehashed_data.size());
+        EVP_PKEY_CTX_free(pctx);
+        if (sign_result != 1)
+        {
+            m_state = StreamOperationState::IDLE;
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+        }
+        der.resize(der_len);
+        m_state = StreamOperationState::IDLE;
+        m_prehashed_data.clear();
+        return EmitP1363(der, target.value().field_size, target.value().buffer);
+    }
+
+    // First call sizes the DER buffer, second fills it.
+    std::size_t der_len = 0U;
+    if (EVP_DigestSignFinal(m_stream.Context(), nullptr, &der_len) != 1)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "FinalizeSign: EVP_DigestSignFinal size query failed";
+        m_state = StreamOperationState::IDLE;
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+    }
+
+    std::vector<std::uint8_t> der(der_len);
+    if (EVP_DigestSignFinal(m_stream.Context(), der.data(), &der_len) != 1)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "FinalizeSign: EVP_DigestSignFinal failed";
+        m_state = StreamOperationState::IDLE;
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+    }
+    der.resize(der_len);
+
+    m_state = StreamOperationState::IDLE;
+
+    auto written = EmitP1363(der, target.value().field_size, target.value().buffer);
+    if (!written.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "FinalizeSign: DER to P1363 conversion failed";
+    }
+    return written;
+}
+
+::score::crypto::Expected<std::size_t, DaemonErrorCode> OpenSslEcdsaSignHandler::SingleShotSign(
+    score::cpp::span<const std::uint8_t> data,
+    score::cpp::span<std::uint8_t> signature)
+{
+    auto target = ResolveSignatureBuffer(signature);
+    if (!target.has_value())
+    {
+        return ::score::crypto::make_unexpected(target.error());
+    }
+
+    // InitSign only binds the key and digest. EVP_DigestSign then does the
+    // update and the final together, so no SIGN_UPDATE step runs.
+    auto prepared = InitSign();
+    if (!prepared.has_value())
+    {
+        return ::score::crypto::make_unexpected(prepared.error());
+    }
+
+    if (m_prehashed)
+    {
+        const auto expected_digest_size = ::score::crypto::daemon::common::LookupDigestSize(m_algorithm.hash);
+        if (!expected_digest_size.has_value() || data.size() != expected_digest_size.value())
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "SingleShotSign: prehashed input size " << data.size()
+                                       << " does not match expected digest size for " << m_algorithm.name;
+            m_state = StreamOperationState::IDLE;
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
+        m_prehashed_data.assign(data.begin(), data.end());
+        return FinalizeSign(signature);
+    }
+
+    std::size_t der_len = 0U;
+    if (EVP_DigestSign(m_stream.Context(), nullptr, &der_len, data.data(), data.size()) != 1)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "SingleShotSign: EVP_DigestSign size query failed";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+    }
+
+    std::vector<std::uint8_t> der(der_len);
+    if (EVP_DigestSign(m_stream.Context(), der.data(), &der_len, data.data(), data.size()) != 1)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "SingleShotSign: EVP_DigestSign failed";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+    }
+    der.resize(der_len);
+
+    auto written = EmitP1363(der, target.value().field_size, target.value().buffer);
+    if (!written.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "SingleShotSign: DER to P1363 conversion failed";
+    }
+    return written;
+}
+
+::score::crypto::Expected<OpenSslEcdsaSignHandler::SignatureTarget, DaemonErrorCode>
+OpenSslEcdsaSignHandler::ResolveSignatureBuffer(score::cpp::span<std::uint8_t> signature) const
+{
+    const std::size_t field_size = algo_info::EcFieldSize(m_algorithm);
+    if (field_size == 0U)
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+
+    // P1363 is r‖s, two field-sized integers, so the length is known before signing.
+    const std::size_t p1363_len = 2U * field_size;
+    if (signature.size() < p1363_len)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "signature buffer holds" << signature.size() << "bytes, needs"
+                                   << p1363_len;
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
+    }
+
+    return SignatureTarget{signature, field_size};
+}
+
+}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

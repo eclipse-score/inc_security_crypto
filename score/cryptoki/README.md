@@ -1,3 +1,16 @@
+<!-- ----------------------------------------------------------------------------
+  Copyright (c) 2026 Contributors to the Eclipse Foundation
+
+  See the NOTICE file(s) distributed with this work for additional
+  information regarding copyright ownership.
+
+  This program and the accompanying materials are made available under the
+  terms of the Apache License Version 2.0 which is available at
+  https://www.apache.org/licenses/LICENSE-2.0
+
+  SPDX-License-Identifier: Apache-2.0
+----------------------------------------------------------------------------- -->
+
 # Valeo Cryptoki Integration Guide
 
 This document describes how the S-CORE Peer Package Rust PKCS#11 module (located under `//score/cryptoki`) is integrated into the `score_crypto` daemon, replacing the default SoftHSM implementation.
@@ -90,4 +103,4 @@ bazel run //score/tests/integration_tests:score_demo \
 *   **Toolchain Errors**: If you encounter errors mentioning `rules_rust` or missing toolchains, ensure you are including `--config=x86_64-linux` or `--config=aarch64-qnx` / `--config=x86_64-qnx` in your Bazel command. This is strictly required to activate the Ferrocene compiler capable of building the module.
 *   **Missing Symbols / Header Errors**: If the C++ compilation fails looking for `<cryptoki.h>`, ensure you have included `--//score/crypto/src/backend:pkcs11_backend=//score/cryptoki:cryptoki_cdylib_wrapped`.
 *   **LoadKey Failed**: If the client fails with `[FAIL] LoadKey failed`, ensure the token was initialized correctly in Step 1 and that the `CRYPTOKI_STORE` environment variable is set for the daemon before running it.
-*   **QNX Build Missing Headers**: If QNX fails to compile `typed_memory.h`, ensure `--@score_baselibs//score/memory/shared/flags:use_typedshmd=false` is correctly set in your `.bazelrc` for `shared_qnx`.
+*   **QNX Build Missing Headers**: If QNX fails to compile `typed_memory.h`, ensure `--@score_communication//score/memory/shared/flags:use_typedshmd=false` is correctly set in your `.bazelrc` for `shared_qnx`.

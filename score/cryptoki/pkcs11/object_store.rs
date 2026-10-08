@@ -448,11 +448,11 @@ pub fn load_persisted_objects() {
         // Restore per-slot token state.
         if !state.tokens.is_empty() {
             for (slot_id, stored_token) in &state.tokens {
-                super::token::with_token_mut(*slot_id, |t| stored_token.apply_to(t));
+                super::token::replace_token(*slot_id, |t| stored_token.apply_to(t));
             }
         } else if let Some(ref legacy_token) = state.token {
             // Backward compat: legacy single-token format → apply to slot 0.
-            super::token::with_token_mut(0, |t| legacy_token.apply_to(t));
+            super::token::replace_token(0, |t| legacy_token.apply_to(t));
         }
     }
 }

@@ -391,7 +391,7 @@ Context
 -------
 
 Algorithm identifiers must accommodate current algorithms (e.g., ``"AES-256-GCM"``,
-``"SHA-256"``, ``"SLH-DSA-SHA2-128s"``), future PQC schemes, and provider-specific
+``"SHA256"``, ``"SLH-DSA-SHA2-128s"``), future PQC schemes, and provider-specific
 extensions — an open set that cannot be enumerated at compile time.
 
 Decision
@@ -433,6 +433,105 @@ Consequences
 * Silent truncation on overflow — callers must check ``truncated()`` when constructing
   from untrusted input.
 * No compile-time algorithm validation — typos become runtime errors.
+
+---
+
+Algorithm Catalog Alongside ``AlgorithmId``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. dec_rec:: Structured Algorithm Catalog Alongside String AlgorithmId
+   :id: dec_rec__crypto__alg_catalog
+   :version: 1
+   :status: proposed
+   :context: doc__crypto_architecture
+   :decision: ``AlgorithmId`` stays the string on the wire, in the configs and in stored key metadata. A constexpr catalog (``score/crypto/src/daemon/common/algorithm_catalog.hpp``) maps every known name, by exact match, to an ``Algorithm`` enumerator and an ``AlgorithmDescriptor`` holding category, key type, key length, hash, curve, mode and fixed output size. The daemon resolves each name to its catalog row once, where the request enters it, and refuses a name the catalog does not know; providers receive the row, never the name, and decide support from its typed fields.
+
+   .. :affects: comp__crypto
+
+Context
+-------
+
+The daemon derived algorithm properties by searching identifiers for
+fragments: ``"P256"`` anywhere in a name selected the P-256 curve, ``"SHA256"``
+anywhere selected SHA-256, and ``"ECDSA"`` plus a curve anywhere made a name an
+ECDSA algorithm, so ``"XECDSA-P256"`` and ``"ECDSA-P2561-SHA256"`` were accepted.
+RSA-PSS names were parsed by prefix and their digest found by searching for a
+hash name, so ``"RSA-PSS-20481-SHA256"`` resolved to a 2048-bit key.
+The PKCS#11 provider took the key type and length from the first entry of its
+table found anywhere in the name (``"AES-128"``, ``"HMAC-SHA256"``, ...). Each
+table repeated its own list of names, none recorded the key type an operation
+algorithm needs, and nothing compared a key's algorithm with the operation's
+before binding them, so a P-256 key could be bound to an ECDSA-P384 context.
+
+Decision
+--------
+
+``AlgorithmId`` remains ``FixedCapacityString<64>`` (see the previous record)
+and the IPC protocol is unchanged. On top of it:
+
+* ``FromAlgorithmName()`` / ``ToAlgorithmName()`` convert between the string and
+  the ``Algorithm`` enumerator by exact, case-sensitive match;
+  ``GetAlgorithmDescriptor()`` and ``GetAlgorithmCategory()`` expose the
+  properties of a known algorithm. The catalog is internal to the daemon
+  (``//score/crypto/src/daemon/common:algorithm_catalog``; nothing under
+  ``score/crypto/src/api`` depends on it): clients only send names, so adding
+  a row rebuilds the daemon and its providers, not the applications.
+* Every algorithm the daemon accepts is a catalog row. ECDSA has one row per
+  curve (P-256, P-384, P-521) and SHA-2 digest (SHA-224 to SHA-512), twelve in
+  all, whose key length, digest and IEEE P1363 signature size (64, 96, 132
+  bytes) follow from the curve and hash; there is no ECDSA row for MD5 or
+  SHA-1. The bare key rows ``"ECDSA-P256"``, ``"ECDSA-P384"`` and
+  ``"ECDSA-P521"`` name keys only. Ed25519 has no parameters, so ``"Ed25519"``
+  is a single row of category signature with key type ``kEd25519`` and names
+  both the key and the scheme. Nothing in the daemon parses a name.
+* The mediator resolves the algorithm of ``CTX_CREATE`` once, before any
+  provider is asked; a name without a row is refused with
+  ``kUnsupportedAlgorithm``. A ``RANDOM`` context without an algorithm selects
+  the ``"CTR-DRBG"`` row. A ``KEY:MANAGEMENT`` context is bound to no
+  algorithm and is created through the separate factory entry point
+  ``ICryptoHandlerFactory::CreateKeyManagementHandler()``; all other contexts
+  go through ``CreateHandler(handler_id, const AlgorithmDescriptor&)``.
+* Every handler's ``IsAlgorithmSupported()`` takes the descriptor and every
+  handler stores it. Providers decide support in ``switch`` statements over the
+  typed fields (hash, curve, key type, cipher mode) without a default case, so
+  a value added to a catalog enumeration does not compile until each provider
+  decides whether it serves it. The OpenSSL provider maps hash to ``EVP_MD``
+  (SHA-2 only), curve to its group name, cipher mode and key length to an
+  ``EVP_CIPHER`` (AES-CBC) and signatures by key type (ECDSA on every row,
+  RSA-PSS on 2048/3072/4096-bit keys, Ed25519). The PKCS#11 provider maps hash
+  rows to ``CKM_SHA*``, HMAC rows to ``CKM_SHA*_HMAC`` and keys by key type and
+  length. MD5 and SHA-1 have catalog rows and are refused by both.
+* Key management works on descriptors as well: key generation and import
+  requests carry the resolved row, the request parser refuses an unknown name
+  with ``kUnsupportedAlgorithm``, and the key factories switch on its key type.
+  Slot configuration and stored key metadata keep the algorithm name; it is
+  resolved when loaded. A configured slot whose name the catalog does not know
+  is not registered (an error is logged), and a key whose stored name is
+  unknown is refused with ``kUnsupportedAlgorithm`` when loaded or peeked.
+  ``LookupKeySize()`` in ``daemon/common/algorithm_info.hpp`` keeps answering
+  which rows can label a key and the key length, now from the descriptor.
+
+Consequences
+------------
+
+**Positive:**
+
+* One table in the daemon holds the properties of every known algorithm; the
+  daemon alone decides which names it knows.
+* No identifier is accepted because it contains another identifier, and an
+  unknown identifier fails at context creation rather than inside a provider.
+* Providers keep no lists of names; a new value of a catalog enumeration forces
+  an explicit support decision in every provider.
+* Key and operation algorithms can be compared on key type, length and curve.
+
+**Negative:**
+
+* A new algorithm needs a catalog row before any provider can serve it, and
+  a new enumerator value needs a case in every provider switch.
+* A client learns that a name is unknown only from the daemon, after one
+  request.
+* A configured or stored name that a later catalog no longer knows makes the
+  slot or key unusable until the configuration is migrated.
 
 ---
 

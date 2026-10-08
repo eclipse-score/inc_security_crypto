@@ -23,11 +23,32 @@ cc_test(
     }),
     deps = [
         "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_library",
         "//score/tests/utility",
+        "//third_party/openssl:openssl_shared",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "test_provider_signature",
+    srcs = ["test_provider_signature.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
+        "//score/crypto/src/daemon/provider/handler:sign_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:verify_handler_operations",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_library",
         "@googletest//:gtest",
     ],
 )
@@ -43,6 +64,7 @@ cc_test(
     deps = [
         "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_library",

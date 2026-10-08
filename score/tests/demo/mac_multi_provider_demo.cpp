@@ -60,6 +60,7 @@
 #include <string_view>
 
 // Provider interfaces
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
@@ -152,7 +153,8 @@ class MacDemoTest : public ::testing::Test
     static std::shared_ptr<OpenSslHmacHandler> MakeMacHandler(const km::IKeyHandler* key_handler = nullptr)
     {
         auto executor = std::make_unique<MacExecutor>();
-        auto handler = std::make_shared<OpenSslHmacHandler>(std::move(executor), "HMAC-SHA256");
+        auto handler = std::make_shared<OpenSslHmacHandler>(std::move(executor),
+                                                            *score::crypto::GetAlgorithmDescriptor("HMAC-SHA256"));
         InitializationParams init_params{};
         if (key_handler != nullptr)
         {
@@ -198,7 +200,7 @@ TEST_F(MacDemoTest, Demo1_ProviderCapabilityInspection)
     // a capability bitmask.  GetKeyFactory() != nullptr confirms key management support.
 
     // Verify MAC handler can be created.
-    auto mac_handler = factory->CreateHandler("MAC", "HMAC-SHA256");
+    auto mac_handler = factory->CreateHandler("MAC", *score::crypto::GetAlgorithmDescriptor("HMAC-SHA256"));
     ASSERT_TRUE(mac_handler.has_value()) << "Factory does not support MAC/HMAC-SHA256";
     std::cout << "[PASS] Factory supports MAC/HMAC-SHA256\n";
 }
@@ -212,7 +214,7 @@ TEST_F(MacDemoTest, Demo2_EphemeralKeyMac)
 
     // 2a. Generate an ephemeral HMAC-SHA256 key.
     KeyGenerationRequest gen_req{};
-    gen_req.algorithm = "HMAC-SHA256";
+    gen_req.algorithm = *score::crypto::GetAlgorithmDescriptor("HMAC-SHA256");
     gen_req.permissions = score::crypto::KeyOperationPermission::kAll;  // includes kExport for demo verification
 
     auto gen_result = m_key_factory->GenerateKey(gen_req);
@@ -353,7 +355,7 @@ TEST_F(MacDemoTest, Demo4_ProviderDirectCapabilityPattern)
     std::cout << "[INFO] Non-supported capabilities return nullptr — no exceptions, no RTTI.\n";
 
     // Use the factory to create a MAC handler.
-    auto handler_res = factory->CreateHandler("MAC", "HMAC-SHA256");
+    auto handler_res = factory->CreateHandler("MAC", *score::crypto::GetAlgorithmDescriptor("HMAC-SHA256"));
     ASSERT_TRUE(handler_res.has_value());
     ASSERT_NE(handler_res.value(), nullptr);
     std::cout << "[PASS] Factory created MAC handler via direct capability interface\n";

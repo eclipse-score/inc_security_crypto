@@ -14,18 +14,24 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
 
-#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 
 #include <pkcs11.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 namespace score::crypto::daemon::provider::pkcs11::detail
 {
 
-/// @brief PKCS#11 algorithm parameters derived from a daemon algorithm identifier.
+// Support decisions below are exhaustive switches on the typed catalog fields
+// without a default case, so a value added to the catalog enums does not
+// compile until this provider decides whether it serves it.
+
+/// @brief PKCS#11 algorithm parameters derived from a catalog row.
 struct Pkcs11AlgoInfo
 {
     CK_KEY_TYPE ck_key_type{CKK_GENERIC_SECRET};                  ///< CKA_KEY_TYPE attribute value
@@ -33,106 +39,96 @@ struct Pkcs11AlgoInfo
     CK_ULONG value_len{0U};                                       ///< CKA_VALUE_LEN in bytes
 };
 
-/// @brief Lookup table entry mapping algorithm identifier substring to PKCS#11 parameters.
-struct Pkcs11AlgoEntry
+/// @brief Map a key or operation row to the PKCS#11 key it needs.
+///
+/// Decided by the row's key type and length, so "AES-256", "AES-256-CBC" and
+/// "AES-256-CMAC" all map to a 32-byte CKK_AES key and "HMAC-SHA256" to a
+/// 32-byte generic secret.
+/// @return the key attributes, or std::nullopt for key types this provider
+///         does not generate (asymmetric keys and rows without a key).
+[[nodiscard]] inline std::optional<Pkcs11AlgoInfo> LookupAlgorithm(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
-    std::string_view algorithm;
-    Pkcs11AlgoInfo info;
-};
-
-/// @brief Lookup table for algorithm identifier to PKCS#11 parameters mapping.
-///
-/// Each entry maps a daemon algorithm identifier substring (case-sensitive, uppercase
-/// expected) to its corresponding PKCS#11 parameters. Used by LookupAlgorithm for
-/// O(n) linear search; extend this table when adding new algorithm support.
-inline constexpr Pkcs11AlgoEntry kAlgoEntries[] = {
-    // HMAC family — generic secret keys; size varies by hash length
-    {"HMAC-SHA256", {CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 32U}},
-    {"HMAC-SHA384", {CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 48U}},
-    {"HMAC-SHA512", {CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 64U}},
-    // AES family
-    {"AES-128", {CKK_AES, CKM_AES_KEY_GEN, 16U}},
-    {"AES-192", {CKK_AES, CKM_AES_KEY_GEN, 24U}},
-    {"AES-256", {CKK_AES, CKM_AES_KEY_GEN, 32U}},
-};
-
-/// @brief Map a daemon algorithm identifier string to PKCS#11 parameters.
-///
-/// Returns an empty optional for unknown or unsupported algorithms.
-/// Case-sensitive substring matching (uppercase expected, matching the AlgorithmId
-/// values used by the daemon).
-///
-/// Adding a new algorithm: extend kAlgoEntries and add a matching entry to
-/// OpenSslKeyHandler::DetermineKeySize() for cross-provider consistency.
-[[nodiscard]] inline std::optional<Pkcs11AlgoInfo> LookupAlgorithm(const common::AlgorithmId& algo) noexcept
-{
-    for (const auto& entry : kAlgoEntries)
+    const auto value_len = static_cast<CK_ULONG>((static_cast<std::size_t>(algorithm.key_bits) + 7U) / 8U);
+    switch (algorithm.key_type)
     {
-        if (algo.find(entry.algorithm) != std::string::npos)
-        {
-            return entry.info;
-        }
+        case ::score::crypto::KeyType::kSecret:
+            return Pkcs11AlgoInfo{CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, value_len};
+        case ::score::crypto::KeyType::kAes:
+            return Pkcs11AlgoInfo{CKK_AES, CKM_AES_KEY_GEN, value_len};
+        case ::score::crypto::KeyType::kNone:
+        case ::score::crypto::KeyType::kEcc:
+        case ::score::crypto::KeyType::kRsa:
+        case ::score::crypto::KeyType::kEd25519:
+            return std::nullopt;
     }
     return std::nullopt;
 }
 
 // ---------------------------------------------------------------------------
-// Hash algorithm → CK_MECHANISM_TYPE
+// Hash / HMAC row → CK_MECHANISM_TYPE
 // ---------------------------------------------------------------------------
 
-struct Pkcs11HashMechanism
+/// @brief PKCS#11 digest mechanism of a hash row, or CK_UNAVAILABLE_INFORMATION.
+[[nodiscard]] inline CK_MECHANISM_TYPE LookupHashMechanism(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
-    std::string_view name;
-    CK_MECHANISM_TYPE mechanism;
-};
-
-inline constexpr Pkcs11HashMechanism kHashMechanisms[] = {
-    {"SHA256", CKM_SHA256},
-    {"SHA384", CKM_SHA384},
-    {"SHA512", CKM_SHA512},
-    {"SHA224", CKM_SHA224},
-    {"SHA1", CKM_SHA_1},
-    {"MD5", CKM_MD5},
-};
-
-/// @brief Look up the PKCS#11 mechanism type for a hash algorithm.
-[[nodiscard]] inline CK_MECHANISM_TYPE LookupHashMechanism(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kHashMechanisms)
+    if (algorithm.category != ::score::crypto::AlgorithmCategory::kHash)
     {
-        if (entry.name == algorithm)
-        {
-            return entry.mechanism;
-        }
+        return CK_UNAVAILABLE_INFORMATION;
+    }
+    switch (algorithm.hash)
+    {
+        case ::score::crypto::HashFunction::kSha224:
+            return CKM_SHA224;
+        case ::score::crypto::HashFunction::kSha256:
+            return CKM_SHA256;
+        case ::score::crypto::HashFunction::kSha384:
+            return CKM_SHA384;
+        case ::score::crypto::HashFunction::kSha512:
+            return CKM_SHA512;
+        case ::score::crypto::HashFunction::kNone:
+        case ::score::crypto::HashFunction::kMd5:
+        case ::score::crypto::HashFunction::kSha1:
+            return CK_UNAVAILABLE_INFORMATION;
     }
     return CK_UNAVAILABLE_INFORMATION;
 }
 
-// ---------------------------------------------------------------------------
-// MAC algorithm → CK_MECHANISM_TYPE
-// ---------------------------------------------------------------------------
-
-struct Pkcs11MacMechanism
+/// @brief PKCS#11 MAC mechanism of a MAC row, or CK_UNAVAILABLE_INFORMATION.
+///
+/// Only HMAC (a MAC keyed by a generic secret) over SHA-256/384/512 is served.
+[[nodiscard]] inline CK_MECHANISM_TYPE LookupMacMechanism(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
-    std::string_view name;
-    CK_MECHANISM_TYPE mechanism;
-};
-
-inline constexpr Pkcs11MacMechanism kMacMechanisms[] = {
-    {"HMAC-SHA256", CKM_SHA256_HMAC},
-    {"HMAC-SHA384", CKM_SHA384_HMAC},
-    {"HMAC-SHA512", CKM_SHA512_HMAC},
-};
-
-/// @brief Look up the PKCS#11 mechanism type for a MAC algorithm.
-[[nodiscard]] inline CK_MECHANISM_TYPE LookupMacMechanism(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kMacMechanisms)
+    if (algorithm.category != ::score::crypto::AlgorithmCategory::kMac)
     {
-        if (entry.name == algorithm)
-        {
-            return entry.mechanism;
-        }
+        return CK_UNAVAILABLE_INFORMATION;
+    }
+    switch (algorithm.key_type)
+    {
+        case ::score::crypto::KeyType::kSecret:
+            break;
+        case ::score::crypto::KeyType::kNone:
+        case ::score::crypto::KeyType::kAes:
+        case ::score::crypto::KeyType::kEcc:
+        case ::score::crypto::KeyType::kRsa:
+        case ::score::crypto::KeyType::kEd25519:
+            return CK_UNAVAILABLE_INFORMATION;
+    }
+    switch (algorithm.hash)
+    {
+        case ::score::crypto::HashFunction::kSha256:
+            return CKM_SHA256_HMAC;
+        case ::score::crypto::HashFunction::kSha384:
+            return CKM_SHA384_HMAC;
+        case ::score::crypto::HashFunction::kSha512:
+            return CKM_SHA512_HMAC;
+        case ::score::crypto::HashFunction::kNone:
+        case ::score::crypto::HashFunction::kMd5:
+        case ::score::crypto::HashFunction::kSha1:
+        case ::score::crypto::HashFunction::kSha224:
+            return CK_UNAVAILABLE_INFORMATION;
     }
     return CK_UNAVAILABLE_INFORMATION;
 }

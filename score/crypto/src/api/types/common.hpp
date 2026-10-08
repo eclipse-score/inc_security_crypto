@@ -88,7 +88,8 @@ enum class ProviderType : uint8_t
 enum class FormatType : uint8_t
 {
     kDer,  ///< Distinguished Encoding Rules (binary) encoding.
-    kPem   ///< Privacy-Enhanced Mail (text) encoding.
+    kPem,  ///< Privacy-Enhanced Mail (text) encoding.
+    kRaw
 };
 
 /// @brief Direction of a symmetric cipher operation.
@@ -98,11 +99,27 @@ enum class CipherDirection : uint8_t
     kDecrypt   ///< Decrypt or open input data.
 };
 
+/// @brief Padding scheme of a block cipher in a padded mode such as CBC.
+///
+/// Stream modes carry no padding and ignore this value.
+enum class CipherPadding : uint8_t
+{
+    kPkcs7,  ///< PKCS#7: the output grows to the next whole block and always gains at least one byte
+    kNone    ///< No padding: the total input length must be a whole number of blocks
+};
+
 /// @brief Whether an operation generates output or verifies supplied data.
 enum class OperationMode : uint8_t
 {
     kGenerate,  ///< Produce a signature, MAC, or other operation result.
     kVerify     ///< Verify supplied signature, MAC, or other operation result.
+};
+
+/// @brief Describes whether signature input is a message or an already computed digest.
+enum class SignatureInputMode : uint8_t
+{
+    kMessage,   ///< Hash the supplied message as part of the signature operation.
+    kPrehashed  ///< Treat the supplied bytes as the algorithm's digest.
 };
 
 /// @brief Memory compatibility requested for an allocation.
