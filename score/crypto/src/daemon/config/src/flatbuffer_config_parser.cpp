@@ -381,6 +381,9 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseC
     const CertSlotConfig* cert_slot_config,
     CertificateConfig& out_config)
 {
+    const auto* parser_provider_name = cert_slot_config->parser_provider_name();
+    out_config.SetParserProviderName(parser_provider_name ? parser_provider_name->str() : std::string{});
+
     auto res = ParseCertSlotEntries(cert_slot_config, out_config);
     if (!res.has_value())
         return res;

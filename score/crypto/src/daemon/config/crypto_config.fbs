@@ -163,6 +163,8 @@ table CertSlotConfig {
   app_cert_slot_entries: [AppCertSlotEntry];
   /// Per-app trust store resource ID mappings
   app_trust_store_entries: [AppTrustStoreEntry];
+  /// Provider name pinned as the daemon-wide certificate parser; unset selects the default
+  parser_provider_name: string;
 }
 
 // ---------------------------------------------------------------------------
