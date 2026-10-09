@@ -443,6 +443,23 @@ class CertificateConfig
 
     CertificateConfig() = default;
 
+    /// @brief Set the provider used as the daemon-wide certificate parser.
+    ///
+    /// When empty, the provider manager's kCertManagement default is used.
+    /// This is independent of each certificate slot's storage backend.
+    void SetParserProviderName(const common::ProviderName& provider_name)
+    {
+        m_parser_provider_name = provider_name;
+    }
+
+    /// @brief Get the explicitly configured daemon-wide certificate parser provider.
+    ///
+    /// An empty value means the provider manager's kCertManagement default is used.
+    const common::ProviderName& GetParserProviderName() const
+    {
+        return m_parser_provider_name;
+    }
+
     /// @brief Add a certificate slot definition (called by parser).
     void AddSlotEntry(CertSlotEntry entry)
     {
@@ -488,6 +505,7 @@ class CertificateConfig
     }
 
   private:
+    common::ProviderName m_parser_provider_name;
     std::vector<CertSlotEntry> m_slot_entries;
     std::vector<TrustStoreEntry> m_trust_store_entries;
     std::vector<AppCertSlotEntry> m_app_cert_slot_entries;

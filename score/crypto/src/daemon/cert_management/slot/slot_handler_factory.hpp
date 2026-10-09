@@ -18,8 +18,11 @@
 #include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
+#include <atomic>
 #include <memory>
 #include <mutex>
+#include <utility>
+#include <variant>
 
 namespace score::crypto::daemon::cert_management
 {
@@ -28,62 +31,61 @@ namespace score::crypto::daemon::cert_management
 ///        ("DEFAULT" -> FileBackedSlotHandler, otherwise a named provider) on
 ///        every invocation.
 ///
-/// Holds ProviderManager only via weak_ptr. CertSlotManager (owned transitively
-/// by a provider through CertManagementService, e.g. OpenSSL::m_certManagementService)
-/// stores this factory, so a strong ProviderManager::Sptr captured here would close
-/// a reference cycle: ProviderManager -> provider -> CertManagementService ->
-/// CertSlotManager -> this factory -> ProviderManager. A dead ProviderManager at
-/// call time means the daemon is shutting down; operator() returns nullptr rather
-/// than reviving ownership.
+/// Owns canonical parser selection for certificate slots. An explicit parser provider
+/// name pins the selection; otherwise the kCertManagement capability default is used.
+/// Successful resolution is shared across copies of this factory. Failed resolution is
+/// not cached, allowing a later call to retry. The provider registry is also consulted
+/// for named slot backends.
 ///
-/// The certificate parser is resolved lazily and cached after the first successful
-/// resolution — the kCertManagement-capable provider and its parser are fixed for
-/// the daemon's lifetime once registered, so there is no reason to repeat the
-/// provider lookup for every slot. A failed resolution (e.g. the provider has not
-/// finished registering yet) is not cached and is retried on the next call.
-///
-/// Copyable: CertSlotHandlerFactory is a std::function, which requires its target
-/// to be copy-constructible. The parser cache lives in a heap-allocated, mutex-guarded
-/// ParserCache shared via shared_ptr, so every copy of a given SlotHandlerFactory
-/// observes and contributes to the same cache.
+/// The provider manager is held strongly because this callable may resolve parsers and
+/// named backends after construction. Copies share the parser cache.
 class SlotHandlerFactory final
 {
   public:
-    /// @brief Construct the factory over a provider registry held only weakly.
-    /// @param provider_manager Provider registry consulted to resolve the certificate
-    ///        parser and, for non-"DEFAULT" backends, the owning provider's slot handler.
-    explicit SlotHandlerFactory(provider::ProviderManager::Sptr provider_manager)
-        : m_provider_manager{std::move(provider_manager)}, m_cache{std::make_shared<ParserCache>()}
+    /// @brief Construct the factory over a provider registry and optional parser pin.
+    /// @param provider_manager Provider registry for parser resolution and named slot
+    ///        backends. Held for the lifetime of this factory; may be null when no
+    ///        providers are configured.
+    /// @param parser_provider_name Exact provider name to use for parsing; empty selects
+    ///        the provider manager's kCertManagement default.
+    explicit SlotHandlerFactory(provider::ProviderManager::Sptr provider_manager,
+                                common::ProviderName parser_provider_name = {})
+        : m_provider_manager{std::move(provider_manager)},
+          m_parser_provider_name{std::move(parser_provider_name)},
+          m_parser_cache{std::make_shared<ParserCache>()}
     {
     }
+
+    /// @brief Resolve and validate the parser before creating slot handlers.
+    ///
+    /// The parser remains owned by this factory and is supplied to created slot handlers.
+    /// Failure is returned without caching, so a later call can retry. Callers may omit
+    /// this method and allow operator() to resolve the parser on demand.
+    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> Initialize() const;
 
     /// @brief Create a slot handler for the given slot configuration.
     /// @param slot Slot configuration; storage_backend selects FileBackedSlotHandler
     ///        ("DEFAULT") or the ICertSlotHandler implementation of a named provider.
-    /// @return The constructed handler, or nullptr when the provider registry is gone,
+    /// @return The constructed handler, or nullptr when the provider registry is absent,
     ///         the named backend provider cannot be found, or the provider declines to
     ///         produce a handler for the slot.
     [[nodiscard]] ICertSlotHandler::Sptr operator()(const CertSlotConfig& slot) const;
 
   private:
-    /// @brief Mutex-guarded cache of the resolved certificate parser, shared by every
-    ///        copy of the SlotHandlerFactory instance it was created from.
     struct ParserCache
     {
         std::mutex mutex;
         provider::cert_management::ICertParser::Sptr parser;
+        // Published after parser assignment so initialized readers can avoid the mutex.
+        std::atomic<bool> resolved{false};
     };
 
-    /// @brief Resolve the certificate parser from the kCertManagement-capable provider,
-    ///        caching the result after the first successful resolution.
-    /// @param provider_manager Locked provider registry for this call; may be null.
-    /// @return The resolved parser, or nullptr when no kCertManagement-capable provider
-    ///         is registered or that provider has no certificate parser.
-    [[nodiscard]] provider::cert_management::ICertParser::Sptr ResolveCertParser(
-        const provider::ProviderManager::Sptr& provider_manager) const;
+    [[nodiscard]] score::crypto::Expected<provider::cert_management::ICertParser::Sptr, common::DaemonErrorCode>
+    ResolveCertParser() const;
 
-    std::weak_ptr<provider::ProviderManager> m_provider_manager;
-    std::shared_ptr<ParserCache> m_cache;
+    provider::ProviderManager::Sptr m_provider_manager;
+    common::ProviderName m_parser_provider_name;
+    std::shared_ptr<ParserCache> m_parser_cache;
 };
 
 }  // namespace score::crypto::daemon::cert_management

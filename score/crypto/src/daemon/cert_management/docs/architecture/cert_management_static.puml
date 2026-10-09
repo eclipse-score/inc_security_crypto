@@ -124,7 +124,7 @@ end note
 [CertSlotManager] --> [CertSlotRegistry]
 [CertSlotManager] --> [AccessPolicyEnforcer]
 [CertSlotManager] --> [SlotHandlerFactory] : resolves handler per slot (cached)
-[SlotHandlerFactory] --> [ProviderManager] : selects parser/backend (weak_ptr)
+[SlotHandlerFactory] --> [ProviderManager] : selects parser/backend (shared ownership)
 [SlotHandlerFactory] ..> ICertParser : obtains provider parser
 [SlotHandlerFactory] ..> ICertSlotHandler : creates backend handler
 

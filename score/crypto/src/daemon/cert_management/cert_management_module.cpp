@@ -23,6 +23,16 @@ CertManagementModule::Sptr CertManagementModule::Create(data_manager::IDataManag
                                                         provider::ProviderManager::Sptr provider_manager,
                                                         const config::CertificateConfig& config)
 {
+    SlotHandlerFactory slot_handler_factory{provider_manager, config.GetParserProviderName()};
+    if (!config.GetParserProviderName().empty())
+    {
+        const auto parser_initialization = slot_handler_factory.Initialize();
+        if (!parser_initialization.has_value())
+        {
+            return nullptr;
+        }
+    }
+
     auto module = Sptr(new CertManagementModule());
     auto slot_registry = std::make_shared<CertSlotRegistry>();
     ConfigDrivenSlotCatalog catalog{config};
@@ -30,23 +40,13 @@ CertManagementModule::Sptr CertManagementModule::Create(data_manager::IDataManag
     auto trust_store_manager = std::make_shared<TrustStoreManager>();
     ConfigDrivenTrustStoreCatalog trust_catalog{config};
 
-    // SlotHandlerFactory holds ProviderManager only weakly: CertSlotManager outlives
-    // this Create() call and is reachable from a provider (e.g.
-    // OpenSSL::m_certManagementService), so a strong reference here would form a
-    // cycle back to ProviderManager. provider_manager is only needed for this
-    // call, so it is passed as a local parameter rather than a CertManagementModule
-    // member.
-    auto slot_manager = std::make_shared<CertSlotManager>(slot_registry, SlotHandlerFactory{provider_manager});
+    // Parser selection stays with the slot-handler factory. The factory is eagerly
+    // initialized only for an explicitly configured parser provider.
+    auto slot_manager = std::make_shared<CertSlotManager>(slot_registry, std::move(slot_handler_factory));
 
     trust_catalog.Load(*trust_store_manager, slot_registry, slot_manager);
     module->m_service = std::make_shared<CertManagementService>(
         std::move(data_manager), slot_registry, trust_store_manager, slot_manager);
-    if (provider_manager)
-    {
-        provider_manager->ForEachProvider([&](const auto& /*id*/, const auto& provider) {
-            provider->SetCertManagementService(module->m_service);
-        });
-    }
     return module;
 }
 }  // namespace score::crypto::daemon::cert_management

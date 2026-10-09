@@ -28,8 +28,9 @@ class CertManagementModule final
     /// @param data_manager Daemon data manager used for client-tree DataNode registration.
     /// @param provider_manager Provider registry consulted to resolve certificate parsers
     ///        and provider-backed slot handlers; may be null if no providers are registered.
-    /// @param config Certificate slot and trust store configuration to load at startup.
-    /// @return A fully constructed CertManagementModule exposing the CertManagementService.
+    /// @param config Certificate slot, trust store, and parser-provider configuration.
+    /// @return A fully constructed module, or nullptr when an explicitly configured parser
+    ///         provider is unavailable or does not provide the required parser capability.
     static Sptr Create(data_manager::IDataManager::Sptr data_manager,
                        provider::ProviderManager::Sptr provider_manager,
                        const config::CertificateConfig& config);

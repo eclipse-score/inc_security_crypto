@@ -55,7 +55,6 @@ void OpenSSL::Shutdown()
     m_factory.reset();
     m_shm_factory.reset();
     m_keyManagementService.reset();
-    m_certManagementService.reset();
 
     // Clean up OpenSSL resources
     OPENSSL_cleanup();
@@ -67,12 +66,6 @@ void OpenSSL::Shutdown()
 std::shared_ptr<::score::crypto::daemon::provider::handler::ICryptoHandlerFactory> OpenSSL::CreateHandlerFactory()
 {
     return std::make_shared<handler::OpenSslHandlerFactory>(m_factory, GetKeySlotHandler({}), m_keyManagementService);
-}
-
-void OpenSSL::SetCertManagementService(
-    std::shared_ptr<::score::crypto::daemon::cert_management::CertManagementService> service)
-{
-    m_certManagementService = std::move(service);
 }
 
 common::ProviderCapability OpenSSL::GetProviderCapabilities()

@@ -55,6 +55,7 @@ cc_test(
     deps = [
         ":cert_management",
         ":cert_management_headers",
+        ":cert_management_daemon_headers",
         ":cert_management_internal_headers",
         "//score/crypto/src/daemon/cert_management/tests:test_environment",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
@@ -68,7 +69,9 @@ cc_test(
     deps = [
         ":cert_management",
         ":cert_management_headers",
+        ":cert_management_daemon_headers",
         ":cert_management_internal_headers",
+        "//score/crypto/src/daemon/config:config_types",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",
         "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
@@ -254,7 +257,6 @@ cc_library(
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/provider:provider_manager",
-        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
         "@score_baselibs//score/mw/log",
     ],
 )

@@ -43,7 +43,6 @@ class ICertParser;
 
 namespace score::crypto::daemon::cert_management
 {
-class CertManagementService;
 class ICertSlotHandler;
 struct CertSlotConfig;
 }  // namespace score::crypto::daemon::cert_management
@@ -134,22 +133,13 @@ class IProvider
 
     /// Return the provider's certificate parser for ICertSlotHandler injection.
     ///
-    /// Returns nullptr if the provider does not support certificate parsing. Only called
-    /// by SlotHandlerFactory, which resolves and caches the parser lazily on first use
-    /// rather than at daemon startup.
+    /// Returns nullptr if the provider does not support certificate parsing.
+    /// SlotHandlerFactory resolves the configured/default parser, either during its
+    /// explicit Initialize() call or lazily when a slot handler is first requested.
     /// Cert context operations (verify, CSR, etc.) are handled by ICryptoHandlerFactory.
     virtual std::shared_ptr<provider::cert_management::ICertParser> GetCertParser()
     {
         return nullptr;
-    }
-
-    /// @brief Inject the daemon-wide certificate management service.
-    ///
-    /// Called once at daemon startup before any cert handler is created.
-    /// Providers that do not support cert management may ignore this (default no-op).
-    virtual void SetCertManagementService(
-        std::shared_ptr<::score::crypto::daemon::cert_management::CertManagementService> /*service*/)
-    {
     }
 
     /// Return a handler for a provider-owned certificate storage slot.
