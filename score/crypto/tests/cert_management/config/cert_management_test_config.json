@@ -1,5 +1,6 @@
 {
   "cert_slot_config": {
+    "parser_provider_name": "ALT_PROVIDER",
     "slot_entries": [
       {
         "slot_name": "test/root-ca",

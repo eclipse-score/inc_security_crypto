@@ -76,6 +76,11 @@ TEST_F(CertConfigManagerTest, ParsedConfig_HasExpectedSlotCount)
     EXPECT_EQ(m_cert_config.GetSlotEntries().size(), 3U);
 }
 
+TEST_F(CertConfigManagerTest, ParsedConfig_HasParserProviderName)
+{
+    EXPECT_EQ(m_cert_config.GetParserProviderName(), "ALT_PROVIDER");
+}
+
 TEST_F(CertConfigManagerTest, ParsedConfig_HasExpectedTrustStoreCount)
 {
     EXPECT_EQ(m_cert_config.GetTrustStoreEntries().size(), 2U);
