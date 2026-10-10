@@ -664,6 +664,75 @@ fn test_init_token_and_pin_management() {
     }
 }
 
+#[test]
+#[serial]
+fn test_init_token_custom_pin_transition() {
+    init();
+    unsafe {
+        let fl = common::fn_list();
+
+        // 1. Initializing with custom PIN transitions the token from factory default
+        let custom_pin = b"12345678";
+        let label = b"CustomToken                     ";
+        let rv = p11!(
+            fl,
+            C_InitToken,
+            0,
+            custom_pin.as_ptr(),
+            custom_pin.len() as CK_ULONG,
+            label.as_ptr()
+        );
+        assert_eq!(rv, CKR_OK, "C_InitToken with custom PIN failed: {rv:#010x}");
+
+        // 2. Calling C_InitToken with wrong PIN must now fail with CKR_PIN_INCORRECT
+        let wrong_pin = b"wrongpin";
+        let rv = p11!(
+            fl,
+            C_InitToken,
+            0,
+            wrong_pin.as_ptr(),
+            wrong_pin.len() as CK_ULONG,
+            label.as_ptr()
+        );
+        assert_eq!(rv, CKR_PIN_INCORRECT, "C_InitToken with wrong PIN should fail");
+
+        // 3. Calling C_InitToken with the correct custom PIN must succeed
+        let rv = p11!(
+            fl,
+            C_InitToken,
+            0,
+            custom_pin.as_ptr(),
+            custom_pin.len() as CK_ULONG,
+            label.as_ptr()
+        );
+        assert_eq!(rv, CKR_OK, "C_InitToken with correct PIN should succeed");
+
+        // 4. Restore user PIN to "1234" and SO PIN to "so-pin" so subsequent tests in this process pass
+        let h = open_session();
+        assert_eq!(
+            p11!(fl, C_Login, h, CKU_SO, custom_pin.as_ptr(), custom_pin.len() as CK_ULONG),
+            CKR_OK
+        );
+        let default_user_pin = b"1234";
+        assert_eq!(
+            p11!(fl, C_InitPIN, h, default_user_pin.as_ptr(), default_user_pin.len() as CK_ULONG),
+            CKR_OK
+        );
+        let default_so_pin = b"so-pin";
+        let _ = p11!(
+            fl,
+            C_SetPIN,
+            h,
+            custom_pin.as_ptr(),
+            custom_pin.len() as CK_ULONG,
+            default_so_pin.as_ptr(),
+            default_so_pin.len() as CK_ULONG
+        );
+        let _ = p11!(fl, C_Logout, h);
+        let _ = p11!(fl, C_CloseSession, h);
+    }
+}
+
 // -- Cryptoki version is 3.0 --------------------------------------------------
 
 #[test]
