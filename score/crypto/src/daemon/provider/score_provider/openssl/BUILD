@@ -30,6 +30,54 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "openssl_cert_management_headers",
+    hdrs = ["cert_management/openssl_cert_parser.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+    ],
+)
+
+# OpenSSL certificate and CRL primitives shared by the certificate provider components.
+cc_library(
+    name = "openssl_cert_utils",
+    srcs = ["detail/openssl_cert_utils.cpp"],
+    hdrs = ["detail/openssl_cert_utils.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//score/crypto/src/daemon/provider:__subpackages__"],
+    deps = [
+        "//score/crypto/src/api/types:certificate_types",
+        "//third_party/openssl:openssl_shared",
+    ],
+)
+
+cc_library(
+    name = "openssl_cert_parser_library",
+    srcs = ["cert_management/openssl_cert_parser.cpp"],
+    implementation_deps = [
+        ":openssl_cert_utils",
+        "//third_party/openssl:openssl_shared",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":openssl_cert_management_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+    ],
+)
+
 # Header-only library for OpenSSL algorithm detail headers.
 cc_library(
     name = "openssl_detail_headers",
@@ -63,6 +111,7 @@ cc_library(
     }),
     visibility = ["//:__subpackages__"],
     deps = [
+        ":openssl_cert_management_headers",
         ":openssl_key_management_headers",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
@@ -106,9 +155,11 @@ cc_library(
     }),
     visibility = ["//:__subpackages__"],
     deps = [
+        ":openssl_cert_parser_library",
         ":openssl_detail_headers",
         ":openssl_key_management_headers",
         ":provider_openssl_headers",
+        "//score/crypto/src/daemon/cert_management",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/data_manager",
