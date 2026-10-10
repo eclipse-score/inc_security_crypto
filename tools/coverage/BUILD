@@ -35,11 +35,14 @@ score_coverage_scope(
         "//score/crypto/src/api/objects:cert_objects",
         "//score/crypto/src/api/future/common:future_common",
 
+        "//score/crypto/src/daemon:crypto_daemon",
         "//score/crypto/src/backend:active_pkcs11_backend",
         "//score/crypto/src/backend:pkcs11_backend_defines",
         "//score/crypto/src/backend:score_backend_defines",
         "//score/crypto/src/backend/score_provider:backend",
         "//score/crypto/src/daemon/provider:provider_manager_factory",
+        "//score/crypto/src/daemon/cert_management:cert_object_response_builder",
+
         "//score/crypto/src/ipc/grpc_adapter:grpc_control_server",
         "//score/cryptoki:cryptoki_cdylib_wrapped",
         "//score/cryptoki:cryptoki_headers",

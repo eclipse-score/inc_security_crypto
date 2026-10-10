@@ -26,6 +26,13 @@ Feature Architecture
    :realizes: wp__feature_arch
    :tags: template
 
+.. feat:: Security & Cryptography
+   :id: feat__security_crypto
+   :version: 1
+   :status: valid
+   :safety: QM
+   :security: YES
+
 
 
 Overview
