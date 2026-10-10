@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include <gtest/gtest.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <chrono>
@@ -183,6 +184,13 @@ class ControlPlaneTest : public ::testing::Test
     std::unique_ptr<score::crypto::ipc::GrpcControlServer> _server;
     std::thread _server_thread;
 };
+
+TEST_F(ControlPlaneTest, SocketIsAccessibleToUnprivilegedClients)
+{
+    struct stat socket_stat{};
+    ASSERT_EQ(stat(_socket_path.c_str(), &socket_stat), 0);
+    EXPECT_EQ(socket_stat.st_mode & static_cast<mode_t>(0777), static_cast<mode_t>(0666));
+}
 
 TEST_F(ControlPlaneTest, Connection_SendRequest)
 {

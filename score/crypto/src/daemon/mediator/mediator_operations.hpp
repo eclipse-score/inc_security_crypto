@@ -166,6 +166,91 @@ inline control_plane::protocol::OperationIdentifier DestroyShmObject()
                                                         .operationAction = operations::SHM_DESTROY_OBJECT};
 }
 
+// GET_CERTIFICATE_OBJECT
+// Request:  data_node_id = connection_id,
+//           param[0]: uint64 — CryptoResourceId.id (kCertificate or kCertSlot DataNodeId)
+// Response: status_code (SUCCESS/error)
+//           param[0]: OwnedString — subject DN
+//           param[1]: OwnedString — issuer DN
+//           param[2]: uint64     — not_before (Unix epoch s)
+//           param[3]: uint64     — not_after  (Unix epoch s)
+//           param[4]: uint8      — is_ca (1=true)
+//           param[5]: OwnedBuffer — skid (may be empty)
+//           param[6]: OwnedBuffer — akid (may be empty)
+//           param[7]: OwnedString — serial_number_hex
+//           param[8]: OwnedBuffer — SHA-256 fingerprint (32 bytes)
+//           param[9]: uint8      — has_crl (1=true)
+//           param[10]: OwnedBuffer — CRL SHA-256 fingerprint (32 bytes, zeroed when absent)
+//           param[11]: OwnedBuffer — CRL issuer certificate fingerprint (32 bytes, zeroed when absent)
+//           param[12]: uint64     — thisUpdate epoch (encoded signed value)
+//           param[13]: uint64     — nextUpdate epoch (encoded signed value)
+//           param[14]: uint64     — cRLNumber (0 when absent)
+// Effect:   Queries CertManagementService directly; no provider context is created.
+inline constexpr OperationAction GET_CERTIFICATE_OBJECT = 6;
+
+// GET_CERT_SLOT_OBJECT
+// Request:  data_node_id = connection_id,
+//           param[0]: uint64 — CryptoResourceId.id (kCertSlot DataNodeId)
+// Response: status_code (SUCCESS/error)
+//           param[0]: uint8  — slot state (CertificateSlotState)
+//           param[1]: uint8  — has_crl (1=true)
+//           (CRL timestamps are exposed through the certificate object.)
+// Effect:   Queries CertManagementService directly; no provider context is created.
+inline constexpr OperationAction GET_CERT_SLOT_OBJECT = 7;
+
+// GET_TRUST_STORE_MEMBER_ID_LIST
+// Phase 1 of the two-call trust-store member query: fetch member identities only
+// (no subject/issuer/serial resolution), then resolve each member's detail
+// individually via GET_TRUST_STORE_MEMBER_OBJECT. Per-entry cost is a single
+// uint64, so the response stays within the IPC payload budget even for a trust
+// store with many members — unlike a single call that resolves full membership
+// at once, which cannot be bounded for an arbitrarily large, operator-configured
+// store.
+// Request:  data_node_id = connection_id,
+//           param[0]: uint64 — CryptoResourceId.id (kCertificateTrustStore DataNodeId)
+// Response: status_code (SUCCESS/error)
+//           param[0]: uint64 — member count N
+//           param[1+i]: uint64 — slot_node_id (client-scoped), i = 0..N-1
+// Effect:   Queries TrustStoreManager directly; no provider context is created.
+inline constexpr OperationAction GET_TRUST_STORE_MEMBER_ID_LIST = 8;
+
+// GET_TRUST_STORE_MEMBER_OBJECT
+// Phase 2 of the two-call trust-store member query (see GET_TRUST_STORE_MEMBER_ID_LIST).
+// Request:  data_node_id = connection_id,
+//           param[0]: uint64 — CryptoResourceId.id (kCertificateTrustStore DataNodeId)
+//           param[1]: uint64 — member slot_node_id, from GET_TRUST_STORE_MEMBER_ID_LIST
+// Response: status_code (SUCCESS/error)
+//           param[0]: uint64      — slot_node_id (client-scoped, echoes request param[1])
+//           param[1]: OwnedBuffer — SHA-256 fingerprint (32 bytes)
+//           param[2]: OwnedString — subject DN
+//           param[3]: OwnedString — issuer DN
+//           param[4]: OwnedString — serial_number_hex
+//           param[5]: uint8       — MemberKind
+//           param[6]: uint8       — MemberStatus
+// Effect:   Queries TrustStoreManager directly; no provider context is created.
+inline constexpr OperationAction GET_TRUST_STORE_MEMBER_OBJECT = 9;
+
+inline control_plane::protocol::OperationIdentifier GetCertificateObject()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::GET_CERTIFICATE_OBJECT};
+}
+inline control_plane::protocol::OperationIdentifier GetCertSlotObject()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::GET_CERT_SLOT_OBJECT};
+}
+inline control_plane::protocol::OperationIdentifier GetTrustStoreMemberIdList()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::GET_TRUST_STORE_MEMBER_ID_LIST};
+}
+inline control_plane::protocol::OperationIdentifier GetTrustStoreMemberObject()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::GET_TRUST_STORE_MEMBER_OBJECT};
+}
+
 // Starting point for custom OPs
 inline constexpr OperationAction CUSTOM_OP_START = 1 << (std::numeric_limits<OperationAction>::digits - 1);
 

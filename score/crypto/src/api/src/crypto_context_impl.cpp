@@ -28,6 +28,10 @@
 #include "score/crypto/src/api/contexts/src/random_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/sign_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/verify_signature_context_impl.hpp"
+#include "score/crypto/src/api/config/trust_store_management_context_config.hpp"
+#include "score/crypto/src/api/contexts/src/cert_management_context_impl.hpp"
+#include "score/crypto/src/api/contexts/src/cert_verification_context_impl.hpp"
+#include "score/crypto/src/api/contexts/src/trust_store_management_context_impl.hpp"
 #include "score/crypto/src/api/src/provider_type_converter.hpp"
 #include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/api/types/common.hpp"
@@ -36,11 +40,13 @@
 #include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/provider/cert_management/cert_management_operations.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/result/result.h"
 
 #include "score/mw/log/logging.h"
+#include <algorithm>
 #include <cstdint>
 
 #include <memory>
@@ -54,8 +60,16 @@
 #include "score/crypto/src/api/contexts/i_random_context.hpp"
 #include "score/crypto/src/api/contexts/i_sign_context.hpp"
 #include "score/crypto/src/api/contexts/i_verify_signature_context.hpp"
+#include "score/crypto/src/api/config/certificate_context_config.hpp"
+#include "score/crypto/src/api/config/certificate_verification_context_config.hpp"
+#include "score/crypto/src/api/contexts/i_certificate_management_context.hpp"
+#include "score/crypto/src/api/contexts/i_certificate_verification_context.hpp"
+#include "score/crypto/src/api/objects/i_cert_slot_object.hpp"
+#include "score/crypto/src/api/objects/i_certificate_object.hpp"
 #include "score/crypto/src/api/objects/i_key_object.hpp"
 #include "score/crypto/src/api/objects/i_key_slot_object.hpp"
+#include "score/crypto/src/api/objects/i_trust_store_object.hpp"
+#include "score/crypto/src/api/objects/src/trust_store_object_impl.hpp"
 
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 
@@ -442,6 +456,147 @@ score::Result<std::unique_ptr<IRandomContext>> CryptoContextImpl::CreateRandomCo
 }
 
 // ---------------------------------------------------------------------------
+// Context Factory — Certificate Management
+// ---------------------------------------------------------------------------
+
+score::Result<std::unique_ptr<ICertificateManagementContext>> CryptoContextImpl::CreateCertificateManagementContext(
+    const CertificateContextConfig& config)
+{
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+
+    proto::ControlRequestBuilder builder{};
+    builder.forDataNodeId(m_connection->GetConnectionNodeId())
+        .operation(score::crypto::daemon::mediator::operations::CreateContext())
+        .with_in_string("CERT:MANAGEMENT")
+        .with_in_string("");  // no algorithm for cert management
+
+    if (config.provider_type.has_value())
+        builder.with_in_val_uint8(ProviderTypeConverter::ToWireValue(config.provider_type.value()));
+    else
+        builder.with_no_param();
+
+    auto req = builder.build();
+    if (!req.has_value())
+        return score::Result<std::unique_ptr<ICertificateManagementContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kContextCreationFailed, "Failed to build CTX_CREATE for CERT:MANAGEMENT")};
+
+    auto resp = m_connection->SendRequest(req.value());
+    auto validator = proto::ControlResponseValidator::FromResult(resp);
+    validator.expectOperation(score::crypto::daemon::mediator::operations::CreateContext()).expectSuccess();
+    if (!validator.isValid())
+        return score::Result<std::unique_ptr<ICertificateManagementContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kContextCreationFailed, "CERT:MANAGEMENT CTX_CREATE response invalid")};
+
+    auto ctx_id_res = validator.getParameterAt<std::uint64_t>(0, 0);
+    if (!ctx_id_res.has_value())
+        return score::Result<std::unique_ptr<ICertificateManagementContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kContextCreationFailed, "CERT:MANAGEMENT CTX_CREATE missing context_id")};
+
+    return std::make_unique<CertManagementContextImpl>(m_connection, ctx_id_res.value(), m_transcoder);
+}
+
+// ---------------------------------------------------------------------------
+// Context Factory — Certificate Verification
+// ---------------------------------------------------------------------------
+
+score::Result<std::unique_ptr<ICertificateVerificationContext>> CryptoContextImpl::CreateCertificateVerificationContext(
+    const CertificateVerificationContextConfig& config)
+{
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+
+    proto::ControlRequestBuilder builder{};
+    builder.forDataNodeId(m_connection->GetConnectionNodeId())
+        .operation(score::crypto::daemon::mediator::operations::CreateContext())
+        .with_in_string("CERT:VERIFICATION")
+        .with_in_string("");  // no algorithm
+
+    if (config.provider_type.has_value())
+        builder.with_in_val_uint8(ProviderTypeConverter::ToWireValue(config.provider_type.value()));
+    else
+        builder.with_no_param();
+
+    auto req = builder.build();
+    if (!req.has_value())
+        return score::Result<std::unique_ptr<ICertificateVerificationContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kContextCreationFailed, "Failed to build CTX_CREATE for CERT:VERIFICATION")};
+
+    auto resp = m_connection->SendRequest(req.value());
+    auto validator = proto::ControlResponseValidator::FromResult(resp);
+    validator.expectOperation(score::crypto::daemon::mediator::operations::CreateContext()).expectSuccess();
+    if (!validator.isValid())
+        return score::Result<std::unique_ptr<ICertificateVerificationContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kContextCreationFailed, "CERT:VERIFICATION CTX_CREATE response invalid")};
+
+    auto ctx_id_res = validator.getParameterAt<std::uint64_t>(0, 0);
+    if (!ctx_id_res.has_value())
+        return score::Result<std::unique_ptr<ICertificateVerificationContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kContextCreationFailed, "CERT:VERIFICATION CTX_CREATE missing context_id")};
+
+    auto context = std::make_unique<CertVerificationContextImpl>(m_connection, ctx_id_res.value(), m_transcoder);
+    if (config.revocation_policy.has_value())
+    {
+        auto policy_result = context->SetRevocationCheckPolicy(*config.revocation_policy);
+        if (!policy_result.has_value())
+            return score::Result<std::unique_ptr<ICertificateVerificationContext>>{score::unexpect,
+                                                                                   policy_result.error()};
+    }
+    auto coverage_result = context->SetRevocationCoveragePolicy(config.revocation_coverage_policy);
+    if (!coverage_result.has_value())
+        return score::Result<std::unique_ptr<ICertificateVerificationContext>>{score::unexpect,
+                                                                               coverage_result.error()};
+    return std::unique_ptr<ICertificateVerificationContext>{std::move(context)};
+}
+
+// ---------------------------------------------------------------------------
+// Context Factory — Trust-Store Management
+// ---------------------------------------------------------------------------
+
+score::Result<std::unique_ptr<ITrustStoreManagementContext>> CryptoContextImpl::CreateTrustStoreManagementContext(
+    const TrustStoreManagementContextConfig& config)
+{
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+
+    proto::ControlRequestBuilder builder{};
+    builder.forDataNodeId(m_connection->GetConnectionNodeId())
+        .operation(score::crypto::daemon::mediator::operations::CreateContext())
+        .with_in_string("CERT:TRUST_STORE")
+        .with_in_string("");  // no algorithm for trust-store management
+
+    if (config.provider_type.has_value())
+        builder.with_in_val_uint8(ProviderTypeConverter::ToWireValue(config.provider_type.value()));
+    else
+        builder.with_no_param();
+
+    auto req = builder.build();
+    if (!req.has_value())
+        return score::Result<std::unique_ptr<ITrustStoreManagementContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kContextCreationFailed, "Failed to build CTX_CREATE for CERT:TRUST_STORE")};
+
+    auto resp = m_connection->SendRequest(req.value());
+    auto validator = proto::ControlResponseValidator::FromResult(resp);
+    validator.expectOperation(score::crypto::daemon::mediator::operations::CreateContext()).expectSuccess();
+    if (!validator.isValid())
+        return score::Result<std::unique_ptr<ITrustStoreManagementContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kContextCreationFailed, "CERT:TRUST_STORE CTX_CREATE response invalid")};
+
+    auto ctx_id_res = validator.getParameterAt<std::uint64_t>(0, 0);
+    if (!ctx_id_res.has_value())
+        return score::Result<std::unique_ptr<ITrustStoreManagementContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kContextCreationFailed, "CERT:TRUST_STORE CTX_CREATE missing context_id")};
+
+    return std::make_unique<TrustStoreManagementContextImpl>(m_connection, ctx_id_res.value(), m_transcoder);
+}
+
+// ---------------------------------------------------------------------------
 // Queries (TODO)
 // ---------------------------------------------------------------------------
 
@@ -490,6 +645,221 @@ score::Result<std::unique_ptr<IKeySlotObject>> CryptoContextImpl::GetKeySlotObje
     // TODO: Implement key slot object retrieval via daemon IPC
     return score::Result<std::unique_ptr<IKeySlotObject>>{
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "GetKeySlotObject not yet implemented")};
+}
+
+score::Result<std::unique_ptr<ICertificateObject>> CryptoContextImpl::GetCertificateObject(const CryptoResourceId& id)
+{
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+    namespace med_ops = ::score::crypto::daemon::mediator::operations;
+
+    auto req = proto::ControlRequestBuilder()
+                   .forDataNodeId(m_connection->GetConnectionNodeId())
+                   .operation(med_ops::GetCertificateObject())
+                   .with_in_val_uint64(id.id)
+                   .build();
+    if (!req.has_value())
+        return score::Result<std::unique_ptr<ICertificateObject>>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "GetCertificateObject: build failed")};
+
+    auto resp = m_connection->SendRequest(req.value());
+    auto validator = proto::ControlResponseValidator::FromResult(resp);
+    validator.expectOperation(med_ops::GetCertificateObject()).expectSuccess();
+    if (!validator.isValid())
+        return score::Result<std::unique_ptr<ICertificateObject>>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+
+    auto sub_res = validator.getParameterAt<daemon::common::OwnedString>(0, 0);
+    auto iss_res = validator.getParameterAt<daemon::common::OwnedString>(0, 1);
+    auto nb_res = validator.getParameterAt<std::uint64_t>(0, 2);
+    auto na_res = validator.getParameterAt<std::uint64_t>(0, 3);
+    auto ca_res = validator.getParameterAt<std::uint8_t>(0, 4);
+    // params 5 (skid) and 6 (akid) are not used by the view-only object
+    auto serial_res = validator.getParameterAt<daemon::common::OwnedString>(0, 7);
+    auto fp_res = validator.getParameterAt<daemon::common::OwnedBuffer>(0, 8);
+    auto has_crl_res = validator.getParameterAt<std::uint8_t>(0, 9);
+    auto crl_fp_res = validator.getParameterAt<daemon::common::OwnedBuffer>(0, 10);
+    auto crl_issuer_fp_res = validator.getParameterAt<daemon::common::OwnedBuffer>(0, 11);
+    auto crl_this_update_res = validator.getParameterAt<std::uint64_t>(0, 12);
+    auto crl_next_update_res = validator.getParameterAt<std::uint64_t>(0, 13);
+    auto crl_number_res = validator.getParameterAt<std::uint64_t>(0, 14);
+
+    if (!sub_res.has_value() || !iss_res.has_value() || !nb_res.has_value() || !na_res.has_value() ||
+        !ca_res.has_value() || !has_crl_res.has_value() || !crl_fp_res.has_value() || !crl_issuer_fp_res.has_value() ||
+        !crl_this_update_res.has_value() || !crl_next_update_res.has_value() || !crl_number_res.has_value())
+        return score::Result<std::unique_ptr<ICertificateObject>>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "GetCertificateObject: response incomplete")};
+
+    std::string serial = serial_res.has_value() ? std::move(serial_res.value()) : std::string{};
+    std::array<uint8_t, 32U> fingerprint{};
+    if (fp_res.has_value() && fp_res.value().size() == 32U)
+        std::copy(fp_res.value().begin(), fp_res.value().end(), fingerprint.begin());
+
+    std::optional<CrlMetadata> crl_metadata;
+    if (has_crl_res.value() != 0U)
+    {
+        if (crl_fp_res.value().size() != 32U || crl_issuer_fp_res.value().size() != 32U)
+            return score::Result<std::unique_ptr<ICertificateObject>>{
+                score::unexpect,
+                MakeError(CryptoErrorCode::kOperationFailed, "GetCertificateObject: invalid CRL metadata")};
+        CrlMetadata metadata;
+        std::copy(crl_fp_res.value().begin(), crl_fp_res.value().end(), metadata.fingerprint.begin());
+        std::copy(
+            crl_issuer_fp_res.value().begin(), crl_issuer_fp_res.value().end(), metadata.issuer_fingerprint.begin());
+        metadata.this_update = static_cast<int64_t>(crl_this_update_res.value());
+        metadata.next_update = static_cast<int64_t>(crl_next_update_res.value());
+        metadata.crl_number = crl_number_res.value();
+        crl_metadata = metadata;
+    }
+
+    return std::unique_ptr<ICertificateObject>{new CertificateObjectImpl(id,
+                                                                         std::move(sub_res.value()),
+                                                                         std::move(iss_res.value()),
+                                                                         std::move(serial),
+                                                                         fingerprint,
+                                                                         static_cast<int64_t>(nb_res.value()),
+                                                                         static_cast<int64_t>(na_res.value()),
+                                                                         ca_res.value() != 0U,
+                                                                         std::move(crl_metadata))};
+}
+
+score::Result<std::unique_ptr<ICertSlotObject>> CryptoContextImpl::GetCertSlotObject(const CryptoResourceId& id)
+{
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+    namespace med_ops = ::score::crypto::daemon::mediator::operations;
+
+    auto req = proto::ControlRequestBuilder()
+                   .forDataNodeId(m_connection->GetConnectionNodeId())
+                   .operation(med_ops::GetCertSlotObject())
+                   .with_in_val_uint64(id.id)
+                   .build();
+    if (!req.has_value())
+        return score::Result<std::unique_ptr<ICertSlotObject>>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "GetCertSlotObject: build failed")};
+
+    auto resp = m_connection->SendRequest(req.value());
+    auto validator = proto::ControlResponseValidator::FromResult(resp);
+    validator.expectOperation(med_ops::GetCertSlotObject()).expectSuccess();
+    if (!validator.isValid())
+        return score::Result<std::unique_ptr<ICertSlotObject>>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+
+    auto state_res = validator.getParameterAt<std::uint8_t>(0, 0);
+    auto has_crl_res = validator.getParameterAt<std::uint8_t>(0, 1);
+    if (!state_res.has_value() || !has_crl_res.has_value() ||
+        state_res.value() > static_cast<std::uint8_t>(CertificateSlotState::kLocked) || has_crl_res.value() > 1U)
+        return score::Result<std::unique_ptr<ICertSlotObject>>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "GetCertSlotObject: invalid slot info")};
+
+    const CertificateSlotInfo info{static_cast<CertificateSlotState>(state_res.value()), has_crl_res.value() != 0U};
+    return std::unique_ptr<ICertSlotObject>{new CertSlotObjectImpl(id, info)};
+}
+
+score::Result<std::unique_ptr<ITrustStoreObject>> CryptoContextImpl::GetTrustStoreObject(const CryptoResourceId& id)
+{
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+    namespace med_ops = ::score::crypto::daemon::mediator::operations;
+
+    // Phase 1: fetch member identities only. Kept as a separate call (rather than
+    // resolving full membership in one round trip) so the response stays small and
+    // bounded regardless of how many members a configuration-driven trust store has.
+    auto id_list_req = proto::ControlRequestBuilder()
+                           .forDataNodeId(m_connection->GetConnectionNodeId())
+                           .operation(med_ops::GetTrustStoreMemberIdList())
+                           .with_in_val_uint64(id.id)
+                           .build();
+    if (!id_list_req.has_value())
+        return score::Result<std::unique_ptr<ITrustStoreObject>>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: build failed")};
+
+    auto id_list_resp = m_connection->SendRequest(id_list_req.value());
+    auto id_list_validator = proto::ControlResponseValidator::FromResult(id_list_resp);
+    id_list_validator.expectOperation(med_ops::GetTrustStoreMemberIdList()).expectSuccess();
+    if (!id_list_validator.isValid())
+        return score::Result<std::unique_ptr<ITrustStoreObject>>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, id_list_validator.getError())};
+
+    auto count_res = id_list_validator.getParameterAt<std::uint64_t>(0, 0);
+    if (!count_res.has_value())
+        return score::Result<std::unique_ptr<ITrustStoreObject>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: id-list response missing count")};
+
+    const std::size_t count = static_cast<std::size_t>(count_res.value());
+    std::vector<std::uint64_t> slot_node_ids;
+    slot_node_ids.reserve(count);
+    for (std::size_t i = 0U; i < count; ++i)
+    {
+        auto nid_res = id_list_validator.getParameterAt<std::uint64_t>(0, static_cast<int>(1U + i));
+        if (!nid_res.has_value())
+            return score::Result<std::unique_ptr<ITrustStoreObject>>{
+                score::unexpect,
+                MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: id-list entry missing")};
+        slot_node_ids.push_back(nid_res.value());
+    }
+
+    // Phase 2: resolve each member's detail individually. N+1 round trips in exchange
+    // for every response — this one and the id-list above — staying within the IPC
+    // payload budget regardless of trust-store size.
+    std::vector<MemberInfo> members;
+    members.reserve(count);
+    for (const auto slot_node_id : slot_node_ids)
+    {
+        auto member_req = proto::ControlRequestBuilder()
+                              .forDataNodeId(m_connection->GetConnectionNodeId())
+                              .operation(med_ops::GetTrustStoreMemberObject())
+                              .with_in_val_uint64(id.id)
+                              .with_in_val_uint64(slot_node_id)
+                              .build();
+        if (!member_req.has_value())
+            return score::Result<std::unique_ptr<ITrustStoreObject>>{
+                score::unexpect,
+                MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: member request build failed")};
+
+        auto member_resp = m_connection->SendRequest(member_req.value());
+        auto member_validator = proto::ControlResponseValidator::FromResult(member_resp);
+        member_validator.expectOperation(med_ops::GetTrustStoreMemberObject()).expectSuccess();
+        if (!member_validator.isValid())
+            return score::Result<std::unique_ptr<ITrustStoreObject>>{
+                score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, member_validator.getError())};
+
+        // Per-member layout (7 params):
+        //   0: slot_node_id (uint64), 1: fingerprint (OwnedBuffer 32B),
+        //   2: subject (OwnedString), 3: issuer (OwnedString),
+        //   4: serial_number (OwnedString), 5: kind (uint8), 6: status (uint8)
+        auto nid_res = member_validator.getParameterAt<std::uint64_t>(0, 0);
+        auto fp_res = member_validator.getParameterAt<daemon::common::OwnedBuffer>(0, 1);
+        auto sub_res = member_validator.getParameterAt<daemon::common::OwnedString>(0, 2);
+        auto iss_res = member_validator.getParameterAt<daemon::common::OwnedString>(0, 3);
+        auto serial_res = member_validator.getParameterAt<daemon::common::OwnedString>(0, 4);
+        auto kind_res = member_validator.getParameterAt<std::uint8_t>(0, 5);
+        auto status_res = member_validator.getParameterAt<std::uint8_t>(0, 6);
+
+        if (!nid_res.has_value() || !fp_res.has_value() || !kind_res.has_value() || !status_res.has_value() ||
+            status_res.value() > static_cast<std::uint8_t>(MemberStatus::kAwaitingAcknowledgement))
+            return score::Result<std::unique_ptr<ITrustStoreObject>>{
+                score::unexpect,
+                MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: incomplete member entry")};
+
+        MemberInfo info{};
+        info.slot_id.id = nid_res.value();
+        info.slot_id.type = ResourceType::kCertSlot;
+        info.slot_id.persistence = ResourcePersistence::kPersistent;
+        info.slot_id.primary_provider = 0U;  // provider not included in snapshot
+        const auto& fp_buf = fp_res.value();
+        const std::size_t copy_len = std::min(fp_buf.size(), info.sha256_fingerprint.size());
+        std::copy_n(fp_buf.begin(), copy_len, info.sha256_fingerprint.begin());
+        if (sub_res.has_value())
+            info.subject = std::move(sub_res.value());
+        if (iss_res.has_value())
+            info.issuer = std::move(iss_res.value());
+        if (serial_res.has_value())
+            info.serial_number = std::move(serial_res.value());
+        info.kind = static_cast<MemberKind>(kind_res.value());
+        info.status = static_cast<MemberStatus>(status_res.value());
+        members.push_back(std::move(info));
+    }
+
+    return std::unique_ptr<ITrustStoreObject>{new TrustStoreObjectImpl(id, std::move(members))};
 }
 
 }  // namespace crypto

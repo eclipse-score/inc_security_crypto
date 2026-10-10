@@ -324,6 +324,131 @@
         "app_resource_id": "ECDSA_P521_PublicKeySlot_OpenSSL",
         "slot_name": "ECDSA_P521_PublicKeySlot_OpenSSL"
       }
+
+    ]
+  },
+  "cert_slot_config": {
+    "slot_entries": [
+      {
+        "slot_name": "integration_root_ca",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_root_ca.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
+      },
+      {
+        "slot_name": "integration_device_cert",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_device_cert.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
+      },
+      {
+        "slot_name": "integration_verification_root_ca",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_verification_root_ca.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
+      },
+      {
+        "slot_name": "integration_verification_intermediate_ca",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_verification_intermediate_ca.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
+      },
+      {
+        "slot_name": "integration_exclusive_slot",
+        "storage_backend": "DEFAULT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_exclusive_slot.kv",
+        "deployment_format": "kv",
+        "integrity_policy": "disabled"
+      }
+    ],
+    "trust_store_entries": [
+      {
+        "store_name": "integration_tls_roots",
+        "members": [
+          { "slot_name": "integration_root_ca", "kind": "kSharedStatic" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_tls_roots_state.kv",
+        "deployment_format": "kv"
+      },
+      {
+        "store_name": "integration_verification_tls_roots",
+        "members": [
+          { "slot_name": "integration_verification_root_ca", "kind": "kSharedStatic" },
+          { "slot_name": "integration_verification_intermediate_ca", "kind": "kSharedStatic" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_verification_tls_roots_state.kv",
+        "deployment_format": "kv"
+      },
+      {
+        "store_name": "integration_verification_root_trust",
+        "members": [
+          { "slot_name": "integration_verification_root_ca", "kind": "kSharedStatic" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_verification_root_trust_state.kv",
+        "deployment_format": "kv"
+      },
+      {
+        "store_name": "integration_verification_intermediate_roots",
+        "members": [
+          { "slot_name": "integration_verification_intermediate_ca", "kind": "kSharedStatic" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0],
+        "deployment_format": "kv",
+        "deployment_path": "/opt/crypto/etc/integration_verification_intermediate_roots_state.kv"
+      },
+      {
+        "store_name": "integration_mutable_trust_store",
+        "members": [
+          { "slot_name": "integration_exclusive_slot", "kind": "kExclusiveMutable" }
+        ],
+        "conditional_slot_init": "kEnableAndAcceptCurrent",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/integration_mutable_trust_store_state.kv",
+        "deployment_format": "kv"
+      }
+    ],
+    "app_cert_slot_entries": [
+      { "uid": 0,    "app_resource_id": "root_ca",     "slot_name": "integration_root_ca" },
+      { "uid": 0,    "app_resource_id": "device_cert", "slot_name": "integration_device_cert" },
+      { "uid": 0,    "app_resource_id": "verification_root_ca", "slot_name": "integration_verification_root_ca" },
+      { "uid": 0,    "app_resource_id": "verification_intermediate_ca", "slot_name": "integration_verification_intermediate_ca" },
+      { "uid": 1000, "app_resource_id": "device_cert", "slot_name": "integration_device_cert" }
+    ],
+    "app_trust_store_entries": [
+      { "uid": 0,    "app_resource_id": "tls_roots", "trust_store_name": "integration_tls_roots" },
+      { "uid": 0,    "app_resource_id": "verification_tls_roots", "trust_store_name": "integration_verification_tls_roots" },
+      { "uid": 0,    "app_resource_id": "verification_root_trust", "trust_store_name": "integration_verification_root_trust" },
+      { "uid": 0,    "app_resource_id": "verification_intermediate_roots", "trust_store_name": "integration_verification_intermediate_roots" },
+      { "uid": 1000, "app_resource_id": "tls_roots", "trust_store_name": "integration_tls_roots" },
+      { "uid": 1000, "app_resource_id": "verification_tls_roots", "trust_store_name": "integration_verification_tls_roots" },
+      { "uid": 1000, "app_resource_id": "verification_root_trust", "trust_store_name": "integration_verification_root_trust" },
+      { "uid": 1000, "app_resource_id": "verification_intermediate_roots", "trust_store_name": "integration_verification_intermediate_roots" },
+      { "uid": 0,    "app_resource_id": "mutable_trust_store", "trust_store_name": "integration_mutable_trust_store" },
+      { "uid": 1000, "app_resource_id": "mutable_trust_store", "trust_store_name": "integration_mutable_trust_store" }
     ]
   }
 }

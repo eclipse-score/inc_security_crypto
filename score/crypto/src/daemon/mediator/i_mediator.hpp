@@ -16,6 +16,7 @@
 
 #include <memory>
 
+#include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/data_plane/i_shm_registry.hpp"
@@ -31,6 +32,7 @@ struct MediatorDependencies
     daemon::provider::ProviderManager::Sptr provider_manager;
     daemon::key_management::KeyManagementService::Sptr km_service;
     daemon::data_plane::IShmRegistry::Sptr shm_registry;
+    daemon::cert_management::CertManagementService::Sptr cert_service;
 };
 
 /**
@@ -49,7 +51,8 @@ class IMediator : public score::crypto::daemon::control_plane::IRequestHandler
         : m_data_manager(std::move(deps.data_manager)),
           m_provider_manager(std::move(deps.provider_manager)),
           m_km_service(std::move(deps.km_service)),
-          m_shm_registry(std::move(deps.shm_registry))
+          m_shm_registry(std::move(deps.shm_registry)),
+          m_cert_service(std::move(deps.cert_service))
     {
     }
 
@@ -80,6 +83,7 @@ class IMediator : public score::crypto::daemon::control_plane::IRequestHandler
     daemon::provider::ProviderManager::Sptr m_provider_manager;
     daemon::key_management::KeyManagementService::Sptr m_km_service;
     daemon::data_plane::IShmRegistry::Sptr m_shm_registry;
+    daemon::cert_management::CertManagementService::Sptr m_cert_service;
 };
 
 }  // namespace score::crypto::daemon::mediator
