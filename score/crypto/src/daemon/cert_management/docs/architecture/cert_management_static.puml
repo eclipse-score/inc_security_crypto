@@ -100,8 +100,16 @@ note right of [CrlHandler]
   through the slot descriptor and shared storage.
 end note
 
+note right of [SlotHandlerFactory]
+  Owns canonical parser selection:
+  the configured parser provider name,
+  otherwise the certificate-management
+  capability default. Successful resolution
+  is cached and shared; failure is retried.
+end note
+
 [CertManagementModule] --> [CertificateConfig] : loads slot/store config
-[CertManagementModule] --> [ProviderManager] : injects CertManagementService into providers
+[CertManagementModule] --> [ProviderManager] : supplies provider registry for parser and backend resolution
 [CertManagementModule] --> [DataManager] : supplies resource tree
 [CertManagementModule] --> [CertManagementService] : creates and publishes
 [CertManagementModule] ..> [SlotHandlerFactory] : constructs

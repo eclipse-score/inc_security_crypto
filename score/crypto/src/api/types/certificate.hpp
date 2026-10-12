@@ -172,13 +172,17 @@ enum class MemberKind : uint8_t
     kConditionalExternal = 2U  ///< External slot; disabled after unexpected content change.
 };
 
-/// Effective status of a trust store member as seen at snapshot time.
+/// @brief Effective availability state of a trust-store member at snapshot time.
+///
+/// Only kEnabled members are used as trust anchors. Every other status makes the
+/// member unavailable; kDisabled is administrative, while conditional-external
+/// statuses report the specific acceptance condition and take precedence.
 enum class MemberStatus : uint8_t
 {
-    kEnabled = 0U,                 ///< Active anchor for chain building.
-    kDisabled = 1U,                ///< Explicitly disabled (or removed from use); can be re-enabled.
-    kFingerprintMismatch = 2U,     ///< Conditional-external content differs from the accepted fingerprint.
-    kAwaitingAcknowledgement = 3U  ///< Conditional-external content never accepted; acknowledgement required.
+    kEnabled = 0U,              ///< Active anchor for chain building.
+    kDisabled = 1U,             ///< Explicit administrative disablement when no conditional state takes precedence.
+    kFingerprintMismatch = 2U,  ///< Conditional-external content differs from the accepted fingerprint; not an anchor.
+    kAwaitingAcknowledgement = 3U  ///< Conditional-external content is not yet accepted; not an anchor.
 };
 
 /// Snapshot of a single trust store member.

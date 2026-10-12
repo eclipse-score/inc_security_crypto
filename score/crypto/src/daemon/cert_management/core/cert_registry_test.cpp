@@ -37,7 +37,7 @@ CertObject::Sptr MakeCertificate()
 TEST(CertRegistryTest, RegistersFindsAndUnregistersEphemeralCertificate)
 {
     CertRegistry registry;
-    auto entry = std::make_shared<CertEntry>(MakeCertificate());
+    auto entry = std::make_shared<CertEntry>(1U, MakeCertificate());
 
     const auto id = registry.RegisterEphemeralCert(entry);
 
@@ -58,8 +58,8 @@ TEST(CertRegistryTest, RegisterSlotCert_TwoCallsProduceTwoIndependentEntries)
     CertRegistry registry;
     const CertSlotHandle slot{7U};
     auto cert_obj = MakeCertificate();
-    auto first = std::make_shared<CertEntry>(cert_obj, slot);
-    auto second = std::make_shared<CertEntry>(cert_obj, slot);
+    auto first = std::make_shared<CertEntry>(10U, cert_obj, slot);
+    auto second = std::make_shared<CertEntry>(20U, cert_obj, slot);
 
     const auto id1 = registry.RegisterSlotCert(slot, first);
     const auto id2 = registry.RegisterSlotCert(slot, second);
@@ -86,8 +86,8 @@ TEST(CertRegistryTest, CleanupClient_RemovesOnlyThatClientsEntries)
 
     CertRegistry registry;
 
-    auto entry_a = std::make_shared<CertEntry>(MakeCertificate(), CertSlotHandle{}, kClientA);
-    auto entry_b = std::make_shared<CertEntry>(MakeCertificate(), CertSlotHandle{}, kClientB);
+    auto entry_a = std::make_shared<CertEntry>(kClientA, MakeCertificate());
+    auto entry_b = std::make_shared<CertEntry>(kClientB, MakeCertificate());
 
     const auto id_a = registry.RegisterEphemeralCert(entry_a);
     const auto id_b = registry.RegisterEphemeralCert(entry_b);
@@ -115,8 +115,8 @@ TEST(CertRegistryTest, SlotCertPersistsAfterUnrelatedClientCleanup)
     CertRegistry registry;
     const CertSlotHandle slot{3U};
 
-    auto slot_entry = std::make_shared<CertEntry>(MakeCertificate(), slot, kClientA);
-    auto ephemeral_entry = std::make_shared<CertEntry>(MakeCertificate(), CertSlotHandle{}, kClientB);
+    auto slot_entry = std::make_shared<CertEntry>(kClientA, MakeCertificate(), slot);
+    auto ephemeral_entry = std::make_shared<CertEntry>(kClientB, MakeCertificate());
 
     const auto slot_id = registry.RegisterSlotCert(slot, slot_entry);
     ASSERT_NE(slot_id, 0U);

@@ -18,6 +18,7 @@ load("@rules_uv//uv:venv.bzl", "create_venv")
 docs(
     data = [
         "@score_process_description//:needs_json",
+        "@score_platform//:needs_json",
     ],
     source_dir = ".",
 )

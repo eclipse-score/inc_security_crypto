@@ -60,6 +60,23 @@ Functional requirements
    ``CertObject`` values containing raw bytes, format, and chain metadata.
    Parsing shall be supplied through the narrow ``ICertParser`` interface.
 
+.. comp_req:: Use one canonical certificate parser
+   :id: comp_req__crypto_cert_mgmt__parser_authority
+   :version: 1
+   :reqtype: Functional
+   :security: YES
+   :safety: QM
+   :status: valid
+   :satisfied_by: comp__crypto_cert_management
+
+   The component shall parse all certificates through a single ``ICertParser``
+   instance so that a certificate's derived identity does not vary with the
+   caller. The supplying provider shall be the one named in the certificate
+   configuration when a name is configured, and otherwise the provider selected
+   for the certificate-management capability. A configured parser provider that
+   cannot supply a parser shall be reported as a configuration failure rather
+   than replaced by another provider.
+
 .. comp_req:: Manage trust-store membership
    :id: comp_req__crypto_cert_mgmt__trust_stores
    :version: 1

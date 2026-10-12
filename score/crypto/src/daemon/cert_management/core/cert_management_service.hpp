@@ -28,10 +28,18 @@
 
 namespace score::crypto::daemon::cert_management
 {
+/// Shared pointer to a registry-held certificate instance (CertEntry).
+///
+/// Named distinctly from CertObject::Sptr (the immutable parsed certificate
+/// value) and CertSlotHandle (a slot identity) so that call sites resolving a
+/// certificate reference can distinguish the mutable, registry-owned wrapper
+/// from the value and the slot it may originate from.
+using CertInstance = std::shared_ptr<CertEntry>;
+
 struct CertDataNodeResult
 {
     data_manager::DataNodeId node_id{};
-    std::shared_ptr<CertEntry> entry;
+    CertInstance instance;
 };
 
 /// Resolved certificate slot — handle + config returned by ResolveSlotForOperation.
@@ -136,20 +144,20 @@ class CertManagementService final
         data_manager::DataNodeId cert_node_id);
 
     /// Look up a certificate or certificate-slot node and return its CertObject together with
-    /// the CRL metadata associated with it (session CRL, else entry-linked or direct slot CRL).
+    /// the CRL metadata associated with it (session CRL, else instance-linked or direct slot CRL).
     score::crypto::Expected<ResolvedCertWithCrlMetadata, common::DaemonErrorCode>
     ResolveCertWithCrlMetadataForOperation(data_manager::ClientId client_id, data_manager::DataNodeId cert_node_id);
 
-    /// Look up a certificate data node and return its CertEntry.
+    /// Look up a certificate data node and return its CertInstance.
     ///
     /// Use instead of ResolveCertForOperation when the session CRL association
     /// (CertEntry::GetSessionCrl) is also needed.
-    score::crypto::Expected<std::shared_ptr<CertEntry>, common::DaemonErrorCode> ResolveCertEntryForOperation(
+    score::crypto::Expected<CertInstance, common::DaemonErrorCode> ResolveCertInstanceForOperation(
         data_manager::ClientId client_id,
         data_manager::DataNodeId cert_node_id);
 
-    /// Resolves a `with_crl` propagation source: session CRL on the entry, else persistent CRL on
-    /// its slot (direct or entry-linked). std::nullopt (success) means no CRL is available.
+    /// Resolves a `with_crl` propagation source: session CRL on the instance, else persistent CRL on
+    /// its slot (direct or instance-linked). std::nullopt (success) means no CRL is available.
     score::crypto::Expected<std::optional<ResolvedCrl>, common::DaemonErrorCode> ResolveCrlForOperation(
         data_manager::ClientId client_id,
         data_manager::DataNodeId cert_node_id);

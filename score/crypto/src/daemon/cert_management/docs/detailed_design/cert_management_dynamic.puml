@@ -19,14 +19,28 @@ participant "ConfigDrivenTrustStoreCatalog" as TrustCatalog
 participant "TrustStoreManager" as Stores
 participant "CertManagementService" as Service
 participant "CertSlotManager" as SlotMgr
+participant "SlotHandlerFactory" as Factory
 participant "FileBackedSlotHandler" as Handler
-participant "OpenSslCertParser" as Parser
+participant "ICertParser\n(canonical, provider-supplied)" as Parser
 participant "CertObjectCache\n(weak_ptr, per slot)" as Cache
 participant "CertRegistry" as Registry
 participant "TrustStoreHandler" as StoreHandler
 participant "DataManager" as Data
 
 == Startup: slot and trust-store registration ==
+
+Config -> Factory : parser provider name (optional)
+alt parser provider configured
+  Factory -> Parser : resolve named provider, require cert-management capability
+  note right of Factory
+    Resolution failure stops module creation
+  end note
+else no parser provider configured
+  note right of Factory
+    Resolution deferred to first slot-handler request,
+    using the cert-management capability default
+  end note
+end
 
 Config -> SlotCatalog : CertificateConfig
 SlotCatalog -> Slots : RegisterSlot(config)

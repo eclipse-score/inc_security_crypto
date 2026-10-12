@@ -124,12 +124,17 @@ through the injected parser.
 Provider boundary and scope
 ----------------------------
 
-The core component does not depend on OpenSSL or PKCS#11 concrete types.
-OpenSSL supplies the ``ICertParser`` implementation used for parsing; provider
-context handlers built on the same ``CertObject`` values are expected to
-supply verification and CSR generation. PKCS#11 is expected to supply its own
-``ICertSlotHandler`` for certificate-slot storage. Hardware-key CSR signing is
-expected to use a cross-context service without exporting private key
-material. OCSP remains a provider-boundary extension.
+The core component does not depend on OpenSSL or PKCS#11 concrete types, and no
+provider is hardcoded as the parsing authority. ``SlotHandlerFactory`` resolves one
+canonical ``ICertParser`` for the component: the provider named by
+``CertificateConfig::GetParserProviderName`` when one is configured, otherwise the
+provider selected for the certificate-management capability. Resolution happens on
+first use unless a caller invokes ``Initialize()`` to resolve eagerly; a successful
+parser is cached and shared, and a failed resolution is not cached so a later call
+retries. Provider context handlers built on the same ``CertObject`` values are
+expected to supply verification and CSR generation. PKCS#11 is expected to supply its
+own ``ICertSlotHandler`` for certificate-slot storage. Hardware-key CSR signing is
+expected to use a cross-context service without exporting private key material. OCSP
+remains a provider-boundary extension.
 
 .. uml:: cert_management_dynamic.puml

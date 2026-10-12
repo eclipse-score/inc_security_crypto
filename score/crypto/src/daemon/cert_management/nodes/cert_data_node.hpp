@@ -26,7 +26,7 @@ namespace score::crypto::daemon::cert_management
 {
 
 /// DataNode placed in the client's tree that references a shared CertEntry
-/// living in the per-provider CertRegistry.
+/// instance living in the per-provider CertRegistry.
 ///
 /// On construction, increments the CertEntry's reference count.
 /// On destruction, decrements it. When the count reaches zero, the provided
@@ -43,12 +43,12 @@ class CertDataNode final : public data_manager::DataNode
         return data_manager::DataNodeType::kCertData;
     }
 
-    CertDataNode(std::shared_ptr<CertEntry> cert_entry,
+    CertDataNode(std::shared_ptr<CertEntry> cert_instance,
                  CertRegistryId registry_id,
                  data_manager::ClientId client_id,
                  UnregisterCallback unregister_callback)
         : DataNode(false),
-          m_cert_entry{std::move(cert_entry)},
+          m_cert_instance{std::move(cert_instance)},
           m_registry_id{registry_id},
           m_client_id{client_id},
           m_unregister_callback{std::move(unregister_callback)}
@@ -57,7 +57,7 @@ class CertDataNode final : public data_manager::DataNode
 
     ~CertDataNode() override
     {
-        if (m_cert_entry != nullptr && m_unregister_callback)
+        if (m_cert_instance != nullptr && m_unregister_callback)
         {
             m_unregister_callback(m_registry_id);
         }
@@ -68,9 +68,9 @@ class CertDataNode final : public data_manager::DataNode
     CertDataNode(CertDataNode&&) = delete;
     CertDataNode& operator=(CertDataNode&&) = delete;
 
-    [[nodiscard]] std::shared_ptr<CertEntry> GetCertEntry() const noexcept
+    [[nodiscard]] std::shared_ptr<CertEntry> GetCertInstance() const noexcept
     {
-        return m_cert_entry;
+        return m_cert_instance;
     }
 
     [[nodiscard]] CertRegistryId GetRegistryId() const noexcept
@@ -79,7 +79,7 @@ class CertDataNode final : public data_manager::DataNode
     }
 
   private:
-    std::shared_ptr<CertEntry> m_cert_entry;
+    std::shared_ptr<CertEntry> m_cert_instance;
     CertRegistryId m_registry_id;
     data_manager::ClientId m_client_id;
     UnregisterCallback m_unregister_callback;

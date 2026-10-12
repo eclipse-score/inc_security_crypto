@@ -36,16 +36,16 @@ score::crypto::Expected<CertDataNodeResult, Error> CertManagementService::Regist
 {
     if (!object || !m_data_manager)
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    auto entry = std::make_shared<CertEntry>(std::move(object), params.slot_handle, params.client_id);
-    auto id = params.slot_handle.IsValid() ? m_cert_registry.RegisterSlotCert(params.slot_handle, entry)
-                                           : m_cert_registry.RegisterEphemeralCert(entry);
-    auto node = std::make_shared<CertDataNode>(entry, id, params.client_id, [this](CertRegistryId rid) {
+    auto instance = std::make_shared<CertEntry>(params.client_id, std::move(object), params.slot_handle);
+    auto id = params.slot_handle.IsValid() ? m_cert_registry.RegisterSlotCert(params.slot_handle, instance)
+                                           : m_cert_registry.RegisterEphemeralCert(instance);
+    auto node = std::make_shared<CertDataNode>(instance, id, params.client_id, [this](CertRegistryId rid) {
         m_cert_registry.Unregister(rid);
     });
     auto node_id = m_data_manager->addChildNode(params.client_id, params.parent_id, node);
     if (!node_id)
         return score::crypto::make_unexpected(Error::kInternalError);
-    return CertDataNodeResult{*node_id, std::move(entry)};
+    return CertDataNodeResult{*node_id, std::move(instance)};
 }
 
 score::crypto::Expected<CertDataNodeResult, Error> CertManagementService::Load(const CertRegistrationParams& params)
@@ -194,15 +194,15 @@ CertManagementService::ResolveCertWithCrlMetadataForOperation(data_manager::Clie
     if (accessor->GetNodeType() == data_manager::DataNodeType::kCertData)
     {
         auto typed_res = std::move(accessor).downCast<CertDataNode>();
-        if (!typed_res.has_value() || !typed_res.value()->GetCertEntry())
+        if (!typed_res.has_value() || !typed_res.value()->GetCertInstance())
             return score::crypto::make_unexpected(Error::kInvalidArgument);
-        auto& entry = *typed_res.value()->GetCertEntry();
+        auto& instance = *typed_res.value()->GetCertInstance();
 
-        auto crl_metadata = entry.GetSessionCrlMetadata();
-        if (!crl_metadata.has_value() && entry.GetSlotHandle().IsValid() && m_slot_manager)
-            crl_metadata = m_slot_manager->GetCrlMetadata(entry.GetSlotHandle());
+        auto crl_metadata = instance.GetSessionCrlMetadata();
+        if (!crl_metadata.has_value() && instance.GetSlotHandle().IsValid() && m_slot_manager)
+            crl_metadata = m_slot_manager->GetCrlMetadata(instance.GetSlotHandle());
 
-        return ResolvedCertWithCrlMetadata{entry.GetCertObject(), crl_metadata};
+        return ResolvedCertWithCrlMetadata{instance.GetCertObject(), crl_metadata};
     }
 
     if (accessor->GetNodeType() != data_manager::DataNodeType::kCertSlot)
@@ -218,7 +218,7 @@ CertManagementService::ResolveCertWithCrlMetadataForOperation(data_manager::Clie
     return ResolvedCertWithCrlMetadata{std::move(*loaded), m_slot_manager->GetCrlMetadata(handle)};
 }
 
-score::crypto::Expected<std::shared_ptr<CertEntry>, Error> CertManagementService::ResolveCertEntryForOperation(
+score::crypto::Expected<CertInstance, Error> CertManagementService::ResolveCertInstanceForOperation(
     data_manager::ClientId client_id,
     data_manager::DataNodeId cert_node_id)
 {
@@ -232,10 +232,10 @@ score::crypto::Expected<std::shared_ptr<CertEntry>, Error> CertManagementService
     auto typed_res = std::move(acc_res).value().downCast<CertDataNode>();
     if (!typed_res.has_value())
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    auto entry = typed_res.value()->GetCertEntry();
-    if (!entry)
+    auto instance = typed_res.value()->GetCertInstance();
+    if (!instance)
         return score::crypto::make_unexpected(Error::kInternalError);
-    return entry;
+    return instance;
 }
 
 score::crypto::Expected<std::optional<ResolvedCrl>, Error> CertManagementService::ResolveCrlForOperation(
@@ -248,15 +248,18 @@ score::crypto::Expected<std::optional<ResolvedCrl>, Error> CertManagementService
     std::optional<CertSlotHandle> source_slot;
 
     // Not a CertDataNode is not an error here — falls through to the direct-slot case below.
-    auto entry_res = ResolveCertEntryForOperation(client_id, cert_node_id);
-    if (entry_res.has_value())
+    auto instance_res = ResolveCertInstanceForOperation(client_id, cert_node_id);
+    if (instance_res.has_value())
     {
-        auto& entry = *entry_res.value();
-        auto session_crl = entry.GetSessionCrl();
+        auto& instance = *instance_res.value();
+        auto session_crl = instance.GetSessionCrlSnapshot();
         if (session_crl.has_value())
-            return ResolvedCrl{std::move(*session_crl), entry.GetSessionCrlFormat(), entry.GetSessionCrlMetadata()};
-        if (entry.GetSlotHandle().IsValid())
-            source_slot = entry.GetSlotHandle();
+        {
+            auto crl = std::move(session_crl.value());
+            return ResolvedCrl{std::move(crl.bytes), crl.format, std::move(crl.metadata)};
+        }
+        if (instance.GetSlotHandle().IsValid())
+            source_slot = instance.GetSlotHandle();
     }
 
     if (!source_slot.has_value())

@@ -446,9 +446,11 @@ belong inside handlers created by ``ICryptoHandlerFactory::CreateHandler``; they
 are not responsibilities of the storage component.
 
 For CSR generation, signing requires the private key to remain inside the
-provider. The planned cross-context broker (``IKeyOperationEndpoint``) provides
-a ``Sign(data, algorithm)`` call that the CSR handler invokes without the
-private key material ever leaving the key management provider boundary.
+provider that owns it. The CSR handler therefore obtains a signature over the
+``TBSCertRequest`` through a daemon-internal cross-context service rather than
+by exporting key material. The constraint is part of this boundary decision; the
+mechanism that satisfies it belongs to the cross-context design and is not fixed
+here.
 
 Consequences
 ------------
@@ -476,3 +478,100 @@ Consequences
   captured in ``CertObject``. Applications that need them must use
   ``ICertSlotHandler``-specific query paths, which the current API does not
   expose publicly.
+
+---
+
+One Canonical Certificate Parser, Selected by Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. dec_rec:: One Canonical Certificate Parser, Selected by Configuration
+   :id: dec_rec__crypto_cert_mgmt__parser_authority
+   :version: 1
+   :status: accepted
+   :context: doc__crypto_cert_management_architecture
+   :decision: Slot loading, certificate-management operations, and trust-store metadata use a single canonical ``ICertParser`` for the whole component. The supplying provider is either named explicitly in the certificate configuration or selected by the certificate-management capability default. It is never selected by the client or by a per-context provider hint.
+
+   .. :affects: comp__crypto_cert_management
+
+``SlotHandlerFactory`` owns parser selection and supplies the resolved parser to
+every slot handler it creates. No provider is hardcoded as the parsing
+authority, and no caller may substitute a different parser for an individual
+operation.
+
+Context
+-------
+
+Parsing a certificate produces more than bytes: ``CertChainMetadata`` carries
+the SHA-256 fingerprint, SKID, AKID, ``is_ca``, subject, issuer, and serial
+number. Trust-store membership matching, the slot ``CertObject`` cache, anchor
+deduplication, and chain building all key off those derived values. Three
+selection models were evaluated:
+
+1. **Per-context parser selected by the client's provider hint** — the parser
+   follows the same hint that selects a context's verification or CSR provider.
+   Rejected: the same certificate bytes would acquire a different identity
+   depending on which context loaded them, so a slot could appear as two
+   distinct anchors, and a trust-store member could fail to match the slot it
+   was configured from. Two parsing authorities for one certificate is a
+   correctness defect, not a configuration preference.
+
+2. **Hardcoded OpenSSL parser** — simple and always available in the current
+   provider set. Rejected: a deployment that does not register the OpenSSL
+   provider, or that must route parsing through a qualified implementation, has
+   no way to redirect it, and the core component would name a concrete provider
+   in violation of the provider-boundary decision.
+
+3. **One canonical parser, resolved from configuration with a capability
+   default** — an optional configured provider name pins the parser; when unset,
+   the certificate-management capability selection applies.
+
+Decision
+--------
+
+Option 3 was selected. ``SlotHandlerFactory`` resolves the parser as follows:
+
+* When ``CertificateConfig::GetParserProviderName`` is non-empty, that exact
+  provider is looked up by name and must both advertise the
+  certificate-management capability and return a non-null parser. Any failure is
+  reported rather than silently falling back to another provider — an explicit
+  deployment choice is not overridden.
+* When it is empty, the provider selected for the certificate-management
+  capability supplies the parser.
+
+Resolution is lazy on first slot-handler creation. ``Initialize()`` resolves
+eagerly and returns the resolution error without exposing the parser, so a
+caller can fail fast at startup; ``CertManagementModule::Create`` invokes it only
+when a parser provider is explicitly configured, and returns no module when that
+configured provider cannot be honoured. A successful parser is cached and shared
+across copies of the factory. A failed resolution is not cached, so a later call
+retries once the provider set is complete.
+
+Context provider hints remain meaningful for context-scoped capabilities such as
+path validation and CSR generation. They do not select the parser.
+
+Consequences
+------------
+
+**Positive:**
+
+* A certificate has one identity regardless of which context loaded it, so
+  trust-store matching, slot caching, and anchor deduplication stay consistent.
+* The parsing authority is a deployment decision rather than a compile-time one,
+  without naming a concrete provider in the component.
+* An explicitly configured parser provider that cannot be honoured is a startup
+  failure, not a silent substitution.
+* Parser resolution costs one provider lookup for the life of the component.
+
+**Negative:**
+
+* When no parser provider is configured and no provider offers the
+  certificate-management capability, slot handlers are created without a parser.
+  Operations that need one (certificate parsing, CRL validation) report an error
+  at the point of use; slot enumeration, slot state, and trust-store membership
+  listing remain available. Startup does not fail in this case, because no
+  explicit deployment choice has been contradicted.
+* Because failed resolution is not cached, the diagnostic for a missing
+  certificate-management provider is emitted on each attempt rather than once.
+* A client cannot request a particular provider's parsing behaviour. Deployments
+  that need different parsing for different certificate populations cannot
+  express that through this component.

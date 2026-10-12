@@ -174,11 +174,11 @@ TEST_F(CertManagementServiceTest, LoadCertFromSlot_ReturnsObjectWithExpectedSubj
     const auto result = LoadCert(kClientA);
 
     ASSERT_NE(result.node_id, 0U);
-    ASSERT_NE(result.entry, nullptr);
-    EXPECT_EQ(result.entry->GetCertObject()->GetSubject(), kSubjectInitial);
-    EXPECT_TRUE(result.entry->GetCertObject()->IsCA());
-    EXPECT_EQ(result.entry->GetCertObject()->GetFingerprint().size(), 32U);
-    EXPECT_EQ(result.entry->GetCertObject()->GetSkid().size(), 20U);
+    ASSERT_NE(result.instance, nullptr);
+    EXPECT_EQ(result.instance->GetCertObject()->GetSubject(), kSubjectInitial);
+    EXPECT_TRUE(result.instance->GetCertObject()->IsCA());
+    EXPECT_EQ(result.instance->GetCertObject()->GetFingerprint().size(), 32U);
+    EXPECT_EQ(result.instance->GetCertObject()->GetSkid().size(), 20U);
 }
 
 TEST_F(CertManagementServiceTest, ResolveCertForOperation_ReturnsSameObjectAsLoaded)
@@ -221,17 +221,17 @@ TEST_F(CertManagementServiceTest, Load_SecondCallProducesIndependentCertEntry)
 {
     const auto result1 = LoadCert(kClientA);
     ASSERT_NE(result1.node_id, 0U);
-    ASSERT_NE(result1.entry, nullptr);
+    ASSERT_NE(result1.instance, nullptr);
 
     const auto result2 = LoadCert(kClientA);
     ASSERT_NE(result2.node_id, 0U);
-    ASSERT_NE(result2.entry, nullptr);
+    ASSERT_NE(result2.instance, nullptr);
 
     // Independent CertEntry objects — session CRL on one cannot affect the other.
     EXPECT_NE(result1.node_id, result2.node_id);
-    EXPECT_NE(result1.entry.get(), result2.entry.get());
+    EXPECT_NE(result1.instance.get(), result2.instance.get());
     // But the underlying CertObject bytes are the same shared object (cache hit).
-    EXPECT_EQ(result1.entry->GetCertObject().get(), result2.entry->GetCertObject().get());
+    EXPECT_EQ(result1.instance->GetCertObject().get(), result2.instance->GetCertObject().get());
 }
 
 // ---------------------------------------------------------------------------
@@ -370,8 +370,8 @@ TEST_F(CertManagementServiceTest, RegisterCertMaterial_EphemeralPath_CreatesReso
     const auto result = m_service->RegisterCertMaterial(params, *parsed);
     ASSERT_TRUE(result.has_value());
     EXPECT_NE(result->node_id, 0U);
-    ASSERT_NE(result->entry, nullptr);
-    EXPECT_EQ(result->entry->GetCertObject()->GetSubject(), kSubjectInitial);
+    ASSERT_NE(result->instance, nullptr);
+    EXPECT_EQ(result->instance->GetCertObject()->GetSubject(), kSubjectInitial);
 
     // The node must be resolvable immediately after registration.
     const auto resolved = m_service->ResolveCertForOperation(kClientA, result->node_id);
@@ -384,10 +384,10 @@ TEST_F(CertManagementServiceTest, RegisterCertMaterial_EphemeralPath_CreatesReso
 }
 
 // ---------------------------------------------------------------------------
-// ResolveCertEntryForOperation — session CRL attachment path.
+// ResolveCertInstanceForOperation — session CRL attachment path.
 //
 // AttachSessionCrl() was removed from CertManagementService; the executor now
-// calls ResolveCertEntryForOperation() directly and calls entry->AttachSessionCrl().
+// calls ResolveCertInstanceForOperation() directly and calls instance->AttachSessionCrl().
 // These tests verify the entry-level behaviour accessible via the service.
 // ---------------------------------------------------------------------------
 
@@ -395,25 +395,38 @@ TEST_F(CertManagementServiceTest, SessionCrl_StoresInMemoryNotOnDisk)
 {
     const auto result = LoadCert(kClientA);
     ASSERT_NE(result.node_id, 0U);
-    EXPECT_FALSE(result.entry->HasSessionCrl());
+    EXPECT_FALSE(result.instance->HasSessionCrl());
+    EXPECT_FALSE(result.instance->GetSessionCrlFormat().has_value());
+    EXPECT_FALSE(result.instance->GetSessionCrlSnapshot().has_value());
 
     const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
-    auto entry_res = m_service->ResolveCertEntryForOperation(kClientA, result.node_id);
-    ASSERT_TRUE(entry_res.has_value());
-    entry_res.value()->AttachSessionCrl(crl_bytes, score::crypto::FormatType::kDer);
+    auto instance_res = m_service->ResolveCertInstanceForOperation(kClientA, result.node_id);
+    ASSERT_TRUE(instance_res.has_value());
+    instance_res.value()->AttachSessionCrl(crl_bytes, score::crypto::FormatType::kDer);
 
-    EXPECT_TRUE(result.entry->HasSessionCrl());
-    const auto session_crl = result.entry->GetSessionCrl();
+    EXPECT_TRUE(result.instance->HasSessionCrl());
+    const auto session_crl = result.instance->GetSessionCrl();
     ASSERT_TRUE(session_crl.has_value());
     EXPECT_EQ(*session_crl, crl_bytes);
-    EXPECT_EQ(result.entry->GetSessionCrlFormat(), score::crypto::FormatType::kDer);
+    const auto session_crl_format = result.instance->GetSessionCrlFormat();
+    ASSERT_TRUE(session_crl_format.has_value());
+    EXPECT_EQ(session_crl_format.value(), score::crypto::FormatType::kDer);
+    const auto session_crl_snapshot = result.instance->GetSessionCrlSnapshot();
+    ASSERT_TRUE(session_crl_snapshot.has_value());
+    EXPECT_EQ(session_crl_snapshot->bytes, crl_bytes);
+    EXPECT_EQ(session_crl_snapshot->format, score::crypto::FormatType::kDer);
+
+    result.instance->ClearSessionCrl();
+    EXPECT_FALSE(result.instance->HasSessionCrl());
+    EXPECT_FALSE(result.instance->GetSessionCrlFormat().has_value());
+    EXPECT_FALSE(result.instance->GetSessionCrlSnapshot().has_value());
 
     EXPECT_FALSE(std::filesystem::exists(m_dir / "root_ca.crl"));
 }
 
 TEST_F(CertManagementServiceTest, SessionCrl_UnknownNode_ReturnsError)
 {
-    EXPECT_FALSE(m_service->ResolveCertEntryForOperation(kClientA, 999U).has_value());
+    EXPECT_FALSE(m_service->ResolveCertInstanceForOperation(kClientA, 999U).has_value());
 }
 
 // ---------------------------------------------------------------------------
@@ -454,7 +467,7 @@ TEST_F(CertManagementServiceTest, ResolveCertWithCrlMetadata_SlotHasPersistedCrl
 {
     const auto result = LoadCert(kClientA);
     ASSERT_NE(result.node_id, 0U);
-    ASSERT_FALSE(result.entry->HasSessionCrl());
+    ASSERT_FALSE(result.instance->HasSessionCrl());
 
     const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
     const auto slot_metadata = MakeCrlMetadata(0x11U);
@@ -484,7 +497,7 @@ TEST_F(CertManagementServiceTest, ResolveCertWithCrlMetadata_SessionCrlPresent_T
     // ...but attach a *different* session-scoped CRL to this entry.
     const std::vector<std::uint8_t> session_crl_bytes{0xD0U, 0xD1U};
     const auto session_metadata = MakeCrlMetadata(0x22U);
-    result.entry->AttachSessionCrl(session_crl_bytes, score::crypto::FormatType::kDer, session_metadata);
+    result.instance->AttachSessionCrl(session_crl_bytes, score::crypto::FormatType::kDer, session_metadata);
 
     const auto resolved = m_service->ResolveCertWithCrlMetadataForOperation(kClientA, result.node_id);
     ASSERT_TRUE(resolved.has_value());
@@ -597,7 +610,7 @@ TEST_F(CertManagementServiceTest, ResolveCrl_SessionCrlPresent_TakesPrecedenceOv
     // ...but attach a session-scoped CRL to this entry.
     const std::vector<std::uint8_t> session_crl_bytes{0xD0U, 0xD1U};
     const auto session_metadata = MakeCrlMetadata(0x22U);
-    result.entry->AttachSessionCrl(session_crl_bytes, score::crypto::FormatType::kPem, session_metadata);
+    result.instance->AttachSessionCrl(session_crl_bytes, score::crypto::FormatType::kPem, session_metadata);
 
     const auto resolved = m_service->ResolveCrlForOperation(kClientA, result.node_id);
     ASSERT_TRUE(resolved.has_value());
