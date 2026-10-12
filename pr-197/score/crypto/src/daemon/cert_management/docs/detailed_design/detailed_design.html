@@ -594,7 +594,7 @@
                   
   <section id="certificate-management-detailed-design">
 <h1>Certificate Management Detailed Design<a class="headerlink" href="#certificate-management-detailed-design" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-f9744bf5">
+<div class="need_container docutils container" id="SNCB-be5ee2d1">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_detailed_design">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -731,15 +731,20 @@ through the injected parser.</p>
 </section>
 <section id="provider-boundary-and-scope">
 <h2>Provider boundary and scope<a class="headerlink" href="#provider-boundary-and-scope" title="Link to this heading">#</a></h2>
-<p>The core component does not depend on OpenSSL or PKCS#11 concrete types.
-OpenSSL supplies the <code class="docutils literal notranslate"><span class="pre">ICertParser</span></code> implementation used for parsing; provider
-context handlers built on the same <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> values are expected to
-supply verification and CSR generation. PKCS#11 is expected to supply its own
-<code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code> for certificate-slot storage. Hardware-key CSR signing is
-expected to use a cross-context service without exporting private key
-material. OCSP remains a provider-boundary extension.</p>
+<p>The core component does not depend on OpenSSL or PKCS#11 concrete types, and no
+provider is hardcoded as the parsing authority. <code class="docutils literal notranslate"><span class="pre">SlotHandlerFactory</span></code> resolves one
+canonical <code class="docutils literal notranslate"><span class="pre">ICertParser</span></code> for the component: the provider named by
+<code class="docutils literal notranslate"><span class="pre">CertificateConfig::GetParserProviderName</span></code> when one is configured, otherwise the
+provider selected for the certificate-management capability. Resolution happens on
+first use unless a caller invokes <code class="docutils literal notranslate"><span class="pre">Initialize()</span></code> to resolve eagerly; a successful
+parser is cached and shared, and a failed resolution is not cached so a later call
+retries. Provider context handlers built on the same <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> values are
+expected to supply verification and CSR generation. PKCS#11 is expected to supply its
+own <code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code> for certificate-slot storage. Hardware-key CSR signing is
+expected to use a cross-context service without exporting private key material. OCSP
+remains a provider-boundary extension.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-3227f3f7d502ad39ffbb008396526814e807feeb.svg" type="image/svg+xml" style="width:3376px;height:3042px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-835d661e89a453dd821551062cd13d59aae986db.svg" type="image/svg+xml" style="width:3543px;height:3231px;background:#FFFFFF;"></object></p>
 </section>
 </section>
 

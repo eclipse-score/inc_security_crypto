@@ -597,7 +597,7 @@
 <span id="crypto-cert-management-design-decisions"></span><h1>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h1>
 <section id="trust-stores-reference-certificate-slots-not-raw-paths">
 <h2>Trust Stores Reference Certificate Slots, Not Raw Paths<a class="headerlink" href="#trust-stores-reference-certificate-slots-not-raw-paths" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-38c8be37">
+<div class="need_container docutils container" id="SNCB-85eed68a">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__ts_ref_slots">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -733,7 +733,7 @@ slot entry and a trust-store membership entry.</p></li>
 </section>
 <section id="crl-co-located-with-the-certificate-slot">
 <h2>CRL Co-located with the Certificate Slot<a class="headerlink" href="#crl-co-located-with-the-certificate-slot" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-f8c4326a">
+<div class="need_container docutils container" id="SNCB-3b9ce992">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__crl_co_location">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -853,7 +853,7 @@ revocation checking. There is no on-demand derivation path.</p></li>
 </section>
 <section id="mutation-default-deny-with-explicit-writer-uid">
 <h2>Mutation Default-Deny with Explicit Writer UID<a class="headerlink" href="#mutation-default-deny-with-explicit-writer-uid" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-4216f368">
+<div class="need_container docutils container" id="SNCB-f4f89aa4">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__deny_mutation">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -999,7 +999,7 @@ currently a configuration invariant rather than one enforced by
 </section>
 <section id="atomic-file-writes-via-temp-file-and-rename">
 <h2>Atomic File Writes via Temp-File and Rename<a class="headerlink" href="#atomic-file-writes-via-temp-file-and-rename" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-ad501c9e">
+<div class="need_container docutils container" id="SNCB-7e21ba95">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__atomic_writes">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1107,7 +1107,7 @@ kilobytes); not suitable for large append-only data.</p></li>
 </section>
 <section id="provider-boundary-parsing-only-no-private-key-or-hsm-handle-crossing">
 <h2>Provider Boundary: Parsing Only; No Private Key or HSM Handle Crossing<a class="headerlink" href="#provider-boundary-parsing-only-no-private-key-or-hsm-handle-crossing" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-7375e3ae">
+<div class="need_container docutils container" id="SNCB-1ec60e1a">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__provider_boundary">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1192,9 +1192,11 @@ implementation. Cert context operations (verify, CSR, convert, key extract)
 belong inside handlers created by <code class="docutils literal notranslate"><span class="pre">ICryptoHandlerFactory::CreateHandler</span></code>; they
 are not responsibilities of the storage component.</p>
 <p>For CSR generation, signing requires the private key to remain inside the
-provider. The planned cross-context broker (<code class="docutils literal notranslate"><span class="pre">IKeyOperationEndpoint</span></code>) provides
-a <code class="docutils literal notranslate"><span class="pre">Sign(data,</span> <span class="pre">algorithm)</span></code> call that the CSR handler invokes without the
-private key material ever leaving the key management provider boundary.</p>
+provider that owns it. The CSR handler therefore obtains a signature over the
+<code class="docutils literal notranslate"><span class="pre">TBSCertRequest</span></code> through a daemon-internal cross-context service rather than
+by exporting key material. The constraint is part of this boundary decision; the
+mechanism that satisfies it belongs to the cross-context design and is not fixed
+here.</p>
 </section>
 <section id="id12">
 <h3>Consequences<a class="headerlink" href="#id12" title="Link to this heading">#</a></h3>
@@ -1221,6 +1223,132 @@ until a trust store is first accessed).</p></li>
 captured in <code class="docutils literal notranslate"><span class="pre">CertObject</span></code>. Applications that need them must use
 <code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code>-specific query paths, which the current API does not
 expose publicly.</p></li>
+</ul>
+<p>—</p>
+</section>
+</section>
+<section id="one-canonical-certificate-parser-selected-by-configuration">
+<h2>One Canonical Certificate Parser, Selected by Configuration<a class="headerlink" href="#one-canonical-certificate-parser-selected-by-configuration" title="Link to this heading">#</a></h2>
+<div class="need_container docutils container" id="SNCB-53b22eb4">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__parser_authority">
+<tbody>
+<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
+<div class="line"><span><span class="needs_title"><span class="needs_data">One Canonical Certificate Parser, Selected by Configuration</span></span></span></div>
+</div>
+</td>
+<td class="head_center" colspan="2"><div class="needs_head line-block">
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">accepted</span></span></span></div>
+<div class="line"><span></span></div>
+<div class="line"><span></span></div>
+</div>
+</td>
+<td class="head_right" colspan="2"><div class="needs_head_right line-block">
+<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
+</div>
+</td>
+</tr>
+<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_cert_management_architecture</span></span></div>
+<div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">Slot loading, certificate-management operations, and trust-store metadata use a single canonical ``ICertParser`` for the whole component. The supplying provider is either named explicitly in the certificate configuration or selected by the certificate-management capability default. It is never selected by the client or by a per-context provider hint.</span></span></div>
+<div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
+</span></span></div>
+<div class="line"><span></span></div>
+</div>
+</td>
+<td class="meta" colspan="3"></td>
+</tr>
+<tr class="content row-odd"><td class="content" colspan="6"></td>
+</tr>
+<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#dec_rec__crypto_cert_mgmt__parser_authority" title="dec_rec__crypto_cert_mgmt__parser_authority">dec_rec__crypto_cert_mgmt__parser_authority</a></span></span></div>
+</div>
+</td>
+<td class="footer" colspan="2"><div class="needs_footer line-block">
+<div class="line"><span><span class="needs_type_name"><span class="needs_data">Decision Record</span></span></span></div>
+</div>
+</td>
+<td class="footer_right" colspan="2"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">SlotHandlerFactory</span></code> owns parser selection and supplies the resolved parser to
+every slot handler it creates. No provider is hardcoded as the parsing
+authority, and no caller may substitute a different parser for an individual
+operation.</p>
+<section id="id13">
+<h3>Context<a class="headerlink" href="#id13" title="Link to this heading">#</a></h3>
+<p>Parsing a certificate produces more than bytes: <code class="docutils literal notranslate"><span class="pre">CertChainMetadata</span></code> carries
+the SHA-256 fingerprint, SKID, AKID, <code class="docutils literal notranslate"><span class="pre">is_ca</span></code>, subject, issuer, and serial
+number. Trust-store membership matching, the slot <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> cache, anchor
+deduplication, and chain building all key off those derived values. Three
+selection models were evaluated:</p>
+<ol class="arabic simple">
+<li><p><strong>Per-context parser selected by the client’s provider hint</strong> — the parser
+follows the same hint that selects a context’s verification or CSR provider.
+Rejected: the same certificate bytes would acquire a different identity
+depending on which context loaded them, so a slot could appear as two
+distinct anchors, and a trust-store member could fail to match the slot it
+was configured from. Two parsing authorities for one certificate is a
+correctness defect, not a configuration preference.</p></li>
+<li><p><strong>Hardcoded OpenSSL parser</strong> — simple and always available in the current
+provider set. Rejected: a deployment that does not register the OpenSSL
+provider, or that must route parsing through a qualified implementation, has
+no way to redirect it, and the core component would name a concrete provider
+in violation of the provider-boundary decision.</p></li>
+<li><p><strong>One canonical parser, resolved from configuration with a capability
+default</strong> — an optional configured provider name pins the parser; when unset,
+the certificate-management capability selection applies.</p></li>
+</ol>
+</section>
+<section id="id14">
+<h3>Decision<a class="headerlink" href="#id14" title="Link to this heading">#</a></h3>
+<p>Option 3 was selected. <code class="docutils literal notranslate"><span class="pre">SlotHandlerFactory</span></code> resolves the parser as follows:</p>
+<ul class="simple">
+<li><p>When <code class="docutils literal notranslate"><span class="pre">CertificateConfig::GetParserProviderName</span></code> is non-empty, that exact
+provider is looked up by name and must both advertise the
+certificate-management capability and return a non-null parser. Any failure is
+reported rather than silently falling back to another provider — an explicit
+deployment choice is not overridden.</p></li>
+<li><p>When it is empty, the provider selected for the certificate-management
+capability supplies the parser.</p></li>
+</ul>
+<p>Resolution is lazy on first slot-handler creation. <code class="docutils literal notranslate"><span class="pre">Initialize()</span></code> resolves
+eagerly and returns the resolution error without exposing the parser, so a
+caller can fail fast at startup; <code class="docutils literal notranslate"><span class="pre">CertManagementModule::Create</span></code> invokes it only
+when a parser provider is explicitly configured, and returns no module when that
+configured provider cannot be honoured. A successful parser is cached and shared
+across copies of the factory. A failed resolution is not cached, so a later call
+retries once the provider set is complete.</p>
+<p>Context provider hints remain meaningful for context-scoped capabilities such as
+path validation and CSR generation. They do not select the parser.</p>
+</section>
+<section id="id15">
+<h3>Consequences<a class="headerlink" href="#id15" title="Link to this heading">#</a></h3>
+<p><strong>Positive:</strong></p>
+<ul class="simple">
+<li><p>A certificate has one identity regardless of which context loaded it, so
+trust-store matching, slot caching, and anchor deduplication stay consistent.</p></li>
+<li><p>The parsing authority is a deployment decision rather than a compile-time one,
+without naming a concrete provider in the component.</p></li>
+<li><p>An explicitly configured parser provider that cannot be honoured is a startup
+failure, not a silent substitution.</p></li>
+<li><p>Parser resolution costs one provider lookup for the life of the component.</p></li>
+</ul>
+<p><strong>Negative:</strong></p>
+<ul class="simple">
+<li><p>When no parser provider is configured and no provider offers the
+certificate-management capability, slot handlers are created without a parser.
+Operations that need one (certificate parsing, CRL validation) report an error
+at the point of use; slot enumeration, slot state, and trust-store membership
+listing remain available. Startup does not fail in this case, because no
+explicit deployment choice has been contradicted.</p></li>
+<li><p>Because failed resolution is not cached, the diagnostic for a missing
+certificate-management provider is emitted on each attempt rather than once.</p></li>
+<li><p>A client cannot request a particular provider’s parsing behaviour. Deployments
+that need different parsing for different certificate populations cannot
+express that through this component.</p></li>
 </ul>
 </section>
 </section>
@@ -1301,6 +1429,12 @@ expose publicly.</p></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id10">Context</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id11">Decision</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id12">Consequences</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#one-canonical-certificate-parser-selected-by-configuration">One Canonical Certificate Parser, Selected by Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id13">Context</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id14">Decision</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id15">Consequences</a></li>
 </ul>
 </li>
 </ul>
