@@ -39,10 +39,10 @@ table KeySlotEntry {
   deployment_format: string (required);
 }
 
-/// Per-application resource ID to slot name mapping
+/// Per-application resource ID to key slot name mapping
 /// Applications reference keys by portable application-local names
 /// (e.g., "signing_key")
-table AppResourceEntry {
+table AppKeySlotEntry {
   /// UID of the application that owns this mapping
   uid: uint32;
   /// Application-local resource name
@@ -51,12 +51,12 @@ table AppResourceEntry {
   slot_name: string (required);
 }
 
-/// Key slot config contains all slot and app resource definitions
+/// Key slot config contains all slot and app key slot definitions
 table KeySlotConfig {
   /// All key slot definitions
   slot_entries: [KeySlotEntry] (required);
-  /// All per-app resource mappings
-  app_resource_entries: [AppResourceEntry] (required);
+  /// All per-app key slot mappings
+  app_key_slot_entries: [AppKeySlotEntry] (required);
 }
 
 /// Top-level configuration root_type

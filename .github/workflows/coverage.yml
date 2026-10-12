@@ -44,7 +44,7 @@ jobs:
           COVERAGE_THRESHOLD: "0"
         run: |
           set -euo pipefail
-          bazel run @score_tooling//coverage:generate_coverage_html -- \
+          bazel run @score_coverage//:generate_coverage_html -- \
             --yaml tools/coverage/coverage_justifications.yaml \
             --testlogs-subdir score \
             --archive-dir coverage_artifact

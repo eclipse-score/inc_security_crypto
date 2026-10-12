@@ -47,6 +47,8 @@ std::string_view CryptoErrorDomain::MessageFor(const score::result::ErrorCode& c
         // Parameter / validation
         case CryptoErrorCode::kInvalidArgument:
             return "Invalid argument";
+        case CryptoErrorCode::kResourceNotFound:
+            return "Resource not found or no longer live";
         case CryptoErrorCode::kInvalidResourceId:
             return "Invalid resource identifier";
         case CryptoErrorCode::kInvalidResourceType:
@@ -115,22 +117,10 @@ std::string_view CryptoErrorDomain::MessageFor(const score::result::ErrorCode& c
         // Certificate
         case CryptoErrorCode::kCertificateParsingFailed:
             return "Certificate parsing failed";
-        case CryptoErrorCode::kCertificateExpired:
-            return "Certificate expired";
-        case CryptoErrorCode::kCertificateRevoked:
-            return "Certificate revoked";
-        case CryptoErrorCode::kCertificateVerifyFailed:
-            return "Certificate verification failed";
-        case CryptoErrorCode::kCertChainVerifyFailed:
-            return "Certificate chain verification failed";
-        case CryptoErrorCode::kCrlImportFailed:
-            return "CRL import failed";
         case CryptoErrorCode::kCsrGenerationFailed:
             return "CSR generation failed";
         case CryptoErrorCode::kOcspError:
             return "OCSP error";
-        case CryptoErrorCode::kTrustAnchorNotFound:
-            return "Trust anchor not found";
 
         // Provider
         case CryptoErrorCode::kProviderNotAvailable:

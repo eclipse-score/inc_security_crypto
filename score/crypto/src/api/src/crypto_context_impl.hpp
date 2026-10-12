@@ -14,9 +14,9 @@
 #ifndef SCORE_CRYPTO_SRC_API_SRC_CRYPTO_CONTEXT_IMPL_HPP
 #define SCORE_CRYPTO_SRC_API_SRC_CRYPTO_CONTEXT_IMPL_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
@@ -62,6 +62,11 @@ class CryptoContextImpl final : public ICryptoContext
     score::Result<std::unique_ptr<IMacContext>> CreateMacContext(const MacContextConfig& config) override;
     score::Result<std::unique_ptr<IKeyManagementContext>> CreateKeyManagementContext(
         const KeyManagementContextConfig& config) override;
+    score::Result<std::unique_ptr<ICipherContext>> CreateCipherContext(const CipherContextConfig& config) override;
+    score::Result<std::unique_ptr<ISignContext>> CreateSignContext(const SignContextConfig& config) override;
+    score::Result<std::unique_ptr<IVerifySignatureContext>> CreateVerifySignatureContext(
+        const VerifySignatureContextConfig& config) override;
+    score::Result<std::unique_ptr<IRandomContext>> CreateRandomContext(const RandomContextConfig& config) override;
 
     // -- Queries --
     score::Result<AlgorithmCapabilities> QueryCapabilities(const AlgorithmId& algorithm) override;

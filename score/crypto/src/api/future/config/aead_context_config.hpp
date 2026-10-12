@@ -14,8 +14,8 @@
 #ifndef SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_AEAD_CONTEXT_CONFIG_HPP
 #define SCORE_CRYPTO_SRC_API_FUTURE_CONFIG_AEAD_CONTEXT_CONFIG_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/config/base_context_config.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 
 namespace score
 {

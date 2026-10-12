@@ -12,18 +12,24 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "common",
     hdrs = [
         "actors.hpp",
+        "cipher_padding.hpp",
+        "context_mode.hpp",
+        "context_types.hpp",
         "daemon_error.hpp",
+        "hex.hpp",
         "secure_memory.hpp",
         "types.hpp",
     ],
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "@score_baselibs//score/result",
     ],
 )
@@ -36,7 +42,7 @@ cc_library(
 )
 
 # Header-only utility: human-readable names for OperationActor / OperationAction values.
-# Depends on the three operation-constants headers (each only deps on :common).
+# Depends on the operation-constants headers (each only deps on :common).
 cc_library(
     name = "operation_names",
     hdrs = ["operation_names.hpp"],
@@ -44,8 +50,31 @@ cc_library(
     deps = [
         ":common",
         "//score/crypto/src/daemon/key_management:key_management_operations",
+        "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/handler:mac_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:random_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:sign_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:verify_handler_operations",
         "@score_baselibs//score/mw/log",
+    ],
+)
+
+cc_test(
+    name = "context_types_test",
+    srcs = ["context_types_test.cpp"],
+    deps = [
+        ":common",
+        "//score/crypto/src/api/common:crypto_common",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "operation_names_test",
+    srcs = ["operation_names_test.cpp"],
+    deps = [
+        ":operation_names",
+        "@googletest//:gtest_main",
     ],
 )

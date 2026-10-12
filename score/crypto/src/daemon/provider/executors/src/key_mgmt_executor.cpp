@@ -90,7 +90,8 @@ Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorC
 //   client_id        – authenticated client (from InitializationParams)
 //   context_node_id  – parent node for new key node
 //   request[0]       = algorithm  (string_view)
-//   request[1]       = permissions (uint64_t, optional)
+//   request[1]       = permissions (uint32_t, optional)
+//   request[2]       = public_key_permissions (uint32_t, optional, asymmetric only)
 // ---------------------------------------------------------------------------
 
 Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>

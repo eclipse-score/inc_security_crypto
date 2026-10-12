@@ -17,11 +17,10 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
+
 # cc_library(
 #     name = "future_crypto_objects",
 #     hdrs = [
-#         "i_cert_slot_object.hpp",
-#         "i_certificate_object.hpp",
 #         "i_data_object.hpp",
 #         "i_provider_object.hpp",
 #         "i_secure_object.hpp",

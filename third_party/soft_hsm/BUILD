@@ -50,6 +50,8 @@ cmake(
         "RUN_AES_KEY_WRAP__TRYRUN_OUTPUT": "",
         "RUN_AES_KEY_WRAP_PAD": "0",
         "RUN_AES_KEY_WRAP_PAD__TRYRUN_OUTPUT": "",
+        # Ignore deprecation warnings for SoftHSM source code
+        "CMAKE_CXX_FLAGS": "-Wno-error=deprecated-declarations",
     },
     env = select({
         "//platforms:is_qnx_aarch64": {

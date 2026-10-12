@@ -56,10 +56,10 @@ class IStreamingOutputContext : public IStreamingContext
     ///       starting a new operation.
     virtual score::Result<std::size_t> Finalize(score::cpp::span<uint8_t> output) = 0;
 
-    /// @brief Returns the expected output size in bytes.
-    /// @note For hash, this is the digest size. For encrypt/decrypt, this depends
-    ///       on the algorithm and the amount of data processed. Call after Init()
-    ///       for meaningful results.
+    /// @brief Returns the size in bytes that governs output buffers for this context.
+    /// @note For a hash this is the digest size, which is the exact size of the
+    ///       result. For a cipher this is the block size; the derived interface
+    ///       states how a buffer is sized from it.
     virtual std::size_t GetOutputSize() const noexcept = 0;
 };
 

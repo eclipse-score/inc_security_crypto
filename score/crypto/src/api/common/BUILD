@@ -14,6 +14,12 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
+    name = "crypto_common_base",
+    hdrs = ["fixed_capacity_string.hpp"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "crypto_common",
     srcs = [
         "src/crypto_resource_guard.cpp",
@@ -24,14 +30,13 @@ cc_library(
     hdrs = [
         "crypto_resource_guard.hpp",
         "error_domain.hpp",
-        "fixed_capacity_string.hpp",
         "i_memory.hpp",
         "i_memory_allocator.hpp",
-        "types.hpp",
     ],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
+        ":crypto_common_base",
+        "//score/crypto/src/api/types:common_types",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],
@@ -42,7 +47,6 @@ cc_library(
 cc_library(
     name = "release_callback_iface",
     hdrs = ["src/i_release_callback.hpp"],
-    includes = ["."],
     visibility = [
         "//score/crypto:__subpackages__",
     ],

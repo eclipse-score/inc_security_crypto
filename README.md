@@ -125,7 +125,7 @@ Run the LLVM coverage tests and generate the HTML report locally:
 ```sh
 bazel coverage --config=llvm_cov --build_tests_only -- //score/...
 
-COVERAGE_THRESHOLD=0 bazel run @score_tooling//coverage:generate_coverage_html -- \
+COVERAGE_THRESHOLD=0 bazel run @score_coverage//:generate_coverage_html -- \
     --yaml tools/coverage/coverage_justifications.yaml \
     --testlogs-subdir score \
     --archive-dir coverage_artifact

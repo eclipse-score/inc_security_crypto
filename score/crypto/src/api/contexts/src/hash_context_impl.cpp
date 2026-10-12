@@ -14,7 +14,7 @@
 #include "score/crypto/src/api/contexts/src/hash_context_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"

@@ -19,6 +19,14 @@
 #include <cstddef>
 #include <string_view>
 
+// The common algorithm tables in daemon/common/algorithm_info.hpp hold the
+// provider-neutral properties (key, block, IV and field sizes). The lists in
+// this header say which of those algorithms the OpenSSL provider serves. Both
+// have to agree for an algorithm to be accepted: the common table supplies the
+// properties the handler bases read, and the list here is the gate, so a row
+// added to the common table does not enable an algorithm this provider has
+// never been taught.
+
 namespace score::crypto::daemon::provider::openssl::detail
 {
 
@@ -81,6 +89,49 @@ inline const OpensslHmacInfo kHmacAlgorithms[] = {
         }
     }
     return nullptr;
+}
+
+/// @brief Symmetric cipher identifiers the OpenSSL provider serves.
+inline constexpr std::string_view kSupportedCiphers[] = {
+    "AES-128-CBC",
+    "AES-192-CBC",
+    "AES-256-CBC",
+};
+
+/// @brief Whether the OpenSSL provider serves @p algorithm as a cipher.
+[[nodiscard]] inline constexpr bool IsCipherSupported(std::string_view algorithm) noexcept
+{
+    for (const auto& name : kSupportedCiphers)
+    {
+        if (name == algorithm)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// @brief Signature scheme identifiers the OpenSSL provider serves.
+///
+/// Each entry names the curve and the digest; the bare key form ("ECDSA-P256")
+/// is a key algorithm, not a signature scheme, and is absent on purpose.
+inline constexpr std::string_view kSupportedSignatureAlgorithms[] = {
+    "ECDSA-P256-SHA256",
+    "ECDSA-P384-SHA384",
+    "ECDSA-P521-SHA512",
+};
+
+/// @brief Whether the OpenSSL provider serves @p algorithm for signing and verification.
+[[nodiscard]] inline constexpr bool IsSignatureAlgorithmSupported(std::string_view algorithm) noexcept
+{
+    for (const auto& name : kSupportedSignatureAlgorithms)
+    {
+        if (name == algorithm)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 }  // namespace score::crypto::daemon::provider::openssl::detail

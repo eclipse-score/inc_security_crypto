@@ -40,8 +40,8 @@ The API uses a two-phase resource identification model:
 
    struct CryptoResourceId {
        uint64_t id;                   // daemon-assigned, unique per session
-       ResourceType type;             // kProvider, kKeySlot, kCertSlot, kVerificationTrustStore,
-                                      // kKey, kCertificate, kCrl, kSecureObject, kDataObject
+       ResourceType type;             // kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,
+                                      // kKey, kCertificate, kSecureObject, kDataObject
        ResourcePersistence persistence; // kPersistent or kEphemeral
        uint16_t primary_provider;     // owning device/provider index (0 = unbound)
    };
@@ -226,6 +226,7 @@ promoting DRY code reuse:
    ├── IRandomContext (Generate, Seed)
    ├── IKeyManagementContext (key lifecycle operations)
    ├── ICertificateManagementContext (certificate lifecycle operations)
+   ├── ITrustStoreManagementContext (trust-store membership curation)
    ├── ICertificateVerificationContext (builder-style chain verification)
    └── ICsrGenerationContext (builder-style CSR generation)
 
@@ -458,16 +459,30 @@ Certificate Lifecycle
 - **Parsing**: ``ParseCertificate()`` returns an ``ICertificateObject::Uptr`` with
   field accessors (subject, issuer, serial, validity dates, algorithm). The object
   is backed by a daemon-assigned ephemeral ``CryptoResourceId``.
-- **Persistence**: ``SaveCertificate(id, slot)`` promotes a parsed certificate to a slot
+- **Persistence**: ``SaveCertificate(id, slot)`` promotes a parsed certificate to a slot;
+  ``SaveCertificateWithCrl(id, slot)`` also propagates the associated CRL
   (copy semantics — the parsed object remains valid after the call)
 - **Export**: ``GetCertificateExportSize()`` + ``ExportCertificate()`` two-call pattern
-- **CRL**: ``ImportCrl()``, ``DeleteCrl()``, ``DeleteExpiredCrls()`` for offline revocation
+- **CRL**: ``ImportCrl()`` for session-scoped CRLs on loaded certificates,
+  ``ImportCrlToSlot()`` and ``DeleteCrl()`` for persistent slot-scoped
+  revocation, with CRL metadata available for inspection
 - **Key extraction**: ``LoadCertificatePublicKey()`` extracts the public key
   as a ``CryptoResourceGuard`` wrapping an ephemeral ``CryptoResourceId``
   with ``type == kKey``, following the same guard model as key-producing methods.
   Use ``ICryptoContext::GetKeyObject()`` for specialized key property queries.
 - **OCSP**: ``GetOcspRequestData()`` generates a request; the response is
   consumed via ``ICertificateVerificationContext::SetOcspResponse()``
+
+**ITrustStoreManagementContext** handles trust-store membership curation:
+
+- adding and removing certificate members
+- enabling, disabling, and acknowledging member updates
+- importing CRLs for trust-store-owned exclusive members
+- deleting CRLs from trust-store-owned exclusive members
+
+It uses ``TrustStoreManagementContextConfig`` and the certificate-management
+provider capability, but routes to the distinct ``CERT:TRUST_STORE`` daemon
+context. ``ITrustStoreObject`` remains a read-only snapshot interface.
 
 **ICertificateVerificationContext** provides builder-style chain verification:
 

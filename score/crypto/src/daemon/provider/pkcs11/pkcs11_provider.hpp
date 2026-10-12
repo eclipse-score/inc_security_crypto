@@ -86,6 +86,13 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
     [[nodiscard]] common::ProviderId GetProviderId() const override;
     [[nodiscard]] const common::ProviderName& GetProviderName() const override;
 
+    // --- Capability advertisement ---
+
+    [[nodiscard]] common::ProviderCapability GetProviderCapabilities() override
+    {
+        return common::ProviderCapability::kCrypto | common::ProviderCapability::kKeyManagement;
+    }
+
     // --- Crypto capability ---
 
     [[nodiscard]] std::shared_ptr<handler::ICryptoHandlerFactory> GetCryptoHandlerFactory() override;

@@ -25,12 +25,12 @@
 ///   4. RAII pattern ensures automatic key zeroization on cleanup
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/config/mac_context_config.hpp"
 #include "score/crypto/src/api/contexts/i_mac_context.hpp"
 #include "score/crypto/src/api/crypto_stack_factory.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
 #include "score/crypto/src/api/i_crypto_stack.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/result/result.h"
 #include "score/tests/utility/test_utility.hpp"
 

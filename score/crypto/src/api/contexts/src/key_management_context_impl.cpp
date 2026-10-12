@@ -17,8 +17,9 @@
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/common/src/crypto_resource_guard_factory.hpp"
 #include "score/crypto/src/api/common/src/i_release_callback.hpp"
-#include "score/crypto/src/api/common/types.hpp"
 #include "score/crypto/src/api/config/key_operation_params.hpp"
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/api/types/key.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
@@ -177,12 +178,22 @@ KeyManagementContextImpl::~KeyManagementContextImpl() = default;
 
 score::Result<CryptoResourceGuard> KeyManagementContextImpl::GenerateKey(const GenerateKeyParams& params)
 {
-    auto control_req_result = proto::ControlRequestBuilder()
-                                  .forDataNodeId(m_context_id)
-                                  .operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_GENERATE})
-                                  .with_in_string(params.algorithm)
-                                  .with_in_val_uint32(static_cast<std::uint32_t>(params.permissions))
-                                  .build();
+    auto request_builder = proto::ControlRequestBuilder()
+                               .forDataNodeId(m_context_id)
+                               .operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_GENERATE})
+                               .with_in_string(params.algorithm)
+                               .with_in_val_uint32(static_cast<std::uint32_t>(params.permissions));
+
+    // Only sent when the caller restricted the public half. Omitting the
+    // parameter is what tells the daemon to leave it unrestricted, so an
+    // unconditional send would silently turn the default into kAll-explicit.
+    if (params.public_key_permissions.has_value())
+    {
+        request_builder =
+            request_builder.with_in_val_uint32(static_cast<std::uint32_t>(params.public_key_permissions.value()));
+    }
+
+    auto control_req_result = request_builder.build();
 
     if (!control_req_result.has_value())
     {
