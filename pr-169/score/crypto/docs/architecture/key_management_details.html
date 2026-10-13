@@ -27,8 +27,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../../../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
-<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+  <link href="../../../../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
@@ -46,10 +46,10 @@
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../../../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <script defer src="../../../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
-<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
 
     <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
     <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
@@ -64,7 +64,7 @@
     <script src="../../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/docs/architecture/key_management_details';</script>
     <script>
-        DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
+        DOCUMENTATION_OPTIONS.theme_version = '0.21.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
@@ -674,7 +674,7 @@ injects the shared <code class="docutils literal notranslate"><span class="pre">
 <p>The following diagram shows the key class relationships:</p>
 <figure class="align-center" id="id4">
 <p class="plantuml">
-<object data="../../../../_images/plantuml-1a76e07a07d19755376ec797a7996a979a2423cf.svg" type="image/svg+xml" style="width:7629px;height:2838px;background:#FFFFFF;"></object></p>
+<object data="../../../../_images/plantuml-3a14f02f58991267bae36ac1bb8490f386592df8.svg" type="image/svg+xml" style="width:7629px;height:2838px;background:#FFFFFF;"></object></p>
 <figcaption>
 <p><span class="caption-number">Fig. 9 </span><span class="caption-text">Key Management — Class Diagram</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
 </figcaption>
@@ -1216,23 +1216,24 @@ is stored in a deployment descriptor file referenced by
 <p>The <code class="docutils literal notranslate"><span class="pre">DeploymentLoader</span></code> / <code class="docutils literal notranslate"><span class="pre">DeploymentWriter</span></code> classes are thin façades.  After
 validating the path they delegate to a format-specific implementation that
 implements <code class="docutils literal notranslate"><span class="pre">IDeploymentLoader</span></code> / <code class="docutils literal notranslate"><span class="pre">IDeploymentWriter</span></code>:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>slot/
-  deployment_loader.hpp/.cpp        ← façade (public API unchanged for all callers)
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>key_management/slot/
+  deployment_loader.hpp/.cpp        ← façade (delegates to common/storage/ impls)
   deployment_writer.hpp/.cpp        ← façade
-  deployment/
-    deployment_path_utils.hpp       ← IsDeploymentPathSafe() — shared guard
-    i_deployment_loader.hpp         ← pure-virtual interface
-    i_deployment_writer.hpp         ← pure-virtual interface
-    kv/
-      kv_deployment_loader.hpp/.cpp ← current implementation
-      kv_deployment_writer.hpp/.cpp
-    json/                           ← reserved (add JsonDeploymentLoader when needed)
-    flatbuffer/                     ← reserved
+
+daemon/common/storage/              ← shared by key_management and cert_management
+  deployment_path_utils.hpp         ← IsDeploymentPathSafe() — shared guard
+  i_deployment_loader.hpp           ← pure-virtual interface
+  i_deployment_writer.hpp           ← pure-virtual interface
+  kv/
+    kv_deployment_loader.hpp/.cpp   ← current implementation
+    kv_deployment_writer.hpp/.cpp   ← writes atomically via file_io::WriteFile
+  json/                             ← reserved (add JsonDeploymentLoader when needed)
+  flatbuffer/                       ← reserved
 </pre></div>
 </div>
 <p>To add a new format: implement <code class="docutils literal notranslate"><span class="pre">IDeploymentLoader</span></code> / <code class="docutils literal notranslate"><span class="pre">IDeploymentWriter</span></code> under
-<code class="docutils literal notranslate"><span class="pre">slot/deployment/&lt;format&gt;/</span></code>, then add one <code class="docutils literal notranslate"><span class="pre">if</span></code>-branch in each façade <code class="docutils literal notranslate"><span class="pre">.cpp</span></code>
-and one dep in <code class="docutils literal notranslate"><span class="pre">slot/deployment/BUILD</span></code>.  No other files change.</p>
+<code class="docutils literal notranslate"><span class="pre">daemon/common/storage/&lt;format&gt;/</span></code>, then add one <code class="docutils literal notranslate"><span class="pre">if</span></code>-branch in each façade <code class="docutils literal notranslate"><span class="pre">.cpp</span></code>
+and one dep in <code class="docutils literal notranslate"><span class="pre">daemon/common/storage/BUILD</span></code>.  No other files change.</p>
 <p><strong>Key=value format (``”kv”``) — file layout</strong></p>
 <div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="c1"># comments are ignored; blank lines are ignored</span>
 <span class="k">[metadata]</span>
@@ -1442,8 +1443,8 @@ and one dep in <code class="docutils literal notranslate"><span class="pre">slot
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
-<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+  <script defer src="../../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -1467,7 +1468,7 @@ and one dep in <code class="docutils literal notranslate"><span class="pre">slot
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.20.0.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
 </p></div>
       
     </div>
