@@ -51,11 +51,7 @@ using tests::utility::print_hex;
 namespace
 {
 
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
+constexpr auto kControlSocketEndpoint = "score://crypto_daemon.sock";
 
 // =========================================================================
 // Parameterized Test Data

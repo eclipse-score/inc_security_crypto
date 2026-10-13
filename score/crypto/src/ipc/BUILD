@@ -11,11 +11,3 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
-
-cc_library(
-    name = "ipc_config",
-    hdrs = ["ipc_config.h"],
-    linkstatic = True,  # Internal library should only be statically linked
-    visibility = ["//:__subpackages__"],
-)

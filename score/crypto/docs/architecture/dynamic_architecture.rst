@@ -53,7 +53,7 @@ No ``LoadKey`` or guard needed; the context internally loads from the slot:
 
    // 1. Create stack and context
    CryptoStackConfig stack_config;
-   stack_config.SetConnectionEndpoint("unix:///var/run/crypto-daemon.sock");
+   stack_config.SetConnectionEndpoint("score://crypto_daemon.sock");
    auto stack = CreateCryptoStack(stack_config).value();
    auto ctx = stack->CreateCryptoContext().value();
 
@@ -275,7 +275,7 @@ Bounding all IPC calls with a per-call deadline for safety analysis:
 
    // 1. Stack-wide default: 500 ms per IPC call
    CryptoStackConfig stack_config;
-   stack_config.SetConnectionEndpoint("unix:///var/run/crypto-daemon.sock")
+   stack_config.SetConnectionEndpoint("score://crypto_daemon.sock")
                .SetDefaultOperationTimeout(std::chrono::milliseconds{500});
    auto stack = CreateCryptoStack(stack_config).value();
    auto ctx = stack->CreateCryptoContext().value();
@@ -291,13 +291,16 @@ Bounding all IPC calls with a per-call deadline for safety analysis:
    hash->Update(chunk1);       // ≤ 200 ms or kOperationTimedOut
    auto result = hash->Finalize(digest_out);
    if (!result.has_value()) {
-       // On timeout: context is in error state, must destroy and recreate.
-       // result.error() == kOperationTimedOut
+         // A daemon-reported timeout is kOperationTimedOut.
+         // If the response grace expires without a reply, the error is
+         // kOperationResponseTimedOut and the daemon's final state is unknown.
+         // On timeout: The user is advised to re-create the context as the current state may not be definitive
+         // result.error() == kOperationTimedOut
    }
 
    // 3. Disable timeout for slow PQC key generation on HSM
    KeyManagementContextConfig keygen_cfg;
-   keygen_cfg.DisableTimeout();  // No deadline — HSM may take seconds
+   keygen_cfg.DisableTimeout();  // Maximum transport wait: 10 minutes
    auto key_mgmt = ctx->CreateKeyManagementContext(keygen_cfg).value();
    auto pqc_key = key_mgmt->GenerateKey(GenerateKeyParams{}.SetAlgorithm("ML-KEM-768")).value();
-   // PQC key generation can take seconds on hardware — no timeout error
+   // Longer operation deadline; the transport retains its 10-minute cap

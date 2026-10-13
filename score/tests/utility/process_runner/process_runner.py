@@ -44,7 +44,8 @@ class ProcessRunner:
         target: ITF target object providing ``execute(cmd)`` and ``upload(src, dst)``.
         binary: Absolute path to the executable on the remote target.
         log_file: Remote path where stdout/stderr of the process is redirected.
-        target_os: OS name returned by ``uname -s`` on the target.  Use ``"QNX"``
+        target_os: OS name returned by ``uname -s`` on the target, used to select
+            the process-name lookup if shell PID capture fails. Use ``"QNX"``
             to enable pidin-based PID lookup; any other value uses ``pgrep``.
         env: Extra environment variables forwarded to the process.
         args: Command-line arguments appended to the binary invocation.
@@ -110,14 +111,17 @@ class ProcessRunner:
         self._clean_log()
         env_str = " ".join(f"{k}={v}" for k, v in self._env.items())
         args_str = shlex.join(self._args)
-        cmd = f"nohup env {env_str} {self._binary} {args_str} > {self._log_file} 2>&1 &"
+        cmd = f"nohup env {env_str} {self._binary} {args_str} > {self._log_file} 2>&1 & echo $!"
         exit_code, output = self._target.execute(cmd)
         if exit_code != 0:
             logger.error(f"Failed to start process: {output.decode()}")
             return False
 
         time.sleep(_STARTUP_POLL_INTERVAL_S)
-        self._pid = self._find_pid_by_name()
+        pid_lines = [line.strip() for line in output.decode().splitlines() if line.strip().isdigit()]
+        self._pid = pid_lines[-1] if pid_lines else None
+        if self._pid is None:
+            self._pid = self._find_pid_by_name()
         if self._pid is None:
             logger.error(
                 f"Failed to find process after start. Log:\n{self.get_log_contents()}"

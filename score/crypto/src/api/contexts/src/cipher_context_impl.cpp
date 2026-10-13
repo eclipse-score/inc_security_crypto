@@ -52,11 +52,13 @@ constexpr std::string_view kLogPrefix = "[API][CipherContextImpl] ERROR: ";
 CipherContextImpl::CipherContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                      uint64_t context_id,
                                      AlgorithmId algorithm,
-                                     std::shared_ptr<IBufferTranscoder> transcoder)
+                                     std::shared_ptr<IBufferTranscoder> transcoder,
+                                     std::chrono::milliseconds operation_timeout)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
       m_algorithm(std::move(algorithm)),
-      m_transcoder(std::move(transcoder))
+      m_transcoder(std::move(transcoder)),
+      m_operation_timeout(operation_timeout)
 {
 }
 
@@ -64,7 +66,8 @@ CipherContextImpl::CipherContextImpl(CipherContextImpl&& other) noexcept
     : m_connection(std::move(other.m_connection)),
       m_context_id(std::exchange(other.m_context_id, 0)),
       m_algorithm(std::move(other.m_algorithm)),
-      m_transcoder(std::move(other.m_transcoder))
+      m_transcoder(std::move(other.m_transcoder)),
+      m_operation_timeout(other.m_operation_timeout)
 {
 }
 
@@ -77,6 +80,7 @@ CipherContextImpl& CipherContextImpl::operator=(CipherContextImpl&& other) noexc
         m_context_id = std::exchange(other.m_context_id, 0);
         m_algorithm = std::move(other.m_algorithm);
         m_transcoder = std::move(other.m_transcoder);
+        m_operation_timeout = other.m_operation_timeout;
     }
     return *this;
 }
@@ -110,7 +114,7 @@ void CipherContextImpl::CloseContext() noexcept
         return;
     }
 
-    auto response_res = m_connection->SendRequest(context_close_res.value());
+    auto response_res = m_connection->SendRequest(context_close_res.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(response_res);
     validator.expectOperation(score::crypto::daemon::mediator::operations::CloseContext()).expectSuccess();
@@ -152,7 +156,7 @@ score::Result<std::monostate> CipherContextImpl::Init(std::optional<score::cpp::
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_CIPHER_HANDLER, cipher_ops::CIPHER_INIT}).expectSuccess();
@@ -198,7 +202,7 @@ score::Result<std::size_t> CipherContextImpl::Update(score::cpp::span<const uint
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_CIPHER_HANDLER, cipher_ops::CIPHER_UPDATE}).expectSuccess();
@@ -235,15 +239,16 @@ score::Result<std::size_t> CipherContextImpl::Finalize(score::cpp::span<uint8_t>
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_CIPHER_HANDLER, cipher_ops::CIPHER_FINALIZE}).expectSuccess();
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(output_tspan, validator);
@@ -292,15 +297,16 @@ score::Result<std::size_t> CipherContextImpl::SingleShot(std::optional<score::cp
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_CIPHER_HANDLER, cipher_ops::CIPHER_SS}).expectSuccess();
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(output_tspan, validator);
@@ -318,15 +324,16 @@ score::Result<std::monostate> CipherContextImpl::Reset()
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CIPHER_RESET request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_CIPHER_HANDLER, cipher_ops::CIPHER_RESET}).expectSuccess();
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return std::monostate{};
@@ -344,7 +351,7 @@ std::size_t CipherContextImpl::GetOutputSize() const noexcept
         return 0U;
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_CIPHER_HANDLER, cipher_ops::CIPHER_GET_OUTPUT_SIZE}).expectSuccess();

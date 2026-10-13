@@ -53,12 +53,8 @@ using tests::utility::print_success;
 
 namespace
 {
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
 
+constexpr auto kControlSocketEndpoint = "score://crypto_daemon.sock";
 constexpr std::string_view kAlgHmacSha256 = "HMAC-SHA256";
 constexpr std::size_t kHmacSha256MacSize = 32;
 

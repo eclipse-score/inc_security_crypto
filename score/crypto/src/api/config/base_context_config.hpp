@@ -64,7 +64,8 @@ struct BaseContextConfig
     ///
     /// When set (and timeout_enabled is true), overrides the stack-level
     /// default_operation_timeout for this context's IPC calls.
-    /// When std::nullopt, falls back to CryptoStackConfig::default_operation_timeout.
+    /// When std::nullopt, falls back to CryptoStackConfig::default_operation_timeout
+    /// and then to the transport default. The transport caps request timeouts at 10 minutes.
     ///
     /// @note Applies per-IPC-call, not per-sequence. For streaming operations,
     ///       each Init()/Update()/Finalize() has its own deadline.
@@ -77,15 +78,16 @@ struct BaseContextConfig
     /// CryptoErrorCode::kOperationTimedOut and the context transitions to an
     /// error state — subsequent calls return kInvalidOperation.
     ///
-    /// When false, timeout is disabled entirely for this context, allowing
-    /// unbounded execution. Use for operations that are legitimately
-    /// long-running, such as:
+    /// When false, configured stack and context deadlines are bypassed and the
+    /// maximum supported transport timeout is used. The transport caps this at
+    /// 10 minutes, so requests remain bounded. Use for operations that are
+    /// legitimately long-running relative to normal operation deadlines, such as:
     ///   - PQC key generation on hardware (ML-KEM, ML-DSA)
     ///   - HSM-backed key agreement or unwrapping
     ///   - Certificate chain verification with online OCSP
     ///
-    /// @warning Disabling timeout removes the WCET bound for this context's
-    ///          operations, which may impact Safety. Document the
+    /// @warning Disabling the configured timeout selects the maximum transport
+    ///          wait (10 minutes), which may impact Safety. Document the
     ///          rationale in the safety case when using DisableTimeout() in
     ///          safety-relevant applications.
     bool timeout_enabled{true};
@@ -149,10 +151,10 @@ struct BaseContextConfig
         return *this;
     }
 
-    // TODO: 0 means infinite duration? (or time out disabled?). Add sanity check.
     /// @brief Sets the per-context operation timeout.
     /// @param timeout Maximum duration for each individual IPC call.
     ///        Overrides CryptoStackConfig::default_operation_timeout.
+    ///        The transport caps the effective timeout at 10 minutes.
     ///        Automatically enables timeout if it was previously disabled.
     BaseContextConfig& SetOperationTimeout(std::chrono::milliseconds timeout)
     {
@@ -163,11 +165,11 @@ struct BaseContextConfig
 
     /// @brief Disables timeout enforcement for this context.
     ///
-    /// The context will wait indefinitely for daemon responses. Use for
-    /// operations that are legitimately long-running (e.g., PQC key
-    /// generation on hardware tokens).
+    /// The context uses the maximum supported transport timeout (10 minutes)
+    /// instead of the stack or per-context timeout. Use for operations that
+    /// may exceed shorter deadlines (e.g., PQC key generation on hardware tokens).
     ///
-    /// @warning Removes WCET bound — document rationale in safety case.
+    /// @warning Selects the maximum transport wait — document rationale in safety case.
     BaseContextConfig& DisableTimeout() noexcept
     {
         timeout_enabled = false;
@@ -184,6 +186,26 @@ struct BaseContextConfig
         return *this;
     }
 };
+
+/// @brief Resolves a context timeout against the stack default.
+/// @return The explicit duration to pass to IConnection. The maximum duration
+///         sentinel is used when no shorter deadline is configured; transports
+///         clamp it to their supported maximum.
+inline std::chrono::milliseconds ResolveOperationTimeout(
+    const bool timeout_enabled,
+    const std::optional<std::chrono::milliseconds>& operation_timeout,
+    const std::optional<std::chrono::milliseconds>& stack_default) noexcept
+{
+    if (!timeout_enabled)
+    {
+        return std::chrono::milliseconds::max();
+    }
+    if (operation_timeout.has_value())
+    {
+        return operation_timeout.value();
+    }
+    return stack_default.value_or(std::chrono::milliseconds::max());
+}
 
 }  // namespace crypto
 

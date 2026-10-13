@@ -23,16 +23,15 @@
 
 #include "score/crypto/src/common/types.hpp"
 
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 
 namespace score::crypto::daemon::data_manager
 {
 
-/// @brief Opaque 64-bit identifier assigned to every DataNode by the DataManager.
-using DataNodeId = std::uint64_t;
-
-/// @brief Opaque 64-bit identifier that represents the owning client of a node.
-using ClientId = std::uint64_t;
+using DataNodeId = control_plane::protocol::DataNodeId;
+using ClientId = control_plane::protocol::ClientId;
 
 /// @brief Discriminator for concrete DataNode subtypes.
 ///

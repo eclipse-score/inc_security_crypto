@@ -1,0 +1,114 @@
+// *******************************************************************************
+// Copyright (c) 2026 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache License Version 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// SPDX-License-Identifier: Apache-2.0
+// *******************************************************************************
+
+file_identifier "CCTL";
+
+namespace score.crypto.ipc.control;
+
+enum ShmDirection : uint8 {
+  In = 0,
+  InOut = 1,
+}
+
+enum ControlRequestKind : uint8 {
+  Operation = 0,
+  Cancel = 1,
+}
+
+table DataShm {
+  node_id: uint64;
+  offset: uint64;
+  size: uint64;
+  direction: ShmDirection;
+}
+
+union OperationParameter {
+  NoParam,
+  ValueBool,
+  ValueUint8,
+  ValueUint16,
+  ValueUint32,
+  ValueUint64,
+  DataBufferInBand,
+  DataBufferDataPlane,
+  String,
+  DataShm,
+}
+
+table SingleOperationRequest {
+  operation_id: OperationIdentifier;
+  parameter: [OperationParameter];
+}
+
+table SingleOperationResponse {
+  operation_id: OperationIdentifier;
+  result: OperationResult;
+  parameter: [OperationParameter];
+}
+
+table OperationIdentifier {
+  // {0, 0} is reserved for request-level error entries in ControlResponse.
+  operation_actor: uint16;
+  operation_action: uint16;
+}
+
+table OperationResult {
+  val: uint32;
+}
+
+table NoParam {}
+table ValueBool { val: bool; }
+table ValueUint8 { val: uint8; }
+table ValueUint16 { val: uint16; }
+table ValueUint32 { val: uint32; }
+table ValueUint64 { val: uint64; }
+table String { val: string; }
+table DataBufferInBand { val: [uint8]; }
+table DataBufferDataPlane {}
+
+table OperationRequestBatch {
+  operations: [SingleOperationRequest];
+}
+
+table OperationResponseBatch {
+  operations: [SingleOperationResponse];
+}
+
+table ExecutionPolicy {
+}
+
+table ControlRequestMetaData {
+  // For Cancel, request_id is the target operation ID; cancellation has no reply of its own.
+  request_id: uint64;
+  client_id: uint64;
+  data_node_id: uint64;
+  request_type: ControlRequestKind = Operation;
+  // Remaining client request budget in milliseconds.
+  // On the daemon side, this is clamped to the max timeout
+  // We transfer a duration, since we cannot rely that both, server and client
+  // share the same clock source / epoch
+  timeout_ms: uint32 = 0;
+  execution_policy: ExecutionPolicy (required);
+}
+
+table ControlRequest {
+  meta_data: ControlRequestMetaData;
+  operation_batch: OperationRequestBatch;
+}
+
+table ControlResponse {
+  request_id: uint64;
+  operation_batch: OperationResponseBatch (required);
+}
+
+root_type ControlRequest;

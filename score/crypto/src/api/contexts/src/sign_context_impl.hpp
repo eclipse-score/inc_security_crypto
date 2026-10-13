@@ -16,8 +16,8 @@
 
 #include "score/crypto/src/api/contexts/i_sign_context.hpp"
 
-#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 
@@ -51,10 +51,13 @@ class SignContextImpl final : public ISignContext
     /// @param transcoder Stack-shared buffer-routing abstraction (pool/bulk/in-band).
     ///                   Shared with all other contexts in the same CryptoStack.
     ///                   When non-null, handles transparent copying via pool SHM.
+    /// @param operation_timeout Maximum duration for each IPC request, including
+    ///                          the daemon-side context close during destruction.
     SignContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                     uint64_t context_id,
                     AlgorithmId algorithm,
-                    std::shared_ptr<IBufferTranscoder> transcoder = nullptr);
+                    std::shared_ptr<IBufferTranscoder> transcoder = nullptr,
+                    std::chrono::milliseconds operation_timeout = std::chrono::milliseconds::max());
 
     ~SignContextImpl() override;
 
@@ -85,6 +88,7 @@ class SignContextImpl final : public ISignContext
     score::crypto::daemon::control_plane::protocol::DataNodeId m_context_id;
     AlgorithmId m_algorithm;
     std::shared_ptr<IBufferTranscoder> m_transcoder;  ///< Stack-shared transcoder; null allowed.
+    std::chrono::milliseconds m_operation_timeout;
 };
 
 }  // namespace crypto

@@ -48,11 +48,13 @@ namespace hash_ops = ::score::crypto::daemon::provider::handler::hash_handler_op
 HashContextImpl::HashContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                  uint64_t context_id,
                                  AlgorithmId algorithm,
-                                 std::shared_ptr<IBufferTranscoder> transcoder)
+                                 std::shared_ptr<IBufferTranscoder> transcoder,
+                                 std::chrono::milliseconds operation_timeout)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
       m_algorithm(algorithm),
-      m_transcoder(std::move(transcoder))
+      m_transcoder(std::move(transcoder)),
+      m_operation_timeout(operation_timeout)
 {
 }
 
@@ -60,7 +62,8 @@ HashContextImpl::HashContextImpl(HashContextImpl&& other) noexcept
     : m_connection(std::move(other.m_connection)),
       m_context_id(std::exchange(other.m_context_id, 0)),
       m_algorithm(other.m_algorithm),
-      m_transcoder(std::move(other.m_transcoder))
+      m_transcoder(std::move(other.m_transcoder)),
+      m_operation_timeout(other.m_operation_timeout)
 {
 }
 
@@ -73,6 +76,7 @@ HashContextImpl& HashContextImpl::operator=(HashContextImpl&& other) noexcept
         m_context_id = std::exchange(other.m_context_id, 0);
         m_algorithm = other.m_algorithm;
         m_transcoder = std::move(other.m_transcoder);
+        m_operation_timeout = other.m_operation_timeout;
     }
     return *this;
 }
@@ -109,7 +113,7 @@ void HashContextImpl::CloseContext() noexcept
     }
 
     // Send CTX_CLOSE request to daemon
-    auto response_res = m_connection->SendRequest(context_close_res.value());
+    auto response_res = m_connection->SendRequest(context_close_res.value(), m_operation_timeout);
 
     // Validate response using ControlResponseValidator
     auto validator = proto::ControlResponseValidator::FromResult(response_res);
@@ -143,7 +147,7 @@ score::Result<std::monostate> HashContextImpl::Init(std::optional<score::cpp::sp
     }
 
     // Send HASH_INIT request to daemon
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     // Validate HASH_INIT response
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
@@ -151,14 +155,9 @@ score::Result<std::monostate> HashContextImpl::Init(std::optional<score::cpp::sp
 
     if (!validator.isValid())
     {
-        // TODO(error-unification phase-4): Extract the specific CryptoErrorCode from the daemon
-        // response (via validator.getErrorCode() or ControlResponseValidator extension) and
-        // return it directly instead of the generic kOperationFailed. This gives callers
-        // actionable error information (e.g. kStreamNotInitialized vs kAlgorithmExecutionFailed)
-        // rather than a single catch-all code. Applies to all Init/Update/Finalize/SingleShot
-        // operations in every context impl (hash, mac, cipher, key_mgmt).
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return std::monostate{};
@@ -187,7 +186,7 @@ score::Result<std::monostate> HashContextImpl::Update(score::cpp::span<const uin
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     // Validate HASH_UPDATE response
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
@@ -195,8 +194,9 @@ score::Result<std::monostate> HashContextImpl::Update(score::cpp::span<const uin
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return std::monostate{};
@@ -225,7 +225,7 @@ score::Result<std::size_t> HashContextImpl::Finalize(score::cpp::span<uint8_t> o
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     // Validate HASH_FINALIZE response
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
@@ -233,8 +233,9 @@ score::Result<std::size_t> HashContextImpl::Finalize(score::cpp::span<uint8_t> o
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(tspan, validator);
@@ -272,7 +273,7 @@ score::Result<std::size_t> HashContextImpl::SingleShot(score::cpp::span<const ui
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     // Validate HASH_SS response
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
@@ -280,8 +281,9 @@ score::Result<std::size_t> HashContextImpl::SingleShot(score::cpp::span<const ui
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(output_tspan, validator);
@@ -300,7 +302,7 @@ score::Result<std::monostate> HashContextImpl::Reset()
     }
 
     // Send HASH_RESET request to daemon
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     // Validate HASH_RESET response
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
@@ -308,8 +310,9 @@ score::Result<std::monostate> HashContextImpl::Reset()
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return std::monostate{};
@@ -334,7 +337,7 @@ std::size_t HashContextImpl::GetOutputSize() const noexcept
     }
 
     // Send HASH_GET_DIGEST_SIZE request to daemon
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     // Validate HASH_GET_DIGEST_SIZE response
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);

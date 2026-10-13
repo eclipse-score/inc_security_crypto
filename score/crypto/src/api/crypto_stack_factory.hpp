@@ -33,7 +33,7 @@ struct CryptoStackConfig
 {
     // TODO: Will hide this information in this future, via mw::com
     /// @brief Daemon endpoint URI (required).
-    /// Examples: "unix:///tmp/crypto_daemon.sock"
+    /// Examples: "score://crypto_daemon.sock"
     std::string connection_endpoint{};
 
     /// @brief Default per-IPC-call timeout for all operations on this stack.
@@ -42,8 +42,9 @@ struct CryptoStackConfig
     /// complete within this deadline. For streaming operations, the timeout
     /// applies to each individual call, not the entire sequence.
     ///
-    /// When std::nullopt (default), the daemon applies its own default
-    ///
+    /// When std::nullopt (default), the transport default is used. The
+    /// transport caps any individual request timeout at 10 minutes, including
+    /// explicit values above that limit.
     /// Per-context overrides are available via BaseContextConfig::operation_timeout.
     std::optional<std::chrono::milliseconds> default_operation_timeout{std::nullopt};
 
@@ -55,8 +56,9 @@ struct CryptoStackConfig
     }
 
     /// @brief Sets the stack-wide default operation timeout.
-    /// @param timeout Maximum duration for any single IPC call.
-    ///        Operations exceeding this return kOperationTimedOut.
+    /// @param timeout Requested maximum duration for any single IPC call.
+    ///        The transport caps it at 10 minutes. Operations exceeding the
+    ///        effective timeout return kOperationTimedOut.
     CryptoStackConfig& SetDefaultOperationTimeout(std::chrono::milliseconds timeout)
     {
         default_operation_timeout = timeout;

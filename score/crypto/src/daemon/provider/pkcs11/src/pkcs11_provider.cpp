@@ -70,6 +70,7 @@ Pkcs11Provider::~Pkcs11Provider()
 
 bool Pkcs11Provider::Initialize(const ProviderInitContext& ctx)
 {
+    std::lock_guard<std::mutex> lock(m_initialization_mutex);
     if (m_initialized)
     {
         return true;
@@ -156,7 +157,7 @@ bool Pkcs11Provider::QuerySessionLimits() noexcept
     // In both cases cap at a safe default so the pool has a finite upper bound.
     constexpr CK_ULONG kNoLimit{0xFFFFFFFFUL};
     constexpr CK_ULONG kEffectivelyInfinite{0U};
-    constexpr CK_ULONG kDefaultMaxSessions{32UL};
+    constexpr CK_ULONG kDefaultMaxSessions{64UL};
 
     CK_TOKEN_INFO tokenInfo{};
     const CK_RV rv = m_module->GetFunctionList()->C_GetTokenInfo(m_config.slotId, &tokenInfo);
@@ -202,6 +203,7 @@ bool Pkcs11Provider::SeedSessionPool() noexcept
 
 void Pkcs11Provider::Shutdown()
 {
+    std::lock_guard<std::mutex> lock(m_initialization_mutex);
     if (!m_initialized)
     {
         return;
@@ -390,6 +392,7 @@ const common::ProviderName& Pkcs11Provider::GetProviderName() const
 
 handler::ICryptoHandlerFactory::Sptr Pkcs11Provider::GetCryptoHandlerFactory()
 {
+    std::lock_guard<std::mutex> lock(m_initialization_mutex);
     if (!m_handlerFactory)
     {
         // Lazy creation: by the time this is called, SetKeyManagementService() has been

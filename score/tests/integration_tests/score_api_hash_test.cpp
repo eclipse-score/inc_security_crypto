@@ -41,12 +41,7 @@ using tests::utility::print_hex;
 namespace
 {
 
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
-
+constexpr auto kControlSocketEndpoint = "score://crypto_daemon.sock";
 constexpr std::chrono::milliseconds kDefaultOperationTimeout{500};
 constexpr std::size_t kInBandThreshold = 32U;
 

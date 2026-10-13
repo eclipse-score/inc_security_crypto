@@ -27,6 +27,7 @@
 #include "score/result/result.h"
 #include "score/span.hpp"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -56,8 +57,11 @@ class KeyManagementContextImpl final : public IKeyManagementContext
     /// @brief Constructs a key management context bound to an existing daemon-side context.
     /// @param connection Shared connection for IPC communication
     /// @param context_id Daemon-assigned context identifier (from CTX_CREATE response)
+    /// @param operation_timeout Maximum duration for each IPC request, including
+    ///                          the daemon-side context close when its last reference is released.
     KeyManagementContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-                             uint64_t context_id);
+                             uint64_t context_id,
+                             std::chrono::milliseconds operation_timeout = std::chrono::milliseconds::max());
 
     ~KeyManagementContextImpl() override;
 
@@ -118,6 +122,7 @@ class KeyManagementContextImpl final : public IKeyManagementContext
   private:
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     score::crypto::daemon::control_plane::protocol::DataNodeId m_context_id;
+    std::chrono::milliseconds m_operation_timeout;
 
     /// @brief IReleaseCallback whose destructor sends CTX_CLOSE to the daemon.
     /// Held by the context *and* transitively by every CryptoResourceGuard (via

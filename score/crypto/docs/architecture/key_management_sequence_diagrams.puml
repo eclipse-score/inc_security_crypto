@@ -55,7 +55,7 @@ deactivate KMM
 
 Main -> BHCF ** : BasicHandlerChainFactory(\n  data_manager, provider_manager,\n  config, module->GetService())
 
-note over Main : GrpcControlServer::Start(socket)
+note over Main : MessagePassingAdapterServer::Start(socket)
 
 ' ====================================================================
 ' DIAGRAM 2: RESOLVE_RESOURCE — Resolve Slot Name
@@ -326,7 +326,7 @@ participant "KeyRegistry" as KR
 participant "KeyDataNode" as KDN
 
 Daemon -> DM : deleteClientNodes(client_id)
-note right : Triggered when gRPC stream closes\nor process death detected
+note right : Triggered when MessagePassingAdapterServer stream closes\nor process death detected
 activate DM
 DM -> DM : post-order traversal of client's subtree
 DM -> DM : delete ContextDataNode\n→ child KeyDataNodes cascade-deleted

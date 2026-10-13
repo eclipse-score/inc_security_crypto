@@ -34,7 +34,6 @@
 ///   - Keyless contexts (hash, random) are unaffected
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/config/cipher_context_config.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
@@ -53,6 +52,7 @@
 #include "score/crypto/src/api/crypto_stack_factory.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
 #include "score/crypto/src/api/i_crypto_stack.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 
 #include <gtest/gtest.h>
 
@@ -69,11 +69,7 @@ using namespace score::crypto;
 namespace
 {
 
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
+constexpr auto kControlSocketEndpoint = "score://crypto_daemon.sock";
 
 // =========================================================================
 // Constants

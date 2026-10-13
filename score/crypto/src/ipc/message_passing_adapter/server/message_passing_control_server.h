@@ -1,0 +1,101 @@
+/********************************************************************************
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ ********************************************************************************/
+#ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_CONTROL_SERVER_H
+#define SCORE_CRYPTO_IPC_MESSAGE_PASSING_CONTROL_SERVER_H
+
+#include "score/crypto/src/daemon/control_plane/i_control_server.h"
+#include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
+#include "score/crypto/src/ipc/message_passing_adapter/protocol/flatbuffer_codec.h"
+#include "score/crypto/src/ipc/message_passing_adapter/server/server_callbacks.hpp"
+#include "score/crypto/src/ipc/message_passing_adapter/server/server_lifecycle.h"
+#include "score/crypto/src/ipc/message_passing_adapter/server/session/session_manager.h"
+#include "score/crypto/src/ipc/message_passing_adapter/server/session/work_item_dispatcher.h"
+#include "score/crypto/src/ipc/message_passing_adapter/server/work_item_execution/fixed_worker_work_item_executor.h"
+
+#include <score/memory.hpp>
+#include <score/span.hpp>
+
+#include "score/message_passing/server_factory.h"
+#include "score/message_passing/service_protocol_config.h"
+
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string_view>
+
+namespace score::crypto::ipc::message_passing
+{
+
+/**
+ * @brief
+ * Hosts the control protocol over SCORE message passing.
+ * Composes transport callbacks, connection/session management, request dispatch, the wire codec,
+ * and bounded worker execution behind the daemon's control-server interface.
+ * @endrst
+ */
+class MessagePassingControlServer final : public daemon::control_plane::IControlServer
+{
+  public:
+    using AuthorizationCallback = ::score::crypto::ipc::message_passing::AuthorizationCallback;
+    using DisconnectCleanupCallback = ::score::crypto::ipc::message_passing::DisconnectCleanupCallback;
+
+    static score::crypto::Expected<std::unique_ptr<MessagePassingControlServer>,
+                                   score::crypto::daemon::common::DaemonErrorCode>
+    Create(std::unique_ptr<daemon::control_plane::IHandlerChainFactory> factory,
+           AuthorizationCallback authorization = {},
+           DisconnectCleanupCallback cleanup_callback = {}) noexcept;
+    ~MessagePassingControlServer() noexcept override;
+
+    MessagePassingControlServer(const MessagePassingControlServer&) = delete;
+    MessagePassingControlServer& operator=(const MessagePassingControlServer&) = delete;
+    MessagePassingControlServer(MessagePassingControlServer&&) = delete;
+    MessagePassingControlServer& operator=(MessagePassingControlServer&&) = delete;
+
+    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Start(
+        std::string_view service_identifier) noexcept override;
+    void Stop() noexcept override;
+    void WaitForTermination() noexcept override;
+
+  private:
+    MessagePassingControlServer(std::unique_ptr<daemon::control_plane::IHandlerChainFactory> factory,
+                                AuthorizationCallback authorization,
+                                DisconnectCleanupCallback cleanup_callback);
+
+    static score::message_passing::IServerFactory::ServerConfig BuildServerConfig() noexcept;
+    static score::message_passing::ServiceProtocolConfig BuildProtocolConfig(
+        std::string_view service_identifier) noexcept;
+
+    score::cpp::expected<score::message_passing::UserData, score::os::Error> OnConnect(
+        score::message_passing::IServerConnection& connection) noexcept;
+    void OnDisconnect(score::message_passing::IServerConnection& connection) noexcept;
+    score::cpp::expected_blank<score::os::Error> OnRequest(score::message_passing::IServerConnection& connection,
+                                                           score::cpp::span<const std::uint8_t> message) noexcept;
+    void RollbackStartup() noexcept;
+
+    std::unique_ptr<score::message_passing::ServerFactory> server_factory_;
+    score::cpp::pmr::unique_ptr<score::message_passing::IServer> message_server_;
+    std::unique_ptr<daemon::control_plane::IHandlerChainFactory> handler_chain_factory_;
+
+    FixedWorkerWorkItemExecutor work_item_executor_;
+    FlatBufferCodec codec_;
+    SessionManager session_manager_;
+    WorkItemDispatcher work_item_dispatcher_;
+
+    ServerLifecycle lifecycle_;
+};
+
+}  // namespace score::crypto::ipc::message_passing
+
+#endif  // SCORE_CRYPTO_IPC_MESSAGE_PASSING_CONTROL_SERVER_H

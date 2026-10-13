@@ -119,8 +119,7 @@ genrule(
 
 # Data dependency for targets that need libsofthsm2.so as a plain file in
 # runfiles (e.g. py_itf_test copying it into a Docker container).
-# This mirrors the cc_shared_library pattern used by grpc/openssl: the .so
-# appears as a default output and is therefore visible in Bazel runfiles.
+# The .so appears as a default output and is therefore visible in Bazel runfiles.
 filegroup(
     name = "softhsm_so",
     srcs = [":softhsm_so_extract"],

@@ -14,7 +14,11 @@
 #ifndef CONTROL_SERVER_H
 #define CONTROL_SERVER_H
 
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+
 #include <string_view>
+#include <variant>
 
 namespace score::crypto::daemon::control_plane
 {
@@ -25,9 +29,10 @@ class IControlServer
   public:
     virtual ~IControlServer() = default;
 
-    /// Start the server listening on the specified socket path
+    /// Start the server listening on the specified socket path.
     /// @param socket_path Path to Unix domain socket
-    virtual void Start(std::string_view socket_path) = 0;
+    [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Start(
+        std::string_view socket_path) = 0;
 
     /// Block until server termination
     virtual void WaitForTermination() = 0;

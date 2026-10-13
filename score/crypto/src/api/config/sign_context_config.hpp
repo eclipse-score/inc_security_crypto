@@ -16,6 +16,8 @@
 
 #include "score/crypto/src/api/config/base_context_config.hpp"
 
+#include <optional>
+
 namespace score
 {
 
@@ -37,7 +39,7 @@ struct SignContextConfig : public BaseContextConfig
 {
     /// @brief Handle to the private signing key (required).
     /// Must be a CryptoResourceId with type == kKey.
-    CryptoResourceId key{};
+    std::optional<CryptoResourceId> key{};
 
     // -- Fluent builder --
 

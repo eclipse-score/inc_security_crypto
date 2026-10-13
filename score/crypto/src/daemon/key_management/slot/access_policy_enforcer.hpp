@@ -38,7 +38,7 @@ class AccessPolicyEnforcer
     /// @brief Check if client UID is in the slot's allowed_uids list.
     ///
     /// @param slot       The slot configuration containing the access policy.
-    /// @param client_id  Composite PID|UID of the requesting connection.
+    /// @param client_id  UID plus an opaque server-side identifier of the requesting connection.
     /// @return std::monostate on success, or kAccessDenied.
     static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> CheckSlotAccess(
         const KeySlotConfig& slot,
@@ -49,7 +49,7 @@ class AccessPolicyEnforcer
     /// Write access governs GenerateKey and key persist/import operations.
     ///
     /// @param slot       The slot configuration containing the access policy.
-    /// @param client_id  Composite PID|UID of the requesting connection.
+    /// @param client_id  UID plus an opaque server-side identifier of the requesting connection.
     /// @return std::monostate on success, or kAccessDenied.
     static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> CheckWritePermission(
         const KeySlotConfig& slot,
@@ -66,7 +66,7 @@ class AccessPolicyEnforcer
     /// @brief Combined: access + operation check.
     ///
     /// @param slot           The slot configuration.
-    /// @param client_id      Composite PID|UID.
+    /// @param client_id      UID plus an opaque server-side identifier.
     /// @param requested_op   The operation being requested.
     /// @return std::monostate on success, or the first error encountered.
     static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Authorize(

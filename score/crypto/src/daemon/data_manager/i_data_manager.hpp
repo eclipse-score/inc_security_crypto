@@ -20,6 +20,7 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
 
 namespace score::crypto::daemon::data_manager
@@ -29,10 +30,10 @@ namespace score::crypto::daemon::data_manager
 constexpr std::size_t BITS_PER_BYTE = 8;
 
 /// @brief Number of high-order bits in a DataNodeId reserved for future use (bits 56–63).
-constexpr std::size_t DATA_NODE_ID_RESERVED_BITS = 8;
+constexpr std::size_t DATA_NODE_ID_RESERVED_BITS = control_plane::protocol::DATA_NODE_ID_RESERVED_BITS;
 
 /// @brief Number of usable value bits in a DataNodeId (bits 0–55).
-constexpr std::size_t DATA_NODE_ID_VALUE_BITS = 56;
+constexpr std::size_t DATA_NODE_ID_VALUE_BITS = control_plane::protocol::DATA_NODE_ID_VALUE_BITS;
 
 static_assert(sizeof(DataNodeId) * BITS_PER_BYTE == DATA_NODE_ID_RESERVED_BITS + DATA_NODE_ID_VALUE_BITS,
               "Error: The size of data_manager::DataNodeId and its components do not match.");
@@ -144,11 +145,13 @@ class IDataManager
      * recursively removes the whole subtree beneath each one.
      *
      * @param clientId  Identifier of the client whose nodes should be removed.
+     * @param ignoreMissing If true, silently ignore if the clientId is not found; otherwise return an error.
      * @return          @c std::monostate on success, or an @c score::crypto::daemon::common::DaemonErrorCode if any
      * removal fails. The first encountered error is preserved; remaining nodes are still processed.
      */
     virtual Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> deleteClientNodes(
-        ClientId clientId) = 0;
+        ClientId clientId,
+        bool ignoreMissing = false) = 0;
 
     /**
      * @brief Releases the exclusive-access mark on a node held by a DataNodeAccessor.

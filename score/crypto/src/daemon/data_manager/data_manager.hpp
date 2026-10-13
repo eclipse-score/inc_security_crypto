@@ -77,7 +77,8 @@ class DataManager : public IDataManager
 
     /// @copydoc IDataManager::deleteClientNodes
     Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> deleteClientNodes(
-        ClientId clientId) override;
+        ClientId clientId,
+        bool ignoreMissing) override;
 
     /// @copydoc IDataManager::releaseNodeAccessor
     Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> releaseNodeAccessor(

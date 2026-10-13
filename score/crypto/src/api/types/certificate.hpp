@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 
 namespace score::crypto
 {
@@ -181,7 +182,9 @@ enum class MemberKind : uint8_t
 /// - Use subject + issuer + serial_number for human-readable identification and logging.
 struct MemberInfo
 {
-    CryptoResourceId slot_id{};  ///< kCertSlot resource — use for management ops.
+    explicit MemberInfo(CryptoResourceId slot) : slot_id(std::move(slot)) {}
+
+    CryptoResourceId slot_id;  ///< kCertSlot resource — use for management ops.
     std::array<uint8_t, kSha256FingerprintSize>
         sha256_fingerprint{};                    ///< SHA-256 fingerprint of the member certificate.
     std::string subject;                         ///< RFC 4514 Subject DN (e.g., "CN=Root CA,O=ACME,C=DE").

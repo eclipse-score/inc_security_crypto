@@ -1,0 +1,94 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml message_passing_adapter_architecture
+!theme plain
+
+skinparam linetype ortho
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam component {
+    BackgroundColor #F1F7F5
+    BorderColor #376A78
+    FontColor #20313A
+}
+skinparam package {
+    BorderColor #80909B
+    FontColor #20313A
+}
+
+title Message-Passing Adapter Static Architecture
+
+actor "User" as Caller
+
+package "Client Side" as ClientSide {
+    component "MessagePassingControlClient" as Client
+    component "ClientSession" as ClientSession
+    component "PendingCallRegistry" as PendingRegistry
+    component "PendingCall" as PendingCall
+
+    Client *-- ClientSession : owns
+    ClientSession *-- PendingRegistry : owns
+    PendingRegistry o-- PendingCall : tracks
+}
+
+package "Transport" as Transport {
+    package "SCORE Message Passing" as MessagePassing {
+        interface "IClientConnection" as IClientConnection
+        interface "IServerConnection" as IServerConnection
+    }
+
+    package "Protocol" as Protocol {
+        component "FlatBufferCodec" as Codec
+        component "control.fbs" as Schema <<schema>>
+
+        Codec --> Schema : encodes and decodes
+    }
+}
+
+package "Server Side" as ServerSide {
+    component "MessagePassingControlServer" as Server
+    component "SessionManager" as SessionManager
+    component "WorkItemDispatcher" as Dispatcher
+
+    component "SessionRegistry" as SessionRegistry
+    component "FixedWorkerWorkItemExecutor" as Executor
+
+    component "Session" as Session
+    component "WorkItem" as WorkItem
+
+    Server --> SessionManager : connect and disconnect
+    SessionManager --> SessionRegistry : manages
+    SessionRegistry o-- Session : maps connections
+
+    Server --> Dispatcher : request bytes
+
+    Session *-- WorkItem : tracks by request ID
+
+    Dispatcher --> SessionManager : resolves session
+    Dispatcher --> Executor : submits work
+}
+
+package "Daemon Control Plane" as ControlPlane {
+    interface "IRequestHandler" as RequestHandler
+}
+
+Caller <.right.> ClientSide
+ClientSide <.right.> Transport
+ServerSide <.left.> Transport
+ServerSide <.right.> ControlPlane
+
+MessagePassing <.[hidden]down.> Protocol
+
+@enduml

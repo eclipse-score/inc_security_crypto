@@ -14,7 +14,7 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
-    name = "control_plane",
+    name = "control_plane_hdr",
     srcs = [
     ],
     hdrs = [
@@ -25,25 +25,28 @@ cc_library(
     deps = [
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/control_plane",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",
     ],
 )
 
 cc_library(
-    name = "control_plane_impl",
+    name = "control_plane",
     srcs = [
+        "src/control_plane_connection_registry.cpp",
         "src/connection_factory.cpp",
-        "src/connection_impl.cpp",
+        "src/control_plane_connection.cpp",
     ],
     hdrs = [
-        "src/connection_impl.hpp",
+        "src/control_plane_connection_registry.hpp",
+        "src/control_plane_connection.hpp",
     ],
     visibility = ["//:__subpackages__"],
     deps = [
-        ":control_plane",
+        ":control_plane_hdr",
         "//score/crypto/src/daemon/control_plane",
-        "//score/crypto/src/ipc:ipc_config",
-        "//score/crypto/src/ipc/grpc_adapter:grpc_control_client",
+        "//score/crypto/src/ipc/message_passing_adapter:ipc_config",
+        "//score/crypto/src/ipc/message_passing_adapter:message_passing_client",
         "@score_baselibs//score/mw/log",
     ],
 )
