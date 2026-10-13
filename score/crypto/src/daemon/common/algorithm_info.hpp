@@ -32,8 +32,6 @@ enum class HashAlgorithm
     kSha384,  ///< SHA-384.
     kSha512,  ///< SHA-512.
     kSha224,  ///< SHA-224.
-    kSha1,    ///< SHA-1.
-    kMd5,     ///< MD5.
 };
 
 /// @brief Provider-neutral metadata for a hash algorithm.
@@ -49,8 +47,6 @@ inline constexpr HashAlgorithmInfo kHashAlgorithms[] = {
     {HashAlgorithm::kSha384, "SHA384", 48U},
     {HashAlgorithm::kSha512, "SHA512", 64U},
     {HashAlgorithm::kSha224, "SHA224", 28U},
-    {HashAlgorithm::kSha1, "SHA1", 20U},
-    {HashAlgorithm::kMd5, "MD5", 16U},
 };
 
 /// @brief Look up provider-independent hash algorithm metadata.

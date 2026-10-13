@@ -116,9 +116,10 @@ caller may invoke ``Init()`` followed directly by ``Finalize()`` without an
 intermediate ``Update()``; the result is the standard digest of the empty byte
 sequence.
 
-SHA-224, SHA-1, and MD5 are also recognized by the current provider adapters.
-SHA-3, SHAKE, CRC32, and CRC32 AUTOSAR are outside the current hash provider
-contract.
+Provider adapters also recognize SHA-224. SHA-1 and MD5 are not exposed by the
+high-level Crypto API because no supported use case requires these
+cryptographically weak algorithms. SHA-3, SHAKE, CRC32, and CRC32 AUTOSAR are
+outside the hash provider contract.
 
 An undersized ``Finalize`` output is retryable: the caller may supply a larger
 buffer and call ``Finalize`` again without replaying the input. Other provider or

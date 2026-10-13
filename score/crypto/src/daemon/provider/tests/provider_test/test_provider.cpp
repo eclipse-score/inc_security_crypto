@@ -127,6 +127,8 @@ TEST_F(ProviderHashTest, HashAlgorithmMetadata)
     ASSERT_TRUE(sha256_info.has_value());
     EXPECT_EQ(sha256_info->algorithm, common::HashAlgorithm::kSha256);
     EXPECT_EQ(sha256_info->digest_size, 32U);
+    EXPECT_FALSE(common::LookupHashAlgorithmInfo("SHA1").has_value());
+    EXPECT_FALSE(common::LookupHashAlgorithmInfo("MD5").has_value());
     EXPECT_FALSE(common::LookupDigestSize("UNSUPPORTED_ALGORITHM").has_value());
 }
 
@@ -280,15 +282,18 @@ TEST_P(ProviderHashAlgorithmTest, SupportsSingleShotStreamingResetAndDigestSize)
     EXPECT_EQ(retryOutput, expectedHello);
 }
 
-TEST_F(ProviderHashTest, RetainsLegacyAlgorithmsForCompatibility)
+TEST_F(ProviderHashTest, SupportsSha224AndRejectsWeakHashAlgorithms)
 {
     auto factory = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(factory, nullptr);
 
-    for (const char* algorithm : {"SHA224", "SHA1", "MD5"})
+    EXPECT_TRUE(factory->CreateHandler("HASH", "SHA224").has_value());
+    for (const char* algorithm : {"SHA1", "MD5"})
     {
-        EXPECT_TRUE(factory->CreateHandler("HASH", algorithm).has_value())
-            << "Legacy algorithm unexpectedly removed: " << algorithm;
+        const auto result = factory->CreateHandler("HASH", algorithm);
+        ASSERT_FALSE(result.has_value()) << "Unexpectedly accepted weak hash algorithm: " << algorithm;
+        EXPECT_EQ(*result.error(),
+                  static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm));
     }
 }
 

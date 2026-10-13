@@ -32,7 +32,6 @@ class Pkcs11Module;
 /// Owns no session state — receives the session handle and mechanism from the handler.
 /// Reuses handler_utils::ValidateStreamOperationSequence for stream state management.
 /// Single-shot hashing uses the PKCS#11 v2.40-compatible C_DigestInit + C_Digest sequence.
-/// The module capability is retained for future PKCS#11 v3 message-digest dispatch.
 class Pkcs11HashExecutor final
 {
   public:
@@ -79,9 +78,6 @@ class Pkcs11HashExecutor final
     [[nodiscard]] Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Abort(
         CK_SESSION_HANDLE session) noexcept;
 
-    /// @brief Query whether the underlying token supports PKCS#11 v3 message-based digest operations.
-    [[nodiscard]] bool SupportsMessageDigest() const noexcept;
-
   private:
     /// @brief Validate a streaming operation action against the current state and compute the next
     ///        state in one step, eliminating the intermediate string representation from call sites.
@@ -99,10 +95,10 @@ class Pkcs11HashExecutor final
 
     [[nodiscard]] Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ExecuteDigestUpdate(
         CK_SESSION_HANDLE session,
-        common::RequestParameters& request) noexcept;
+        score::cpp::span<const std::uint8_t> input) noexcept;
 
     [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
-    ExecuteDigestFinal(CK_SESSION_HANDLE session, common::RequestParameters& request) noexcept;
+    ExecuteDigestFinal(CK_SESSION_HANDLE session, score::cpp::span<std::uint8_t> output) noexcept;
 
     [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
     ExecuteDigestSingleShot(CK_SESSION_HANDLE session,
@@ -110,7 +106,6 @@ class Pkcs11HashExecutor final
                             common::RequestParameters& request) noexcept;
 
     CK_FUNCTION_LIST* m_functionList;  ///< Non-owning PKCS#11 dispatch table.
-    bool m_supportsMessageDigest;      ///< Capability cached from the module; false for injected test tables.
 };
 
 }  // namespace score::crypto::daemon::provider::pkcs11

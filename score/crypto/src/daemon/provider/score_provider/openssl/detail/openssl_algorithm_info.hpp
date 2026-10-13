@@ -52,10 +52,6 @@ namespace score::crypto::daemon::provider::openssl::detail
             return EVP_sha512();
         case common::HashAlgorithm::kSha224:
             return EVP_sha224();
-        case common::HashAlgorithm::kSha1:
-            return EVP_sha1();
-        case common::HashAlgorithm::kMd5:
-            return EVP_md5();
     }
     return nullptr;
 }

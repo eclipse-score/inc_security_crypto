@@ -149,6 +149,5 @@ daemon adapters and are not exposed to applications.
 
 Used Components
 ---------------
-- The components used by the feature are defined in the `components` section of the module documentation.
--
-- See :ref:`component_template` for an example component.
+
+The feature is realized by the ``Crypto`` component (``comp__crypto``).

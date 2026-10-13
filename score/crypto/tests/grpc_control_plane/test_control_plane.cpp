@@ -189,9 +189,10 @@ TEST(ControlProtocolTest, PreservesApiErrorCodeInOperationResponse)
     namespace protocol = score::crypto::daemon::control_plane::protocol;
     const protocol::OperationIdentifier operation_id{score::crypto::test::dummyActorA,
                                                      score::crypto::test::dummyActionA};
-    const auto api_error = score::crypto::MakeError(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm);
-
-    const auto response = protocol::OperationResponseBuilder().operation(operation_id).return_error(api_error).build();
+    const auto response = protocol::OperationResponseBuilder()
+                              .operation(operation_id)
+                              .return_error(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm)
+                              .build();
     ASSERT_TRUE(response.has_value());
 
     protocol::ControlResponseValidator validator(response.value());

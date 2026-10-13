@@ -102,10 +102,6 @@ inline constexpr Pkcs11AlgoEntry kAlgoEntries[] = {
             return CKM_SHA512;
         case common::HashAlgorithm::kSha224:
             return CKM_SHA224;
-        case common::HashAlgorithm::kSha1:
-            return CKM_SHA_1;
-        case common::HashAlgorithm::kMd5:
-            return CKM_MD5;
     }
     return CK_UNAVAILABLE_INFORMATION;
 }

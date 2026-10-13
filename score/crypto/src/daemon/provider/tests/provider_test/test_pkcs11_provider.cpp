@@ -360,6 +360,14 @@ TEST(Pkcs11HashExecutorErrorTest, FinalizePreservesOnlyRetryableOperationState)
     EXPECT_EQ(nextState, common::StreamOperationState::IDLE);
     EXPECT_EQ(GetDigestFinalStubState().call_count, 2U);
 
+    ConfigureDigestFinalStub({CKR_ARGUMENTS_BAD, CKR_OK});
+    const auto providerArgumentFailure =
+        executor.Execute(context, ops::HASH_FINALIZE, request, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    ASSERT_FALSE(providerArgumentFailure.has_value());
+    EXPECT_EQ(providerArgumentFailure.error(), common::DaemonErrorCode::kInvalidArgument);
+    EXPECT_EQ(nextState, common::StreamOperationState::IDLE);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 2U);
+
     ConfigureDigestFinalStub({CKR_DEVICE_ERROR, CKR_DEVICE_ERROR});
     const auto unrecoveredFailure =
         executor.Execute(context, ops::HASH_FINALIZE, request, common::StreamOperationState::STREAM_ACTIVE, nextState);
@@ -395,6 +403,16 @@ TEST(Pkcs11HashExecutorErrorTest, UpdatePreservesValidationFailuresAndCleansUpPr
         context, ops::HASH_UPDATE, validRequest, common::StreamOperationState::STREAM_ACTIVE, nextState);
     ASSERT_FALSE(providerFailure.has_value());
     EXPECT_EQ(providerFailure.error(), common::DaemonErrorCode::kAlgorithmExecutionFailed);
+    EXPECT_EQ(nextState, common::StreamOperationState::IDLE);
+    EXPECT_EQ(GetDigestUpdateStubState().call_count, 1U);
+    EXPECT_EQ(GetDigestFinalStubState().call_count, 1U);
+
+    ConfigureDigestUpdateStub(CKR_ARGUMENTS_BAD);
+    ConfigureDigestFinalStub({CKR_OK});
+    const auto providerArgumentFailure = executor.Execute(
+        context, ops::HASH_UPDATE, validRequest, common::StreamOperationState::STREAM_ACTIVE, nextState);
+    ASSERT_FALSE(providerArgumentFailure.has_value());
+    EXPECT_EQ(providerArgumentFailure.error(), common::DaemonErrorCode::kInvalidArgument);
     EXPECT_EQ(nextState, common::StreamOperationState::IDLE);
     EXPECT_EQ(GetDigestUpdateStubState().call_count, 1U);
     EXPECT_EQ(GetDigestFinalStubState().call_count, 1U);
@@ -800,10 +818,13 @@ TEST_F(Pkcs11ProviderHashTest, RejectsUnsupportedAlgorithm)
 {
     auto cryptoOps = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(cryptoOps, nullptr);
-    const auto result = cryptoOps->CreateHandler("HASH", "UNSUPPORTED_ALGORITHM");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(*result.error(),
-              static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm));
+    for (const char* algorithm : {"UNSUPPORTED_ALGORITHM", "SHA1", "MD5"})
+    {
+        const auto result = cryptoOps->CreateHandler("HASH", algorithm);
+        ASSERT_FALSE(result.has_value()) << "Unexpectedly accepted hash algorithm: " << algorithm;
+        EXPECT_EQ(*result.error(),
+                  static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm));
+    }
 }
 
 TEST_F(Pkcs11ProviderHashTest, QueriesSelectedTokenMechanisms)

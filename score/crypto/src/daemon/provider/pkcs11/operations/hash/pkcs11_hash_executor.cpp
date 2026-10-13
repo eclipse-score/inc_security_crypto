@@ -29,31 +29,11 @@ using score::crypto::daemon::common::DaemonErrorCode;
 using ::score::crypto::daemon::provider::handler::handler_utils::CheckAndGetSpan;
 using ::score::crypto::daemon::provider::handler::handler_utils::ValidateParameterCount;
 
-namespace
-{
-
-[[nodiscard]] constexpr bool IsRequestValidationError(const DaemonErrorCode error) noexcept
-{
-    return (error == DaemonErrorCode::kInsufficientParameters) || (error == DaemonErrorCode::kInvalidArgument) ||
-           (error == DaemonErrorCode::kInvalidDataType) || (error == DaemonErrorCode::kInsufficientBufferSize);
-}
-
-}  // namespace
-
-Pkcs11HashExecutor::Pkcs11HashExecutor(const Pkcs11Module& module) noexcept
-    : m_functionList{module.GetFunctionList()}, m_supportsMessageDigest{module.GetCapabilities().supportsMessageDigest}
+Pkcs11HashExecutor::Pkcs11HashExecutor(const Pkcs11Module& module) noexcept : m_functionList{module.GetFunctionList()}
 {
 }
 
-Pkcs11HashExecutor::Pkcs11HashExecutor(CK_FUNCTION_LIST& function_list) noexcept
-    : m_functionList{&function_list}, m_supportsMessageDigest{false}
-{
-}
-
-bool Pkcs11HashExecutor::SupportsMessageDigest() const noexcept
-{
-    return m_supportsMessageDigest;
-}
+Pkcs11HashExecutor::Pkcs11HashExecutor(CK_FUNCTION_LIST& function_list) noexcept : m_functionList{&function_list} {}
 
 // static
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11HashExecutor::ValidateStreamTransition(
@@ -155,13 +135,28 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     // --- Dispatch to PKCS#11 call ---
     if (operationAction == ops::HASH_FINALIZE)
     {
-        auto result = ExecuteDigestFinal(ctx.session, request);
+        const auto countResult = ValidateParameterCount(request, 1U);
+        if (!countResult.has_value())
+        {
+            nextState = currentState;
+            return make_unexpected(countResult.error());
+        }
+
+        const auto outputSpan = CheckAndGetSpan<uint8_t>(request[0]);
+        if (!outputSpan.has_value())
+        {
+            nextState = currentState;
+            return make_unexpected(outputSpan.error());
+        }
+
+        auto result = ExecuteDigestFinal(ctx.session, outputSpan.value());
         if (!result.has_value())
         {
-            // Caller-side validation failures and an undersized output buffer do not
-            // consume the token operation, so the caller may correct the request and retry.
+            // PKCS#11 explicitly preserves an active digest operation after
+            // CKR_BUFFER_TOO_SMALL, allowing Finalize to be retried. Other
+            // provider errors leave the operation state unsuitable for reuse.
             const auto error = result.error();
-            if (IsRequestValidationError(error))
+            if (error == DaemonErrorCode::kInsufficientBufferSize)
             {
                 nextState = currentState;
             }
@@ -176,19 +171,37 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         return result;
     }
 
-    const auto result = [&]() -> Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> {
-        if (operationAction == ops::HASH_INIT)
-            return ExecuteDigestInit(ctx.session, ctx.mechanism);
-        if (operationAction == ops::HASH_UPDATE)
-            return ExecuteDigestUpdate(ctx.session, request);
-        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
-    }();
+    Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> result{std::monostate{}};
+    if (operationAction == ops::HASH_INIT)
+    {
+        result = ExecuteDigestInit(ctx.session, ctx.mechanism);
+    }
+    else if (operationAction == ops::HASH_UPDATE)
+    {
+        const auto countResult = ValidateParameterCount(request, 1U);
+        if (!countResult.has_value())
+        {
+            nextState = currentState;
+            return make_unexpected(countResult.error());
+        }
+
+        const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0], true);
+        if (!inputSpan.has_value())
+        {
+            nextState = currentState;
+            return make_unexpected(inputSpan.error());
+        }
+        result = ExecuteDigestUpdate(ctx.session, inputSpan.value());
+    }
+    else
+    {
+        result = make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
+    }
 
     // Revert state on failure (caller should not advance)
     if (!result.has_value())
     {
-        const auto error = result.error();
-        if ((operationAction == ops::HASH_UPDATE) && !IsRequestValidationError(error))
+        if (operationAction == ops::HASH_UPDATE)
         {
             const auto abortResult = Abort(ctx.session);
             nextState = abortResult.has_value() ? StreamOperationState::IDLE : currentState;
@@ -227,27 +240,13 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
 
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11HashExecutor::ExecuteDigestUpdate(
     const CK_SESSION_HANDLE session,
-    RequestParameters& request) noexcept
+    const score::cpp::span<const std::uint8_t> input) noexcept
 {
-    const auto countResult = ValidateParameterCount(request, 1U);
-    if (!countResult.has_value())
-    {
-        return make_unexpected(countResult.error());
-    }
-
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0], true);
-    if (!inputSpan.has_value())
-    {
-        return make_unexpected(inputSpan.error());
-    }
-
     CK_BYTE emptyInput{0U};
     // MISRA C++:2023 Rule 8.2.3 deviation — PKCS#11 C API (C_DigestUpdate) requires non-const pPart.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    auto* data = inputSpan.value().empty()
-                     ? &emptyInput
-                     : const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(inputSpan.value().data()));
-    const CK_RV rv = m_functionList->C_DigestUpdate(session, data, static_cast<CK_ULONG>(inputSpan.value().size()));
+    auto* data = input.empty() ? &emptyInput : const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(input.data()));
+    const CK_RV rv = m_functionList->C_DigestUpdate(session, data, static_cast<CK_ULONG>(input.size()));
     if (rv != CKR_OK)
     {
         return make_unexpected(Pkcs11Module::MapErrorReturn(rv));
@@ -257,24 +256,10 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
 
 Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkcs11HashExecutor::ExecuteDigestFinal(
     const CK_SESSION_HANDLE session,
-    RequestParameters& request) noexcept
+    const score::cpp::span<std::uint8_t> output) noexcept
 {
-    // For PKCS11, the output buffer comes from the handler's internal buffer
-    // passed via parameters
-    const auto countResult = ValidateParameterCount(request, 1U);
-    if (!countResult.has_value())
-    {
-        return make_unexpected(countResult.error());
-    }
-
-    const auto outputSpan = CheckAndGetSpan<uint8_t>(request[0]);
-    if (!outputSpan.has_value())
-    {
-        return make_unexpected(outputSpan.error());
-    }
-
-    auto digestLen = static_cast<CK_ULONG>(outputSpan.value().size());
-    const CK_RV rv = m_functionList->C_DigestFinal(session, outputSpan.value().data(), &digestLen);
+    auto digestLen = static_cast<CK_ULONG>(output.size());
+    const CK_RV rv = m_functionList->C_DigestFinal(session, output.data(), &digestLen);
     if (rv != CKR_OK)
     {
         return make_unexpected(Pkcs11Module::MapErrorReturn(rv));
