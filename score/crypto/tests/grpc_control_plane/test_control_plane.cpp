@@ -198,8 +198,8 @@ TEST(ControlProtocolTest, PreservesApiErrorCodeInOperationResponse)
     validator.expectOperation(operation_id).expectSuccess();
 
     EXPECT_FALSE(validator.isValid());
-    ASSERT_TRUE(validator.getErrorCode().has_value());
-    EXPECT_EQ(validator.getErrorCode().value(), score::crypto::CryptoErrorCode::kUnsupportedAlgorithm);
+    ASSERT_TRUE(validator.getOperationError().has_value());
+    EXPECT_EQ(validator.getOperationError().value(), score::crypto::CryptoErrorCode::kUnsupportedAlgorithm);
 }
 
 TEST_F(ControlPlaneTest, Connection_SendRequest)

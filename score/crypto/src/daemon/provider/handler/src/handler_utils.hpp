@@ -125,29 +125,24 @@ template <typename T>
 
 using StreamOperation = ::score::crypto::daemon::provider::handler::StreamOperation;
 
-/**
- * @brief Validate a streaming operation and return the resulting next state.
- *
- * Enforces the stream state machine:
- * - IDLE --(kInit)--> STREAM_INITIALIZED
- * - STREAM_INITIALIZED --(kInit)--> STREAM_INITIALIZED (restart)
- * - STREAM_INITIALIZED --(kUpdate)--> STREAM_ACTIVE
- * - STREAM_ACTIVE --(kUpdate)--> STREAM_ACTIVE
- * - STREAM_ACTIVE --(kInit)--> STREAM_INITIALIZED (restart)
- * - STREAM_ACTIVE --(kFinalize)--> IDLE
- *
- * @param currentState The current operation state (IDLE, STREAM_INITIALIZED, or STREAM_ACTIVE)
- * @param streamOperation The streaming operation being requested
- * @param allow_finalize_without_update Whether STREAM_INITIALIZED may transition
- *        directly to IDLE on Finalize (required for hashing empty input).
- * @param invalid_sequence_error Error returned for Update/Finalize from an invalid state.
- * @return Expected containing the next StreamOperationState on success, or DaemonErrorCode on failure
- *
- * @retval StreamOperationState Transition valid; value is the resulting state
- * @retval kInvalidStreamOperation UPDATE/FINALIZE attempted from invalid state
- */
+/// @brief Validate a streaming operation using the standard state transitions.
+/// @param currentState Current operation state.
+/// @param streamOperation Requested streaming operation.
+/// @return The resulting state, or kInvalidStreamOperation for an invalid transition.
 [[nodiscard]] Expected<common::StreamOperationState, ::score::crypto::daemon::common::DaemonErrorCode>
 ValidateStreamOperationSequence(common::StreamOperationState currentState, StreamOperation streamOperation) noexcept;
+
+/// @brief Validate a streaming operation using a configurable finalize policy.
+///
+/// The standard transitions require Update between Init and Finalize. When
+/// @p allow_finalize_without_update is true, STREAM_INITIALIZED may transition
+/// directly to IDLE on Finalize so operations with valid empty input can finish.
+///
+/// @param currentState Current operation state.
+/// @param streamOperation Requested streaming operation.
+/// @param allow_finalize_without_update Whether Finalize may immediately follow Init.
+/// @param invalid_sequence_error Error returned for an invalid Update or Finalize transition.
+/// @return The resulting state, or @p invalid_sequence_error for an invalid transition.
 [[nodiscard]] Expected<common::StreamOperationState, ::score::crypto::daemon::common::DaemonErrorCode>
 ValidateStreamOperationSequence(common::StreamOperationState currentState,
                                 StreamOperation streamOperation,

@@ -25,15 +25,6 @@ Feature Architecture
    :security: YES
    :realizes: wp__feature_arch
 
-.. feat:: Security & Crypto
-   :id: feat__security_crypto
-   :version: 1
-   :security: YES
-   :safety: QM
-   :status: valid
-
-
-
 Overview
 --------
 
@@ -43,14 +34,11 @@ specific software library, PKCS#11 token, HSM, or TEE. The current implementatio
 uses a client-daemon split: applications use the C++ API, while a dedicated daemon
 selects providers, owns operation contexts, and executes cryptographic jobs.
 
-The feature is security-relevant but currently classified as QM. In particular,
-the complete client, IPC/shared-memory, daemon, and provider path is not presented
-as an ISO 26262-qualified replacement for safety-certified Baselibs hashing.
+The feature is security-relevant and classified as QM. Qualification of a
+complete deployed system remains part of the integrator's safety case.
 
 Description
 -----------
-
-The feature is decomposed into the following responsibilities:
 
 * The public API creates a crypto stack, logical crypto contexts, and typed
   operation contexts such as hash and MAC contexts.
@@ -87,11 +75,7 @@ Requirements
 ------------
 
 Component requirements and assumptions of use are maintained with the Crypto
-component documentation. Feature-level ownership and cross-repository consumer
-migration for the Baselibs hash transition remain tracked by
-`inc_security_crypto issue #125 <https://github.com/eclipse-score/inc_security_crypto/issues/125>`_.
-The consumer migration and removal of Baselibs algorithms are deliberately not
-claimed by this repository's component requirements.
+component documentation.
 
 Rationale Behind Architecture Decomposition
 *******************************************
@@ -165,8 +149,6 @@ daemon adapters and are not exposed to applications.
 
 Used Components
 ---------------
-
-The feature is currently realized by the ``Crypto`` component
-(``comp__crypto``). External consumers and the eventual Baselibs cleanup are
-separate repository changes and are outside this component's implementation
-boundary.
+- The components used by the feature are defined in the `components` section of the module documentation.
+-
+- See :ref:`component_template` for an example component.

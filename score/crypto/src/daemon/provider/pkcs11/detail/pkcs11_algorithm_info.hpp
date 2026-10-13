@@ -90,6 +90,8 @@ inline constexpr Pkcs11AlgoEntry kAlgoEntries[] = {
         return CK_UNAVAILABLE_INFORMATION;
     }
 
+    // Keep this switch exhaustive and without a default case so adding a
+    // provider-neutral algorithm requires an explicit PKCS#11 support decision.
     switch (info->algorithm)
     {
         case common::HashAlgorithm::kSha256:

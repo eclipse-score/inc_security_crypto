@@ -41,8 +41,7 @@ namespace
 }  // namespace
 
 Pkcs11HashExecutor::Pkcs11HashExecutor(const Pkcs11Module& module) noexcept
-    : m_functionList{module.GetFunctionList()},
-      m_supportsMessageDigest{module.GetCapabilities().supportsMessageDigest}
+    : m_functionList{module.GetFunctionList()}, m_supportsMessageDigest{module.GetCapabilities().supportsMessageDigest}
 {
 }
 

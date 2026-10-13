@@ -51,7 +51,7 @@ namespace
 CryptoErrorCode GetResponseError(const proto::ControlResponseValidator& validator,
                                  const CryptoErrorCode fallback) noexcept
 {
-    return validator.getErrorCode().value_or(fallback);
+    return validator.getOperationError().value_or(fallback);
 }
 
 }  // namespace

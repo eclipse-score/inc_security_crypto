@@ -43,7 +43,7 @@ The API uses a two-phase resource identification model:
        ResourceType type;             // kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,
                                       // kKey, kCertificate, kSecureObject, kDataObject
        ResourcePersistence persistence; // kPersistent or kEphemeral
-       uint16_t primary_provider;     // owning device/provider index (UINT16_MAX = unbound)
+       uint16_t primary_provider;     // owning device/provider index (0 = unbound)
    };
 
 The struct is fully numeric, cheap to copy and hash, and includes

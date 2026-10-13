@@ -14,12 +14,10 @@
 #include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/api/common/types.hpp"
-#include "score/crypto/src/api/config/key_management_context_config.hpp"
-#include "score/crypto/src/api/config/mac_context_config.hpp"
-#include "score/crypto/src/api/contexts/i_key_management_context.hpp"
-#include "score/crypto/src/api/contexts/i_mac_context.hpp"
+#include "score/crypto/src/api/config/hash_context_config.hpp"
+#include "score/crypto/src/api/contexts/i_hash_context.hpp"
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 
@@ -58,33 +56,17 @@ class ErrorConnection final : public api::control_plane::IConnection
     CryptoErrorCode m_error_code;
 };
 
-TEST(CryptoContextImplTest, PreservesMacContextCreationErrorFromDaemon)
+TEST(CryptoContextImplTest, PreservesHashContextCreationErrorFromDaemon)
 {
     auto connection = std::make_shared<ErrorConnection>(CryptoErrorCode::kUnsupportedAlgorithm);
     CryptoContextImpl context{connection, nullptr};
 
-    CryptoResourceId key{};
-    key.id = 7U;
-    key.type = ResourceType::kKey;
-    key.primary_provider = 0U;
-
-    MacContextConfig config;
-    config.SetAlgorithm("HMAC-SHA256").SetKey(key);
-    const auto result = context.CreateMacContext(config);
+    HashContextConfig config;
+    config.SetAlgorithm("UNSUPPORTED_ALGORITHM");
+    const auto result = context.CreateHashContext(config);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(*result.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kUnsupportedAlgorithm));
-}
-
-TEST(CryptoContextImplTest, PreservesKeyManagementContextCreationErrorFromDaemon)
-{
-    auto connection = std::make_shared<ErrorConnection>(CryptoErrorCode::kProviderNotAvailable);
-    CryptoContextImpl context{connection, nullptr};
-
-    const auto result = context.CreateKeyManagementContext(KeyManagementContextConfig{});
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(*result.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kProviderNotAvailable));
 }
 
 }  // namespace

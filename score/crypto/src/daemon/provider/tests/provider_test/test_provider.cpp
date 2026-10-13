@@ -121,16 +121,12 @@ TEST_F(ProviderHashTest, ProviderInitialization)
     EXPECT_NE(provider_->GetCryptoHandlerFactory(), nullptr);
 }
 
-TEST_F(ProviderHashTest, MigrationTargetMetadata)
+TEST_F(ProviderHashTest, HashAlgorithmMetadata)
 {
-    EXPECT_TRUE(common::IsRecommendedHashAlgorithm("SHA256"));
-    EXPECT_TRUE(common::IsRecommendedHashAlgorithm("SHA384"));
-    EXPECT_TRUE(common::IsRecommendedHashAlgorithm("SHA512"));
-
-    EXPECT_FALSE(common::IsRecommendedHashAlgorithm("SHA224"));
-    EXPECT_FALSE(common::IsRecommendedHashAlgorithm("SHA1"));
-    EXPECT_FALSE(common::IsRecommendedHashAlgorithm("MD5"));
-    EXPECT_FALSE(common::IsRecommendedHashAlgorithm("UNSUPPORTED_ALGORITHM"));
+    const auto sha256_info = common::LookupHashAlgorithmInfo("SHA256");
+    ASSERT_TRUE(sha256_info.has_value());
+    EXPECT_EQ(sha256_info->algorithm, common::HashAlgorithm::kSha256);
+    EXPECT_EQ(sha256_info->digest_size, 32U);
     EXPECT_FALSE(common::LookupDigestSize("UNSUPPORTED_ALGORITHM").has_value());
 }
 
@@ -483,7 +479,7 @@ TEST(OpenSslHashHandlerErrorTest, DigestUpdateFailureAbortsStreamAndAllowsReuse)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    BaselibsMigrationAlgorithms,
+    Sha2Algorithms,
     ProviderHashAlgorithmTest,
     ::testing::Values(HashAlgorithmTestData{"SHA256",
                                             32U,

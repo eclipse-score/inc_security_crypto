@@ -51,7 +51,7 @@ int main()
 {
     // 1. Create the crypto stack and connect to the daemon
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///tmp/crypto_daemon.sock");
+    stack_config.SetConnectionEndpoint("unix:///var/run/crypto-daemon.sock");
 
     auto stack_result = CreateCryptoStack(stack_config);
     if (!stack_result.has_value())

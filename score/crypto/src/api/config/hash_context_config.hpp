@@ -24,9 +24,8 @@ namespace crypto
 
 /// @brief Configuration for hash context creation.
 ///
-/// Requires only an algorithm. The canonical identifiers supported for new
-/// integrations are "SHA256", "SHA384", and "SHA512" (without hyphens).
-/// No key slot is needed for hash operations.
+/// Requires only an algorithm. The canonical algorithm identifiers are
+/// "SHA256", "SHA384", and "SHA512".
 ///
 /// @par Example
 /// @code

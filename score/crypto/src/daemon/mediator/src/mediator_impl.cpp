@@ -440,7 +440,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Handler or algorithm not supported:" << context_type
                                    << "/" << algorithm;
         responseBuilder.operation(operation.operationId)
-            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+            .return_error(static_cast<score::crypto::CryptoErrorCode>(*create_result.error()));
         return false;
     }
 

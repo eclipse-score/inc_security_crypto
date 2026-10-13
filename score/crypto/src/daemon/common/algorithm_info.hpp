@@ -25,37 +25,32 @@ namespace score::crypto::daemon::common
 // Hash algorithm properties (provider-independent)
 // ---------------------------------------------------------------------------
 
-enum class HashAlgorithmStatus
-{
-    kRecommended,
-    kLegacy,
-};
-
+/// @brief Provider-neutral identifiers for supported hash algorithms.
 enum class HashAlgorithm
 {
-    kSha256,
-    kSha384,
-    kSha512,
-    kSha224,
-    kSha1,
-    kMd5,
+    kSha256,  ///< SHA-256.
+    kSha384,  ///< SHA-384.
+    kSha512,  ///< SHA-512.
+    kSha224,  ///< SHA-224.
+    kSha1,    ///< SHA-1.
+    kMd5,     ///< MD5.
 };
 
+/// @brief Provider-neutral metadata for a hash algorithm.
 struct HashAlgorithmInfo
 {
-    HashAlgorithm algorithm;
-    std::string_view name;
-    std::size_t digest_size;     ///< Output size in bytes
-    HashAlgorithmStatus status;  ///< Recommendation for new integrations
+    HashAlgorithm algorithm;  ///< Internal algorithm identifier.
+    std::string_view name;    ///< API algorithm identifier.
+    std::size_t digest_size;  ///< Output size in bytes.
 };
 
 inline constexpr HashAlgorithmInfo kHashAlgorithms[] = {
-    {HashAlgorithm::kSha256, "SHA256", 32U, HashAlgorithmStatus::kRecommended},
-    {HashAlgorithm::kSha384, "SHA384", 48U, HashAlgorithmStatus::kRecommended},
-    {HashAlgorithm::kSha512, "SHA512", 64U, HashAlgorithmStatus::kRecommended},
-    {HashAlgorithm::kSha224, "SHA224", 28U, HashAlgorithmStatus::kLegacy},
-    {HashAlgorithm::kSha1, "SHA1", 20U, HashAlgorithmStatus::kLegacy},
-    {HashAlgorithm::kMd5, "MD5", 16U, HashAlgorithmStatus::kLegacy},
+    {HashAlgorithm::kSha256, "SHA256", 32U},
+    {HashAlgorithm::kSha384, "SHA384", 48U},
+    {HashAlgorithm::kSha512, "SHA512", 64U},
+    {HashAlgorithm::kSha224, "SHA224", 28U},
+    {HashAlgorithm::kSha1, "SHA1", 20U},
+    {HashAlgorithm::kMd5, "MD5", 16U},
 };
 
 /// @brief Look up provider-independent hash algorithm metadata.
@@ -79,15 +74,6 @@ inline constexpr HashAlgorithmInfo kHashAlgorithms[] = {
 {
     const auto info = LookupHashAlgorithmInfo(algorithm);
     return info.has_value() ? std::optional<std::size_t>{info->digest_size} : std::nullopt;
-}
-
-/// @brief Return whether an algorithm is recommended for new integrations.
-///
-/// Legacy algorithms remain available for compatibility.
-[[nodiscard]] inline constexpr bool IsRecommendedHashAlgorithm(std::string_view algorithm) noexcept
-{
-    const auto info = LookupHashAlgorithmInfo(algorithm);
-    return info.has_value() && (info->status == HashAlgorithmStatus::kRecommended);
 }
 
 // ---------------------------------------------------------------------------

@@ -72,7 +72,7 @@ Hash Algorithm Contract
 Hash algorithm identifiers are case-sensitive wire-level values. The standard
 algorithm name and the identifier passed to ``HashContextConfig`` are distinct:
 
-.. list-table:: Hash algorithms prepared for Baselibs migration
+.. list-table:: Supported hash algorithms
    :header-rows: 1
 
    * - Standard name
@@ -116,78 +116,14 @@ caller may invoke ``Init()`` followed directly by ``Finalize()`` without an
 intermediate ``Update()``; the result is the standard digest of the empty byte
 sequence.
 
-SHA-224, SHA-1, and MD5 remain available for compatibility with existing
-callers but are not approved targets for new Baselibs migrations. SHA-3, SHAKE,
-CRC32, and CRC32 AUTOSAR are outside the current hash provider contract.
-
-Baselibs Migration Boundary
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The algorithm mapping for consumers moving from ``score/hash`` is:
-
-.. list-table:: Baselibs to Crypto hash mapping
-   :header-rows: 1
-
-   * - Baselibs value
-     - Crypto identifier
-     - Crypto usage
-   * - ``HashAlgorithm::kSha256``
-     - ``SHA256``
-     - ``IHashContext`` streaming or single-shot
-   * - ``HashAlgorithm::kSha384``
-     - ``SHA384``
-     - ``IHashContext`` streaming or single-shot
-   * - ``HashAlgorithm::kSha512``
-     - ``SHA512``
-     - ``IHashContext`` streaming or single-shot
-
-The Crypto API returns raw digest bytes into a caller-owned buffer. Baselibs
-``Hash``, ``TypedHash``, hexadecimal conversion, and ``std::istream`` helpers are
-not reproduced here. A migrating consumer reads stream chunks and calls
-``Update()`` itself, and owns any representation adapter it still requires.
-
-.. list-table:: Baselibs API migration guide
-   :header-rows: 1
-
-   * - Baselibs API
-     - Crypto API
-     - Migration note
-   * - ``HashCalculatorFactory::CreateHashCalculator(algorithm)``
-     - ``ICryptoContext::CreateHashContext(config)``
-     - Put the canonical string identifier in ``HashContextConfig`` and handle
-       context-creation errors.
-   * - ``IHashCalculator::Update(data)``
-     - ``IHashContext::Init()`` followed by ``Update(data)``
-     - ``Init`` is explicit and ``Update`` may be called zero or more times.
-   * - ``IHashCalculator::Finalize()``
-     - ``IHashContext::Finalize(output)``
-     - Allocate caller-owned output using ``GetDigestSize`` and consume only
-       the returned byte count.
-   * - ``IHashCalculatorFactory::CalculateHash(algorithm, data)``
-     - ``IHashContext::SingleShot(input, output)``
-     - Context creation is separate from execution, which permits reuse.
-   * - ``CalculateHash(algorithm, std::istream&)`` and
-       ``UpdateFromStream(std::istream&)``
-     - Caller-managed read loop plus ``Update``
-     - Stream ownership, chunk sizing, read errors, and maximum-read behavior
-       remain the consumer's responsibility.
-   * - ``Hash`` / ``TypedHash`` result objects
-     - Raw digest in caller-owned ``span<uint8_t>``
-     - Preserve any algorithm tag, fixed-size wrapper, equality policy, or
-       serialization in a consumer-side adapter.
-   * - Baselibs hexadecimal helpers
-     - Consumer-owned encoding adapter
-     - Do not hex-encode bytes before passing them to the hash operation.
+SHA-224, SHA-1, and MD5 are also recognized by the current provider adapters.
+SHA-3, SHAKE, CRC32, and CRC32 AUTOSAR are outside the current hash provider
+contract.
 
 An undersized ``Finalize`` output is retryable: the caller may supply a larger
 buffer and call ``Finalize`` again without replaying the input. Other provider or
 transport errors must be handled according to their returned error code; callers
 must not assume that every failure preserves a streaming operation.
-
-This mapping does not include CRC variants or the Baselibs native safety SHA-256
-implementation. The client, IPC/shared-memory transport, daemon, and provider
-path described here is QM functionality and is not an ISO 26262-qualified
-replacement unless the complete deployed path is independently qualified.
 
 Provider Configuration
 ~~~~~~~~~~~~~~~~~~~~~~

@@ -637,7 +637,7 @@ TEST_F(Pkcs11ProviderSoftCleanupHashTest, ReusesSessionWhenHandlerCleanupSucceed
 }
 
 // ---------------------------------------------------------------------------
-// SHA-256/384/512 migration coverage
+// SHA-2 algorithm coverage
 // ---------------------------------------------------------------------------
 
 class Pkcs11ProviderHashAlgorithmTest : public Pkcs11ProviderHashTest,
@@ -978,7 +978,7 @@ TEST_F(Pkcs11ProviderHashTest, TrueConcurrentStreamingOnSeparateSessions)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    BaselibsMigrationAlgorithms,
+    Sha2Algorithms,
     Pkcs11ProviderHashAlgorithmTest,
     ::testing::Values(HashAlgorithmTestData{"SHA256",
                                             32U,

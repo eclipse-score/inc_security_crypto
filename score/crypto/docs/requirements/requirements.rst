@@ -26,16 +26,12 @@ Crypto Requirements
 Hash Functionality
 ==================
 
-The requirements in this section specify the current cryptographic hash API.
-They describe QM functionality and do not constitute an ISO 26262 qualification
-claim for the complete client, IPC, daemon, and provider execution path.
-Feature-level requirements and their ``derived_from`` links remain owned by the
-S-CORE feature repository and will be linked when the cross-repository migration
-tracked by issue #125 is integrated. These component requirements cover only
-the implementation in ``inc_security_crypto``.
+The requirements in this section specify behavior provided by the Crypto
+component's hash API. They do not make qualification claims about a complete
+deployed system.
 
-.. comp_req:: Provide migration-target hash algorithms
-   :id: comp_req__crypto__hash_migration_algorithms
+.. comp_req:: Support SHA-2 hash algorithms
+   :id: comp_req__crypto__hash_algorithms
    :version: 1
    :reqtype: Functional
    :security: YES
@@ -121,8 +117,8 @@ the implementation in ``inc_security_crypto``.
    :status: valid
    :satisfied_by: comp__crypto
 
-   For a migration-target algorithm supported by both providers, the OpenSSL and
-   PKCS#11 providers shall produce identical digests for identical input bytes.
+   For each hash algorithm supported by multiple providers, those providers
+   shall produce identical digests for identical input bytes.
 
 .. comp_req:: Reset reusable hash contexts
    :id: comp_req__crypto__hash_context_reset
