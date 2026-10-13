@@ -165,7 +165,7 @@ Additional documentation for relevant Crypto subcomponents can be found here:
    :maxdepth: 1
 
    ../src/daemon/data_manager/docs/index
-   ../src/ipc/docs/index
+   ../src/ipc/message_passing_adapter/docs/index
 
 Component Detail Information
 ============================

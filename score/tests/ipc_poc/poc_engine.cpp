@@ -21,10 +21,10 @@
 // =============================================================================
 
 /// Usage:
-///   bazel run //tests/score_com_poc:poc_engine
-///   bazel run //tests/score_com_poc:poc_engine -- --call_count=5
-///   bazel run //tests/score_com_poc:poc_engine -- --client_threads=3 --call_count=5
-///   bazel run //tests/score_com_poc:poc_engine -- --call_count=3 --sleep_milliseconds=10
+///   bazel test //score/tests/ipc_poc:poc_engine
+///   bazel test //score/tests/ipc_poc:poc_engine --test_arg=--call_count=5
+///   bazel test //score/tests/ipc_poc:poc_engine --test_arg=--client_threads=3 --test_arg=--call_count=5
+///   bazel test //score/tests/ipc_poc:poc_engine --test_arg=--call_count=3 --test_arg=--sleep_milliseconds=10
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -51,10 +51,10 @@
 #include "score/message_passing/i_server_connection.h"
 #include "score/message_passing/server_factory.h"
 #include "score/message_passing/service_protocol_config.h"
-#include "score/tests/utility/runtime_measurement.hpp"
 #include "score/tests/ipc_poc/ipc_buffer.h"
 #include "score/tests/ipc_poc/poc_helper.hpp"
 #include "score/tests/utility/process_resource_measurement.hpp"
+#include "score/tests/utility/runtime_measurement.hpp"
 
 namespace score::crypto::ipc::control
 {
@@ -64,7 +64,7 @@ namespace helper = score::crypto::ipc::poc_helper;
 static constexpr std::string_view kBootstrapServiceIdentifier{"score_crypto_poc_engine_bootstrap"};
 
 static helper::PocArguments g_arguments{};  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static std::mutex g_log_mutex;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static std::mutex g_log_mutex;              // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static std::atomic<std::uint64_t> g_session_counter{0U};
 static constexpr bool kEnableVerboseOutput{false};
 static constexpr bool kEnableLatencyVerbose{false};
@@ -167,9 +167,9 @@ static bool StartEngineSession(const std::shared_ptr<EngineSession>& session)
     // This callback is executed by the server's message_passing Engine thread.
     // Deliberately doing the operation here demonstrates the requested model:
     // there is no POC-owned work queue and no application worker thread.
-    const auto request_callback = [](score::message_passing::IServerConnection& connection,
-                                     score::cpp::span<const std::uint8_t> message)
-        -> score::cpp::expected_blank<score::os::Error> {
+    const auto request_callback =
+        [](score::message_passing::IServerConnection& connection,
+           score::cpp::span<const std::uint8_t> message) -> score::cpp::expected_blank<score::os::Error> {
         helper::Response response;
         if (!helper::ProcessRequestBytes(message.data(), message.size(), response))
         {
@@ -191,16 +191,16 @@ static bool StartEngineSession(const std::shared_ptr<EngineSession>& session)
     };
 
     session->server_factory = std::make_unique<score::message_passing::ServerFactory>();
-    session->server = session->server_factory->Create(
-        MakeProtocolConfig(session->endpoint_identifier), MakeSessionServerConfig());
+    session->server =
+        session->server_factory->Create(MakeProtocolConfig(session->endpoint_identifier), MakeSessionServerConfig());
     if (!session->server)
     {
         LogErr("[server] failed to create endpoint " + session->endpoint_identifier);
         return false;
     }
 
-    const auto start_result = session->server->StartListening(
-        connect_callback, disconnect_callback, /*sent_callback=*/{}, request_callback);
+    const auto start_result =
+        session->server->StartListening(connect_callback, disconnect_callback, /*sent_callback=*/{}, request_callback);
     if (!start_result.has_value())
     {
         LogErr("[server] failed to start endpoint " + session->endpoint_identifier);
@@ -228,10 +228,10 @@ static bool RunServer(const pid_t client_pid, const int thread_count)
         Log("[bootstrap] client disconnected uid=" + std::to_string(connection.GetClientIdentity().uid));
     };
 
-    const auto request_callback = [bootstrap_state](
-                                     score::message_passing::IServerConnection& connection,
-                                     score::cpp::span<const std::uint8_t> message)
-        -> score::cpp::expected_blank<score::os::Error> {
+    const auto request_callback =
+        [bootstrap_state](
+            score::message_passing::IServerConnection& connection,
+            score::cpp::span<const std::uint8_t> message) -> score::cpp::expected_blank<score::os::Error> {
         helper::Request request;
         if (!helper::ParseRequestBytes(message.data(), message.size(), request))
         {
@@ -268,16 +268,16 @@ static bool RunServer(const pid_t client_pid, const int thread_count)
     };
 
     auto bootstrap_factory = std::make_unique<score::message_passing::ServerFactory>();
-    auto bootstrap_server = bootstrap_factory->Create(
-        MakeProtocolConfig(kBootstrapServiceIdentifier), MakeBootstrapServerConfig(thread_count));
+    auto bootstrap_server = bootstrap_factory->Create(MakeProtocolConfig(kBootstrapServiceIdentifier),
+                                                      MakeBootstrapServerConfig(thread_count));
     if (!bootstrap_server)
     {
         LogErr("[bootstrap] failed to create endpoint");
         return false;
     }
 
-    const auto start_result = bootstrap_server->StartListening(
-        connect_callback, disconnect_callback, /*sent_callback=*/{}, request_callback);
+    const auto start_result =
+        bootstrap_server->StartListening(connect_callback, disconnect_callback, /*sent_callback=*/{}, request_callback);
     if (!start_result.has_value())
     {
         LogErr("[bootstrap] failed to start endpoint");
@@ -288,7 +288,7 @@ static bool RunServer(const pid_t client_pid, const int thread_count)
     {
         std::unique_lock<std::mutex> lock{bootstrap_state->sessions_mutex};
         if (!bootstrap_state->sessions_condition.wait_for(lock, std::chrono::seconds(30), [&] {
-            return bootstrap_state->ready_sessions == static_cast<std::size_t>(thread_count);
+                return bootstrap_state->ready_sessions == static_cast<std::size_t>(thread_count);
             }))
         {
             LogErr("[server] timed out waiting for all Engine sessions to start");
@@ -423,9 +423,12 @@ static bool RunBootstrapHandshake(const int thread_index, std::string& endpoint_
 
     {
         std::unique_lock<std::mutex> lock{response_state->mutex};
-        if (!response_state->condition.wait_for(lock, std::chrono::seconds(30), [&] {
-                return response_state->ready;
-            }) || !response_state->ok)
+        if (!response_state->condition.wait_for(lock,
+                                                std::chrono::seconds(30),
+                                                [&] {
+                                                    return response_state->ready;
+                                                }) ||
+            !response_state->ok)
         {
             LogErr("[client " + std::to_string(thread_index) + "] bootstrap response timed out");
             client->Stop();
@@ -528,16 +531,16 @@ static bool RunClientThread(const int thread_index,
             score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement latency_scope{
                 latency_measurement, "POC::Engine::RoundTrip"};
 
-        const auto workload_request = helper::CreateRequest(0, thread_index, call);
-        const auto request_id = workload_request.request_id;
-        const auto request_bytes = helper::BuildRequestBytes(workload_request);
-        auto response_state = std::make_shared<ResponseState>();
+            const auto workload_request = helper::CreateRequest(0, thread_index, call);
+            const auto request_id = workload_request.request_id;
+            const auto request_bytes = helper::BuildRequestBytes(workload_request);
+            auto response_state = std::make_shared<ResponseState>();
 
             Log("[client] SendWithCallback request_id=" + std::to_string(request_id));
             const auto send_result = client->SendWithCallback(
                 score::cpp::span<const std::uint8_t>{request_bytes.data(), request_bytes.size()},
-                [response_state, request_id](
-                    score::cpp::expected<score::cpp::span<const std::uint8_t>, score::os::Error> response) {
+                [response_state,
+                 request_id](score::cpp::expected<score::cpp::span<const std::uint8_t>, score::os::Error> response) {
                     if (!response.has_value())
                     {
                         SetResponse(*response_state, false, {});
@@ -550,8 +553,7 @@ static bool RunClientThread(const int thread_index,
                         parsed_response.request_id != request_id)
                     {
                         SetResponse(*response_state, false, {});
-                        LogErr("[client/engine] response string missing for request_id=" +
-                               std::to_string(request_id));
+                        LogErr("[client/engine] response string missing for request_id=" + std::to_string(request_id));
                         return;
                     }
                     SetResponse(*response_state, true, std::move(parsed_response.string_value));
@@ -559,8 +561,8 @@ static bool RunClientThread(const int thread_index,
 
             if (!send_result.has_value())
             {
-                LogErr("[client " + std::to_string(thread_index) + "] SendWithCallback failed for request_id=" +
-                       std::to_string(request_id));
+                LogErr("[client " + std::to_string(thread_index) +
+                       "] SendWithCallback failed for request_id=" + std::to_string(request_id));
                 success = false;
                 break;
             }
@@ -572,8 +574,8 @@ static bool RunClientThread(const int thread_index,
             if (!received || !response_state->ok ||
                 !helper::Matches(workload_request, helper::Response{request_id, response_state->value}))
             {
-                LogErr("[client " + std::to_string(thread_index) + "] response mismatch or timeout for request_id=" +
-                       std::to_string(request_id));
+                LogErr("[client " + std::to_string(thread_index) +
+                       "] response mismatch or timeout for request_id=" + std::to_string(request_id));
                 success = false;
                 break;
             }
@@ -676,5 +678,7 @@ int main(int argc, char** argv)
     {
         return score::crypto::ipc::control::RunClient(score::crypto::ipc::control::g_arguments.client_threads) ? 0 : 1;
     }
-    return score::crypto::ipc::control::RunServer(client_pid, score::crypto::ipc::control::g_arguments.client_threads) ? 0 : 1;
+    return score::crypto::ipc::control::RunServer(client_pid, score::crypto::ipc::control::g_arguments.client_threads)
+               ? 0
+               : 1;
 }

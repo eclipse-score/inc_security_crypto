@@ -29,8 +29,7 @@ Selection of LoLa Message Passing as IPC
 
 LoLa Message Passing, implemented with the ``score::message_passing`` API, is
 selected as the target control-plane transport for communication between client
-processes and the daemon. Production integration and implementation validation
-are follow-up work.
+processes and the daemon.
 
 Context
 *******
@@ -40,9 +39,6 @@ includes deterministic and bounded execution and resource behavior, controlled
 heap/allocation use on ASIL-relevant paths, suitable isolation for the
 deployment, and appropriate quality artifacts such as requirements and design
 traceability, analysis, verification, and compliance or qualification evidence.
-The safety-relevant deployment target for this decision is QNX. Linux support
-is retained for development, testing, and non-safety or QM deployments; Linux
-backend limitations are not acceptance blockers for the QNX safety target.
 It must also provide bounded client-side waiting, allow concurrent calls from
 multiple client processes and threads, expose the identity of the peer, avoid
 imposing the daemon's worker-thread model, and keep the application protocol

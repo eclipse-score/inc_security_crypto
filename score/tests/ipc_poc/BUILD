@@ -110,7 +110,6 @@ cc_test(
         "//score/tests/utility:runtime_measurement",
         "//score/tests/utility:process_resource_measurement",
     ],
-    tags = ["manual"],
 )
 
 cc_test(

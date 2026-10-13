@@ -21,10 +21,11 @@
 // =============================================================================
 
 /// Usage:
-///   bazel run //tests/score_com_poc:poc_qnx_message_passing --config=x86_64-qnx
-///   bazel run //tests/score_com_poc:poc_qnx_message_passing --config=x86_64-qnx -- --call_count=5
-///   bazel run //tests/score_com_poc:poc_qnx_message_passing --config=x86_64-qnx -- --client_threads=3 --call_count=5
-///   bazel run //tests/score_com_poc:poc_qnx_message_passing --config=x86_64-qnx -- --call_count=3 --sleep_milliseconds=10
+///   bazel test //score/tests/ipc_poc:poc_qnx_message_passing --config=x86_64-qnx
+///   bazel test //score/tests/ipc_poc:poc_qnx_message_passing --config=x86_64-qnx --test_arg=--call_count=5
+///   bazel test //score/tests/ipc_poc:poc_qnx_message_passing --config=x86_64-qnx --test_arg=--client_threads=3
+///   --test_arg=--call_count=5 bazel test //score/tests/ipc_poc:poc_qnx_message_passing --config=x86_64-qnx
+///   --test_arg=--call_count=3 --test_arg=--sleep_milliseconds=10
 
 #include <sys/neutrino.h>
 #include <sys/wait.h>
@@ -43,21 +44,21 @@
 #include <utility>
 #include <vector>
 
-#include "score/tests/utility/runtime_measurement.hpp"
 #include "score/tests/ipc_poc/ipc_buffer.h"
 #include "score/tests/ipc_poc/poc_helper.hpp"
 #include "score/tests/utility/process_resource_measurement.hpp"
+#include "score/tests/utility/runtime_measurement.hpp"
 
 namespace score::crypto::ipc::control
 {
 
 namespace helper = score::crypto::ipc::poc_helper;
 
-static int g_call_count = 100;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static int g_client_threads = 4;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_call_count = 100;        // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_client_threads = 4;      // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static int g_sleep_milliseconds = 0;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static bool g_random_wait = false;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static std::mutex g_log_mutex;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static bool g_random_wait = false;    // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static std::mutex g_log_mutex;        // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static constexpr bool kEnableVerboseOutput{false};
 static constexpr bool kEnableLatencyVerbose{false};
 
@@ -92,8 +93,7 @@ static bool ProcessRequestBytes(const std::uint8_t* message_data,
     return response.size() <= kMaxIpcBufferSize;
 }
 
-static bool GetResponseSize(const std::array<std::uint8_t, kMaxIpcBufferSize>& response,
-                            std::size_t& response_size)
+static bool GetResponseSize(const std::array<std::uint8_t, kMaxIpcBufferSize>& response, std::size_t& response_size)
 {
     std::uint32_t payload_size = 0U;
     std::memcpy(&payload_size, response.data(), sizeof(payload_size));
@@ -107,9 +107,7 @@ static bool GetResponseSize(const std::array<std::uint8_t, kMaxIpcBufferSize>& r
 
 using ReceiveId = decltype(::MsgReceive(0, nullptr, 0, nullptr));
 
-static bool RunServerRequest(const ReceiveId rcvid,
-                             std::vector<std::uint8_t> request,
-                             const int client_index)
+static bool RunServerRequest(const ReceiveId rcvid, std::vector<std::uint8_t> request, const int client_index)
 {
     std::uint64_t request_id = 0U;
     std::vector<std::uint8_t> response;
@@ -118,8 +116,8 @@ static bool RunServerRequest(const ReceiveId rcvid,
         LogErr("[server worker " + std::to_string(client_index) + "] invalid request message");
         if (::MsgError(static_cast<int>(rcvid), EINVAL) == -1)
         {
-            LogErr("[server worker " + std::to_string(client_index) + "] MsgError() failed: " +
-                   std::string{std::strerror(errno)});
+            LogErr("[server worker " + std::to_string(client_index) +
+                   "] MsgError() failed: " + std::string{std::strerror(errno)});
         }
         return false;
     }
@@ -131,12 +129,12 @@ static bool RunServerRequest(const ReceiveId rcvid,
         std::this_thread::sleep_for(std::chrono::milliseconds(g_sleep_milliseconds));
     }
 
-    Log("[server worker " + std::to_string(client_index) + "] processed request_id=" +
-        std::to_string(request_id) + ", sending FlatBuffer response");
+    Log("[server worker " + std::to_string(client_index) + "] processed request_id=" + std::to_string(request_id) +
+        ", sending FlatBuffer response");
     if (::MsgReply(static_cast<int>(rcvid), EOK, response.data(), response.size()) == -1)
     {
-        LogErr("[server worker " + std::to_string(client_index) + "] MsgReply() failed: " +
-               std::string{std::strerror(errno)});
+        LogErr("[server worker " + std::to_string(client_index) +
+               "] MsgReply() failed: " + std::string{std::strerror(errno)});
         return false;
     }
     return true;
@@ -168,8 +166,8 @@ static void RunServerWorker(const int chid,
         {
             if (!stopping.load(std::memory_order_acquire))
             {
-                LogErr("[server worker " + std::to_string(worker_index) + "] MsgReceive() failed: " +
-                       std::string{std::strerror(errno)});
+                LogErr("[server worker " + std::to_string(worker_index) +
+                       "] MsgReceive() failed: " + std::string{std::strerror(errno)});
                 failures.fetch_add(1, std::memory_order_relaxed);
             }
             return;
@@ -182,8 +180,8 @@ static void RunServerWorker(const int chid,
             LogErr("[server worker " + std::to_string(worker_index) + "] invalid request message");
             if (::MsgError(static_cast<int>(rcvid), EINVAL) == -1)
             {
-                LogErr("[server worker " + std::to_string(worker_index) + "] MsgError() failed: " +
-                       std::string{std::strerror(errno)});
+                LogErr("[server worker " + std::to_string(worker_index) +
+                       "] MsgError() failed: " + std::string{std::strerror(errno)});
             }
             failures.fetch_add(1, std::memory_order_relaxed);
             continue;
@@ -203,8 +201,8 @@ static bool RunServer(const int chid, const pid_t client_pid, const int server_t
     score::crypto::daemon::common::RuntimeMeasurement setup_measurement{kEnableLatencyVerbose};
     Log("[server] waiting for QNX message-passing requests on channel " + std::to_string(chid));
 
-    const auto expected_request_count = static_cast<std::size_t>(g_client_threads) *
-                                        static_cast<std::size_t>(g_call_count);
+    const auto expected_request_count =
+        static_cast<std::size_t>(g_client_threads) * static_cast<std::size_t>(g_call_count);
     std::atomic<bool> stopping{false};
     std::atomic<std::size_t> received_request_count{0U};
     std::atomic<int> failures{0};
@@ -239,7 +237,8 @@ static bool RunServer(const int chid, const pid_t client_pid, const int server_t
     const auto resources_after_workload = tests::utility::CaptureProcessResourceSnapshot();
     tests::utility::PrintProcessResourceDelta(
         "poc_qnx_message_passing_server_workload", resources_after_thread_creation, resources_after_workload);
-    const bool success = client_ok && received_request_count.load(std::memory_order_relaxed) == expected_request_count &&
+    const bool success = client_ok &&
+                         received_request_count.load(std::memory_order_relaxed) == expected_request_count &&
                          failures.load(std::memory_order_relaxed) == 0;
     if (client_ok && success)
     {
@@ -280,8 +279,8 @@ static bool RunClientThread(const pid_t server_pid,
     }
     if (coid < 0)
     {
-        LogErr("[client " + std::to_string(client_index) + "] ConnectAttach() failed: " +
-               std::string{std::strerror(errno)});
+        LogErr("[client " + std::to_string(client_index) +
+               "] ConnectAttach() failed: " + std::string{std::strerror(errno)});
         return false;
     }
     Log("[client " + std::to_string(client_index) + "] connected to QNX message-passing channel " +
@@ -298,8 +297,7 @@ static bool RunClientThread(const pid_t server_pid,
             const auto request = helper::BuildRequestBytes(workload_request);
             std::array<std::uint8_t, kMaxIpcBufferSize> response{};
 
-            Log("[client " + std::to_string(client_index) + "] sending request_id=" +
-                std::to_string(request_id));
+            Log("[client " + std::to_string(client_index) + "] sending request_id=" + std::to_string(request_id));
             const auto send_status = ::MsgSend(coid,
                                                request.data(),
                                                static_cast<int>(request.size()),
@@ -307,8 +305,8 @@ static bool RunClientThread(const pid_t server_pid,
                                                static_cast<int>(response.size()));
             if (send_status != EOK)
             {
-                LogErr("[client " + std::to_string(client_index) + "] MsgSend() failed with status=" +
-                       std::to_string(send_status));
+                LogErr("[client " + std::to_string(client_index) +
+                       "] MsgSend() failed with status=" + std::to_string(send_status));
                 success = false;
                 break;
             }
@@ -330,8 +328,8 @@ static bool RunClientThread(const pid_t server_pid,
 
     if (::ConnectDetach(coid) == -1)
     {
-        LogErr("[client " + std::to_string(client_index) + "] ConnectDetach() failed: " +
-               std::string{std::strerror(errno)});
+        LogErr("[client " + std::to_string(client_index) +
+               "] ConnectDetach() failed: " + std::string{std::strerror(errno)});
         success = false;
     }
     return success;
@@ -396,13 +394,12 @@ int main(int argc, char** argv)
     score::crypto::ipc::control::g_sleep_milliseconds = parsed_arguments->sleep_milliseconds;
     score::crypto::ipc::control::g_random_wait = parsed_arguments->random_wait;
 
-    std::cout << score::crypto::ipc::poc_helper::SettingsSummary(
-                     "poc_qnx_message_passing",
-                     1,
-                     score::crypto::ipc::control::g_call_count,
-                     score::crypto::ipc::control::g_client_threads,
-                     score::crypto::ipc::control::g_client_threads,
-                     score::crypto::ipc::control::g_random_wait)
+    std::cout << score::crypto::ipc::poc_helper::SettingsSummary("poc_qnx_message_passing",
+                                                                 1,
+                                                                 score::crypto::ipc::control::g_call_count,
+                                                                 score::crypto::ipc::control::g_client_threads,
+                                                                 score::crypto::ipc::control::g_client_threads,
+                                                                 score::crypto::ipc::control::g_random_wait)
               << '\n'
               << std::flush;
     const auto chid = ::ChannelCreate(0);
@@ -421,14 +418,10 @@ int main(int argc, char** argv)
     }
     if (server_pid == 0)
     {
-        return score::crypto::ipc::control::RunClient(::getppid(),
-                                                      chid,
-                                                      score::crypto::ipc::control::g_client_threads)
+        return score::crypto::ipc::control::RunClient(::getppid(), chid, score::crypto::ipc::control::g_client_threads)
                    ? 0
                    : 1;
     }
-    return score::crypto::ipc::control::RunServer(
-               chid, server_pid, score::crypto::ipc::control::g_client_threads)
-               ? 0
-               : 1;
+    return score::crypto::ipc::control::RunServer(chid, server_pid, score::crypto::ipc::control::g_client_threads) ? 0
+                                                                                                                   : 1;
 }

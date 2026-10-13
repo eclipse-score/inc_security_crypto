@@ -45,13 +45,13 @@
 ///   The parent waits for all children via waitpid before stopping the service.
 ///
 /// Usage:
-///   bazel run //tests/score_com_poc:poc_async
-///   bazel run //tests/score_com_poc:poc_async -- --client_count=3 --call_count=5
-///   bazel run //tests/score_com_poc:poc_async -- --client_count=3 --call_count=5
-///   bazel run //tests/score_com_poc:poc_async -- --client_count=3 --call_count=5 --client_threads=4
-///   bazel run //tests/score_com_poc:poc_async -- --client_count=3 --call_count=5 --server_threads=2
-///   bazel run //tests/score_com_poc:poc_async -- --client_count=3 --call_count=5 --client_threads=4 --server_threads=2
-///   bazel run //tests/score_com_poc:poc_async -- --sleep_milliseconds=500
+///   bazel test //score/tests/ipc_poc:poc_async
+///   bazel test //score/tests/ipc_poc:poc_async --test_arg=--client_count=3 --test_arg=--call_count=5
+///   bazel test //score/tests/ipc_poc:poc_async --test_arg=--client_count=3 --test_arg=--call_count=5
+///   --test_arg=--client_threads=4 bazel test //score/tests/ipc_poc:poc_async --test_arg=--client_count=3
+///   --test_arg=--call_count=5 --test_arg=--server_threads=2 bazel test //score/tests/ipc_poc:poc_async
+///   --test_arg=--client_count=3 --test_arg=--call_count=5 --test_arg=--client_threads=4 --test_arg=--server_threads=2
+///   bazel test //score/tests/ipc_poc:poc_async --test_arg=--sleep_milliseconds=500
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -74,11 +74,11 @@
 #include "score/mw/com/runtime.h"
 #include "score/mw/com/runtime_configuration.h"
 #include "score/mw/com/types.h"
-#include "score/tests/utility/runtime_measurement.hpp"
 #include "score/tests/ipc_poc/async_control_interface.h"
 #include "score/tests/ipc_poc/ipc_buffer.h"
 #include "score/tests/ipc_poc/poc_helper.hpp"
 #include "score/tests/utility/process_resource_measurement.hpp"
+#include "score/tests/utility/runtime_measurement.hpp"
 
 // ---------------------------------------------------------------------------
 // Global parameters (set before fork; never mutated after)
@@ -271,8 +271,8 @@ static IpcBuffer ProcessRequest(const IpcBuffer& request_buf)
 
     {
         std::stringstream ss;
-          ss << "[server/worker] ticket=" << workload_response.request_id << " -> combined=\""
-              << workload_response.string_value << "\"";
+        ss << "[server/worker] ticket=" << workload_response.request_id << " -> combined=\""
+           << workload_response.string_value << "\"";
         Log(ss.str());
     }
 
@@ -424,37 +424,38 @@ static int RunServer(const std::vector<pid_t>& child_pids)
     for (std::size_t skel_idx = 0; skel_idx < skeletons.size(); ++skel_idx)
     {
         // Capture skel_idx by value so each handler knows its instance index.
-        auto reg_result = skeletons[skel_idx].request.RegisterHandler([&, skel_idx](std::uint64_t& result,
-                                                                                    const IpcBuffer& req_buf) {
-            helper::Request request;
-            const bool parse_ok = helper::ParseRequestBuffer(req_buf, request);
-            const std::uint64_t ticket = parse_ok ? request.request_id : 0U;
+        auto reg_result =
+            skeletons[skel_idx].request.RegisterHandler([&, skel_idx](std::uint64_t& result, const IpcBuffer& req_buf) {
+                helper::Request request;
+                const bool parse_ok = helper::ParseRequestBuffer(req_buf, request);
+                const std::uint64_t ticket = parse_ok ? request.request_id : 0U;
 
-            std::stringstream ss1;
-            ss1 << "[server/handler] instance=" << skel_idx << " ticket=" << ticket;
-            Log(ss1.str());
+                std::stringstream ss1;
+                ss1 << "[server/handler] instance=" << skel_idx << " ticket=" << ticket;
+                Log(ss1.str());
 
-            if (!parse_ok || ticket == 0U)
-            {
-                std::stringstream ss_err;
-                ss_err << "[server/handler] instance=" << skel_idx << " WARNING: ticket=" << ticket
-                       << " — FlatBuffer parse failed or zero request_id;"
-                          " response will never match a pending client call";
-                Log(ss_err.str());
-            }
+                if (!parse_ok || ticket == 0U)
+                {
+                    std::stringstream ss_err;
+                    ss_err << "[server/handler] instance=" << skel_idx << " WARNING: ticket=" << ticket
+                           << " — FlatBuffer parse failed or zero request_id;"
+                              " response will never match a pending client call";
+                    Log(ss_err.str());
+                }
 
-            {
-                std::lock_guard<std::mutex> lk(queue_mutex);
-                work_queue.push({ticket, req_buf, skel_idx});
-            }
-            queue_cv.notify_one();
+                {
+                    std::lock_guard<std::mutex> lk(queue_mutex);
+                    work_queue.push({ticket, req_buf, skel_idx});
+                }
+                queue_cv.notify_one();
 
-            std::stringstream ss;
-            ss << "[server/handler] instance=" << skel_idx << " queued ticket=" << ticket << " (returning immediately)";
-            Log(ss.str());
+                std::stringstream ss;
+                ss << "[server/handler] instance=" << skel_idx << " queued ticket=" << ticket
+                   << " (returning immediately)";
+                Log(ss.str());
 
-            result = ticket;  // Phase 1 return: the ticket number.
-        });
+                result = ticket;  // Phase 1 return: the ticket number.
+            });
 
         if (!reg_result.has_value())
         {
@@ -773,138 +774,137 @@ static bool RunClient(const int client_index, const int call_count, const int th
             for (int c = 0; c < call_count; ++c)
             {
                 {
-                score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement latency_scope{
-                    latency_measurement, "POC::Async::RoundTrip"};
+                    score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement latency_scope{
+                        latency_measurement, "POC::Async::RoundTrip"};
 
-                const auto workload_request = helper::CreateRequest(client_index, t, c);
-                const auto request_id = workload_request.request_id;
+                    const auto workload_request = helper::CreateRequest(client_index, t, c);
+                    const auto request_id = workload_request.request_id;
 
-                // Set up the pending state BEFORE sending so the receive handler
-                // can never miss the response even on a very fast server.
-                {
-                    std::lock_guard<std::mutex> lk(pending.mutex);
-                    pending.ticket = request_id;
-                    pending.ready = false;
-                    pending.ok = false;
-                    pending.result_value.clear();
-                }
-
-                // --- Phase 1 (serialised across threads — see phase1_mutex comment above) ---
-                bool phase1_failed = false;
-                std::uint64_t ticket = 0U;
-                {
-                    std::lock_guard<std::mutex> phase1_lk(phase1_mutex);
-                    do  // single-exit wrapper so 'break' acts like a labelled continue
+                    // Set up the pending state BEFORE sending so the receive handler
+                    // can never miss the response even on a very fast server.
                     {
-                        auto alloc_result = proxy.request.Allocate();
-                        if (!alloc_result.has_value())
+                        std::lock_guard<std::mutex> lk(pending.mutex);
+                        pending.ticket = request_id;
+                        pending.ready = false;
+                        pending.ok = false;
+                        pending.result_value.clear();
+                    }
+
+                    // --- Phase 1 (serialised across threads — see phase1_mutex comment above) ---
+                    bool phase1_failed = false;
+                    std::uint64_t ticket = 0U;
+                    {
+                        std::lock_guard<std::mutex> phase1_lk(phase1_mutex);
+                        do  // single-exit wrapper so 'break' acts like a labelled continue
                         {
-                            Log("[client " + std::to_string(client_index) + "/thread " + std::to_string(t) +
-                                "] request.Allocate() failed");
-                            ++failures;
-                            phase1_failed = true;
-                            break;
-                        }
-                        auto& arg = std::get<0>(alloc_result.value());
+                            auto alloc_result = proxy.request.Allocate();
+                            if (!alloc_result.has_value())
+                            {
+                                Log("[client " + std::to_string(client_index) + "/thread " + std::to_string(t) +
+                                    "] request.Allocate() failed");
+                                ++failures;
+                                phase1_failed = true;
+                                break;
+                            }
+                            auto& arg = std::get<0>(alloc_result.value());
 
-                        if (!helper::BuildRequestInto(*arg, workload_request))
-                        {
-                            Log("[client " + std::to_string(client_index) + "/thread " + std::to_string(t) +
-                                "] PackFlatBufferInto failed");
-                            ++failures;
-                            phase1_failed = true;
-                            break;
-                        }
+                            if (!helper::BuildRequestInto(*arg, workload_request))
+                            {
+                                Log("[client " + std::to_string(client_index) + "/thread " + std::to_string(t) +
+                                    "] PackFlatBufferInto failed");
+                                ++failures;
+                                phase1_failed = true;
+                                break;
+                            }
 
-                        {
-                            std::stringstream ss;
-                            ss << "[client " << client_index << "/thread " << t << "] -> request_id=" << request_id
-                               << " str=\"" << workload_request.string_value << "\" uint64="
-                               << workload_request.uint64_value
-                               << " (Phase 1: short-lived call)";
-                            Log(ss.str());
-                        }
+                            {
+                                std::stringstream ss;
+                                ss << "[client " << client_index << "/thread " << t << "] -> request_id=" << request_id
+                                   << " str=\"" << workload_request.string_value
+                                   << "\" uint64=" << workload_request.uint64_value << " (Phase 1: short-lived call)";
+                                Log(ss.str());
+                            }
 
-                        auto call_result = proxy.request(std::move(arg));
-                        if (!call_result.has_value())
-                        {
-                            std::ostringstream oss;
-                            oss << "[client " << client_index << "/thread " << t
-                                << "] request() call failed for ticket=" << request_id;
-                            Log(oss.str());
-                            ++failures;
-                            phase1_failed = true;
-                            break;
-                        }
-                        ticket = *call_result.value();
+                            auto call_result = proxy.request(std::move(arg));
+                            if (!call_result.has_value())
+                            {
+                                std::ostringstream oss;
+                                oss << "[client " << client_index << "/thread " << t
+                                    << "] request() call failed for ticket=" << request_id;
+                                Log(oss.str());
+                                ++failures;
+                                phase1_failed = true;
+                                break;
+                            }
+                            ticket = *call_result.value();
 
-                        if (ticket != request_id)
-                        {
-                            std::ostringstream oss;
-                            oss << "[client " << client_index << "/thread " << t
-                                << "] Phase 1 ticket mismatch: sent request_id=" << request_id
-                                << " but server returned ticket=" << ticket;
-                            Log(oss.str());
-                            ++failures;
-                            phase1_failed = true;
-                            break;
-                        }
+                            if (ticket != request_id)
+                            {
+                                std::ostringstream oss;
+                                oss << "[client " << client_index << "/thread " << t
+                                    << "] Phase 1 ticket mismatch: sent request_id=" << request_id
+                                    << " but server returned ticket=" << ticket;
+                                Log(oss.str());
+                                ++failures;
+                                phase1_failed = true;
+                                break;
+                            }
 
-                        {
-                            std::stringstream ss;
-                            ss << "[client " << client_index << "/thread " << t << "] <- ticket=" << ticket
-                               << " (Phase 1 complete \u2014 now waiting for Phase 2 event)";
-                            Log(ss.str());
-                        }
-                    } while (false);
-                }  // phase1_mutex released — Phase 2 runs concurrently
+                            {
+                                std::stringstream ss;
+                                ss << "[client " << client_index << "/thread " << t << "] <- ticket=" << ticket
+                                   << " (Phase 1 complete \u2014 now waiting for Phase 2 event)";
+                                Log(ss.str());
+                            }
+                        } while (false);
+                    }  // phase1_mutex released — Phase 2 runs concurrently
 
-                if (phase1_failed)
-                {
-                    continue;
-                }
+                    if (phase1_failed)
+                    {
+                        continue;
+                    }
 
-                // --- Phase 2: wait for the matching response event ---
-                constexpr auto kTimeout = std::chrono::seconds(30);
-                bool timed_out = false;
-                {
-                    std::unique_lock<std::mutex> lk(pending.mutex);
-                    timed_out = !pending.cv.wait_for(lk, kTimeout, [&] {
-                        return pending.ready;
-                    });
-                }
+                    // --- Phase 2: wait for the matching response event ---
+                    constexpr auto kTimeout = std::chrono::seconds(30);
+                    bool timed_out = false;
+                    {
+                        std::unique_lock<std::mutex> lk(pending.mutex);
+                        timed_out = !pending.cv.wait_for(lk, kTimeout, [&] {
+                            return pending.ready;
+                        });
+                    }
 
-                if (timed_out)
-                {
-                    std::ostringstream oss;
-                    oss << "[client " << client_index << "/thread " << t
-                        << "] TIMEOUT waiting for event ticket=" << ticket << " (pending.ticket=" << pending.ticket
-                        << " pending.ready=" << pending.ready << ")";
-                    Log(oss.str());
-                    ++failures;
-                    continue;
-                }
+                    if (timed_out)
+                    {
+                        std::ostringstream oss;
+                        oss << "[client " << client_index << "/thread " << t
+                            << "] TIMEOUT waiting for event ticket=" << ticket << " (pending.ticket=" << pending.ticket
+                            << " pending.ready=" << pending.ready << ")";
+                        Log(oss.str());
+                        ++failures;
+                        continue;
+                    }
 
-                if (!pending.ok ||
-                    !helper::Matches(workload_request, helper::Response{ticket, pending.result_value}))
-                {
-                    std::ostringstream oss;
-                    oss << "[client " << client_index << "/thread " << t << "] MISMATCH ticket=" << ticket
-                        << ": expected=\"" << helper::ProcessRequest(workload_request).string_value
-                        << "\" got=\"" << pending.result_value << "\"";
-                    Log(oss.str());
-                    ++failures;
-                    continue;
-                }
+                    if (!pending.ok ||
+                        !helper::Matches(workload_request, helper::Response{ticket, pending.result_value}))
+                    {
+                        std::ostringstream oss;
+                        oss << "[client " << client_index << "/thread " << t << "] MISMATCH ticket=" << ticket
+                            << ": expected=\"" << helper::ProcessRequest(workload_request).string_value << "\" got=\""
+                            << pending.result_value << "\"";
+                        Log(oss.str());
+                        ++failures;
+                        continue;
+                    }
 
-                {
-                    std::stringstream ss;
-                    ss << "[client " << client_index << "/thread " << t << "] OK ticket=" << ticket << " result=\""
-                       << pending.result_value << "\" (Phase 2 complete)";
-                    Log(ss.str());
-                }
+                    {
+                        std::stringstream ss;
+                        ss << "[client " << client_index << "/thread " << t << "] OK ticket=" << ticket << " result=\""
+                           << pending.result_value << "\" (Phase 2 complete)";
+                        Log(ss.str());
+                    }
 
-                // std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+                    // std::this_thread::sleep_for(std::chrono::milliseconds(5000));
                 }
                 helper::WaitAfterCall(g_random_wait);
             }
@@ -968,18 +968,12 @@ int main(int argc, char** argv)
     g_random_wait = parsed_arguments->random_wait;
 
     std::cout << score::crypto::ipc::poc_helper::SettingsSummary(
-                     "poc_async",
-                     g_client_count,
-                     g_call_count,
-                     g_client_threads,
-                     g_server_threads,
-                     g_random_wait)
+                     "poc_async", g_client_count, g_call_count, g_client_threads, g_server_threads, g_random_wait)
               << '\n'
               << std::flush;
-    Log("[main] client_count=" + std::to_string(g_client_count) + "  call_count=" +
-        std::to_string(g_call_count) + "  client_threads=" + std::to_string(g_client_threads) +
-        "  server_threads=" + std::to_string(g_server_threads) +
-        "  sleep_milliseconds=" + std::to_string(g_sleep_milliseconds));
+    Log("[main] client_count=" + std::to_string(g_client_count) + "  call_count=" + std::to_string(g_call_count) +
+        "  client_threads=" + std::to_string(g_client_threads) + "  server_threads=" +
+        std::to_string(g_server_threads) + "  sleep_milliseconds=" + std::to_string(g_sleep_milliseconds));
 
     score::crypto::ipc::control::SetupConfigs(g_client_count);
 

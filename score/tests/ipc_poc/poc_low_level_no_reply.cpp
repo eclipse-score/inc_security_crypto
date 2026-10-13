@@ -60,10 +60,11 @@
 /// children=clients.
 ///
 /// Usage:
-///   bazel run //tests/score_com_poc:poc_low_level
-///   bazel run //tests/score_com_poc:poc_low_level -- --client_count=3 --call_count=5
-///   bazel run //tests/score_com_poc:poc_low_level -- --client_count=3 --call_count=5 --client_threads=4
-///   bazel run //tests/score_com_poc:poc_low_level -- --client_count=3 --call_count=5 --server_threads=2
+///   bazel test //score/tests/ipc_poc:poc_low_level_no_reply
+///   bazel test //score/tests/ipc_poc:poc_low_level_no_reply --test_arg=--client_count=3 --test_arg=--call_count=5
+///   bazel test //score/tests/ipc_poc:poc_low_level_no_reply --test_arg=--client_count=3 --test_arg=--call_count=5
+///   --test_arg=--client_threads=4 bazel test //score/tests/ipc_poc:poc_low_level_no_reply --test_arg=--client_count=3
+///   --test_arg=--call_count=5 --test_arg=--server_threads=2
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -92,19 +93,19 @@
 #include "score/message_passing/i_server_factory.h"
 #include "score/message_passing/server_factory.h"
 #include "score/message_passing/service_protocol_config.h"
-#include "score/tests/utility/runtime_measurement.hpp"
 #include "score/tests/ipc_poc/ipc_buffer.h"
 #include "score/tests/ipc_poc/poc_control_generated.h"
 #include "score/tests/ipc_poc/poc_helper.hpp"
 #include "score/tests/utility/process_resource_measurement.hpp"
+#include "score/tests/utility/runtime_measurement.hpp"
 
 // ---------------------------------------------------------------------------
 // Global parameters (set before fork; never mutated after)
 // ---------------------------------------------------------------------------
 
-static int g_client_count = 1;       // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static int g_call_count = 1000;         // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static int g_client_threads = 1;     // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_client_count = 1;        // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_call_count = 1000;       // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_client_threads = 1;      // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static int g_server_threads = 8;      // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static int g_sleep_milliseconds = 0;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static bool g_random_wait = false;    // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
@@ -309,7 +310,7 @@ static std::vector<std::uint8_t> ProcessRequestBytes(const std::uint64_t request
     {
         std::ostringstream ss;
         ss << "[server/worker] request_id=" << workload_response.request_id << " -> combined=\""
-              << workload_response.string_value << "\"";
+           << workload_response.string_value << "\"";
         Log(ss.str());
     }
 
@@ -590,9 +591,9 @@ static int RunServer(const std::vector<pid_t>& child_pids)
     };
     auto sent_ctx = std::make_shared<SentCtx>(SentCtx{queue_mutex, queue_cv, work_queue, live_conn});
 
-    auto sent_cb =
-        [sent_ctx](score::message_passing::IServerConnection& conn,
-                   score::cpp::span<const std::uint8_t> message) -> score::cpp::expected_blank<score::os::Error> {
+    auto sent_cb = [sent_ctx](
+                       score::message_passing::IServerConnection& conn,
+                       score::cpp::span<const std::uint8_t> message) -> score::cpp::expected_blank<score::os::Error> {
         // Read the client-assigned request_id from the FlatBuffer.
         // The client guarantees it is non-zero and unique within its process.
         helper::Request workload_request;
@@ -754,9 +755,8 @@ static bool RunClient(const int client_index, const int call_count, const int th
     // a single pointer — sizeof(void*) == 8 bytes.
     struct ConnectionState
     {
-        ConnectionState(
-            std::mutex& pending_map_mutex_in,
-            std::unordered_map<std::uint64_t, std::shared_ptr<PendingCall>>& pending_map_in)
+        ConnectionState(std::mutex& pending_map_mutex_in,
+                        std::unordered_map<std::uint64_t, std::shared_ptr<PendingCall>>& pending_map_in)
             : pending_map_mutex{pending_map_mutex_in}, pending_map{pending_map_in}
         {
         }
@@ -795,89 +795,90 @@ static bool RunClient(const int client_index, const int call_count, const int th
         }
 
         client->Start(
-        [conn_state, client_index](score::message_passing::IClientConnection::State state) {
-            if (state == score::message_passing::IClientConnection::State::kReady)
-            {
-                if (!conn_state->ready_set.exchange(true))
+            [conn_state, client_index](score::message_passing::IClientConnection::State state) {
+                if (state == score::message_passing::IClientConnection::State::kReady)
                 {
-                    Log("[client " + std::to_string(client_index) + "] connection ready");
-                    conn_state->ready_promise.set_value();
-                }
-            }
-            else if (state == score::message_passing::IClientConnection::State::kStopped)
-            {
-                if (!conn_state->stopped_set.exchange(true))
-                {
-                    conn_state->stopped_promise.set_value();
-                }
-                std::vector<std::shared_ptr<PendingCall>> pending_calls;
-                {
-                    std::lock_guard<std::mutex> map_lk(conn_state->pending_map_mutex);
-                    for (const auto& entry : conn_state->pending_map)
+                    if (!conn_state->ready_set.exchange(true))
                     {
-                        pending_calls.push_back(entry.second);
+                        Log("[client " + std::to_string(client_index) + "] connection ready");
+                        conn_state->ready_promise.set_value();
                     }
-                    conn_state->pending_map.clear();
                 }
-                for (const auto& pending : pending_calls)
+                else if (state == score::message_passing::IClientConnection::State::kStopped)
                 {
+                    if (!conn_state->stopped_set.exchange(true))
+                    {
+                        conn_state->stopped_promise.set_value();
+                    }
+                    std::vector<std::shared_ptr<PendingCall>> pending_calls;
+                    {
+                        std::lock_guard<std::mutex> map_lk(conn_state->pending_map_mutex);
+                        for (const auto& entry : conn_state->pending_map)
+                        {
+                            pending_calls.push_back(entry.second);
+                        }
+                        conn_state->pending_map.clear();
+                    }
+                    for (const auto& pending : pending_calls)
+                    {
+                        {
+                            std::lock_guard<std::mutex> call_lk(pending->mutex);
+                            pending->ok = false;
+                            pending->ready = true;
+                        }
+                        pending->cv.notify_one();
+                    }
+                }
+            },
+            // NotifyCallback — runs on the library's engine thread.
+            // The PendingCall is inserted before Send(), so the entry is available
+            // when a Notify arrives.
+            // MUST NOT call any blocking message_passing operation (doc §Client
+            // Connection callbacks).  Only parse the payload, look up the pending
+            // call by request_id, and signal the condition variable.
+            [notify_ctx](score::cpp::span<const std::uint8_t> message) {
+                auto start_time = std::chrono::system_clock::now();
+
+                helper::Response parsed_response;
+                const bool parse_ok = helper::ParseResponseBytes(message.data(), message.size(), parsed_response);
+                const std::uint64_t request_id = parsed_response.request_id;
+                std::string result_value = std::move(parsed_response.string_value);
+                if (!parse_ok)
+                {
+                    LogErr("[client " + std::to_string(notify_ctx->client_index) +
+                           "] NotifyCallback: invalid response");
+                }
+
+                // Look up and signal the waiting thread.
+                // The entry was inserted before Send() so it is always
+                // present when Notify arrives.  A missing entry means the call already
+                // timed out and was erased by the calling thread — discard silently.
+                std::lock_guard<std::mutex> map_lk(notify_ctx->pending_map_mutex);
+                auto it = notify_ctx->pending_map.find(request_id);
+                if (it != notify_ctx->pending_map.end())
+                {
+                    const auto pending = it->second;
                     {
                         std::lock_guard<std::mutex> call_lk(pending->mutex);
-                        pending->ok = false;
+                        pending->result_value = std::move(result_value);
+                        pending->ok = parse_ok;
                         pending->ready = true;
                     }
                     pending->cv.notify_one();
                 }
-            }
-        },
-        // NotifyCallback — runs on the library's engine thread.
-        // The PendingCall is inserted before Send(), so the entry is available
-        // when a Notify arrives.
-        // MUST NOT call any blocking message_passing operation (doc §Client
-        // Connection callbacks).  Only parse the payload, look up the pending
-        // call by request_id, and signal the condition variable.
-        [notify_ctx](score::cpp::span<const std::uint8_t> message) {
-            auto start_time = std::chrono::system_clock::now();
-
-            helper::Response parsed_response;
-            const bool parse_ok = helper::ParseResponseBytes(message.data(), message.size(), parsed_response);
-            const std::uint64_t request_id = parsed_response.request_id;
-            std::string result_value = std::move(parsed_response.string_value);
-            if (!parse_ok)
-            {
-                LogErr("[client " + std::to_string(notify_ctx->client_index) + "] NotifyCallback: invalid response");
-            }
-
-            // Look up and signal the waiting thread.
-            // The entry was inserted before Send() so it is always
-            // present when Notify arrives.  A missing entry means the call already
-            // timed out and was erased by the calling thread — discard silently.
-            std::lock_guard<std::mutex> map_lk(notify_ctx->pending_map_mutex);
-            auto it = notify_ctx->pending_map.find(request_id);
-            if (it != notify_ctx->pending_map.end())
-            {
-                const auto pending = it->second;
+                else
                 {
-                    std::lock_guard<std::mutex> call_lk(pending->mutex);
-                    pending->result_value = std::move(result_value);
-                    pending->ok = parse_ok;
-                    pending->ready = true;
+                    LogErr("[client " + std::to_string(notify_ctx->client_index) +
+                           "] NotifyCallback: late notify for timed-out request_id=" + std::to_string(request_id) +
+                           " — discarded");
                 }
-                pending->cv.notify_one();
-            }
-            else
-            {
-                LogErr("[client " + std::to_string(notify_ctx->client_index) +
-                       "] NotifyCallback: late notify for timed-out request_id=" + std::to_string(request_id) +
-                       " — discarded");
-            }
 
-            auto end_time = std::chrono::system_clock::now();
-            auto diff = end_time - start_time;
-            Log("[client " + std::to_string(notify_ctx->client_index) +
-                "] NotifyCallback request_id=" + std::to_string(request_id) + " took " +
-                std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(diff).count()) + " us");
-        });
+                auto end_time = std::chrono::system_clock::now();
+                auto diff = end_time - start_time;
+                Log("[client " + std::to_string(notify_ctx->client_index) +
+                    "] NotifyCallback request_id=" + std::to_string(request_id) + " took " +
+                    std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(diff).count()) + " us");
+            });
 
         if (ready_future.wait_for(std::chrono::seconds(120)) != std::future_status::ready)
         {
@@ -906,102 +907,103 @@ static bool RunClient(const int client_index, const int call_count, const int th
             for (int c = 0; c < call_count; ++c)
             {
                 {
-                score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement latency_scope{
-                    latency_measurement, "POC::LowLevel::RoundTrip"};
+                    score::crypto::daemon::common::RuntimeMeasurement::ScopedMeasurement latency_scope{
+                        latency_measurement, "POC::LowLevel::RoundTrip"};
 
-                // Build request
-                auto workload_request = helper::CreateRequest(client_index, t, c);
+                    // Build request
+                    auto workload_request = helper::CreateRequest(client_index, t, c);
 
-                // Assign the request_id before building the FlatBuffer so it can
-                // be embedded in the payload and inserted into the pending_map —
-                // all before the send.  Upper 32 bits = pid (process-unique prefix),
-                // lower 32 bits = per-process monotonic counter (thread-unique within
-                // this process).  Zero is never produced (counter starts at 1).
-                const std::uint64_t request_id = pid_upper | call_counter.fetch_add(1U, std::memory_order_relaxed);
-                workload_request.request_id = request_id;
+                    // Assign the request_id before building the FlatBuffer so it can
+                    // be embedded in the payload and inserted into the pending_map —
+                    // all before the send.  Upper 32 bits = pid (process-unique prefix),
+                    // lower 32 bits = per-process monotonic counter (thread-unique within
+                    // this process).  Zero is never produced (counter starts at 1).
+                    const std::uint64_t request_id = pid_upper | call_counter.fetch_add(1U, std::memory_order_relaxed);
+                    workload_request.request_id = request_id;
 
-                // Persist the shared-codec request so it outlives the async send queue.
-                auto request_buffer = std::make_shared<std::vector<std::uint8_t>>(
-                    helper::BuildRequestBytes(workload_request));
-                score::cpp::span<const std::uint8_t> request_span{request_buffer->data(), request_buffer->size()};
+                    // Persist the shared-codec request so it outlives the async send queue.
+                    auto request_buffer =
+                        std::make_shared<std::vector<std::uint8_t>>(helper::BuildRequestBytes(workload_request));
+                    score::cpp::span<const std::uint8_t> request_span{request_buffer->data(), request_buffer->size()};
 
-                // Insert into the pending map BEFORE the send so the entry is
-                // guaranteed to exist when NotifyCallback fires.  No generation
-                // counter needed: request_ids are never reused within a process.
-                auto pending = std::make_shared<PendingCall>();
-                {
-                    std::lock_guard<std::mutex> map_lk(pending_map_mutex);
-                    pending_map[request_id] = pending;
-                }
+                    // Insert into the pending map BEFORE the send so the entry is
+                    // guaranteed to exist when NotifyCallback fires.  No generation
+                    // counter needed: request_ids are never reused within a process.
+                    auto pending = std::make_shared<PendingCall>();
+                    {
+                        std::lock_guard<std::mutex> map_lk(pending_map_mutex);
+                        pending_map[request_id] = pending;
+                    }
 
-                {
-                    std::ostringstream ss;
-                          ss << "[client " << client_index << "/thread " << t
-                              << "] -> Send() str=\"" << workload_request.string_value
-                              << "\" uint64=" << workload_request.uint64_value << " request_id=" << request_id;
-                    Log(ss.str());
-                }
+                    {
+                        std::ostringstream ss;
+                        ss << "[client " << client_index << "/thread " << t << "] -> Send() str=\""
+                           << workload_request.string_value << "\" uint64=" << workload_request.uint64_value
+                           << " request_id=" << request_id;
+                        Log(ss.str());
+                    }
 
-                auto send_result = client->Send(request_span);
-                if (!send_result.has_value())
-                {
-                    std::ostringstream ss;
-                    ss << "[client " << client_index << "/thread " << t
-                       << "] Send() failed: " << send_result.error();
-                    LogErr(ss.str());
-                    std::lock_guard<std::mutex> map_lk(pending_map_mutex);
-                    pending_map.erase(request_id);
-                    ++failures;
-                    continue;
-                }
+                    auto send_result = client->Send(request_span);
+                    if (!send_result.has_value())
+                    {
+                        std::ostringstream ss;
+                        ss << "[client " << client_index << "/thread " << t
+                           << "] Send() failed: " << send_result.error();
+                        LogErr(ss.str());
+                        std::lock_guard<std::mutex> map_lk(pending_map_mutex);
+                        pending_map.erase(request_id);
+                        ++failures;
+                        continue;
+                    }
 
-                // Wait for NotifyCallback to signal ready.
-                constexpr auto kNotifyTimeout = std::chrono::seconds(300);
-                bool timed_out = false;
-                {
-                    std::unique_lock<std::mutex> call_lk(pending->mutex);
-                    timed_out = !pending->cv.wait_for(call_lk, kNotifyTimeout, [&] {
-                        return pending->ready;
-                    });
-                }
+                    // Wait for NotifyCallback to signal ready.
+                    constexpr auto kNotifyTimeout = std::chrono::seconds(300);
+                    bool timed_out = false;
+                    {
+                        std::unique_lock<std::mutex> call_lk(pending->mutex);
+                        timed_out = !pending->cv.wait_for(call_lk, kNotifyTimeout, [&] {
+                            return pending->ready;
+                        });
+                    }
 
-                // Retire: erase from map. The shared state remains alive until a
-                // deferred NotifyCallback releases it.
-                {
-                    std::lock_guard<std::mutex> map_lk(pending_map_mutex);
-                    pending_map.erase(request_id);
-                }
+                    // Retire: erase from map. The shared state remains alive until a
+                    // deferred NotifyCallback releases it.
+                    {
+                        std::lock_guard<std::mutex> map_lk(pending_map_mutex);
+                        pending_map.erase(request_id);
+                    }
 
-                if (timed_out)
-                {
-                    std::ostringstream ss;
-                    ss << "[client " << client_index << "/thread " << t
-                       << "] TIMEOUT waiting for Notify request_id=" << request_id;
-                    LogErr(ss.str());
-                    ++failures;
-                    continue;
-                }
+                    if (timed_out)
+                    {
+                        std::ostringstream ss;
+                        ss << "[client " << client_index << "/thread " << t
+                           << "] TIMEOUT waiting for Notify request_id=" << request_id;
+                        LogErr(ss.str());
+                        ++failures;
+                        continue;
+                    }
 
-                if (!pending->ok ||
-                    !helper::Matches(workload_request, helper::Response{request_id, pending->result_value}))
-                {
-                    std::ostringstream ss;
-                    ss << "[client " << client_index << "/thread " << t << "] MISMATCH request_id=" << request_id
-                       << ": expected=\"" << helper::ProcessRequest(workload_request).string_value << "\" got=\""
-                       << (pending->ok ? pending->result_value : "<parse error>") << "\"";
-                    LogErr(ss.str());
-                    ++failures;
-                    continue;
-                }
+                    if (!pending->ok ||
+                        !helper::Matches(workload_request, helper::Response{request_id, pending->result_value}))
+                    {
+                        std::ostringstream ss;
+                        ss << "[client " << client_index << "/thread " << t << "] MISMATCH request_id=" << request_id
+                           << ": expected=\"" << helper::ProcessRequest(workload_request).string_value << "\" got=\""
+                           << (pending->ok ? pending->result_value : "<parse error>") << "\"";
+                        LogErr(ss.str());
+                        ++failures;
+                        continue;
+                    }
 
-                {
-                    std::ostringstream ss;
-                    ss << "[client " << client_index << "/thread " << t << "] <- OK request_id=" << request_id
-                       << " result=\"" << pending->result_value << "\" (Phase 2: Notify received, round-trip complete)";
-                    Log(ss.str());
-                }
+                    {
+                        std::ostringstream ss;
+                        ss << "[client " << client_index << "/thread " << t << "] <- OK request_id=" << request_id
+                           << " result=\"" << pending->result_value
+                           << "\" (Phase 2: Notify received, round-trip complete)";
+                        Log(ss.str());
+                    }
 
-                // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                    // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 }
                 helper::WaitAfterCall(g_random_wait);
             }
@@ -1070,12 +1072,7 @@ int main(int argc, char** argv)
     g_random_wait = parsed_arguments->random_wait;
 
     std::cout << score::crypto::ipc::poc_helper::SettingsSummary(
-                     "poc_low_level",
-                     g_client_count,
-                     g_call_count,
-                     g_client_threads,
-                     g_server_threads,
-                     g_random_wait)
+                     "poc_low_level", g_client_count, g_call_count, g_client_threads, g_server_threads, g_random_wait)
               << '\n'
               << std::flush;
     Log("[main] client_count=" + std::to_string(g_client_count) + "  call_count=" + std::to_string(g_call_count) +

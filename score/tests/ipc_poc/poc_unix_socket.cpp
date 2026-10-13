@@ -20,10 +20,10 @@
 // =============================================================================
 
 /// Usage:
-///   bazel run //tests/score_com_poc:poc_unix_socket
-///   bazel run //tests/score_com_poc:poc_unix_socket -- --call_count=5
-///   bazel run //tests/score_com_poc:poc_unix_socket -- --client_threads=3 --call_count=5
-///   bazel run //tests/score_com_poc:poc_unix_socket -- --call_count=3 --sleep_milliseconds=10
+///   bazel test //score/tests/ipc_poc:poc_unix_socket
+///   bazel test //score/tests/ipc_poc:poc_unix_socket --test_arg=--call_count=5
+///   bazel test //score/tests/ipc_poc:poc_unix_socket --test_arg=--client_threads=3 --test_arg=--call_count=5
+///   bazel test //score/tests/ipc_poc:poc_unix_socket --test_arg=--call_count=3 --test_arg=--sleep_milliseconds=10
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -48,21 +48,21 @@
 #include <thread>
 #include <vector>
 
-#include "score/tests/utility/runtime_measurement.hpp"
 #include "score/tests/ipc_poc/ipc_buffer.h"
 #include "score/tests/ipc_poc/poc_helper.hpp"
 #include "score/tests/utility/process_resource_measurement.hpp"
+#include "score/tests/utility/runtime_measurement.hpp"
 
 namespace score::crypto::ipc::control
 {
 
 namespace helper = score::crypto::ipc::poc_helper;
 
-static int g_call_count = 1000;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static int g_client_threads = 1;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_call_count = 1000;       // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static int g_client_threads = 1;      // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static int g_sleep_milliseconds = 0;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static bool g_random_wait = false;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static std::mutex g_log_mutex;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static bool g_random_wait = false;    // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static std::mutex g_log_mutex;        // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 static constexpr bool kEnableVerboseOutput{false};
 static constexpr bool kEnableLatencyVerbose{false};
 
@@ -186,8 +186,8 @@ static bool RunServerPerClient(const int client_fd, const int client_index)
                 std::to_string(g_sleep_milliseconds) + " ms");
             std::this_thread::sleep_for(std::chrono::milliseconds(g_sleep_milliseconds));
         }
-        Log("[server client " + std::to_string(client_index) + "] processed request_id=" +
-            std::to_string(response.request_id) + ", sending FlatBuffer response");
+        Log("[server client " + std::to_string(client_index) +
+            "] processed request_id=" + std::to_string(response.request_id) + ", sending FlatBuffer response");
         if (!SendFrame(client_fd, request))
         {
             LogErr("[server client " + std::to_string(client_index) + "] failed to send response");
@@ -264,9 +264,8 @@ static bool RunServer(const pid_t client_pid, const int client_thread_count)
     }
 
     const auto resources_after_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
-    tests::utility::PrintProcessResourceDelta("poc_unix_socket_server_thread_creation",
-                                              resources_before_thread_creation,
-                                              resources_after_thread_creation);
+    tests::utility::PrintProcessResourceDelta(
+        "poc_unix_socket_server_thread_creation", resources_before_thread_creation, resources_after_thread_creation);
 
     for (auto& client_thread : client_threads)
     {
@@ -361,8 +360,8 @@ static bool RunClientThread(const pid_t server_pid,
                 !helper::ParseResponseBytes(response.data(), response.size(), parsed_response) ||
                 !helper::Matches(workload_request, parsed_response))
             {
-                  LogErr("[client " + std::to_string(client_index) + "] invalid or unexpected response for request_id=" +
-                      std::to_string(request_id));
+                LogErr("[client " + std::to_string(client_index) +
+                       "] invalid or unexpected response for request_id=" + std::to_string(request_id));
                 success = false;
                 break;
             }
@@ -399,9 +398,8 @@ static bool RunClient(const pid_t server_pid, const int client_thread_count)
 
     thread_start_barrier.WaitForAll();
     const auto resources_after_thread_creation = tests::utility::CaptureProcessResourceSnapshot();
-    tests::utility::PrintProcessResourceDelta("poc_unix_socket_client_thread_creation",
-                                              resources_before_thread_creation,
-                                              resources_after_thread_creation);
+    tests::utility::PrintProcessResourceDelta(
+        "poc_unix_socket_client_thread_creation", resources_before_thread_creation, resources_after_thread_creation);
     thread_start_barrier.Release();
 
     for (auto& client_thread : client_threads)
@@ -433,13 +431,12 @@ int main(int argc, char** argv)
     score::crypto::ipc::control::g_sleep_milliseconds = parsed_arguments->sleep_milliseconds;
     score::crypto::ipc::control::g_random_wait = parsed_arguments->random_wait;
 
-    std::cout << score::crypto::ipc::poc_helper::SettingsSummary(
-                     "poc_unix_socket",
-                     1,
-                     score::crypto::ipc::control::g_call_count,
-                     score::crypto::ipc::control::g_client_threads,
-                     score::crypto::ipc::control::g_client_threads,
-                     score::crypto::ipc::control::g_random_wait)
+    std::cout << score::crypto::ipc::poc_helper::SettingsSummary("poc_unix_socket",
+                                                                 1,
+                                                                 score::crypto::ipc::control::g_call_count,
+                                                                 score::crypto::ipc::control::g_client_threads,
+                                                                 score::crypto::ipc::control::g_client_threads,
+                                                                 score::crypto::ipc::control::g_random_wait)
               << '\n'
               << std::flush;
     const auto server_pid = ::fork();
@@ -450,10 +447,8 @@ int main(int argc, char** argv)
     }
     if (server_pid == 0)
     {
-        return score::crypto::ipc::control::RunClient(::getppid(),
-                                                      score::crypto::ipc::control::g_client_threads)
-                   ? 0
-                   : 1;
+        return score::crypto::ipc::control::RunClient(::getppid(), score::crypto::ipc::control::g_client_threads) ? 0
+                                                                                                                  : 1;
     }
     return score::crypto::ipc::control::RunServer(server_pid, score::crypto::ipc::control::g_client_threads) ? 0 : 1;
 }
