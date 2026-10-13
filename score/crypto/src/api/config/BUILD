@@ -17,15 +17,34 @@ cc_library(
     name = "context_configs",
     hdrs = [
         "base_context_config.hpp",
+        "cipher_context_config.hpp",
         "hash_context_config.hpp",
         "key_management_context_config.hpp",
         "key_operation_params.hpp",
         "mac_context_config.hpp",
         "permission_builder.hpp",
+        "random_context_config.hpp",
+        "sign_context_config.hpp",
+        "verify_signature_context_config.hpp",
     ],
-    includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+    ],
+)
+
+cc_library(
+    name = "cert_context_configs",
+    hdrs = [
+        "certificate_context_config.hpp",
+        "certificate_verification_context_config.hpp",
+        "trust_store_management_context_config.hpp",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":context_configs",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
     ],
 )

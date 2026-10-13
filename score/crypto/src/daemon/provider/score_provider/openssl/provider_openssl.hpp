@@ -41,6 +41,9 @@ class OpenSSL final : public ::score::crypto::daemon::provider::score_provider::
     // --- IProvider lifecycle (OpenSSL-specific) ---
     void Shutdown() override;
 
+    // --- Capability advertisement ---
+    [[nodiscard]] common::ProviderCapability GetProviderCapabilities() override;
+
     // --- Key management capability ---
     std::shared_ptr<key_management::IKeyFactory> GetKeyFactory() override;
     std::shared_ptr<key_management::IKeySlotHandler> GetKeySlotHandler(

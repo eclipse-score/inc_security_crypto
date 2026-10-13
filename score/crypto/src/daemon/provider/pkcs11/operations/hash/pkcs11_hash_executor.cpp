@@ -46,25 +46,12 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
     const StreamOperationState currentState,
     StreamOperationState& nextState) noexcept
 {
-    namespace ops = handler::hash_handler_operations;
-    handler::handler_utils::StreamOperation op{};
-    if (action == ops::HASH_INIT)
-    {
-        op = handler::handler_utils::StreamOperation::kInit;
-    }
-    else if (action == ops::HASH_UPDATE)
-    {
-        op = handler::handler_utils::StreamOperation::kUpdate;
-    }
-    else if (action == ops::HASH_FINALIZE)
-    {
-        op = handler::handler_utils::StreamOperation::kFinalize;
-    }
-    else
+    const auto op = handler::hash_handler_operations::ToStreamOperation(action);
+    if (!op.has_value())
     {
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
     }
-    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op);
+    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());
     if (!result.has_value())
     {
         return make_unexpected(result.error());

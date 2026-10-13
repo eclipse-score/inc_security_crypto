@@ -18,28 +18,6 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
-# -- Cipher (symmetric encrypt/decrypt) --
-# cc_library(
-#     name = "cipher_context",
-#     hdrs = ["i_cipher_context.hpp"],
-#     deps = [
-#         "//score/crypto/src/api/contexts:context_bases",
-#         "//score/crypto/src/api/common:crypto_common",
-#         "@score_baselibs//score/result",
-#     ],
-# )
-
-# -- Sign / Verify --
-# cc_library(
-#     name = "sign_contexts",
-#     hdrs = ["i_sign_context.hpp", "i_verify_signature_context.hpp"],
-#     deps = [
-#         "//score/crypto/src/api/contexts:context_bases",
-#         "//score/crypto/src/api/common:crypto_common",
-#         "@score_baselibs//score/result",
-#     ],
-# )
-
 # -- AEAD --
 # cc_library(
 #     name = "aead_context",
@@ -51,29 +29,15 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 #     ],
 # )
 
-# -- Random --
+# -- CSR --
 # cc_library(
-#     name = "random_context",
-#     hdrs = ["i_random_context.hpp"],
-#     deps = [
-#         "//score/crypto/src/api/contexts:context_bases",
-#         "//score/crypto/src/api/common:crypto_common",
-#         "@score_baselibs//score/result",
-#     ],
-# )
-
-# -- Certificate management + verification + CSR --
-# cc_library(
-#     name = "certificate_contexts",
+#     name = "csr_generation_context",
 #     hdrs = [
-#         "i_certificate_management_context.hpp",
-#         "i_certificate_verification_context.hpp",
 #         "i_csr_generation_context.hpp",
 #     ],
 #     deps = [
 #         "//score/crypto/src/api/contexts:context_bases",
 #         "//score/crypto/src/api/common:crypto_common",
-#         "//score/crypto/src/api/future/certificate:crypto_certificate",
 #         "@score_baselibs//score/result",
 #     ],
 # )

@@ -22,8 +22,12 @@ cc_library(
         "//score/crypto/src/daemon/control_plane:control_operations",
         "//score/crypto/src/daemon/key_management:key_management_operations",
         "//score/crypto/src/daemon/mediator:mediator_operations",
+        "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/handler:mac_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:random_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:sign_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:verify_handler_operations",
     ],
 )
 
@@ -47,6 +51,8 @@ cc_library(
     deps = [
         "//score/crypto/src/api:operations",
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/config:cert_context_configs",
         "//score/crypto/src/api/config:context_configs",
         "//score/crypto/src/api/contexts:context_bases",
         "//score/crypto/src/api/contexts:crypto_contexts",

@@ -24,6 +24,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],
@@ -32,15 +33,20 @@ cc_library(
 cc_library(
     name = "crypto_contexts",
     hdrs = [
+        "i_cipher_context.hpp",
         "i_hash_context.hpp",
         "i_key_management_context.hpp",
         "i_mac_context.hpp",
+        "i_random_context.hpp",
+        "i_sign_context.hpp",
+        "i_verify_signature_context.hpp",
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
     deps = [
         ":context_bases",
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/config:context_configs",
         "//score/crypto/src/api/objects:crypto_objects",
         "@score_baselibs//score/language/futurecpp",
@@ -49,16 +55,46 @@ cc_library(
 )
 
 cc_library(
+    name = "cert_contexts",
+    hdrs = [
+        "i_certificate_management_context.hpp",
+        "i_certificate_verification_context.hpp",
+        "i_trust_store_management_context.hpp",
+    ],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":context_bases",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/api/certificate:ocsp_export",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/config:cert_context_configs",
+        "//score/crypto/src/api/objects:cert_objects",
+        "@score_baselibs//score/language/futurecpp",
+        "@score_baselibs//score/result",
+    ],
+)
+
+cc_library(
     name = "crypto_contexts_impl",
     srcs = [
+        "src/cipher_context_impl.cpp",
         "src/hash_context_impl.cpp",
         "src/key_management_context_impl.cpp",
         "src/mac_context_impl.cpp",
+        "src/random_context_impl.cpp",
+        "src/sign_context_impl.cpp",
+        "src/verify_signature_context_impl.cpp",
     ],
     hdrs = [
+        "src/cipher_context_impl.hpp",
         "src/hash_context_impl.hpp",
         "src/key_management_context_impl.hpp",
         "src/mac_context_impl.hpp",
+        "src/random_context_impl.hpp",
+        "src/sign_context_impl.hpp",
+        "src/verify_signature_context_impl.hpp",
     ],
     includes = ["."],
     visibility = ["//:__subpackages__"],
@@ -67,6 +103,7 @@ cc_library(
         "//score/crypto/src/api:operations",
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/common:release_callback_iface",
+        "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/control_plane",
         "//score/crypto/src/api/data_plane:data_plane_client",
     ],

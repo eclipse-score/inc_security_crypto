@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_executor.hpp"
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/mac_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
@@ -256,21 +256,14 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
     StreamOperationState currentState,
     StreamOperationState& nextState) noexcept
 {
-    namespace ops = handler::mac_handler_operations;
-    handler::handler_utils::StreamOperation op{};
-    if (action == ops::MAC_UPDATE)
-    {
-        op = handler::handler_utils::StreamOperation::kUpdate;
-    }
-    else if (action == ops::MAC_FINALIZE)
-    {
-        op = handler::handler_utils::StreamOperation::kFinalize;
-    }
-    else
+    // MAC_INIT is handled by HandleInit() and never reaches this validation;
+    // the shared mapping accepts it, the PKCS#11 flow does not route it here.
+    const auto op = handler::mac_handler_operations::ToStreamOperation(action);
+    if (!op.has_value())
     {
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
     }
-    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op);
+    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());
     if (!result.has_value())
     {
         return make_unexpected(result.error());

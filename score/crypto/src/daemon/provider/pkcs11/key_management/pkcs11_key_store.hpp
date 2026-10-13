@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/resolved_key.hpp"
@@ -101,7 +101,9 @@ class Pkcs11KeyStore
         CK_OBJECT_HANDLE object,
         const std::string& algorithm,
         std::size_t key_size,
-        score::crypto::KeyOperationPermission permissions = score::crypto::KeyOperationPermission::kNone) noexcept;
+        // Deliberately has no default: a key registered with kNone serves no
+        // context, so the grant must be a decision at every call site.
+        score::crypto::KeyOperationPermission permissions) noexcept;
 
     /// Register a persistent token object by storing its search template.
     ///
@@ -109,9 +111,14 @@ class Pkcs11KeyStore
     /// C_GetAttributeValue succeed. No session is stored: the caller releases the
     /// find session back to the pool immediately. Future access uses ResolveObject()
     /// which re-runs C_FindObjects on the calling handler's session.
-    [[nodiscard]] key_management::ProviderKeyHandle RegisterTokenObject(const SearchTemplate& search_template,
-                                                                        const std::string& algorithm,
-                                                                        std::size_t key_size) noexcept;
+    ///
+    /// @param permissions The slot's allowed_operations, which is what the daemon
+    ///        checks when a context asks to bind this key.
+    [[nodiscard]] key_management::ProviderKeyHandle RegisterTokenObject(
+        const SearchTemplate& search_template,
+        const std::string& algorithm,
+        std::size_t key_size,
+        score::crypto::KeyOperationPermission permissions) noexcept;
 
     /// Resolve a PKCS#11 key for use on a crypto handler session.
     ///

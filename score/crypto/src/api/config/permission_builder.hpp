@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_API_CONFIG_PERMISSION_BUILDER_HPP
 #define SCORE_CRYPTO_SRC_API_CONFIG_PERMISSION_BUILDER_HPP
 
-#include "score/crypto/src/api/common/types.hpp"
+#include "score/crypto/src/api/types/key.hpp"
 
 namespace score
 {

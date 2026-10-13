@@ -68,6 +68,12 @@ std::shared_ptr<::score::crypto::daemon::provider::handler::ICryptoHandlerFactor
     return std::make_shared<handler::OpenSslHandlerFactory>(m_factory, GetKeySlotHandler({}), m_keyManagementService);
 }
 
+common::ProviderCapability OpenSSL::GetProviderCapabilities()
+{
+    return common::ProviderCapability::kCrypto | common::ProviderCapability::kKeyManagement |
+           common::ProviderCapability::kCertManagement;
+}
+
 std::shared_ptr<key_management::IKeyFactory> OpenSSL::GetKeyFactory()
 {
     return m_factory;

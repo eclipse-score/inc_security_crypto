@@ -12,7 +12,7 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _component_architecture_template:
+.. _crypto_architecture:
 
 Component Architecture
 ======================
