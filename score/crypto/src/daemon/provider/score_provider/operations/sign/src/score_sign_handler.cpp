@@ -12,74 +12,75 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/score_sign_handler.hpp"
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/sign_executor.hpp"
+
+#include <string_view>
+#include <utility>
 
 namespace score::crypto::daemon::provider::score_provider::operations::sign
 {
 
-// The handler owns the executor and stores the algorithm used by the provider.
-ScoreSignHandler::ScoreSignHandler(std::unique_ptr<SignExecutor> executor, const common::AlgorithmId algorithm)
-    : m_algorithm{std::move(algorithm)}, m_executor{std::move(executor)}
+using common::DaemonErrorCode;
+using common::ResponseParameters;
+using common::StreamOperationState;
+
+ScoreSignHandler::ScoreSignHandler(std::unique_ptr<SignExecutor> executor, const common::AlgorithmId& algorithm)
+    : m_algorithm{algorithm}, m_state{StreamOperationState::IDLE}, m_executor{std::move(executor)}
 {
 }
 
 ScoreSignHandler::~ScoreSignHandler() = default;
 
-Expected<common::ResponseParameters, common::DaemonErrorCode> ScoreSignHandler::Execute(
-    const common::OperationIdentifier& operation,
-    common::RequestParameters& request)
+Expected<ResponseParameters, DaemonErrorCode> ScoreSignHandler::Execute(const common::OperationIdentifier& operationId,
+                                                                        common::RequestParameters& request)
 {
-    // Delegate operation dispatch to the injected signature executor.
-    return m_executor->Execute(*this, operation, request);
+    return m_executor->Execute(*this, operationId, request);
 }
 
-Expected<std::monostate, common::DaemonErrorCode> ScoreSignHandler::InitializeContext(
+Expected<std::monostate, DaemonErrorCode> ScoreSignHandler::InitializeContext(
     const handler::InitializationParams& /*init_params*/)
 {
-    // Reset the streaming state when a new handler context is initialized.
-    m_state = common::StreamOperationState::IDLE;
+    m_state = StreamOperationState::IDLE;
     return std::monostate{};
 }
 
-Expected<std::monostate, common::DaemonErrorCode> ScoreSignHandler::Reset()
+Expected<std::monostate, DaemonErrorCode> ScoreSignHandler::Reset()
 {
-    // Reset the streaming state; provider-specific resources are reset by
-    // concrete handlers when they override this method.
-    m_state = common::StreamOperationState::IDLE;
+    m_state = StreamOperationState::IDLE;
     return std::monostate{};
 }
 
 // ---------------------------------------------------------------------------
-// Default typed operations — return unsupported unless overridden
+// Default typed operations
 // ---------------------------------------------------------------------------
 
-Expected<std::monostate, common::DaemonErrorCode> ScoreSignHandler::InitSign(
-    std::optional<common::RequestParameter> /*initial_data*/)
+std::size_t ScoreSignHandler::GetSignatureSize() const noexcept
 {
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    const auto curve = ::score::crypto::daemon::common::LookupEcCurveOfAlgorithm(
+        std::string_view{m_algorithm.data(), m_algorithm.size()});
+    return curve.has_value() ? curve->signature_size : 0U;
 }
 
-Expected<std::monostate, common::DaemonErrorCode> ScoreSignHandler::UpdateSign(const common::RequestParameter& /*data*/)
+Expected<std::monostate, DaemonErrorCode> ScoreSignHandler::InitSign()
 {
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
 
-Expected<common::ResponseParameters, common::DaemonErrorCode> ScoreSignHandler::FinalizeSign(
-    std::optional<common::RequestParameter> /*final_data*/,
-    std::optional<common::RequestParameter> /*output*/)
+Expected<std::monostate, DaemonErrorCode> ScoreSignHandler::UpdateSign(score::cpp::span<const std::uint8_t> /*data*/)
 {
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
 
-Expected<common::ResponseParameters, common::DaemonErrorCode> ScoreSignHandler::SingleShotSign(
-    const common::RequestParameter& /*data*/,
-    std::optional<common::RequestParameter> /*output*/)
+Expected<std::size_t, DaemonErrorCode> ScoreSignHandler::FinalizeSign(score::cpp::span<std::uint8_t> /*signature*/)
 {
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
 
-Expected<common::ResponseParameters, common::DaemonErrorCode> ScoreSignHandler::GetSignatureSize() const
+Expected<std::size_t, DaemonErrorCode> ScoreSignHandler::SingleShotSign(score::cpp::span<const std::uint8_t> /*data*/,
+                                                                        score::cpp::span<std::uint8_t> /*signature*/)
 {
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
+
 }  // namespace score::crypto::daemon::provider::score_provider::operations::sign

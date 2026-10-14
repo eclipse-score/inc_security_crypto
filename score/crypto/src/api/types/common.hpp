@@ -98,6 +98,15 @@ enum class CipherDirection : uint8_t
     kDecrypt   ///< Decrypt or open input data.
 };
 
+/// @brief Padding scheme of a block cipher in a padded mode such as CBC.
+///
+/// Stream modes carry no padding and ignore this value.
+enum class CipherPadding : uint8_t
+{
+    kPkcs7,  ///< PKCS#7: the output grows to the next whole block and always gains at least one byte
+    kNone    ///< No padding: the total input length must be a whole number of blocks
+};
+
 /// @brief Whether an operation generates output or verifies supplied data.
 enum class OperationMode : uint8_t
 {

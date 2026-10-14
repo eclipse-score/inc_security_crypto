@@ -12,80 +12,77 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/score_verify_handler.hpp"
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/verify_executor.hpp"
+
+#include <string_view>
+#include <utility>
 
 namespace score::crypto::daemon::provider::score_provider::operations::verify
 {
 
-// The handler owns the executor and stores the algorithm used by the provider.
-ScoreVerifyHandler::ScoreVerifyHandler(std::unique_ptr<VerifyExecutor> executor, const common::AlgorithmId algorithm)
-    : m_algorithm{std::move(algorithm)}, m_executor{std::move(executor)}
+using common::DaemonErrorCode;
+using common::ResponseParameters;
+using common::StreamOperationState;
+
+ScoreVerifyHandler::ScoreVerifyHandler(std::unique_ptr<VerifyExecutor> executor, const common::AlgorithmId& algorithm)
+    : m_algorithm{algorithm}, m_state{StreamOperationState::IDLE}, m_executor{std::move(executor)}
 {
 }
 
 ScoreVerifyHandler::~ScoreVerifyHandler() = default;
 
-Expected<common::ResponseParameters, common::DaemonErrorCode> ScoreVerifyHandler::Execute(
-    const common::OperationIdentifier& operation,
+Expected<ResponseParameters, DaemonErrorCode> ScoreVerifyHandler::Execute(
+    const common::OperationIdentifier& operationId,
     common::RequestParameters& request)
 {
-    if (m_executor == nullptr)
-    {
-        // A missing executor indicates an invalid handler configuration.
-        return make_unexpected(common::DaemonErrorCode::kInternalError);
-    }
-
-    // Delegate operation dispatch to the injected verification executor.
-    return m_executor->Execute(*this, operation, request);
+    return m_executor->Execute(*this, operationId, request);
 }
 
-Expected<std::monostate, common::DaemonErrorCode> ScoreVerifyHandler::InitializeContext(
+Expected<std::monostate, DaemonErrorCode> ScoreVerifyHandler::InitializeContext(
     const handler::InitializationParams& /*init_params*/)
 {
-    // Reset the streaming state when a new handler context is initialized.
-    m_state = common::StreamOperationState::IDLE;
+    m_state = StreamOperationState::IDLE;
     return std::monostate{};
 }
 
-Expected<std::monostate, common::DaemonErrorCode> ScoreVerifyHandler::Reset()
+Expected<std::monostate, DaemonErrorCode> ScoreVerifyHandler::Reset()
 {
-    // Reset the streaming state; provider-specific resources are reset by
-    // concrete handlers when they override this method.
-    m_state = common::StreamOperationState::IDLE;
+    m_state = StreamOperationState::IDLE;
     return std::monostate{};
 }
 
 // ---------------------------------------------------------------------------
-// Default typed operations — return unsupported unless overridden
+// Default typed operations
 // ---------------------------------------------------------------------------
 
-Expected<std::monostate, common::DaemonErrorCode> ScoreVerifyHandler::InitVerify(
-    std::optional<common::RequestParameter> /*initial_data*/)
+std::size_t ScoreVerifyHandler::GetSignatureSize() const noexcept
 {
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    const auto curve = ::score::crypto::daemon::common::LookupEcCurveOfAlgorithm(
+        std::string_view{m_algorithm.data(), m_algorithm.size()});
+    return curve.has_value() ? curve->signature_size : 0U;
 }
 
-Expected<std::monostate, common::DaemonErrorCode> ScoreVerifyHandler::UpdateVerify(
-    const common::RequestParameter& /*data*/)
+Expected<std::monostate, DaemonErrorCode> ScoreVerifyHandler::InitVerify()
 {
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
 
-Expected<bool, common::DaemonErrorCode> ScoreVerifyHandler::FinalizeVerify(
-    std::optional<common::RequestParameter> /*final_data*/,
-    std::optional<common::RequestParameter> /*output*/)
+Expected<std::monostate, DaemonErrorCode> ScoreVerifyHandler::UpdateVerify(
+    score::cpp::span<const std::uint8_t> /*data*/)
 {
-    // The base implementation reports an unsupported operation rather than
-    // false, which is reserved for an invalid signature after verification.
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
 
-Expected<bool, common::DaemonErrorCode> ScoreVerifyHandler::SingleShotVerify(
-    const common::RequestParameter& /*data*/,
-    const common::RequestParameter& /*signature*/)
+Expected<bool, DaemonErrorCode> ScoreVerifyHandler::FinalizeVerify(score::cpp::span<const std::uint8_t> /*signature*/)
 {
-    // The base implementation reports an unsupported operation rather than
-    // false, which is reserved for an invalid signature after verification.
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
 }
+
+Expected<bool, DaemonErrorCode> ScoreVerifyHandler::SingleShotVerify(score::cpp::span<const std::uint8_t> /*data*/,
+                                                                     score::cpp::span<const std::uint8_t> /*signature*/)
+{
+    return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
+}
+
 }  // namespace score::crypto::daemon::provider::score_provider::operations::verify

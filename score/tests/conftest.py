@@ -43,6 +43,12 @@ def pytest_addoption(parser: pytest.Parser):
         default=False,
         help="Enable PKCS#11-dependent integration-test setup.",
     )
+    parser.addoption(
+        "--openssl-backend-enabled",
+        action="store_true",
+        default=False,
+        help="Enable OpenSSL-dependent integration tests.",
+    )
 
 
 def _absolute_path(rel_path: Path) -> Path:
@@ -64,6 +70,17 @@ def _absolute_path(rel_path: Path) -> Path:
     raise FileNotFoundError(
         f"Could not find runfile path '{rel_path}' in RUNFILES_DIR, or current directory."
     )
+
+
+@pytest.fixture
+def openssl_backend(request: pytest.FixtureRequest) -> None:
+    """Skip a test that only the OpenSSL provider can serve.
+
+    Cipher, random generation and ECDSA exist in no other provider, so a daemon
+    built without the OpenSSL backend fails every such case at context creation.
+    """
+    if not request.config.getoption("--openssl-backend-enabled"):
+        pytest.skip("requires a daemon built with the OpenSSL backend")
 
 
 @pytest.fixture(scope="session")

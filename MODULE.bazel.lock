@@ -11,6 +11,7 @@
     "https://bcr.bazel.build/modules/apple_support/1.21.0/MODULE.bazel": "ac1824ed5edf17dee2fdd4927ada30c9f8c3b520be1b5fd02a5da15bc10bff3e",
     "https://bcr.bazel.build/modules/apple_support/1.21.1/MODULE.bazel": "5809fa3efab15d1f3c3c635af6974044bac8a4919c62238cce06acee8a8c11f1",
     "https://bcr.bazel.build/modules/apple_support/1.22.1/MODULE.bazel": "90bd1a660590f3ceffbdf524e37483094b29352d85317060b2327fff8f3f4458",
+    "https://bcr.bazel.build/modules/apple_support/1.23.0/MODULE.bazel": "317d47e3f65b580e7fb4221c160797fda48e32f07d2dfff63d754ef2316dcd25",
     "https://bcr.bazel.build/modules/apple_support/1.23.1/MODULE.bazel": "53763fed456a968cf919b3240427cf3a9d5481ec5466abc9d5dc51bc70087442",
     "https://bcr.bazel.build/modules/apple_support/1.24.1/MODULE.bazel": "f46e8ddad60aef170ee92b2f3d00ef66c147ceafea68b6877cb45bd91737f5f8",
     "https://bcr.bazel.build/modules/apple_support/1.24.2/MODULE.bazel": "0e62471818affb9f0b26f128831d5c40b074d32e6dda5a0d3852847215a41ca4",
@@ -224,6 +225,8 @@
     "https://bcr.bazel.build/modules/curl/8.7.1/MODULE.bazel": "088221c35a2939c555e6e47cb31a81c15f8b59f4daa8009b1e9271a502d33485",
     "https://bcr.bazel.build/modules/curl/8.8.0/MODULE.bazel": "7da3b3e79b0b4ee8f8c95d640bc6ad7b430ce66ef6e9c9d2bc29b3b5ef85f6fe",
     "https://bcr.bazel.build/modules/curl/8.8.0/source.json": "d7d138b6878cf38891692fee0649ace35357fd549b425614d571786f054374d4",
+    "https://bcr.bazel.build/modules/cxx.rs/1.0.186/MODULE.bazel": "af6d2cf790d198754250b1bf1dc36c671f2006ffff7ea1e19ee13972347ef16f",
+    "https://bcr.bazel.build/modules/cxx.rs/1.0.186/source.json": "6c30eb2ca366d9199343c00a5b49d5edcde0c72ee48f01c1017e19cc7bf210b5",
     "https://bcr.bazel.build/modules/cython/3.0.11-1/MODULE.bazel": "868b3f5c956c3657420d2302004c6bb92606bfa47e314bab7f2ba0630c7c966c",
     "https://bcr.bazel.build/modules/cython/3.0.11-1/source.json": "da318be900b8ca9c3d1018839d3bebc5a8e1645620d0848fa2c696d4ecf7c296",
     "https://bcr.bazel.build/modules/diff.bzl/0.5.1/MODULE.bazel": "bad8dd444e512b6fcbcd969d6385cd6bc093d4c12e5640fb1f0ace2282f99ef9",
@@ -473,6 +476,7 @@
     "https://bcr.bazel.build/modules/rules_robolectric/4.14.1.2/source.json": "37c10335f2361c337c5c1f34ed36d2da70534c23088062b33a8bdaab68aa9dea",
     "https://bcr.bazel.build/modules/rules_rust/0.56.0/MODULE.bazel": "3295b00757db397122092322fe1e920be7f5c9fbfb8619138977e820f2cbbbae",
     "https://bcr.bazel.build/modules/rules_rust/0.61.0/MODULE.bazel": "0318a95777b9114c8740f34b60d6d68f9cfef61e2f4b52424ca626213d33787b",
+    "https://bcr.bazel.build/modules/rules_rust/0.65.0/MODULE.bazel": "1b53caef82fd1c89a2fb15cfa3a15a8e98fe12f4904806b409f5a0183e73f547",
     "https://bcr.bazel.build/modules/rules_rust/0.67.0/MODULE.bazel": "87c3816c4321352dcfd9e9e26b58e84efc5b21351ae3ef8fb5d0d57bde7237f5",
     "https://bcr.bazel.build/modules/rules_shell/0.1.2/MODULE.bazel": "66e4ca3ce084b04af0b9ff05ff14cab4e5df7503973818bb91cbc6cda08d32fc",
     "https://bcr.bazel.build/modules/rules_shell/0.2.0/MODULE.bazel": "fda8a652ab3c7d8fee214de05e7a9916d8b28082234e8d2c0094505c5268ed3c",
@@ -529,6 +533,7 @@
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/apple_support/1.21.0/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/apple_support/1.21.1/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/apple_support/1.22.1/MODULE.bazel": "not found",
+    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/apple_support/1.23.0/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/apple_support/1.23.1/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/apple_support/1.24.1/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/apple_support/1.24.2/MODULE.bazel": "not found",
@@ -677,6 +682,7 @@
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/civetweb/1.16/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/curl/8.7.1/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/curl/8.8.0/MODULE.bazel": "not found",
+    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/cxx.rs/1.0.186/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/cython/3.0.11-1/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/diff.bzl/0.5.1/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/download_utils/1.0.1/MODULE.bazel": "not found",
@@ -873,6 +879,7 @@
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/rules_robolectric/4.14.1.2/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/rules_rust/0.56.0/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/rules_rust/0.61.0/MODULE.bazel": "not found",
+    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/rules_rust/0.65.0/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/rules_rust/0.67.0/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/rules_rust/0.68.1-score/MODULE.bazel": "dc1c87d74ef6d32190e65c3c8aabfa7e7764e457bf9888312e0313c3c11fdb69",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/rules_rust/0.68.2-score/MODULE.bazel": "37be8dee6df19d666c1d4266e1266d82012aa83bd82de38b3100fd7f641d064b",
@@ -886,8 +893,9 @@
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/rules_shell/0.6.1/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/rules_swift/3.1.2/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/rules_uv/0.89.2/MODULE.bazel": "not found",
-    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_baselibs/0.2.10/MODULE.bazel": "eef4a41f8f8b6d5cf55c1445b340a2e8643a8dc83ad9ff52d0d26fe9a77973ec",
-    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_baselibs/0.2.10/source.json": "543286fb4828ff58404a0ddd034cac3e7937657353997119a3976dbaf913f2cf",
+    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_baselibs/0.2.11/MODULE.bazel": "8b58c55218c3e7139a36d911bdfd1bd4ed6fe104ec177d851bd5e6b5e168a2ea",
+    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_baselibs/0.2.14/MODULE.bazel": "47f95ff2d0cdc74f7575ba4aee2197db1539dcaa88fcd451dc4c6a8cdeafcb08",
+    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_baselibs/0.2.14/source.json": "b27dea609b0f3eb89836c2ccbf76fdd6d906c3e3972bdbf59fd9d4b202e3b511",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_bazel_cpp_toolchains/1.0.3/MODULE.bazel": "599f3f1123bc1400ade5bdd0c7c5470531885cf2fa1fa30024f23d5d21e6d58d",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_bazel_cpp_toolchains/1.0.3/source.json": "47eab63b3a98244787a9ab611f825d9c62d48bfdb5000173144d2f9e24b521b8",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_bazel_platforms/0.0.3/MODULE.bazel": "14c96e378c08705a46abe0799d6236fe3095c342c34f83f8d1b3f6046ce00651",
@@ -897,7 +905,8 @@
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_bazel_platforms/1.1.0/MODULE.bazel": "e5c656abcad121a89cbabad3550bb20167a6865de219ef6e1c68ca30567e1c32",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_bazel_platforms/1.1.0/source.json": "9797d56e9dd68e9d3e8b674402df2d6d5e2174f84184ca4cbee78fc07dc117d9",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_communication/0.4.0/MODULE.bazel": "19e98105c4b1ca674027dfa4c5010eebbdf74d7cbd9524cb84a8fad63a8bcebe",
-    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_communication/0.4.0/source.json": "a3378155debe445305828cfa94464ad5f53d5b7e27488b3c053b02e49801aaeb",
+    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_communication/0.5.0/MODULE.bazel": "7f6981dfb8b87466a3bcf009bf92cb7ba54ae0398a9af729010cee452858bf70",
+    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_communication/0.5.0/source.json": "7bfd189a39bf79891a17e0ab81144f5d4f51df3c6f5517eec3b0a11edb960b0d",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_coverage/0.3.1/MODULE.bazel": "e11bb5c649f1c42b2e6933d0c297cb44c45d806d61d9fa71b1185830d284edac",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_coverage/0.3.1/source.json": "328c3bb04ec50bb2cbd81070af41ac7247022cb006724340e251c73159e369b4",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_cr_checker/0.2.2/MODULE.bazel": "dc36d9c35543db918c3fb5b93a8e684431f56c7c784cf2a1b90f35802a373c98",
@@ -977,7 +986,8 @@
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_tooling/2.0.2/MODULE.bazel": "edf7730454fc1c7951d903895524d57efbe059edbf2572cf9bdc0e7a20d6cc55",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_tooling/2.2.0/MODULE.bazel": "178ba4862246b6ba2bbcd96b7e9e728299b19fb94bcf23d315dc2299aabf7178",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_tooling/2.2.1/MODULE.bazel": "65847454f3555ae56ebfda04dcbdbeb44ece2e5ed9df8f63796309822091d38a",
-    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_tooling/2.2.1/source.json": "c5cdd2502f4edd11404c578987d33a8b924900908551f677775bd67a661d69fc",
+    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_tooling/2.2.2/MODULE.bazel": "1ef4d02d20ed0d3d47aa9d0711f49bc4b1a44c4a975e71c05d77df41e3ecff77",
+    "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/score_tooling/2.2.2/source.json": "2c58e7c99a1ca95952787b16105be0cff7739ddd1d1ca0f414a69ea672932912",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/sphinxdocs/2.2.0/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/stardoc/0.5.0/MODULE.bazel": "not found",
     "https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/modules/stardoc/0.5.3/MODULE.bazel": "not found",
@@ -1951,7 +1961,7 @@
     "@@rules_distroless+//apt:extensions.bzl%apt": {
       "general": {
         "bzlTransitiveDigest": "hV7bNlvh2Cx/k7WkraMRnZaOdEcU63CBNVQZBtp2vHo=",
-        "usagesDigest": "Kbq3vakmb+1UomjqoFOLjIWDOEyV1DIMuOO4IQVtXmk=",
+        "usagesDigest": "luQEDzEIF8JI627BLCl/XjpZgxlt52c1qoQccXGnfps=",
         "recordedFileInputs": {
           "@@score_tooling+//third_party/docs_runtime/manifest.yaml": "f8bd762e0dcaf3150504eca8dfd60819fc3be428d3a8b58d1d9cc52d68e16a45",
           "@@score_tooling+//third_party/tooling_sysroot/manifest.yaml": "ef1e4af34dbf67a9e332c69ccad0b12b2e295849c33e98658c6ccd69e363c4cd"
@@ -3452,7 +3462,7 @@
     "@@rules_rust+//crate_universe:extensions.bzl%crate": {
       "general": {
         "bzlTransitiveDigest": "dVzUYZOMCmY4S/2o7jFmWXqRvZ9gTYlmjacTOfwzCh4=",
-        "usagesDigest": "sEC+nKR0Ydu4mrk3NKjPnz9twFYBO9AmWIsls7Y+Bog=",
+        "usagesDigest": "69D+S/G2lUR3hxedN0qo7kfyoZT6g3l43UCSbUoMMU0=",
         "recordedFileInputs": {
           "@@score_crates+//Cargo.Bazel.lock": "7250af2a8edcb2cffa4a8d45dc9008c3cd10b925d1baf01134430875fe7f1740",
           "@@score_crates+//Cargo.lock": "970a9a28b77ecfee41f0ed18eed4b602a4dcbcce60a2445328bd529d12885c10"
@@ -9772,7 +9782,7 @@
                 "https://static.crates.io/crates/serde_json/1.0.151/download"
               ],
               "strip_prefix": "serde_json-1.0.151",
-              "build_file_content": "###############################################################################\n# @generated\n# DO NOT MODIFY: This file is auto-generated by a crate_universe tool. To \n# regenerate this file, run the following:\n#\n#     bazel mod show_repo 'score_tooling'\n###############################################################################\n\nload(\n    \"@rules_rust//cargo:defs.bzl\",\n    \"cargo_build_script\",\n    \"cargo_toml_env_vars\",\n)\n\nload(\"@rules_rust//rust:defs.bzl\", \"rust_library\")\n\n# buildifier: disable=bzl-visibility\nload(\"@rules_rust//crate_universe/private:selects.bzl\", \"selects\")\n\npackage(default_visibility = [\"//visibility:public\"])\n\ncargo_toml_env_vars(\n    name = \"cargo_toml_env_vars\",\n    src = \"Cargo.toml\",\n)\n\nrust_library(\n    name = \"serde_json\",\n    deps = [\n        \"@crates__itoa-1.0.18//:itoa\",\n        \"@crates__memchr-2.8.3//:memchr\",\n        \"@crates__serde_core-1.0.229//:serde_core\",\n        \"@crates__serde_json-1.0.151//:build_script_build\",\n        \"@crates__zmij-1.0.23//:zmij\",\n    ],\n    compile_data = glob(\n        allow_empty = True,\n        include = [\"**\"],\n        exclude = [\n            \"**/* *\",\n            \".tmp_git_root/**/*\",\n            \"BUILD\",\n            \"BUILD.bazel\",\n            \"WORKSPACE\",\n            \"WORKSPACE.bazel\",\n        ],\n    ),\n    crate_features = [\n        \"default\",\n        \"std\",\n    ],\n    crate_root = \"src/lib.rs\",\n    edition = \"2021\",\n    rustc_env_files = [\n        \":cargo_toml_env_vars\",\n    ],\n    rustc_flags = [\n        \"--cap-lints=allow\",\n    ],\n    srcs = glob(\n        allow_empty = True,\n        include = [\"**/*.rs\"],\n    ),\n    tags = [\n        \"cargo-bazel\",\n        \"crate-name=serde_json\",\n        \"manual\",\n        \"noclippy\",\n        \"norustfmt\",\n    ],\n    target_compatible_with = select({\n        \"@rules_rust//rust/platform:aarch64-apple-darwin\": [],\n        \"@rules_rust//rust/platform:aarch64-unknown-linux-gnu\": [],\n        \"@rules_rust//rust/platform:wasm32-unknown-unknown\": [],\n        \"@rules_rust//rust/platform:wasm32-wasip1\": [],\n        \"@rules_rust//rust/platform:x86_64-pc-windows-msvc\": [],\n        \"@rules_rust//rust/platform:x86_64-unknown-linux-gnu\": [],\n        \"@rules_rust//rust/platform:x86_64-unknown-nixos-gnu\": [],\n        \"//conditions:default\": [\"@platforms//:incompatible\"],\n    }),\n    version = \"1.0.151\",\n)\n\ncargo_build_script(\n    name = \"_bs\",\n    compile_data = glob(\n        allow_empty = True,\n        include = [\"**\"],\n        exclude = [\n            \"**/* *\",\n            \"**/*.rs\",\n            \".tmp_git_root/**/*\",\n            \"BUILD\",\n            \"BUILD.bazel\",\n            \"WORKSPACE\",\n            \"WORKSPACE.bazel\",\n        ],\n    ),\n    crate_features = [\n        \"default\",\n        \"std\",\n    ],\n    crate_name = \"build_script_build\",\n    crate_root = \"build.rs\",\n    data = glob(\n        allow_empty = True,\n        include = [\"**\"],\n        exclude = [\n            \"**/* *\",\n            \".tmp_git_root/**/*\",\n            \"BUILD\",\n            \"BUILD.bazel\",\n            \"WORKSPACE\",\n            \"WORKSPACE.bazel\",\n        ],\n    ),\n    edition = \"2021\",\n    pkg_name = \"serde_json\",\n    rustc_env_files = [\n        \":cargo_toml_env_vars\",\n    ],\n    rustc_flags = [\n        \"--cap-lints=allow\",\n    ],\n    srcs = glob(\n        allow_empty = True,\n        include = [\"**/*.rs\"],\n    ),\n    tags = [\n        \"cargo-bazel\",\n        \"crate-name=serde_json\",\n        \"manual\",\n        \"noclippy\",\n        \"norustfmt\",\n    ],\n    version = \"1.0.151\",\n    visibility = [\"//visibility:private\"],\n)\n\nalias(\n    name = \"build_script_build\",\n    actual = \":_bs\",\n    tags = [\"manual\"],\n)\n"
+              "build_file_content": "###############################################################################\n# @generated\n# DO NOT MODIFY: This file is auto-generated by a crate_universe tool. To \n# regenerate this file, run the following:\n#\n#     bazel mod show_repo 'score_tooling'\n###############################################################################\n\nload(\n    \"@rules_rust//cargo:defs.bzl\",\n    \"cargo_build_script\",\n    \"cargo_toml_env_vars\",\n)\n\nload(\"@rules_rust//rust:defs.bzl\", \"rust_library\")\n\n# buildifier: disable=bzl-visibility\nload(\"@rules_rust//crate_universe/private:selects.bzl\", \"selects\")\n\npackage(default_visibility = [\"//visibility:public\"])\n\ncargo_toml_env_vars(\n    name = \"cargo_toml_env_vars\",\n    src = \"Cargo.toml\",\n)\n\nrust_library(\n    name = \"serde_json\",\n    deps = [\n        \"@crates__indexmap-2.14.2//:indexmap\",\n        \"@crates__itoa-1.0.18//:itoa\",\n        \"@crates__memchr-2.8.3//:memchr\",\n        \"@crates__serde_core-1.0.229//:serde_core\",\n        \"@crates__serde_json-1.0.151//:build_script_build\",\n        \"@crates__zmij-1.0.23//:zmij\",\n    ],\n    compile_data = glob(\n        allow_empty = True,\n        include = [\"**\"],\n        exclude = [\n            \"**/* *\",\n            \".tmp_git_root/**/*\",\n            \"BUILD\",\n            \"BUILD.bazel\",\n            \"WORKSPACE\",\n            \"WORKSPACE.bazel\",\n        ],\n    ),\n    crate_features = [\n        \"default\",\n        \"indexmap\",\n        \"preserve_order\",\n        \"std\",\n    ],\n    crate_root = \"src/lib.rs\",\n    edition = \"2021\",\n    rustc_env_files = [\n        \":cargo_toml_env_vars\",\n    ],\n    rustc_flags = [\n        \"--cap-lints=allow\",\n    ],\n    srcs = glob(\n        allow_empty = True,\n        include = [\"**/*.rs\"],\n    ),\n    tags = [\n        \"cargo-bazel\",\n        \"crate-name=serde_json\",\n        \"manual\",\n        \"noclippy\",\n        \"norustfmt\",\n    ],\n    target_compatible_with = select({\n        \"@rules_rust//rust/platform:aarch64-apple-darwin\": [],\n        \"@rules_rust//rust/platform:aarch64-unknown-linux-gnu\": [],\n        \"@rules_rust//rust/platform:wasm32-unknown-unknown\": [],\n        \"@rules_rust//rust/platform:wasm32-wasip1\": [],\n        \"@rules_rust//rust/platform:x86_64-pc-windows-msvc\": [],\n        \"@rules_rust//rust/platform:x86_64-unknown-linux-gnu\": [],\n        \"@rules_rust//rust/platform:x86_64-unknown-nixos-gnu\": [],\n        \"//conditions:default\": [\"@platforms//:incompatible\"],\n    }),\n    version = \"1.0.151\",\n)\n\ncargo_build_script(\n    name = \"_bs\",\n    compile_data = glob(\n        allow_empty = True,\n        include = [\"**\"],\n        exclude = [\n            \"**/* *\",\n            \"**/*.rs\",\n            \".tmp_git_root/**/*\",\n            \"BUILD\",\n            \"BUILD.bazel\",\n            \"WORKSPACE\",\n            \"WORKSPACE.bazel\",\n        ],\n    ),\n    crate_features = [\n        \"default\",\n        \"indexmap\",\n        \"preserve_order\",\n        \"std\",\n    ],\n    crate_name = \"build_script_build\",\n    crate_root = \"build.rs\",\n    data = glob(\n        allow_empty = True,\n        include = [\"**\"],\n        exclude = [\n            \"**/* *\",\n            \".tmp_git_root/**/*\",\n            \"BUILD\",\n            \"BUILD.bazel\",\n            \"WORKSPACE\",\n            \"WORKSPACE.bazel\",\n        ],\n    ),\n    edition = \"2021\",\n    pkg_name = \"serde_json\",\n    rustc_env_files = [\n        \":cargo_toml_env_vars\",\n    ],\n    rustc_flags = [\n        \"--cap-lints=allow\",\n    ],\n    srcs = glob(\n        allow_empty = True,\n        include = [\"**/*.rs\"],\n    ),\n    tags = [\n        \"cargo-bazel\",\n        \"crate-name=serde_json\",\n        \"manual\",\n        \"noclippy\",\n        \"norustfmt\",\n    ],\n    version = \"1.0.151\",\n    visibility = [\"//visibility:private\"],\n)\n\nalias(\n    name = \"build_script_build\",\n    actual = \":_bs\",\n    tags = [\"manual\"],\n)\n"
             }
           },
           "crates__serde_yaml-0.9.34-deprecated": {

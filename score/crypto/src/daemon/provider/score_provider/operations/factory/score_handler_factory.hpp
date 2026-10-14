@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_FACTORY_SCORE_HANDLER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_FACTORY_SCORE_HANDLER_FACTORY_HPP
 
+#include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
@@ -22,6 +23,7 @@
 #include "score/result/result.h"
 
 #include <memory>
+#include <string_view>
 
 namespace score::crypto::daemon::provider::score_provider::operations::factory
 {
@@ -70,14 +72,24 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
     /// The default implementation returns kUnsupportedOperation.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateKeyManagementHandler();
 
-    /// Override in a concrete provider to create a signature handler.
-    /// The default implementation returns kUnsupportedOperation.
+    /// Override in concrete provider to create a symmetric cipher handler. Default returns unsupported.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateCipherHandler(
+        const common::AlgorithmId& algorithm);
+
+    /// Override in concrete provider to create a signature generation handler.
+    /// Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateSignHandler(
         const common::AlgorithmId& algorithm);
 
-    /// Override in a concrete provider to create a signature verification handler.
-    /// The default implementation returns kUnsupportedOperation.
+    /// Override in concrete provider to create a signature verification handler.
+    ///
+    /// A VERIFY context binds the public half of the key pair, so it is a
+    /// distinct hook from CreateSignHandler(). Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateVerifyHandler(
+        const common::AlgorithmId& algorithm);
+
+    /// Override in concrete provider to create a random handler. Default returns unsupported.
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateRandomHandler(
         const common::AlgorithmId& algorithm);
 
     /// Override in a concrete provider to create a key encapsulation handler.
@@ -88,14 +100,6 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
     std::shared_ptr<key_management::IKeyFactory> m_key_factory;
     std::shared_ptr<key_management::IKeySlotHandler> m_slot_handler;
     key_management::KeyManagementService::Sptr m_km_service;
-
-  private:
-    static constexpr const char* HASH = "HASH";
-    static constexpr const char* MAC = "MAC";
-    static constexpr const char* KEY_MANAGEMENT = "KEY:MANAGEMENT";
-    static constexpr const char* SIGN = "SIGN";
-    static constexpr const char* VERIFY = "VERIFY";
-    static constexpr const char* KEM = "KEM";
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::operations::factory

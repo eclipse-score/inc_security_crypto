@@ -41,9 +41,11 @@
 
 // Operation constants — these headers only depend on types.hpp (no circular risk).
 #include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/cipher_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/kem_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/mac_handler_operations.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/random_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/sign_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/verify_handler_operations.hpp"
 
@@ -72,12 +74,16 @@ constexpr std::string_view ActorName(OperationActor actor) noexcept
             return "KEY_MGMT";
         case actors::OP_ACTOR_MAC_HANDLER:
             return "MAC_HANDLER";
+        case actors::OP_ACTOR_CIPHER_HANDLER:
+            return "CIPHER_HANDLER";
         case actors::OP_ACTOR_SIGN_HANDLER:
             return "SIGN_HANDLER";
         case actors::OP_ACTOR_VERIFY_HANDLER:
             return "VERIFY_HANDLER";
         case actors::OP_ACTOR_KEM_HANDLER:
             return "KEM_HANDLER";
+        case actors::OP_ACTOR_RANDOM_HANDLER:
+            return "RANDOM_HANDLER";
         default:
             return "<unknown_actor>";
     }
@@ -99,6 +105,10 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
 
     namespace hash_ops = provider::handler::hash_handler_operations;
     namespace mac_ops = provider::handler::mac_handler_operations;
+    namespace cipher_ops = provider::handler::cipher_handler_operations;
+    namespace sign_ops = provider::handler::sign_handler_operations;
+    namespace verify_ops = provider::handler::verify_handler_operations;
+    namespace random_ops = provider::handler::random_handler_operations;
     namespace km_ops = key_management::operations;
 
     switch (actor)
@@ -156,20 +166,41 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
                     return "<unknown_mac_op>";
             }
 
+        case actors::OP_ACTOR_CIPHER_HANDLER:
+            switch (action)
+            {
+                case cipher_ops::CIPHER_INIT:
+                    return "CIPHER_INIT";
+                case cipher_ops::CIPHER_UPDATE:
+                    return "CIPHER_UPDATE";
+                case cipher_ops::CIPHER_FINALIZE:
+                    return "CIPHER_FINALIZE";
+                case cipher_ops::CIPHER_SS:
+                    return "CIPHER_SS";
+                case cipher_ops::CIPHER_GET_OUTPUT_SIZE:
+                    return "CIPHER_GET_OUTPUT_SIZE";
+                case cipher_ops::CIPHER_RESET:
+                    return "CIPHER_RESET";
+                case cipher_ops::CIPHER_GET_IV_SIZE:
+                    return "CIPHER_GET_IV_SIZE";
+                default:
+                    return "<unknown_cipher_op>";
+            }
+
         case actors::OP_ACTOR_SIGN_HANDLER:
             switch (action)
             {
-                case provider::handler::sign_handler_operations::SIGN_INIT:
+                case sign_ops::SIGN_INIT:
                     return "SIGN_INIT";
-                case provider::handler::sign_handler_operations::SIGN_UPDATE:
+                case sign_ops::SIGN_UPDATE:
                     return "SIGN_UPDATE";
-                case provider::handler::sign_handler_operations::SIGN_FINALIZE:
+                case sign_ops::SIGN_FINALIZE:
                     return "SIGN_FINALIZE";
-                case provider::handler::sign_handler_operations::SIGN_SS:
+                case sign_ops::SIGN_SS:
                     return "SIGN_SS";
-                case provider::handler::sign_handler_operations::SIGN_GET_SIGNATURE_SIZE:
-                    return "SIGN_GET_SIGNATURE_SIZE";
-                case provider::handler::sign_handler_operations::SIGN_RESET:
+                case sign_ops::SIGN_GET_SIZE:
+                    return "SIGN_GET_SIZE";
+                case sign_ops::SIGN_RESET:
                     return "SIGN_RESET";
                 default:
                     return "<unknown_sign_op>";
@@ -178,18 +209,31 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
         case actors::OP_ACTOR_VERIFY_HANDLER:
             switch (action)
             {
-                case provider::handler::verify_handler_operations::VERIFY_INIT:
+                case verify_ops::VERIFY_INIT:
                     return "VERIFY_INIT";
-                case provider::handler::verify_handler_operations::VERIFY_UPDATE:
+                case verify_ops::VERIFY_UPDATE:
                     return "VERIFY_UPDATE";
-                case provider::handler::verify_handler_operations::VERIFY_FINALIZE:
+                case verify_ops::VERIFY_FINALIZE:
                     return "VERIFY_FINALIZE";
-                case provider::handler::verify_handler_operations::VERIFY_SS:
+                case verify_ops::VERIFY_SS:
                     return "VERIFY_SS";
-                case provider::handler::verify_handler_operations::VERIFY_RESET:
+                case verify_ops::VERIFY_GET_SIZE:
+                    return "VERIFY_GET_SIZE";
+                case verify_ops::VERIFY_RESET:
                     return "VERIFY_RESET";
                 default:
                     return "<unknown_verify_op>";
+            }
+
+        case actors::OP_ACTOR_RANDOM_HANDLER:
+            switch (action)
+            {
+                case random_ops::RANDOM_GENERATE:
+                    return "RANDOM_GENERATE";
+                case random_ops::RANDOM_SEED:
+                    return "RANDOM_SEED";
+                default:
+                    return "<unknown_random_op>";
             }
 
         case actors::OP_ACTOR_KEM_HANDLER:

@@ -26,8 +26,8 @@ namespace score::crypto::daemon::provider::score_provider::iav_primula
 /// @brief IAV-Primula implementation of the provider-neutral signature handler.
 ///
 /// Supports ML-DSA signing through the IAV-Primula backend. The handler binds
-/// a non-owning native key handle and manages the output buffer for
-/// single-shot signatures.
+/// a non-owning native key handle and writes single-shot signatures into
+/// caller-provided buffers.
 class IavPrimulaSignHandler final : public operations::sign::ScoreSignHandler
 {
   public:
@@ -52,26 +52,20 @@ class IavPrimulaSignHandler final : public operations::sign::ScoreSignHandler
     /// The bound key must be an IAV-Primula key with a valid native handle.
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
         const ::score::crypto::daemon::provider::handler::InitializationParams& init_params) override;
-    /// @brief Clear the internal output buffer and reset the handler state.
-    [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> Reset() override;
     /// @brief Sign a complete message in a single operation.
     ///
-    /// If output is not provided, the handler allocates an owning response
-    /// buffer. Otherwise, the caller-provided output buffer is used.
-    [[nodiscard]] Expected<common::ResponseParameters, common::DaemonErrorCode> SingleShotSign(
-        const common::RequestParameter& data,
-        std::optional<common::RequestParameter> output) override;
-    /// @brief Return the fixed signature size for the configured ML-DSA algorithm.
-    [[nodiscard]] Expected<common::ResponseParameters, common::DaemonErrorCode> GetSignatureSize() const override;
+    /// Writes into the caller-provided buffer and returns the number of bytes written.
+    [[nodiscard]] Expected<std::size_t, common::DaemonErrorCode> SingleShotSign(
+        score::cpp::span<const std::uint8_t> data,
+        score::cpp::span<std::uint8_t> signature) override;
+    /// @brief Return the ML-DSA signature size, or zero for an unsupported algorithm.
+    [[nodiscard]] std::size_t GetSignatureSize() const noexcept override;
 
   private:
     /// @brief Validate that the configured algorithm is a supported ML-DSA algorithm.
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> ValidateAlgorithm() const;
-    /// @brief Return the expected signature size for the configured algorithm.
-    [[nodiscard]] std::size_t GetExpectedSignatureSize() const noexcept;
 
     iav_primula_key_handle* m_key{nullptr};    ///< Non-owning handle borrowed from the bound key handler.
-    std::vector<std::uint8_t> m_outputBuffer;  ///< Internally owned single-shot signature buffer.
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::iav_primula

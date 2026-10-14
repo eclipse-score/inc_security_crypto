@@ -30,27 +30,35 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateHandler(const common::HandlerId& handlerId,
                                                                            const common::AlgorithmId& algorithm)
 {
-    if (handlerId == HASH)
+    if (handlerId == common::context_types::kHash)
     {
         return CreateHashHandler(algorithm);
     }
-    if (handlerId == MAC)
+    if (handlerId == common::context_types::kMac)
     {
         return CreateMacHandler(algorithm);
     }
-    if (handlerId == KEY_MANAGEMENT)
+    if (handlerId == common::context_types::kKeyManagement)
     {
         return CreateKeyManagementHandler();
     }
-    if (handlerId == SIGN)
+    if (handlerId == common::context_types::kCipher)
+    {
+        return CreateCipherHandler(algorithm);
+    }
+    if (handlerId == common::context_types::kSign)
     {
         return CreateSignHandler(algorithm);
     }
-    if (handlerId == VERIFY)
+    if (handlerId == common::context_types::kVerify)
     {
         return CreateVerifyHandler(algorithm);
     }
-    if (handlerId == KEM)
+    if (handlerId == common::context_types::kRandom)
+    {
+        return CreateRandomHandler(algorithm);
+    }
+    if (handlerId == common::context_types::kKem)
     {
         return CreateKemHandler(algorithm);
     }
@@ -93,12 +101,22 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
 
+    ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateCipherHandler(
+    const common::AlgorithmId& /*algorithm*/)
+{
+    ::score::result::Error error(
+        static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
+        ::score::crypto::kCryptoErrorDomain,
+        "Cipher handler not supported by this score provider");
+    return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
+}
+
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateSignHandler(const common::AlgorithmId& /*algorithm*/)
 {
     ::score::result::Error error(
         static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
         ::score::crypto::kCryptoErrorDomain,
-        "Signature handler not supported by this score provider");
+        "Signature generation handler not supported by this score provider");
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
 
@@ -109,6 +127,16 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
         static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
         ::score::crypto::kCryptoErrorDomain,
         "Signature verification handler not supported by this score provider");
+    return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
+}
+
+::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateRandomHandler(
+    const common::AlgorithmId& /*algorithm*/)
+{
+    ::score::result::Error error(
+        static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
+        ::score::crypto::kCryptoErrorDomain,
+        "Random handler not supported by this score provider");
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
 

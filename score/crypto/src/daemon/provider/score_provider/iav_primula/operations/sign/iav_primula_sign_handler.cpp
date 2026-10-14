@@ -20,13 +20,11 @@
 
 #include <cstdint>
 #include <utility>
-#include <vector>
 
 namespace score::crypto::daemon::provider::score_provider::iav_primula
 {
 
 using common::DaemonErrorCode;
-using common::ResponseParameters;
 
 /// @brief Return the expected signature size for a PQC signature algorithm.
 ///
@@ -57,7 +55,7 @@ Expected<std::monostate, DaemonErrorCode> IavPrimulaSignHandler::ValidateAlgorit
     return std::monostate{};
 }
 
-std::size_t IavPrimulaSignHandler::GetExpectedSignatureSize() const noexcept
+std::size_t IavPrimulaSignHandler::GetSignatureSize() const noexcept
 {
     return SignatureSizeForAlgorithm(m_algorithm);
 }
@@ -99,31 +97,9 @@ Expected<std::monostate, DaemonErrorCode> IavPrimulaSignHandler::InitializeConte
     return std::monostate{};
 }
 
-Expected<std::monostate, DaemonErrorCode> IavPrimulaSignHandler::Reset()
-{
-    // Clear the internally owned signature buffer before resetting the base
-    // handler state.
-    m_outputBuffer.clear();
-    return ScoreSignHandler::Reset();
-}
-
-Expected<ResponseParameters, DaemonErrorCode> IavPrimulaSignHandler::GetSignatureSize() const
-{
-    // Return the fixed signature size for the configured ML-DSA algorithm.
-    const auto size = SignatureSizeForAlgorithm(m_algorithm);
-    if (size == 0U)
-    {
-        return make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
-    }
-
-    ResponseParameters response;
-    response.emplace_back(static_cast<std::uint64_t>(size));
-    return response;
-}
-
-Expected<ResponseParameters, DaemonErrorCode> IavPrimulaSignHandler::SingleShotSign(
-    const common::RequestParameter& data,
-    std::optional<common::RequestParameter> output)
+Expected<std::size_t, DaemonErrorCode> IavPrimulaSignHandler::SingleShotSign(
+    score::cpp::span<const std::uint8_t> data,
+    score::cpp::span<std::uint8_t> signature)
 {
     const auto algorithm_result = ValidateAlgorithm();
     if (!algorithm_result.has_value())
@@ -131,61 +107,24 @@ Expected<ResponseParameters, DaemonErrorCode> IavPrimulaSignHandler::SingleShotS
         return make_unexpected(algorithm_result.error());
     }
 
-    const auto* input = std::get_if<score::cpp::span<const std::uint8_t>>(&data);
-    if (input == nullptr)
-    {
-        return make_unexpected(DaemonErrorCode::kInvalidDataType);
-    }
-
     if (m_key == nullptr)
     {
         return make_unexpected(DaemonErrorCode::kKeySlotEmpty);
     }
 
-    // Sign the input in a single operation. Use an internally owned buffer
-    // when no output buffer is provided; otherwise write into the caller's buffer.
-    const auto expected_signature_length = GetExpectedSignatureSize();
-    std::uint8_t* signature_data = nullptr;
-    const bool allocate_output_buffer = !output.has_value();
-
-    if (!allocate_output_buffer)
+    const size_t expected_signature_length = GetSignatureSize();
+    if (signature.data() == nullptr || signature.size() < expected_signature_length)
     {
-        auto* output_buffer = std::get_if<score::cpp::span<std::uint8_t>>(&output.value());
-        if (output_buffer == nullptr)
-        {
-            return make_unexpected(DaemonErrorCode::kInvalidDataType);
-        }
-        if (output_buffer->data() == nullptr || output_buffer->size() < expected_signature_length)
-        {
-            return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
-        }
-        signature_data = output_buffer->data();
-    }
-    else
-    {
-        m_outputBuffer.clear();
-        m_outputBuffer.resize(expected_signature_length);
-        signature_data = m_outputBuffer.data();
+        return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
     }
 
     std::size_t signature_length = expected_signature_length;
-    const auto status = iav_sign(m_key, input->data(), input->size(), signature_data, &signature_length);
+    const auto status = iav_sign(m_key, data.data(), data.size(), signature.data(), &signature_length);
     if (status != IavStatusOk || signature_length != expected_signature_length)
     {
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
 
-    // Return owned output for internally allocated storage and a non-owning
-    // view for caller-provided storage.
-    ResponseParameters response;
-    if (allocate_output_buffer)
-    {
-        response.emplace_back(common::OwnedBuffer{std::move(m_outputBuffer)});
-    }
-    else
-    {
-        response.emplace_back(score::cpp::span<const std::uint8_t>{signature_data, signature_length});
-    }
-    return response;
+    return signature_length;
 }
 }  // namespace score::crypto::daemon::provider::score_provider::iav_primula

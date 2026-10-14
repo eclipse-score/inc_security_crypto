@@ -11,34 +11,104 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-/// @file verify_handler_operations.hpp
-/// @brief Operation identifiers for provider-neutral signature verification handlers.
-
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_VERIFY_HANDLER_OPERATIONS_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_VERIFY_HANDLER_OPERATIONS_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_OPERATIONS_VERIFY_HANDLER_OPERATIONS_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_OPERATIONS_VERIFY_HANDLER_OPERATIONS_HPP
 
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/stream_operation.hpp"
+
 #include <limits>
+#include <optional>
 
-namespace score::crypto::daemon::provider::handler::verify_handler_operations
+namespace score
 {
-/// @brief Initialize a streaming verification operation.
-inline constexpr common::OperationAction VERIFY_INIT = 1;
-/// @brief Add a message fragment to the verification operation.
-inline constexpr common::OperationAction VERIFY_UPDATE = 2;
-/// @brief Verify a signature against the accumulated message.
-inline constexpr common::OperationAction VERIFY_FINALIZE = 3;
-/// @brief Verify a complete message in one operation.
-inline constexpr common::OperationAction VERIFY_SS = 4;
-/// @brief Reset the verification operation state.
-inline constexpr common::OperationAction VERIFY_RESET = 5;
+namespace crypto
+{
+namespace daemon
+{
+namespace provider
+{
+namespace handler
+{
 
-/// @brief First operation identifier reserved for custom verification operations.
-///
-/// The highest bit separates custom operation identifiers from the
-/// built-in verification handler operations.
-inline constexpr common::OperationAction VERIFY_CUSTOM_OP_START =
-    1 << (std::numeric_limits<common::OperationAction>::digits - 1);
-}  // namespace score::crypto::daemon::provider::handler::verify_handler_operations
+// ============================================================================
+// Signature verification operations (OP_ACTOR_VERIFY_HANDLER)
+// ============================================================================
+namespace verify_handler_operations
+{
+using OperationAction = common::OperationAction;
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_HANDLER_VERIFY_HANDLER_OPERATIONS_HPP
+// VERIFY_INIT
+// Request:  data_node_id = context_id, no operation parameters
+// Response: status_code (SUCCESS/error), no output parameters
+// Effect:   Calls InitVerify(), transitions state IDLE → INITIALIZED
+inline constexpr OperationAction VERIFY_INIT = 1;
+
+// VERIFY_UPDATE
+// Request:  data_node_id = context_id,
+//           param[0]: DataBuffer — message chunk whose signature is checked
+// Response: status_code (SUCCESS/error), no output parameters
+// Effect:   Calls UpdateVerify(), transitions state INITIALIZED/ACTIVE → ACTIVE
+inline constexpr OperationAction VERIFY_UPDATE = 2;
+
+// VERIFY_FINALIZE
+// Request:  data_node_id = context_id,
+//           param[0]: DataBuffer — signature to check (P1363 r‖s for ECDSA)
+// Response: status_code (SUCCESS/error)
+//           param[0]: bool — true when the signature is valid
+// Effect:   Calls FinalizeVerify(), transitions state → IDLE.
+//           An invalid signature is reported as SUCCESS + false, not as an error.
+inline constexpr OperationAction VERIFY_FINALIZE = 3;
+
+// VERIFY_SS (Single-Shot)
+// Request:  data_node_id = context_id,
+//           param[0]: DataBuffer — full message
+//           param[1]: DataBuffer — signature to check
+// Response: status_code (SUCCESS/error)
+//           param[0]: bool — true when the signature is valid
+// Effect:   Requires IDLE state; performs init + update + finalize in one call
+inline constexpr OperationAction VERIFY_SS = 4;
+
+// VERIFY_GET_SIZE
+// Request:  data_node_id = context_id, no operation parameters
+// Response: status_code (SUCCESS/error)
+//           param[0]: uint64_t — expected signature length in bytes
+// Effect:   Stateless query; does not affect the stream state
+inline constexpr OperationAction VERIFY_GET_SIZE = 5;
+
+// VERIFY_RESET
+// Request:  data_node_id = context_id, no operation parameters
+// Response: status_code (SUCCESS/error), no output parameters
+// Effect:   Calls Reset(); key binding and algorithm are preserved
+inline constexpr OperationAction VERIFY_RESET = 6;
+
+inline constexpr OperationAction VERIFY_CUSTOM_OP_START = 1 << (std::numeric_limits<OperationAction>::digits - 1);
+
+/// @brief The stream state-machine step an action performs, if any.
+/// @return std::nullopt for an action that does not take part in the stream.
+[[nodiscard]] inline constexpr std::optional<StreamOperation> ToStreamOperation(OperationAction action) noexcept
+{
+    if (action == VERIFY_INIT)
+    {
+        return StreamOperation::kInit;
+    }
+    if (action == VERIFY_UPDATE)
+    {
+        return StreamOperation::kUpdate;
+    }
+    if (action == VERIFY_FINALIZE)
+    {
+        return StreamOperation::kFinalize;
+    }
+    return std::nullopt;
+}
+
+}  // namespace verify_handler_operations
+
+}  // namespace handler
+}  // namespace provider
+}  // namespace daemon
+}  // namespace crypto
+}  // namespace score
+
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_OPERATIONS_VERIFY_HANDLER_OPERATIONS_HPP

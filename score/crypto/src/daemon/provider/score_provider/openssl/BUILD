@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 # Header-only library for the OpenSSL key management primitives.
 cc_library(
@@ -45,10 +45,15 @@ cc_library(
 cc_library(
     name = "provider_openssl_headers",
     hdrs = [
+        "detail/ecdsa_common.hpp",
+        "operations/cipher/openssl_cipher_handler.hpp",
         "operations/factory/openssl_handler_factory.hpp",
         "operations/hash/openssl_hash_handler.hpp",
         "operations/key_management/openssl_key_management_handler.hpp",
         "operations/mac/openssl_hmac_handler.hpp",
+        "operations/random/openssl_random_handler.hpp",
+        "operations/sign/openssl_ecdsa_sign_handler.hpp",
+        "operations/verify/openssl_ecdsa_verify_handler.hpp",
         "provider_openssl.hpp",
     ],
     includes = ["."],
@@ -62,23 +67,32 @@ cc_library(
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
         "//score/crypto/src/daemon/provider/score_provider",
+        "//score/crypto/src/daemon/provider/score_provider/operations/cipher:score_cipher_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/factory:score_handler_factory",
         "//score/crypto/src/daemon/provider/score_provider/operations/hash:score_hash_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/key_management:score_key_management_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/mac:score_mac_handler",
+        "//score/crypto/src/daemon/provider/score_provider/operations/random:score_random_handler",
+        "//score/crypto/src/daemon/provider/score_provider/operations/sign:score_sign_handler",
+        "//score/crypto/src/daemon/provider/score_provider/operations/verify:score_verify_handler",
     ],
 )
 
 cc_library(
     name = "provider_openssl_library",
     srcs = [
+        "detail/ecdsa_common.cpp",
         "detail/openssl_algorithm_info.hpp",
         "key_management/openssl_key_factory.cpp",
         "key_management/openssl_key_handler.cpp",
+        "operations/cipher/openssl_cipher_handler.cpp",
         "operations/factory/openssl_handler_factory.cpp",
         "operations/hash/openssl_hash_handler.cpp",
         "operations/key_management/openssl_key_management_handler.cpp",
         "operations/mac/openssl_hmac_handler.cpp",
+        "operations/random/openssl_random_handler.cpp",
+        "operations/sign/openssl_ecdsa_sign_handler.cpp",
+        "operations/verify/openssl_ecdsa_verify_handler.cpp",
         "provider_openssl.cpp",
     ],
     implementation_deps = [
@@ -102,5 +116,60 @@ cc_library(
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
+    ],
+)
+
+cc_test(
+    name = "openssl_algorithm_info_test",
+    srcs = ["detail/openssl_algorithm_info_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":openssl_detail_headers",
+        ":provider_openssl_headers",
+        ":provider_openssl_library",
+        "//score/crypto/src/daemon/common:algorithm_info",
+        "//third_party/openssl:openssl_shared",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "openssl_key_handler_test",
+    srcs = ["key_management/openssl_key_handler_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":provider_openssl_library",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "openssl_key_management_handler_test",
+    srcs = ["operations/key_management/openssl_key_management_handler_test.cpp"],
+    data = [
+        "//score/crypto/tests/key_management/config:key_management_test_config",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":provider_openssl_library",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/config",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/key_management",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
+        "@googletest//:gtest_main",
     ],
 )

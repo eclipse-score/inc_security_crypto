@@ -11,6 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 #include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_handler.hpp"
+#include "score/crypto/src/daemon/common/context_mode.hpp"
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
@@ -57,8 +58,6 @@ static constexpr std::array<const char*, 3> kSupportedAlgorithms = {
     "HMAC-SHA384",
     "HMAC-SHA512",
 };
-static constexpr std::size_t kOperationModeParameterIndex = 4U;
-static constexpr std::size_t kMinimumContextCreationParameters = kOperationModeParameterIndex + 1U;
 
 // ---------------------------------------------------------------------------
 // Algorithm mapping
@@ -185,14 +184,14 @@ Pkcs11MacHandler::InitializeContext(const handler::InitializationParams& init_pa
         m_ctx.key_object = resolved->object();
         m_ctx.mac_size = GetMacSize();
 
-        // operation_mode is MAC-specific: read from param[4] of the CTX_CREATE wire call.
-        if (init_params.context_creation_params.size() >= kMinimumContextCreationParameters)
+        // The CTX_CREATE ContextMode selects C_SignInit or C_VerifyInit.
+        const auto mode = common::ExtractContextMode(init_params.context_creation_params);
+        if (mode.has_value())
         {
-            const auto* mode_val =
-                std::get_if<std::uint8_t>(&init_params.context_creation_params[kOperationModeParameterIndex]);
-            if (mode_val != nullptr)
+            const auto operation_mode = common::ToOperationMode(mode.value());
+            if (operation_mode.has_value())
             {
-                m_ctx.operation_mode = static_cast<score::crypto::OperationMode>(*mode_val);
+                m_ctx.operation_mode = operation_mode.value();
             }
         }
 

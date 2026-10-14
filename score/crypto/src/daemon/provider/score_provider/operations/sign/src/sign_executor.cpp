@@ -12,231 +12,207 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/sign_executor.hpp"
+#include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/sign_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/score_sign_handler.hpp"
 
 namespace score::crypto::daemon::provider::score_provider::operations::sign
 {
+
 namespace handler = ::score::crypto::daemon::provider::handler;
+namespace actors = ::score::crypto::daemon::common::actors;
+namespace sign_ops = ::score::crypto::daemon::provider::handler::sign_handler_operations;
+
 using common::DaemonErrorCode;
 using common::RequestParameters;
 using common::ResponseParameters;
 using common::StreamOperationState;
 
-Expected<ResponseParameters, DaemonErrorCode> SignExecutor::Execute(ScoreSignHandler& handler,
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
+
+Expected<ResponseParameters, DaemonErrorCode> SignExecutor::Execute(ScoreSignHandler& handler_ref,
                                                                     const common::OperationIdentifier& operationId,
                                                                     RequestParameters& request)
 {
-    // Handle operations that do not participate in the streaming state machine.
-    if (operationId.operationAction == handler::sign_handler_operations::SIGN_GET_SIGNATURE_SIZE)
+    // A SIGN context is bound to the private half of the key pair, so a request
+    // addressed to any other actor has reached the wrong context.
+    if (operationId.operationActor != actors::OP_ACTOR_SIGN_HANDLER)
     {
-        return GetSignatureSize(handler, request);
+        return make_unexpected(DaemonErrorCode::kInvalidOperation);
     }
 
-    if (operationId.operationAction == handler::sign_handler_operations::SIGN_RESET)
+    const auto action = operationId.operationAction;
+
+    if (action == sign_ops::SIGN_GET_SIZE)
     {
-        auto result = ExecuteReset(handler, request);
-        if (!result.has_value())
+        ResponseParameters response;
+        response.push_back(static_cast<std::uint64_t>(handler_ref.GetSignatureSize()));
+        return response;
+    }
+
+    if (action == sign_ops::SIGN_RESET)
+    {
+        auto res = handler_ref.Reset();
+        if (!res.has_value())
         {
-            return make_unexpected(result.error());
+            return make_unexpected(res.error());
         }
         return ResponseParameters{};
     }
 
-    // A single-shot signature is only valid while no streaming operation is active.
-    if (operationId.operationAction == handler::sign_handler_operations::SIGN_SS)
+    if (action == sign_ops::SIGN_SS)
     {
-        StreamOperationState state = handler.GetOperationState();
-        if (state != StreamOperationState::IDLE)
+        if (handler_ref.GetOperationState() == StreamOperationState::STREAM_ACTIVE)
         {
             return make_unexpected(DaemonErrorCode::kOperationInProgress);
         }
+        auto result = ExecuteSingleShot(handler_ref, request);
+        // A single-shot always ends the stream, so the context is left reusable
+        // even when the operation failed part-way through.
+        handler_ref.SetOperationState(StreamOperationState::IDLE);
+        return result;
+    }
+
+    return ExecuteStreaming(handler_ref, action, request);
+}
+
+// static
+Expected<ResponseParameters, DaemonErrorCode> SignExecutor::ExecuteStreaming(ScoreSignHandler& handler_ref,
+                                                                             const common::OperationAction action,
+                                                                             RequestParameters& request)
+{
+    const StreamOperationState currentState = handler_ref.GetOperationState();
+    StreamOperationState nextState = StreamOperationState::IDLE;
+    const auto validation = ValidateStreamTransition(action, currentState, nextState);
+    if (!validation.has_value())
+    {
+        return make_unexpected(validation.error());
+    }
+
+    if (action == sign_ops::SIGN_INIT)
+    {
+        auto result = handler_ref.InitSign();
+        if (!result.has_value())
+        {
+            return make_unexpected(result.error());
+        }
+        handler_ref.SetOperationState(nextState);
+        return ResponseParameters{};
+    }
+
+    if (action == sign_ops::SIGN_UPDATE)
+    {
         if (request.empty())
         {
             return make_unexpected(DaemonErrorCode::kInsufficientParameters);
         }
-
-        return ExecuteSingleShot(handler, request);
-    }
-
-    // Streaming operations must follow the valid state-machine transition before
-    // the corresponding handler method is called.
-    StreamOperationState currentState = handler.GetOperationState();
-    StreamOperationState nextState = StreamOperationState::IDLE;
-    const auto sequenceValidation = ValidateStreamTransition(operationId.operationAction, currentState, nextState);
-    if (!sequenceValidation.has_value())
-    {
-        return make_unexpected(sequenceValidation.error());
-    }
-
-    // Finalization returns a response and updates the state only after success.
-    if (operationId.operationAction == handler::sign_handler_operations::SIGN_FINALIZE)
-    {
-        auto result = ExecuteFinalize(handler, request);
-        if (result.has_value())
+        const auto dataSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[0]);
+        if (!dataSpan.has_value())
         {
-            handler.SetOperationState(nextState);
+            return make_unexpected(dataSpan.error());
         }
-        return result;
-    }
-
-    // Initialization and update return no response parameters. The stream state
-    // is advanced only when the handler accepts the operation.
-    if (operationId.operationAction == handler::sign_handler_operations::SIGN_INIT)
-    {
-        const auto result = ExecuteInit(handler, request);
-        if (result.has_value())
-        {
-            handler.SetOperationState(nextState);
-        }
-        else
+        auto result = handler_ref.UpdateSign(dataSpan.value());
+        if (!result.has_value())
         {
             return make_unexpected(result.error());
         }
+        handler_ref.SetOperationState(nextState);
+        return ResponseParameters{};
     }
 
-    if (operationId.operationAction == handler::sign_handler_operations::SIGN_UPDATE)
+    // ValidateStreamTransition() only passes INIT, UPDATE and FINALIZE.
+    auto result = ExecuteFinalize(handler_ref, request);
+    if (result.has_value())
     {
-        const auto result = ExecuteUpdate(handler, request);
-        if (result.has_value())
-        {
-            handler.SetOperationState(nextState);
-        }
-        else
-        {
-            return make_unexpected(result.error());
-        }
+        handler_ref.SetOperationState(nextState);
     }
-
-    return ResponseParameters{};
+    return result;
 }
 
-Expected<std::monostate, DaemonErrorCode> SignExecutor::ExecuteInit(ScoreSignHandler& handler,
-                                                                    RequestParameters& request)
-{
-    // Initialization data is optional; a missing or incompatible first
-    // parameter is treated as no initial data and handled by the provider.
-    std::optional<score::cpp::span<const std::uint8_t>> initialData;
-    if (!request.empty())
-    {
-        if (auto* buf = std::get_if<score::cpp::span<const std::uint8_t>>(&request[0]))
-        {
-            initialData.emplace(*buf);
-        }
-    }
-    return handler.InitSign(initialData);
-}
+// ---------------------------------------------------------------------------
+// Operation implementations
+// ---------------------------------------------------------------------------
 
-Expected<std::monostate, DaemonErrorCode> SignExecutor::ExecuteUpdate(ScoreSignHandler& handler,
-                                                                      RequestParameters& request)
-{
-    // UPDATE requires one input buffer containing data for the active stream.
-    if (request.empty())
-    {
-        return make_unexpected(DaemonErrorCode::kInsufficientParameters);
-    }
-
-    auto* buf = std::get_if<score::cpp::span<const std::uint8_t>>(&request[0]);
-    if (buf == nullptr)
-    {
-        return make_unexpected(DaemonErrorCode::kInvalidDataType);
-    }
-
-    return handler.UpdateSign(*buf);
-}
-
-Expected<ResponseParameters, DaemonErrorCode> SignExecutor::ExecuteFinalize(ScoreSignHandler& handler,
+// static
+Expected<ResponseParameters, DaemonErrorCode> SignExecutor::ExecuteFinalize(ScoreSignHandler& handler_ref,
                                                                             RequestParameters& request)
 {
-    // FINALIZE accepts an optional output buffer followed by optional final data.
-    std::optional<score::cpp::span<std::uint8_t>> output;
-    if (!request.empty())
-    {
-        if (auto* buf = std::get_if<score::cpp::span<std::uint8_t>>(&request[0]))
-        {
-            output.emplace(*buf);
-        }
-    }
-
-    std::optional<score::cpp::span<const std::uint8_t>> finalData;
-    if (request.size() > 1)
-    {
-        if (auto* buf = std::get_if<score::cpp::span<const std::uint8_t>>(&request[1]))
-        {
-            finalData.emplace(*buf);
-        }
-    }
-
-    return handler.FinalizeSign(output, finalData);
-}
-
-Expected<ResponseParameters, DaemonErrorCode> SignExecutor::ExecuteSingleShot(ScoreSignHandler& handler,
-                                                                              RequestParameters& request)
-{
-    // SINGLE-SHOT requires input data and may optionally receive an output buffer.
+    // request[0] = caller-provided signature output buffer
     if (request.empty())
     {
         return make_unexpected(DaemonErrorCode::kInsufficientParameters);
     }
 
-    auto* data = std::get_if<score::cpp::span<const std::uint8_t>>(&request[0]);
-    if (data == nullptr)
+    const auto signatureSpan = handler::handler_utils::CheckAndGetSpan<std::uint8_t>(request[0]);
+    if (!signatureSpan.has_value())
     {
-        return make_unexpected(DaemonErrorCode::kInvalidDataType);
+        return make_unexpected(signatureSpan.error());
     }
 
-    std::optional<score::cpp::span<std::uint8_t>> output;
-    if (request.size() > 1)
+    auto written = handler_ref.FinalizeSign(signatureSpan.value());
+    if (!written.has_value())
     {
-        if (auto* buf = std::get_if<score::cpp::span<std::uint8_t>>(&request[1]))
-        {
-            output.emplace(*buf);
-        }
+        return make_unexpected(written.error());
     }
 
-    return handler.SingleShotSign(*data, output);
+    ResponseParameters response;
+    response.push_back(static_cast<std::uint64_t>(written.value()));
+    return response;
 }
 
-Expected<std::monostate, DaemonErrorCode> SignExecutor::ExecuteReset(ScoreSignHandler& handler,
-                                                                     RequestParameters& /*request*/)
+// static
+Expected<ResponseParameters, DaemonErrorCode> SignExecutor::ExecuteSingleShot(ScoreSignHandler& handler_ref,
+                                                                              RequestParameters& request)
 {
-    // RESET does not consume request parameters; the handler owns the reset logic.
-    return handler.Reset();
+    // request[0] = message, request[1] = caller-provided signature output buffer
+    if (request.size() < 2U)
+    {
+        return make_unexpected(DaemonErrorCode::kInsufficientParameters);
+    }
+
+    const auto dataSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[0]);
+    if (!dataSpan.has_value())
+    {
+        return make_unexpected(dataSpan.error());
+    }
+    const auto signatureSpan = handler::handler_utils::CheckAndGetSpan<std::uint8_t>(request[1]);
+    if (!signatureSpan.has_value())
+    {
+        return make_unexpected(signatureSpan.error());
+    }
+
+    // The whole one-shot belongs to the provider; the executor adds no steps.
+    auto written = handler_ref.SingleShotSign(dataSpan.value(), signatureSpan.value());
+    if (!written.has_value())
+    {
+        return make_unexpected(written.error());
+    }
+
+    ResponseParameters response;
+    response.push_back(static_cast<std::uint64_t>(written.value()));
+    return response;
 }
 
-Expected<ResponseParameters, DaemonErrorCode> SignExecutor::GetSignatureSize(const ScoreSignHandler& handler,
-                                                                             RequestParameters& /*request*/)
-{
-    // The signature size depends only on the configured algorithm.
-    return handler.GetSignatureSize();
-}
+// ---------------------------------------------------------------------------
+// Validation helpers
+// ---------------------------------------------------------------------------
 
+// static
 Expected<std::monostate, DaemonErrorCode> SignExecutor::ValidateStreamTransition(
     const common::OperationAction action,
     const StreamOperationState currentState,
     StreamOperationState& nextState)
 {
-    // Map the SIGN action to the generic stream operation used by the
-    // centralized state-transition validator.
-    handler::handler_utils::StreamOperation op{};
-    if (action == handler::sign_handler_operations::SIGN_INIT)
-    {
-        op = handler::handler_utils::StreamOperation::kInit;
-    }
-    else if (action == handler::sign_handler_operations::SIGN_UPDATE)
-    {
-        op = handler::handler_utils::StreamOperation::kUpdate;
-    }
-    else if (action == handler::sign_handler_operations::SIGN_FINALIZE)
-    {
-        op = handler::handler_utils::StreamOperation::kFinalize;
-    }
-    else
+    const auto op = handler::sign_handler_operations::ToStreamOperation(action);
+    if (!op.has_value())
     {
         return make_unexpected(DaemonErrorCode::kInvalidOperation);
     }
-    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op);
+
+    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());
     if (!result.has_value())
     {
         return make_unexpected(result.error());
@@ -244,4 +220,5 @@ Expected<std::monostate, DaemonErrorCode> SignExecutor::ValidateStreamTransition
     nextState = result.value();
     return std::monostate{};
 }
+
 }  // namespace score::crypto::daemon::provider::score_provider::operations::sign

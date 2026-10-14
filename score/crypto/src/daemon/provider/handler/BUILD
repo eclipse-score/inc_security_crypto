@@ -42,6 +42,13 @@ cc_library(
 )
 
 # Handler utilities header library
+# Stream state-machine step shared by every streaming handler's operations header.
+cc_library(
+    name = "stream_operation",
+    hdrs = ["operations/stream_operation.hpp"],
+    visibility = ["//:__subpackages__"],
+)
+
 cc_library(
     name = "handler_utils_hdr",
     hdrs = ["src/handler_utils.hpp"],
@@ -50,6 +57,7 @@ cc_library(
         "//score/crypto/src/daemon/src/provider:__subpackages__",
     ],
     deps = [
+        ":stream_operation",
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
     ],
@@ -77,7 +85,10 @@ cc_library(
     visibility = [
         "//:__subpackages__",
     ],
-    deps = ["//score/crypto/src/daemon/common"],
+    deps = [
+        ":stream_operation",
+        "//score/crypto/src/daemon/common",
+    ],
 )
 
 cc_library(
@@ -98,19 +109,49 @@ cc_library(
     name = "mac_handler_operations",
     hdrs = ["operations/mac_handler_operations.hpp"],
     visibility = ["//:__subpackages__"],
-    deps = ["//score/crypto/src/daemon/common"],
+    deps = [
+        ":stream_operation",
+        "//score/crypto/src/daemon/common",
+    ],
 )
 
+# Cipher handler operations header-only library
+cc_library(
+    name = "cipher_handler_operations",
+    hdrs = ["operations/cipher_handler_operations.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":stream_operation",
+        "//score/crypto/src/daemon/common",
+    ],
+)
+
+# Signature generation handler operations header-only library
 cc_library(
     name = "sign_handler_operations",
     hdrs = ["operations/sign_handler_operations.hpp"],
     visibility = ["//:__subpackages__"],
-    deps = ["//score/crypto/src/daemon/common"],
+    deps = [
+        ":stream_operation",
+        "//score/crypto/src/daemon/common",
+    ],
 )
 
+# Signature verification handler operations header-only library
 cc_library(
     name = "verify_handler_operations",
     hdrs = ["operations/verify_handler_operations.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":stream_operation",
+        "//score/crypto/src/daemon/common",
+    ],
+)
+
+# Random handler operations header-only library
+cc_library(
+    name = "random_handler_operations",
+    hdrs = ["operations/random_handler_operations.hpp"],
     visibility = ["//:__subpackages__"],
     deps = ["//score/crypto/src/daemon/common"],
 )

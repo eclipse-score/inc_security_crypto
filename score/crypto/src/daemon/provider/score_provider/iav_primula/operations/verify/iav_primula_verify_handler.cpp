@@ -17,6 +17,8 @@
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_key_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/verify_executor.hpp"
 
+#include <utility>
+
 namespace score::crypto::daemon::provider::score_provider::iav_primula
 {
 namespace
@@ -75,9 +77,14 @@ Expected<std::monostate, common::DaemonErrorCode> IavPrimulaVerifyHandler::Initi
     return std::monostate{};
 }
 
+std::size_t IavPrimulaVerifyHandler::GetSignatureSize() const noexcept
+{
+    return SignatureSize(m_algorithm);
+}
+
 Expected<bool, common::DaemonErrorCode> IavPrimulaVerifyHandler::SingleShotVerify(
-    const common::RequestParameter& data,
-    const common::RequestParameter& signature)
+    score::cpp::span<const std::uint8_t> data,
+    score::cpp::span<const std::uint8_t> signature)
 {
     // Verify a complete message and signature in a single operation.
     auto algorithm = ValidateAlgorithm();
@@ -85,21 +92,15 @@ Expected<bool, common::DaemonErrorCode> IavPrimulaVerifyHandler::SingleShotVerif
     {
         return make_unexpected(algorithm.error());
     }
-    const auto* message = std::get_if<score::cpp::span<const std::uint8_t>>(&data);
-    const auto* sig = std::get_if<score::cpp::span<const std::uint8_t>>(&signature);
-    if (message == nullptr || sig == nullptr)
-    {
-        return make_unexpected(common::DaemonErrorCode::kInvalidDataType);
-    }
     if (m_key == nullptr)
     {
         return make_unexpected(common::DaemonErrorCode::kKeySlotEmpty);
     }
-    if (sig->data() == nullptr || sig->size() != SignatureSize(m_algorithm))
+    if (signature.data() == nullptr || signature.size() != GetSignatureSize())
     {
         return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
     }
-    const auto status = iav_verify(m_key, message->data(), message->size(), sig->data(), sig->size());
+    const auto status = iav_verify(m_key, data.data(), data.size(), signature.data(), signature.size());
     // Map backend verification status to the handler contract: an invalid
     // signature returns false, while backend errors are returned as failures.
     if (status == IavStatusVerificationFailed)

@@ -11,35 +11,40 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-/// @file score_sign_handler.hpp
-/// @brief Provider-neutral base handler for signature operations.
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_SIGN_SCORE_SIGN_HANDLER_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_SIGN_SCORE_SIGN_HANDLER_HPP
 
-#ifndef SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_SIGN_SCORE_SIGN_HANDLER_HPP
-#define SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_SIGN_SCORE_SIGN_HANDLER_HPP
-
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
+
+#include "score/span.hpp"
+
+#include <cstddef>
+#include <cstdint>
 #include <memory>
-#include <optional>
-#include <utility>
 
 namespace score::crypto::daemon::provider::score_provider::operations::sign
 {
 
-/// @brief Forward declaration of the signature-operation executor (m_executor).
 class SignExecutor;
 
-/// @brief Abstract base handler for signature operations under the score interface family.
+/// @brief Abstract base handler for digital signature generation under the score
+///        interface family.
 ///
-/// Implements the daemon's Handler interface by delegating Execute() to the
-/// injected SignExecutor. Concrete score-interface providers (e.g. OpenSSL, IAV-Primula)
-/// inherit from this class and override the typed signature methods.
+/// A SIGN context uses the private half of the bound key pair for its whole
+/// life. Verification is a separate context type, so nothing here branches on a
+/// direction.
 ///
-/// Typed methods default to kUnsupportedOperation so that a partially-implemented
-/// provider compiles and returns a clear error at runtime.
+/// The daemon's Handler::Execute() is delegated to the injected SignExecutor,
+/// which validates the stream state machine and routes to the typed methods
+/// below.
 ///
-/// State management (algorithm, stream operation state) is centralised here.
+/// Signature encoding: this stack uses the fixed-length IEEE P1363 form r‖s for
+/// ECDSA on every provider, so a signature produced by one provider verifies
+/// under another. Providers whose native output is DER convert at this boundary.
 class ScoreSignHandler : public handler::Handler
 {
   public:
@@ -47,97 +52,85 @@ class ScoreSignHandler : public handler::Handler
 
     ScoreSignHandler() = delete;
 
-    /// @brief Create a provider-neutral signature handler.
-    ///
-    /// Takes ownership of the operation executor and stores the selected
-    /// signature algorithm.
-    ///
-    /// @param executor Executor used to dispatch signature operations.
-    /// @param algorithm Algorithm identifier handled by this instance.
-    ScoreSignHandler(std::unique_ptr<SignExecutor> executor, const common::AlgorithmId algorithm);
+    /// @param executor   Sign executor injected by the handler factory.
+    /// @param algorithm  Algorithm identifier (e.g. "ECDSA-P256-SHA256").
+    explicit ScoreSignHandler(std::unique_ptr<SignExecutor> executor, const common::AlgorithmId& algorithm);
+
     ~ScoreSignHandler() override;
 
-    /// @brief Delegates to the injected executor.
-    ///
-    /// @param operation Operation identifier containing the signature action.
-    /// @param request Operation parameters.
+    // -----------------------------------------------------------------------
+    // Handler interface
+    // -----------------------------------------------------------------------
+
     [[nodiscard]] Expected<common::ResponseParameters, common::DaemonErrorCode> Execute(
-        const common::OperationIdentifier& operation,
+        const common::OperationIdentifier& operationId,
         common::RequestParameters& request) override;
 
-    /// @brief Initialize the handler context and reset the stream state to IDLE.
-    ///
-    /// @param init_params Context initialization parameters.
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
         const handler::InitializationParams& init_params) override;
 
-    /// @brief Reset the intermediate stream state back to IDLE.
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> Reset() override;
 
     // -----------------------------------------------------------------------
     // Stream state management
     // -----------------------------------------------------------------------
 
-    /// @brief Return the current signature stream state.
     [[nodiscard]] common::StreamOperationState GetOperationState() const noexcept
     {
         return m_state;
     }
 
-    /// @brief Set the current signature stream state.
     void SetOperationState(common::StreamOperationState state) noexcept
     {
         m_state = state;
     }
 
-    /// @brief Return the configured signature algorithm.
     [[nodiscard]] const common::AlgorithmId& GetAlgorithm() const noexcept
     {
         return m_algorithm;
     }
 
     // -----------------------------------------------------------------------
-    // Typed signature operations — override in concrete provider handlers
+    // Typed sign operations — override in concrete provider handlers
     // -----------------------------------------------------------------------
 
-    /// @brief Initialize a signature operation on an existing context.
-    ///
-    /// @param initial_data Optional data to include during initialization.
-    [[nodiscard]] virtual Expected<std::monostate, common::DaemonErrorCode> InitSign(
-        std::optional<common::RequestParameter> initial_data);
+    /// @brief Signature length in bytes for the configured algorithm.
+    [[nodiscard]] virtual std::size_t GetSignatureSize() const noexcept;
 
-    /// @brief Add data to the active signature stream.
-    ///
-    /// @param data Message data to add to the signature.
+    /// @brief Start a signing stream using the bound private key.
+    [[nodiscard]] virtual Expected<std::monostate, common::DaemonErrorCode> InitSign();
+
+    /// @brief Feed a message chunk into the active stream.
     [[nodiscard]] virtual Expected<std::monostate, common::DaemonErrorCode> UpdateSign(
-        const common::RequestParameter& data);
+        score::cpp::span<const std::uint8_t> data);
 
-    /// @brief Finalize the signature and produce the output.
+    /// @brief Produce the signature over the accumulated message.
+    /// @param signature Caller-provided output buffer, already resolved by the executor.
+    /// @return Bytes written.
+    [[nodiscard]] virtual Expected<std::size_t, common::DaemonErrorCode> FinalizeSign(
+        score::cpp::span<std::uint8_t> signature);
+
+    /// @brief Sign @p data in one call, without a streaming sequence.
     ///
-    /// @param final_data Optional final data to add before signing.
-    /// @param output Optional caller-provided output buffer.
-    [[nodiscard]] virtual Expected<common::ResponseParameters, common::DaemonErrorCode> FinalizeSign(
-        std::optional<common::RequestParameter> final_data,
-        std::optional<common::RequestParameter> output);
-
-    /// @brief Perform a single-shot signature without streaming.
+    /// @param data      Message to sign.
+    /// @param signature Caller-provided output buffer.
+    /// @return Bytes written.
     ///
-    /// @param data Message data to sign.
-    /// @param output Optional caller-provided output buffer.
-    [[nodiscard]] virtual Expected<common::ResponseParameters, common::DaemonErrorCode> SingleShotSign(
-        const common::RequestParameter& data,
-        std::optional<common::RequestParameter> output);
-
-    /// @brief Get the signature size for the current algorithm.
-    [[nodiscard]] virtual Expected<common::ResponseParameters, common::DaemonErrorCode> GetSignatureSize() const;
+    /// @note Not implemented here: the base returns kUnsupportedOperation. A
+    ///       provider serves a one-shot from a dedicated single-call API where
+    ///       one exists, or from its own streaming sequence.
+    [[nodiscard]] virtual Expected<std::size_t, common::DaemonErrorCode> SingleShotSign(
+        score::cpp::span<const std::uint8_t> data,
+        score::cpp::span<std::uint8_t> signature);
 
   protected:
-    common::AlgorithmId m_algorithm;                                           ///< Algorithm handled by this instance.
-    common::StreamOperationState m_state{common::StreamOperationState::IDLE};  ///< Current streaming state.
+    common::AlgorithmId m_algorithm;
+    common::StreamOperationState m_state{common::StreamOperationState::IDLE};
 
   private:
-    std::unique_ptr<SignExecutor> m_executor;  ///< Owns the operation dispatcher.
+    std::unique_ptr<SignExecutor> m_executor;
 };
+
 }  // namespace score::crypto::daemon::provider::score_provider::operations::sign
 
-#endif  // SCORE_CRYPTO_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_SIGN_SCORE_SIGN_HANDLER_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_SIGN_SCORE_SIGN_HANDLER_HPP

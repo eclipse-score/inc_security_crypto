@@ -95,6 +95,7 @@ Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaK
     h.opaque_id = reinterpret_cast<std::uintptr_t>(key);
     h.provider_id = m_provider_id;
     h.permissions = r.permissions;
+    h.public_key_permissions = r.public_key_permissions;
     h.is_asymmetric = true;
     h.algorithm = r.algorithm;
     h.key_size = info->private_key_size;
@@ -108,12 +109,17 @@ Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaK
     if (!info ||
         ((info->kind != common::PqcAlgorithmKind::kSignature) && (info->kind != common::PqcAlgorithmKind::kKem)) ||
         !r.key_data || (r.key_data_size != info->public_key_size))
+    {
         return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+    }
 
     std::vector<std::uint8_t> pub(r.key_data, r.key_data + r.key_data_size);
     key_management::ProviderKeyHandle h{};
     h.provider_id = m_provider_id;
-    h.permissions = r.permissions;
+    // Imports contain only public material. Preserve the import grant for
+    // public operations and do not grant any private-key operations.
+    h.permissions = score::crypto::KeyOperationPermission::kNone;
+    h.public_key_permissions = r.permissions;
     h.is_asymmetric = true;
     h.algorithm = r.algorithm;
     h.key_size = info->public_key_size;
