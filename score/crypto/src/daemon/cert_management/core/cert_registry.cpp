@@ -27,6 +27,12 @@ constexpr std::string_view kLogPrefix = "[CERT_REGISTRY] ";
 
 CertRegistryId CertRegistry::RegisterSlotCert(CertSlotHandle /*slot_handle*/, std::shared_ptr<CertEntry> cert_entry)
 {
+    if (cert_entry == nullptr)
+    {
+        score::mw::log::LogError() << kLogPrefix << "RegisterSlotCert: cert_entry is null";
+        return 0U;
+    }
+
     const std::lock_guard<std::mutex> lock(m_mutex);
     const CertRegistryId id = m_next_id++;
     m_certs.emplace(id, std::move(cert_entry));
@@ -35,6 +41,12 @@ CertRegistryId CertRegistry::RegisterSlotCert(CertSlotHandle /*slot_handle*/, st
 
 CertRegistryId CertRegistry::RegisterEphemeralCert(std::shared_ptr<CertEntry> cert_entry)
 {
+    if (cert_entry == nullptr)
+    {
+        score::mw::log::LogError() << kLogPrefix << "RegisterEphemeralCert: cert_entry is null";
+        return 0U;
+    }
+
     const std::lock_guard<std::mutex> lock(m_mutex);
 
     const CertRegistryId id = m_next_id++;
@@ -77,14 +89,16 @@ void CertRegistry::CleanupClient(data_manager::ClientId client_id)
 
     for (const auto& [id, cert_entry] : m_certs)
     {
-        if (cert_entry->IsOwnedBy(client_id))
+        if (cert_entry == nullptr || cert_entry->IsOwnedBy(client_id))
+        {
             to_remove.push_back(id);
+        }
     }
 
     for (const auto id : to_remove)
     {
-        score::mw::log::LogDebug() << kLogPrefix << "CleanupClient: removing cert " << id << " owned by client "
-                                   << client_id;
+        score::mw::log::LogDebug() << kLogPrefix << "CleanupClient: removing registry entry " << id
+                                   << " while cleaning client " << client_id;
         m_certs.erase(id);
     }
 }

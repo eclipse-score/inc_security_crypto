@@ -30,7 +30,7 @@ package "cert_management" {
     [CertObject] #FFF0CC
     [CertSlotConfig] #FFF0CC
     [AccessPolicy] #FFF0CC
-    [cert_types.hpp\n(handles, metadata, CRL entry)] #FFF0CC
+    [cert_types.hpp\n(handles, metadata, CrlData)] #FFF0CC
   }
   package "nodes" {
     [CertSlotDataNode]
@@ -156,7 +156,7 @@ end note
 [certificate.hpp] --> [common.hpp]
 [CertManagementService] ..> [certificate.hpp] : public values
 [CertSlotConfig] --> [AccessPolicy]
-[CertObject] --> [cert_types.hpp\n(handles, metadata, CRL entry)]
+[CertObject] --> [cert_types.hpp\n(handles, metadata, CrlData)]
 
 legend bottom
   |= Fill |= Boundary role |

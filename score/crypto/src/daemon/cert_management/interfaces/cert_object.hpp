@@ -27,23 +27,14 @@
 namespace score::crypto::daemon::cert_management
 {
 
-/// Provider-neutral value type for a single parsed certificate.
+/// Immutable, provider-neutral value holding one parsed certificate.
 ///
-/// A certificate is public, fully serializable data — unlike a private key, it
-/// has no opaque provider-internal secret that must stay bound to the provider
-/// that created it. `CertObject` therefore replaces the previous polymorphic
-/// `ICertHandler`: it is a plain, immutable value holding the raw DER/PEM bytes,
-/// their format, and the metadata extracted at parse time (`CertChainMetadata`).
+/// Contains the raw DER/PEM bytes, their format, and the metadata extracted at
+/// parse time (`CertChainMetadata`). Parsing is performed by `ICertParser`; any
+/// provider can consume a `CertObject`. Byte-transforming operations (format
+/// conversion, public-key extraction) belong to the provider, not to this type.
 ///
-/// Parsing remains a provider capability (`ICertParser`), but
-/// its product is neutral: any provider — or none — can consume a CertObject,
-/// which is what lets a certificate stored via one backend (e.g. PKCS#11) be
-/// parsed/verified by the software provider. Operations that transform bytes
-/// (format conversion, public-key extraction) live on the provider, not here.
-///
-/// Shared via CertObject::Sptr because the same certificate is commonly
-/// referenced by the CertRegistry and one or more trust stores at once.
-///
+/// Shared via `CertObject::Sptr` across the certificate registry and trust stores.
 /// Thread safety: instances are immutable after construction and safe to read
 /// concurrently through a shared_ptr.
 class CertObject final
@@ -51,6 +42,9 @@ class CertObject final
   public:
     using Sptr = std::shared_ptr<CertObject>;
 
+    /// @param metadata Precomputed chain metadata for the certificate.
+    /// @param bytes Raw certificate bytes in the format given by @p format.
+    /// @param format Format of @p bytes (kPem or kDer).
     CertObject(CertChainMetadata metadata, std::vector<uint8_t> bytes, score::crypto::FormatType format)
         : m_metadata{std::move(metadata)}, m_bytes{std::move(bytes)}, m_format{format}
     {
@@ -68,54 +62,63 @@ class CertObject final
     // -----------------------------------------------------------------------
 
     /// RFC 4514 canonical string representation of the Subject Distinguished Name.
+    /// @return Canonical Subject DN string; valid while this object lives (copy to outlive the owner).
     [[nodiscard]] std::string_view GetSubject() const noexcept
     {
         return m_metadata.subject_canonical;
     }
 
     /// RFC 4514 canonical string representation of the Issuer Distinguished Name.
+    /// @return Canonical Issuer DN string; valid while this object lives (copy to outlive the owner).
     [[nodiscard]] std::string_view GetIssuer() const noexcept
     {
         return m_metadata.issuer_canonical;
     }
 
     /// Unix epoch seconds of the certificate's notBefore validity field.
+    /// @return notBefore time as Unix epoch seconds.
     [[nodiscard]] int64_t GetNotBefore() const noexcept
     {
         return m_metadata.not_before_epoch_s;
     }
 
     /// Unix epoch seconds of the certificate's notAfter validity field.
+    /// @return notAfter time as Unix epoch seconds.
     [[nodiscard]] int64_t GetNotAfter() const noexcept
     {
         return m_metadata.not_after_epoch_s;
     }
 
     /// Raw bytes of the Subject Key Identifier extension value (empty if absent).
+    /// @return View of the SKID bytes; empty if absent. Valid while this object lives.
     [[nodiscard]] score::crypto::span<const uint8_t> GetSkid() const noexcept
     {
         return {m_metadata.skid.data(), m_metadata.skid.size()};
     }
 
     /// Raw bytes of the Authority Key Identifier extension value (empty if absent).
+    /// @return View of the AKID bytes; empty if absent. Valid while this object lives.
     [[nodiscard]] score::crypto::span<const uint8_t> GetAkid() const noexcept
     {
         return {m_metadata.akid.data(), m_metadata.akid.size()};
     }
 
     /// True when the BasicConstraints extension marks this as a CA certificate.
+    /// @return true if BasicConstraints marks the certificate as a CA.
     [[nodiscard]] bool IsCA() const noexcept
     {
         return m_metadata.is_ca;
     }
 
     /// SHA-256 fingerprint of the certificate's DER encoding (32 bytes).
+    /// @return View of the 32-byte SHA-256 DER fingerprint; valid while this object lives.
     [[nodiscard]] score::crypto::span<const uint8_t> GetFingerprint() const noexcept
     {
         return {m_metadata.fingerprint.data(), m_metadata.fingerprint.size()};
     }
 
     /// The full precomputed chain metadata struct.
+    /// @return Reference to the chain metadata owned by this object.
     [[nodiscard]] const CertChainMetadata& GetChainMetadata() const noexcept
     {
         return m_metadata;
@@ -127,12 +130,14 @@ class CertObject final
 
     /// Raw certificate bytes as parsed. Pass to any ICertParser to re-parse,
     /// or to a cert context handler for verification — no per-provider binding required.
+    /// @return View of the raw certificate bytes; valid while this object lives.
     [[nodiscard]] score::crypto::span<const uint8_t> GetRawBytes() const noexcept
     {
         return {m_bytes.data(), m_bytes.size()};
     }
 
     /// Format of the bytes returned by GetRawBytes() (kPem or kDer).
+    /// @return Format of the bytes returned by GetRawBytes().
     [[nodiscard]] score::crypto::FormatType GetFormat() const noexcept
     {
         return m_format;

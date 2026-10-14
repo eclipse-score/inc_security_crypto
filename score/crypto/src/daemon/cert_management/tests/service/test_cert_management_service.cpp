@@ -31,6 +31,7 @@
 //   - Mediator-style client cleanup isolates clients — purging one leaves the other intact
 //   - NotifySlotCertChanged propagates through TrustStoreManager anchor cache
 
+#include "score/crypto/src/daemon/cert_management/core/cert_entry.hpp"
 #include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
@@ -42,12 +43,15 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <memory>
 #include <string>
+#include <thread>
+#include <vector>
 
 namespace
 {
@@ -181,6 +185,16 @@ TEST_F(CertManagementServiceTest, LoadCertFromSlot_ReturnsObjectWithExpectedSubj
     EXPECT_EQ(result.instance->GetCertObject()->GetSkid().size(), 20U);
 }
 
+TEST_F(CertManagementServiceTest, CertDataNodeCanUnregisterAfterServiceDestruction)
+{
+    const auto result = LoadCert(kClientA);
+    ASSERT_NE(result.node_id, 0U);
+
+    m_service.reset();
+
+    ASSERT_TRUE(m_data_manager->deleteClientNodes(kClientA).has_value());
+}
+
 TEST_F(CertManagementServiceTest, ResolveCertForOperation_ReturnsSameObjectAsLoaded)
 {
     const auto result = LoadCert(kClientA);
@@ -246,6 +260,46 @@ TEST_F(CertManagementServiceTest, ResolveCertSlot_SameClientAndResource_ReturnsS
     ASSERT_TRUE(id1.has_value());
     ASSERT_TRUE(id2.has_value());
     EXPECT_EQ(id1.value(), id2.value());
+}
+
+TEST_F(CertManagementServiceTest, ResolveCertSlot_ConcurrentCallsReuseNodePerClient)
+{
+    constexpr std::size_t kCallerCount = 16U;
+    std::atomic<bool> start{false};
+    std::vector<dm::ClientId> clients(kCallerCount);
+    std::vector<dm::DataNodeId> node_ids(kCallerCount);
+    std::vector<std::uint8_t> succeeded(kCallerCount, 0U);
+    std::vector<std::thread> callers;
+    callers.reserve(kCallerCount);
+
+    for (std::size_t index = 0U; index < kCallerCount; ++index)
+    {
+        clients[index] = (index % 2U == 0U) ? kClientA : kClientB;
+        callers.emplace_back([this, &start, &clients, &node_ids, &succeeded, index]() {
+            while (!start.load(std::memory_order_acquire))
+                std::this_thread::yield();
+            const auto result = m_service->ResolveCertSlot(std::string{kAppResource}, clients[index]);
+            if (result.has_value())
+            {
+                node_ids[index] = result.value();
+                succeeded[index] = 1U;
+            }
+        });
+    }
+
+    start.store(true, std::memory_order_release);
+    for (auto& caller : callers)
+        caller.join();
+
+    for (std::size_t index = 0U; index < kCallerCount; ++index)
+    {
+        ASSERT_EQ(succeeded[index], 1U);
+        for (std::size_t previous = 0U; previous < index; ++previous)
+        {
+            if (clients[previous] == clients[index])
+                EXPECT_EQ(node_ids[index], node_ids[previous]);
+        }
+    }
 }
 
 TEST_F(CertManagementServiceTest, ResolveCertSlot_ByHandleSharesResourceNodeId)

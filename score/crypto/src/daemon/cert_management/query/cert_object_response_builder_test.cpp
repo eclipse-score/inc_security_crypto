@@ -79,7 +79,7 @@ cert::CertObject MakeSyntheticCert(bool is_ca = true)
     meta.is_ca = is_ca;
     meta.skid = {0x11, 0x22, 0x33};
     meta.akid = {0xAA, 0xBB};
-    meta.fingerprint.assign(32U, 0x5A);
+    meta.fingerprint.fill(0x5AU);
 
     // Raw bytes not exercised by serializer — single placeholder byte is sufficient.
     return cert::CertObject{std::move(meta), {0x30}, score::crypto::FormatType::kDer};
@@ -312,7 +312,7 @@ TEST(BuildCertObjectResponse, EmptySkidAndAkidEncodeAsEmptyBuffers)
     cert::CertChainMetadata meta;
     meta.subject_canonical = "CN=Leaf";
     meta.issuer_canonical = "CN=CA";
-    meta.fingerprint.assign(32U, 0x00);
+    meta.fingerprint.fill(0x00U);
     // skid and akid left default (empty vectors)
 
     cert::CertObject leaf{std::move(meta), {0x30}, score::crypto::FormatType::kDer};
@@ -333,7 +333,7 @@ TEST(BuildCertObjectResponse, OversizedDnsReturnResponseTooLarge)
     // any single-field limit.
     meta.subject_canonical = std::string(900U, 'A');
     meta.issuer_canonical = std::string(900U, 'B');
-    meta.fingerprint.assign(32U, 0x00);
+    meta.fingerprint.fill(0x00U);
 
     cert::CertObject oversized{std::move(meta), {0x30}, score::crypto::FormatType::kDer};
     const auto result = query::BuildCertObjectResponse(oversized);

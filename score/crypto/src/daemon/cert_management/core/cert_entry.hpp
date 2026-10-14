@@ -102,7 +102,7 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
                           std::optional<score::crypto::CrlMetadata> metadata = std::nullopt)
     {
         const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        m_session_crl = SessionCrlSnapshot{std::move(crl_bytes), format, std::move(metadata)};
+        m_session_crl = CrlData{std::move(crl_bytes), format, std::move(metadata)};
     }
 
     /// Check whether a session-scoped CRL has been attached.
@@ -169,15 +169,6 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
         m_session_crl.reset();
     }
 
-    /// Bytes, format, and metadata of a session CRL, captured as one consistent
-    /// unit via GetSessionCrlSnapshot().
-    struct SessionCrlSnapshot
-    {
-        std::vector<uint8_t> bytes;
-        score::crypto::FormatType format;
-        std::optional<score::crypto::CrlMetadata> metadata;
-    };
-
     /// Retrieve the session CRL bytes, format, and metadata together as a
     /// single consistent snapshot.
     ///
@@ -193,7 +184,7 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     ///         currently attached.
     /// @note Thread-safe. Access to the session CRL state is serialized
     ///       internally via a dedicated mutex.
-    [[nodiscard]] std::optional<SessionCrlSnapshot> GetSessionCrlSnapshot() const
+    [[nodiscard]] std::optional<CrlData> GetSessionCrlSnapshot() const
     {
         const std::lock_guard<std::mutex> lock(m_ref_mutex);
         return m_session_crl;
@@ -232,7 +223,7 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     data_manager::ClientId m_owner_client_id;
 
     mutable std::mutex m_ref_mutex;
-    std::optional<SessionCrlSnapshot> m_session_crl;
+    std::optional<CrlData> m_session_crl;
 };
 
 }  // namespace score::crypto::daemon::cert_management

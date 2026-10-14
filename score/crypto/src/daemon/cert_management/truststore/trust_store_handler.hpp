@@ -40,8 +40,8 @@ class TrustStoreHandler final : public ITrustStoreHandler
     score::crypto::Expected<std::vector<CertObject::Sptr>, common::DaemonErrorCode> GetAnchors() override;
     void NotifySlotUpdate(CertSlotHandle slot, CertObject::Sptr cert) override;
 
-    std::vector<CrlEntry> GetCrls() override;
-    void NotifyCrlUpdate(CertSlotHandle slot, std::optional<CrlEntry> entry) override;
+    std::vector<CrlData> GetCrls() override;
+    void NotifyCrlUpdate(CertSlotHandle slot, std::optional<CrlData> data) override;
 
     CertObject::Sptr FindBySubject(const std::string& subject) const override;
     CertObject::Sptr FindBySkid(score::crypto::span<const uint8_t> skid) const override;
@@ -55,7 +55,7 @@ class TrustStoreHandler final : public ITrustStoreHandler
 
     TrustStoreHandle m_handle{};
     std::unordered_map<uint32_t, CertObject::Sptr> m_slots;
-    std::unordered_map<uint32_t, CrlEntry> m_crls;
+    std::unordered_map<uint32_t, CrlData> m_crls;
     AnchorLoader m_loader;
     bool m_loaded{false};
 };

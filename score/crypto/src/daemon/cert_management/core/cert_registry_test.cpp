@@ -29,7 +29,7 @@ CertObject::Sptr MakeCertificate()
     CertChainMetadata metadata;
     metadata.subject_canonical = "CN=registry-test";
     metadata.issuer_canonical = "CN=registry-test";
-    metadata.fingerprint = std::vector<std::uint8_t>(32U, 0x42U);
+    metadata.fingerprint.fill(0x42U);
     return std::make_shared<CertObject>(
         std::move(metadata), std::vector<std::uint8_t>{0x01U, 0x02U}, score::crypto::FormatType::kDer);
 }
@@ -102,6 +102,21 @@ TEST(CertRegistryTest, CleanupClient_RemovesOnlyThatClientsEntries)
     // Client B's entry survives.
     EXPECT_EQ(registry.FindById(id_b), entry_b);
     EXPECT_EQ(registry.Size(), 1U);
+}
+
+TEST(CertRegistryTest, NullRegistrationReturnsInvalidIdWithoutMutatingRegistry)
+{
+    CertRegistry registry;
+
+    EXPECT_EQ(registry.RegisterSlotCert(CertSlotHandle{7U}, nullptr), 0U);
+    EXPECT_EQ(registry.RegisterEphemeralCert(nullptr), 0U);
+    EXPECT_EQ(registry.Size(), 0U);
+
+    auto entry = std::make_shared<CertEntry>(1U, MakeCertificate());
+    const auto id = registry.RegisterEphemeralCert(entry);
+
+    EXPECT_EQ(id, 1U);
+    EXPECT_EQ(registry.FindById(id), entry);
 }
 
 // A slot cert registered for one client remains findable by ID after an

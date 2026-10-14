@@ -286,7 +286,9 @@ void TrustStoreManager::LoadAnchorsIntoHandler(TrustStoreId id, TrustStoreHandle
                     }
                     else
                     {
-                        CrlEntry entry{std::move(*crl_res), slot_handler->GetCrlFormat(**cfg)};
+                        CrlData entry{std::move(*crl_res),
+                                      slot_handler->GetCrlFormat(**cfg),
+                                      slot_handler->GetCrlMetadata(**cfg)};
                         handler.NotifyCrlUpdate(*slot, std::move(entry));
                     }
                 }
@@ -544,13 +546,16 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
             // Upsert CRL if provided — trust store owns this exclusive slot.
             if (has_crl)
             {
+                auto cached_metadata = crl_metadata;
                 const auto stored =
                     resolved->handler->StoreCrl(*resolved->cfg, crl_bytes, crl_format, std::move(crl_metadata));
                 if (stored)
                 {
-                    CrlEntry entry{std::vector<uint8_t>(crl_bytes.begin(), crl_bytes.end()), crl_format};
+                    CrlData crlData{std::vector<uint8_t>(crl_bytes.begin(), crl_bytes.end()),
+                                    crl_format,
+                                    std::move(cached_metadata)};
                     static_cast<TrustStoreHandler*>(m_stores[id].handler.get())
-                        ->NotifyCrlUpdate(resolved->slot, std::move(entry));
+                        ->NotifyCrlUpdate(resolved->slot, std::move(crlData));
                 }
             }
             // Re-enable in case it was disabled and refresh the anchor cache.
@@ -592,13 +597,15 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::AddMember(
 
         if (has_crl)
         {
+            auto cached_metadata = crl_metadata;
             const auto crl_stored =
                 resolved->handler->StoreCrl(*resolved->cfg, crl_bytes, crl_format, std::move(crl_metadata));
             if (!crl_stored)
                 return score::crypto::make_unexpected(crl_stored.error());
-            CrlEntry entry{std::vector<uint8_t>(crl_bytes.begin(), crl_bytes.end()), crl_format};
+            CrlData crlData{
+                std::vector<uint8_t>(crl_bytes.begin(), crl_bytes.end()), crl_format, std::move(cached_metadata)};
             static_cast<TrustStoreHandler*>(m_stores[id].handler.get())
-                ->NotifyCrlUpdate(resolved->slot, std::move(entry));
+                ->NotifyCrlUpdate(resolved->slot, std::move(crlData));
         }
 
         m_member_states[id][resolved->slot.index].enabled = true;
@@ -635,11 +642,13 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::ImportCrlForMe
             continue;
         if (member.kind != TrustStoreMemberKind::kExclusiveMutable)
             return score::crypto::make_unexpected(Error::kUnsupportedOperation);
+        auto cached_metadata = metadata;
         const auto stored = resolved->handler->StoreCrl(*resolved->cfg, crl_data, format, std::move(metadata));
         if (!stored)
             return score::crypto::make_unexpected(stored.error());
-        CrlEntry entry{std::vector<uint8_t>(crl_data.begin(), crl_data.end()), format};
-        static_cast<TrustStoreHandler*>(m_stores[id].handler.get())->NotifyCrlUpdate(resolved->slot, std::move(entry));
+        CrlData crlData{std::vector<uint8_t>(crl_data.begin(), crl_data.end()), format, std::move(cached_metadata)};
+        static_cast<TrustStoreHandler*>(m_stores[id].handler.get())
+            ->NotifyCrlUpdate(resolved->slot, std::move(crlData));
         return std::monostate{};
     }
     return score::crypto::make_unexpected(Error::kInvalidResourceId);

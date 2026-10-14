@@ -118,19 +118,21 @@ class ITrustStoreHandler
     // CRL cache — co-located with the anchor cache
     // -----------------------------------------------------------------------
 
-    /// Return all CRL entries currently cached for enabled member slots.
+    /// Return CRL data currently cached for enabled member slots.
     ///
     /// Entries are loaded lazily alongside the anchor cache (EnsureLoaded).
     /// Used by the OpenSSL verification handler when kCrlOnly revocation
     /// checking is active — avoids re-reading CRL files on every Verify() call.
-    [[nodiscard]] virtual std::vector<CrlEntry> GetCrls() = 0;
+    /// @return Cached CRL data for enabled member slots.
+    [[nodiscard]] virtual std::vector<CrlData> GetCrls() = 0;
 
     /// Update the in-memory CRL cache for a single slot.
     ///
     /// Called by TrustStoreManager after a successful StoreCrl (AddMember or
     /// ImportCrlForMember) to keep the cache coherent without a full reload.
-    /// An empty @p entry evicts the slot's CRL from the cache.
-    virtual void NotifyCrlUpdate(CertSlotHandle slot, std::optional<CrlEntry> entry) = 0;
+    /// @param slot Slot whose cached CRL is updated.
+    /// @param data CRL data to cache, or std::nullopt to evict the slot's cached CRL.
+    virtual void NotifyCrlUpdate(CertSlotHandle slot, std::optional<CrlData> data) = 0;
 
     // -----------------------------------------------------------------------
     // Chain-building lookup indices

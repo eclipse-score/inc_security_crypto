@@ -63,9 +63,11 @@ class TrustStoreManager;
 /// overhead that existed when CertManagementService created a fresh handler on
 /// every ResolveSlotForOperation call.
 ///
-/// Thread safety: m_handlers is guarded by m_mutex. Handlers themselves are not
-/// thread-safe; serialization for concurrent backend calls is provided by the
-/// DataNode locks in the data manager.
+/// Thread safety: m_handlers, the certificate-object cache, and the CrlInfo
+/// cache are guarded by m_mutex. Backend calls are made without holding that
+/// mutex and may occur concurrently for the same handler. ICertSlotHandler
+/// implementations are responsible for synchronizing their mutable state and
+/// backend resources.
 class CertSlotManager final
 {
     friend class TrustStoreManager;
