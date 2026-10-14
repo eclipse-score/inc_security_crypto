@@ -110,27 +110,25 @@ inline constexpr Pkcs11AlgoEntry kAlgoEntries[] = {
 // MAC algorithm → CK_MECHANISM_TYPE
 // ---------------------------------------------------------------------------
 
-struct Pkcs11MacMechanism
-{
-    std::string_view name;
-    CK_MECHANISM_TYPE mechanism;
-};
-
-inline constexpr Pkcs11MacMechanism kMacMechanisms[] = {
-    {"HMAC-SHA256", CKM_SHA256_HMAC},
-    {"HMAC-SHA384", CKM_SHA384_HMAC},
-    {"HMAC-SHA512", CKM_SHA512_HMAC},
-};
-
 /// @brief Look up the PKCS#11 mechanism type for a MAC algorithm.
 [[nodiscard]] inline CK_MECHANISM_TYPE LookupMacMechanism(std::string_view algorithm) noexcept
 {
-    for (const auto& entry : kMacMechanisms)
+    const auto info = common::LookupMacAlgorithmInfo(algorithm);
+    if (!info.has_value())
     {
-        if (entry.name == algorithm)
-        {
-            return entry.mechanism;
-        }
+        return CK_UNAVAILABLE_INFORMATION;
+    }
+
+    // Keep this switch exhaustive and without a default case so adding a
+    // provider-neutral algorithm requires an explicit PKCS#11 support decision.
+    switch (info->algorithm)
+    {
+        case common::MacAlgorithm::kHmacSha256:
+            return CKM_SHA256_HMAC;
+        case common::MacAlgorithm::kHmacSha384:
+            return CKM_SHA384_HMAC;
+        case common::MacAlgorithm::kHmacSha512:
+            return CKM_SHA512_HMAC;
     }
     return CK_UNAVAILABLE_INFORMATION;
 }

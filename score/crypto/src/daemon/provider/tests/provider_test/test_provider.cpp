@@ -127,9 +127,26 @@ TEST_F(ProviderHashTest, HashAlgorithmMetadata)
     ASSERT_TRUE(sha256_info.has_value());
     EXPECT_EQ(sha256_info->algorithm, common::HashAlgorithm::kSha256);
     EXPECT_EQ(sha256_info->digest_size, 32U);
+
+    const auto sha224_info = common::LookupHashAlgorithmInfo("SHA224");
+    ASSERT_TRUE(sha224_info.has_value());
+    EXPECT_EQ(sha224_info->algorithm, common::HashAlgorithm::kSha224);
+    EXPECT_EQ(sha224_info->digest_size, 28U);
+
     EXPECT_FALSE(common::LookupHashAlgorithmInfo("SHA1").has_value());
     EXPECT_FALSE(common::LookupHashAlgorithmInfo("MD5").has_value());
     EXPECT_FALSE(common::LookupDigestSize("UNSUPPORTED_ALGORITHM").has_value());
+}
+
+TEST(AlgorithmInfoTest, MacAlgorithmMetadata)
+{
+    const auto hmac_sha256_info = common::LookupMacAlgorithmInfo("HMAC-SHA256");
+    ASSERT_TRUE(hmac_sha256_info.has_value());
+    EXPECT_EQ(hmac_sha256_info->algorithm, common::MacAlgorithm::kHmacSha256);
+    EXPECT_EQ(hmac_sha256_info->mac_size, 32U);
+
+    EXPECT_FALSE(common::LookupMacAlgorithmInfo("HMAC-SHA1").has_value());
+    EXPECT_FALSE(common::LookupMacSize("UNSUPPORTED_ALGORITHM").has_value());
 }
 
 TEST_P(ProviderHashAlgorithmTest, SupportsSingleShotStreamingResetAndDigestSize)

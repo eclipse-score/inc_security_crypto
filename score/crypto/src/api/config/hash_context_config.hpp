@@ -24,8 +24,10 @@ namespace crypto
 
 /// @brief Configuration for hash context creation.
 ///
-/// Requires only an algorithm. The canonical algorithm identifiers are
-/// "SHA256", "SHA384", and "SHA512".
+/// Requires only an algorithm identifier. SHA-256, SHA-384, and SHA-512 use
+/// the identifiers "SHA256", "SHA384", and "SHA512", respectively.
+/// Provider categories can be requested with SetProviderType(). Explicit
+/// selection by a resolved provider resource is not supported.
 ///
 /// @par Example
 /// @code

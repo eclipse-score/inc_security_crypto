@@ -122,6 +122,25 @@ score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateMacHandler(con
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
     }
 
+    const auto mechanism = detail::LookupMacMechanism(std::string_view{algorithm.data(), algorithm.size()});
+    const auto mechanism_support = m_provider.SupportsMechanism(mechanism, CKF_SIGN | CKF_VERIFY);
+    if (!mechanism_support.has_value())
+    {
+        const auto error_code = score::crypto::daemon::common::ToCryptoErrorCode(mechanism_support.error());
+        const score::result::Error error(static_cast<score::result::ErrorCode>(error_code),
+                                         score::crypto::kCryptoErrorDomain,
+                                         "Failed to query PKCS#11 MAC mechanism: " + algorithm);
+        return score::Result<handler::Handler::Sptr>(score::unexpect, error);
+    }
+    if (!mechanism_support.value())
+    {
+        const score::result::Error error(
+            static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
+            score::crypto::kCryptoErrorDomain,
+            "Selected PKCS#11 token does not support MAC mechanism: " + algorithm);
+        return score::Result<handler::Handler::Sptr>(score::unexpect, error);
+    }
+
     Pkcs11SessionGuard guard(m_provider, Pkcs11MacHandler::kRequirements);
     if (!guard)
     {

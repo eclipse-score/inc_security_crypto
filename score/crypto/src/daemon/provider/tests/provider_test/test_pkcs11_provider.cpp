@@ -841,6 +841,10 @@ TEST_F(Pkcs11ProviderHashTest, QueriesSelectedTokenMechanisms)
     const auto unknown = provider_->SupportsMechanism(kUnknownVendorMechanism, CKF_DIGEST);
     ASSERT_TRUE(unknown.has_value());
     EXPECT_FALSE(unknown.value());
+
+    const auto hmac_sha256 = provider_->SupportsMechanism(CKM_SHA256_HMAC, CKF_SIGN | CKF_VERIFY);
+    ASSERT_TRUE(hmac_sha256.has_value());
+    EXPECT_TRUE(hmac_sha256.value());
 }
 
 TEST_F(Pkcs11ProviderHashTest, ReportsExecutorUpdateFailure)

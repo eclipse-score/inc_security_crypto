@@ -23,6 +23,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 
@@ -41,6 +42,7 @@ class ErrorConnection final : public api::control_plane::IConnection
     Expected<protocol::ControlResponse, CryptoErrorCode> SendRequest(
         const protocol::ControlRequest& /*request*/) override
     {
+        ++m_request_count;
         protocol::ControlResponse response{};
         response.operation.operations.push_back(protocol::SingleOperationResponse{
             daemon::mediator::operations::CreateContext(), static_cast<protocol::OperationResult>(m_error_code), {}});
@@ -52,8 +54,14 @@ class ErrorConnection final : public api::control_plane::IConnection
         return 1U;
     }
 
+    std::size_t GetRequestCount() const noexcept
+    {
+        return m_request_count;
+    }
+
   private:
     CryptoErrorCode m_error_code;
+    std::size_t m_request_count{0U};
 };
 
 TEST(CryptoContextImplTest, PreservesHashContextCreationErrorFromDaemon)
@@ -67,6 +75,24 @@ TEST(CryptoContextImplTest, PreservesHashContextCreationErrorFromDaemon)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(*result.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kUnsupportedAlgorithm));
+}
+
+TEST(CryptoContextImplTest, RejectsExplicitHashProviderInsteadOfIgnoringIt)
+{
+    auto connection = std::make_shared<ErrorConnection>(CryptoErrorCode::kInternalError);
+    CryptoContextImpl context{connection, nullptr};
+
+    CryptoResourceId provider{};
+    provider.id = 42U;
+    provider.type = ResourceType::kProvider;
+
+    HashContextConfig config;
+    config.SetAlgorithm("SHA256").SetProvider(provider);
+    const auto result = context.CreateHashContext(config);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(*result.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kUnsupportedOperation));
+    EXPECT_EQ(connection->GetRequestCount(), 0U);
 }
 
 }  // namespace
