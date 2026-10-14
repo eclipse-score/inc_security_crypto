@@ -42,10 +42,7 @@ Functional requirements
    :status: valid
    :satisfied_by: comp__ipc_message_passing_adapter
 
-   The IPC shall be designed and documented to support deterministic and bounded execution and
-   resource behavior, controlled heap/allocation use on ASIL-relevant paths, suitable isolation
-   for the deployment, and appropriate quality artifacts such as requirements/design traceability,
-   analysis, verification, and compliance or qualification evidence.
+   The IPC shall be suitable for use in an ASIL-B scenario.
 
 .. comp_req:: Bounded timeout on every call
    :id: comp_req__ipc__bounded_timeout_on_every_call

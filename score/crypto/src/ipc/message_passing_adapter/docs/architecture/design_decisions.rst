@@ -34,12 +34,8 @@ processes and the daemon.
 Context
 *******
 
-The IPC transport must be suitable for use in an ASIL-B environment. This
-includes deterministic and bounded execution and resource behavior, controlled
-heap/allocation use on ASIL-relevant paths, suitable isolation for the
-deployment, and appropriate quality artifacts such as requirements and design
-traceability, analysis, verification, and compliance or qualification evidence.
-It must also provide bounded client-side waiting, allow concurrent calls from
+The IPC transport must be suitable for use in an ASIL-B environment. It must also provide
+bounded client-side waiting, allow concurrent calls from
 multiple client processes and threads, expose the identity of the peer, avoid
 imposing the daemon's worker-thread model, and keep the application protocol
 independent of operating-system transport details.
