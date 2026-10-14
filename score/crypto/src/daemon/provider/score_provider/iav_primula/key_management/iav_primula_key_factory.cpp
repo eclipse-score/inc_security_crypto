@@ -109,7 +109,9 @@ Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaK
     if (!info ||
         ((info->kind != common::PqcAlgorithmKind::kSignature) && (info->kind != common::PqcAlgorithmKind::kKem)) ||
         !r.key_data || (r.key_data_size != info->public_key_size))
+    {
         return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+    }
 
     std::vector<std::uint8_t> pub(r.key_data, r.key_data + r.key_data_size);
     key_management::ProviderKeyHandle h{};

@@ -112,7 +112,7 @@ Expected<std::size_t, DaemonErrorCode> IavPrimulaSignHandler::SingleShotSign(
         return make_unexpected(DaemonErrorCode::kKeySlotEmpty);
     }
 
-    const auto expected_signature_length = GetSignatureSize();
+    const size_t expected_signature_length = GetSignatureSize();
     if (signature.data() == nullptr || signature.size() < expected_signature_length)
     {
         return make_unexpected(DaemonErrorCode::kInsufficientBufferSize);

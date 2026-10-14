@@ -75,35 +75,93 @@ TEST(IavPrimulaKeyManagementTest, CopiesExportsAndReleasesPublicKey)
     EXPECT_EQ(released_export.error(), common::DaemonErrorCode::kKeyOperationNotPermitted);
 }
 
-TEST(IavPrimulaKeyManagementTest, PreservesImportedPublicKeyPermissions)
+// ---------------------------------------------------------------------------
+// Imported public-key permissions
+// ---------------------------------------------------------------------------
+
+score::crypto::Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> ImportPublicKey(
+    IavPrimulaKeyFactory& factory,
+    const std::vector<std::uint8_t>& public_key,
+    score::crypto::KeyOperationPermission permissions)
 {
-    using Permission = score::crypto::KeyOperationPermission;
-    IavPrimulaKeyFactory factory{common::ProviderId{7U}};
-    const std::vector<std::uint8_t> public_key(1312U, 0xA5U);
     key_management::KeyImportRequest request{};
     request.algorithm = "ML-DSA-44";
     request.key_data = public_key.data();
     request.key_data_size = public_key.size();
-    request.permissions = Permission::kExport;
-    auto imported = factory.ImportKey(request);
+    request.permissions = permissions;
+    return factory.ImportKey(request);
+}
+
+TEST(IavPrimulaKeyManagementTest, ImportedPublicKeyUsesPublicPermissionsOnly)
+{
+    using Permission = score::crypto::KeyOperationPermission;
+    IavPrimulaKeyFactory factory{common::ProviderId{7U}};
+    const std::vector<std::uint8_t> public_key(1312U, 0xA5U);
+
+    auto imported = ImportPublicKey(factory, public_key, Permission::kExport);
     ASSERT_TRUE(imported.has_value());
     const auto& handle = imported.value()->GetHandle();
     EXPECT_EQ(handle.permissions, Permission::kNone);
     ASSERT_TRUE(handle.public_key_permissions.has_value());
     EXPECT_EQ(handle.public_key_permissions.value(), Permission::kExport);
-    EXPECT_FALSE(score::crypto::HasPermission(
-        key_management::GrantedPermissionsFor(handle, Permission::kVerify), Permission::kVerify));
+}
+
+TEST(IavPrimulaKeyManagementTest, ImportedPublicKeyWithExportPermissionCanBeExported)
+{
+    using Permission = score::crypto::KeyOperationPermission;
+    IavPrimulaKeyFactory factory{common::ProviderId{7U}};
+    const std::vector<std::uint8_t> public_key(1312U, 0xA5U);
+
+    auto imported = ImportPublicKey(factory, public_key, Permission::kExport);
+    ASSERT_TRUE(imported.has_value());
     auto exported = imported.value()->Export();
     ASSERT_TRUE(exported.has_value());
     EXPECT_EQ(exported->bytes, public_key);
+}
 
-    request.permissions = Permission::kVerify;
-    auto verify_only = factory.ImportKey(request);
-    ASSERT_TRUE(verify_only.has_value());
+TEST(IavPrimulaKeyManagementTest, ImportedPublicKeyWithVerifyPermissionCanVerify)
+{
+    using Permission = score::crypto::KeyOperationPermission;
+    IavPrimulaKeyFactory factory{common::ProviderId{7U}};
+    const std::vector<std::uint8_t> public_key(1312U, 0xA5U);
+
+    auto imported = ImportPublicKey(factory, public_key, Permission::kVerify);
+    ASSERT_TRUE(imported.has_value());
+    const auto& handle = imported.value()->GetHandle();
     EXPECT_TRUE(score::crypto::HasPermission(
-        key_management::GrantedPermissionsFor(verify_only.value()->GetHandle(), Permission::kVerify),
+        key_management::GrantedPermissionsFor(handle, Permission::kVerify),
         Permission::kVerify));
-    auto denied = verify_only.value()->Export();
+}
+
+TEST(IavPrimulaKeyManagementTest, ImportedPublicKeyPreservesMultiplePublicPermissions)
+{
+    using Permission = score::crypto::KeyOperationPermission;
+    IavPrimulaKeyFactory factory{common::ProviderId{7U}};
+    const std::vector<std::uint8_t> public_key(1312U, 0xA5U);
+    const auto permissions = Permission::kVerify | Permission::kExport;
+
+    auto imported = ImportPublicKey(factory, public_key, permissions);
+    ASSERT_TRUE(imported.has_value());
+    const auto& handle = imported.value()->GetHandle();
+    ASSERT_TRUE(handle.public_key_permissions.has_value());
+    EXPECT_EQ(handle.public_key_permissions.value(), permissions);
+    EXPECT_TRUE(score::crypto::HasPermission(
+        key_management::GrantedPermissionsFor(handle, Permission::kVerify), Permission::kVerify));
+    EXPECT_TRUE(imported.value()->Export().has_value());
+}
+
+TEST(IavPrimulaKeyManagementTest, ImportedPublicKeyDeniesUnrequestedPublicPermissions)
+{
+    using Permission = score::crypto::KeyOperationPermission;
+    IavPrimulaKeyFactory factory{common::ProviderId{7U}};
+    const std::vector<std::uint8_t> public_key(1312U, 0xA5U);
+
+    auto imported = ImportPublicKey(factory, public_key, Permission::kNone);
+    ASSERT_TRUE(imported.has_value());
+    const auto& handle = imported.value()->GetHandle();
+    EXPECT_FALSE(score::crypto::HasPermission(
+        key_management::GrantedPermissionsFor(handle, Permission::kVerify), Permission::kVerify));
+    auto denied = imported.value()->Export();
     ASSERT_FALSE(denied.has_value());
     EXPECT_EQ(denied.error(), common::DaemonErrorCode::kKeyOperationNotPermitted);
 }
