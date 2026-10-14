@@ -64,12 +64,13 @@ pub unsafe extern "C" fn C_Initialize(p_init_args: *mut CK_C_INITIALIZE_ARGS) ->
         Ok(ids) => ids,
         Err(_) => crate::registry::slot_ids(), // already registered on re-init
     };
-    for &sid in &slot_ids {
-        token::ensure_token(sid);
-    }
 
     // Restore persisted token objects from disk.
     object_store::load_persisted_objects();
+
+    for &sid in &slot_ids {
+        token::ensure_token(sid);
+    }
 
     // Ensure every slot advertises at least one profile.
     // Profile objects are not persisted, so they must be re-created on each init.
