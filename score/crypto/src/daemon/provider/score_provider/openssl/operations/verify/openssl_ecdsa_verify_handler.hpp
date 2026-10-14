@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <string_view>
+#include <vector>
 
 namespace score::crypto::daemon::provider::score_provider::openssl::handler
 {
@@ -89,6 +90,8 @@ class OpenSslEcdsaVerifyHandler final
     ToDer(score::cpp::span<const std::uint8_t> signature) const;
 
     ecdsa::Stream m_stream;
+    std::vector<std::uint8_t> m_prehashed_data;
+    bool m_prehashed{false};
 
     static constexpr std::string_view LOG_PREFIX = "[OPENSSL_ECDSA_VERIFY_HANDLER]";
 };

@@ -119,6 +119,16 @@ inline constexpr std::string_view kSupportedSignatureAlgorithms[] = {
     "ECDSA-P256-SHA256",
     "ECDSA-P384-SHA384",
     "ECDSA-P521-SHA512",
+    "RSA-PSS-2048-SHA256",
+    "RSA-PSS-2048-SHA384",
+    "RSA-PSS-2048-SHA512",
+    "RSA-PSS-3072-SHA256",
+    "RSA-PSS-3072-SHA384",
+    "RSA-PSS-3072-SHA512",
+    "RSA-PSS-4096-SHA256",
+    "RSA-PSS-4096-SHA384",
+    "RSA-PSS-4096-SHA512",
+    "Ed25519",
 };
 
 /// @brief Whether the OpenSSL provider serves @p algorithm for signing and verification.

@@ -27,6 +27,16 @@
 namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
 {
 
+[[nodiscard]] inline bool IsPrehashed(const ::score::crypto::daemon::provider::handler::InitializationParams& params)
+{
+    if (params.context_creation_params.size() <= 5U)
+    {
+        return false;
+    }
+    const auto* mode = std::get_if<std::uint8_t>(&params.context_creation_params[5U]);
+    return mode != nullptr && *mode == static_cast<std::uint8_t>(::score::crypto::SignatureInputMode::kPrehashed);
+}
+
 /// @brief Whether @p algorithm names a complete ECDSA signature scheme.
 ///
 /// A signature algorithm must name the digest as well as the curve: there is no
@@ -60,6 +70,9 @@ class Stream final
     [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> Bind(
         const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
         const common::AlgorithmId& algorithm);
+
+    [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> BindAny(
+        const ::score::crypto::daemon::provider::handler::InitializationParams& init_params);
 
     /// @brief Replaces the digest context with a fresh one.
     ///

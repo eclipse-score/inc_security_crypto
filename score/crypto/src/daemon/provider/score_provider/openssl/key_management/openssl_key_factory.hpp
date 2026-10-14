@@ -49,21 +49,20 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     OpenSslKeyFactory(OpenSslKeyFactory&&) = delete;
     OpenSslKeyFactory& operator=(OpenSslKeyFactory&&) = delete;
 
-    /// Generate a symmetric key using OpenSSL RAND_bytes, or an ECDSA key pair.
+    /// Generate a symmetric key using OpenSSL RAND_bytes, or an asymmetric key pair.
     ///
     /// Symmetric key size is derived from request.algorithm:
     ///   HMAC-SHA256 → 32 B  |  HMAC-SHA384 → 48 B  |  HMAC-SHA512 → 64 B
     ///   AES-128-*   → 16 B  |  AES-192-*   → 24 B  |  AES-256-*   → 32 B
     ///
-    /// An algorithm naming an ECDSA curve ("ECDSA-P256", "ECDSA-P384",
-    /// "ECDSA-P521") produces a key pair instead; the returned handler owns a
-    /// single EVP_PKEY carrying both halves.
+    /// ECDSA, RSA and Ed25519 key algorithms produce a single EVP_PKEY carrying
+    /// both halves.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
     /// Import raw key material by copying into a new heap buffer, or parse a
-    /// DER-encoded EC key when request.algorithm names an ECDSA curve.
+    /// DER-encoded asymmetric key when request.algorithm names one.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const key_management::KeyImportRequest& request) override;
@@ -81,6 +80,18 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportEcKey(const key_management::KeyImportRequest& request);
+
+    [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
+                                            ::score::crypto::daemon::common::DaemonErrorCode>
+    GenerateRsaKey(const key_management::KeyGenerationRequest& request);
+
+    [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
+                                            ::score::crypto::daemon::common::DaemonErrorCode>
+    GenerateEd25519Key(const key_management::KeyGenerationRequest& request);
+
+    [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
+                                            ::score::crypto::daemon::common::DaemonErrorCode>
+    ImportAsymmetricKey(const key_management::KeyImportRequest& request);
 
     /// Map well-known algorithm names to symmetric key sizes in bytes.
     /// Returns 0 for unknown algorithms.
