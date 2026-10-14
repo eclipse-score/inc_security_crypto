@@ -48,9 +48,10 @@
 ///   bazel test //score/tests/ipc_poc:poc_async
 ///   bazel test //score/tests/ipc_poc:poc_async --test_arg=--client_count=3 --test_arg=--call_count=5
 ///   bazel test //score/tests/ipc_poc:poc_async --test_arg=--client_count=3 --test_arg=--call_count=5
-///   --test_arg=--client_threads=4 bazel test //score/tests/ipc_poc:poc_async --test_arg=--client_count=3
-///   --test_arg=--call_count=5 --test_arg=--server_threads=2 bazel test //score/tests/ipc_poc:poc_async
-///   --test_arg=--client_count=3 --test_arg=--call_count=5 --test_arg=--client_threads=4 --test_arg=--server_threads=2
+///   --test_arg=--client_threads=4 bazel test //score/tests/ipc_poc:poc_async \
+///   --test_arg=--client_count=3 --test_arg=--call_count=5 --test_arg=--server_threads=2
+///   bazel test //score/tests/ipc_poc:poc_async --test_arg=--client_count=3 \
+///   --test_arg=--call_count=5 --test_arg=--client_threads=4 --test_arg=--server_threads=2
 ///   bazel test //score/tests/ipc_poc:poc_async --test_arg=--sleep_milliseconds=500
 
 #include <sys/wait.h>

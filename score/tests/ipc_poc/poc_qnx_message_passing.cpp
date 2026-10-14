@@ -23,8 +23,9 @@
 /// Usage:
 ///   bazel test //score/tests/ipc_poc:poc_qnx_message_passing --config=x86_64-qnx
 ///   bazel test //score/tests/ipc_poc:poc_qnx_message_passing --config=x86_64-qnx --test_arg=--call_count=5
-///   bazel test //score/tests/ipc_poc:poc_qnx_message_passing --config=x86_64-qnx --test_arg=--client_threads=3
-///   --test_arg=--call_count=5 bazel test //score/tests/ipc_poc:poc_qnx_message_passing --config=x86_64-qnx
+///   bazel test //score/tests/ipc_poc:poc_qnx_message_passing --config=x86_64-qnx \
+///   --test_arg=--client_threads=3 --test_arg=--call_count=5
+///   bazel test //score/tests/ipc_poc:poc_qnx_message_passing --config=x86_64-qnx \
 ///   --test_arg=--call_count=3 --test_arg=--sleep_milliseconds=10
 
 #include <sys/neutrino.h>

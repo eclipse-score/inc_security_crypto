@@ -62,8 +62,9 @@
 /// Usage:
 ///   bazel test //score/tests/ipc_poc:poc_low_level_no_reply
 ///   bazel test //score/tests/ipc_poc:poc_low_level_no_reply --test_arg=--client_count=3 --test_arg=--call_count=5
-///   bazel test //score/tests/ipc_poc:poc_low_level_no_reply --test_arg=--client_count=3 --test_arg=--call_count=5
-///   --test_arg=--client_threads=4 bazel test //score/tests/ipc_poc:poc_low_level_no_reply --test_arg=--client_count=3
+///   bazel test //score/tests/ipc_poc:poc_low_level_no_reply --test_arg=--client_count=3 \
+///   --test_arg=--call_count=5 --test_arg=--client_threads=4
+///   bazel test //score/tests/ipc_poc:poc_low_level_no_reply --test_arg=--client_count=3 \
 ///   --test_arg=--call_count=5 --test_arg=--server_threads=2
 
 #include <sys/wait.h>
