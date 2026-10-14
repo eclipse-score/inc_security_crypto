@@ -160,8 +160,12 @@ Functional requirements
    :reqtype: Functional
    :security: YES
    :safety: ASIL_B
-   :status: valid
+   :status: invalid
    :satisfied_by: comp__ipc_message_passing_adapter
+
+   HINT: This requirement is currently marked as invalid because inter-VM communication is
+   not yet supported. It is expected to be implemented in a future version.
+   (Can be changed once comp_req supports valid_from attribute).
 
    The IPC shall support communication between client and server processes running in different
    virtual machines (VMs).
@@ -172,8 +176,12 @@ Functional requirements
    :reqtype: Functional
    :security: YES
    :safety: ASIL_B
-   :status: valid
+   :status: invalid
    :satisfied_by: comp__ipc_message_passing_adapter
+
+   HINT: This requirement is currently marked as invalid because C++/Rust interoperability is
+   not yet supported. It is expected to be implemented in a future version.
+   (Can be changed once comp_req supports valid_from attribute).
 
    The IPC shall support interoperability between C++ and Rust client and server processes in
    order to enable future rust components.
