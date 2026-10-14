@@ -27,29 +27,29 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../../../_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
-<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+  <link href="../../../../_static/styles/theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=cb8930eaaf36d9849b67" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/css/score.css?v=bb63a8e1" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/score.css?v=415257cb" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/css/score_needs.css?v=82a1844f" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/css/score_design.css?v=8048e6ee" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../../../../_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <script defer src="../../../../_static/scripts/fontawesome.js?digest=cb8930eaaf36d9849b67"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
-<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67" />
 
     <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
     <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
@@ -64,7 +64,7 @@
     <script src="../../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/docs/architecture/index';</script>
     <script>
-        DOCUMENTATION_OPTIONS.theme_version = '0.20.0';
+        DOCUMENTATION_OPTIONS.theme_version = '0.21.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
@@ -574,8 +574,8 @@
                 <article class="bd-article">
                   
   <section id="component-architecture">
-<span id="component-architecture-template"></span><h1>Component Architecture<a class="headerlink" href="#component-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-c44f28db">
+<span id="crypto-architecture"></span><h1>Component Architecture<a class="headerlink" href="#component-architecture" title="Link to this heading">#</a></h1>
+<div class="need_container docutils container" id="SNCB-49e9f2cc">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_architecture">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -618,7 +618,7 @@
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-67e02af5">
+<div class="need_container docutils container" id="SNCB-efd03732">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_workproduct table" id="wp__cmpt_request_dummy">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -790,7 +790,7 @@ with fluent builders; new optional fields never break existing callers</p></li>
 <h2>Static Architecture<a class="headerlink" href="#static-architecture" title="Link to this heading">#</a></h2>
 <p>The components are designed to cover the expectations from the feature architecture
 (i.e. if already exists a definition it should be taken over and enriched).</p>
-<div class="need_container docutils container" id="SNCB-54cef085">
+<div class="need_container docutils container" id="SNCB-2e1accc3">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -811,8 +811,8 @@ with fluent builders; new optional fields never break existing callers</p></li>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
 <div class="line"><span><span><div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span><div class="line">belongs to: <span class="belongs_to"><span><a class="reference internal" href="../../../../docs/features/crypto/architecture/index.html#feat__security_crypto" title="comp__crypto">feat__security_crypto</a></span></span></div>
-<div class="line">satisfies: <span class="satisfied_by"><span><a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_context_reset" title="comp__crypto">comp_req__crypto__hash_context_reset</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_digest_size" title="comp__crypto">comp_req__crypto__hash_digest_size</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_migration_algorithms" title="comp__crypto">comp_req__crypto__hash_migration_algorithms</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_output_buffer" title="comp__crypto">comp_req__crypto__hash_output_buffer</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_provider_parity" title="comp__crypto">comp_req__crypto__hash_provider_parity</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_single_shot" title="comp__crypto">comp_req__crypto__hash_single_shot</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_streaming" title="comp__crypto">comp_req__crypto__hash_streaming</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_unsupported_algorithm" title="comp__crypto">comp_req__crypto__hash_unsupported_algorithm</a></span></span></div>
+<div class="line"><span><div class="line">belongs to: <span class="belongs_to"><span><a class="external_link reference external" href="https://eclipse-score.github.io/score/main/features/security_crypto/architecture/index.html#feat__security_crypto">feat__security_crypto</a></span></span></div>
+<div class="line">satisfies: <span class="satisfied_by"><span><a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_algorithms" title="comp__crypto">comp_req__crypto__hash_algorithms</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_context_reset" title="comp__crypto">comp_req__crypto__hash_context_reset</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_digest_size" title="comp__crypto">comp_req__crypto__hash_digest_size</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_output_buffer" title="comp__crypto">comp_req__crypto__hash_output_buffer</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_provider_fallback" title="comp__crypto">comp_req__crypto__hash_provider_fallback</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_provider_parity" title="comp__crypto">comp_req__crypto__hash_provider_parity</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_single_shot" title="comp__crypto">comp_req__crypto__hash_single_shot</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_streaming" title="comp__crypto">comp_req__crypto__hash_streaming</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto__hash_unsupported_algorithm" title="comp__crypto">comp_req__crypto__hash_unsupported_algorithm</a></span></span></div>
 </span></div>
 </div>
 </td>
@@ -1004,8 +1004,8 @@ certificate verification, and timeout configuration.</p>
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../../../_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
-<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+  <script defer src="../../../../_static/scripts/bootstrap.js?digest=cb8930eaaf36d9849b67"></script>
+<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=cb8930eaaf36d9849b67"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -1029,7 +1029,7 @@ certificate verification, and timeout configuration.</p>
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.20.0.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.21.0.
 </p></div>
       
     </div>
