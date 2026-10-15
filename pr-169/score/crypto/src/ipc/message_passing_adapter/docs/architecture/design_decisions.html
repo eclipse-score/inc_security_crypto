@@ -590,7 +590,7 @@
 <h1>IPC Design Decisions<a class="headerlink" href="#ipc-design-decisions" title="Link to this heading">#</a></h1>
 <section id="selection-of-lola-message-passing-as-ipc">
 <h2>Selection of LoLa Message Passing as IPC<a class="headerlink" href="#selection-of-lola-message-passing-as-ipc" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-3df2331e">
+<div class="need_container docutils container" id="SNCB-dc3e84d1">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__lola_message_passing_ipc">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -598,7 +598,7 @@
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">proposed</span></span></span></div>
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">accepted</span></span></span></div>
 <div class="line"><span></span></div>
 <div class="line"><span></span></div>
 </div>
@@ -613,7 +613,8 @@
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">Use LoLa Message Passing, implemented with the score::message_passing API, as the crypto daemon control-plane IPC transport.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span></span></div>
+<div class="line"><span><div class="line">affects: <span class="affects"><span><a class="reference internal" href="component_architecture.html#comp__ipc_message_passing_adapter" title="dec_rec__crypto__lola_message_passing_ipc">comp__ipc_message_passing_adapter</a></span></span></div>
+</span></div>
 </div>
 </td>
 <td class="meta" colspan="3"></td>
@@ -784,7 +785,7 @@ inter-VM transport in the future.</p>
 </section>
 <section id="send-and-notify-completion">
 <h2>Send and Notify Completion<a class="headerlink" href="#send-and-notify-completion" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-79c6dffc">
+<div class="need_container docutils container" id="SNCB-815f0639">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__send_notify_ipc_interaction">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -792,7 +793,7 @@ inter-VM transport in the future.</p>
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">proposed</span></span></span></div>
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">accepted</span></span></span></div>
 <div class="line"><span></span></div>
 <div class="line"><span></span></div>
 </div>
@@ -807,7 +808,8 @@ inter-VM transport in the future.</p>
 <div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">Use Send for non-blocking request submission and Notify for the operation result or a negative server-side submission result.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span></span></div>
+<div class="line"><span><div class="line">affects: <span class="affects"><span><a class="reference internal" href="component_architecture.html#comp__ipc_message_passing_adapter" title="dec_rec__crypto__send_notify_ipc_interaction">comp__ipc_message_passing_adapter</a></span></span></div>
+</span></div>
 </div>
 </td>
 <td class="meta" colspan="3"></td>
@@ -1000,7 +1002,7 @@ request ID is available.</p>
 <section id="requirements">
 <h4>2. Requirements<a class="headerlink" href="#requirements" title="Link to this heading">#</a></h4>
 <p>The requirement definitions and exact headings are maintained in the
-<a class="reference internal" href="../requirements/requirements.html"><span class="doc">IPC Requirements</span></a> artifact.</p>
+<a class="reference internal" href="../requirements/requirements.html"><span class="doc">Crypto IPC Requirements</span></a> artifact.</p>
 </section>
 <hr class="docutils" />
 <section id="options-considered">
@@ -1202,7 +1204,7 @@ configuration model.</p>
 <h4>5. Analysis<a class="headerlink" href="#analysis" title="Link to this heading">#</a></h4>
 <p><strong>Option A (gRPC)</strong> fails R1 for the stated ASIL-B use because the general-purpose library uses framework-managed threads and dynamic resources and does not provide an ASIL-oriented deterministic resource profile or safety qualification artifacts. The current adapter also does not configure a deadline; deadline-based and asynchronous gRPC were not analyzed. It handles server crash via gRPC status errors but cannot distinguish a crashed server from a hung one without a configured deadline. Peer authentication requires a PKI (no <code class="docutils literal notranslate"><span class="pre">SO_PEERCRED</span></code> equivalent). It remains the strongest option for inter-VM, because gRPC provides network channel support, but the current adapter hardcodes Unix-domain endpoints and requires endpoint/configuration changes before that path is available. It is appropriate for QM-to-QM communication where safety certification is not required.</p>
 <p><strong>Option B (LoLa Full SOA, synchronous)</strong> meets the R1 library-capability assessment: the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use. It fails R2 (timeout): there is no two-phase workaround available — the single blocking call holds the caller’s thread until the handler returns with no escape path. The synchronous prototype was only validated in-process (skeleton and proxy on separate threads within a single test binary); cross-process concurrency was not tested. The config burden is high and would compound if LoLa is used elsewhere in the same process.</p>
-<p><strong>Option C (LoLa Full SOA, asynchronous)</strong> meets the R1 library-capability assessment: the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use, including its method/event model. Its indicative POC latency is approximately 130 microseconds on WSL. It fails R2 overall: Phase 2 timeout is implemented and flexible server threading is achievable, but Phase 1 timeout requires contradicts the assumption of use of LoLa — it cannot be fixed in application code. Because R2 applies to every phase, the bounded Phase 2 wait does not compensate for the unbounded Phase 1 call. On server crash, Phase 2 never fires and the client hangs until the application-level timeout expires; the crash itself is not detected independently. The broadcast-event response model requires one skeleton instance per client, adding complexity and config overhead. Notably, LoLa’s service-oriented architecture is transport-agnostic by design; a future network binding could enable inter-VM communication without application-level changes — a meaningful long-term advantage that does not resolve the current safety gaps.</p>
+<p><strong>Option C (LoLa Full SOA, asynchronous)</strong> meets the R1 library-capability assessment: the LoLa library is documented as safety-oriented/ASIL-B qualified and provides custom memory-management infrastructure suitable for bounded resource use, including its method/event model. Its indicative POC latency is approximately 130 microseconds on WSL. It fails R2 overall: Phase 2 timeout is implemented and flexible server threading is achievable, but Phase 1 timeout contradicts the assumption of use of LoLa — it cannot be fixed in application code. Because R2 applies to every phase, the bounded Phase 2 wait does not compensate for the unbounded Phase 1 call. On server crash, Phase 2 never fires and the client hangs until the application-level timeout expires; the crash itself is not detected independently. The broadcast-event response model requires one skeleton instance per client, adding complexity and config overhead. Notably, LoLa’s service-oriented architecture is transport-agnostic by design; a future network binding could enable inter-VM communication without application-level changes — a meaningful long-term advantage that does not resolve the current safety gaps.</p>
 <p><strong>Option D (LoLa Message Passing Abstraction)</strong> meets the R1 library-capability assessment: its design supports fixed resource bounds, preallocation, and pool/monotonic allocation, and the communication module documents safety-oriented quality tooling and ASIL-B qualification. Its indicative POC latency is approximately 155 microseconds on WSL and 342 microseconds on QNX in the collected runs. The application code is OS-agnostic; the framework provides the OS-specific transport backend (Unix domain socket on Linux, QNX message passing on QNX). The low-level message-passing prototype provides feasibility evidence for the intended skeleton: non-blocking <code class="docutils literal notranslate"><span class="pre">SendWithCallback</span></code> / <code class="docutils literal notranslate"><span class="pre">Reply</span></code> decoupling, application-level <code class="docutils literal notranslate"><span class="pre">request_id</span></code> multiplexing for concurrent threads, application-level bounded waiting, and detection of server death via socket EOF. Typed error propagation, mandatory timeout APIs, and backend-specific bounded-notification behavior remain implementation work. The selected library does not support inter-VM communication: its current backends are local, and a new framework backend would be required. The <code class="docutils literal notranslate"><span class="pre">IConnection</span></code> abstraction may provide a migration direction, but this has not been demonstrated and is not evidence of current library support.</p>
 <p><strong>Option E (LoLa Message Passing Abstraction, send plus notify)</strong> uses the same
 OS-agnostic library and shared connection model, but removes the immediate
