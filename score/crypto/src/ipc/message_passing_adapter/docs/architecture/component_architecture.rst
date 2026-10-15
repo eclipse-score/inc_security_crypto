@@ -19,10 +19,10 @@ IPC Message Passing Adapter Component Architecture Documentation
 
 .. document:: IPC Message Passing Adapter Architecture
    :id: doc__crypto_ipc_architecture
-   :status: draft
+   :status: valid
    :version: 1
    :safety: ASIL_B
-   :security: NO
+   :security: YES
    :realizes: wp__component_arch
    :tags: ipc, architecture
 
@@ -43,10 +43,8 @@ Overview
 Requirements Linked to Component Architecture
 ---------------------------------------------
 
-.. code-block:: none
-
-   .. needtable:: Overview of Component Requirements
-      :style: table
-      :columns: title;id
-      :filter: search("comp_arch_sta__archdes$", "fulfils_back")
-      :colwidths: 70,30
+.. needtable:: Overview of Component Requirements
+   :style: table
+   :columns: title;id
+   :filter: search("comp__ipc_message_passing_adapter", str(satisfied_by))
+   :colwidths: 70,30

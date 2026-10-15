@@ -12,7 +12,7 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _crypto_cert_management_requirements:
+.. _crypto_ipc_requirements:
 
 Requirements
 ============

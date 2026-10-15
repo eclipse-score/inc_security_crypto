@@ -21,11 +21,10 @@ Selection of LoLa Message Passing as IPC
 .. dec_rec:: Selection of LoLa Message Passing as IPC
   :id: dec_rec__crypto__lola_message_passing_ipc
   :version: 1
-  :status: proposed
+  :status: accepted
   :context: doc__crypto_architecture
   :decision: Use LoLa Message Passing, implemented with the score::message_passing API, as the crypto daemon control-plane IPC transport.
-
-  .. :affects: comp__crypto
+  :affects: comp__ipc_message_passing_adapter
 
 LoLa Message Passing, implemented with the ``score::message_passing`` API, is
 selected as the target control-plane transport for communication between client
@@ -189,11 +188,10 @@ Send and Notify Completion
 .. dec_rec:: Send and Notify Completion
   :id: dec_rec__crypto__send_notify_ipc_interaction
   :version: 1
-  :status: proposed
+  :status: accepted
   :context: doc__crypto_architecture
   :decision: Use Send for non-blocking request submission and Notify for the operation result or a negative server-side submission result.
-
-  .. :affects: comp__crypto
+  :affects: comp__ipc_message_passing_adapter
 
 The selected IPC protocol uses a non-blocking ``Send`` request followed by a
 point-to-point ``Notify`` message containing either the operation result or a

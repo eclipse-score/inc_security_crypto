@@ -196,7 +196,7 @@ stateDiagram
     [*] --> Received: io_write receives SEND
     Received --> Validated: verify FlatBuffer + request_id
     Validated --> WorkQueued: copy request into WorkItem
-    Validated --> Rejected: invalid request; no correlated error Notify
+    Validated --> Rejected: invalid request. no correlated error Notify
     WorkQueued --> Processing: wake worker
     Processing --> NotifyQueued: Notify response
     NotifyQueued --> Delivered: pulse, read, and MsgReplyv complete
