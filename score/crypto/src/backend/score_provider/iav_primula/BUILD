@@ -11,7 +11,7 @@ cc_library(
     visibility = ["//score/crypto/src/backend/score_provider:__pkg__"],
     deps = [
         "//score/crypto/src/daemon/provider/score_provider:score_backend_adapter",
-        "//score/crypto/src/daemon/provider/score_provider:provider_iav_primula_library",
+        "//score/crypto/src/daemon/provider/score_provider/iav_primula:provider_iav_primula_library",
     ],
 )
 
