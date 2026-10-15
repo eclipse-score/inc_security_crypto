@@ -1,0 +1,163 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml cert_management_static
+top to bottom direction
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+package "cert_management" {
+  [CertManagementModule] #DCEFE2
+
+  package "core" {
+    [CertManagementService] #DCEFE2
+    [CertRegistry]
+    [CertEntry]
+  }
+  package "interfaces" {
+    interface ICertSlotHandler #DCEBFA
+    interface ITrustStoreHandler
+    [CertObject] #FFF0CC
+    [CertSlotConfig] #FFF0CC
+    [AccessPolicy] #FFF0CC
+    [cert_types.hpp\n(handles, metadata, CRL entry)] #FFF0CC
+  }
+  package "nodes" {
+    [CertSlotDataNode]
+    [CertDataNode]
+    [TrustStoreDataNode]
+  }
+  package "slot" {
+    [CertSlotManager]
+    [CertSlotRegistry]
+    [ConfigDrivenSlotCatalog]
+    [FileBackedSlotHandler]
+    [SlotHandlerFactory]
+    [CrlHandler] #FCE4D6
+  }
+  package "truststore" {
+    [TrustStoreManager]
+    [TrustStoreHandler]
+    [ConfigDrivenTrustStoreCatalog]
+  }
+  package "policy" {
+    [AccessPolicyEnforcer]
+  }
+  package "query" {
+    [CertObjectResponseBuilder]
+  }
+}
+
+package "daemon/config" {
+  [CertificateConfig]
+}
+
+package "daemon/common" {
+  [DataManager]
+  [Shared Deployment Storage]
+}
+
+package "api/types" {
+  [common.hpp] #FFF0CC
+  [certificate.hpp] #FFF0CC
+}
+
+package "daemon/provider" {
+  [ProviderManager]
+  interface ICertParser #DCEBFA
+}
+
+note right of [CertSlotManager]
+  Handler cache (Sptr, per slot)
+  CertObjectCache (weak_ptr, per slot)
+  Central slot access and policy enforcement
+end note
+
+note right of [CertEntry]
+  Per-client runtime record
+  Holds CertObject::Sptr
+  + session-scoped CRL association
+end note
+
+note right of [CertManagementService]
+  Coordinates certificate and trust-store
+  resource lifecycle through the registries,
+  managers, and DataManager.
+end note
+
+note right of [CrlHandler]
+  Reads and writes CRL bytes and metadata
+  through the slot descriptor and shared storage.
+end note
+
+[CertManagementModule] --> [CertificateConfig] : loads slot/store config
+[CertManagementModule] --> [ProviderManager] : injects CertManagementService into providers
+[CertManagementModule] --> [DataManager] : supplies resource tree
+[CertManagementModule] --> [CertManagementService] : creates and publishes
+[CertManagementModule] ..> [SlotHandlerFactory] : constructs
+[CertManagementModule] --> [ConfigDrivenSlotCatalog]
+[CertManagementModule] --> [ConfigDrivenTrustStoreCatalog]
+
+[CertManagementService] -> [CertRegistry]
+[CertManagementService] --> [CertSlotManager]
+[CertManagementService] --> [CertSlotRegistry]
+[CertManagementService] --> [TrustStoreManager]
+[CertManagementService] --> [DataManager]
+[CertRegistry] --> [CertEntry]
+[CertEntry] --> [CertObject]
+[CertDataNode] --> [CertEntry] : retains client reference
+[CertSlotDataNode] <.. [CertManagementService] : creates
+[CertDataNode] <.. [CertManagementService] : creates
+[TrustStoreDataNode] <.. [CertManagementService] : creates
+
+[CertSlotManager] --> ICertSlotHandler
+[CertSlotManager] --> [CertSlotRegistry]
+[CertSlotManager] --> [AccessPolicyEnforcer]
+[CertSlotManager] --> [SlotHandlerFactory] : resolves handler per slot (cached)
+[SlotHandlerFactory] --> [ProviderManager] : selects parser/backend (shared ownership)
+[SlotHandlerFactory] ..> ICertParser : obtains provider parser
+[SlotHandlerFactory] ..> ICertSlotHandler : creates backend handler
+
+[ConfigDrivenSlotCatalog] --> [CertificateConfig]
+[ConfigDrivenTrustStoreCatalog] --> [CertificateConfig]
+[CertSlotRegistry] <-- [ConfigDrivenSlotCatalog]
+[ConfigDrivenTrustStoreCatalog] ---> [TrustStoreManager]
+[TrustStoreManager] --> [CertSlotRegistry]
+[TrustStoreManager] --> [TrustStoreHandler]
+[TrustStoreManager] --> [CertSlotManager] : anchor loading
+[TrustStoreHandler] ..|> ITrustStoreHandler
+[FileBackedSlotHandler] ..|> ICertSlotHandler
+[FileBackedSlotHandler] --> [CrlHandler]
+[FileBackedSlotHandler] ---> ICertParser
+[Shared Deployment Storage] <-- [FileBackedSlotHandler]
+[Shared Deployment Storage] <-- [CrlHandler]
+[ProviderManager] ..> ICertParser : provider capability
+[CertObjectResponseBuilder] --> [CertSlotManager]
+[CertObjectResponseBuilder] --> [TrustStoreManager]
+[CertObjectResponseBuilder] --> [CertManagementService]
+[certificate.hpp] --> [common.hpp]
+[CertManagementService] ..> [certificate.hpp] : public values
+[CertSlotConfig] --> [AccessPolicy]
+[CertObject] --> [cert_types.hpp\n(handles, metadata, CRL entry)]
+
+legend bottom
+  |= Fill |= Boundary role |
+  |<#DCEFE2> | Component composition and lifecycle coordination |
+  |<#DCEBFA> | Provider contracts required by the component |
+  |<#FFF0CC> | Provider-neutral values and configuration types |
+  |<#FCE4D6> | Slot-storage helper |
+  |<#FFFFFF> | Component-owned implementation detail |
+  Colors show ownership and dependency roles, not call-site usage or Bazel visibility.
+endlegend
+
+@enduml

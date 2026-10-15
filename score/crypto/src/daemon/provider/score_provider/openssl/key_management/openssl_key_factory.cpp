@@ -54,7 +54,7 @@ key_management::ProviderKeyHandle MakeHandle(common::ProviderId provider_id,
 }
 }  // namespace
 
-OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id){};
+OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id) {};
 
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::GenerateKey(const key_management::KeyGenerationRequest& request)

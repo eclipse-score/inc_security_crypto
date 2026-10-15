@@ -172,6 +172,15 @@ enum class MemberKind : uint8_t
     kConditionalExternal = 2U  ///< External slot; disabled after unexpected content change.
 };
 
+/// Effective status of a trust store member as seen at snapshot time.
+enum class MemberStatus : uint8_t
+{
+    kEnabled = 0U,                 ///< Active anchor for chain building.
+    kDisabled = 1U,                ///< Explicitly disabled (or removed from use); can be re-enabled.
+    kFingerprintMismatch = 2U,     ///< Conditional-external content differs from the accepted fingerprint.
+    kAwaitingAcknowledgement = 3U  ///< Conditional-external content never accepted; acknowledgement required.
+};
+
 /// Snapshot of a single trust store member.
 ///
 /// Both slot_id and sha256_fingerprint are provided so callers can:
@@ -183,12 +192,12 @@ struct MemberInfo
 {
     CryptoResourceId slot_id{};  ///< kCertSlot resource — use for management ops.
     std::array<uint8_t, kSha256FingerprintSize>
-        sha256_fingerprint{};                    ///< SHA-256 fingerprint of the member certificate.
-    std::string subject;                         ///< RFC 4514 Subject DN (e.g., "CN=Root CA,O=ACME,C=DE").
-    std::string issuer;                          ///< RFC 4514 Issuer DN.
-    std::string serial_number;                   ///< Uppercase hex serial (e.g., "01ABCDEF").
-    MemberKind kind{MemberKind::kSharedStatic};  ///< Membership type.
-    bool is_enabled{true};                       ///< Whether anchor is active for chain building.
+        sha256_fingerprint{};                     ///< SHA-256 fingerprint of the member certificate.
+    std::string subject;                          ///< RFC 4514 Subject DN (e.g., "CN=Root CA,O=ACME,C=DE").
+    std::string issuer;                           ///< RFC 4514 Issuer DN.
+    std::string serial_number;                    ///< Uppercase hex serial (e.g., "01ABCDEF").
+    MemberKind kind{MemberKind::kSharedStatic};   ///< Membership type.
+    MemberStatus status{MemberStatus::kEnabled};  ///< Only kEnabled members are active anchors.
 };
 
 }  // namespace score::crypto

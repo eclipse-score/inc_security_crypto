@@ -38,7 +38,13 @@ namespace score::crypto::daemon::config
 {
 
 // Configuration environment variable and default paths
-/// @brief Environment variable name for specifying the configuration file path
+/// @brief Environment variable name for the crypto stack configuration file.
+///
+/// The file is a binary FlatBuffers (.bin) file compiled by the build-time
+/// ``flatc -b`` genrule. ParseConfig() populates both the key slot
+/// configuration and the certificate management configuration from the same
+/// file.
+
 constexpr std::string_view CRYPTO_CONFIG_FILE_ENV = "CRYPTO_CONFIG_FILE";
 
 constexpr uint16_t SERVER_PORT_DEFAULT = 50051;  ///< Default server port for IPC communication
@@ -342,13 +348,174 @@ using ScoreProviderConfig = ::score::crypto::daemon::provider::score_provider::S
 #endif
 
 /**
- * @brief Certificate management configuration section (placeholder for future)
+ * @brief Certificate management configuration section
+ *
+ * Stores certificate slot and trust store definitions parsed from the daemon's
+ * configuration source.
+ *
+ * At daemon startup, a ConfigDrivenSlotCatalog reads CertSlotEntry items and
+ * registers each slot with the CertSlotRegistry. TrustStoreEntry items are
+ * consumed by TrustStoreManager during initialisation.
  */
 class CertificateConfig
 {
   public:
+    enum class TrustStoreMemberKind : uint8_t
+    {
+        kSharedStatic = 0U,
+        kExclusiveMutable = 1U,
+        kConditionalExternal = 2U,
+    };
+
+    enum class ConditionalSlotInitialization : uint8_t
+    {
+        kEnableAndAcceptCurrent = 0U,
+        kDisableUntilAccepted = 1U,
+    };
+
+    struct TrustStoreMemberEntry
+    {
+        std::string slot_name;
+        TrustStoreMemberKind kind{TrustStoreMemberKind::kSharedStatic};
+    };
+
+    /// @brief Per-application resource ID to certificate slot name mapping.
+    ///
+    /// Applications reference cert slots by portable local names rather than
+    /// daemon slot names.
+    struct AppCertSlotEntry
+    {
+        uint32_t uid;                 ///< UID of the application that owns this mapping
+        std::string app_resource_id;  ///< Application-local resource name
+        std::string slot_name;        ///< Actual cert slot name registered in the CertSlotRegistry
+    };
+
+    /// @brief Per-application resource ID to trust store name mapping.
+    ///
+    /// Applications reference trust stores by portable local names rather than
+    /// daemon trust store names.
+    struct AppTrustStoreEntry
+    {
+        uint32_t uid;                  ///< UID of the application that owns this mapping
+        std::string app_resource_id;   ///< Application-local resource name
+        std::string trust_store_name;  ///< Actual trust store name registered in the daemon
+    };
+
+    /// @brief A single certificate slot definition from the configuration source.
+    struct CertSlotEntry
+    {
+        std::string slot_name;
+        /// @brief Storage backend for this slot. Immutable after startup.
+        ///
+        /// Identifies which ICertSlotHandler implementation manages physical storage.
+        /// "DEFAULT" → FileBackedSlotHandler (legacy "file" is accepted).
+        /// Any other value is a provider name; that provider supplies the
+        /// ICertSlotHandler implementation.
+        /// Backend-specific locators (file path, token label) live in the KV descriptor.
+        std::string storage_backend{"DEFAULT"};
+        std::vector<uint32_t> allowed_uids;        ///< UIDs permitted to read/load from the slot
+        std::vector<uint32_t> allowed_write_uids;  ///< UIDs permitted to write into the slot
+        /// @brief Absolute path to the KV deployment descriptor file.
+        std::string deployment_path;
+        /// @brief Format of the deployment descriptor (default "kv").
+        std::string deployment_format{"kv"};
+        /// @brief Integrity enforcement policy: "disabled" (default) or "required".
+        ///
+        /// "required": LoadCertificate fails if the [certificate] descriptor section
+        /// has no cert_hash entry or the stored hash does not match the file content.
+        /// The policy lives here (out-of-band from the descriptor) so a compromised
+        /// descriptor cannot bypass the check.
+        std::string integrity_policy{"disabled"};
+    };
+
+    /// @brief A single trust store definition from the configuration source.
+    ///
+    /// Trust stores reference typed certificate-slot memberships; shared-static
+    /// slots can back multiple named trust stores.
+    struct TrustStoreEntry
+    {
+        std::string store_name;
+        /// @brief Certificate-slot memberships and their trust-store policy.
+        std::vector<TrustStoreMemberEntry> members;
+        /// @brief Default policy for conditional members without persisted state.
+        ConditionalSlotInitialization conditional_slot_initialization{
+            ConditionalSlotInitialization::kDisableUntilAccepted};
+        std::vector<uint32_t> allowed_uids;        ///< UIDs permitted to query this store
+        std::vector<uint32_t> allowed_write_uids;  ///< UIDs permitted to mutate this store
+        /// @brief Absolute path for persisting trust store state.
+        std::string deployment_path;
+        std::string deployment_format{"kv"};
+    };
+
     CertificateConfig() = default;
-    // Add methods as needed
+
+    /// @brief Set the provider used as the daemon-wide certificate parser.
+    ///
+    /// When empty, the provider manager's kCertManagement default is used.
+    /// This is independent of each certificate slot's storage backend.
+    void SetParserProviderName(const common::ProviderName& provider_name)
+    {
+        m_parser_provider_name = provider_name;
+    }
+
+    /// @brief Get the explicitly configured daemon-wide certificate parser provider.
+    ///
+    /// An empty value means the provider manager's kCertManagement default is used.
+    const common::ProviderName& GetParserProviderName() const
+    {
+        return m_parser_provider_name;
+    }
+
+    /// @brief Add a certificate slot definition (called by parser).
+    void AddSlotEntry(CertSlotEntry entry)
+    {
+        m_slot_entries.push_back(std::move(entry));
+    }
+
+    /// @brief Get all parsed certificate slot definitions.
+    const std::vector<CertSlotEntry>& GetSlotEntries() const
+    {
+        return m_slot_entries;
+    }
+
+    /// @brief Add a trust store definition (called by parser).
+    void AddTrustStoreEntry(TrustStoreEntry entry)
+    {
+        m_trust_store_entries.push_back(std::move(entry));
+    }
+
+    void AddAppCertSlotEntry(AppCertSlotEntry entry)
+    {
+        m_app_cert_slot_entries.push_back(std::move(entry));
+    }
+
+    const std::vector<AppCertSlotEntry>& GetAppCertSlotEntries() const
+    {
+        return m_app_cert_slot_entries;
+    }
+
+    void AddAppTrustStoreEntry(AppTrustStoreEntry entry)
+    {
+        m_app_trust_store_entries.push_back(std::move(entry));
+    }
+
+    const std::vector<AppTrustStoreEntry>& GetAppTrustStoreEntries() const
+    {
+        return m_app_trust_store_entries;
+    }
+
+    /// @brief Get all parsed trust store definitions.
+    const std::vector<TrustStoreEntry>& GetTrustStoreEntries() const
+    {
+        return m_trust_store_entries;
+    }
+
+  private:
+    common::ProviderName m_parser_provider_name;
+    std::vector<CertSlotEntry> m_slot_entries;
+    std::vector<TrustStoreEntry> m_trust_store_entries;
+    std::vector<AppCertSlotEntry> m_app_cert_slot_entries;
+    std::vector<AppTrustStoreEntry> m_app_trust_store_entries;
 };
 
 /**
@@ -497,7 +664,29 @@ class Config
     ScoreProviderConfig m_score_provider;
 #endif
 
-    // Helper methods
+    // ---------------------------------------------------------------------------
+    // Per-component config section parsers (called from ParseConfig).
+    //
+    // Each method is the single control point for its config component.
+    // To disable a component's config loading, remove or comment out the
+    // corresponding call in ParseConfig().  To add a new component (e.g.
+    // provider management), add a new private method here and call it from
+    // ParseConfig().
+    //
+    // All methods accept the resolved config file path.  An absent section in
+    // the file is silently accepted (empty config for that component).
+    // ---------------------------------------------------------------------------
+
+    /// Populate m_key from the key_slot_config section of the config file.
+    bool ParseKeyManagementSection(std::string_view filepath);
+
+    /// Populate m_certificate from the cert_slot_config section of the config file.
+    bool ParseCertManagementSection(std::string_view filepath);
+
+    // ---------------------------------------------------------------------------
+    // Low-level argument / environment helpers
+    // ---------------------------------------------------------------------------
+
     std::string GetEnvVar(const char* name, const std::map<std::string, std::string>& env) const;
     bool ParseStringArg(const std::string& arg,
                         const std::string& value,
