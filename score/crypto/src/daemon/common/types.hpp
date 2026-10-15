@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -135,6 +136,54 @@ using ResponseParameter = std::variant<NoParam,
 // ============================================================================
 using RequestParameters = std::vector<RequestParameter>;
 using ResponseParameters = std::vector<ResponseParameter>;
+
+// ============================================================================
+// Response payload budget
+// ============================================================================
+
+/// Conservative byte budget for a single IPC response payload, leaving margin
+/// under the transport's ~2KB frame limit for per-parameter variant/framing
+/// overhead. Components building variable-length ResponseParameters (e.g. from
+/// parsed-certificate DN strings or config-driven list lengths) must check
+/// against this budget and fail explicitly rather than emit an oversized
+/// payload.
+constexpr std::size_t kMaxResponsePayloadBytes = 1536U;
+
+/// @brief Estimate the encoded byte size of a ResponseParameters payload.
+///
+/// Sums each parameter's held-alternative size: `.size()` for owning
+/// string/buffer/span types, `sizeof(T)` for scalar types. This is an
+/// estimate of payload content size, not the exact wire size — it does not
+/// account for variant discriminant tags or transport framing — intended as a
+/// conservative proxy to compare against kMaxResponsePayloadBytes, which
+/// already reserves margin for that overhead. Recomputed from the actual
+/// built payload so it never needs updating when a response's field set
+/// changes.
+inline std::size_t EstimateResponseSize(const ResponseParameters& params)
+{
+    std::size_t total = 0U;
+    for (const auto& param : params)
+    {
+        total += std::visit(
+            [](const auto& value) -> std::size_t {
+                using T = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<T, OwnedString> || std::is_same_v<T, OwnedBuffer>)
+                {
+                    return value.size();
+                }
+                else if constexpr (std::is_same_v<T, score::cpp::span<const uint8_t>>)
+                {
+                    return static_cast<std::size_t>(value.size());
+                }
+                else
+                {
+                    return sizeof(T);
+                }
+            },
+            param);
+    }
+    return total;
+}
 
 // Stream operation state for synchronous flow enforcement
 enum class StreamOperationState : std::uint8_t

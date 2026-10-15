@@ -35,23 +35,11 @@ The Crypto module provides a cryptographic middleware stack for automotive ECUs,
 
 The sections below provide the module-level documentation structure for these Crypto-specific artifacts, and additional content should be added in the relevant sections for feature architecture, safety analysis, security analysis, manuals, and related work products.
 
-.. code-block:: rst
-
-   .. mod:: Crypto Module
-      :id: mod__crypto_module
-      :includes: comp__crypto_component
-
-
-   .. mod_view_sta:: Crypto Module Static View
-      :id: mod_view_sta__crypto__module
-      :includes: comp__crypto_component
-
-      .. needarch::
-         :scale: 50
-         :align: center
-
-         {{ draw_module(need(), needs) }}
-
+.. mod:: Crypto Module
+   :id: mod__crypto_module
+   :version: 1
+   :status: invalid
+   :includes: comp__crypto, comp__crypto_daemon
 
 .. toctree::
    :maxdepth: 1
