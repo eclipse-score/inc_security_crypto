@@ -82,51 +82,105 @@ bool Config::ParseCommandLine(int argc, char** argv)
     return true;
 }
 
+// ---------------------------------------------------------------------------
+// Per-component section parsers
+// ---------------------------------------------------------------------------
+
+bool Config::ParseKeyManagementSection(std::string_view filepath)
+{
+    auto result = FlatBufferConfigParser::ParseKeyManagementConfig(filepath, m_key);
+    if (!result.has_value())
+    {
+        score::mw::log::LogError() << "[CONFIG] Key management config parsing failed: " << filepath;
+        return false;
+    }
+    score::mw::log::LogDebug() << "[CONFIG] Key management: " << m_key.GetSlotEntries().size() << " slot(s), "
+                               << m_key.GetAppKeySlotEntries().size() << " app mapping(s).";
+    return true;
+}
+
+bool Config::ParseCertManagementSection(std::string_view filepath)
+{
+    auto result = FlatBufferConfigParser::ParseCertManagementConfig(filepath, m_certificate);
+    if (!result.has_value())
+    {
+        score::mw::log::LogError() << "[CONFIG] Cert management config parsing failed: " << filepath;
+        return false;
+    }
+    score::mw::log::LogDebug() << "[CONFIG] Cert management: " << m_certificate.GetSlotEntries().size()
+                               << " cert slot(s), " << m_certificate.GetTrustStoreEntries().size()
+                               << " trust store(s), " << m_certificate.GetAppCertSlotEntries().size()
+                               << " app cert mapping(s), " << m_certificate.GetAppTrustStoreEntries().size()
+                               << " app trust store mapping(s).";
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// ParseConfig — orchestrates all component section parsers
+// ---------------------------------------------------------------------------
+
 bool Config::ParseConfig()
 {
-    auto config_file_path = std::getenv(CRYPTO_CONFIG_FILE_ENV.data());
-    if (config_file_path)
+    // Resolve the config file path (env var takes precedence over default paths).
+    std::string resolved_path;
+
+    const auto* env_path = std::getenv(CRYPTO_CONFIG_FILE_ENV.data());
+    if (env_path && env_path[0] != '\0')
     {
-        const std::string_view config_path{config_file_path};
-        struct stat st_cfg;
-        if (::stat(config_file_path, &st_cfg) != 0)
+        struct stat st;
+        if (::stat(env_path, &st) != 0)
         {
-            score::mw::log::LogError() << "[CONFIG] Configuration file does not exist:" << config_path;
+            score::mw::log::LogError() << "[CONFIG] Config file does not exist: " << std::string_view{env_path};
             return false;
         }
-        score::mw::log::LogDebug() << "[CONFIG] Parsing configuration from:" << config_path;
-        auto result = FlatBufferConfigParser::ParseFromFile(config_file_path, m_key);
-        if (!result.has_value())
+        resolved_path = env_path;
+    }
+    else
+    {
+        for (const auto& path : DEFAULT_CONFIG_PATHS)
         {
-            score::mw::log::LogError() << "[CONFIG] Failed to parse FlatBuffers configuration file: " << config_path;
-            return false;
+            struct stat st;
+            if (::stat(path.data(), &st) == 0)
+            {
+                resolved_path = std::string{path};
+                break;
+            }
         }
+    }
+
+    if (resolved_path.empty())
+    {
+        // No config file found — all components start with empty configuration.
+        // Valid for minimal/test deployments.
+        score::mw::log::LogWarn() << "[CONFIG] No config file found (CRYPTO_CONFIG_FILE not set, "
+                                  << "default paths absent). All components start empty.";
         return true;
     }
 
-    // Try default paths (in order of preference)
-    for (const auto& path : DEFAULT_CONFIG_PATHS)
-    {
-        struct stat st_path;
-        if (::stat(path.data(), &st_path) == 0)
-        {
-            score::mw::log::LogDebug() << "[CONFIG] Found configuration at default path:" << path;
-            auto result = FlatBufferConfigParser::ParseFromFile(path, m_key);
-            if (!result.has_value())
-            {
-                score::mw::log::LogError() << "[CONFIG] Failed to parse configuration from:" << path;
-                return false;
-            }
-            return true;
-        }
-    }
+    score::mw::log::LogDebug() << "[CONFIG] Loading crypto stack config from: " << resolved_path;
 
-    score::mw::log::LogError() << "[CONFIG] ERROR: No configuration file found in default paths:";
-    for (const auto& path : DEFAULT_CONFIG_PATHS)
-    {
-        score::mw::log::LogError() << "  -" << path;
-    }
-    return false;
+    // -----------------------------------------------------------------------
+    // Component config sections — each call is the single control point for
+    // its component.  Remove a call to disable that component's config loading.
+    // Add a new call here when a new component's config section is introduced.
+    // -----------------------------------------------------------------------
+
+    if (!ParseKeyManagementSection(resolved_path))
+        return false;
+
+    if (!ParseCertManagementSection(resolved_path))
+        return false;
+
+    // Future components (uncomment / add when their config sections are ready):
+    //   if (!ParseProviderManagementSection(resolved_path)) return false;
+
+    score::mw::log::LogInfo() << "[CONFIG] Crypto stack config loaded successfully: " << m_key.GetSlotEntries().size()
+                              << " key slot(s), " << m_certificate.GetSlotEntries().size() << " cert slot(s), "
+                              << m_certificate.GetTrustStoreEntries().size() << " trust store(s), "
+                              << m_certificate.GetAppCertSlotEntries().size() << " cert app resource(s), "
+                              << m_certificate.GetAppTrustStoreEntries().size() << " trust store app resource(s).";
+
+    return true;
 }
 
 bool Config::Validate() const

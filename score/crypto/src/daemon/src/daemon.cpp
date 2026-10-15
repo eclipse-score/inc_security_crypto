@@ -21,6 +21,7 @@
 #include <thread>
 #include <utility>
 
+#include "score/crypto/src/daemon/cert_management/cert_management_module.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/basic_handler_chain_factory.hpp"
 #include "score/crypto/src/daemon/control_plane/i_control_server.h"
@@ -82,13 +83,17 @@ int main(int argc, char** argv)
     auto key_mgmt_module = score::crypto::daemon::key_management::KeyManagementModule::Create(
         data_manager, provider_manager, config.GetKeyConfig());
 
+    // Initialize certificate management subsystem
+    auto cert_mgmt_module = score::crypto::daemon::cert_management::CertManagementModule::Create(
+        data_manager, provider_manager, config.GetCertificateConfig());
+
     // Set HandlerChainFactory to be used by IControlServer
     auto handler_factory = std::make_unique<score::crypto::daemon::control_plane::BasicHandlerChainFactory>(
-        data_manager,                                              // Shared thread-safe data manager
-        provider_manager,                                          // Shared thread-safe provider manager
-        config,                                                    // Config by reference (outlives factory)
-        key_mgmt_module ? key_mgmt_module->GetService() : nullptr  // Key management service
-    );
+        data_manager,
+        provider_manager,
+        config,
+        key_mgmt_module ? key_mgmt_module->GetService() : nullptr,
+        cert_mgmt_module ? cert_mgmt_module->GetService() : nullptr);
 
     std::unique_ptr<score::crypto::daemon::control_plane::IControlServer> server =
         std::make_unique<score::crypto::ipc::GrpcControlServer>(std::move(handler_factory));

@@ -14,12 +14,15 @@
 #ifndef SCORE_CRYPTO_SRC_API_TYPES_CERTIFICATE_HPP
 #define SCORE_CRYPTO_SRC_API_TYPES_CERTIFICATE_HPP
 
+#include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/types/common.hpp"
+#include "score/span.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <variant>
 
 namespace score::crypto
 {
@@ -52,25 +55,32 @@ enum class CertificateSlotState : uint8_t
 enum class CertVerifyResult : uint8_t
 {
     /// @brief The certificate passed the checks that were performed.
-    kValid,
+    kValid = 0U,
     /// @brief The certificate was past its notAfter time at the verification time.
-    kExpired,
+    kExpired = 1U,
     /// @brief The certificate was before its notBefore time at the verification time.
-    kNotYetValid,
+    kNotYetValid = 2U,
     /// @brief Available revocation evidence identifies the certificate as revoked.
-    kRevoked,
-    /// @brief Under kFailClosed, fresh revocation evidence was unavailable for a certificate that needed checking.
+    kRevoked = 3U,
+    /// @brief Current revocation status could not be established for a certificate that needed checking.
     ///
-    /// This includes a missing applicable CRL or OCSP response for a required issuer.
-    kRevocationStatusUnavailable,
+    /// This includes missing or stale required evidence. A stale CRL entry is
+    /// indeterminate, including certificateHold and removeFromCRL entries, because
+    /// a later CRL may have changed the certificate's status.
+    kRevocationStatusUnavailable = 4U,
     /// @brief A candidate path was built, but none of its certificates matched a configured trust anchor.
-    kNoRootFound,
+    kNoRootFound = 5U,
     /// @brief A complete issuer path could not be built, for example because a required intermediate is missing.
-    kChainIncomplete,
+    kChainIncomplete = 6U,
     /// @brief A certificate signature in the chain failed verification.
-    kSignatureInvalid,
-    /// @brief The certificate is not valid for the requested purpose.
-    kInvalidPurpose
+    kSignatureInvalid = 7U,
+    /// @brief The certificate is not valid for the requested application purpose.
+    ///
+    /// Intended for future purpose-aware verification, such as distinguishing a
+    /// TLS server certificate from a TLS client certificate. The current
+    /// verification API does not expose a purpose selector, so callers cannot
+    /// request this check through Verify().
+    kInvalidPurpose = 8U
 };
 
 /// @brief Selects where a verified certificate chain is allowed to terminate.
@@ -155,6 +165,51 @@ struct CrlMetadataWireLayout final
     static constexpr std::size_t kNextUpdateOffset = kThisUpdateOffset + sizeof(std::int64_t);
     static constexpr std::size_t kCrlNumberOffset = kNextUpdateOffset + sizeof(std::int64_t);
     static constexpr std::size_t kEntrySize = kCrlNumberOffset + sizeof(std::uint64_t);
+
+    static void Encode(const CrlMetadata& metadata, std::array<uint8_t, kEntrySize>& encoded) noexcept
+    {
+        for (std::size_t i = 0U; i < kFingerprintSize; ++i)
+        {
+            encoded[kCrlFingerprintOffset + i] = metadata.fingerprint[i];
+            encoded[kIssuerFingerprintOffset + i] = metadata.issuer_fingerprint[i];
+        }
+
+        const auto append_uint64 = [&encoded](std::size_t offset, std::uint64_t value) {
+            for (std::size_t i = 0U; i < sizeof(value); ++i)
+                encoded[offset + i] = static_cast<uint8_t>(value >> (i * 8U));
+        };
+        append_uint64(kThisUpdateOffset, static_cast<std::uint64_t>(metadata.this_update));
+        append_uint64(kNextUpdateOffset, static_cast<std::uint64_t>(metadata.next_update));
+        append_uint64(kCrlNumberOffset, metadata.crl_number);
+    }
+
+    static score::Result<std::monostate> Decode(score::cpp::span<const uint8_t> encoded, CrlMetadata& metadata) noexcept
+    {
+        if (encoded.size() != kEntrySize)
+        {
+            return score::Result<std::monostate>{
+                score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Invalid CRL metadata wire size")};
+        }
+
+        CrlMetadata decoded{};
+        for (std::size_t i = 0U; i < kFingerprintSize; ++i)
+        {
+            decoded.fingerprint[i] = encoded[kCrlFingerprintOffset + i];
+            decoded.issuer_fingerprint[i] = encoded[kIssuerFingerprintOffset + i];
+        }
+
+        const auto read_uint64 = [&encoded](std::size_t offset) {
+            std::uint64_t value{0U};
+            for (std::size_t i = 0U; i < sizeof(value); ++i)
+                value |= static_cast<std::uint64_t>(encoded[offset + i]) << (i * 8U);
+            return value;
+        };
+        decoded.this_update = static_cast<std::int64_t>(read_uint64(kThisUpdateOffset));
+        decoded.next_update = static_cast<std::int64_t>(read_uint64(kNextUpdateOffset));
+        decoded.crl_number = read_uint64(kCrlNumberOffset);
+        metadata = decoded;
+        return std::monostate{};
+    }
 };
 
 /// @brief Snapshot of a certificate slot's state and persistent CRL presence.
@@ -172,6 +227,15 @@ enum class MemberKind : uint8_t
     kConditionalExternal = 2U  ///< External slot; disabled after unexpected content change.
 };
 
+/// Effective status of a trust store member as seen at snapshot time.
+enum class MemberStatus : uint8_t
+{
+    kEnabled = 0U,                 ///< Active anchor for chain building.
+    kDisabled = 1U,                ///< Explicitly disabled (or removed from use); can be re-enabled.
+    kFingerprintMismatch = 2U,     ///< Conditional-external content differs from the accepted fingerprint.
+    kAwaitingAcknowledgement = 3U  ///< Conditional-external content never accepted; acknowledgement required.
+};
+
 /// Snapshot of a single trust store member.
 ///
 /// Both slot_id and sha256_fingerprint are provided so callers can:
@@ -183,12 +247,12 @@ struct MemberInfo
 {
     CryptoResourceId slot_id{};  ///< kCertSlot resource — use for management ops.
     std::array<uint8_t, kSha256FingerprintSize>
-        sha256_fingerprint{};                    ///< SHA-256 fingerprint of the member certificate.
-    std::string subject;                         ///< RFC 4514 Subject DN (e.g., "CN=Root CA,O=ACME,C=DE").
-    std::string issuer;                          ///< RFC 4514 Issuer DN.
-    std::string serial_number;                   ///< Uppercase hex serial (e.g., "01ABCDEF").
-    MemberKind kind{MemberKind::kSharedStatic};  ///< Membership type.
-    bool is_enabled{true};                       ///< Whether anchor is active for chain building.
+        sha256_fingerprint{};                     ///< SHA-256 fingerprint of the member certificate.
+    std::string subject;                          ///< RFC 4514 Subject DN (e.g., "CN=Root CA,O=ACME,C=DE").
+    std::string issuer;                           ///< RFC 4514 Issuer DN.
+    std::string serial_number;                    ///< Uppercase hex serial (e.g., "01ABCDEF").
+    MemberKind kind{MemberKind::kSharedStatic};   ///< Membership type.
+    MemberStatus status{MemberStatus::kEnabled};  ///< Only kEnabled members are active anchors.
 };
 
 }  // namespace score::crypto

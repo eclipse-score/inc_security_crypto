@@ -102,7 +102,7 @@ class ITrustStoreManagementContext : public IContext
     /// @param sha256_fingerprint 32-byte SHA-256 fingerprint of the certificate to remove
     virtual score::Result<std::monostate> RemoveCertificateFromTrustStore(
         const CryptoResourceId& trust_store,
-        score::cpp::span<const uint8_t> sha256_fingerprint) = 0;
+        score::cpp::span<const uint8_t, kSha256FingerprintSize> sha256_fingerprint) = 0;
 
     /// @brief Enables a disabled trust store member identified by its slot resource.
     ///
@@ -136,7 +136,7 @@ class ITrustStoreManagementContext : public IContext
     /// @brief Acknowledges an unexpected content change on a conditional-external member.
     ///
     /// A kConditionalExternal member is automatically disabled when its slot content
-    /// changes without acknowledgement (see MemberInfo state). This
+    /// changes without acknowledgement (reported as `MemberStatus::kFingerprintMismatch`). This
     /// re-baselines the accepted fingerprint and re-enables the member only if the
     /// slot still contains the certificate version the caller inspected. The expected
     /// fingerprint should be the certificate-content fingerprint shown in
@@ -162,7 +162,7 @@ class ITrustStoreManagementContext : public IContext
     virtual score::Result<std::monostate> AcknowledgeTrustStoreMemberUpdate(
         const CryptoResourceId& trust_store,
         const CryptoResourceId& slot,
-        score::cpp::span<const uint8_t> expected_sha256_fingerprint) = 0;
+        score::cpp::span<const uint8_t, kSha256FingerprintSize> expected_sha256_fingerprint) = 0;
 
     /// @brief Imports a CRL for a trust store exclusive member identified by its slot resource.
     ///

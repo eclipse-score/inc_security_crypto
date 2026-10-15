@@ -156,15 +156,16 @@ Footnotes
 
 Further Documentation of the component can be found in the following sections:
 
-Subcomponent Documentation
-==========================
+Daemon Component Documentation
+==============================
 
-Additional documentation for relevant Crypto subcomponents can be found here:
+The daemon contains the key-management, certificate-management, and data-manager
+subcomponents. Their documentation is grouped under the daemon architecture.
 
 .. toctree::
    :maxdepth: 1
 
-   ../src/daemon/data_manager/docs/index
+   architecture/daemon_architecture
 
 Component Detail Information
 ============================

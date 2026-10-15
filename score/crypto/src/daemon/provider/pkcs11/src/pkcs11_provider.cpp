@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/cert_management/pkcs11_cert_slot_handler.hpp"
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
@@ -426,6 +427,13 @@ std::shared_ptr<key_management::IKeySlotHandler> Pkcs11Provider::GetKeySlotHandl
         m_key_store = std::make_shared<Pkcs11KeyStore>(shared_from_this(), m_module);
     }
     return std::make_shared<Pkcs11KeySlotHandler>(shared_from_this(), m_module, m_key_store);
+}
+
+std::shared_ptr<cert_management::ICertSlotHandler> Pkcs11Provider::GetCertSlotHandler(
+    const cert_management::CertSlotConfig& /*config*/,
+    std::shared_ptr<provider::cert_management::ICertParser> parser)
+{
+    return std::make_shared<Pkcs11CertSlotHandler>(shared_from_this(), m_module, std::move(parser));
 }
 
 std::shared_ptr<::score::crypto::daemon::data_plane::IShmFactory> Pkcs11Provider::GetShmFactory()
