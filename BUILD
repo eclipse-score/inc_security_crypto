@@ -16,10 +16,11 @@ load("@rules_uv//uv:pip.bzl", "pip_compile")
 load("@rules_uv//uv:venv.bzl", "create_venv")
 
 docs(
-    data = [
+    source_dir = ".",
+    external_needs = [
+        "@score_platform//:needs_json_file",
         "@score_process_description//:needs_json",
     ],
-    source_dir = ".",
 )
 
 # The LLVM coverage pipeline (//tools/coverage) resolves the workspace root
