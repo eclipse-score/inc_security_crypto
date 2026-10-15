@@ -11,12 +11,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@score_docs_as_code//:docs.bzl", "docs")
 load("@rules_uv//uv:pip.bzl", "pip_compile")
 load("@rules_uv//uv:venv.bzl", "create_venv")
+load("@score_docs_as_code//:docs.bzl", "docs")
 
 docs(
-    data = [
+    external_needs = [
+        "@score_platform//:needs_json_file",
         "@score_process_description//:needs_json",
     ],
     source_dir = ".",

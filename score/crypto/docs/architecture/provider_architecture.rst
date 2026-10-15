@@ -66,6 +66,66 @@ integer constants (``HASH_INIT``, ``HASH_UPDATE``, ``HASH_FINALIZE``,
 Both provider families include these headers directly — the constants are not
 specific to any algorithm family or provider.
 
+Hash Algorithm Contract
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Hash algorithm identifiers are case-sensitive wire-level values. The standard
+algorithm name and the identifier passed to ``HashContextConfig`` are distinct:
+
+.. list-table:: Supported hash algorithms
+   :header-rows: 1
+
+   * - Standard name
+     - Canonical API identifier
+     - Digest size
+     - OpenSSL mapping
+     - PKCS#11 mapping
+   * - SHA-256
+     - ``SHA256``
+     - 32 bytes
+     - ``EVP_sha256``
+     - ``CKM_SHA256``
+   * - SHA-384
+     - ``SHA384``
+     - 48 bytes
+     - ``EVP_sha384``
+     - ``CKM_SHA384``
+   * - SHA-512
+     - ``SHA512``
+     - 64 bytes
+     - ``EVP_sha512``
+     - ``CKM_SHA512``
+
+OpenSSL support is determined from the provider's EVP mapping. PKCS#11 support
+requires both a daemon mapping and a token that implements the corresponding
+mechanism. A configured hardware provider therefore may reject an algorithm
+that the software provider supports; the daemon must return an explicit error
+rather than silently select another algorithm or digest size.
+
+For PKCS#11, ``Pkcs11HandlerFactory`` resolves the canonical identifier to a
+``CK_MECHANISM_TYPE`` and calls ``C_GetMechanismInfo`` for the provider's
+selected slot before acquiring a session or constructing the hash handler. A
+mechanism is accepted for hashing only when its returned flags include
+``CKF_DIGEST``; merely being listed by the token is not sufficient.
+``CKR_MECHANISM_INVALID`` is reported to the client as
+``CryptoErrorCode::kUnsupportedAlgorithm``; other PKCS#11 query failures are
+translated through the daemon error mapping.
+
+Both streaming and single-shot operations accept empty input. A streaming
+caller may invoke ``Init()`` followed directly by ``Finalize()`` without an
+intermediate ``Update()``; the result is the standard digest of the empty byte
+sequence.
+
+Provider adapters also recognize SHA-224. SHA-1 and MD5 are not exposed by the
+high-level Crypto API because no supported use case requires these
+cryptographically weak algorithms. SHA-3, SHAKE, CRC32, and CRC32 AUTOSAR are
+outside the hash provider contract.
+
+An undersized ``Finalize`` output is retryable: the caller may supply a larger
+buffer and call ``Finalize`` again without replaying the input. Other provider or
+transport errors must be handled according to their returned error code; callers
+must not assume that every failure preserves a streaming operation.
+
 Provider Configuration
 ~~~~~~~~~~~~~~~~~~~~~~
 

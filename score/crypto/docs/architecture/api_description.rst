@@ -623,7 +623,7 @@ the WCET bound.
 
    // Per-context override: 200 ms for hash, disabled for key gen
    HashContextConfig hash_cfg;
-   hash_cfg.SetAlgorithm("SHA-256")
+   hash_cfg.SetAlgorithm("SHA256")
            .SetOperationTimeout(std::chrono::milliseconds{200});
 
    KeyManagementContextConfig keygen_cfg;

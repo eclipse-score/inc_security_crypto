@@ -40,6 +40,7 @@ cc_library(
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     visibility = ["//:__subpackages__"],
+    deps = ["//score/crypto/src/daemon/common:algorithm_info"],
 )
 
 cc_library(
@@ -163,7 +164,7 @@ cc_test(
     deps = [
         ":provider_openssl_library",
         "//score/crypto/src/api/common:crypto_common",
-        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/data_manager",
