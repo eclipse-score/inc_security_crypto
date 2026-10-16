@@ -23,7 +23,7 @@
 namespace score::crypto::daemon::provider::score_provider::iav_primula
 {
 
-/// @brief Factory for IAV-Primula SIGN, VERIFY, and KEM handlers.
+/// @brief Factory for IAV-Primula SIGN and VERIFY handlers; KEM uses Key Management.
 ///
 /// Validates the requested PQC algorithm and creates the corresponding
 /// IAV-Primula handler with its provider-neutral operation executor.
@@ -49,6 +49,11 @@ class IavPrimulaHandlerFactory final
     IavPrimulaHandlerFactory& operator=(IavPrimulaHandlerFactory&&) = delete;
 
   protected:
+    /// @brief Create a handler for key-management operations (KEM).
+    ///
+    /// @return A key-management handler.
+    [[nodiscard]] ::score::Result<handler::Handler::Sptr> CreateKeyManagementHandler() override;
+
     /// @brief Create a handler for a supported ML-DSA signature algorithm.
     ///
     /// @return A signature handler, or kUnsupportedAlgorithm if the algorithm
@@ -61,13 +66,6 @@ class IavPrimulaHandlerFactory final
     /// @return A verification handler, or kUnsupportedAlgorithm if the
     ///         algorithm is not an ML-DSA signature algorithm.
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateVerifyHandler(
-        const common::AlgorithmId& algorithm) override;
-
-    /// @brief Create a handler for a supported ML-KEM algorithm.
-    ///
-    /// @return A KEM handler, or kUnsupportedAlgorithm if the algorithm is not
-    ///         an ML-KEM algorithm.
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateKemHandler(
         const common::AlgorithmId& algorithm) override;
 };
 

@@ -61,6 +61,34 @@ class KeyManagementExecutor final
     std::shared_ptr<key_management::IKeySlotHandler> m_slot_handler;
     std::shared_ptr<key_management::KeyManagementService> m_service;
 
+    [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleGetEncapsulationCiphertextSize(
+        const KeyMgmtExecutionContext& ctx,
+        const common::RequestParameters& request);
+
+    [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleEncapsulateKey(
+        const KeyMgmtExecutionContext& ctx,
+        const common::RequestParameters& request);
+
+    [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleDecapsulateKey(
+        const KeyMgmtExecutionContext& ctx,
+        const common::RequestParameters& request);
+
+    [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleImport(
+        const KeyMgmtExecutionContext& ctx,
+        const common::RequestParameters& request);
+
+    [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleGetExportKeySize(
+        const KeyMgmtExecutionContext& ctx,
+        const common::RequestParameters& request);
+
+    [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleExportKey(
+        const KeyMgmtExecutionContext& ctx,
+        const common::RequestParameters& request);
+
+    [[nodiscard]] Expected<data_manager::DataNodeId, score::crypto::daemon::common::DaemonErrorCode> RegisterOutput(
+        const KeyMgmtExecutionContext& ctx,
+        key_management::IKeyHandler::Sptr key);
+
     [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleGenerate(
         const KeyMgmtExecutionContext& ctx,
         common::RequestParameters& request);

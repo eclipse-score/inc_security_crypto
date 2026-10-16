@@ -288,6 +288,44 @@ Expected<SlotResolution, score::crypto::daemon::common::DaemonErrorCode> KeyMana
 }
 
 // ---------------------------------------------------------------------------
+// AcquireKeyForOperation
+// ---------------------------------------------------------------------------
+
+Expected<KeyOperationLease, common::DaemonErrorCode> KeyManagementService::AcquireKeyForOperation(
+    data_manager::ClientId client_id,
+    data_manager::DataNodeId key_node_id,
+    common::ProviderId provider_id,
+    score::crypto::KeyOperationPermission permission) const
+{
+    if (provider_id == common::kInvalidProviderId)
+    {
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+    }
+    auto accessor = m_data_manager->getNodeAccessor(client_id, key_node_id);
+    if (!accessor.has_value())
+    {
+        return make_unexpected(common::DaemonErrorCode::kInvalidResourceId);
+    }
+    auto node = std::move(accessor.value()).downCast<KeyDataNode>();
+    if (!node.has_value() || !node.value()->GetKeyEntry())
+    {
+        return make_unexpected(common::DaemonErrorCode::kInvalidResourceId);
+    }
+    KeyOperationLease lease{node.value()->GetKeyEntry()};
+    const auto& handler = lease.Handler();
+    if (lease.ProviderId() != provider_id || handler.GetProviderId() != provider_id ||
+        handler.GetHandle().provider_id != provider_id)
+    {
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+    }
+    if (!score::crypto::HasPermission(handler.GetHandle().permissions, permission))
+    {
+        return make_unexpected(common::DaemonErrorCode::kKeyOperationNotPermitted);
+    }
+    return lease;
+}
+
+// ---------------------------------------------------------------------------
 // ResolveKeyForOperation
 // ---------------------------------------------------------------------------
 

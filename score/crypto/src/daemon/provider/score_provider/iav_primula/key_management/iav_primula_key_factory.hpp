@@ -46,8 +46,31 @@ class IavPrimulaKeyFactory final : public key_management::IKeyFactory
     ///
     /// Supports public keys for the ML-DSA and ML-KEM parameter sets defined by
     /// the provider. The key material is copied into the returned key handler.
+    /// Requires FormatType::kRaw and the exact algorithm-defined public-key size.
     [[nodiscard]] Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> ImportKey(
         const key_management::KeyImportRequest&) override;
+
+    /// @brief Return the ciphertext size for an ML-KEM encapsulation request.
+    ///
+    /// Validates that the request contains an IAV-Primula ML-KEM public key
+    /// owned by this provider and permitted for key agreement. Does not create
+    /// or register key material.
+    [[nodiscard]] Expected<std::size_t, common::DaemonErrorCode> GetEncapsulationCiphertextSize(
+        const key_management::KeyEncapsulationRequest&) const override;
+
+    /// @brief Encapsulate to an IAV-Primula ML-KEM public key.
+    ///
+    /// Returns the ciphertext and an owning, derive-only shared-secret handler.
+    /// The caller registers the handler with KeyManagementService.
+    [[nodiscard]] Expected<key_management::ProviderEncapsulationResult, common::DaemonErrorCode> EncapsulateKey(
+        const key_management::KeyEncapsulationRequest&) override;
+
+    /// @brief Decapsulate ML-KEM ciphertext with an IAV-Primula private key.
+    ///
+    /// Returns an owning, derive-only shared-secret handler. The caller
+    /// registers the handler with KeyManagementService.
+    [[nodiscard]] Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> DecapsulateKey(
+        const key_management::KeyDecapsulationRequest&) override;
 
   private:
     common::ProviderId m_provider_id{};  ///< Numeric identifier of the owning provider instance.

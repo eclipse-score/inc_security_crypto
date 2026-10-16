@@ -187,6 +187,20 @@ Client crash:
    calls ``Release(client_id)`` on every ``KeyEntry`` that still references
    that client.
 
+KEM operations
+--------------
+
+ML-KEM encapsulation and decapsulation are key-management operations. The
+client supplies managed public or private key resources; the provider returns a
+new ephemeral shared-secret key which is registered through the normal
+``KeyRegistry`` and returned as a ``CryptoResourceGuard``. Ciphertext is public
+operation output, while shared-secret bytes never appear in IPC responses.
+
+The source key is retained and locked for the full provider call. The resulting
+secret is derive-only, non-exportable, and released through the same
+``KeyDataNode`` lifecycle as every other ephemeral key. KEM therefore has no
+separate daemon actor, handler, or operation context.
+
 MAC Operation Example
 ---------------------
 

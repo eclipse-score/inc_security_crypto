@@ -23,8 +23,6 @@
 #include "score/result/result.h"
 
 #include <memory>
-#include <string_view>
-
 namespace score::crypto::daemon::provider::score_provider::operations::factory
 {
 
@@ -90,11 +88,6 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
 
     /// Override in concrete provider to create a random handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateRandomHandler(
-        const common::AlgorithmId& algorithm);
-
-    /// Override in a concrete provider to create a key encapsulation handler.
-    /// The default implementation returns kUnsupportedOperation.
-    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateKemHandler(
         const common::AlgorithmId& algorithm);
 
     std::shared_ptr<key_management::IKeyFactory> m_key_factory;

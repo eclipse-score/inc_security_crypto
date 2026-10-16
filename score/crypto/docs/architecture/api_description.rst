@@ -52,7 +52,7 @@ in unordered containers.
 
 ``CryptoResourceId`` unifies persistent and ephemeral resources via the
 ``ResourcePersistence`` field. Keys are ephemeral by default when
-generated, derived, agreed, imported, or unwrapped — they receive a
+generated, derived, agreed, encapsulated, decapsulated, imported, or unwrapped — they receive a
 ``CryptoResourceId`` with ``type == kKey`` and
 ``persistence == kEphemeral``. Use
 ``IKeyManagementContext::PersistKey()`` to promote an ephemeral key
@@ -76,9 +76,12 @@ Transient resources (ephemeral keys, loaded key material, extracted
 certificate public keys) must be deterministically released to prevent
 sensitive key material from lingering in daemon memory.
 
-All resource-producing methods (``GenerateKey``, ``DeriveKey``, ``AgreeKey``,
-``UnwrapKey``, ``ImportKey``, ``LoadKey``, ``LoadCertificatePublicKey``,
-``ImportCrl``) return ``CryptoResourceGuard`` — a move-only RAII wrapper.
+All resource-producing methods return a ``CryptoResourceGuard`` — a move-only
+RAII wrapper — either directly or, for ``EncapsulateKey()``, as the
+``shared_secret`` member of ``EncapsulationResult``. These methods include
+``GenerateKey``, ``DeriveKey``, ``AgreeKey``, ``EncapsulateKey``,
+``DecapsulateKey``, ``UnwrapKey``, ``ImportKey``, ``LoadKey``,
+``LoadCertificatePublicKey``, and ``ImportCrl``.
 Transient resource lifetime is managed by the daemon via per-resource reference
 counting: the guard holds
 a type-erased IPC release handle; ``Create*Context()`` atomically
@@ -165,6 +168,22 @@ to detect that the resource is still referenced by an active context — call
    if (!result.has_value()) {
        // e.g. resource still used by an active context — destroy it first
    }
+
+Key Encapsulation Mechanism
+---------------------------
+
+ML-KEM is a Key Management operation. ``GetEncapsulationCiphertextSize()``
+queries the required ciphertext capacity for a managed public key.
+``EncapsulateKey()`` uses that public key and writes public ciphertext to a
+caller-owned buffer; it returns an ``EncapsulationResult`` containing the
+ciphertext length and a guard for the provider-held shared secret.
+``DecapsulateKey()`` takes a managed private key and ciphertext, and returns
+only the shared-secret guard.
+
+The shared secret is an ephemeral, derive-only, non-exportable key registered
+through the normal Key Management lifecycle. Its bytes never appear in an IPC
+response. KEM therefore has no separate operation context, daemon actor, or
+handler family.
 
 Memory and Data Plane Model
 ---------------------------
@@ -384,6 +403,9 @@ Permissions are enforced by the daemon at context creation time. Each
    DeriveKey()                            → kDerive (on source key)
    ExportKey()                            → kExport
    AgreeKey()                             → kAgree
+   GetEncapsulationCiphertextSize()       → kAgree
+   EncapsulateKey()                       → kAgree
+   DecapsulateKey()                       → kAgree
 
 If the key's permissions do not include the required operation, the
 daemon returns ``CryptoErrorCode::kKeyOperationNotPermitted`` and the

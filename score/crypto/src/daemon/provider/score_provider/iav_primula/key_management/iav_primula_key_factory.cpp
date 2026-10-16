@@ -14,7 +14,11 @@
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_key_factory.hpp"
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_key_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_shared_secret_handler.hpp"
 #include "score/iav_primula/include/iav_primula_ffi.h"
+
+#include <memory>
+#include <vector>
 
 namespace score::crypto::daemon::provider::score_provider::iav_primula
 {
@@ -53,6 +57,49 @@ Expected<iav_algorithm, common::DaemonErrorCode> Algorithm(common::AlgorithmId a
     }
     return make_unexpected(common::DaemonErrorCode::kUnsupportedAlgorithm);
 }
+
+Expected<const IavPrimulaKeyHandler*, common::DaemonErrorCode> ValidateKemKey(
+    const key_management::IKeyHandler& handler,
+    common::ProviderId provider_id,
+    const common::AlgorithmId& algorithm,
+    key_management::KeyMaterialKind kind)
+{
+    const auto* key = dynamic_cast<const IavPrimulaKeyHandler*>(&handler);
+    if (key == nullptr || provider_id == common::kInvalidProviderId || handler.GetProviderId() != provider_id ||
+        handler.GetHandle().provider_id != provider_id || handler.GetHandle().algorithm != algorithm ||
+        handler.GetHandle().material_kind != kind)
+    {
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+    }
+    if (!score::crypto::HasPermission(handler.GetHandle().permissions, score::crypto::KeyOperationPermission::kAgree))
+    {
+        return make_unexpected(common::DaemonErrorCode::kKeyOperationNotPermitted);
+    }
+    return key;
+}
+
+Expected<std::size_t, common::DaemonErrorCode> GetKemCiphertextSize(
+    common::ProviderId provider_id,
+    const key_management::KeyEncapsulationRequest& request)
+{
+    const auto info = common::LookupPqcAlgorithm(request.algorithm);
+    const auto algorithm = Algorithm(request.algorithm);
+    if (!info || info->kind != common::PqcAlgorithmKind::kKem || !algorithm.has_value())
+    {
+        return make_unexpected(common::DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+    auto key = ValidateKemKey(request.public_key, provider_id, request.algorithm, key_management::KeyMaterialKind::kPublicKey);
+    if (!key.has_value())
+    {
+        return make_unexpected(key.error());
+    }
+    std::size_t size{0U};
+    if (key.value()->GetPublicKey(size) == nullptr || size != info->public_key_size)
+    {
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+    }
+    return info->signature_or_ciphertext_size;
+}
 }  // namespace
 
 Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaKeyFactory::GenerateKey(
@@ -77,9 +124,17 @@ Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaK
                                      : iav_keypair_generate(algorithm.value(), &key);
     if (generate_status != IavStatusOk || key == nullptr)
     {
-        return make_unexpected(common::DaemonErrorCode::kOperationFailed);
+        if (key != nullptr)
+        {
+            iav_key_destroy(key);
+        }
+        return make_unexpected(generate_status == IavStatusUnsupportedAlgorithm
+                                   ? common::DaemonErrorCode::kUnsupportedAlgorithm
+                                   : common::DaemonErrorCode::kOperationFailed);
     }
 
+    // Keep the native key owned even if allocating the public-key cache fails.
+    std::unique_ptr<iav_primula_key_handle, decltype(&iav_key_destroy)> native_key{key, &iav_key_destroy};
     std::vector<std::uint8_t> pub(info->public_key_size);
     std::size_t n = pub.size();
     const auto export_status = (info->kind == common::PqcAlgorithmKind::kKem)
@@ -87,7 +142,6 @@ Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaK
                                    : iav_public_key_export(key, pub.data(), &n);
     if (export_status != IavStatusOk || n != pub.size())
     {
-        iav_key_destroy(key);
         return make_unexpected(common::DaemonErrorCode::kOperationFailed);
     }
 
@@ -99,14 +153,17 @@ Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaK
     h.is_asymmetric = true;
     h.algorithm = r.algorithm;
     h.key_size = info->private_key_size;
-    return std::make_shared<IavPrimulaKeyHandler>(key, std::move(pub), h);
+    h.material_kind = key_management::KeyMaterialKind::kPrivateKey;
+    auto handler = std::make_shared<IavPrimulaKeyHandler>(key, std::move(pub), h);
+    static_cast<void>(native_key.release());
+    return handler;
 }
 
 Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaKeyFactory::ImportKey(
     const key_management::KeyImportRequest& r)
 {
     auto info = common::LookupPqcAlgorithm(std::string_view{r.algorithm.data(), r.algorithm.size()});
-    if (!info ||
+    if (r.format != score::crypto::FormatType::kRaw || !info ||
         ((info->kind != common::PqcAlgorithmKind::kSignature) && (info->kind != common::PqcAlgorithmKind::kKem)) ||
         !r.key_data || (r.key_data_size != info->public_key_size))
     {
@@ -123,6 +180,81 @@ Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaK
     h.is_asymmetric = true;
     h.algorithm = r.algorithm;
     h.key_size = info->public_key_size;
+    h.material_kind = key_management::KeyMaterialKind::kPublicKey;
     return std::make_shared<IavPrimulaKeyHandler>(nullptr, std::move(pub), h);
+}
+Expected<std::size_t, common::DaemonErrorCode> IavPrimulaKeyFactory::GetEncapsulationCiphertextSize(
+    const key_management::KeyEncapsulationRequest& request) const
+{
+    return GetKemCiphertextSize(m_provider_id, request);
+}
+
+Expected<key_management::ProviderEncapsulationResult, common::DaemonErrorCode> IavPrimulaKeyFactory::EncapsulateKey(
+    const key_management::KeyEncapsulationRequest& request)
+{
+    auto ciphertext_size = GetKemCiphertextSize(m_provider_id, request);
+    if (!ciphertext_size.has_value())
+    {
+        return make_unexpected(ciphertext_size.error());
+    }
+
+    const auto& key = static_cast<const IavPrimulaKeyHandler&>(request.public_key);
+    std::size_t public_key_size{0U};
+    const auto* public_key = key.GetPublicKey(public_key_size);
+    const auto info = common::LookupPqcAlgorithm(request.algorithm);
+    const auto algorithm = Algorithm(request.algorithm);
+    std::vector<std::uint8_t> ciphertext(ciphertext_size.value());
+    key_management::SecureKeyBytes secret(info->shared_secret_size);
+    std::size_t ciphertext_length = ciphertext.size();
+    std::size_t secret_length = secret.bytes.size();
+    const auto status = iav_kem_encapsulate(algorithm.value(),
+                                            public_key,
+                                            public_key_size,
+                                            ciphertext.data(),
+                                            &ciphertext_length,
+                                            secret.bytes.data(),
+                                            &secret_length);
+    if (status != IavStatusOk || ciphertext_length != ciphertext.size() || secret_length != secret.bytes.size())
+    {
+        return make_unexpected(status == IavStatusUnsupportedAlgorithm ? common::DaemonErrorCode::kUnsupportedAlgorithm
+                                                                       : common::DaemonErrorCode::kOperationFailed);
+    }
+    return key_management::ProviderEncapsulationResult{
+        std::move(ciphertext), std::make_shared<IavPrimulaSharedSecretHandler>(std::move(secret), m_provider_id)};
+}
+
+Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaKeyFactory::DecapsulateKey(
+    const key_management::KeyDecapsulationRequest& request)
+{
+    const auto info = common::LookupPqcAlgorithm(request.algorithm);
+    const auto algorithm = Algorithm(request.algorithm);
+    if (!info || info->kind != common::PqcAlgorithmKind::kKem || !algorithm.has_value())
+    {
+        return make_unexpected(common::DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+    auto key = ValidateKemKey(request.private_key, m_provider_id, request.algorithm, key_management::KeyMaterialKind::kPrivateKey);
+    if (!key.has_value())
+    {
+        return make_unexpected(key.error());
+    }
+    if (key.value()->GetNativeHandle() == nullptr || request.ciphertext.data() == nullptr ||
+        request.ciphertext.size() != info->signature_or_ciphertext_size)
+    {
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+    }
+
+    key_management::SecureKeyBytes secret(info->shared_secret_size);
+    std::size_t length = secret.bytes.size();
+    const auto status = iav_kem_decapsulate(key.value()->GetNativeHandle(),
+                                            request.ciphertext.data(),
+                                            request.ciphertext.size(),
+                                            secret.bytes.data(),
+                                            &length);
+    if (status != IavStatusOk || length != secret.bytes.size())
+    {
+        return make_unexpected(status == IavStatusUnsupportedAlgorithm ? common::DaemonErrorCode::kUnsupportedAlgorithm
+                                                                       : common::DaemonErrorCode::kOperationFailed);
+    }
+    return std::make_shared<IavPrimulaSharedSecretHandler>(std::move(secret), m_provider_id);
 }
 }  // namespace score::crypto::daemon::provider::score_provider::iav_primula

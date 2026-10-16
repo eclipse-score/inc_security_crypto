@@ -16,6 +16,7 @@
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_entry.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_registry.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
@@ -232,6 +233,14 @@ class KeyManagementService final
     [[nodiscard]] Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode> ResolveKeyForOperation(
         data_manager::ClientId client_id,
         data_manager::DataNodeId key_node_id) const;
+
+    /// Resolve a client-owned key, pin its entry, and serialize provider use.
+    /// Both registry and handler provider identities must match the context.
+    [[nodiscard]] Expected<KeyOperationLease, common::DaemonErrorCode> AcquireKeyForOperation(
+        data_manager::ClientId client_id,
+        data_manager::DataNodeId key_node_id,
+        common::ProviderId provider_id,
+        score::crypto::KeyOperationPermission permission) const;
 
     // ------------------------------------------------------------------
     // Accessors

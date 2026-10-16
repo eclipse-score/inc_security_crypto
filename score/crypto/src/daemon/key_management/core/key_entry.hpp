@@ -77,6 +77,12 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
         return m_handler;
     }
 
+    /// Serialize provider operations while the caller pins this entry.
+    [[nodiscard]] std::unique_lock<std::mutex> LockForOperation()
+    {
+        return std::unique_lock<std::mutex>{m_operation_mutex};
+    }
+
     [[nodiscard]] const common::ProviderId GetProviderId() const noexcept
     {
         return m_provider_id;
@@ -114,6 +120,7 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
     }
 
   private:
+    std::mutex m_operation_mutex;
     IKeyHandler::Sptr m_handler;
     common::ProviderId m_provider_id;
     SlotHandle m_slot_handle;
@@ -121,6 +128,43 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
     mutable std::mutex m_ref_mutex;  ///< Protects m_referencing_clients.
     std::atomic<std::uint32_t> m_ref_count{0U};
     std::vector<data_manager::ClientId> m_referencing_clients;
+};
+
+/// Pins both key material and its operation lock, including after the client
+/// releases its KeyDataNode. The lock must be destroyed before the entry.
+class KeyOperationLease final
+{
+  public:
+    explicit KeyOperationLease(std::shared_ptr<KeyEntry> entry)
+        : m_entry{std::move(entry)}, m_lock{m_entry->LockForOperation()}
+    {
+    }
+    KeyOperationLease(const KeyOperationLease&) = delete;
+    KeyOperationLease& operator=(const KeyOperationLease&) = delete;
+    KeyOperationLease(KeyOperationLease&&) noexcept = default;
+    KeyOperationLease& operator=(KeyOperationLease&& other) noexcept
+    {
+        if (this != &other)
+        {
+            m_lock = std::unique_lock<std::mutex>{};
+            m_entry = std::move(other.m_entry);
+            m_lock = std::move(other.m_lock);
+        }
+        return *this;
+    }
+
+    [[nodiscard]] const IKeyHandler& Handler() const noexcept
+    {
+        return *m_entry->GetKeyHandler();
+    }
+    [[nodiscard]] common::ProviderId ProviderId() const noexcept
+    {
+        return m_entry->GetProviderId();
+    }
+
+  private:
+    std::shared_ptr<KeyEntry> m_entry;
+    std::unique_lock<std::mutex> m_lock;
 };
 
 }  // namespace score::crypto::daemon::key_management

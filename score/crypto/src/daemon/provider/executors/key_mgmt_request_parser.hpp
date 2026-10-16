@@ -91,6 +91,10 @@ namespace key_mgmt_request_parser
     {
         return std::nullopt;
     }
+    if (*val > static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kAll))
+    {
+        return std::nullopt;
+    }
 
     return static_cast<score::crypto::KeyOperationPermission>(*val);
 }

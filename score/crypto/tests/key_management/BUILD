@@ -38,3 +38,16 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "test_key_management_kem_operations",
+    srcs = ["test_key_management_kem_operations.cpp"],
+    deps = [
+        "//score/crypto/src/api/contexts:crypto_contexts_impl",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/key_management",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
+        "@googletest//:gtest_main",
+    ],
+)
