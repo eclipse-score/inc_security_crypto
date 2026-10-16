@@ -239,8 +239,6 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
         case actors::OP_ACTOR_KEM_HANDLER:
             switch (action)
             {
-                case provider::handler::kem_handler_operations::KEM_KEYGEN:
-                    return "KEM_KEYGEN";
                 case provider::handler::kem_handler_operations::KEM_ENCAPSULATE:
                     return "KEM_ENCAPSULATE";
                 case provider::handler::kem_handler_operations::KEM_DECAPSULATE:

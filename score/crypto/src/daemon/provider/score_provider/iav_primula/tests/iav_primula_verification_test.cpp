@@ -28,6 +28,8 @@ using namespace score::crypto::daemon;
 using namespace score::crypto::daemon::provider::score_provider::iav_primula;
 using Executor = score::crypto::daemon::provider::score_provider::operations::verify::VerifyExecutor;
 
+constexpr common::ProviderId kProviderId{7U};
+
 // ---------------------------------------------------------------------------
 // Algorithm and key validation
 // ---------------------------------------------------------------------------
@@ -42,9 +44,39 @@ TEST(IavPrimulaVerificationTest, RejectsUnsupportedAndMissingKeys)
 
     // ML-DSA-44 requires a bound verification key during initialization.
     IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
-    auto result = handler.InitializeContext({});
+    ::score::crypto::daemon::provider::handler::InitializationParams params{};
+    params.provider_id = kProviderId;
+    auto result = handler.InitializeContext(params);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), common::DaemonErrorCode::kKeySlotEmpty);
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidArgument);
+}
+
+TEST(IavPrimulaVerificationTest, RejectsUnassignedProviderId)
+{
+    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    // Both IDs default to invalid; matching invalid IDs must not authorize a cast.
+    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, {}};
+    ::score::crypto::daemon::provider::handler::InitializationParams params{};
+    params.bound_key_handler = &key;
+
+    auto result = handler.InitializeContext(params);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidArgument);
+}
+
+TEST(IavPrimulaVerificationTest, RejectsKeyFromAnotherProvider)
+{
+    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    key_management::ProviderKeyHandle handle{};
+    handle.provider_id = kProviderId;
+    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, handle};
+    ::score::crypto::daemon::provider::handler::InitializationParams params{};
+    params.provider_id = common::ProviderId{8U};
+    params.bound_key_handler = &key;
+
+    auto result = handler.InitializeContext(params);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidArgument);
 }
 
 // ---------------------------------------------------------------------------
@@ -54,17 +86,20 @@ TEST(IavPrimulaVerificationTest, RejectsUnsupportedAndMissingKeys)
 TEST(IavPrimulaVerificationTest, ValidatesKeyTypeAndSignatureSize)
 {
     IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    key_management::ProviderKeyHandle handle{};
+    handle.provider_id = kProviderId;
     // A public-only key has no native handle and cannot be used for this
     // verification operation.
-    IavPrimulaKeyHandler public_key{nullptr, std::vector<std::uint8_t>(1312U), {}};
+    IavPrimulaKeyHandler public_key{nullptr, std::vector<std::uint8_t>(1312U), handle};
     ::score::crypto::daemon::provider::handler::InitializationParams params{};
+    params.provider_id = kProviderId;
     params.bound_key_handler = &public_key;
     auto result = handler.InitializeContext(params);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), common::DaemonErrorCode::kIncompatibleKeyType);
 
     // Use a non-null sentinel to simulate a bound native key handle.
-    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, {}};
+    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, handle};
     params.bound_key_handler = &key;
     ASSERT_TRUE(handler.InitializeContext(params).has_value());
     const std::uint8_t message[] = {1U, 2U};
@@ -80,8 +115,11 @@ TEST(IavPrimulaVerificationTest, ValidatesKeyTypeAndSignatureSize)
 TEST(IavPrimulaVerificationTest, RejectsSingleShotRequestWithoutSignature)
 {
     IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
-    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, {}};
+    key_management::ProviderKeyHandle handle{};
+    handle.provider_id = kProviderId;
+    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, handle};
     ::score::crypto::daemon::provider::handler::InitializationParams params{};
+    params.provider_id = kProviderId;
     params.bound_key_handler = &key;
     ASSERT_TRUE(handler.InitializeContext(params).has_value());
 
@@ -129,8 +167,11 @@ TEST(IavPrimulaVerificationTest, PropagatesBackendFailureAndRejectsWrongActor)
     namespace ops = provider::handler::verify_handler_operations;
     IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
     // The current FFI is a placeholder and never dereferences this sentinel.
-    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, {}};
+    key_management::ProviderKeyHandle key_handle{};
+    key_handle.provider_id = kProviderId;
+    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, key_handle};
     provider::handler::InitializationParams params{};
+    params.provider_id = kProviderId;
     params.bound_key_handler = &key;
     ASSERT_TRUE(handler.InitializeContext(params).has_value());
     const std::uint8_t message[] = {1U, 2U};

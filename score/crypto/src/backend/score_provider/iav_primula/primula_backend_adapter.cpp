@@ -15,8 +15,18 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/iav_primula_provider.hpp"
 
+#include <string>
+#include <string_view>
+
 namespace score::crypto::backend::score_provider::primula
 {
+
+namespace
+{
+
+constexpr std::string_view kProviderName{"PRIMULA"};
+
+}  // namespace
 
 daemon::provider::score_provider::ProviderCreator PrimulaBackendAdapter::GetProviderCreator() const
 {
@@ -24,7 +34,7 @@ daemon::provider::score_provider::ProviderCreator PrimulaBackendAdapter::GetProv
 
     return ProviderCreator{
         .backend_id = "primula",
-        .backend_name = "PRIMULA",
+        .backend_name = std::string{kProviderName},
         // IAV-Primula provides post-quantum algorithms only. Mark it as SPECIALIZED
         // so that it is not selected for generic SOFTWARE algorithms such as SHA-256
         // or HMAC, which are provided by OpenSSL.

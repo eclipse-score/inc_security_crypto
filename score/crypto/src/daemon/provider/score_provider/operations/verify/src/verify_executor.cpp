@@ -145,6 +145,10 @@ Expected<ResponseParameters, DaemonErrorCode> VerifyExecutor::ExecuteFinalize(Sc
     {
         return make_unexpected(DaemonErrorCode::kInsufficientParameters);
     }
+    if (request.size() != 1U)
+    {
+        return make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
 
     const auto signatureSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[0]);
     if (!signatureSpan.has_value())

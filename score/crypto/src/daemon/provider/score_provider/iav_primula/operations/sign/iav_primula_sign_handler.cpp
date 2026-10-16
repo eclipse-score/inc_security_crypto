@@ -84,11 +84,19 @@ Expected<std::monostate, DaemonErrorCode> IavPrimulaSignHandler::InitializeConte
 
     if (init_params.bound_key_handler == nullptr)
     {
-        return make_unexpected(DaemonErrorCode::kKeySlotEmpty);
+        return make_unexpected(DaemonErrorCode::kInvalidArgument);
     }
 
-    const auto* primula_key = dynamic_cast<const IavPrimulaKeyHandler*>(init_params.bound_key_handler);
-    if ((primula_key == nullptr) || (primula_key->GetNativeHandle() == nullptr))
+    if (init_params.provider_id == common::kInvalidProviderId ||
+        init_params.bound_key_handler->GetProviderId() != init_params.provider_id)
+    {
+        return make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
+
+    // The Primula key factory creates IavPrimulaKeyHandler instances for this provider.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast) -- provider identity checked above
+    const auto* primula_key = static_cast<const IavPrimulaKeyHandler*>(init_params.bound_key_handler);
+    if (primula_key->GetNativeHandle() == nullptr)
     {
         return make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }

@@ -27,6 +27,7 @@ namespace
 using namespace score::crypto::daemon;
 using namespace score::crypto::daemon::provider::score_provider::iav_primula;
 using Executor = score::crypto::daemon::provider::score_provider::operations::sign::SignExecutor;
+constexpr common::ProviderId kProviderId{7U};
 
 // ---------------------------------------------------------------------------
 // Signature algorithm sizes
@@ -70,8 +71,11 @@ TEST(IavPrimulaSignatureTest, ValidatesOutputBuffer)
     IavPrimulaSignHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
     // Use a non-null sentinel to simulate a bound native key handle without
     // creating a real backend key.
-    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, {}};
+    key_management::ProviderKeyHandle key_handle{};
+    key_handle.provider_id = kProviderId;
+    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, key_handle};
     ::score::crypto::daemon::provider::handler::InitializationParams params{};
+    params.provider_id = kProviderId;
     params.bound_key_handler = &key;
     ASSERT_TRUE(handler.InitializeContext(params).has_value());
 
@@ -89,8 +93,11 @@ TEST(IavPrimulaSignatureTest, ValidatesSingleShotRequestAndPropagatesBackendFail
     namespace ops = provider::handler::sign_handler_operations;
     IavPrimulaSignHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
     // The current FFI is a placeholder and never dereferences this sentinel.
-    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, {}};
+    key_management::ProviderKeyHandle key_handle{};
+    key_handle.provider_id = kProviderId;
+    IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, key_handle};
     provider::handler::InitializationParams params{};
+    params.provider_id = kProviderId;
     params.bound_key_handler = &key;
     ASSERT_TRUE(handler.InitializeContext(params).has_value());
     const std::uint8_t message[] = {1U, 2U};
