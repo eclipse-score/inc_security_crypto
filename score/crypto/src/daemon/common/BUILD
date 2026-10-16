@@ -56,6 +56,7 @@ cc_library(
         "//score/crypto/src/daemon/provider/handler:random_handler_operations",
         "//score/crypto/src/daemon/provider/handler:sign_handler_operations",
         "//score/crypto/src/daemon/provider/handler:verify_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:kem_handler_operations",
         "@score_baselibs//score/mw/log",
     ],
 )
