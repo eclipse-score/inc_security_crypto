@@ -28,6 +28,8 @@
 
 #include <gtest/gtest.h>
 
+#include <string_view>
+
 #include <string>
 #include <string_view>
 
@@ -48,13 +50,26 @@ TEST(OpenSslAlgorithmInfoTest, EveryListedCipherHasCommonProperties)
     }
 }
 
-/// Every signature scheme the provider lists resolves to a curve and a digest.
+/// Every signature scheme the provider lists resolves according to its family.
 TEST(OpenSslAlgorithmInfoTest, EveryListedSignatureSchemeResolvesCurveAndDigest)
 {
     for (const auto name : detail::kSupportedSignatureAlgorithms)
     {
-        EXPECT_TRUE(algo_info::IsEcdsaAlgorithm(name)) << name << " does not name a known curve";
-        EXPECT_TRUE(algo_info::LookupSignatureDigest(name).has_value()) << name << " does not name a known digest";
+        const std::string_view algorithm{name};
+        if (algorithm.find("ECDSA-") == 0U)
+        {
+            EXPECT_TRUE(algo_info::IsEcdsaAlgorithm(name)) << name << " does not name a known curve";
+            EXPECT_TRUE(algo_info::LookupSignatureDigest(name).has_value()) << name << " does not name a known digest";
+        }
+        else if (algorithm.find("RSA-PSS-") == 0U)
+        {
+            EXPECT_TRUE(algo_info::IsRsaPssAlgorithm(name)) << name << " is not a valid RSA-PSS algorithm";
+            EXPECT_TRUE(algo_info::LookupSignatureDigest(name).has_value()) << name << " does not name a known digest";
+        }
+        else
+        {
+            EXPECT_TRUE(algo_info::IsEd25519Algorithm(name)) << name << " is not a valid Ed25519 algorithm";
+        }
     }
 }
 

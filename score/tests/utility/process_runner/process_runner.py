@@ -165,7 +165,11 @@ class ProcessRunner:
 
 
 def run_test_app(
-    target: Target, target_os: str, binary: Path, env: dict[str, str]
+    target: Target,
+    target_os: str,
+    binary: Path,
+    env: dict[str, str],
+    args: list[str] | None = None,
 ) -> None:
     """Run an application on the target and assert success."""
     test_app = ProcessRunner(
@@ -174,6 +178,7 @@ def run_test_app(
         Path(f"/tmp/{binary.name}.log"),
         target_os=target_os,
         env=env,
+        args=args,
     )
     exit_code = test_app.run()
     log = test_app.get_log_contents()

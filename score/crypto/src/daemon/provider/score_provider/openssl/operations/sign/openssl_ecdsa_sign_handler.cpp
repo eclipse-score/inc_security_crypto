@@ -16,6 +16,7 @@
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 
 #include "score/mw/log/logging.h"
 
@@ -64,6 +65,9 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& al
         return bound;
     }
 
+    m_prehashed = ecdsa::IsPrehashed(init_params);
+    m_prehashed_data.clear();
+
     m_state = StreamOperationState::IDLE;
     return std::monostate{};
 }
@@ -99,6 +103,12 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& al
         return restarted;
     }
 
+    if (m_prehashed)
+    {
+        m_prehashed_data.clear();
+        return std::monostate{};
+    }
+
     const std::string digest{digest_name.value()};
     if (EVP_DigestSignInit_ex(m_stream.Context(), nullptr, digest.c_str(), nullptr, nullptr, pkey, nullptr) != 1)
     {
@@ -115,6 +125,12 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& al
     if (m_stream.Context() == nullptr)
     {
         return ::score::crypto::make_unexpected(DaemonErrorCode::kStreamNotInitialized);
+    }
+
+    if (m_prehashed)
+    {
+        m_prehashed_data.insert(m_prehashed_data.end(), data.begin(), data.end());
+        return std::monostate{};
     }
 
     if (EVP_DigestSignUpdate(m_stream.Context(), data.data(), data.size()) != 1)
@@ -157,6 +173,42 @@ namespace
     if (!target.has_value())
     {
         return ::score::crypto::make_unexpected(target.error());
+    }
+
+    if (m_prehashed)
+    {
+        const auto digest_name =
+            algo_info::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        const EVP_MD* digest =
+            digest_name.has_value()
+                ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
+                : nullptr;
+        EVP_PKEY_CTX* pctx = digest == nullptr ? nullptr : EVP_PKEY_CTX_new(m_stream.Key(), nullptr);
+        if (pctx == nullptr || EVP_PKEY_sign_init(pctx) != 1 || EVP_PKEY_CTX_set_signature_md(pctx, digest) != 1)
+        {
+            if (pctx != nullptr)
+                EVP_PKEY_CTX_free(pctx);
+            m_state = StreamOperationState::IDLE;
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+        }
+        std::size_t der_len = 0U;
+        const int size_result =
+            EVP_PKEY_sign(pctx, nullptr, &der_len, m_prehashed_data.data(), m_prehashed_data.size());
+        std::vector<std::uint8_t> der(der_len);
+        const int sign_result =
+            size_result == 1
+                ? EVP_PKEY_sign(pctx, der.data(), &der_len, m_prehashed_data.data(), m_prehashed_data.size())
+                : 0;
+        EVP_PKEY_CTX_free(pctx);
+        if (sign_result != 1)
+        {
+            m_state = StreamOperationState::IDLE;
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+        }
+        der.resize(der_len);
+        m_state = StreamOperationState::IDLE;
+        m_prehashed_data.clear();
+        return EmitP1363(der, target.value().field_size, target.value().buffer);
     }
 
     // First call sizes the DER buffer, second fills it.
@@ -203,6 +255,12 @@ namespace
     if (!prepared.has_value())
     {
         return ::score::crypto::make_unexpected(prepared.error());
+    }
+
+    if (m_prehashed)
+    {
+        m_prehashed_data.assign(data.begin(), data.end());
+        return FinalizeSign(signature);
     }
 
     std::size_t der_len = 0U;

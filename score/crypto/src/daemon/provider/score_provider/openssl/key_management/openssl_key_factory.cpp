@@ -21,6 +21,7 @@
 #include <openssl/evp.h>         // EVP_PKEY_CTX, EVP_PKEY_generate
 #include <openssl/params.h>      // OSSL_PARAM
 #include <openssl/rand.h>        // RAND_bytes
+#include <openssl/rsa.h>         // EVP_PKEY_CTX_set_rsa_keygen_bits
 #include <openssl/x509.h>        // d2i_AutoPrivateKey / d2i_PUBKEY
 
 #include "score/mw/log/logging.h"
@@ -54,7 +55,7 @@ key_management::ProviderKeyHandle MakeHandle(common::ProviderId provider_id,
 }
 }  // namespace
 
-OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id){};
+OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id) {};
 
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::GenerateKey(const key_management::KeyGenerationRequest& request)
@@ -63,6 +64,16 @@ OpenSslKeyFactory::GenerateKey(const key_management::KeyGenerationRequest& reque
             std::string_view{request.algorithm.data(), request.algorithm.size()}))
     {
         return GenerateEcKey(request);
+    }
+
+    const auto algorithm = std::string_view{request.algorithm.data(), request.algorithm.size()};
+    if (::score::crypto::daemon::common::LookupRsaKey(algorithm).has_value())
+    {
+        return GenerateRsaKey(request);
+    }
+    if (::score::crypto::daemon::common::IsEd25519Algorithm(algorithm))
+    {
+        return GenerateEd25519Key(request);
     }
 
     const std::size_t key_size = DetermineKeySize(request.algorithm);
@@ -174,6 +185,13 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
         return ImportEcKey(request);
     }
 
+    const auto algorithm = std::string_view{request.algorithm.data(), request.algorithm.size()};
+    if (::score::crypto::daemon::common::LookupRsaKey(algorithm).has_value() ||
+        ::score::crypto::daemon::common::IsEd25519Algorithm(algorithm))
+    {
+        return ImportAsymmetricKey(request);
+    }
+
     std::vector<std::uint8_t> key_bytes(request.key_data, request.key_data + request.key_data_size);
 
     auto handle = MakeHandle(m_provider_id, request.algorithm, request.permissions, request.key_data_size, false);
@@ -181,6 +199,103 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
         reinterpret_cast<std::uintptr_t>(key_bytes.data()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
     return std::make_shared<OpenSslKeyHandler>(std::move(key_bytes), handle);
+}
+
+::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::GenerateRsaKey(const key_management::KeyGenerationRequest& request)
+{
+    const auto info = ::score::crypto::daemon::common::LookupRsaKey(
+        std::string_view{request.algorithm.data(), request.algorithm.size()});
+    if (!info.has_value())
+    {
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_name(nullptr, "RSA", nullptr);
+    if (ctx == nullptr || EVP_PKEY_keygen_init(ctx) != 1 ||
+        EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, static_cast<int>(info->key_bits)) != 1)
+    {
+        EVP_PKEY_CTX_free(ctx);
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kKeyGenerationFailed);
+    }
+
+    EVP_PKEY* pkey = nullptr;
+    const int generated = EVP_PKEY_generate(ctx, &pkey);
+    EVP_PKEY_CTX_free(ctx);
+    EvpPkeyPtr owned_pkey{pkey};
+    if (generated != 1 || !owned_pkey)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kKeyGenerationFailed);
+    }
+
+    auto handle = MakeHandle(m_provider_id, request.algorithm, request.permissions, info->modulus_size, true);
+    handle.public_key_permissions = request.public_key_permissions;
+    handle.opaque_id = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(owned_pkey.get()));
+    return std::make_shared<OpenSslKeyHandler>(std::move(owned_pkey), handle);
+}
+
+::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::GenerateEd25519Key(const key_management::KeyGenerationRequest& request)
+{
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_name(nullptr, "ED25519", nullptr);
+    if (ctx == nullptr || EVP_PKEY_keygen_init(ctx) != 1)
+    {
+        EVP_PKEY_CTX_free(ctx);
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kKeyGenerationFailed);
+    }
+
+    EVP_PKEY* pkey = nullptr;
+    const int generated = EVP_PKEY_generate(ctx, &pkey);
+    EVP_PKEY_CTX_free(ctx);
+    EvpPkeyPtr owned_pkey{pkey};
+    if (generated != 1 || !owned_pkey)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kKeyGenerationFailed);
+    }
+
+    auto handle = MakeHandle(m_provider_id, request.algorithm, request.permissions, 32U, true);
+    handle.public_key_permissions = request.public_key_permissions;
+    handle.opaque_id = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(owned_pkey.get()));
+    return std::make_shared<OpenSslKeyHandler>(std::move(owned_pkey), handle);
+}
+
+::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::ImportAsymmetricKey(const key_management::KeyImportRequest& request)
+{
+    if (request.format != score::crypto::FormatType::kDer)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+    }
+
+    const unsigned char* der = request.key_data;
+    EVP_PKEY* pkey = d2i_AutoPrivateKey(nullptr, &der, static_cast<long>(request.key_data_size));
+    const bool has_private_half = pkey != nullptr;
+    if (pkey == nullptr)
+    {
+        const unsigned char* spki = request.key_data;
+        pkey = d2i_PUBKEY(nullptr, &spki, static_cast<long>(request.key_data_size));
+    }
+    EvpPkeyPtr owned_pkey{pkey};
+    if (!owned_pkey)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+    }
+
+    const auto algorithm = std::string_view{request.algorithm.data(), request.algorithm.size()};
+    const bool rsa = ::score::crypto::daemon::common::LookupRsaKey(algorithm).has_value();
+    const int expected_type = rsa ? EVP_PKEY_RSA : EVP_PKEY_ED25519;
+    if (EVP_PKEY_get_base_id(owned_pkey.get()) != expected_type)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+    }
+
+    const std::size_t key_size = rsa ? ::score::crypto::daemon::common::LookupRsaKey(algorithm)->modulus_size : 32U;
+    auto permissions = has_private_half ? request.permissions : score::crypto::KeyOperationPermission::kNone;
+    auto handle = MakeHandle(m_provider_id, request.algorithm, permissions, key_size, true);
+    handle.public_key_permissions = request.permissions;
+    handle.opaque_id = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(owned_pkey.get()));
+    return std::make_shared<OpenSslKeyHandler>(std::move(owned_pkey), handle);
 }
 
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>

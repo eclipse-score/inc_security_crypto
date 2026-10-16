@@ -16,6 +16,7 @@
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 
 #include "score/mw/log/logging.h"
 
@@ -62,6 +63,9 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
         return bound;
     }
 
+    m_prehashed = ecdsa::IsPrehashed(init_params);
+    m_prehashed_data.clear();
+
     m_state = StreamOperationState::IDLE;
     return std::monostate{};
 }
@@ -97,6 +101,12 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
         return restarted;
     }
 
+    if (m_prehashed)
+    {
+        m_prehashed_data.clear();
+        return std::monostate{};
+    }
+
     const std::string digest{digest_name.value()};
     if (EVP_DigestVerifyInit_ex(m_stream.Context(), nullptr, digest.c_str(), nullptr, nullptr, pkey, nullptr) != 1)
     {
@@ -113,6 +123,12 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
     if (m_stream.Context() == nullptr)
     {
         return ::score::crypto::make_unexpected(DaemonErrorCode::kStreamNotInitialized);
+    }
+
+    if (m_prehashed)
+    {
+        m_prehashed_data.insert(m_prehashed_data.end(), data.begin(), data.end());
+        return std::monostate{};
     }
 
     if (EVP_DigestVerifyUpdate(m_stream.Context(), data.data(), data.size()) != 1)
@@ -158,6 +174,35 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
         return ::score::crypto::make_unexpected(der.error());
     }
 
+    if (m_prehashed)
+    {
+        const auto digest_name =
+            algo_info::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        const EVP_MD* digest =
+            digest_name.has_value()
+                ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
+                : nullptr;
+        EVP_PKEY_CTX* pctx = digest == nullptr ? nullptr : EVP_PKEY_CTX_new(m_stream.Key(), nullptr);
+        const int init_result = pctx == nullptr ? 0 : EVP_PKEY_verify_init(pctx);
+        const int md_result = init_result == 1 ? EVP_PKEY_CTX_set_signature_md(pctx, digest) : 0;
+        const int rv =
+            md_result == 1
+                ? EVP_PKEY_verify(
+                      pctx, der.value().data(), der.value().size(), m_prehashed_data.data(), m_prehashed_data.size())
+                : -1;
+        if (pctx != nullptr)
+        {
+            EVP_PKEY_CTX_free(pctx);
+        }
+        m_state = StreamOperationState::IDLE;
+        m_prehashed_data.clear();
+        if (rv < 0)
+        {
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+        }
+        return rv == 1;
+    }
+
     const int rv = EVP_DigestVerifyFinal(m_stream.Context(), der.value().data(), der.value().size());
     m_state = StreamOperationState::IDLE;
 
@@ -187,6 +232,12 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
     if (!prepared.has_value())
     {
         return ::score::crypto::make_unexpected(prepared.error());
+    }
+
+    if (m_prehashed)
+    {
+        m_prehashed_data.assign(data.begin(), data.end());
+        return FinalizeVerify(signature);
     }
 
     const int rv =

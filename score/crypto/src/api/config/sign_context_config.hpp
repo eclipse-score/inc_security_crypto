@@ -39,6 +39,9 @@ struct SignContextConfig : public BaseContextConfig
     /// Must be a CryptoResourceId with type == kKey.
     CryptoResourceId key{};
 
+    /// @brief Whether the input is a message or an already computed digest.
+    SignatureInputMode input_mode{SignatureInputMode::kMessage};
+
     // -- Fluent builder --
 
     SignContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
@@ -50,6 +53,12 @@ struct SignContextConfig : public BaseContextConfig
     SignContextConfig& SetKey(const CryptoResourceId& k) noexcept
     {
         key = k;
+        return *this;
+    }
+
+    SignContextConfig& SetInputMode(SignatureInputMode mode) noexcept
+    {
+        input_mode = mode;
         return *this;
     }
 

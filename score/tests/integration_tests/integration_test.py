@@ -204,6 +204,44 @@ class TestCryptoDaemon:
             },
         )
 
+    def _run_score_api_signature(self, target: Target, target_os: str, install_dir: str, gtest_filter: str):
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_api_signature_test"),
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
+            },
+            args=[f"--gtest_filter={gtest_filter}"],
+        )
+
+    def test_score_api_signature_streaming(
+        self, target: Target, target_os: str, install_dir: str, openssl_backend: None
+    ):
+        """Test streaming ECDSA, RSA-PSS and Ed25519 signing API."""
+        self._run_score_api_signature(target, target_os, install_dir, "*SignAndVerifyStreaming*")
+
+    def test_score_api_signature_ss(
+        self, target: Target, target_os: str, install_dir: str, openssl_backend: None
+    ):
+        """Test SingleShot ECDSA, RSA-PSS and Ed25519 signing API."""
+        self._run_score_api_signature(target, target_os, install_dir, "*SignAndVerifySS*")
+
+    def test_score_api_rsa_pss(
+        self, target: Target, target_os: str, install_dir: str, openssl_backend: None
+    ):
+        """Test the RSA-PSS API with NIST CAVS vectors."""
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_api_rsa_pss_test"),
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
+            },
+        )
+
     def test_score_api_key_permissions(self, target: Target, target_os: str, install_dir: str):
         """Test SCORE key operation permission enforcement at context creation."""
         run_test_app(

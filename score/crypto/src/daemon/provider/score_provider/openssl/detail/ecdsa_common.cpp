@@ -130,6 +130,32 @@ Expected<std::monostate, DaemonErrorCode> Stream::Bind(
     return std::monostate{};
 }
 
+Expected<std::monostate, DaemonErrorCode> Stream::BindAny(
+    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
+{
+    Free();
+    if (init_params.bound_key_handler == nullptr ||
+        init_params.bound_key_handler->GetProviderId() != init_params.provider_id)
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
+
+    m_init_params = init_params;
+    if (Key() == nullptr)
+    {
+        m_init_params = {};
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
+    }
+
+    m_md_ctx = EVP_MD_CTX_new();
+    if (m_md_ctx == nullptr)
+    {
+        m_init_params = {};
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAllocationFailed);
+    }
+    return std::monostate{};
+}
+
 Expected<std::monostate, DaemonErrorCode> Stream::Restart()
 {
     Free();

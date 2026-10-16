@@ -109,6 +109,10 @@ inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
     {"ECDSA-P256", 32U},
     {"ECDSA-P384", 48U},
     {"ECDSA-P521", 66U},
+    {"RSA-2048", 256U},
+    {"RSA-3072", 384U},
+    {"RSA-4096", 512U},
+    {"Ed25519", 32U},
 };
 
 /// @brief Look up default key size by algorithm name.
@@ -192,6 +196,50 @@ inline constexpr EcCurveInfo kEcCurves[] = {
     {"P521", "P-521", 66U, 132U, 521U},
 };
 
+struct RsaKeyInfo
+{
+    std::string_view name;
+    std::size_t modulus_size;
+    std::size_t key_bits;
+};
+
+inline constexpr RsaKeyInfo kRsaKeys[] = {
+    {"RSA-2048", 256U, 2048U},
+    {"RSA-3072", 384U, 3072U},
+    {"RSA-4096", 512U, 4096U},
+};
+
+[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKey(std::string_view algorithm) noexcept
+{
+    for (const auto& entry : kRsaKeys)
+    {
+        if (algorithm == entry.name)
+        {
+            return entry;
+        }
+    }
+    return std::nullopt;
+}
+
+/// @brief Look up RSA key properties from an RSA-PSS signature algorithm.
+[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyForSignatureAlgorithm(
+    std::string_view algorithm) noexcept
+{
+    for (const auto& entry : kRsaKeys)
+    {
+        if (algorithm.find(entry.name.substr(4U)) == 8U)
+        {
+            return entry;
+        }
+    }
+    return std::nullopt;
+}
+
+[[nodiscard]] inline constexpr bool IsEd25519Algorithm(std::string_view algorithm) noexcept
+{
+    return algorithm == "Ed25519";
+}
+
 /// @brief Extract the curve of an ECDSA signature algorithm identifier.
 ///
 /// Accepts signature algorithms like ECDSA-P256-SHA256 i.e.ECDSA-<NIST curve>-<Hash algo>.
@@ -221,6 +269,13 @@ inline constexpr EcCurveInfo kEcCurves[] = {
         }
     }
     return std::nullopt;
+}
+
+[[nodiscard]] inline constexpr bool IsRsaPssAlgorithm(std::string_view algorithm) noexcept
+{
+    return algorithm.find("RSA-PSS-") == 0U && LookupSignatureDigest(algorithm).has_value() &&
+           (algorithm.find("RSA-PSS-2048-") == 0U || algorithm.find("RSA-PSS-3072-") == 0U ||
+            algorithm.find("RSA-PSS-4096-") == 0U);
 }
 
 /// @brief True when the identifier names an ECDSA key or signature algorithm.
