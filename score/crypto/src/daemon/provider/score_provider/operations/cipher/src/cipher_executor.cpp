@@ -62,11 +62,9 @@ Expected<ResponseParameters, DaemonErrorCode> CipherExecutor::Execute(ScoreCiphe
 {
     namespace ops = handler::cipher_handler_operations;
 
-    if (operationId.operationAction == ops::CIPHER_GET_OUTPUT_SIZE)
+    if (operationId.operationAction == ops::CIPHER_GET_MAX_OUTPUT_SIZE)
     {
-        ResponseParameters response;
-        response.push_back(static_cast<std::uint64_t>(handler_ref.GetBlockSize()));
-        return response;
+        return ExecuteGetMaxOutputSize(handler_ref, request);
     }
 
     if (operationId.operationAction == ops::CIPHER_GET_IV_SIZE)
@@ -145,6 +143,32 @@ Expected<ResponseParameters, DaemonErrorCode> CipherExecutor::Execute(ScoreCiphe
 // ---------------------------------------------------------------------------
 // Operation implementations
 // ---------------------------------------------------------------------------
+
+Expected<ResponseParameters, DaemonErrorCode> CipherExecutor::ExecuteGetMaxOutputSize(ScoreCipherHandler& handler_ref,
+                                                                                      RequestParameters& request)
+{
+    // request[0] = input length of the call being sized
+    if (request.empty())
+    {
+        return make_unexpected(DaemonErrorCode::kInsufficientParameters);
+    }
+    const auto inputSize = handler::handler_utils::CheckAndGetValue<std::uint64_t>(request[0]);
+    if (!inputSize.has_value())
+    {
+        return make_unexpected(inputSize.error());
+    }
+
+    static_assert(sizeof(std::size_t) >= sizeof(std::uint64_t), "the cast below must not truncate the input length");
+    auto maxSize = handler_ref.GetMaxOutputSize(static_cast<std::size_t>(inputSize.value()));
+    if (!maxSize.has_value())
+    {
+        return make_unexpected(maxSize.error());
+    }
+
+    ResponseParameters response;
+    response.push_back(static_cast<std::uint64_t>(maxSize.value()));
+    return response;
+}
 
 Expected<std::monostate, DaemonErrorCode> CipherExecutor::ExecuteInit(ScoreCipherHandler& handler_ref,
                                                                       RequestParameters& request)

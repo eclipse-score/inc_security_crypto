@@ -27,13 +27,12 @@ namespace score
 namespace crypto
 {
 
-/// @brief Base interface for streaming crypto operations (Init → Update* pattern).
+/// @brief Base interface for streaming crypto operations.
 ///
-/// Provides the common Init(), Update(), and Reset() methods as protected
-/// virtual functions. Derived context interfaces (IHashContext, IMacContext,
-/// ICipherContext, etc.) selectively expose these in their public sections
-/// via using-declarations, so that each context presents a self-contained
-/// API surface to the user.
+/// Holds only the steps every streaming context shares: Init() and Reset(),
+/// both protected. Derived context interfaces (IHashContext, IMacContext,
+/// ICipherContext, etc.) expose them via using-declarations and declare their
+/// own Update, finalization and size queries.
 ///
 /// Init() accepts an optional initialization vector to support algorithms
 /// that require one (e.g. GMAC, AES-CBC). Contexts that do not use an IV
@@ -60,15 +59,9 @@ class IStreamingContext : public IContext
     ///           cipher/AEAD contexts require a mandatory IV via their own
     ///           public Init(span) signature.
     /// @return std::monostate on success, error if context is in an invalid state
-    /// @note Must be called before Update(). Calling Init() on an already-active
-    ///       stream resets the context for a new operation.
+    /// @note Must be called before the derived context's Update(). Calling Init()
+    ///       on an already-active stream resets the context for a new operation.
     virtual score::Result<std::monostate> Init(std::optional<score::cpp::span<const uint8_t>> iv = std::nullopt) = 0;
-
-    /// @brief Feeds data into the streaming operation.
-    /// @param data Input data chunk
-    /// @return std::monostate on success, error if Init() was not called
-    /// @note Can be called multiple times after Init().
-    virtual score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) = 0;
 
     /// @brief Resets the context to its post-construction state for reuse.
     ///

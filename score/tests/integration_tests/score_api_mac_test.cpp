@@ -225,7 +225,7 @@ void ResetMidStreamAndComputeMac(IMacContext& mac,
     ASSERT_TRUE(finalize.has_value()) << "Finalize after mid-stream Reset failed";
 }
 
-/// Query and assert GetMacSize() and GetOutputSize().
+/// Query and assert GetMacSize().
 void AssertMacSizes(IMacContext& mac, size_t expected_mac_size)
 {
     auto mac_size = mac.GetMacSize();

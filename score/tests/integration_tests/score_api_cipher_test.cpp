@@ -181,12 +181,20 @@ std::unique_ptr<ICipherContext> MakeCipherContext(ICryptoContext& ctx,
     return std::move(result.value());
 }
 
+/// Reads the block size of @p cipher as the Finalize bound, which is one block.
+void QueryBlockSize(const ICipherContext& cipher, std::size_t& block_size)
+{
+    const auto finalize_bound = cipher.GetMaximumOutputSize(0U);
+    ASSERT_TRUE(finalize_bound.has_value()) << "Cipher output size query failed";
+    ASSERT_GT(finalize_bound.value(), 0U) << "Cipher block size query failed";
+    block_size = finalize_bound.value();
+}
+
 /// Streaming transform: Init(iv) → Update(chunk1) → Update(chunk2) → Finalize.
 /// Returns the concatenation of everything the context produced.
 void StreamingTransform(ICipherContext& cipher,
                         const std::vector<std::uint8_t>& iv,
                         const std::vector<std::uint8_t>& input,
-                        std::size_t block_size,
                         std::vector<std::uint8_t>& output)
 {
     output.clear();
@@ -208,8 +216,10 @@ void StreamingTransform(ICipherContext& cipher,
     const std::vector<std::uint8_t> chunk1(input.begin(), input.begin() + split);
     const std::vector<std::uint8_t> chunk2(input.begin() + split, input.end());
 
-    // Worst case one extra block per Update plus one on Finalize.
-    std::vector<std::uint8_t> scratch(input.size() + (2U * block_size));
+    // The bound for the whole input covers either chunk and the Finalize tail.
+    const auto scratch_size = cipher.GetMaximumOutputSize(input.size());
+    ASSERT_TRUE(scratch_size.has_value()) << "Cipher output size query failed";
+    std::vector<std::uint8_t> scratch(scratch_size.value());
 
     auto n1 = cipher.Update({chunk1.data(), chunk1.size()}, {scratch.data(), scratch.size()});
     ASSERT_TRUE(n1.has_value()) << "Cipher Update (chunk 1) failed";
@@ -228,12 +238,13 @@ void StreamingTransform(ICipherContext& cipher,
 void SingleShotTransform(ICipherContext& cipher,
                          const std::vector<std::uint8_t>& iv,
                          const std::vector<std::uint8_t>& input,
-                         std::size_t block_size,
                          std::vector<std::uint8_t>& output)
 {
     ASSERT_TRUE(cipher.Reset()) << "Reset before SingleShot failed";
 
-    std::vector<std::uint8_t> scratch(input.size() + (2U * block_size));
+    const auto scratch_size = cipher.GetMaximumOutputSize(input.size());
+    ASSERT_TRUE(scratch_size.has_value()) << "Cipher output size query failed";
+    std::vector<std::uint8_t> scratch(scratch_size.value());
     auto n = cipher.SingleShot(score::cpp::span<const std::uint8_t>{iv.data(), iv.size()},
                                {input.data(), input.size()},
                                {scratch.data(), scratch.size()});
@@ -349,11 +360,24 @@ TEST_P(CipherRoundTripTest, EncryptDecryptRoundTrip)
         MakeCipherContext(*ctx, test_data.cipher_algorithm, test_data.provider_type, key, CipherDirection::kEncrypt);
     ASSERT_NE(encrypt_ctx, nullptr);
 
-    const std::size_t block_size = encrypt_ctx->GetOutputSize();
-    ASSERT_GT(block_size, 0U) << "Cipher block size query failed";
+    std::size_t block_size = 0U;
+    ASSERT_NO_FATAL_FAILURE(QueryBlockSize(*encrypt_ctx, block_size));
+
+    const auto update_bound = encrypt_ctx->GetMaximumOutputSize(plaintext.size());
+    ASSERT_TRUE(update_bound.has_value()) << "Cipher output size query failed";
+    EXPECT_EQ(update_bound.value(), plaintext.size() + block_size) << "Bound must be the input plus one block";
+
+    // One byte under the bound is refused.
+    {
+        std::vector<std::uint8_t> short_out(update_bound.value() - 1U);
+        auto short_result = encrypt_ctx->SingleShot(score::cpp::span<const std::uint8_t>{iv.data(), iv.size()},
+                                                    {plaintext.data(), plaintext.size()},
+                                                    {short_out.data(), short_out.size()});
+        EXPECT_FALSE(short_result.has_value()) << "An output buffer below the bound must be refused";
+    }
 
     std::vector<std::uint8_t> ciphertext;
-    ASSERT_NO_FATAL_FAILURE(StreamingTransform(*encrypt_ctx, iv, plaintext, block_size, ciphertext));
+    ASSERT_NO_FATAL_FAILURE(StreamingTransform(*encrypt_ctx, iv, plaintext, ciphertext));
     print_hex("Ciphertext", ciphertext, ciphertext.size());
 
     ASSERT_FALSE(ciphertext.empty());
@@ -387,32 +411,32 @@ TEST_P(CipherRoundTripTest, EncryptDecryptRoundTrip)
     ASSERT_NE(decrypt_ctx, nullptr);
 
     std::vector<std::uint8_t> recovered;
-    ASSERT_NO_FATAL_FAILURE(StreamingTransform(*decrypt_ctx, iv, ciphertext, block_size, recovered));
+    ASSERT_NO_FATAL_FAILURE(StreamingTransform(*decrypt_ctx, iv, ciphertext, recovered));
     EXPECT_EQ(recovered, plaintext) << "Decryption did not recover the original plaintext";
 
     // =========================================================================
     // 6. Single-shot encryption produces the same ciphertext as streaming
     // =========================================================================
     std::vector<std::uint8_t> ciphertext_ss;
-    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*encrypt_ctx, iv, plaintext, block_size, ciphertext_ss));
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*encrypt_ctx, iv, plaintext, ciphertext_ss));
     EXPECT_EQ(ciphertext_ss, ciphertext) << "SingleShot and streaming encryption must agree";
 
     // =========================================================================
     // 7. Single-shot decryption round trip
     // =========================================================================
     std::vector<std::uint8_t> recovered_ss;
-    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*decrypt_ctx, iv, ciphertext_ss, block_size, recovered_ss));
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*decrypt_ctx, iv, ciphertext_ss, recovered_ss));
     EXPECT_EQ(recovered_ss, plaintext) << "SingleShot decryption did not recover the plaintext";
 
     // =========================================================================
     // 8. Context reuse via Reset() with a different message
     // =========================================================================
     std::vector<std::uint8_t> ciphertext_alt;
-    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*encrypt_ctx, iv, plaintext_alt, block_size, ciphertext_alt));
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*encrypt_ctx, iv, plaintext_alt, ciphertext_alt));
     EXPECT_NE(ciphertext_alt, ciphertext) << "A different message must produce different ciphertext";
 
     std::vector<std::uint8_t> recovered_alt;
-    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*decrypt_ctx, iv, ciphertext_alt, block_size, recovered_alt));
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*decrypt_ctx, iv, ciphertext_alt, recovered_alt));
     EXPECT_EQ(recovered_alt, plaintext_alt) << "Round trip after Reset failed";
 
     // =========================================================================
@@ -424,8 +448,7 @@ TEST_P(CipherRoundTripTest, EncryptDecryptRoundTrip)
         other_iv[0] ^= 0xFFU;
 
         std::vector<std::uint8_t> ciphertext_other_iv;
-        ASSERT_NO_FATAL_FAILURE(
-            SingleShotTransform(*encrypt_ctx, other_iv, plaintext, block_size, ciphertext_other_iv));
+        ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*encrypt_ctx, other_iv, plaintext, ciphertext_other_iv));
         EXPECT_NE(ciphertext_other_iv, ciphertext) << "Changing the IV must change the ciphertext";
     }
 
@@ -440,7 +463,9 @@ TEST_P(CipherRoundTripTest, EncryptDecryptRoundTrip)
     tampered[0] ^= 0xFFU;
 
     ASSERT_TRUE(decrypt_ctx->Reset()) << "Reset before tampered decrypt failed";
-    std::vector<std::uint8_t> tampered_out(tampered.size() + (2U * block_size));
+    const auto tampered_bound = decrypt_ctx->GetMaximumOutputSize(tampered.size());
+    ASSERT_TRUE(tampered_bound.has_value()) << "Cipher output size query failed";
+    std::vector<std::uint8_t> tampered_out(tampered_bound.value());
     auto tampered_result = decrypt_ctx->SingleShot(score::cpp::span<const std::uint8_t>{iv.data(), iv.size()},
                                                    {tampered.data(), tampered.size()},
                                                    {tampered_out.data(), tampered_out.size()});
@@ -519,11 +544,11 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
         MakeCipherContext(*ctx, test_data.cipher_algorithm, test_data.provider_type, key, CipherDirection::kEncrypt);
     ASSERT_NE(encrypt_ctx, nullptr);
 
-    const std::size_t block_size = encrypt_ctx->GetOutputSize();
-    ASSERT_GT(block_size, 0U) << "Cipher block size query failed";
+    std::size_t block_size = 0U;
+    ASSERT_NO_FATAL_FAILURE(QueryBlockSize(*encrypt_ctx, block_size));
 
     std::vector<std::uint8_t> ciphertext;
-    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*encrypt_ctx, vector.iv, vector.plaintext, block_size, ciphertext));
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*encrypt_ctx, vector.iv, vector.plaintext, ciphertext));
 
     // PKCS#7 appends a full block to a whole-block message, so the produced
     // ciphertext is the vector's followed by one more block.
@@ -540,8 +565,7 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
     // rather than only against SingleShot's own output.
     std::vector<std::uint8_t> ciphertext_streamed;
     ASSERT_TRUE(encrypt_ctx->Reset()) << "Reset before streaming encryption failed";
-    ASSERT_NO_FATAL_FAILURE(
-        StreamingTransform(*encrypt_ctx, vector.iv, vector.plaintext, block_size, ciphertext_streamed));
+    ASSERT_NO_FATAL_FAILURE(StreamingTransform(*encrypt_ctx, vector.iv, vector.plaintext, ciphertext_streamed));
     EXPECT_EQ(ciphertext_streamed, ciphertext) << "Streaming and single-shot encryption must agree";
 
     // =========================================================================
@@ -552,7 +576,7 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
     ASSERT_NE(decrypt_ctx, nullptr);
 
     std::vector<std::uint8_t> recovered;
-    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*decrypt_ctx, vector.iv, ciphertext, block_size, recovered));
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*decrypt_ctx, vector.iv, ciphertext, recovered));
     EXPECT_EQ(recovered, vector.plaintext) << "Decryption did not recover the CAVP plaintext";
 
     // =========================================================================
@@ -564,7 +588,9 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
     // bytes, the plaintext must not come back.
     {
         ASSERT_TRUE(decrypt_ctx->Reset()) << "Reset before unpadded decrypt failed";
-        std::vector<std::uint8_t> out(vector.ciphertext.size() + (2U * block_size));
+        const auto out_bound = decrypt_ctx->GetMaximumOutputSize(vector.ciphertext.size());
+        ASSERT_TRUE(out_bound.has_value()) << "Cipher output size query failed";
+        std::vector<std::uint8_t> out(out_bound.value());
         auto result = decrypt_ctx->SingleShot(score::cpp::span<const std::uint8_t>{vector.iv.data(), vector.iv.size()},
                                               {vector.ciphertext.data(), vector.ciphertext.size()},
                                               {out.data(), out.size()});
@@ -591,8 +617,7 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
         ASSERT_NE(raw_encrypt, nullptr);
 
         std::vector<std::uint8_t> raw_ciphertext;
-        ASSERT_NO_FATAL_FAILURE(
-            SingleShotTransform(*raw_encrypt, vector.iv, vector.plaintext, block_size, raw_ciphertext));
+        ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*raw_encrypt, vector.iv, vector.plaintext, raw_ciphertext));
         EXPECT_EQ(raw_ciphertext, vector.ciphertext) << "Unpadded encryption must equal the CAVP ciphertext exactly";
 
         auto raw_decrypt = MakeCipherContext(*ctx,
@@ -604,8 +629,7 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
         ASSERT_NE(raw_decrypt, nullptr);
 
         std::vector<std::uint8_t> raw_recovered;
-        ASSERT_NO_FATAL_FAILURE(
-            SingleShotTransform(*raw_decrypt, vector.iv, vector.ciphertext, block_size, raw_recovered));
+        ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*raw_decrypt, vector.iv, vector.ciphertext, raw_recovered));
         EXPECT_EQ(raw_recovered, vector.plaintext) << "Unpadded decryption must recover the CAVP plaintext";
 
         // Without padding a message that is not a whole number of blocks has
@@ -614,7 +638,9 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
         const std::vector<std::uint8_t> partial(
             vector.plaintext.begin(), vector.plaintext.begin() + static_cast<std::ptrdiff_t>(block_size + 1U));
         ASSERT_TRUE(raw_encrypt->Reset()) << "Reset before partial-block encrypt failed";
-        std::vector<std::uint8_t> partial_out(partial.size() + (2U * block_size));
+        const auto partial_bound = raw_encrypt->GetMaximumOutputSize(partial.size());
+        ASSERT_TRUE(partial_bound.has_value()) << "Cipher output size query failed";
+        std::vector<std::uint8_t> partial_out(partial_bound.value());
         auto partial_result =
             raw_encrypt->SingleShot(score::cpp::span<const std::uint8_t>{vector.iv.data(), vector.iv.size()},
                                     {partial.data(), partial.size()},
@@ -633,8 +659,7 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
         other_iv[0] ^= 0xFFU;
 
         std::vector<std::uint8_t> ciphertext_other_iv;
-        ASSERT_NO_FATAL_FAILURE(
-            SingleShotTransform(*encrypt_ctx, other_iv, vector.plaintext, block_size, ciphertext_other_iv));
+        ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*encrypt_ctx, other_iv, vector.plaintext, ciphertext_other_iv));
         EXPECT_NE(ciphertext_other_iv, ciphertext) << "Changing the IV must change the ciphertext";
     }
 

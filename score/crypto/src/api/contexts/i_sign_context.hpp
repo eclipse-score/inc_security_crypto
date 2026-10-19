@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_API_CONTEXTS_I_SIGN_CONTEXT_HPP
 #define SCORE_CRYPTO_SRC_API_CONTEXTS_I_SIGN_CONTEXT_HPP
 
-#include "score/crypto/src/api/contexts/i_streaming_output_context.hpp"
+#include "score/crypto/src/api/contexts/i_streaming_context.hpp"
 #include "score/result/result.h"
 #include "score/span.hpp"
 
@@ -29,15 +29,15 @@ namespace crypto
 
 /// @brief Interface for digital signature generation.
 ///
-/// Exposes Init(), Update(), and Reset() from base classes for streaming
-/// message feeding. Adds SignFinalize() for signature production,
+/// Exposes Init() and Reset() from the base class. Adds Update() for streaming
+/// message feeding, SignFinalize() for signature production,
 /// SingleShot() for convenience, and GetSignatureSize() for buffer sizing.
 ///
 /// Compatible with classical algorithms (ECDSA, RSA-PSS, EdDSA) and
 /// PQC signature schemes (ML-DSA / Dilithium, SLH-DSA / SPHINCS+,
 /// XMSS, LMS). PQC algorithms are specified via AlgorithmId string
 /// (e.g., "ML-DSA-65", "SLH-DSA-SHA2-128s").
-class ISignContext : public IStreamingOutputContext
+class ISignContext : public IStreamingContext
 {
   public:
     using Uptr = std::unique_ptr<ISignContext>;
@@ -49,10 +49,14 @@ class ISignContext : public IStreamingOutputContext
     ISignContext(ISignContext&&) = default;
     ISignContext& operator=(ISignContext&&) = default;
 
-    // -- Streaming API (from base classes) --
+    // -- Streaming API (from base class) --
     using IStreamingContext::Init;
     using IStreamingContext::Reset;
-    using IStreamingContext::Update;
+
+    /// @brief Feeds a chunk of input data into the operation.
+    /// @return std::monostate on success, error if Init() was not called
+    /// @note Can be called multiple times after Init().
+    virtual score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) = 0;
 
     /// @brief Finalizes the signing operation and produces the signature.
     /// @param signature Output buffer for the signature

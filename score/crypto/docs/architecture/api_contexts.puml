@@ -26,17 +26,10 @@ package "Context Base Hierarchy" {
 
     interface IStreamingContext {
         # Init(iv : optional<span<uint8_t>> = nullopt) : Result<std::monostate>
-        # Update(data : span<const uint8_t>) : Result<std::monostate>
         # Reset() : Result<std::monostate>
     }
 
-    interface IStreamingOutputContext {
-        # Finalize(output : span<uint8_t>) : Result<size_t>
-        # GetOutputSize() : size_t
-    }
-
     IStreamingContext --|> IContext : inherits
-    IStreamingOutputContext --|> IStreamingContext : inherits
 }
 
 ' ============================================================
@@ -44,21 +37,23 @@ package "Context Base Hierarchy" {
 ' ============================================================
 package "Hash & MAC" {
     interface IHashContext {
-        + {using} Init(), Update(), Reset(), Finalize()
+        + {using} Init(), Reset()
+        + Update(data : span<const uint8_t>) : Result<std::monostate>
+        + Finalize(output : span<uint8_t>) : Result<size_t>
         + SingleShot(input, output) : Result<size_t>
         + GetDigestSize() : size_t
-        ' Note: GetOutputSize() not exposed — use GetDigestSize()
     }
 
     interface IMacContext {
-        + {using} Init(iv), Update(), Reset(), Finalize()
+        + {using} Init(iv), Reset()
+        + Update(data : span<const uint8_t>) : Result<std::monostate>
+        + Finalize(output : span<uint8_t>) : Result<size_t>
         + Verify(mac : span<const uint8_t>) : Result<bool>
         + GetMacSize() : size_t
-        ' Note: GetOutputSize() not exposed — use GetMacSize()
     }
 
-    IHashContext --|> IStreamingOutputContext : inherits
-    IMacContext --|> IStreamingOutputContext : inherits
+    IHashContext --|> IStreamingContext : inherits
+    IMacContext --|> IStreamingContext : inherits
 }
 
 ' ============================================================
@@ -66,9 +61,12 @@ package "Hash & MAC" {
 ' ============================================================
 package "Cipher & AEAD" {
     interface ICipherContext {
-        + {using} Init(iv), Reset(), Finalize(), GetOutputSize()
+        + {using} Init(iv), Reset()
         + Update(input, output : span<uint8_t>) : Result<size_t>
+        + Finalize(output : span<uint8_t>) : Result<size_t>
         + SingleShot(iv, input, output) : Result<size_t>
+        + GetMaximumOutputSize(input_size : size_t) : Result<size_t>
+        ' bound = input_size + one block; covers Update/SingleShot, and Finalize with 0
         ' Init(iv) from base: span implicitly converts to optional<span>
         ' IV mandatory for CBC/CTR/GCM; nullopt valid for ECB
         ' direction set via CipherContextConfig::SetDirection()
@@ -85,7 +83,7 @@ package "Cipher & AEAD" {
         ' direction set via AeadContextConfig::SetDirection()
     }
 
-    ICipherContext --|> IStreamingOutputContext : inherits
+    ICipherContext --|> IStreamingContext : inherits
     IAeadContext --|> IStreamingContext : inherits
 }
 
@@ -94,19 +92,21 @@ package "Cipher & AEAD" {
 ' ============================================================
 package "Signature" {
     interface ISignContext {
-        + {using} Init(), Update(), Reset()
+        + {using} Init(), Reset()
+        + Update(data : span<const uint8_t>) : Result<std::monostate>
         + SignFinalize(signature : span<uint8_t>) : Result<size_t>
         + SingleShot(data, signature) : Result<size_t>
         + GetSignatureSize() : size_t
     }
 
     interface IVerifySignatureContext {
-        + {using} Init(), Update(), Reset()
+        + {using} Init(), Reset()
+        + Update(data : span<const uint8_t>) : Result<std::monostate>
         + VerifyFinalize(signature : span<const uint8_t>) : Result<bool>
         + SingleShot(data, signature) : Result<bool>
     }
 
-    ISignContext --|> IStreamingOutputContext : inherits
+    ISignContext --|> IStreamingContext : inherits
     IVerifySignatureContext --|> IStreamingContext : inherits
 }
 
