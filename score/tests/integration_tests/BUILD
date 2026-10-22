@@ -230,7 +230,7 @@ integration_test(
     libraries = [
         "//score/crypto/src/api/control_plane",
         "//third_party/grpc:libgrpc_shared",
-        "//third_party/openssl:openssl_so",
+        "@score_openssl//:openssl_link",
         "//third_party/soft_hsm:softhsm_so",
     ],
     deps = [

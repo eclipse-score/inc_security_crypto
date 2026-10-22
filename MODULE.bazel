@@ -154,6 +154,11 @@ use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
 bazel_dep(name = "score_toolchains_rust", version = "0.10.0", dev_dependency = True)
 
 bazel_dep(name = "score_crates", version = "0.0.13")
+git_override(
+    module_name = "score_crates",
+    commit = "4c35085f8313902669cdc1d54dd4f9527513e060",
+    remote = "https://github.com/Valeo-S-CORE-Organization/score-crates.git",
+)
 
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", isolate = True)
 crate.from_cargo(
@@ -166,13 +171,6 @@ crate.from_cargo(
         "aarch64-unknown-nto-qnx710",
         "x86_64-pc-nto-qnx710",
     ],
-)
-crate.annotation(
-    crate = "openssl-sys",
-    patch_args = ["-p1"],
-    patches = ["@@//third_party/patches:openssl_sys_build_rs.patch"],
-    rustc_flags = ["--cap-lints=allow"],
-    deps = ["@@//third_party/openssl:openssl_shared"],
 )
 use_repo(crate, "crates")
 
@@ -270,20 +268,11 @@ bazel_dep(name = "flatbuffers", version = "25.12.19")
 # OpenSSL
 # *******************************************************************************
 
-http_archive(
-    name = "openssl_source",
-    build_file_content = """
-filegroup(
-    name = "all",
-    srcs = glob(["**"]),
-    visibility = ["//visibility:public"],
-)
-""",
-    patch_args = ["-p1"],
-    patches = ["//third_party/openssl:openssl_qnx_target.patch"],
-    sha256 = "b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e",
-    strip_prefix = "openssl-3.6.1",
-    urls = ["https://www.openssl.org/source/openssl-3.6.1.tar.gz"],
+bazel_dep(name = "score_openssl", version = "0.1.0")
+git_override(
+    module_name = "score_openssl",
+    commit = "040d3b605d2d027d475750f489b3b70b7ad7d1fc",
+    remote = "https://github.com/Valeo-S-CORE-Organization/openssl.git",
 )
 
 # *******************************************************************************
@@ -333,6 +322,11 @@ bazel_dep(name = "score_platform", version = "0.7.3")
 
 # score baselibs
 bazel_dep(name = "score_baselibs", version = "0.2.15")
+git_override(
+    module_name = "score_baselibs",
+    commit = "b679726cc57331b1ef284e66077731237599b08c",
+    remote = "https://github.com/Valeo-S-CORE-Organization/baselibs.git",
+)
 
 # score communication
 bazel_dep(name = "score_communication", version = "0.5.0")

@@ -75,7 +75,7 @@ cmake(
     visibility = [
         "//third_party/soft_hsm:__pkg__",  # Internal wrappers
     ],
-    deps = ["//third_party/openssl:openssl_shared"],
+    deps = ["@score_openssl//:openssl_link"],
 )
 
 # Extract PKCS#11 headers from SoftHSM source for public consumption
