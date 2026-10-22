@@ -22,6 +22,7 @@
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
@@ -195,8 +196,9 @@ class ProviderSignatureTest : public ::testing::TestWithParam<SignatureCase>
         params.context_node_id = 1U;
         params.key_node_id = 1U;
         params.bound_key_handler = &key;
-        params.context_creation_params.resize(6U);
-        params.context_creation_params[5U] = static_cast<std::uint8_t>(test_case.input_mode);
+        params.context_creation_params.resize(7U);
+        params.context_creation_params[5U] = common::NoParam{};
+        params.context_creation_params[6U] = static_cast<std::uint8_t>(test_case.input_mode);
         return params;
     }
 
@@ -317,6 +319,73 @@ TEST_P(ProviderSignatureTest, SignAndVerifyStreaming)
                                    verify_ops::VERIFY_FINALIZE,
                                    {score::cpp::span<const std::uint8_t>{signature.data(), signature.size()}});
     EXPECT_TRUE(std::get<bool>(verify_response.at(0))) << test_case.name;
+}
+
+TEST_P(ProviderSignatureTest, RejectsEd25519MessagesAboveConfiguredLimit)
+{
+    const auto& test_case = GetParam();
+    if (test_case.key_algorithm != "Ed25519" || !test_case.supported)
+    {
+        GTEST_SKIP() << "Ed25519-specific message-size limit";
+    }
+
+    const auto& key = *keys_.at(test_case.key_algorithm);
+    auto sign = CreateHandler("SIGN", test_case);
+    auto verify = CreateHandler("VERIFY", test_case);
+    ASSERT_NE(sign, nullptr);
+    ASSERT_NE(verify, nullptr);
+    const auto params = InitParams(test_case, key);
+    ASSERT_TRUE(sign->InitializeContext(params).has_value());
+    ASSERT_TRUE(verify->InitializeContext(params).has_value());
+
+    std::vector<std::uint8_t> maximum_message(common::kMaxEd25519MessageSize, 0U);
+    const auto maximum_input = score::cpp::span<const std::uint8_t>{maximum_message.data(), maximum_message.size()};
+    const std::uint8_t extra_byte{0U};
+    const auto extra_input = score::cpp::span<const std::uint8_t>{&extra_byte, 1U};
+    std::vector<std::uint8_t> oversized_message(common::kMaxEd25519MessageSize + 1U, 0U);
+    const auto oversized_input =
+        score::cpp::span<const std::uint8_t>{oversized_message.data(), oversized_message.size()};
+    const common::OperationIdentifier sign_update_operation{common::actors::OP_ACTOR_SIGN_HANDLER,
+                                                            sign_ops::SIGN_UPDATE};
+    const common::OperationIdentifier verify_update_operation{common::actors::OP_ACTOR_VERIFY_HANDLER,
+                                                              verify_ops::VERIFY_UPDATE};
+
+    ASSERT_TRUE(Execute(*sign, common::actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_INIT).empty());
+    common::RequestParameters sign_max_update_request{maximum_input};
+    const auto sign_max_update_result = sign->Execute(sign_update_operation, sign_max_update_request);
+    ASSERT_TRUE(sign_max_update_result.has_value());
+    common::RequestParameters sign_update_request{extra_input};
+    const auto sign_update_result = sign->Execute(sign_update_operation, sign_update_request);
+    ASSERT_FALSE(sign_update_result.has_value());
+    EXPECT_EQ(sign_update_result.error(), common::DaemonErrorCode::kInvalidArgument);
+
+    ASSERT_TRUE(Execute(*verify, common::actors::OP_ACTOR_VERIFY_HANDLER, verify_ops::VERIFY_INIT).empty());
+    common::RequestParameters verify_max_update_request{maximum_input};
+    const auto verify_max_update_result = verify->Execute(verify_update_operation, verify_max_update_request);
+    ASSERT_TRUE(verify_max_update_result.has_value());
+    common::RequestParameters verify_update_request{extra_input};
+    const auto verify_update_result = verify->Execute(verify_update_operation, verify_update_request);
+    ASSERT_FALSE(verify_update_result.has_value());
+    EXPECT_EQ(verify_update_result.error(), common::DaemonErrorCode::kInvalidArgument);
+
+    ASSERT_TRUE(sign->Reset().has_value());
+    ASSERT_TRUE(verify->Reset().has_value());
+    std::vector<std::uint8_t> signature(test_case.signature_size);
+    const auto signature_output = score::cpp::span<std::uint8_t>{signature.data(), signature.size()};
+    const common::OperationIdentifier sign_single_shot_operation{common::actors::OP_ACTOR_SIGN_HANDLER,
+                                                                 sign_ops::SIGN_SS};
+    common::RequestParameters sign_single_shot_request{oversized_input, signature_output};
+    const auto sign_single_shot_result = sign->Execute(sign_single_shot_operation, sign_single_shot_request);
+    ASSERT_FALSE(sign_single_shot_result.has_value());
+    EXPECT_EQ(sign_single_shot_result.error(), common::DaemonErrorCode::kInvalidArgument);
+
+    const auto signature_input = score::cpp::span<const std::uint8_t>{signature.data(), signature.size()};
+    const common::OperationIdentifier verify_single_shot_operation{common::actors::OP_ACTOR_VERIFY_HANDLER,
+                                                                   verify_ops::VERIFY_SS};
+    common::RequestParameters verify_single_shot_request{oversized_input, signature_input};
+    const auto verify_single_shot_result = verify->Execute(verify_single_shot_operation, verify_single_shot_request);
+    ASSERT_FALSE(verify_single_shot_result.has_value());
+    EXPECT_EQ(verify_single_shot_result.error(), common::DaemonErrorCode::kInvalidArgument);
 }
 
 INSTANTIATE_TEST_SUITE_P(AllAlgorithms,

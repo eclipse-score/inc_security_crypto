@@ -39,7 +39,6 @@ class OpenSslRsaPssEd25519SignHandler final : public operations::sign::ScoreSign
 
   private:
     bool IsEd25519() const noexcept;
-    Expected<std::monostate, common::DaemonErrorCode> ConfigureRsaPss();
     Expected<std::size_t, common::DaemonErrorCode> ResolveBuffer(score::cpp::span<std::uint8_t>) const;
 
     ecdsa::Stream m_stream;

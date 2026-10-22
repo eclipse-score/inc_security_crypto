@@ -27,13 +27,15 @@
 namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
 {
 
+inline constexpr std::size_t kSignatureInputModeParamIndex{6U};
+
 [[nodiscard]] inline bool IsPrehashed(const ::score::crypto::daemon::provider::handler::InitializationParams& params)
 {
-    if (params.context_creation_params.size() <= 5U)
+    if (params.context_creation_params.size() <= kSignatureInputModeParamIndex)
     {
         return false;
     }
-    const auto* mode = std::get_if<std::uint8_t>(&params.context_creation_params[5U]);
+    const auto* mode = std::get_if<std::uint8_t>(&params.context_creation_params[kSignatureInputModeParamIndex]);
     return mode != nullptr && *mode == static_cast<std::uint8_t>(::score::crypto::SignatureInputMode::kPrehashed);
 }
 

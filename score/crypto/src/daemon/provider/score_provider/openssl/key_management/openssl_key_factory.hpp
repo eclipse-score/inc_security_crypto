@@ -17,10 +17,16 @@
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string_view>
+
+// Opaque OpenSSL context type; the implementation includes the OpenSSL headers.
+struct evp_pkey_ctx_st;
+using EVP_PKEY_CTX = evp_pkey_ctx_st;
 
 namespace score::crypto::daemon::provider::openssl
 {
@@ -68,7 +74,22 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     ImportKey(const key_management::KeyImportRequest& request) override;
 
   private:
+    struct ParsedDerKey
+    {
+        EvpPkeyPtr pkey{};
+        bool has_private_half{false};
+    };
+
     common::ProviderId m_provider_id{common::kInvalidProviderId};
+
+    [[nodiscard]] ::score::crypto::Expected<ParsedDerKey, common::DaemonErrorCode> ParseDerKey(
+        const key_management::KeyImportRequest& request);
+
+    // This helper only handles behavior shared after the algorithm-specific key validation.
+    [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode>
+    CreateImportedAsymmetricKey(const key_management::KeyImportRequest& request,
+                                ParsedDerKey parsed,
+                                std::size_t key_size);
 
     /// Generate an EC key pair on the curve named by request.algorithm.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
@@ -92,6 +113,26 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportAsymmetricKey(const key_management::KeyImportRequest& request);
+
+    /// Per-algorithm constants for GenerateAsymmetricKey.
+    struct KeygenSpec
+    {
+        const char* key_type;
+        std::size_t key_size;
+        const char* operation;
+    };
+
+    /// Shared by GenerateEcKey, GenerateRsaKey and GenerateEd25519Key: creates the
+    /// EVP_PKEY_CTX, applies configure_keygen, generates the key pair, and wraps
+    /// it in an OpenSslKeyHandler.
+    [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
+                                            ::score::crypto::daemon::common::DaemonErrorCode>
+    GenerateAsymmetricKey(
+        const key_management::KeyGenerationRequest& request,
+        const KeygenSpec& spec,
+        const std::function<bool(EVP_PKEY_CTX*)>& configure_keygen = [](EVP_PKEY_CTX*) {
+            return true;
+        });
 
     /// Map well-known algorithm names to symmetric key sizes in bytes.
     /// Returns 0 for unknown algorithms.

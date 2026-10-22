@@ -127,6 +127,13 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
 
     if (m_prehashed)
     {
+        const auto expected_digest_size =
+            algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        if (!expected_digest_size.has_value() || m_prehashed_data.size() > expected_digest_size.value() ||
+            data.size() > expected_digest_size.value() - m_prehashed_data.size())
+        {
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
         m_prehashed_data.insert(m_prehashed_data.end(), data.begin(), data.end());
         return std::monostate{};
     }
@@ -176,6 +183,14 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
 
     if (m_prehashed)
     {
+        const auto expected_digest_size =
+            algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        if (!expected_digest_size.has_value() || m_prehashed_data.size() != expected_digest_size.value())
+        {
+            m_state = StreamOperationState::IDLE;
+            m_prehashed_data.clear();
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
         const auto digest_name =
             algo_info::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
         const EVP_MD* digest =
@@ -236,6 +251,13 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
 
     if (m_prehashed)
     {
+        const auto expected_digest_size =
+            algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        if (!expected_digest_size.has_value() || data.size() != expected_digest_size.value())
+        {
+            m_state = StreamOperationState::IDLE;
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
         m_prehashed_data.assign(data.begin(), data.end());
         return FinalizeVerify(signature);
     }

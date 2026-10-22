@@ -129,6 +129,13 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& al
 
     if (m_prehashed)
     {
+        const auto expected_digest_size =
+            algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        if (!expected_digest_size.has_value() || m_prehashed_data.size() > expected_digest_size.value() ||
+            data.size() > expected_digest_size.value() - m_prehashed_data.size())
+        {
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
         m_prehashed_data.insert(m_prehashed_data.end(), data.begin(), data.end());
         return std::monostate{};
     }
@@ -177,6 +184,14 @@ namespace
 
     if (m_prehashed)
     {
+        const auto expected_digest_size =
+            algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        if (!expected_digest_size.has_value() || m_prehashed_data.size() != expected_digest_size.value())
+        {
+            m_state = StreamOperationState::IDLE;
+            m_prehashed_data.clear();
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
         const auto digest_name =
             algo_info::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
         const EVP_MD* digest =
@@ -192,13 +207,15 @@ namespace
             return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
         }
         std::size_t der_len = 0U;
-        const int size_result =
-            EVP_PKEY_sign(pctx, nullptr, &der_len, m_prehashed_data.data(), m_prehashed_data.size());
+        if (EVP_PKEY_sign(pctx, nullptr, &der_len, m_prehashed_data.data(), m_prehashed_data.size()) != 1)
+        {
+            EVP_PKEY_CTX_free(pctx);
+            m_state = StreamOperationState::IDLE;
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
+        }
         std::vector<std::uint8_t> der(der_len);
         const int sign_result =
-            size_result == 1
-                ? EVP_PKEY_sign(pctx, der.data(), &der_len, m_prehashed_data.data(), m_prehashed_data.size())
-                : 0;
+            EVP_PKEY_sign(pctx, der.data(), &der_len, m_prehashed_data.data(), m_prehashed_data.size());
         EVP_PKEY_CTX_free(pctx);
         if (sign_result != 1)
         {
@@ -259,6 +276,13 @@ namespace
 
     if (m_prehashed)
     {
+        const auto expected_digest_size =
+            algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        if (!expected_digest_size.has_value() || data.size() != expected_digest_size.value())
+        {
+            m_state = StreamOperationState::IDLE;
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
         m_prehashed_data.assign(data.begin(), data.end());
         return FinalizeSign(signature);
     }

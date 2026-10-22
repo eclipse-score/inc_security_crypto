@@ -79,8 +79,8 @@ namespace
 /// Wire layout is positional and shared by every context type:
 ///   [0] context_type, [1] algorithm, [2] provider_type (or no-param),
 ///   [3] key_node_id (keyed contexts only), [4] daemon_common::ContextMode,
-///   [5] CipherPadding (cipher contexts only) or SignatureInputMode for
-///       signature contexts.
+///   [5] CipherPadding (cipher contexts only; no-param for signature contexts),
+///   [6] SignatureInputMode (signature contexts only).
 struct ContextCreationRequest
 {
     std::string_view context_type{};
@@ -134,6 +134,10 @@ score::Result<std::uint64_t> CreateDaemonContext(
     if (request.padding.has_value())
     {
         builder = builder.with_in_val_uint8(static_cast<std::uint8_t>(request.padding.value()));
+    }
+    else if (request.signature_input_mode.has_value())
+    {
+        builder = builder.with_no_param();
     }
 
     if (request.signature_input_mode.has_value())

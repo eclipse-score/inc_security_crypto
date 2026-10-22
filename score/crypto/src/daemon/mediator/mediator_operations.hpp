@@ -74,6 +74,7 @@ inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities
 //           param[3]: optional uint64_t — node_id of key resource (CryptoResourceId.id)
 //           param[4]: optional uint8 — common::ContextMode (keyed contexts)
 //           param[5]: optional uint8 — CipherPadding (cipher contexts)
+//           param[6]: optional uint8 — SignatureInputMode (sign/verify contexts; param[5] is no-param)
 // Capability routing: a recognized scope uses capability-based selection when the provider
 // preference is DEFAULT. Explicit provider preferences and key-bound selection are still
 // checked against the scope's required capability. Unrecognized or absent scopes add no
