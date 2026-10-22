@@ -166,6 +166,7 @@ subcomponents. Their documentation is grouped under the daemon architecture.
    :maxdepth: 1
 
    architecture/daemon_architecture
+   ../src/ipc/message_passing_adapter/docs/index
 
 Component Detail Information
 ============================

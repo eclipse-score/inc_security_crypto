@@ -395,3 +395,21 @@ fn test_decrypt_failed_maps_to_encrypted_data_invalid() {
     };
     assert_eq!(err.ckr_code(), 0x00000040); // CKR_ENCRYPTED_DATA_INVALID
 }
+
+#[test]
+fn test_openssl_engine_slot_count_configurable() {
+    use cryptoki::CryptoProvider;
+
+    // When unset, defaults to 1
+    std::env::remove_var("CRYPTOKI_NUM_SLOTS");
+    let default_engine = OpenSslEngine;
+    assert_eq!(default_engine.slot_count(), 1);
+
+    // When CRYPTOKI_NUM_SLOTS is set to 3:
+    std::env::set_var("CRYPTOKI_NUM_SLOTS", "3");
+    let multi_engine = OpenSslEngine;
+    assert_eq!(multi_engine.slot_count(), 3);
+
+    // Clean up
+    std::env::remove_var("CRYPTOKI_NUM_SLOTS");
+}

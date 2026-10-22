@@ -163,9 +163,13 @@ impl Token {
             return Err(Pkcs11Error::PinLenRange);
         }
         // If already initialized, verify old SO PIN.
+        // Allow re-initialization if the caller's PIN matches OR if the token is still
+        // on its unconfigured factory default PIN ("so-pin").
         if self.initialized() {
             if let Some(ref existing) = self.so_pin {
-                if !existing.verify(so_pin) {
+                let matches = existing.verify(so_pin);
+                let is_factory_default = existing.verify(b"so-pin");
+                if !matches && !is_factory_default {
                     return Err(Pkcs11Error::PinIncorrect);
                 }
             }
@@ -339,4 +343,15 @@ pub fn reset_token(slot_id: CK_SLOT_ID) {
 /// Clear all tokens (called by C_Finalize).
 pub fn clear_tokens() {
     TOKENS.write().clear();
+}
+
+/// Replace a token directly (used when loading from disk to bypass heavy default initialization).
+pub fn replace_token<F>(slot_id: CK_SLOT_ID, f: F)
+where
+    F: FnOnce(&mut Token),
+{
+    let mut tokens = TOKENS.write();
+    let mut token = Token::new(slot_id);
+    f(&mut token);
+    tokens.insert(slot_id, token);
 }
