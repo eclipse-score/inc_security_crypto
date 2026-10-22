@@ -35,6 +35,7 @@ namespace score::crypto::daemon::cert_management
 class CertDataNode final : public data_manager::DataNode
 {
   public:
+    /// @brief Returns the data manager node type for certificate data.
     [[nodiscard]] data_manager::DataNodeType GetNodeType() const noexcept override
     {
         return data_manager::DataNodeType::kCertData;
@@ -57,21 +58,25 @@ class CertDataNode final : public data_manager::DataNode
     {
     }
 
+    /// @brief Unregisters the certificate entry from the registry.
     ~CertDataNode() override
     {
         m_cert_registry->Unregister(m_registry_id);
     }
 
+    /// Not copyable or movable; the registry entry is tied to this node's lifetime.
     CertDataNode(const CertDataNode&) = delete;
     CertDataNode& operator=(const CertDataNode&) = delete;
     CertDataNode(CertDataNode&&) = delete;
     CertDataNode& operator=(CertDataNode&&) = delete;
 
+    /// @brief Shared certificate instance held by this node.
     [[nodiscard]] std::shared_ptr<CertEntry> GetCertInstance() const noexcept
     {
         return m_cert_instance;
     }
 
+    /// @brief Identifier under which the entry is registered.
     [[nodiscard]] CertRegistryId GetRegistryId() const noexcept
     {
         return m_registry_id;

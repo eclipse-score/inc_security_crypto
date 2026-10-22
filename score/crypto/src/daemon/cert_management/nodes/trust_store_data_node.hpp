@@ -31,26 +31,32 @@ namespace score::crypto::daemon::cert_management
 class TrustStoreDataNode final : public data_manager::DataNode
 {
   public:
+    /// @param handle Handle of the manager-owned trust store.
+    /// @param manager Manager that resolves the store; may be null, in which case GetStore() returns null.
     TrustStoreDataNode(TrustStoreHandle handle, TrustStoreManager::Sptr manager)
         : DataNode(false), m_handle{handle}, m_manager{std::move(manager)}
     {
     }
 
+    /// @brief Returns the data manager node type for trust store data.
     data_manager::DataNodeType GetNodeType() const noexcept override
     {
         return data_manager::DataNodeType::kTrustStore;
     }
 
+    /// @brief Handle of the referenced trust store.
     TrustStoreHandle GetTrustStoreHandle() const noexcept
     {
         return m_handle;
     }
 
+    /// @brief Manager shared with this node; may be null.
     TrustStoreManager::Sptr GetTrustStoreManager() const
     {
         return m_manager;
     }
 
+    /// @brief Trust store handler for the referenced store; null when no manager is set.
     ITrustStoreHandler::Sptr GetStore() const
     {
         return m_manager ? m_manager->GetStore(m_handle) : nullptr;

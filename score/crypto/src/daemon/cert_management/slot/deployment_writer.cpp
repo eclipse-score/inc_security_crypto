@@ -24,21 +24,22 @@ namespace score::crypto::daemon::cert_management
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DeploymentWriter::Write(
     const std::string& path,
     const std::string& format,
-    const score::crypto::daemon::common::storage::DeploymentDescriptor& descriptor)
+    const score::crypto::daemon::common::storage::DeploymentDescriptor& descriptor,
+    const score::crypto::daemon::common::storage::FileWriter& writer)
 {
+    if (format != "kv")
+    {
+        score::mw::log::LogError() << kLogPrefix << "Unsupported deployment format: " << format;
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    }
+
     if (!score::crypto::daemon::common::storage::IsDeploymentPathSafe(path))
     {
         score::mw::log::LogError() << kLogPrefix << "Unsafe deployment path rejected: " << path;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
-    if (format == "kv")
-    {
-        return score::crypto::daemon::common::storage::KvDeploymentWriter{}.Write(path, descriptor);
-    }
-
-    score::mw::log::LogError() << kLogPrefix << "Unsupported deployment format: " << format;
-    return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    return score::crypto::daemon::common::storage::KvDeploymentWriter{writer}.Write(path, descriptor);
 }
 
 }  // namespace score::crypto::daemon::cert_management

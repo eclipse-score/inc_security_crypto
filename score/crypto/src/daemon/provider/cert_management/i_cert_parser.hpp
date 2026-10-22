@@ -27,7 +27,8 @@
 namespace score::crypto::daemon::cert_management
 {
 class CertObject;
-}
+struct CrlData;
+}  // namespace score::crypto::daemon::cert_management
 
 namespace score::crypto::daemon::provider::cert_management
 {
@@ -44,6 +45,12 @@ class ICertParser
     virtual ~ICertParser() = default;
 
     /// Parse a single DER/PEM certificate into a neutral CertObject.
+    ///
+    /// @param bytes Address of the encoded certificate data.
+    /// @param size Number of bytes available at @p bytes.
+    /// @param format Encoding format of the certificate data.
+    /// @return An owning CertObject on success, or an error if the input cannot
+    ///         be parsed as one certificate.
     [[nodiscard]] virtual score::crypto::Expected<std::shared_ptr<score::crypto::daemon::cert_management::CertObject>,
                                                   common::DaemonErrorCode>
     ParseCertificate(const std::uint8_t* bytes, std::size_t size, score::crypto::FormatType format) = 0;
@@ -55,6 +62,12 @@ class ICertParser
     /// certificate-container formats are outside this parser contract. The
     /// operation decodes the objects but does not validate chain relationships
     /// or trust.
+    ///
+    /// @param bytes Address of the encoded certificate sequence.
+    /// @param size Number of bytes available at @p bytes.
+    /// @param format Encoding format of the sequence.
+    /// @return The decoded certificates in input order, or an error if the input
+    ///         is invalid or contains no certificates.
     [[nodiscard]] virtual score::crypto::Expected<
         std::vector<std::shared_ptr<score::crypto::daemon::cert_management::CertObject>>,
         common::DaemonErrorCode>
@@ -63,23 +76,31 @@ class ICertParser
     /// Encode a parsed certificate in the requested DER or PEM format.
     ///
     /// Each provider must define how parsed certificates are encoded.
+    ///
+    /// @param certificate Certificate to encode.
+    /// @param format Requested output encoding.
+    /// @return Encoded certificate bytes, or an error if encoding fails or the
+    ///         format is unsupported.
     [[nodiscard]] virtual score::crypto::Expected<std::vector<std::uint8_t>, common::DaemonErrorCode> EncodeCertificate(
         const score::crypto::daemon::cert_management::CertObject& certificate,
         score::crypto::FormatType format) = 0;
 
-    /// Validate raw CRL bytes against the CA certificate that should have issued it.
+    /// Validate a CRL against the CA certificate that should have issued it.
     ///
     /// Checks (in order):
-    /// 1. The bytes are a parseable X.509 CRL.
+    /// 1. The CRL bytes are a parseable X.509 CRL in the encoding named by @p crl.
     /// 2. The CRL issuer DN equals the issuer cert's subject DN.
     /// 3. The CRL signature verifies against the issuer cert's public key.
     ///
-    /// @return Metadata extracted from the validated CRL. Optional timestamps
-    ///         and cRLNumber are zero when the corresponding fields are absent.
+    /// @param crl                 CRL bytes and encoding; empty bytes are rejected.
+    /// @param issuer_cert_data    Encoded issuer certificate bytes.
+    /// @param issuer_cert_size    Number of bytes available at @p issuer_cert_data.
+    /// @param issuer_cert_format  Encoding format of the issuer certificate.
+    /// @return Metadata from the validated CRL. Optional timestamps and
+    ///         cRLNumber are zero when their fields are absent, or an error if
+    ///         parsing, issuer matching, or signature verification fails.
     [[nodiscard]] virtual score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> ValidateCrl(
-        const std::uint8_t* crl_data,
-        std::size_t crl_size,
-        score::crypto::FormatType crl_format,
+        const score::crypto::daemon::cert_management::CrlData& crl,
         const std::uint8_t* issuer_cert_data,
         std::size_t issuer_cert_size,
         score::crypto::FormatType issuer_cert_format) = 0;

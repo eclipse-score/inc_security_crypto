@@ -79,6 +79,8 @@ bool ComputeSha256(const X509_CRL* crl, Sha256Digest& output);
 
 /// @brief Converts an ASN.1 time to seconds since the Unix epoch.
 ///
+/// Times before 1970-01-01T00:00:00Z yield negative values.
+///
 /// @param value Time to convert; may be null.
 /// @param result Set only on success.
 /// @return True if @p value is present and convertible.
@@ -93,7 +95,9 @@ std::uint64_t ReadCrlNumber(const X509_CRL* crl);
 /// @brief Reads the intrinsic metadata of a CRL.
 ///
 /// Sets fingerprint, this_update, next_update and crl_number. A missing thisUpdate or nextUpdate is reported
-/// as 0. issuer_fingerprint is left unchanged because it depends on the issuing certificate.
+/// as 0. Because 0 is a valid epoch, callers that store the metadata must reject a CRL without nextUpdate
+/// beforehand; OpenSslCertParser::ValidateCrl does so. issuer_fingerprint is left unchanged because it depends
+/// on the issuing certificate.
 ///
 /// @param crl CRL to inspect; must not be null.
 /// @param metadata Receives the metadata on success.

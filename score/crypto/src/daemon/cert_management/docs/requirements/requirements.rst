@@ -27,7 +27,7 @@ Certificate Management Requirements
 Scope
 -----
 
-The requirements below describe the current daemon component boundary. API
+The requirements below describe the daemon component boundary. API
 context and mediator requirements are included only where they affect the
 component contract.
 
@@ -89,6 +89,20 @@ Functional requirements
    The component shall manage named trust stores whose members are typed
    certificate-slot references. Slot changes shall invalidate affected anchor
    caches.
+
+.. comp_req:: Scope trust-store cache refresh to changed members
+   :id: comp_req__crypto_cert_mgmt__tstr_cnsstncy
+   :version: 1
+   :reqtype: Functional
+   :security: YES
+   :safety: QM
+   :status: valid
+   :satisfied_by: comp__crypto_cert_management
+
+   A change to one certificate slot shall refresh only the anchor and CRL cache
+   entries of trust-store members backed by that slot. Concurrent readers of a
+   trust store's anchor and CRL caches shall observe a complete anchor set, and
+   never a partially rebuilt set.
 
 .. comp_req:: Persist certificate and CRL state
    :id: comp_req__crypto_cert_management__persistence

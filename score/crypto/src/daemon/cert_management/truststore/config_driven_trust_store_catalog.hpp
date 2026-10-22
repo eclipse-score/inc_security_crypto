@@ -40,7 +40,10 @@ class ConfigDrivenTrustStoreCatalog final
     /// @param manager      The TrustStoreManager to populate.
     /// @param registry     Fully-populated CertSlotRegistry for member slot resolution.
     /// @param slot_manager CertSlotManager for lazily-created, cached slot handlers (may be null).
-    void Load(TrustStoreManager& manager, CertSlotRegistry::Sptr registry, CertSlotManager::Sptr slot_manager = {});
+    /// @return Success, or the manager's error for a configuration it rejects (an empty or duplicate
+    ///         trust store name).
+    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+    Load(TrustStoreManager& manager, CertSlotRegistry::Sptr registry, CertSlotManager::Sptr slot_manager = {});
 
   private:
     const config::CertificateConfig& m_config;

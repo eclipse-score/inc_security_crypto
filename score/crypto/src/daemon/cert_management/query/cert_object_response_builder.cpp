@@ -27,12 +27,12 @@ namespace
 /// Rejects a built payload that exceeds the IPC response budget instead of
 /// returning it. Centralises the check so every builder below applies the
 /// same conservative margin.
-score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> CheckBudget(
+score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> ResponseWithinBudget(
     common::ResponseParameters params)
 {
     if (common::EstimateResponseSize(params) > common::kMaxResponsePayloadBytes)
         return score::crypto::make_unexpected(common::DaemonErrorCode::kResponseTooLarge);
-    return params;
+    return std::move(params);
 }
 
 score::crypto::Expected<score::crypto::MemberKind, common::DaemonErrorCode> ToApiMemberKind(TrustStoreMemberKind kind)
@@ -59,6 +59,8 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     common::ResponseParameters out;
     out.push_back(common::OwnedString{meta.subject_canonical});
     out.push_back(common::OwnedString{meta.issuer_canonical});
+    // Epoch fields are signed. Pre-1970 values are valid and travel as two's-complement bits in the
+    // uint64 slot; readers restore them with static_cast<std::int64_t>.
     out.push_back(static_cast<std::uint64_t>(meta.not_before_epoch_s));
     out.push_back(static_cast<std::uint64_t>(meta.not_after_epoch_s));
     out.push_back(static_cast<std::uint8_t>(meta.is_ca ? 1U : 0U));
@@ -67,13 +69,15 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     out.push_back(common::OwnedString{meta.serial_number_hex});
     out.push_back(common::OwnedBuffer{meta.fingerprint.begin(), meta.fingerprint.end()});
     out.push_back(static_cast<std::uint8_t>(crl_metadata.has_value() ? 1U : 0U));
+    // CRL fields are zero-filled when has_crl is 0 and carry no meaning in that case.
     const auto crl = crl_metadata.value_or(score::crypto::CrlMetadata{});
     out.push_back(common::OwnedBuffer{crl.fingerprint.begin(), crl.fingerprint.end()});
     out.push_back(common::OwnedBuffer{crl.issuer_fingerprint.begin(), crl.issuer_fingerprint.end()});
+    // Signed epoch fields, encoded as in the certificate times above.
     out.push_back(static_cast<std::uint64_t>(crl.this_update));
     out.push_back(static_cast<std::uint64_t>(crl.next_update));
     out.push_back(crl.crl_number);
-    return CheckBudget(std::move(out));
+    return ResponseWithinBudget(std::move(out));
 }
 
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode>
@@ -101,7 +105,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     {
         auto nid_res = service.ResolveCertSlot(slot, client_id);
         if (!nid_res.has_value())
-            continue;  // slot not resolvable — omit silently rather than failing
+            return score::crypto::make_unexpected(nid_res.error());
         slot_node_ids.push_back(static_cast<std::uint64_t>(nid_res.value()));
     }
 
@@ -109,7 +113,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     out.push_back(static_cast<std::uint64_t>(slot_node_ids.size()));
     for (const auto node_id : slot_node_ids)
         out.push_back(node_id);
-    return CheckBudget(std::move(out));
+    return ResponseWithinBudget(std::move(out));
 }
 
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> BuildTrustStoreMemberObjectResponse(
@@ -132,7 +136,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     out.push_back(common::OwnedString{member.serial_number});
     out.push_back(static_cast<std::uint8_t>(kind_res.value()));
     out.push_back(static_cast<std::uint8_t>(member.status));
-    return CheckBudget(std::move(out));
+    return ResponseWithinBudget(std::move(out));
 }
 
 }  // namespace score::crypto::daemon::cert_management::query

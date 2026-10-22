@@ -17,6 +17,7 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/storage/deployment_descriptor.hpp"
+#include "score/crypto/src/daemon/common/storage/file_io.hpp"
 
 #include <string>
 #include <string_view>
@@ -36,11 +37,14 @@ class DeploymentWriter
     /// @param path        Absolute path to the descriptor file.
     /// @param format      Format hint: "kv"; future: "json", "bin".
     /// @param descriptor  The descriptor to write.
+    /// @param writer      Write primitive used for the file; WriteFile by default.
     /// @return std::monostate on success, or DaemonErrorCode on failure.
     [[nodiscard]] static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Write(
         const std::string& path,
         const std::string& format,
-        const score::crypto::daemon::common::storage::DeploymentDescriptor& descriptor);
+        const score::crypto::daemon::common::storage::DeploymentDescriptor& descriptor,
+        const score::crypto::daemon::common::storage::FileWriter& writer =
+            score::crypto::daemon::common::storage::WriteFile);
 
   private:
     static constexpr std::string_view kLogPrefix = "[CERT_DEPLOYMENT_WRITER] ";

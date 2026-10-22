@@ -56,9 +56,7 @@ class FakeParser final : public cert_provider::ICertParser
         return score::crypto::make_unexpected(Error::kUnsupportedOperation);
     }
 
-    score::crypto::Expected<score::crypto::CrlMetadata, Error> ValidateCrl(const std::uint8_t*,
-                                                                           std::size_t,
-                                                                           score::crypto::FormatType,
+    score::crypto::Expected<score::crypto::CrlMetadata, Error> ValidateCrl(const cert::CrlData&,
                                                                            const std::uint8_t*,
                                                                            std::size_t,
                                                                            score::crypto::FormatType) override

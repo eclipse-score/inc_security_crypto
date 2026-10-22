@@ -92,17 +92,14 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
 
     /// Attach a previously-validated CRL to this entry for the current session.
     ///
-    /// @param crl_bytes  Raw CRL bytes, stored verbatim without re-validation.
-    /// @param format     Encoding of @p crl_bytes.
-    /// @param metadata   Optional parsed CRL metadata associated with the bytes.
+    /// @param crl  Encoded CRL bytes, encoding, and optional metadata; stored verbatim without re-validation.
     /// @note Thread-safe. Access to the session CRL state is serialized
     ///       internally via a dedicated mutex.
-    void AttachSessionCrl(std::vector<uint8_t> crl_bytes,
-                          score::crypto::FormatType format,
-                          std::optional<score::crypto::CrlMetadata> metadata = std::nullopt)
+    void AttachSessionCrl(CrlData crl)
     {
+        auto snapshot = std::make_shared<const CrlData>(std::move(crl));
         const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        m_session_crl = CrlData{std::move(crl_bytes), format, std::move(metadata)};
+        m_session_crl = std::move(snapshot);
     }
 
     /// Check whether a session-scoped CRL has been attached.
@@ -114,7 +111,7 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     [[nodiscard]] bool HasSessionCrl() const
     {
         const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        return m_session_crl.has_value();
+        return m_session_crl != nullptr;
     }
 
     /// Retrieve the attached session CRL bytes, if any.
@@ -125,10 +122,10 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     ///       internally via a dedicated mutex.
     [[nodiscard]] std::optional<std::vector<uint8_t>> GetSessionCrl() const
     {
-        const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        if (!m_session_crl.has_value())
+        const auto crl = GetSessionCrlSnapshot();
+        if (!crl)
             return std::nullopt;
-        return m_session_crl->bytes;
+        return crl->bytes;
     }
 
     /// Return the encoding format of the attached session CRL.
@@ -139,10 +136,10 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     ///       internally via a dedicated mutex.
     [[nodiscard]] std::optional<score::crypto::FormatType> GetSessionCrlFormat() const
     {
-        const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        if (!m_session_crl.has_value())
+        const auto crl = GetSessionCrlSnapshot();
+        if (!crl)
             return std::nullopt;
-        return m_session_crl->format;
+        return crl->format;
     }
 
     /// Return the parsed metadata of the attached session CRL, if any.
@@ -153,10 +150,10 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     ///       internally via a dedicated mutex.
     [[nodiscard]] std::optional<score::crypto::CrlMetadata> GetSessionCrlMetadata() const
     {
-        const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        if (!m_session_crl.has_value())
+        const auto crl = GetSessionCrlSnapshot();
+        if (!crl)
             return std::nullopt;
-        return m_session_crl->metadata;
+        return crl->metadata;
     }
 
     /// Remove the session CRL association (e.g. after persisting to a slot).
@@ -180,11 +177,13 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     /// fields that never existed together (e.g. new bytes paired with the
     /// previous format).
     ///
-    /// @return The attached CRL snapshot, or an empty optional when no CRL is
-    ///         currently attached.
+    /// @return The attached CRL snapshot, or a null pointer when no CRL is
+    ///         currently attached. The snapshot is immutable: a later attach or
+    ///         clear does not modify it.
     /// @note Thread-safe. Access to the session CRL state is serialized
-    ///       internally via a dedicated mutex.
-    [[nodiscard]] std::optional<CrlData> GetSessionCrlSnapshot() const
+    ///       internally via a dedicated mutex; only the pointer is copied
+    ///       under the lock.
+    [[nodiscard]] CrlData::Sptrc GetSessionCrlSnapshot() const
     {
         const std::lock_guard<std::mutex> lock(m_ref_mutex);
         return m_session_crl;
@@ -218,12 +217,16 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     }
 
   private:
+    /// Provider-neutral certificate held by this entry.
     CertObject::Sptr m_object;
+    /// Originating slot, or a default handle when the certificate is ephemeral.
     CertSlotHandle m_slot_handle;
+    /// Client that owns this entry.
     data_manager::ClientId m_owner_client_id;
-
+    /// Protects access to the mutable session-CRL association.
     mutable std::mutex m_ref_mutex;
-    std::optional<CrlData> m_session_crl;
+    /// Optional session-scoped CRL associated with the certificate.
+    CrlData::Sptrc m_session_crl;
 };
 
 }  // namespace score::crypto::daemon::cert_management

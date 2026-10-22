@@ -23,22 +23,39 @@
 namespace score::crypto::daemon::cert_management
 {
 
+/// Describes how a trust store manages a member certificate slot.
 enum class TrustStoreMemberKind : uint8_t
 {
+    /// Slot content is externally managed; the trust store cannot add or remove
+    /// the slot through its membership mutation operations.
     kSharedStatic = 0U,
+
+    /// Slot content and membership are owned by the trust store, which may
+    /// populate or clear the slot through trust-store operations.
     kExclusiveMutable = 1U,
+
+    /// Slot content is externally managed and tracked by fingerprint. An
+    /// unexpected content change disables the member until it is acknowledged.
     kConditionalExternal = 2U,
 };
 
+/// Initial state policy for conditional-external members without persisted state.
 enum class ConditionalSlotInitialization : uint8_t
 {
+    /// Enable the member and record its current certificate fingerprint as accepted.
     kEnableAndAcceptCurrent = 0U,
+
+    /// Keep the member disabled until its current fingerprint is acknowledged.
     kDisableUntilAccepted = 1U,
 };
 
+/// Configured certificate-slot membership and its ownership policy.
 struct TrustStoreMemberConfig
 {
+    /// Name of a certificate slot registered in the certificate-slot catalog.
     std::string slot_name;
+
+    /// Ownership and change-acceptance policy for this member slot.
     TrustStoreMemberKind kind{TrustStoreMemberKind::kSharedStatic};
 };
 
@@ -57,7 +74,7 @@ struct TrustStoreConfig
     /// Human-readable name for this trust store (e.g., "tls-server-auth", "code-signing").
     std::string store_name;
 
-    /// Certificate slots serving as trust anchors, with explicit membership policy.
+    /// Certificate slots serving as trust anchors, with explicit ownership policy.
     std::vector<TrustStoreMemberConfig> members;
 
     /// Default used only for conditional members without persisted state.
@@ -66,11 +83,11 @@ struct TrustStoreConfig
     /// UID-based access control for this trust store.
     AccessPolicy access_policy;
 
-    /// Path to the deployment descriptor for this trust store entry.
-    ///
-    /// Used by the deployment layer to persist mutable trust-store state,
-    /// including exclusive membership and conditional acceptance state.
+    /// Deployment descriptor for enabled state and accepted fingerprints; empty keeps them in memory only.
     std::string deployment_path;
+
+    /// Serialization format identifier for the deployment descriptor.
+    /// Defaults to "kv".
     std::string deployment_format{"kv"};
 };
 

@@ -37,13 +37,26 @@ namespace score::crypto::daemon::cert_management::query
 /// @brief Build a CertObject's chain metadata into an IPC response payload.
 ///
 /// Wire layout (15 params, indices 0–14):
-///   [0] subject (OwnedString), [1] issuer (OwnedString),
-///   [2] not_before_epoch_s (uint64), [3] not_after_epoch_s (uint64),
-///   [4] is_ca (uint8), [5] skid (OwnedBuffer), [6] akid (OwnedBuffer),
-///   [7] serial_number_hex (OwnedString), [8] SHA-256 fingerprint (OwnedBuffer 32B),
-///   [9] has_crl (uint8), [10] CRL fingerprint (OwnedBuffer 32B),
-///   [11] issuer fingerprint (OwnedBuffer 32B), [12] thisUpdate (int64 encoded as uint64),
-///   [13] nextUpdate (int64 encoded as uint64), [14] cRLNumber (uint64).
+///   [0]  subject (OwnedString)
+///   [1]  issuer (OwnedString)
+///   [2]  not_before_epoch_s (int64 as uint64 bits)
+///   [3]  not_after_epoch_s (int64 as uint64 bits)
+///   [4]  is_ca (uint8)
+///   [5]  skid (OwnedBuffer)
+///   [6]  akid (OwnedBuffer)
+///   [7]  serial_number_hex (OwnedString)
+///   [8]  SHA-256 fingerprint (OwnedBuffer 32B)
+///   [9]  has_crl (uint8)
+///   [10] CRL fingerprint (OwnedBuffer 32B)
+///   [11] issuer fingerprint (OwnedBuffer 32B)
+///   [12] thisUpdate (int64 as uint64 bits)
+///   [13] nextUpdate (int64 as uint64 bits)
+///   [14] cRLNumber (uint64)
+///
+/// Epoch fields are signed seconds since the Unix epoch. Times before 1970
+/// are negative and are carried as two's-complement bits in the uint64 slot;
+/// readers restore the signed value with static_cast<std::int64_t>. Fields
+/// [10]-[14] are meaningful only when has_crl [9] is 1.
 ///
 /// This is the canonical layout for the mediator's GET_CERTIFICATE_OBJECT op,
 /// defined exactly once here.
@@ -59,7 +72,8 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
 /// @brief Build certificate slot state + CRL metadata into an IPC response payload.
 ///
 /// Wire layout (2 params):
-///   [0] slot state (uint8, CertificateSlotState), [1] has_crl (uint8)
+///   [0] slot state (uint8, CertificateSlotState)
+///   [1] has_crl (uint8)
 ///
 /// Returns an error if GetSlotInfo fails. Used by the mediator's
 /// GET_CERT_SLOT_OBJECT handler. Always small and fixed-size; no payload
@@ -97,9 +111,12 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
 /// BuildTrustStoreMemberIdListResponse).
 ///
 /// Wire layout (7 params):
-///   [0] slot_node_id (uint64), [1] fingerprint (OwnedBuffer 32B),
-///   [2] subject (OwnedString), [3] issuer (OwnedString),
-///   [4] serial_number (OwnedString), [5] kind (uint8),
+///   [0] slot_node_id (uint64)
+///   [1] fingerprint (OwnedBuffer 32B)
+///   [2] subject (OwnedString)
+///   [3] issuer (OwnedString)
+///   [4] serial_number (OwnedString)
+///   [5] kind (uint8)
 ///   [6] status (uint8, MemberStatus)
 ///
 /// Subject/issuer are unbounded like BuildCertObjectResponse, so this is

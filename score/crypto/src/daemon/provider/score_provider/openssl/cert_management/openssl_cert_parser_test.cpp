@@ -35,6 +35,7 @@
 namespace
 {
 using score::crypto::FormatType;
+using score::crypto::daemon::cert_management::CrlData;
 using score::crypto::daemon::common::DaemonErrorCode;
 using score::crypto::daemon::common::ProviderId;
 using score::crypto::daemon::provider::score_provider::openssl::OpenSslCertParser;
@@ -64,7 +65,7 @@ TEST(OpenSslCertParserTest, ParsesPemCertificateAndExtractsMetadata)
     EXPECT_EQ((*result)->GetIssuer(), "CN=cert-management-test,O=Eclipse");
     EXPECT_TRUE((*result)->IsCA());
     EXPECT_EQ((*result)->GetSkid().size(), 20U);
-    EXPECT_EQ((*result)->GetFingerprint().size(), 32U);
+    EXPECT_EQ((*result)->GetFingerprint().size(), score::crypto::kSha256FingerprintSize);
     EXPECT_EQ((*result)->GetRawBytes().size(), pem.size());
 }
 
@@ -94,6 +95,34 @@ TEST(OpenSslCertParserTest, RejectsMalformedCertificate)
     const auto result = parser.ParseCertificate(
         reinterpret_cast<const std::uint8_t*>(malformed.data()), malformed.size(), FormatType::kPem);
 
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(OpenSslCertParserTest, RejectsCertificateWithTrailingDerBytes)
+{
+    const auto pem = ReadCertificateVector();
+    ASSERT_FALSE(pem.empty());
+    OpenSslCertParser parser{ProviderId{1U}};
+    const auto parsed =
+        parser.ParseCertificate(reinterpret_cast<const std::uint8_t*>(pem.data()), pem.size(), FormatType::kPem);
+    ASSERT_TRUE(parsed.has_value());
+
+    auto der = parser.EncodeCertificate(*(*parsed), FormatType::kDer);
+    ASSERT_TRUE(der.has_value());
+    der->push_back(0x00U);
+
+    const auto result = parser.ParseCertificate(der->data(), der->size(), FormatType::kDer);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(OpenSslCertParserTest, RejectsPemBundleInSingleCertificateParse)
+{
+    const auto pem = ReadCertificateVector();
+    ASSERT_FALSE(pem.empty());
+    const auto bundle = pem + pem;
+    OpenSslCertParser parser{ProviderId{1U}};
+    const auto result =
+        parser.ParseCertificate(reinterpret_cast<const std::uint8_t*>(bundle.data()), bundle.size(), FormatType::kPem);
     EXPECT_FALSE(result.has_value());
 }
 
@@ -145,8 +174,7 @@ TEST(OpenSslCertParserTest, EncodesCertificateInRequestedFormat)
 //   - Tampered CRL signature (byte flip in sig)  → kOperationFailed
 //   - Malformed CRL bytes                         → kCertificateParsingFailed
 //   - Malformed issuer cert bytes                 → kInvalidArgument
-//   - Null CRL data pointer                       → kInvalidArgument
-//   - Zero CRL size                               → kInvalidArgument
+//   - Empty CRL bytes                             → kInvalidArgument
 //   - Null issuer cert data pointer               → kInvalidArgument
 //   - Zero issuer cert size                       → kInvalidArgument
 // ---------------------------------------------------------------------------
@@ -227,8 +255,8 @@ X509Ptr MakeSelfSignedCert(EVP_PKEY* pkey, const char* cn)
     return cert;
 }
 
-// Build and sign an empty CRL (no revoked entries, nextUpdate = now + 365 days).
-CrlPtr MakeSignedCrl(X509* issuer, EVP_PKEY* issuer_key)
+// Build and sign an empty CRL (no revoked entries, nextUpdate = now + 365 days unless omitted).
+CrlPtr MakeSignedCrl(X509* issuer, EVP_PKEY* issuer_key, bool include_next_update = true)
 {
     CrlPtr crl{X509_CRL_new()};
     if (!crl)
@@ -244,6 +272,7 @@ CrlPtr MakeSignedCrl(X509* issuer, EVP_PKEY* issuer_key)
         X509_CRL_set_lastUpdate(crl.get(), last.get());
 #endif
     }
+    if (include_next_update)
     {
         Asn1TimePtr next{ASN1_TIME_new()};
         X509_gmtime_adj(next.get(), 365L * 24L * 3600L);
@@ -350,7 +379,8 @@ class ValidateCrlTest : public ::testing::Test
         FormatType issuer_fmt)
     {
         OpenSslCertParser parser{ProviderId{1U}};
-        return parser.ValidateCrl(crl.data(), crl.size(), crl_fmt, issuer.data(), issuer.size(), issuer_fmt);
+        const CrlData crl_data{crl, crl_fmt};
+        return parser.ValidateCrl(crl_data, issuer.data(), issuer.size(), issuer_fmt);
     }
 
     static CaBundle s_ca_a;
@@ -463,24 +493,10 @@ TEST_F(ValidateCrlTest, MalformedIssuerCertBytes_ReturnsInvalidArgument)
 // Negative tests — null / zero-size inputs
 // ---------------------------------------------------------------------------
 
-TEST_F(ValidateCrlTest, NullCrlData_ReturnsInvalidArgument)
+TEST_F(ValidateCrlTest, EmptyCrlBytes_ReturnsInvalidArgument)
 {
     OpenSslCertParser parser{ProviderId{1U}};
-    const auto result = parser.ValidateCrl(nullptr,
-                                           s_ca_a.crl_der.size(),
-                                           FormatType::kDer,
-                                           s_ca_a.cert_der.data(),
-                                           s_ca_a.cert_der.size(),
-                                           FormatType::kDer);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), DaemonErrorCode::kInvalidArgument);
-}
-
-TEST_F(ValidateCrlTest, ZeroCrlSize_ReturnsInvalidArgument)
-{
-    OpenSslCertParser parser{ProviderId{1U}};
-    const auto result = parser.ValidateCrl(
-        s_ca_a.crl_der.data(), 0U, FormatType::kDer, s_ca_a.cert_der.data(), s_ca_a.cert_der.size(), FormatType::kDer);
+    const auto result = parser.ValidateCrl(CrlData{}, s_ca_a.cert_der.data(), s_ca_a.cert_der.size(), FormatType::kDer);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DaemonErrorCode::kInvalidArgument);
 }
@@ -488,12 +504,8 @@ TEST_F(ValidateCrlTest, ZeroCrlSize_ReturnsInvalidArgument)
 TEST_F(ValidateCrlTest, NullIssuerCertData_ReturnsInvalidArgument)
 {
     OpenSslCertParser parser{ProviderId{1U}};
-    const auto result = parser.ValidateCrl(s_ca_a.crl_der.data(),
-                                           s_ca_a.crl_der.size(),
-                                           FormatType::kDer,
-                                           nullptr,
-                                           s_ca_a.cert_der.size(),
-                                           FormatType::kDer);
+    const CrlData crl_data{s_ca_a.crl_der, FormatType::kDer};
+    const auto result = parser.ValidateCrl(crl_data, nullptr, s_ca_a.cert_der.size(), FormatType::kDer);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DaemonErrorCode::kInvalidArgument);
 }
@@ -501,10 +513,60 @@ TEST_F(ValidateCrlTest, NullIssuerCertData_ReturnsInvalidArgument)
 TEST_F(ValidateCrlTest, ZeroIssuerCertSize_ReturnsInvalidArgument)
 {
     OpenSslCertParser parser{ProviderId{1U}};
-    const auto result = parser.ValidateCrl(
-        s_ca_a.crl_der.data(), s_ca_a.crl_der.size(), FormatType::kDer, s_ca_a.cert_der.data(), 0U, FormatType::kDer);
+    const CrlData crl_data{s_ca_a.crl_der, FormatType::kDer};
+    const auto result = parser.ValidateCrl(crl_data, s_ca_a.cert_der.data(), 0U, FormatType::kDer);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DaemonErrorCode::kInvalidArgument);
+}
+
+// ---------------------------------------------------------------------------
+// Profile tests — a CRL without nextUpdate is not stored, since its metadata
+// would report the missing field as the epoch value 0.
+// ---------------------------------------------------------------------------
+
+TEST_F(ValidateCrlTest, CrlWithoutNextUpdate_ReturnsCertificateParsingFailed)
+{
+    auto pkey = GenerateRsaKey();
+    ASSERT_TRUE(pkey) << "RSA key generation failed";
+    auto cert = MakeSelfSignedCert(pkey.get(), "Test-CA-NoNextUpdate");
+    ASSERT_TRUE(cert) << "Self-signed cert generation failed";
+    auto crl = MakeSignedCrl(cert.get(), pkey.get(), /*include_next_update=*/false);
+    ASSERT_TRUE(crl) << "CRL generation failed";
+
+    const auto result = Validate(CrlToDer(crl.get()), FormatType::kDer, X509ToDer(cert.get()), FormatType::kDer);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), DaemonErrorCode::kCertificateParsingFailed);
+}
+
+// ---------------------------------------------------------------------------
+// Epoch boundary — a time one second before the Unix epoch is a valid negative value.
+// ---------------------------------------------------------------------------
+
+TEST(OpenSslCertParserTest, ParsesNotBeforeOneSecondBeforeUnixEpoch)
+{
+    auto pkey = GenerateRsaKey();
+    ASSERT_TRUE(pkey) << "RSA key generation failed";
+    X509Ptr cert{X509_new()};
+    ASSERT_TRUE(cert);
+    X509_set_version(cert.get(), 2);
+    ASN1_INTEGER_set(X509_get_serialNumber(cert.get()), 1);
+    Asn1TimePtr not_before{ASN1_TIME_set(nullptr, -1)};
+    ASSERT_TRUE(not_before);
+    ASSERT_EQ(X509_set1_notBefore(cert.get(), not_before.get()), 1);
+    X509_gmtime_adj(X509_getm_notAfter(cert.get()), 365L * 24L * 3600L);
+    X509_set_pubkey(cert.get(), pkey.get());
+    X509_NAME* name = X509_get_subject_name(cert.get());
+    X509_NAME_add_entry_by_txt(
+        name, "CN", MBSTRING_ASC, reinterpret_cast<const unsigned char*>("Pre-Epoch-CA"), -1, -1, 0);
+    X509_set_issuer_name(cert.get(), name);
+    X509_sign(cert.get(), pkey.get(), EVP_sha256());
+    const auto der = X509ToDer(cert.get());
+
+    OpenSslCertParser parser{ProviderId{1U}};
+    const auto result = parser.ParseCertificate(der.data(), der.size(), FormatType::kDer);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_NE(*result, nullptr);
+    EXPECT_EQ((*result)->GetNotBefore(), -1);
 }
 
 }  // namespace

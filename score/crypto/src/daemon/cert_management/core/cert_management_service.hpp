@@ -106,7 +106,8 @@ class CertManagementService final
     /// fails.
     /// @note Thread safety: Concurrent calls create independent certificate instances. Loads for the same slot are
     /// not serialized by this service.
-    score::crypto::Expected<CertDataNodeResult, common::DaemonErrorCode> Load(const CertRegistrationParams& params);
+    score::crypto::Expected<CertDataNodeResult, common::DaemonErrorCode> LoadCertificate(
+        const CertRegistrationParams& params);
 
     /// @brief Delete a client's certificate data node.
     /// @param client_id Client that owns the node.
@@ -114,8 +115,9 @@ class CertManagementService final
     /// @return An empty value on success, or kInvalidResourceId if the node is absent for the client or cannot be
     /// removed.
     /// @note Thread safety: Concurrent calls are safe.
-    score::crypto::Expected<std::monostate, common::DaemonErrorCode> ReleaseCert(data_manager::ClientId client_id,
-                                                                                 data_manager::DataNodeId node_id);
+    score::crypto::Expected<std::monostate, common::DaemonErrorCode> ReleaseCertificate(
+        data_manager::ClientId client_id,
+        data_manager::DataNodeId node_id);
 
     /// @brief Remove cached certificate and trust-store state during client application teardown.
     /// @param client_id Client whose state is to be cleaned up.
@@ -136,7 +138,7 @@ class CertManagementService final
     /// @note Thread safety: May be called concurrently after construction while the service remains alive.
     /// @note Read-only slot operations (LoadCertificate, GetSlotInfo, HasCrl, GetCrlNextUpdate, ...) may be called
     /// directly on the returned manager. Slot-content mutations must go through this service's own
-    /// StoreCertificate()/ClearSlot()/ImportCrl()/DeleteCrl() instead of calling the slot manager directly, so that
+    /// StoreCertificate()/ClearSlot()/StoreCrl()/ClearCrl() instead of calling the slot manager directly, so that
     /// trust-store notification happens structurally rather than depending on every caller remembering it.
     CertSlotManager::Sptr GetSlotManager() const
     {
@@ -144,8 +146,9 @@ class CertManagementService final
     }
 
     // -----------------------------------------------------------------------
-    // Slot mutation — wraps CertSlotManager and notifies trust stores on success so
-    // the pairing cannot be skipped by a caller. Mirrors CertSlotManager's own
+    // Slot mutation — wraps CertSlotManager and notifies trust stores after each write that reaches the backend.
+    // A write refused by the access check does not notify, because it cannot have changed stored content. Failed
+    // backend writes still notify, because they can have partially changed it. Mirrors CertSlotManager's own
     // signatures; see its doc comments for parameter and error semantics.
     // -----------------------------------------------------------------------
 
@@ -172,18 +175,15 @@ class CertManagementService final
     /// @brief Store a slot's CRL and push it into trust stores that reference the slot.
     /// @param slot Handle identifying the certificate slot.
     /// @param client_id Client performing the write.
-    /// @param crl_data Encoded CRL bytes.
-    /// @param format Encoding of @p crl_data.
-    /// @param metadata Optional parsed CRL metadata.
+    /// @param crl Encoded CRL bytes, encoding, and optional parsed metadata.
     /// @return An empty value on success, or an error if the write fails or is not permitted.
-    /// @note Thread safety: Slot writes are serialized by CertSlotManager. Direct slot readers observe the new state
-    /// once the write completes. Trust-store readers observe it only after trust-store notification completes.
-    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ImportCrl(
-        CertSlotHandle slot,
-        data_manager::ClientId client_id,
-        score::crypto::span<const uint8_t> crl_data,
-        score::crypto::FormatType format,
-        std::optional<score::crypto::CrlMetadata> metadata = std::nullopt);
+    /// @details The bytes are stored without validation. The caller validates the CRL against the slot's issuer
+    /// certificate (ICertParser::ValidateCrl) and supplies the resulting metadata.
+    /// @note Thread safety: Writes to one slot are serialized by that slot's handler. Direct slot readers observe the
+    /// new state once the write completes. Trust-store readers observe it only after trust-store notification
+    /// completes.
+    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode>
+    StoreCrl(CertSlotHandle slot, data_manager::ClientId client_id, const CrlData& crl);
 
     /// @brief Delete a slot's CRL and notify trust stores that reference the slot.
     /// @param slot Handle identifying the certificate slot.
@@ -191,7 +191,7 @@ class CertManagementService final
     /// @return An empty value on success, or an error if the write fails or is not permitted.
     /// @note Thread safety: Slot writes are serialized by CertSlotManager. Direct slot readers observe the new state
     /// once the write completes. Trust-store readers observe it only after trust-store notification completes.
-    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> DeleteCrl(
+    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearCrl(
         CertSlotHandle slot,
         data_manager::ClientId client_id);
 
@@ -289,10 +289,13 @@ class CertManagementService final
     /// slot. A certificate-slot node resolves its persistent CRL directly.
     /// @param client_id Client that owns the data node.
     /// @param cert_node_id Identifier of the certificate or certificate-slot data node.
-    /// @return The resolved CRL, an empty optional if no CRL is available, or an error if resolution or loading fails.
-    /// @note Thread safety: Session CRL data is obtained as a consistent snapshot from the certificate instance. The
-    /// service does not serialize persistent CRL reads with concurrent slot updates.
-    score::crypto::Expected<std::optional<CrlData>, common::DaemonErrorCode> ResolveCrlForOperation(
+    /// @return The resolved CRL as an immutable shared snapshot, a null pointer if no CRL is available, or an error if
+    /// resolution or loading fails. kInvalidResourceId is returned when the node is neither a certificate nor a
+    /// certificate slot of the client.
+    /// @note Thread safety: Session CRL data is obtained as a consistent snapshot from the certificate instance, and a
+    /// persistent CRL as one snapshot from the slot manager. The service does not serialize CRL reads with concurrent
+    /// slot updates; each read reflects the slot as of some point before the call returns.
+    score::crypto::Expected<CrlData::Sptrc, common::DaemonErrorCode> ResolveCrlForOperation(
         data_manager::ClientId client_id,
         data_manager::DataNodeId cert_node_id);
 
@@ -306,20 +309,22 @@ class CertManagementService final
         data_manager::ClientId client_id,
         data_manager::DataNodeId ts_node_id);
 
+  private:
     /// @brief Notify trust stores that a member certificate slot has changed.
     /// @details Each referencing member's anchor and CRL entries are reloaded from the slot. A certificate write
-    /// clears the slot's CRL, so the refreshed CRL entry is empty until a new CRL is imported.
+    /// clears the slot's CRL, so the refreshed CRL entry is empty until a new CRL is imported. Called by the slot
+    /// mutators after a successful write; it does not invalidate the slot manager's caches.
     /// @param slot_handle Handle identifying the certificate slot whose content changed.
     /// @note Thread safety: Concurrent notifications are not serialized by this service.
     void NotifySlotCertChanged(CertSlotHandle slot_handle);
 
-    /// @brief Push an updated CRL to trust stores that reference the given certificate slot.
+    /// @brief Notify trust stores that the CRL of the given certificate slot has changed.
+    /// @details Each referencing store refreshes the member's CRL from the slot's current CRL snapshot. Called by the
+    /// slot mutators after a successful write.
     /// @param slot_handle Handle identifying the certificate slot whose CRL changed.
-    /// @param data The slot's new CRL, or an empty optional if the CRL was deleted.
     /// @note Thread safety: Concurrent notifications are not serialized by this service.
-    void NotifySlotCrlChanged(CertSlotHandle slot_handle, const std::optional<CrlData>& data);
+    void NotifySlotCrlChanged(CertSlotHandle slot_handle);
 
-  private:
     /// @brief Shared implementation for ResolveCertForOperation() and ResolveCertWithCrlMetadataForOperation().
     /// @param client_id Client that owns the data node.
     /// @param cert_node_id Identifier of the certificate or certificate-slot data node.
@@ -338,7 +343,8 @@ class CertManagementService final
     CertSlotRegistry::Sptr m_slot_registry;         ///< Resolves certificate slot handles and configurations.
     CertSlotManager::Sptr m_slot_manager;           ///< Performs certificate and CRL operations on slots.
     TrustStoreManager::Sptr m_trust_store_manager;  ///< Resolves trust stores and tracks their slot memberships.
-    /// Shared with CertDataNodes so registry callbacks remain valid if nodes outlive this service.
+    /// Shared with CertDataNodes so the registry stays alive while any node holds it, even after this service is
+    /// destroyed.
     CertRegistry::Sptr m_cert_registry{std::make_shared<CertRegistry>()};
     data_manager::IDataManager::Sptr m_data_manager;  ///< Owns and resolves client-scoped data nodes.
 

@@ -25,19 +25,19 @@ score::crypto::Expected<score::crypto::daemon::common::storage::DeploymentDescri
                         score::crypto::daemon::common::DaemonErrorCode>
 DeploymentLoader::Load(const std::string& path, const std::string& format)
 {
+    if (format != "kv")
+    {
+        score::mw::log::LogError() << kLogPrefix << "Unsupported deployment format: " << format;
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    }
+
     if (!score::crypto::daemon::common::storage::IsDeploymentPathSafe(path))
     {
         score::mw::log::LogError() << kLogPrefix << "Unsafe deployment path rejected: " << path;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
-    if (format == "kv")
-    {
-        return score::crypto::daemon::common::storage::KvDeploymentLoader{}.Load(path);
-    }
-
-    score::mw::log::LogError() << kLogPrefix << "Unsupported deployment format: " << format;
-    return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    return score::crypto::daemon::common::storage::KvDeploymentLoader{}.Load(path);
 }
 
 }  // namespace score::crypto::daemon::cert_management

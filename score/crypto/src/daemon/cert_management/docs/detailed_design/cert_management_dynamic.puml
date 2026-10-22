@@ -22,7 +22,8 @@ participant "CertSlotManager" as SlotMgr
 participant "SlotHandlerFactory" as Factory
 participant "FileBackedSlotHandler" as Handler
 participant "ICertParser\n(canonical, provider-supplied)" as Parser
-participant "CertObjectCache\n(weak_ptr, per slot)" as Cache
+participant "Certificate cache\n(weak_ptr, per slot)" as Cache
+participant "CRL cache\n(presence, metadata, shared CrlData snapshot)" as CrlCache
 participant "CertRegistry" as Registry
 participant "TrustStoreHandler" as StoreHandler
 participant "DataManager" as Data
@@ -33,7 +34,7 @@ Config -> Factory : parser provider name (optional)
 alt parser provider configured
   Factory -> Parser : resolve named provider, require cert-management capability
   note right of Factory
-    Resolution failure stops module creation
+    Pinned-provider resolution failure is returned by Initialize()
   end note
 else no parser provider configured
   note right of Factory
@@ -45,7 +46,7 @@ end
 Config -> SlotCatalog : CertificateConfig
 SlotCatalog -> Slots : RegisterSlot(config)
 Config -> TrustCatalog : CertificateConfig
-TrustCatalog -> Stores : Load(store configs, registry, factory)
+TrustCatalog -> Stores : Load(store configs, registry, slot manager)
 TrustCatalog -> Stores : RegisterAppResource()
 
 == Slot resolution ==
@@ -55,9 +56,9 @@ Slots --> Service : CertSlotHandle
 Service -> Data : addNode(CertSlotDataNode)
 Data --> Service : slot_node_id
 
-== Certificate load — first client (cache miss) ==
+== Certificate load — cache miss ==
 
-Service -> SlotMgr : Load(params)
+Service -> SlotMgr : LoadCertificate(slot, client)
 SlotMgr -> Cache : lookup(slot.index)
 Cache --> SlotMgr : miss (empty or expired)
 SlotMgr -> Handler : LoadCertificate(slot config)
@@ -65,16 +66,17 @@ Handler -> Parser : ParseCertificate(bytes, format)
 Parser --> Handler : CertObject
 Handler --> SlotMgr : CertObject
 SlotMgr -> Cache : store weak_ptr(CertObject)
-SlotMgr -> Registry : RegisterSlotCert(slot, new CertEntry)
-Registry --> SlotMgr : cert_registry_id
-SlotMgr --> Service : CertObject + CertEntry (per-client)
+SlotMgr --> Service : CertObject
+Service -> Registry : RegisterSlotCert(slot, new CertEntry)
+Registry --> Service : cert_registry_id
 Service -> Data : addChildNode(CertDataNode)
 
 == Public guarded load ==
 
 "CertificateManagementContext" -> Service : CERT_LOAD(slot_node_id)
-Service -> SlotMgr : Load(params, client)
-SlotMgr --> Service : CertObject + CertEntry
+Service -> SlotMgr : LoadCertificate(slot, client)
+SlotMgr --> Service : CertObject
+Service -> Registry : RegisterSlotCert(slot, new CertEntry)
 Service -> Data : addChildNode(CertDataNode)
 Data --> "CertificateManagementContext" : certificate_node_id
 "CertificateManagementContext" --> "Application" : CryptoResourceGuard(kCertificate)
@@ -96,18 +98,57 @@ end note
 
 == Certificate load — second client (cache hit, shared bytes) ==
 
-Service -> SlotMgr : Load(params, client_B)
+Service -> SlotMgr : LoadCertificate(slot, client_B)
 SlotMgr -> Cache : lookup(slot.index)
 Cache --> SlotMgr : hit — CertObject::Sptr (no I/O)
-SlotMgr -> Registry : RegisterSlotCert(slot, new CertEntry)
+SlotMgr --> Service : CertObject
+Service -> Registry : RegisterSlotCert(slot, new CertEntry)
 note right of Registry
   Independent CertEntry per client.
   Both wrap the same CertObject ptr.
   Session CRL on one entry is not
   visible from the other entry.
 end note
-Registry --> SlotMgr : cert_registry_id_2
-SlotMgr --> Service : CertObject + CertEntry (per-client)
+Registry --> Service : cert_registry_id_2
+
+== CRL metadata read — cache miss then hit ==
+
+Service -> SlotMgr : GetCrlMetadata(slot, client)
+SlotMgr -> CrlCache : lookup(slot.index)
+CrlCache --> SlotMgr : miss
+SlotMgr -> Handler : HasCrl(slot config)
+SlotMgr -> Handler : GetCrlMetadata(slot config), if present
+Handler -> "Shared Deployment Storage" : read [crl] descriptor section
+"Shared Deployment Storage" --> Handler : [crl] section fields
+Handler --> SlotMgr : presence and optional metadata
+note right of Handler
+  Presence and metadata come from the descriptor; the CRL file is not read.
+  GetCrlNextUpdate() derives its answer from the same metadata.
+end note
+SlotMgr -> CrlCache : store presence and metadata(slot.index)\nif the part generation is unchanged
+SlotMgr --> Service : metadata
+
+Service -> SlotMgr : HasCrl(slot, client)
+SlotMgr -> CrlCache : lookup(slot.index)
+CrlCache --> SlotMgr : hit - presence (no I/O)
+SlotMgr --> Service : has_crl
+
+== CRL snapshot read — shared across readers ==
+
+Service -> SlotMgr : LoadCrlData(slot, client)
+SlotMgr -> CrlCache : lookup(slot.index)
+alt live snapshot cached
+  CrlCache --> SlotMgr : shared CrlData
+else no CRL stored (cached presence is false)
+  CrlCache --> SlotMgr : none
+else miss, or snapshot no longer held by any reader
+  SlotMgr -> Handler : LoadCrlData(slot config)
+  Handler -> "Shared Deployment Storage" : read descriptor once, then CRL file
+  "Shared Deployment Storage" --> Handler : [crl] fields + CRL bytes
+  Handler --> SlotMgr : CrlData (bytes, format, metadata)
+  SlotMgr -> CrlCache : store presence, metadata and CrlData\nif the part generation is unchanged
+end
+SlotMgr --> Service : CrlData::Sptrc (null when no CRL)
 
 == Trust store resolution and anchor loading ==
 
@@ -116,8 +157,7 @@ Stores --> Service : TrustStoreHandle
 Service -> Stores : GetStore(handle)
 Stores --> Service : TrustStoreHandler
 Service -> StoreHandler : GetAnchors()
-StoreHandler -> Stores : lazy AnchorLoader
-Stores -> SlotMgr : LoadCertificate(slot config)
+StoreHandler -> SlotMgr : LoadCertificateForTrustStore(slot)
 SlotMgr -> Cache : lookup(slot.index)
 Cache --> SlotMgr : hit or miss
 alt cache miss
@@ -127,12 +167,12 @@ alt cache miss
   Handler --> SlotMgr : CertObject
   SlotMgr -> Cache : store weak_ptr(CertObject)
 end
-SlotMgr --> Stores : CertObject
-Stores -> StoreHandler : NotifySlotUpdate(slot, cert)
+SlotMgr --> StoreHandler : CertObject
 StoreHandler --> Service : anchors
 
 == Certificate store and cache invalidation ==
 
+"CertificateManagementContext" -> Service : StoreCertificate(slot, updated cert)
 Service -> SlotMgr : StoreCertificate(slot, updated cert)
 SlotMgr -> Handler : StoreCertificate(updated cert)
 Handler -> "Shared Deployment Storage" : atomic cert + metadata write
@@ -144,28 +184,99 @@ note right of Cache
   old CertObject::Sptr remain valid
   for their lifetime.
 end note
+SlotMgr -> CrlCache : erase(slot.index)
+note right of CrlCache
+  StoreCertificate/ClearSlot invalidate CRL
+  state too — the handler clears any CRL
+  tied to the replaced/removed certificate.
+end note
 SlotMgr --> Service : ok
-Service -> Stores : NotifySlotChanged(store, slot)
-Stores -> StoreHandler : InvalidateSlot(slot)
-alt conditional-external member
-  Stores -> Stores : Disable member and persist state
-  note right of Stores
-    accepted_fingerprint remains unchanged.
-    AcknowledgeMemberUpdate records the
-    replacement fingerprint and re-enables the member.
+note right of Service
+  Trust-store notification is internal to
+  StoreCertificate()/ClearSlot()/StoreCrl()/
+  ClearCrl() — a caller that performs a slot
+  write through CertManagementService never
+  issues a separate notification step.
+end note
+Service -> Stores : GetMembershipsForSlot(slot)
+Stores --> Service : trust stores referencing this slot
+loop each referencing trust store
+  Service -> Stores : NotifySlotChanged(store, slot)
+  Stores -> StoreHandler : OnSlotChanged(slot)
+  StoreHandler -> SlotMgr : InvalidateSlotCaches(slot)
+  StoreHandler -> StoreHandler : Reload changed member only
+  StoreHandler -> SlotMgr : LoadCertificateForTrustStore(slot)
+  StoreHandler -> SlotMgr : LoadCrlDataForTrustStore(slot)
+  note right of StoreHandler
+    Each member entry is replaced under the
+    handler mutex. A concurrent reader can
+    briefly see the new cert with the previous
+    CRL for this member; the anchor set is
+    never partially rebuilt.
   end note
-else other member kind
-  Stores -> Stores : Retain member enablement state
+  alt conditional-external member
+    StoreHandler -> StoreHandler : Disable member and persist state
+    note right of StoreHandler
+      accepted_fingerprint remains unchanged.
+      AcknowledgeMemberUpdate records the
+      replacement fingerprint and re-enables the member.
+    end note
+  else other member kind
+    Stores -> Stores : Retain member enablement state
+  end
 end
-Service -> StoreHandler : GetAnchors()
-StoreHandler -> Stores : reload changed slot
-Stores -> SlotMgr : LoadCertificate()
-SlotMgr -> Handler : LoadCertificate()
+Service --> "CertificateManagementContext" : ok
+
+== Trust-store bind and cache warm-up ==
+
+"CertificateVerificationContext" -> Service : SetVerificationTrustStore(store)
+Service -> Stores : AddRef(store, client)
+Stores -> StoreHandler : LoadCache()
+StoreHandler -> StoreHandler : resolve enabled members under the store mutex
+StoreHandler -> SlotMgr : LoadCertificateForTrustStore(slot), LoadCrlDataForTrustStore(slot)
+SlotMgr -> Handler : LoadCertificate(), LoadCrlData() on a cache miss
 Handler -> Parser : ParseCertificate()
-Parser --> Handler : updated CertObject
-Handler --> SlotMgr : updated CertObject
-SlotMgr -> Cache : store weak_ptr(updated CertObject)
-SlotMgr --> Stores : updated CertObject
-Stores -> StoreHandler : NotifySlotUpdate()
-StoreHandler --> Service : updated anchors
+Parser --> Handler : CertObject
+Handler --> SlotMgr : CertObject, CrlData
+SlotMgr --> StoreHandler : shared CertObject and CrlData
+alt a member certificate or CRL exists but cannot be read
+  StoreHandler --> Stores : error, cache stays cold
+  Stores --> Service : error, the reference is released
+else all members resolved
+  StoreHandler --> Stores : cache warm
+  Stores --> Service : ok
+end
+note right of StoreHandler
+  An empty member slot and a missing CRL are not failures.
+  The cache is cleared when the last client releases the store.
+  A read on a store that no client holds resolves the members the same
+  way and returns the result without caching it.
+end note
+
+== CRL import and trust-store CRL-cache update ==
+
+"CertificateManagementContext" -> Service : StoreCrl(slot, CrlData)
+Service -> SlotMgr : StoreCrl(slot, CrlData)
+SlotMgr -> Handler : StoreCrl(slot, CrlData)
+Handler -> "Shared Deployment Storage" : write CRL bytes + descriptor metadata
+Handler --> SlotMgr : ok
+SlotMgr -> CrlCache : erase(slot.index), advance CRL generation
+SlotMgr --> Service : ok
+Service -> Stores : GetMembershipsForSlot(slot)
+Stores --> Service : trust stores referencing this slot
+loop each referencing trust store
+  Service -> Stores : NotifySlotCrlChanged(store, slot)
+  Stores -> StoreHandler : OnSlotCrlChanged(slot)
+  StoreHandler -> SlotMgr : LoadCrlDataForTrustStore(slot)
+  SlotMgr --> StoreHandler : shared CrlData::Sptrc (null after a delete)
+  note right of StoreHandler
+    Replaces the member's cached CRL with the
+    slot's current snapshot; the snapshot is shared
+    with the slot manager, not copied. Unlike
+    OnSlotChanged(), this does not reload the anchor
+    or affect conditional-member enablement. A member
+    that is not enabled keeps no CRL.
+  end note
+end
+Service --> "CertificateManagementContext" : ok
 @enduml

@@ -17,146 +17,111 @@ skinparam componentStyle rectangle
 skinparam packageStyle rectangle
 
 package "cert_management" {
-  [CertManagementModule] #DCEFE2
 
   package "core" {
-    [CertManagementService] #DCEFE2
-    [CertRegistry]
-    [CertEntry]
+    [CertManagementModule] as Module #DCEFE2
+    [CertManagementService\n<size:9>public values: api/types</size>] as Service #DCEFE2
+    [CertRegistry] as Registry
+    [CertEntry\n<size:9>per-client record, session CRL</size>] as Entry
   }
+
+  package "nodes" {
+    [CertSlotDataNode] as SlotNode
+    [CertDataNode] as CertNode
+    [TrustStoreDataNode] as TsNode
+  }
+
+  package "slot" {
+    [CertSlotManager\n<size:9>sole owner of slot caches</size>\n<size:9>access checks via policy/</size>] as SlotMgr #DCEFE2
+    [CertSlotRegistry] as SlotReg
+    [ConfigDrivenSlotCatalog] as SlotCatalog
+    [SlotHandlerFactory] as Factory
+    [FileBackedSlotHandler\n<size:9>providers implement the same interface</size>] as FileHandler
+    [CrlHandler\n<size:9>persists via deployment storage</size>] as Crl #FCE4D6
+  }
+
+  package "truststore" {
+    [TrustStoreManager\n<size:9>access checks via policy/</size>] as TsMgr #DCEFE2
+    [TrustStoreHandler\n<size:9>depends on slot manager, not the reverse</size>] as TsHandler
+    [ConfigDrivenTrustStoreCatalog] as TsCatalog
+  }
+
+  package "query" {
+    [CertObjectResponseBuilder] as Builder
+  }
+
   package "interfaces" {
     interface ICertSlotHandler #DCEBFA
     interface ITrustStoreHandler
-    [CertObject] #FFF0CC
-    [CertSlotConfig] #FFF0CC
-    [AccessPolicy] #FFF0CC
-    [cert_types.hpp\n(handles, metadata, CrlData)] #FFF0CC
-  }
-  package "nodes" {
-    [CertSlotDataNode]
-    [CertDataNode]
-    [TrustStoreDataNode]
-  }
-  package "slot" {
-    [CertSlotManager]
-    [CertSlotRegistry]
-    [ConfigDrivenSlotCatalog]
-    [FileBackedSlotHandler]
-    [SlotHandlerFactory]
-    [CrlHandler] #FCE4D6
-  }
-  package "truststore" {
-    [TrustStoreManager]
-    [TrustStoreHandler]
-    [ConfigDrivenTrustStoreCatalog]
-  }
-  package "policy" {
-    [AccessPolicyEnforcer]
-  }
-  package "query" {
-    [CertObjectResponseBuilder]
+    [Provider-neutral values\n(CertObject, CertSlotConfig,\nAccessPolicy, CrlData)] as Values #FFF0CC
   }
 }
 
 package "daemon/config" {
-  [CertificateConfig]
+  [CertificateConfig] as Config
 }
 
 package "daemon/common" {
-  [DataManager]
-  [Shared Deployment Storage]
-}
-
-package "api/types" {
-  [common.hpp] #FFF0CC
-  [certificate.hpp] #FFF0CC
+  [DataManager] as DataMgr
 }
 
 package "daemon/provider" {
-  [ProviderManager]
+  [ProviderManager] as Providers
   interface ICertParser #DCEBFA
 }
 
-note right of [CertSlotManager]
-  Handler cache (Sptr, per slot)
-  CertObjectCache (weak_ptr, per slot)
-  Central slot access and policy enforcement
-end note
+' Composition and lifecycle
+Module --> Service : creates and publishes
+Module --> SlotCatalog : creates
+Module --> TsCatalog : creates
 
-note right of [CertEntry]
-  Per-client runtime record
-  Holds CertObject::Sptr
-  + session-scoped CRL association
-end note
+Service --> Registry
+Service --> SlotMgr
+Service --> SlotReg
+Service --> TsMgr
+Service --> DataMgr
+Service ..> SlotNode : creates
+Service ..> CertNode : creates
+Service ..> TsNode : creates
 
-note right of [CertManagementService]
-  Coordinates certificate and trust-store
-  resource lifecycle through the registries,
-  managers, and DataManager.
-end note
+Registry --> Entry : indexes
+CertNode --> Entry : wraps
+CertNode --> Registry : unregisters on destruction
+Entry --> Values : holds
 
-note right of [CrlHandler]
-  Reads and writes CRL bytes and metadata
-  through the slot descriptor and shared storage.
-end note
+' Slot storage
+SlotMgr --> ICertSlotHandler
+SlotMgr --> SlotReg
+SlotMgr ..> Factory : resolves handler per slot (cached)
 
-note right of [SlotHandlerFactory]
-  Owns canonical parser selection:
-  the configured parser provider name,
-  otherwise the certificate-management
-  capability default. Successful resolution
-  is cached and shared; failure is retried.
-end note
+SlotCatalog --> Config
+SlotCatalog ..> SlotReg : populates
 
-[CertManagementModule] --> [CertificateConfig] : loads slot/store config
-[CertManagementModule] --> [ProviderManager] : supplies provider registry for parser and backend resolution
-[CertManagementModule] --> [DataManager] : supplies resource tree
-[CertManagementModule] --> [CertManagementService] : creates and publishes
-[CertManagementModule] ..> [SlotHandlerFactory] : constructs
-[CertManagementModule] --> [ConfigDrivenSlotCatalog]
-[CertManagementModule] --> [ConfigDrivenTrustStoreCatalog]
+Factory --> Providers : selects parser and backend
+Factory ..> ICertParser : obtains parser
+Factory ..> ICertSlotHandler : creates backend handler
 
-[CertManagementService] -> [CertRegistry]
-[CertManagementService] --> [CertSlotManager]
-[CertManagementService] --> [CertSlotRegistry]
-[CertManagementService] --> [TrustStoreManager]
-[CertManagementService] --> [DataManager]
-[CertRegistry] --> [CertEntry]
-[CertEntry] --> [CertObject]
-[CertDataNode] --> [CertEntry] : retains client reference
-[CertSlotDataNode] <.. [CertManagementService] : creates
-[CertDataNode] <.. [CertManagementService] : creates
-[TrustStoreDataNode] <.. [CertManagementService] : creates
+FileHandler ..|> ICertSlotHandler
+FileHandler --> Crl
+FileHandler --> ICertParser
 
-[CertSlotManager] --> ICertSlotHandler
-[CertSlotManager] --> [CertSlotRegistry]
-[CertSlotManager] --> [AccessPolicyEnforcer]
-[CertSlotManager] --> [SlotHandlerFactory] : resolves handler per slot (cached)
-[SlotHandlerFactory] --> [ProviderManager] : selects parser/backend (shared ownership)
-[SlotHandlerFactory] ..> ICertParser : obtains provider parser
-[SlotHandlerFactory] ..> ICertSlotHandler : creates backend handler
+' Trust stores
+TsCatalog --> Config
+TsCatalog ..> TsMgr : populates
 
-[ConfigDrivenSlotCatalog] --> [CertificateConfig]
-[ConfigDrivenTrustStoreCatalog] --> [CertificateConfig]
-[CertSlotRegistry] <-- [ConfigDrivenSlotCatalog]
-[ConfigDrivenTrustStoreCatalog] ---> [TrustStoreManager]
-[TrustStoreManager] --> [CertSlotRegistry]
-[TrustStoreManager] --> [TrustStoreHandler]
-[TrustStoreManager] --> [CertSlotManager] : anchor loading
-[TrustStoreHandler] ..|> ITrustStoreHandler
-[FileBackedSlotHandler] ..|> ICertSlotHandler
-[FileBackedSlotHandler] --> [CrlHandler]
-[FileBackedSlotHandler] ---> ICertParser
-[Shared Deployment Storage] <-- [FileBackedSlotHandler]
-[Shared Deployment Storage] <-- [CrlHandler]
-[ProviderManager] ..> ICertParser : provider capability
-[CertObjectResponseBuilder] --> [CertSlotManager]
-[CertObjectResponseBuilder] --> [TrustStoreManager]
-[CertObjectResponseBuilder] --> [CertManagementService]
-[certificate.hpp] --> [common.hpp]
-[CertManagementService] ..> [certificate.hpp] : public values
-[CertSlotConfig] --> [AccessPolicy]
-[CertObject] --> [cert_types.hpp\n(handles, metadata, CrlData)]
+TsMgr --> SlotReg
+TsMgr --> TsHandler : owns
+
+TsHandler ..|> ITrustStoreHandler
+TsHandler --> SlotReg
+TsHandler --> SlotMgr : slot backends and cached content
+
+' Query
+Builder --> Service
+Builder --> SlotMgr
+Builder --> TsMgr
+
+Providers ..> ICertParser : provides
 
 legend bottom
   |= Fill |= Boundary role |

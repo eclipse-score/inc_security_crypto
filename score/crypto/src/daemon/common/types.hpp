@@ -140,7 +140,7 @@ using ResponseParameters = std::vector<ResponseParameter>;
 // ============================================================================
 // Response payload budget
 // ============================================================================
-
+// TODO: Move it to score/crypto/src/ipc
 /// Conservative byte budget for a single IPC response payload, leaving margin
 /// under the transport's ~2KB frame limit for per-parameter variant/framing
 /// overhead. Components building variable-length ResponseParameters (e.g. from

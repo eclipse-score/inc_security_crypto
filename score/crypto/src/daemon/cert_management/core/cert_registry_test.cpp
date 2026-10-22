@@ -49,10 +49,7 @@ TEST(CertRegistryTest, RegistersFindsAndUnregistersEphemeralCertificate)
     EXPECT_FALSE(registry.FindById(id));
 }
 
-// RegisterSlotCert creates independent entries per call — dedup of the
-// underlying CertObject bytes is handled by CertSlotManager::CertObjectCache,
-// not by the registry. Two clients loading the same slot each get their own
-// CertEntry so that per-client state (e.g. session CRL) cannot bleed.
+// Entries are per-client (session CRL state lives on CertEntry); CertObject sharing is handled by CertSlotManager.
 TEST(CertRegistryTest, RegisterSlotCert_TwoCallsProduceTwoIndependentEntries)
 {
     CertRegistry registry;

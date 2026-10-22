@@ -17,9 +17,12 @@
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_validator.hpp"
 
 #include <sstream>
+#include <utility>
 
 namespace score::crypto::daemon::common::storage
 {
+
+KvDeploymentWriter::KvDeploymentWriter(FileWriter writer) : m_write_file{std::move(writer)} {}
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> KvDeploymentWriter::Write(
     const std::string& path,
@@ -47,7 +50,7 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
         content = "# empty deployment descriptor\n";
     const auto bytes =
         score::crypto::span<const std::uint8_t>{reinterpret_cast<const std::uint8_t*>(content.data()), content.size()};
-    return WriteFile(path, bytes);
+    return m_write_file(path, bytes);
 }
 
 }  // namespace score::crypto::daemon::common::storage

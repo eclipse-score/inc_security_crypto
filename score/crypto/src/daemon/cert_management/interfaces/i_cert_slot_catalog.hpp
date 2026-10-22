@@ -26,13 +26,6 @@ class CertSlotRegistry;
 /// discarded. This keeps CertSlotRegistry a pure registry with no knowledge
 /// of where slot definitions come from.
 ///
-/// Current implementations:
-///   - ConfigDrivenSlotCatalog — reads slot definitions from parsed CertificateConfig
-///
-/// Future implementations:
-///   - SecureStoreCatalog — reads provisioned slot metadata from a TEE-backed store
-///   - Pkcs11CertSlotCatalog — enumerates PKCS#11 token certificate objects
-///
 /// @note Catalog implementations MUST be idempotent: calling Load() on an
 ///       already-populated registry is safe. Duplicate slot names are rejected
 ///       by the registry boundary rather than overwriting existing slots.

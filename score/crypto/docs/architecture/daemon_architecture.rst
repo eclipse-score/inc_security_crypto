@@ -30,7 +30,8 @@ Crypto Daemon Component Architecture
    :safety: QM
    :security: YES
    :belongs_to: feat__security_crypto
-   :consists_of: comp__crypto_key_management, comp__crypto_cert_management, comp__crypto_data_manager
+   :consists_of: comp__crypto_key_management, comp__crypto_cert_management,
+                 comp__crypto_data_manager, comp__crypto_common_storage
 
 .. comp_arc_sta:: Crypto Daemon Static Architecture
    :id: comp_arc_sta__crypto_daemon__sv
@@ -48,8 +49,9 @@ Crypto Daemon Component Architecture
 
 The daemon owns request handling, resource management, provider dispatch, and
 daemon-side key and certificate lifecycles. This decomposition records the
-currently documented lower-level components; other daemon packages remain
-implementation details in this scoped model.
+key-management, certificate-management, data-manager, and common-storage
+subcomponents; other daemon packages remain implementation details in this
+scoped model.
 
 .. toctree::
    :maxdepth: 1
@@ -57,4 +59,5 @@ implementation details in this scoped model.
 
    ../../src/daemon/cert_management/docs/index
    ../../src/daemon/data_manager/docs/index
+   ../../src/daemon/common/storage/docs/index
    key_management_architecture

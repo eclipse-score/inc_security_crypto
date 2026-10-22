@@ -44,7 +44,10 @@ CertManagementModule::Sptr CertManagementModule::Create(data_manager::IDataManag
     // initialized only for an explicitly configured parser provider.
     auto slot_manager = std::make_shared<CertSlotManager>(slot_registry, std::move(slot_handler_factory));
 
-    trust_catalog.Load(*trust_store_manager, slot_registry, slot_manager);
+    if (!trust_catalog.Load(*trust_store_manager, slot_registry, slot_manager).has_value())
+    {
+        return nullptr;
+    }
     module->m_service = std::make_shared<CertManagementService>(
         std::move(data_manager), slot_registry, trust_store_manager, slot_manager);
     return module;

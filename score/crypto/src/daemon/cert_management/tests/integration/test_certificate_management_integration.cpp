@@ -14,11 +14,11 @@
 #include "score/crypto/src/daemon/cert_management/slot/config_driven_slot_catalog.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/deployment_loader.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
-#include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/config_driven_trust_store_catalog.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
+#include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>
 
@@ -64,7 +64,7 @@ class CertificateManagementIntegrationTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        m_directory = cert::test::TempDirectory("score_cert_management_integration");
+        m_directory = ::tests::utility::TempDirectory("score_cert_management_integration");
         std::filesystem::remove_all(m_directory);
         std::filesystem::create_directories(m_directory);
         m_descriptor_path = m_directory / "device_root.kv";
@@ -162,7 +162,7 @@ TEST_F(CertificateManagementIntegrationTest, LoadsPersistsUpdatesAndInvalidatesT
     ASSERT_TRUE(slot_config.has_value());
 
     auto slot_handler = std::make_shared<cert::FileBackedSlotHandler>(m_parser);
-    const auto initial = slot_handler->LoadCertificate(**slot_config);
+    const auto initial = slot_handler->LoadCertificate(slot_config.value().get());
     ASSERT_TRUE(initial.has_value());
     EXPECT_EQ((*initial)->GetSubject(), "CN=cert-management-test,O=Eclipse");
     EXPECT_TRUE((*initial)->IsCA());
@@ -182,7 +182,7 @@ TEST_F(CertificateManagementIntegrationTest, LoadsPersistsUpdatesAndInvalidatesT
     const auto updated = m_parser->ParseCertificate(
         reinterpret_cast<const std::uint8_t*>(updated_pem.data()), updated_pem.size(), score::crypto::FormatType::kPem);
     ASSERT_TRUE(updated.has_value());
-    ASSERT_TRUE(slot_handler->StoreCertificate(**slot_config, **updated).has_value());
+    ASSERT_TRUE(slot_handler->StoreCertificate(slot_config.value().get(), **updated).has_value());
 
     const auto descriptor = cert::DeploymentLoader::Load(m_descriptor_path.string(), "kv");
     ASSERT_TRUE(descriptor.has_value());
@@ -264,9 +264,9 @@ TEST_F(CertificateManagementIntegrationTest, ClearSlot_DeniedForUnauthorizedUid)
     EXPECT_EQ(result.error(), common::DaemonErrorCode::kAccessDenied);
 }
 
-// ImportCrl succeeds when the caller's UID is in allowed_write_uids, and the
+// StoreCrl succeeds when the caller's UID is in allowed_write_uids, and the
 // stored CRL becomes visible via HasCrl.
-TEST_F(CertificateManagementIntegrationTest, ImportCrl_GrantedForAuthorizedUid_StoresCrl)
+TEST_F(CertificateManagementIntegrationTest, StoreCrl_GrantedForAuthorizedUid_StoresCrl)
 {
     RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_management__persistence");
     RecordProperty("Description",
@@ -276,63 +276,59 @@ TEST_F(CertificateManagementIntegrationTest, ImportCrl_GrantedForAuthorizedUid_S
 
     const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
     ASSERT_TRUE(slot.has_value());
-    ASSERT_FALSE(m_slot_manager->HasCrl(*slot).value());
+    ASSERT_FALSE(m_slot_manager->HasCrl(*slot, MakeClientId(1U, 0U)).value());
 
-    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
-    const auto result =
-        m_slot_manager->ImportCrl(*slot, MakeClientId(1U, 0U), crl_bytes, score::crypto::FormatType::kDer);
+    const cert::CrlData crl{{0xC0U, 0xC1U, 0xC2U}, score::crypto::FormatType::kDer};
+    const auto result = m_slot_manager->StoreCrl(*slot, MakeClientId(1U, 0U), crl);
     ASSERT_TRUE(result.has_value());
-    EXPECT_TRUE(m_slot_manager->HasCrl(*slot).value());
+    EXPECT_TRUE(m_slot_manager->HasCrl(*slot, MakeClientId(1U, 0U)).value());
 }
 
-// ImportCrl is denied when the caller's UID is not in allowed_write_uids; no
+// StoreCrl is denied when the caller's UID is not in allowed_write_uids; no
 // CRL is stored.
-TEST_F(CertificateManagementIntegrationTest, ImportCrl_DeniedForUnauthorizedUid)
+TEST_F(CertificateManagementIntegrationTest, StoreCrl_DeniedForUnauthorizedUid)
 {
     const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
     ASSERT_TRUE(slot.has_value());
 
-    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
-    const auto result =
-        m_slot_manager->ImportCrl(*slot, MakeClientId(2U, 99U), crl_bytes, score::crypto::FormatType::kDer);
+    const cert::CrlData crl{{0xC0U, 0xC1U, 0xC2U}, score::crypto::FormatType::kDer};
+    const auto result = m_slot_manager->StoreCrl(*slot, MakeClientId(2U, 99U), crl);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), common::DaemonErrorCode::kAccessDenied);
-    EXPECT_FALSE(m_slot_manager->HasCrl(*slot).value());
+    EXPECT_FALSE(m_slot_manager->HasCrl(*slot, MakeClientId(1U, 0U)).value());
 }
 
-// DeleteCrl is denied when the caller's UID is not in allowed_write_uids; a
+// ClearCrl is denied when the caller's UID is not in allowed_write_uids; a
 // previously-stored CRL survives the denied attempt.
-TEST_F(CertificateManagementIntegrationTest, DeleteCrl_DeniedForUnauthorizedUid)
+TEST_F(CertificateManagementIntegrationTest, ClearCrl_DeniedForUnauthorizedUid)
 {
     const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
     ASSERT_TRUE(slot.has_value());
-    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
-    ASSERT_TRUE(
-        m_slot_manager->ImportCrl(*slot, MakeClientId(1U, 0U), crl_bytes, score::crypto::FormatType::kDer).has_value());
+    const cert::CrlData crl{{0xC0U, 0xC1U, 0xC2U}, score::crypto::FormatType::kDer};
+    ASSERT_TRUE(m_slot_manager->StoreCrl(*slot, MakeClientId(1U, 0U), crl).has_value());
 
-    const auto result = m_slot_manager->DeleteCrl(*slot, MakeClientId(2U, 99U));
+    const auto result = m_slot_manager->ClearCrl(*slot, MakeClientId(2U, 99U));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), common::DaemonErrorCode::kAccessDenied);
-    EXPECT_TRUE(m_slot_manager->HasCrl(*slot).value());
+    EXPECT_TRUE(m_slot_manager->HasCrl(*slot, MakeClientId(1U, 0U)).value());
 }
 
-// DeleteCrl succeeds when the caller's UID is in allowed_write_uids.
-TEST_F(CertificateManagementIntegrationTest, DeleteCrl_GrantedForAuthorizedUid_RemovesCrl)
+// ClearCrl succeeds when the caller's UID is in allowed_write_uids.
+TEST_F(CertificateManagementIntegrationTest, ClearCrl_GrantedForAuthorizedUid_RemovesCrl)
 {
     const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
     ASSERT_TRUE(slot.has_value());
-    const std::vector<std::uint8_t> crl_bytes{0xC0U, 0xC1U, 0xC2U};
-    ASSERT_TRUE(
-        m_slot_manager->ImportCrl(*slot, MakeClientId(1U, 0U), crl_bytes, score::crypto::FormatType::kDer).has_value());
+    const cert::CrlData crl{{0xC0U, 0xC1U, 0xC2U}, score::crypto::FormatType::kDer};
+    ASSERT_TRUE(m_slot_manager->StoreCrl(*slot, MakeClientId(1U, 0U), crl).has_value());
 
-    const auto result = m_slot_manager->DeleteCrl(*slot, MakeClientId(1U, 0U));
+    const auto result = m_slot_manager->ClearCrl(*slot, MakeClientId(1U, 0U));
     ASSERT_TRUE(result.has_value());
-    EXPECT_FALSE(m_slot_manager->HasCrl(*slot).value());
+    EXPECT_FALSE(m_slot_manager->HasCrl(*slot, MakeClientId(1U, 0U)).value());
 }
 
-// StoreCertificate invalidates the CertObjectCache: a certificate loaded
+// StoreCertificate invalidates the certificate cache: a certificate loaded
 // before a write must not be returned again after the slot content changes.
-TEST_F(CertificateManagementIntegrationTest, StoreCertificate_InvalidatesCertObjectCache)
+TEST_F(CertificateManagementIntegrationTest, StoreCertificate_InvalidatesCertificateCache)
 {
     const auto slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
     ASSERT_TRUE(slot.has_value());

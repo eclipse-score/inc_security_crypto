@@ -14,13 +14,17 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_INTERFACES_CERT_TYPES_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_INTERFACES_CERT_TYPES_HPP
 
+#include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 
+#include <array>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -117,8 +121,8 @@ struct CertChainMetadata
     /// DER-encoded Authority Key Identifier extension value; empty if absent.
     std::vector<uint8_t> akid;
 
-    /// SHA-256 digest of the certificate's DER encoding (32 bytes).
-    std::vector<uint8_t> fingerprint;
+    /// SHA-256 digest of the certificate's DER encoding.
+    std::array<uint8_t, score::crypto::kSha256FingerprintSize> fingerprint{};
 
     /// Unix epoch seconds of the notBefore validity field.
     int64_t not_before_epoch_s{0};
@@ -130,14 +134,18 @@ struct CertChainMetadata
     bool is_ca{false};
 };
 
-/// Raw CRL bytes together with their encoding format.
+/// @brief Encoded CRL data and associated metadata.
 ///
-/// Used as the cache unit in TrustStoreHandler and as the return element of
-/// ICertSlotHandler::LoadCrl paired with ICertSlotHandler::GetCrlFormat().
-struct CrlEntry
+/// Bytes, encoding, and metadata describe the same CRL. Metadata may be absent
+/// when it is unavailable for the CRL.
+struct CrlData
 {
-    std::vector<uint8_t> bytes;
-    score::crypto::FormatType format{score::crypto::FormatType::kDer};
+    /// Immutable CRL snapshot shared between caches and readers. A null pointer means no CRL.
+    using Sptrc = std::shared_ptr<const CrlData>;
+
+    std::vector<uint8_t> bytes;                                         ///< Encoded CRL bytes.
+    score::crypto::FormatType format{score::crypto::FormatType::kDer};  ///< Encoding of @c bytes.
+    std::optional<score::crypto::CrlMetadata> metadata;                 ///< Associated metadata, when available.
 };
 
 // ---------------------------------------------------------------------------

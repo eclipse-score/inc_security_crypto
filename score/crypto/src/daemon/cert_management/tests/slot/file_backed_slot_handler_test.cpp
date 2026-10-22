@@ -12,9 +12,9 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
-#include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
+#include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>
 
@@ -35,7 +35,7 @@ class FileBackedSlotHandlerRealParserTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        m_dir = cert::test::TempDirectory("score_cert_slot_real");
+        m_dir = ::tests::utility::TempDirectory("score_cert_slot_real");
         m_descriptor = m_dir / "slot.kv";
         m_cert_file = m_dir / "cert.pem";
         std::filesystem::remove_all(m_dir);
@@ -88,11 +88,17 @@ TEST_F(FileBackedSlotHandlerRealParserTest, LoadCertificate_MetadataMatchesTestV
     EXPECT_EQ(cert.GetIssuer(), "CN=cert-management-test,O=Eclipse");
     EXPECT_TRUE(cert.IsCA());
     EXPECT_EQ(cert.GetSkid().size(), 20U);
-    EXPECT_EQ(cert.GetFingerprint().size(), 32U);
+    EXPECT_EQ(cert.GetFingerprint().size(), score::crypto::kSha256FingerprintSize);
 }
 
 TEST_F(FileBackedSlotHandlerRealParserTest, StoreThenLoad_SubjectAndIsCAMatch)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_management__parse");
+    RecordProperty("Description",
+                   "Stores a parsed CertObject, reloads it through a fresh handler, and verifies its metadata.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     const auto initial = m_handler->LoadCertificate(m_slot);
     ASSERT_TRUE(initial.has_value());
     ASSERT_TRUE(m_handler->StoreCertificate(m_slot, **initial).has_value());
@@ -116,7 +122,7 @@ class FileBackedSlotHandlerAlgorithmVarietyTest : public ::testing::TestWithPara
   protected:
     void SetUp() override
     {
-        m_dir = cert::test::TempDirectory("score_cert_alg_variety");
+        m_dir = ::tests::utility::TempDirectory("score_cert_alg_variety");
         std::filesystem::remove_all(m_dir);
         std::filesystem::create_directories(m_dir);
 
@@ -153,6 +159,12 @@ class FileBackedSlotHandlerAlgorithmVarietyTest : public ::testing::TestWithPara
 
 TEST_P(FileBackedSlotHandlerAlgorithmVarietyTest, LoadCertificate_MetadataIsCorrect)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_management__parse");
+    RecordProperty("Description",
+                   "Loads each algorithm test vector through ICertParser and verifies the CertObject metadata.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "equivalence-classes");
+
     const auto& param = GetParam();
     const auto result = m_handler->LoadCertificate(m_slot);
     ASSERT_TRUE(result.has_value()) << "LoadCertificate failed for: " << param.pem_path;
@@ -162,7 +174,8 @@ TEST_P(FileBackedSlotHandlerAlgorithmVarietyTest, LoadCertificate_MetadataIsCorr
     EXPECT_EQ(cert.GetSubject(), param.expected_subject);
     EXPECT_TRUE(cert.IsCA());
     EXPECT_EQ(cert.GetSkid().size(), 20U) << "Unexpected SKID size for: " << param.pem_path;
-    EXPECT_EQ(cert.GetFingerprint().size(), 32U) << "Unexpected fingerprint size for: " << param.pem_path;
+    EXPECT_EQ(cert.GetFingerprint().size(), score::crypto::kSha256FingerprintSize)
+        << "Unexpected fingerprint size for: " << param.pem_path;
 }
 
 // clang-format off

@@ -31,6 +31,7 @@ CertSlotHandle CertSlotRegistry::RegisterSlot(CertSlotConfig config)
         return CertSlotHandle{};
     }
 
+    // Entries are append-only, so the current size is the next stable slot index.
     const auto index = static_cast<uint32_t>(m_registry.size());
 
     CertSlotRegistryEntry entry{};
@@ -67,14 +68,14 @@ CertSlotRegistry::ResolveSlotInternal(const std::string& slot_name) const
     return CertSlotHandle{it->second};
 }
 
-score::crypto::Expected<const CertSlotConfig*, score::crypto::daemon::common::DaemonErrorCode>
+score::crypto::Expected<std::reference_wrapper<const CertSlotConfig>, score::crypto::daemon::common::DaemonErrorCode>
 CertSlotRegistry::GetConfig(CertSlotHandle handle) const
 {
     // See ResolveSlot: m_registry is read-only after startup. IsValidHandle reads
     // m_registry.size() without a lock — consistent with GetSlotCount() and IsValidHandle().
     if (!IsValidHandle(handle))
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
-    return &m_registry[handle.index].config;
+    return std::cref(m_registry[handle.index].config);
 }
 
 std::size_t CertSlotRegistry::GetSlotCount() const noexcept
@@ -119,23 +120,15 @@ CertSlotRegistry::ResolveAppResource(const std::string& app_resource_id, data_ma
 {
     const uint32_t uid = control_plane::protocol::GetUidFromClientId(client_id);
 
-    std::string slot_name;
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        auto uid_it = m_app_resource_map.find(uid);
-        if (uid_it == m_app_resource_map.end())
-        {
-            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
-        }
-        auto res_it = uid_it->second.find(app_resource_id);
-        if (res_it == uid_it->second.end())
-        {
-            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
-        }
-        slot_name = res_it->second;
-    }
+    const auto uid_it = m_app_resource_map.find(uid);
+    if (uid_it == m_app_resource_map.end())
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
 
-    return ResolveSlot(slot_name, client_id);
+    const auto resource_it = uid_it->second.find(app_resource_id);
+    if (resource_it == uid_it->second.end())
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
+
+    return ResolveSlot(resource_it->second, client_id);
 }
 
 }  // namespace score::crypto::daemon::cert_management

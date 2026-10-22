@@ -92,10 +92,9 @@ bool Asn1TimeToEpoch(const ASN1_TIME* value, std::int64_t& result)
     std::tm calendar{};
     if (ASN1_TIME_to_tm(value, &calendar) != 1)
         return false;
-    const std::time_t epoch = timegm(&calendar);
-    if (epoch == static_cast<std::time_t>(-1))
-        return false;
-    result = static_cast<std::int64_t>(epoch);
+    // ASN1_TIME_to_tm has validated the fields, so the timegm result is taken as is. timegm reports
+    // failure as -1, which is also the valid time 1969-12-31T23:59:59Z, so that value is not checked here.
+    result = static_cast<std::int64_t>(timegm(&calendar));
     return true;
 }
 

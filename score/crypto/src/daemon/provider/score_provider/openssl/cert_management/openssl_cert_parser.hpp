@@ -53,9 +53,7 @@ class OpenSslCertParser final : public cert_management::ICertParser
         score::crypto::FormatType format) override;
 
     [[nodiscard]] score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> ValidateCrl(
-        const std::uint8_t* crl_data,
-        std::size_t crl_size,
-        score::crypto::FormatType crl_format,
+        const ::score::crypto::daemon::cert_management::CrlData& crl,
         const std::uint8_t* issuer_cert_data,
         std::size_t issuer_cert_size,
         score::crypto::FormatType issuer_cert_format) override;

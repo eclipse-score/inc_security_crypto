@@ -57,8 +57,23 @@ cc_test(
         ":cert_management_headers",
         ":cert_management_daemon_headers",
         ":cert_management_internal_headers",
-        "//score/crypto/src/daemon/cert_management/tests:test_environment",
+        "//score/crypto/src/daemon/common/storage:file_io",
+        "//score/tests/utility:utility",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "crl_handler_test",
+    srcs = ["slot/crl_handler_test.cpp"],
+    deps = [
+        ":cert_management",
+        ":cert_management_headers",
+        ":cert_management_daemon_headers",
+        ":cert_management_internal_headers",
+        "//score/crypto/src/daemon/common/storage:kv_deployment",
+        "//score/tests/utility:utility",
         "@googletest//:gtest_main",
     ],
 )
@@ -169,6 +184,7 @@ cc_library(
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common/storage:deployment_iface",
+        "//score/crypto/src/daemon/common/storage:file_io",
     ],
 )
 
@@ -192,6 +208,7 @@ cc_library(
         ":cert_management_slot_backend_headers",
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/config:config_types",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",

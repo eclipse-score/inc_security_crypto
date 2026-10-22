@@ -32,20 +32,32 @@ class AccessPolicyEnforcer
 {
   public:
     /// @brief Certificate reads are unrestricted after resource resolution.
+    /// @param slot Resolved certificate slot configuration.
+    /// @param client_id Composite PID|UID of the requesting connection.
+    /// @return Always success.
     static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> CheckSlotAccess(
         const CertSlotConfig& slot,
         data_manager::ClientId client_id);
 
     /// @brief Check if client UID is in the slot's allowed_write_uids list.
+    /// @param slot Resolved certificate slot configuration.
+    /// @param client_id Composite PID|UID of the requesting connection.
+    /// @return Success if the UID is listed; kAccessDenied otherwise.
     static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> CheckWritePermission(
         const CertSlotConfig& slot,
         data_manager::ClientId client_id);
 
     /// @brief Trust-store reads are unrestricted after resource resolution.
+    /// @param store Resolved trust store configuration.
+    /// @param client_id Composite PID|UID of the requesting connection.
+    /// @return Always success.
     static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     CheckTrustStoreAccess(const TrustStoreConfig& store, data_manager::ClientId client_id);
 
     /// @brief Check if client UID is in the trust store's allowed_write_uids list.
+    /// @param store Resolved trust store configuration.
+    /// @param client_id Composite PID|UID of the requesting connection.
+    /// @return Success if the UID is listed; kAccessDenied otherwise.
     static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     CheckTrustStoreWritePermission(const TrustStoreConfig& store, data_manager::ClientId client_id);
 };

@@ -78,6 +78,25 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "openssl_cert_parser_test",
+    srcs = ["cert_management/openssl_cert_parser_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/certificate:certificate_test_vectors",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":openssl_cert_management_headers",
+        ":openssl_cert_parser_library",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//third_party/openssl:openssl_shared",
+        "@googletest//:gtest_main",
+    ],
+)
+
 # Header-only library for OpenSSL algorithm detail headers.
 cc_library(
     name = "openssl_detail_headers",

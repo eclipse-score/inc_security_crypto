@@ -32,30 +32,29 @@ namespace score::crypto::daemon::cert_management
 class CertSlotDataNode : public data_manager::DataNode
 {
   public:
+    /// @param slot_handle Handle of the resolved persistent slot.
+    /// @param slot_registry Registry used to look up the slot configuration; must not be null.
     CertSlotDataNode(CertSlotHandle slot_handle, CertSlotRegistry::Sptr slot_registry)
         : DataNode(false), m_slot_handle{slot_handle}, m_slot_registry{std::move(slot_registry)}
     {
     }
 
+    /// @brief Releases the node's reference to the slot registry.
     ~CertSlotDataNode() override = default;
 
+    /// @brief Returns the data manager node type for certificate slot data.
     [[nodiscard]] data_manager::DataNodeType GetNodeType() const noexcept override
     {
         return data_manager::DataNodeType::kCertSlot;
     }
 
+    /// @brief Handle of the slot this node refers to.
     [[nodiscard]] CertSlotHandle GetSlotHandle() const noexcept
     {
         return m_slot_handle;
     }
 
-    /// @brief Access config from central registry.
-    [[nodiscard]] score::crypto::Expected<const CertSlotConfig*, score::crypto::daemon::common::DaemonErrorCode>
-    GetConfig() const
-    {
-        return m_slot_registry->GetConfig(m_slot_handle);
-    }
-
+    /// @brief Slot registry shared with this node.
     [[nodiscard]] CertSlotRegistry::Sptr GetSlotRegistry() const
     {
         return m_slot_registry;

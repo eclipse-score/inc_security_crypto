@@ -68,20 +68,20 @@ This drives several design decisions:
   without hardware.
 
 * **CertObject as a shared immutable value** — parsed certificates are
-  immutable ``shared_ptr``-managed values. Two separate weak-ptr caches avoid
-  redundant disk reads and parses. ``CertSlotManager`` caches the
-  most-recently-loaded ``CertObject`` per slot so that multiple clients
-  opening the same slot in quick succession share the bytes without repeated
-  I/O. ``TrustStoreManager`` maintains a separate anchor cache for active
-  trust stores. Critically, each client receives its own independent
+  immutable ``shared_ptr``-managed values. ``CertSlotManager`` caches the
+  loaded ``CertObject`` per slot with a weak reference so that multiple clients
+  opening the same slot share the bytes without repeated I/O, and shares each
+  slot's CRL as an immutable ``CrlData`` snapshot in the same way. Trust-store
+  handlers hold the same shared objects for their enabled members instead of
+  copying them. Critically, each client receives its own independent
   ``CertEntry`` wrapping the shared ``CertObject``, so per-client state such
   as a session-scoped CRL cannot bleed across clients that have loaded the
   same slot.
 
 * **Trust store membership by typed slot reference** — anchors are
   certificate slots, not raw file paths. This allows the daemon to track
-  content changes (``NotifySlotCertChanged``) and invalidate cached
-  anchors atomically without polling.
+  content changes made through the service and refresh the affected cached
+  anchors and CRLs without polling.
 
 * **CRL co-located with the CA cert slot** — an optional ``[crl]``
   section in the slot's KV deployment descriptor holds the CRL path and
@@ -147,7 +147,7 @@ Supported Capabilities and Dependency Expectations
   expected to obtain the signature through a cross-context signing
   capability from key management rather than exporting the private key;
   certificate management never holds or exports private key material.
-* Certificate, verification, and CSR operations reach provider context
-  handlers through the daemon mediator. This component owns certificate,
-  CRL, slot, and trust-store lifecycle; request routing to context handlers
-  is a dependency it relies on, not a responsibility it implements.
+* Certificate, verification, and CSR operations reach
+  provider context handlers through the daemon mediator. This component owns
+  certificate, CRL, slot, and trust-store lifecycle; request routing to context
+  handlers is a dependency it relies on, not a responsibility it implements.
