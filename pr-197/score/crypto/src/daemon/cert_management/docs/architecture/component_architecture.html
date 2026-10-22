@@ -512,9 +512,11 @@
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../data_manager/docs/index.html">Data Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../common/storage/docs/index.html">Common Storage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../../docs/architecture/key_management_architecture.html">Key Management Architecture</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../ipc/message_passing_adapter/docs/index.html">IPC Message Passing Adapter</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../../../../docs/detailed_design/index.html">Detailed Design</a></li>
@@ -595,7 +597,7 @@
                   
   <section id="certificate-management-architecture">
 <h1>Certificate Management Architecture<a class="headerlink" href="#certificate-management-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-74d961bb">
+<div class="need_container docutils container" id="SNCB-716b8ed0">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_architecture">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -639,7 +641,7 @@
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-35d120b5">
+<div class="need_container docutils container" id="SNCB-dd5052a6">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto_cert_management">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -662,7 +664,7 @@
 </span></span></div>
 <div class="line"><span><div class="line">forms part of: <span class="consists_of"><span><a class="reference internal" href="../../../../../docs/architecture/daemon_architecture.html#comp__crypto_daemon" title="comp__crypto_cert_management">comp__crypto_daemon</a></span></span></div>
 <div class="line">belongs to: <span class="belongs_to"><span><a class="external_link reference external" href="https://eclipse-score.github.io/score/main/features/security_crypto/architecture/index.html#feat__security_crypto">feat__security_crypto</a></span></span></div>
-<div class="line">satisfies: <span class="satisfied_by"><span><a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_management__parse" title="comp__crypto_cert_management">comp_req__crypto_cert_management__parse</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_management__persistence" title="comp__crypto_cert_management">comp_req__crypto_cert_management__persistence</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_management__slots" title="comp__crypto_cert_management">comp_req__crypto_cert_management__slots</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_mgmt__access_control" title="comp__crypto_cert_management">comp_req__crypto_cert_mgmt__access_control</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_mgmt__parser_authority" title="comp__crypto_cert_management">comp_req__crypto_cert_mgmt__parser_authority</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_mgmt__trust_stores" title="comp__crypto_cert_management">comp_req__crypto_cert_mgmt__trust_stores</a></span></span></div>
+<div class="line">satisfies: <span class="satisfied_by"><span><a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_management__parse" title="comp__crypto_cert_management">comp_req__crypto_cert_management__parse</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_management__persistence" title="comp__crypto_cert_management">comp_req__crypto_cert_management__persistence</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_management__slots" title="comp__crypto_cert_management">comp_req__crypto_cert_management__slots</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_mgmt__access_control" title="comp__crypto_cert_management">comp_req__crypto_cert_mgmt__access_control</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_mgmt__parser_authority" title="comp__crypto_cert_management">comp_req__crypto_cert_mgmt__parser_authority</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_mgmt__trust_stores" title="comp__crypto_cert_management">comp_req__crypto_cert_mgmt__trust_stores</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__crypto_cert_mgmt__tstr_cnsstncy" title="comp__crypto_cert_management">comp_req__crypto_cert_mgmt__tstr_cnsstncy</a></span></span></div>
 </span></div>
 </div>
 </td>
@@ -690,6 +692,28 @@
 <code class="docutils literal notranslate"><span class="pre">key_management</span></code>. It owns certificate and trust-store resource lifecycle;
 it does not own private keys or provider-specific cryptographic objects.</p>
 </section>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>The component serves three families of callers, each reaching it through the
+service or the managers it coordinates:</p>
+<ul class="simple">
+<li><p><strong>Certificate-slot lifecycle</strong> — parse, load, save, export, release, and
+slot-scoped CRL operations, through <code class="docutils literal notranslate"><span class="pre">CertManagementService</span></code>.</p></li>
+<li><p><strong>Trust-store membership</strong> — add, remove, enable, disable, acknowledge, and
+member CRL operations, through <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> after the trust-store
+write policy is checked.</p></li>
+<li><p><strong>Verification</strong> — binding a leaf, chain, and trust store, and reading the
+store’s anchors and CRLs for path validation, which a provider performs.</p></li>
+</ul>
+<p>Typed-object responses (certificate, slot, trust-store member) are encoded by
+<code class="docutils literal notranslate"><span class="pre">CertObjectResponseBuilder</span></code>. Parsing and path
+validation stay behind the provider boundary; the component supplies the
+provider-neutral certificate and trust material they consume. How requests reach
+these entry points is owned by the daemon control plane and is outside this
+component.</p>
+<p class="plantuml">
+<object data="../../../../../../../_images/plantuml-781a2068bb9e4cbf8c1ff19a082af0cf158fae95.svg" type="image/svg+xml" style="width:1962px;height:1177px;background:#FFFFFF;"></object></p>
+</section>
 <section id="static-decomposition">
 <h2>Static decomposition<a class="headerlink" href="#static-decomposition" title="Link to this heading">#</a></h2>
 <p>The implementation is divided by responsibility:</p>
@@ -708,9 +732,9 @@ and per-client references.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">policy/</span></code> contains the shared slot/trust-store access-policy checks.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">query/</span></code> contains <code class="docutils literal notranslate"><span class="pre">CertObjectResponseBuilder</span></code> — free functions that
 encode certificate, slot, and trust-store objects into the IPC response
-wire format. This component exposes it as the single intended encoding path
-so that an executor and any mediator typed-object handlers built on top of
-it share one wire-layout definition instead of duplicating it. Every builder
+wire format. It is the intended single encoding path, so that the
+certificate-management executor and the typed-object query
+handlers share one wire-layout definition. Every builder
 checks its output against <code class="docutils literal notranslate"><span class="pre">common::kMaxResponsePayloadBytes</span></code> and returns
 <code class="docutils literal notranslate"><span class="pre">kResponseTooLarge</span></code> rather than an oversized payload. Trust-store member
 identities and per-member detail are resolved through separate functions
@@ -722,14 +746,6 @@ cross-domain resource/provider types, <code class="docutils literal notranslate"
 CRL, OCSP, and verification types, and <code class="docutils literal notranslate"><span class="pre">key.hpp</span></code> contains key slot and
 permission types. <code class="docutils literal notranslate"><span class="pre">api/common</span></code> contains shared utilities and guards, not
 domain-specific type contracts.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">provider/</span></code> supplies parsing and provider-specific context handlers. The
-selected certificate-management provider must expose <code class="docutils literal notranslate"><span class="pre">ICertParser</span></code>;
-certificate management does not require a particular provider. The
-component defines two scoped context types for provider handlers built on
-top of it: <code class="docutils literal notranslate"><span class="pre">CERT:MANAGEMENT</span></code> for certificate-slot lifecycle operations
-and <code class="docutils literal notranslate"><span class="pre">CERT:TRUST_STORE</span></code> for trust-store membership curation. Handlers
-registered under either type are expected to share the same
-<code class="docutils literal notranslate"><span class="pre">CertManagementService</span></code> and certificate-management capability.</p></li>
 </ul>
 </section>
 <section id="public-certificate-loading">
@@ -741,7 +757,42 @@ an explicit load and returns a guarded ephemeral <code class="docutils literal n
 Applications can retain that guard and reuse the loaded certificate across
 multiple contexts; destroying the guard releases the client-owned data node.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-4cf1d51543aa6cd0a55676b94bd5bf226f269260.svg" type="image/svg+xml" style="width:3072px;height:1295px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-10bb4d9cf287b0f120e5d644f6bb6c535dc22982.svg" type="image/svg+xml" style="width:1750px;height:1447px;background:#FFFFFF;"></object></p>
+</section>
+<section id="stored-objects-and-ownership">
+<h2>Stored objects and ownership<a class="headerlink" href="#stored-objects-and-ownership" title="Link to this heading">#</a></h2>
+<p>The diagram below shows the objects the component keeps, who owns each, and how
+long it lives.</p>
+<p class="plantuml">
+<object data="../../../../../../../_images/plantuml-7c7832194b4b3fff913bb57505454a6951ccdbb3.svg" type="image/svg+xml" style="width:2449px;height:1165px;background:#FFFFFF;"></object></p>
+<p>Ownership rules:</p>
+<ul class="simple">
+<li><p><strong>Configuration</strong> (slot, trust-store, and member definitions and access
+policies) is fixed after startup. Registries hand out stable references to it.</p></li>
+<li><p><strong>CertObject and CrlData</strong> are immutable values shared by
+<code class="docutils literal notranslate"><span class="pre">shared_ptr</span></code>. A change to stored content produces a new value; a holder keeps
+the value it was given. A slot’s CRL presence and metadata can be read
+without loading the CRL bytes.</p></li>
+<li><p><strong>CertSlotManager</strong> is the single cache owner for slot content. Its
+certificate cache holds weak references and its CRL cache holds, per slot, the
+CRL presence and metadata plus a weak reference to the <code class="docutils literal notranslate"><span class="pre">CrlData</span></code>. Each slot keeps a
+generation for its certificate and one for its CRL; a load that overlaps an
+invalidation of its own part is not cached.</p></li>
+<li><p><strong>TrustStoreHandler</strong> is one object per configured store, shared by all
+clients. It holds the store’s anchors and CRLs strongly; these are the same
+snapshots the slot manager hands out, filtered by member enablement and, for
+conditional members, by the accepted fingerprint. Member state is persisted in
+the store’s descriptor when the store has a deployment path; without one it is
+held in memory only.</p></li>
+<li><p><strong>Per-client objects</strong> are <code class="docutils literal notranslate"><span class="pre">CertSlotDataNode</span></code>, <code class="docutils literal notranslate"><span class="pre">TrustStoreDataNode</span></code> (both
+hold only a handle), and <code class="docutils literal notranslate"><span class="pre">CertDataNode</span></code> with its <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code>. A
+<code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> is created for each load, wraps the shared <code class="docutils literal notranslate"><span class="pre">CertObject</span></code>, and
+carries the client’s session CRL. Releasing the node releases the entry.</p></li>
+<li><p><strong>Persisted state</strong> is the slot descriptor (certificate and CRL locations,
+certificate and CRL metadata), the certificate and CRL files, and the
+trust-store descriptor (member enabled flag and accepted fingerprint). A session
+CRL is never persisted.</p></li>
+</ul>
 </section>
 <section id="runtime-boundaries">
 <h2>Runtime boundaries<a class="headerlink" href="#runtime-boundaries" title="Link to this heading">#</a></h2>
@@ -754,16 +805,21 @@ associated via session-scoped <code class="docutils literal notranslate"><span c
 <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> holds a weak-ptr cache of <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> instances keyed
 by slot: when the cache entry is live, multiple clients share the same parsed
 bytes without redundant I/O; when it expires, the next load re-reads the slot.
-Trust-store anchor content is loaded lazily and cached separately by
-<code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code>.</p>
-<p>The current provider boundary is intentionally narrow:</p>
+<code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> separately caches each slot’s CRL: an immutable <code class="docutils literal notranslate"><span class="pre">CrlData</span></code>
+snapshot (bytes, encoding, metadata) shared by every reader, together with the
+slot’s CRL presence and metadata. The cache is invalidated on any write that
+changes CRL state, so presence and metadata queries do not read the CRL file.
+Trust-store anchor content is cached by the trust-store handlers only while a client holds the
+store, and the handlers share the slot-level certificate and CRL values rather than copying them.</p>
+<p>The provider boundary consists of:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">ICertParser</span></code> converts DER/PEM bytes into <code class="docutils literal notranslate"><span class="pre">CertObject</span></code>.</p></li>
+<li><p>The selected certificate-management provider must expose <code class="docutils literal notranslate"><span class="pre">ICertParser</span></code>
+to convert DER/PEM bytes into a provider-neutral <code class="docutils literal notranslate"><span class="pre">CertObject</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code> loads and stores slot data.</p></li>
 <li><p>Provider context handlers perform verification, CSR generation, conversion,
 and public-key operations.</p></li>
-<li><p>Cross-context services may provide signing and public-key operations for
-non-exportable keys while preserving provider ownership of private keys.</p></li>
+<li><p>Cross-context services are expected to provide signing and public-key operations
+for non-exportable keys, with provider ownership of private keys preserved.</p></li>
 </ul>
 </section>
 <section id="architecture-constraints">
@@ -793,9 +849,14 @@ provider-backed slots) is injected into <code class="docutils literal notranslat
 creation and per-slot caching, so the core component does not depend on a
 concrete provider backend. <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> resolves slot handlers through
 <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> rather than holding a factory of its own.</p>
-<p><code class="docutils literal notranslate"><span class="pre">ITrustStoreHandler</span></code> exposes anchor retrieval and chain-building lookups.
-<code class="docutils literal notranslate"><span class="pre">TrustStoreHandler</span></code> receives an anchor-loader callback from
-<code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> and loads its anchor content on demand.</p>
+<p><code class="docutils literal notranslate"><span class="pre">ITrustStoreHandler</span></code> exposes anchor retrieval, CRL retrieval, and
+chain-building lookups. <code class="docutils literal notranslate"><span class="pre">TrustStoreHandler</span></code> implements it and owns one trust
+store’s member state, anchor and CRL cache, member mutations, and persisted
+state; its cache is built when a client binds the store and dropped when the
+last client releases it. <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> is the
+registry in front of the handlers: it owns the name index, the slot-to-store
+reverse index, and the per-client reference counts, and it checks the
+trust-store write policy before forwarding an operation to a handler.</p>
 <p><code class="docutils literal notranslate"><span class="pre">TrustStoreManager::GetMemberSlotHandles</span></code> lists a trust store’s occupied
 member identities without resolving certificate content, and
 <code class="docutils literal notranslate"><span class="pre">GetMemberSnapshot</span></code> resolves one member’s detail on demand. Querying member
@@ -811,20 +872,50 @@ not responsibilities of the core storage component.</p>
 <p>During startup, the configuration adapter registers certificate slots and
 trust stores. A client resolves an application resource into a DataManager
 node. Loading a certificate goes through <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code>, which checks
-its weak-ptr <code class="docutils literal notranslate"><span class="pre">CertObjectCache</span></code> first: on a hit the parsed bytes are returned
+its weak-ptr certificate cache first: on a hit the parsed bytes are returned
 without disk I/O; on a miss the slot handler reads and parses the certificate
 and the result is stored in the cache. A fresh <code class="docutils literal notranslate"><span class="pre">CertEntry</span></code> is created for
 each caller and registered in <code class="docutils literal notranslate"><span class="pre">CertRegistry</span></code>; no entry is shared across
-clients.</p>
-<p>Trust-store anchors are loaded lazily. <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code> resolves each
-typed member slot and caches the resulting <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> through a weak
-reference. The trust-store handler holds strong references while active.</p>
-<p>After a certificate update, <code class="docutils literal notranslate"><span class="pre">CertManagementService</span></code> finds every trust store
-that references the slot and calls <code class="docutils literal notranslate"><span class="pre">NotifySlotCertChanged</span></code>, which forwards
-to <code class="docutils literal notranslate"><span class="pre">TrustStoreManager::NotifySlotChanged</span></code>. The affected cache
-entry is invalidated, and the next anchor request reloads and reparses the
-certificate. Per-client references prevent one client’s cleanup from evicting
-another client’s active cache.</p>
+clients. CRL presence and metadata queries (<code class="docutils literal notranslate"><span class="pre">HasCrl</span></code>, <code class="docutils literal notranslate"><span class="pre">GetCrlMetadata</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GetCrlNextUpdate</span></code>) go through the same kind of cache, keyed by slot: a miss
+asks the slot handler for presence and metadata, which it answers from the
+descriptor without reading the CRL file. Each query takes the requesting client’s
+id and checks it against the slot’s access policy. Loading the CRL itself goes
+through <code class="docutils literal notranslate"><span class="pre">ICertSlotHandler::LoadCrlData</span></code>, which returns bytes, encoding, and
+metadata as one value; <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> shares that value as an immutable
+snapshot among all readers.</p>
+<p>A trust store’s cache has an explicit lifecycle. When a client binds the store
+(<code class="docutils literal notranslate"><span class="pre">TrustStoreManager::AddRef</span></code>), the handler resolves each enabled typed member
+slot and loads its <code class="docutils literal notranslate"><span class="pre">CertObject</span></code> and CRL through <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code>’s weak-ptr
+cache, which every reader of the slot shares, and holds strong references to them
+while any client holds the store. If an existing member certificate or CRL cannot
+be read, the bind fails with that error and keeps no reference; an empty member
+slot and a missing CRL are not failures. When the last client releases the store
+(<code class="docutils literal notranslate"><span class="pre">ReleaseRef</span></code>, or <code class="docutils literal notranslate"><span class="pre">CleanupClient</span></code>), the cache is cleared. A read on a store
+that no client holds resolves the members the same way and returns the result
+without caching it. Member mutations and slot notifications update the cache only
+while it is warm; otherwise they change persisted member state only. A write made
+through a slot’s backend handler by the trust store (exclusive members) evicts
+the slot’s cached state in <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code>, as a write through
+<code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> does.</p>
+<p>Certificate-slot and CRL mutations are reachable only through
+<code class="docutils literal notranslate"><span class="pre">CertManagementService::StoreCertificate</span></code>, <code class="docutils literal notranslate"><span class="pre">ClearSlot</span></code>, <code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">ClearCrl</span></code>;``CertSlotManager`` performs the underlying write but has no
+trust-store awareness. After each write that reaches the slot’s backend, successful
+or failed, the service finds every trust store that references the slot and calls
+<code class="docutils literal notranslate"><span class="pre">TrustStoreManager::NotifySlotChanged</span></code> (certificate updates) or
+<code class="docutils literal notranslate"><span class="pre">NotifySlotCrlChanged</span></code> (CRL updates) for each. A failed backend write can still
+have changed the stored content, so the notification is not gated on success.
+Writes refused before the backend (access check, unknown slot, no handler) do not
+notify; the slot manager reports whether the backend was invoked. In a
+warm cache, a certificate update reloads the changed member’s anchor and CRL
+entries and replaces them, leaving other members untouched; a CRL-only update
+makes the handler take the slot’s current CRL snapshot from <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code>
+without reloading the certificate. If refreshing a member fails, the cache is
+dropped so that the next read resolves every member again and reports the
+failure.
+Per-client references prevent one client’s cleanup from evicting another
+client’s active cache.</p>
 </section>
 <section id="design-decisions">
 <h2>Design decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h2>
@@ -882,8 +973,10 @@ their rationale, alternatives, and consequences, are documented in
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#purpose">Purpose</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#static-decomposition">Static decomposition</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#public-certificate-loading">Public certificate loading</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stored-objects-and-ownership">Stored objects and ownership</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#runtime-boundaries">Runtime boundaries</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture-constraints">Architecture constraints</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-interfaces">Key interfaces</a></li>
