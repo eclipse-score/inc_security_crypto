@@ -236,7 +236,7 @@ OpenSslKeyFactory::GenerateEcKey(const key_management::KeyGenerationRequest& req
         if (EVP_PKEY_CTX_set_params(ctx, params) != 1)
         {
             score::mw::log::LogError() << kLogPrefix << "GenerateEcKey: failed to select group "
-                                       << std::string{curve->group_name};
+                                       << std::string{curve->openssl_group_name.data()};
             return false;
         }
         return true;
