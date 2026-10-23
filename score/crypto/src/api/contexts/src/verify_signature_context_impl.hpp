@@ -65,10 +65,10 @@ class VerifySignatureContextImpl final : public IVerifySignatureContext
 
     // -- IStreamingContext --
     score::Result<std::monostate> Init(std::optional<score::cpp::span<const uint8_t>> iv) override;
-    score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) override;
     score::Result<std::monostate> Reset() override;
 
     // -- IVerifySignatureContext --
+    score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) override;
     score::Result<bool> VerifyFinalize(score::cpp::span<const uint8_t> signature) override;
     score::Result<bool> SingleShot(score::cpp::span<const uint8_t> data,
                                    score::cpp::span<const uint8_t> signature) override;

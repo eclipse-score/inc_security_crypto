@@ -11,14 +11,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
     name = "context_bases",
     hdrs = [
         "i_context.hpp",
         "i_streaming_context.hpp",
-        "i_streaming_output_context.hpp",
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
@@ -106,5 +105,17 @@ cc_library(
         "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/control_plane",
         "//score/crypto/src/api/data_plane:data_plane_client",
+    ],
+)
+
+cc_test(
+    name = "cipher_context_impl_test",
+    srcs = ["src/cipher_context_impl_test.cpp"],
+    deps = [
+        ":crypto_contexts_impl",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
+        "@googletest//:gtest_main",
     ],
 )

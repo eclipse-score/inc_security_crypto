@@ -87,6 +87,28 @@ CheckAndGetSpan(typename detail::SpanTraits<T>::ParamType param) noexcept
     return *span;
 }
 
+/**
+ * @brief Extract a scalar value from a RequestParameter.
+ *
+ * @tparam T The scalar alternative the parameter is expected to hold (e.g. std::uint64_t).
+ * @param param The RequestParameter variant expected to hold a T.
+ * @return The extracted value on success, or an error code otherwise.
+ *
+ * @retval T Value successfully extracted.
+ * @retval score::crypto::daemon::common::DaemonErrorCode::kInvalidDataType Parameter does not hold a T.
+ */
+template <typename T>
+[[nodiscard]] Expected<T, ::score::crypto::daemon::common::DaemonErrorCode> CheckAndGetValue(
+    const common::RequestParameter& param) noexcept
+{
+    const auto* const value = std::get_if<T>(&param);
+    if (value == nullptr)
+    {
+        return make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidDataType);
+    }
+    return *value;
+}
+
 using StreamOperation = ::score::crypto::daemon::provider::handler::StreamOperation;
 
 /**

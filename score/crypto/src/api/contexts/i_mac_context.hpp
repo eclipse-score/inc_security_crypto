@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_API_CONTEXTS_I_MAC_CONTEXT_HPP
 #define SCORE_CRYPTO_SRC_API_CONTEXTS_I_MAC_CONTEXT_HPP
 
-#include "score/crypto/src/api/contexts/i_streaming_output_context.hpp"
+#include "score/crypto/src/api/contexts/i_streaming_context.hpp"
 #include "score/result/result.h"
 #include "score/span.hpp"
 
@@ -29,14 +29,14 @@ namespace crypto
 
 /// @brief Interface for message authentication code (MAC) operations.
 ///
-/// Exposes Init, Update, Reset, and Finalize from base classes plus
-/// MAC-specific Verify() and GetMacSize().
+/// Exposes Init() and Reset() from the base class and adds Update(),
+/// Finalize(), Verify() and GetMacSize().
 /// Init() uses the optional-IV base signature; passing a value enables
 /// algorithms like GMAC, while std::nullopt (the default) is used for
 /// HMAC/CMAC.
 ///
 /// Compatible with HMAC-SHA256, CMAC-AES, GMAC, and other MAC algorithms.
-class IMacContext : public IStreamingOutputContext
+class IMacContext : public IStreamingContext
 {
   public:
     using Uptr = std::unique_ptr<IMacContext>;
@@ -48,11 +48,20 @@ class IMacContext : public IStreamingOutputContext
     IMacContext(IMacContext&&) = default;
     IMacContext& operator=(IMacContext&&) = default;
 
-    // -- Streaming API (from base classes) --
+    // -- Streaming API (from base class) --
     using IStreamingContext::Init;
     using IStreamingContext::Reset;
-    using IStreamingContext::Update;
-    using IStreamingOutputContext::Finalize;
+
+    /// @brief Feeds a chunk of input data into the operation.
+    /// @return std::monostate on success, error on failure
+    /// @note Can be called multiple times after Init().
+    virtual score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) = 0;
+
+    /// @brief Finalizes the MAC computation and writes the tag.
+    /// @param output Buffer to receive the MAC, at least GetMacSize() bytes
+    /// @return Number of bytes written on success, error on failure
+    /// @note After Finalize(), Init() must be called again before the next Update().
+    virtual score::Result<std::size_t> Finalize(score::cpp::span<uint8_t> output) = 0;
 
     /// @brief Verifies a MAC against the accumulated data.
     /// @param mac The MAC value to verify
