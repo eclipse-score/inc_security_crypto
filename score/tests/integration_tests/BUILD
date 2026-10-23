@@ -141,6 +141,23 @@ cc_binary(
 )
 
 cc_binary(
+    name = "score_api_key_import_export_test",
+    srcs = ["score_api_key_import_export_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
     name = "score_api_key_permissions_test",
     srcs = ["score_api_key_permissions_test.cpp"],
     data = [
@@ -200,6 +217,7 @@ integration_test(
             ":score_api_cipher_test",
             ":score_api_random_test",
             ":score_api_ecdsa_test",
+            ":score_api_key_import_export_test",
         ],
         "//conditions:default": [],
     }),

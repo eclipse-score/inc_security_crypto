@@ -69,6 +69,17 @@ class KeyManagementExecutor final
         const KeyMgmtExecutionContext& ctx,
         common::RequestParameters& request);
 
+    [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleImport(
+        const KeyMgmtExecutionContext& ctx,
+        common::RequestParameters& request);
+
+    [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleExport(
+        const KeyMgmtExecutionContext& ctx,
+        common::RequestParameters& request);
+
+    [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
+    HandleGetExportSize(const KeyMgmtExecutionContext& ctx, common::RequestParameters& request);
+
     [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleRelease(
         std::uint64_t client_id,
         common::RequestParameters& request);
