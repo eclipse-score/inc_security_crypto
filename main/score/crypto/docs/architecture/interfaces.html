@@ -579,7 +579,7 @@
   <section id="interfaces">
 <span id="crypto-interfaces"></span><h1>Interfaces<a class="headerlink" href="#interfaces" title="Link to this heading">#</a></h1>
 <p>The public API surface is organized into the following interface groups:</p>
-<div class="need_container docutils container" id="SNCB-7ae82033">
+<div class="need_container docutils container" id="SNCB-acea8e62">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_crypto_stack">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -630,7 +630,7 @@ deadline enforcement.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-9c0765dc">
+<div class="need_container docutils container" id="SNCB-6d19fba6">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__crypto_resource_guard">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -686,7 +686,7 @@ IPC and auto-deactivates the guard on success.</p>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-1aa90ae7">
+<div class="need_container docutils container" id="SNCB-3a5ca02b">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_crypto_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -744,7 +744,7 @@ resolution (with ACL), twelve <code class="docutils literal notranslate"><span c
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-d2ff5ffb">
+<div class="need_container docutils container" id="SNCB-d2c181c8">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_memory_allocator">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -792,7 +792,7 @@ specific resolved provider instance (<code class="docutils literal notranslate">
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-c626de7c">
+<div class="need_container docutils container" id="SNCB-98251435">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__streaming_contexts">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -819,12 +819,11 @@ specific resolved provider instance (<code class="docutils literal notranslate">
 </td>
 <td class="meta" colspan="3"></td>
 </tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p><code class="docutils literal notranslate"><span class="pre">IContext</span></code> → <code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code> → <code class="docutils literal notranslate"><span class="pre">IStreamingOutputContext</span></code>
-base hierarchy.  All streaming methods (<code class="docutils literal notranslate"><span class="pre">Init()</span></code>, <code class="docutils literal notranslate"><span class="pre">Update()</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Reset()</span></code>, <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code>, <code class="docutils literal notranslate"><span class="pre">GetOutputSize()</span></code>) are <strong>protected</strong>
-in the base classes.  Derived context interfaces selectively expose
-them in their public sections via <code class="docutils literal notranslate"><span class="pre">using</span></code>-declarations so that
-each context presents a self-contained, user-friendly API surface.</p>
+<tr class="content row-odd"><td class="content" colspan="6"><p><code class="docutils literal notranslate"><span class="pre">IContext</span></code> → <code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code> base hierarchy.
+<code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code> holds only <code class="docutils literal notranslate"><span class="pre">Init()</span></code> and <code class="docutils literal notranslate"><span class="pre">Reset()</span></code>, both
+<strong>protected</strong>; derived context interfaces expose them via
+<code class="docutils literal notranslate"><span class="pre">using</span></code>-declarations.  Each derived context declares its own
+<code class="docutils literal notranslate"><span class="pre">Update()</span></code>, finalization and size queries.</p>
 <p><code class="docutils literal notranslate"><span class="pre">IStreamingContext::Init()</span></code> accepts an
 <code class="docutils literal notranslate"><span class="pre">std::optional&lt;span&lt;const</span> <span class="pre">uint8_t&gt;&gt;</span> <span class="pre">iv</span></code> parameter (default
 <code class="docutils literal notranslate"><span class="pre">std::nullopt</span></code>) to support algorithms that require an IV
@@ -852,7 +851,7 @@ only streaming state is cleared.</p>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-7d877604">
+<div class="need_container docutils container" id="SNCB-1adbad8f">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_key_mgmnt_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -929,7 +928,7 @@ wrapping (e.g., AES-GCM key wrap).</p>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-f01bf9fc">
+<div class="need_container docutils container" id="SNCB-9b2e9813">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_cert_mgmt_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -985,7 +984,7 @@ request construction (<code class="docutils literal notranslate"><span class="pr
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-afe8530f">
+<div class="need_container docutils container" id="SNCB-1450fbca">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_cert_ver_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1030,7 +1029,7 @@ policy via fluent setters, then executes verification with <code class="docutils
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-332df46f">
+<div class="need_container docutils container" id="SNCB-f639d0b3">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_trust_store_mgmt_ctx">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1077,7 +1076,7 @@ through <code class="docutils literal notranslate"><span class="pre">ITrustStore
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-d8852ff9">
+<div class="need_container docutils container" id="SNCB-d73e8acc">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_csr_gen_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1123,7 +1122,7 @@ SAN extensions via fluent setters, then generates with
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-194978fb">
+<div class="need_container docutils container" id="SNCB-0fff6902">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__typed_objects">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1180,7 +1179,7 @@ Obtained via <code class="docutils literal notranslate"><span class="pre">ICrypt
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-cd5721fa">
+<div class="need_container docutils container" id="SNCB-55280103">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__crypto_resource_id">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1230,7 +1229,7 @@ configuration path.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-6ed687e5">
+<div class="need_container docutils container" id="SNCB-db8a0992">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__base_context_config">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1286,7 +1285,7 @@ Key-bearing configs accept a <code class="docutils literal notranslate"><span cl
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-d875e78c">
+<div class="need_container docutils container" id="SNCB-207b267a">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__kdf_parameters">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1338,7 +1337,7 @@ optionally by <code class="docutils literal notranslate"><span class="pre">Agree
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-85713639">
+<div class="need_container docutils container" id="SNCB-a8dc549d">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__key_operation_params">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1402,7 +1401,7 @@ struct — it is expressed via the method overload signature
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-9568a6d8">
+<div class="need_container docutils container" id="SNCB-8ddd1f7f">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_hash_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1429,11 +1428,10 @@ struct — it is expressed via the method overload signature
 </td>
 <td class="meta" colspan="3"></td>
 </tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p>Cryptographic hashing. Extends <code class="docutils literal notranslate"><span class="pre">IStreamingOutputContext</span></code>;
-exposes <code class="docutils literal notranslate"><span class="pre">Init()</span></code>, <code class="docutils literal notranslate"><span class="pre">Update()</span></code>, <code class="docutils literal notranslate"><span class="pre">Reset()</span></code>, and <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code>
-from the base classes via <code class="docutils literal notranslate"><span class="pre">using</span></code>-declarations plus <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code>
-and <code class="docutils literal notranslate"><span class="pre">GetDigestSize()</span></code>. <code class="docutils literal notranslate"><span class="pre">GetOutputSize()</span></code> is intentionally not
-exposed — use <code class="docutils literal notranslate"><span class="pre">GetDigestSize()</span></code> instead.</p></td>
+<tr class="content row-odd"><td class="content" colspan="6"><p>Cryptographic hashing. Extends <code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code>; exposes
+<code class="docutils literal notranslate"><span class="pre">Init()</span></code> and <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> via <code class="docutils literal notranslate"><span class="pre">using</span></code>-declarations and declares
+<code class="docutils literal notranslate"><span class="pre">Update()</span></code>, <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code>, <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">GetDigestSize()</span></code>.</p></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
 <div class="line"><span><span class="needs-id"><a class="reference internal" href="#real_arc_int__crypto__i_hash_context" title="real_arc_int__crypto__i_hash_context">real_arc_int__crypto__i_hash_context</a></span></span></div>
@@ -1449,7 +1447,7 @@ exposed — use <code class="docutils literal notranslate"><span class="pre">Get
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-486fd540">
+<div class="need_container docutils container" id="SNCB-5c542b5b">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_mac_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1477,11 +1475,9 @@ exposed — use <code class="docutils literal notranslate"><span class="pre">Get
 <td class="meta" colspan="3"></td>
 </tr>
 <tr class="content row-odd"><td class="content" colspan="6"><p>Message authentication code generation (HMAC, CMAC, GMAC, etc.). Extends
-<code class="docutils literal notranslate"><span class="pre">IStreamingOutputContext</span></code>; exposes <code class="docutils literal notranslate"><span class="pre">Init()</span></code> with the optional-IV
-base signature, <code class="docutils literal notranslate"><span class="pre">Update()</span></code>, <code class="docutils literal notranslate"><span class="pre">Reset()</span></code>, and <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code> via
-<code class="docutils literal notranslate"><span class="pre">using</span></code>-declarations; adds <code class="docutils literal notranslate"><span class="pre">Verify()</span></code> and <code class="docutils literal notranslate"><span class="pre">GetMacSize()</span></code>.
-<code class="docutils literal notranslate"><span class="pre">GetOutputSize()</span></code> is intentionally not exposed — use <code class="docutils literal notranslate"><span class="pre">GetMacSize()</span></code>
-instead.</p></td>
+<code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code>; exposes <code class="docutils literal notranslate"><span class="pre">Init()</span></code> with the optional-IV base
+signature and <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> via <code class="docutils literal notranslate"><span class="pre">using</span></code>-declarations; declares
+<code class="docutils literal notranslate"><span class="pre">Update()</span></code>, <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code>, <code class="docutils literal notranslate"><span class="pre">Verify()</span></code>, and <code class="docutils literal notranslate"><span class="pre">GetMacSize()</span></code>.</p></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
 <div class="line"><span><span class="needs-id"><a class="reference internal" href="#real_arc_int__crypto__i_mac_context" title="real_arc_int__crypto__i_mac_context">real_arc_int__crypto__i_mac_context</a></span></span></div>
@@ -1497,7 +1493,7 @@ instead.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-a70bb6ad">
+<div class="need_container docutils container" id="SNCB-d5d42988">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_cipher_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1524,10 +1520,12 @@ instead.</p></td>
 </td>
 <td class="meta" colspan="3"></td>
 </tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p>Symmetric encryption and decryption. Extends
-<code class="docutils literal notranslate"><span class="pre">IStreamingOutputContext</span></code>; exposes <code class="docutils literal notranslate"><span class="pre">Init()</span></code>, <code class="docutils literal notranslate"><span class="pre">Reset()</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Finalize()</span></code>, and <code class="docutils literal notranslate"><span class="pre">GetOutputSize()</span></code> from the base, plus
-cipher-specific <code class="docutils literal notranslate"><span class="pre">Update(input,</span> <span class="pre">output)</span></code> and <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code>.
+<tr class="content row-odd"><td class="content" colspan="6"><p>Symmetric encryption and decryption. Extends <code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code>;
+exposes <code class="docutils literal notranslate"><span class="pre">Init()</span></code> and <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> from the base and declares
+<code class="docutils literal notranslate"><span class="pre">Update(input,</span> <span class="pre">output)</span></code>, <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code>, <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">GetMaximumOutputSize(input_size)</span></code>.  The latter bounds the output of
+<code class="docutils literal notranslate"><span class="pre">Update()</span></code> and <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code> for that input length, and of
+<code class="docutils literal notranslate"><span class="pre">Finalize()</span></code> for an input length of 0.
 <code class="docutils literal notranslate"><span class="pre">Init()</span></code> uses the base optional-IV signature (<code class="docutils literal notranslate"><span class="pre">span</span></code> implicitly
 converts to <code class="docutils literal notranslate"><span class="pre">optional&lt;span&gt;</span></code>); for IV-based modes (AES-CBC,
 AES-CTR) an IV must be provided, for ECB <code class="docutils literal notranslate"><span class="pre">std::nullopt</span></code> is valid.
@@ -1548,7 +1546,7 @@ Direction (encrypt/decrypt) selected via
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-f6276f24">
+<div class="need_container docutils container" id="SNCB-3414f9cd">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_aead_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1598,7 +1596,7 @@ dual finalization paths (<code class="docutils literal notranslate"><span class=
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-9914ebb1">
+<div class="need_container docutils container" id="SNCB-805ebc42">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_sign_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1625,11 +1623,10 @@ dual finalization paths (<code class="docutils literal notranslate"><span class=
 </td>
 <td class="meta" colspan="3"></td>
 </tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p>Digital signature generation. Extends <code class="docutils literal notranslate"><span class="pre">IStreamingOutputContext</span></code>;
-exposes <code class="docutils literal notranslate"><span class="pre">Init()</span></code>, <code class="docutils literal notranslate"><span class="pre">Update()</span></code>, and <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> from the base.
-Adds <code class="docutils literal notranslate"><span class="pre">SignFinalize()</span></code>, <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">GetSignatureSize()</span></code>.  Base <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code> and
-<code class="docutils literal notranslate"><span class="pre">GetOutputSize()</span></code> are not exposed.</p></td>
+<tr class="content row-odd"><td class="content" colspan="6"><p>Digital signature generation. Extends <code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code>;
+exposes <code class="docutils literal notranslate"><span class="pre">Init()</span></code> and <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> from the base.  Declares
+<code class="docutils literal notranslate"><span class="pre">Update()</span></code>, <code class="docutils literal notranslate"><span class="pre">SignFinalize()</span></code>, <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">GetSignatureSize()</span></code>.</p></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
 <div class="line"><span><span class="needs-id"><a class="reference internal" href="#real_arc_int__crypto__i_sign_context" title="real_arc_int__crypto__i_sign_context">real_arc_int__crypto__i_sign_context</a></span></span></div>
@@ -1645,7 +1642,7 @@ Adds <code class="docutils literal notranslate"><span class="pre">SignFinalize()
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-5801669e">
+<div class="need_container docutils container" id="SNCB-cd595d68">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_verify_sign_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1673,8 +1670,8 @@ Adds <code class="docutils literal notranslate"><span class="pre">SignFinalize()
 <td class="meta" colspan="3"></td>
 </tr>
 <tr class="content row-odd"><td class="content" colspan="6"><p>Digital signature verification. Extends <code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code>;
-exposes <code class="docutils literal notranslate"><span class="pre">Init()</span></code>, <code class="docutils literal notranslate"><span class="pre">Update()</span></code>, and <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> from the base.
-Adds <code class="docutils literal notranslate"><span class="pre">VerifyFinalize()</span></code> and <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code>.</p></td>
+exposes <code class="docutils literal notranslate"><span class="pre">Init()</span></code> and <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> from the base.  Declares
+<code class="docutils literal notranslate"><span class="pre">Update()</span></code>, <code class="docutils literal notranslate"><span class="pre">VerifyFinalize()</span></code>, and <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code>.</p></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
 <div class="line"><span><span class="needs-id"><a class="reference internal" href="#real_arc_int__crypto__i_verify_sign_context" title="real_arc_int__crypto__i_verify_sign_context">real_arc_int__crypto__i_verify_sign_context</a></span></span></div>
@@ -1690,7 +1687,7 @@ Adds <code class="docutils literal notranslate"><span class="pre">VerifyFinalize
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-d4d6e94b">
+<div class="need_container docutils container" id="SNCB-42b49832">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__crypto__i_random_context">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">

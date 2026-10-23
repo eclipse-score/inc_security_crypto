@@ -747,17 +747,17 @@ the daemon copies data into an internal provider-compatible buffer transparently
 </section>
 <section id="base-class-hierarchy">
 <h2>Base Class Hierarchy<a class="headerlink" href="#base-class-hierarchy" title="Link to this heading">#</a></h2>
-<p>Three base interfaces capture shared behavior across operation contexts,
-promoting DRY code reuse:</p>
+<p>Two base interfaces capture the behavior shared across operation contexts.
+Each streaming context declares its own <code class="docutils literal notranslate"><span class="pre">Update</span></code>, finalization and size
+queries, since their shape differs per operation:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>IContext
-├── IStreamingContext (Init + Update)
-│   ├── IStreamingOutputContext (+ Finalize + GetOutputSize)
-│   │   ├── IHashContext (+ SingleShot, GetDigestSize)
-│   │   ├── ICipherContext (+ Init with IV, SingleShot; direction from config)
-│   │   ├── ISignContext (+ SignFinalize, SingleShot, GetSignatureSize)
-│   │   └── IMacContext (+ Verify, GetMacSize)
-│   ├── IAeadContext (+ UpdateAad, Finalize, VerifyAndFinalize, GetTagSize)
-│   └── IVerifySignatureContext (+ VerifyFinalize, SingleShot)
+├── IStreamingContext (Init + Reset)
+│   ├── IHashContext (+ Update, Finalize, SingleShot, GetDigestSize)
+│   ├── IMacContext (+ Update, Finalize, Verify, GetMacSize)
+│   ├── ICipherContext (+ Update(in, out), Finalize, SingleShot, GetMaximumOutputSize; direction from config)
+│   ├── ISignContext (+ Update, SignFinalize, SingleShot, GetSignatureSize)
+│   ├── IVerifySignatureContext (+ Update, VerifyFinalize, SingleShot)
+│   └── IAeadContext (+ UpdateAad, Update(in, out), Finalize, VerifyAndFinalize, GetTagSize)
 ├── IRandomContext (Generate, Seed)
 ├── IKeyManagementContext (key lifecycle operations)
 ├── ICertificateManagementContext (certificate lifecycle operations)
@@ -787,11 +787,8 @@ daemon state, not owned data copies:</p>
 </div>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">IContext</span></code>: Root base with <code class="docutils literal notranslate"><span class="pre">Uptr</span></code> typedef and virtual destructor</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code>: Adds <code class="docutils literal notranslate"><span class="pre">Init()</span> <span class="pre">→</span> <span class="pre">Result&lt;std::monostate&gt;</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Update(span&lt;const</span> <span class="pre">uint8_t&gt;)</span> <span class="pre">→</span> <span class="pre">Result&lt;std::monostate&gt;</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">Reset()</span> <span class="pre">→</span> <span class="pre">Result&lt;std::monostate&gt;</span></code> for streaming patterns</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">IStreamingOutputContext</span></code>: Adds <code class="docutils literal notranslate"><span class="pre">Finalize(span&lt;uint8_t&gt;)</span> <span class="pre">→</span> <span class="pre">Result&lt;size_t&gt;</span></code>
-and <code class="docutils literal notranslate"><span class="pre">GetOutputSize()</span> <span class="pre">→</span> <span class="pre">size_t</span></code> for operations that produce output</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code>: Adds <code class="docutils literal notranslate"><span class="pre">Init(optional&lt;span&lt;const</span> <span class="pre">uint8_t&gt;&gt;</span> <span class="pre">iv)</span> <span class="pre">→</span> <span class="pre">Result&lt;std::monostate&gt;</span></code>
+and <code class="docutils literal notranslate"><span class="pre">Reset()</span> <span class="pre">→</span> <span class="pre">Result&lt;std::monostate&gt;</span></code> for streaming patterns</p></li>
 </ul>
 <p>Contexts needing extra <code class="docutils literal notranslate"><span class="pre">Init</span></code> parameters (e.g., IV for encrypt/AEAD) hide
 the base <code class="docutils literal notranslate"><span class="pre">Init()</span></code> with a more specific signature.</p>
@@ -1148,10 +1145,10 @@ testing of memory management.</p></li>
 and memory interfaces are in <code class="docutils literal notranslate"><span class="pre">common/</span></code> with no dependencies on
 operation-specific code. This enables minimal-dependency compilation
 units and independent unit testing.</p></li>
-<li><p><strong>Base hierarchy vs. concrete contexts</strong>: Three base interfaces
-(<code class="docutils literal notranslate"><span class="pre">IContext</span></code>, <code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code>, <code class="docutils literal notranslate"><span class="pre">IStreamingOutputContext</span></code>)
-capture shared streaming behavior, while concrete contexts add
-operation-specific methods. Configs are separated into <code class="docutils literal notranslate"><span class="pre">config/</span></code>
+<li><p><strong>Base hierarchy vs. concrete contexts</strong>: Two base interfaces
+(<code class="docutils literal notranslate"><span class="pre">IContext</span></code>, <code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code>) capture shared streaming
+behavior, while concrete contexts add operation-specific methods,
+including their own <code class="docutils literal notranslate"><span class="pre">Update</span></code> and finalization. Configs are separated into <code class="docutils literal notranslate"><span class="pre">config/</span></code>
 to decouple configuration from the interfaces they parameterize.</p></li>
 </ol>
 </section>
