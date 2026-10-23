@@ -31,8 +31,8 @@
 /// @endcode
 ///
 /// ### Design notes
-/// - Header-only: all functions are constexpr, no runtime tables.
-/// - Covers all first-party actors and their operations.
+/// - Header-only: lookup functions are constexpr and do not use runtime tables.
+/// - Covers the operation namespaces currently registered by this component.
 /// - Falls back to "<unknown_actor>" / "<unknown_op>" for future or custom values,
 ///   while still printing the numeric ids so nothing is lost.
 
@@ -43,6 +43,7 @@
 #include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/cipher_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/kem_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/mac_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/random_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/sign_handler_operations.hpp"
@@ -56,6 +57,7 @@ namespace score::crypto::daemon::common
 {
 
 /// @brief Returns the symbolic name for a registered OperationActor value.
+/// @return Symbolic actor name, or "<unknown_actor>" for unknown actors.
 constexpr std::string_view ActorName(OperationActor actor) noexcept
 {
     switch (actor)
@@ -78,6 +80,8 @@ constexpr std::string_view ActorName(OperationActor actor) noexcept
             return "SIGN_HANDLER";
         case actors::OP_ACTOR_VERIFY_HANDLER:
             return "VERIFY_HANDLER";
+        case actors::OP_ACTOR_KEM_HANDLER:
+            return "KEM_HANDLER";
         case actors::OP_ACTOR_RANDOM_HANDLER:
             return "RANDOM_HANDLER";
         default:
@@ -89,6 +93,8 @@ constexpr std::string_view ActorName(OperationActor actor) noexcept
 ///
 /// The actor context is required because the same action integer has different meanings
 /// across actors (e.g., action=1 is CTX_CREATE for MEDIATOR but HASH_INIT for HASH_HANDLER).
+/// @return Symbolic operation name, or an actor-specific unknown-operation marker
+///         if the action is not registered.
 constexpr std::string_view ActionName(OperationActor actor, OperationAction action) noexcept
 {
     // Mediator action constants (mediator_operations.hpp cannot be included here without
@@ -228,6 +234,19 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
                     return "RANDOM_SEED";
                 default:
                     return "<unknown_random_op>";
+            }
+
+        case actors::OP_ACTOR_KEM_HANDLER:
+            switch (action)
+            {
+                case provider::handler::kem_handler_operations::KEM_ENCAPSULATE:
+                    return "KEM_ENCAPSULATE";
+                case provider::handler::kem_handler_operations::KEM_DECAPSULATE:
+                    return "KEM_DECAPSULATE";
+                case provider::handler::kem_handler_operations::KEM_RESET:
+                    return "KEM_RESET";
+                default:
+                    return "<unknown_kem_op>";
             }
 
         case actors::OP_ACTOR_KEY_MANAGEMENT:
