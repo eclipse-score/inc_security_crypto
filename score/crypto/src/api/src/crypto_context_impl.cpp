@@ -138,6 +138,9 @@ score::Result<std::uint64_t> CreateDaemonContext(
     else if (request.signature_input_mode.has_value())
     {
         builder = builder.with_no_param();
+    else
+    {
+        builder = builder.with_no_param();
     }
 
     if (request.signature_input_mode.has_value())
