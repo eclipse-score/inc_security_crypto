@@ -5,7 +5,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_SIGN_OPENSSL_RSA_PSS_ED25519_SIGN_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_SIGN_OPENSSL_RSA_PSS_ED25519_SIGN_HANDLER_HPP
 
-#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/ecdsa_common.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/score_sign_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/sign_executor.hpp"
 #include "score/span.hpp"
@@ -41,7 +41,7 @@ class OpenSslRsaPssEd25519SignHandler final : public operations::sign::ScoreSign
     bool IsEd25519() const noexcept;
     Expected<std::size_t, common::DaemonErrorCode> ResolveBuffer(score::cpp::span<std::uint8_t>) const;
 
-    ecdsa::Stream m_stream;
+    signature::Stream m_stream;
     std::vector<std::uint8_t> m_buffer;
     bool m_prehashed{false};
     static constexpr std::string_view LOG_PREFIX = "[OPENSSL_RSA_PSS_ED25519_SIGN_HANDLER]";

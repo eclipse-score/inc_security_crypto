@@ -25,7 +25,7 @@
 
 #include <string_view>
 
-namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 {
 
 using ::score::crypto::daemon::common::DaemonErrorCode;
@@ -240,4 +240,4 @@ Expected<common::OwnedBuffer, DaemonErrorCode> P1363ToDer(const std::uint8_t* ra
     return out;
 }
 
-}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature

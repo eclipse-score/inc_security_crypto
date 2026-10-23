@@ -43,7 +43,7 @@ OpenSslEcdsaSignHandler::~OpenSslEcdsaSignHandler() = default;
 
 bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
 {
-    return ecdsa::IsAlgorithmSupported(algorithm);
+    return signature::IsAlgorithmSupported(algorithm);
 }
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& al
         return bound;
     }
 
-    m_prehashed = ecdsa::IsPrehashed(init_params);
+    m_prehashed = signature::IsPrehashed(init_params);
     m_prehashed_data.clear();
 
     m_state = StreamOperationState::IDLE;
@@ -158,7 +158,7 @@ namespace
                                                                   std::size_t field_size,
                                                                   score::cpp::span<std::uint8_t> out)
 {
-    auto p1363 = ecdsa::DerToP1363(der.data(), der.size(), field_size);
+    auto p1363 = signature::DerToP1363(der.data(), der.size(), field_size);
     if (!p1363.has_value())
     {
         return ::score::crypto::make_unexpected(p1363.error());

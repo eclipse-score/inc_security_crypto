@@ -4,7 +4,7 @@
  ********************************************************************************/
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_VERIFY_OPENSSL_RSA_PSS_ED25519_VERIFY_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_VERIFY_OPENSSL_RSA_PSS_ED25519_VERIFY_HANDLER_HPP
-#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/ecdsa_common.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/score_verify_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/verify_executor.hpp"
 #include "score/span.hpp"
@@ -36,7 +36,7 @@ class OpenSslRsaPssEd25519VerifyHandler final : public operations::verify::Score
   private:
     bool IsEd25519() const noexcept;
     Expected<std::monostate, common::DaemonErrorCode> CheckSignature(score::cpp::span<const std::uint8_t>) const;
-    ecdsa::Stream m_stream;
+    signature::Stream m_stream;
     std::vector<std::uint8_t> m_buffer;
     bool m_prehashed{false};
     static constexpr std::string_view LOG_PREFIX = "[OPENSSL_RSA_PSS_ED25519_VERIFY_HANDLER]";

@@ -45,7 +45,7 @@ cc_library(
 cc_library(
     name = "provider_openssl_headers",
     hdrs = [
-        "detail/ecdsa_common.hpp",
+        "detail/signature_common.hpp",
         "operations/cipher/openssl_cipher_handler.hpp",
         "operations/factory/openssl_handler_factory.hpp",
         "operations/hash/openssl_hash_handler.hpp",
@@ -83,7 +83,7 @@ cc_library(
 cc_library(
     name = "provider_openssl_library",
     srcs = [
-        "detail/ecdsa_common.cpp",
+        "detail/signature_common.cpp",
         "detail/openssl_algorithm_info.hpp",
         "key_management/openssl_key_factory.cpp",
         "key_management/openssl_key_handler.cpp",

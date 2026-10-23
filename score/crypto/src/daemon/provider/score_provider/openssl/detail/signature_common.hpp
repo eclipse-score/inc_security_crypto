@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_ECDSA_COMMON_HPP
-#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_ECDSA_COMMON_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
@@ -25,7 +25,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 {
 
 inline constexpr std::size_t kSignatureInputModeParamIndex{6U};
@@ -139,6 +139,6 @@ DerToP1363(const std::uint8_t* der, std::size_t der_len, std::size_t field_size)
 [[nodiscard]] Expected<common::OwnedBuffer, ::score::crypto::daemon::common::DaemonErrorCode>
 P1363ToDer(const std::uint8_t* raw, std::size_t raw_len, std::size_t field_size);
 
-}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 
-#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_ECDSA_COMMON_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP

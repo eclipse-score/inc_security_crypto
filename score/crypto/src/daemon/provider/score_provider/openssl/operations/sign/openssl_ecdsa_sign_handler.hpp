@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_SIGN_OPENSSL_ECDSA_SIGN_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_SIGN_OPENSSL_ECDSA_SIGN_HANDLER_HPP
 
-#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/ecdsa_common.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/score_sign_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/sign_executor.hpp"
 
@@ -102,7 +102,7 @@ class OpenSslEcdsaSignHandler final
     [[nodiscard]] ::score::crypto::Expected<SignatureTarget, ::score::crypto::daemon::common::DaemonErrorCode>
     ResolveSignatureBuffer(score::cpp::span<std::uint8_t> signature) const;
 
-    ecdsa::Stream m_stream;
+    signature::Stream m_stream;
     std::vector<std::uint8_t> m_prehashed_data;
     bool m_prehashed{false};
 

@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_VERIFY_OPENSSL_ECDSA_VERIFY_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_VERIFY_OPENSSL_ECDSA_VERIFY_HANDLER_HPP
 
-#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/ecdsa_common.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/score_verify_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/verify_executor.hpp"
 #include "score/span.hpp"
@@ -89,7 +89,7 @@ class OpenSslEcdsaVerifyHandler final
     [[nodiscard]] ::score::crypto::Expected<common::OwnedBuffer, ::score::crypto::daemon::common::DaemonErrorCode>
     ToDer(score::cpp::span<const std::uint8_t> signature) const;
 
-    ecdsa::Stream m_stream;
+    signature::Stream m_stream;
     std::vector<std::uint8_t> m_prehashed_data;
     bool m_prehashed{false};
 

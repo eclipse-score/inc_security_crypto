@@ -41,7 +41,7 @@ OpenSslEcdsaVerifyHandler::~OpenSslEcdsaVerifyHandler() = default;
 
 bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
 {
-    return ecdsa::IsAlgorithmSupported(algorithm);
+    return signature::IsAlgorithmSupported(algorithm);
 }
 
 // ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
         return bound;
     }
 
-    m_prehashed = ecdsa::IsPrehashed(init_params);
+    m_prehashed = signature::IsPrehashed(init_params);
     m_prehashed_data.clear();
 
     m_state = StreamOperationState::IDLE;
@@ -158,7 +158,7 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
 
     // A signature of the wrong length is a malformed input rather than a
     // mismatching one, so it is reported as an error, not as "not verified".
-    auto der = ecdsa::P1363ToDer(signature.data(), signature.size(), curve->field_size);
+    auto der = signature::P1363ToDer(signature.data(), signature.size(), curve->field_size);
     if (!der.has_value())
     {
         score::mw::log::LogError() << LOG_PREFIX << "malformed P1363 signature of length" << signature.size();
