@@ -62,6 +62,18 @@ Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorC
     {
         return HandleLoad(ctx, request);
     }
+    if (action == km_ops::KEY_IMPORT)
+    {
+        return HandleImport(ctx, request);
+    }
+    if (action == km_ops::KEY_EXPORT)
+    {
+        return HandleExport(ctx, request);
+    }
+    if (action == km_ops::KEY_GET_EXPORT_SIZE)
+    {
+        return HandleGetExportSize(ctx, request);
+    }
     if (action == km_ops::KEY_RELEASE)
     {
         return HandleRelease(ctx.client_id, request);
@@ -174,6 +186,174 @@ Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorC
     output.push_back(static_cast<std::uint64_t>(node_id_result.value().node_id));
     // Return the numeric provider ID assigned by ProviderManager
     output.push_back(static_cast<std::uint16_t>(ctx.provider_id));
+    return output;
+}
+
+// ---------------------------------------------------------------------------
+// HandleImport
+//
+// Parameter layout:
+//   client_id        – authenticated client (from InitializationParams)
+//   context_node_id  – parent context node for the new key node
+//   request[0]       = algorithm   (string_view)
+//   request[1]       = permissions (uint32_t, optional)
+//   request[2]       = format      (uint32_t FormatType, optional)
+//   request[3]       = key_data    (span<const uint8_t>)
+// ---------------------------------------------------------------------------
+
+Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
+KeyManagementExecutor::HandleImport(const KeyMgmtExecutionContext& ctx, common::RequestParameters& request)
+{
+    auto import_req = km_parse::BuildImportRequest(request);
+    if (!import_req.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleImport: invalid request parameters";
+        return score::crypto::make_unexpected(import_req.error());
+    }
+
+    // Provider-specific: import and validate the key. The returned IKeyHandler
+    // owns the material; key_data is copied before ImportKey() returns.
+    auto import_result = m_factory->ImportKey(import_req.value());
+    if (!import_result.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleImport: ImportKey failed";
+        return score::crypto::make_unexpected(import_result.error());
+    }
+
+    // Orchestration: transfer handler ownership to the DataManager.
+    // On failure the IKeyHandler destructor cleans up key material automatically.
+    auto node_id_result = m_service->RegisterKeyMaterial({ctx.client_id, ctx.context_node_id, ctx.provider_id},
+                                                         std::move(import_result.value()));
+    if (!node_id_result.has_value())
+    {
+        return score::crypto::make_unexpected(
+            score::crypto::daemon::common::DaemonErrorCode::kAlgorithmExecutionFailed);
+    }
+
+    common::ResponseParameters output;
+    output.push_back(static_cast<std::uint64_t>(node_id_result.value().node_id));
+    // Return the numeric provider ID assigned by ProviderManager
+    output.push_back(static_cast<std::uint16_t>(ctx.provider_id));
+    return output;
+}
+
+// ---------------------------------------------------------------------------
+// HandleExport
+//
+// Parameter layout:
+//   client_id   – authenticated client (from InitializationParams)
+//   request[0]  = key_node_id (uint64_t)
+//   request[1]  = format      (uint32_t FormatType, optional)
+// Response:
+//   output[0]   = exported key bytes (OwnedBuffer)
+// ---------------------------------------------------------------------------
+
+Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
+KeyManagementExecutor::HandleExport(const KeyMgmtExecutionContext& ctx, common::RequestParameters& request)
+{
+    auto key_nid_res = km_parse::ExtractUint64(request, 0U);
+    if (!key_nid_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleExport: invalid key node id";
+        return score::crypto::make_unexpected(key_nid_res.error());
+    }
+    auto format_res = km_parse::ExtractFormatOrDefault(request, 1U);
+    if (!format_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleExport: invalid format parameter";
+        return score::crypto::make_unexpected(format_res.error());
+    }
+    const auto format = format_res.value();
+
+    // Resolve the live key handler so the factory can read its provider handle.
+    auto handler_res = m_service->ResolveKeyForOperation(ctx.client_id, key_nid_res.value());
+    if (!handler_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleExport: key resolution failed";
+        return score::crypto::make_unexpected(handler_res.error());
+    }
+
+    const auto& handle = handler_res.value()->GetHandle();
+
+    // A handle's opaque_id is only meaningful to the provider that issued it;
+    // letting another provider's factory reinterpret it as its own pointer
+    // would dereference a foreign address and crash the daemon (SIGSEGV).
+    if (handle.provider_id != ctx.provider_id)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleExport: key provider " << handle.provider_id
+                                   << " does not match context provider " << ctx.provider_id;
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
+
+    auto export_res = m_factory->ExportKey(handle, format);
+    if (!export_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleExport: ExportKey failed";
+        return score::crypto::make_unexpected(export_res.error());
+    }
+
+    common::ResponseParameters output;
+    // Move the bytes out of SecureKeyBytes; the moved-from vector empties, so
+    // its zeroizing destructor has nothing left to scrub.
+    output.push_back(common::OwnedBuffer{std::move(export_res.value().bytes)});
+    return output;
+}
+
+// ---------------------------------------------------------------------------
+// HandleGetExportSize
+//
+// Parameter layout:
+//   client_id   – authenticated client (from InitializationParams)
+//   request[0]  = key_node_id (uint64_t)
+//   request[1]  = format      (uint32_t FormatType, optional)
+// Response:
+//   output[0]   = exported byte length (uint64_t)
+// ---------------------------------------------------------------------------
+
+Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
+KeyManagementExecutor::HandleGetExportSize(const KeyMgmtExecutionContext& ctx, common::RequestParameters& request)
+{
+    auto key_nid_res = km_parse::ExtractUint64(request, 0U);
+    if (!key_nid_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGetExportSize: invalid key node id";
+        return score::crypto::make_unexpected(key_nid_res.error());
+    }
+    auto format_res = km_parse::ExtractFormatOrDefault(request, 1U);
+    if (!format_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGetExportSize: invalid format parameter";
+        return score::crypto::make_unexpected(format_res.error());
+    }
+    const auto format = format_res.value();
+
+    auto handler_res = m_service->ResolveKeyForOperation(ctx.client_id, key_nid_res.value());
+    if (!handler_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGetExportSize: key resolution failed";
+        return score::crypto::make_unexpected(handler_res.error());
+    }
+
+    const auto& handle = handler_res.value()->GetHandle();
+
+    // Reject a key owned by a different provider before the factory reinterprets
+    // its opaque_id as a native pointer (mismatched provider => SIGSEGV).
+    if (handle.provider_id != ctx.provider_id)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGetExportSize: key provider " << handle.provider_id
+                                   << " does not match context provider " << ctx.provider_id;
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
+
+    auto size_res = m_factory->GetExportKeySize(handle, format);
+    if (!size_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGetExportSize: GetExportKeySize failed";
+        return score::crypto::make_unexpected(size_res.error());
+    }
+
+    common::ResponseParameters output;
+    output.push_back(static_cast<std::uint64_t>(size_res.value()));
     return output;
 }
 
