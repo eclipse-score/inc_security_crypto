@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_KEY_MANAGEMENT_OPENSSL_KEY_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_KEY_MANAGEMENT_OPENSSL_KEY_FACTORY_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
@@ -68,6 +69,20 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const key_management::KeyImportRequest& request) override;
 
+    /// Export an EC public key as the raw uncompressed SEC1 point 0x04||X||Y.
+    ///
+    /// Only FormatType::kRaw on an EC key is supported; DER/PEM export and
+    /// symmetric keys fall through to the base class's unsupported path. The
+    /// export is gated by kExport on the key's public-half permissions.
+    [[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
+                                            ::score::crypto::daemon::common::DaemonErrorCode>
+    ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
+
+    /// Byte length of the raw export for @p handle, for the mandatory
+    /// size-then-data two-call export. Same gating as ExportKey.
+    [[nodiscard]] ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
+    GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
+
   private:
     common::ProviderId m_provider_id{common::kInvalidProviderId};
 
@@ -81,6 +96,16 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportEcKey(const key_management::KeyImportRequest& request);
+
+    /// Import a verify-only EC public key from a raw uncompressed SEC1 point.
+    [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
+                                            ::score::crypto::daemon::common::DaemonErrorCode>
+    ImportRawEcPublicKey(const key_management::KeyImportRequest& request, const common::EcCurveInfo& curve);
+
+    /// Validate a raw EC export request (format, key type, export permission).
+    /// @return The curve on success, or the error that should be reported.
+    [[nodiscard]] ::score::crypto::Expected<common::EcCurveInfo, ::score::crypto::daemon::common::DaemonErrorCode>
+    CheckRawEcExport(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) const;
 
     /// Map well-known algorithm names to symmetric key sizes in bytes.
     /// Returns 0 for unknown algorithms.

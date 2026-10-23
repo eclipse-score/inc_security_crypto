@@ -153,6 +153,26 @@
         "deployment_format" : "kv"
       },
       {
+        "slot_name": "ECDSA_P384_SHA512_IntegrationTestKey_OpenSSL",
+        "algorithm": "ECDSA-P384",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "SIGN|VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_ecdsa_p384_sha512.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "ECDSA_P384_SHA512_PublicKeySlot_OpenSSL",
+        "algorithm": "ECDSA-P384",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_ecdsa_p384_sha512_pub.kv",
+        "deployment_format" : "kv"
+      },
+      {
         "slot_name": "ECDSA_P521_PublicKeySlot_OpenSSL",
         "algorithm": "ECDSA-P521",
         "provider_names": ["OPENSSL"],
@@ -273,6 +293,16 @@
         "uid": 0,
         "app_resource_id": "ECDSA_P384_PublicKeySlot_OpenSSL",
         "slot_name": "ECDSA_P384_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "ECDSA_P384_SHA512_IntegrationTestKey_OpenSSL",
+        "slot_name": "ECDSA_P384_SHA512_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "ECDSA_P384_SHA512_PublicKeySlot_OpenSSL",
+        "slot_name": "ECDSA_P384_SHA512_PublicKeySlot_OpenSSL"
       },
       {
         "uid": 0,
