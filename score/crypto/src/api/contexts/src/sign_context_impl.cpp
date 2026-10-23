@@ -230,11 +230,6 @@ score::Result<std::size_t> SignContextImpl::SignFinalize(score::cpp::span<uint8_
     return m_transcoder->ExtractOutputBuffer(tspan, validator);
 }
 
-score::Result<std::size_t> SignContextImpl::Finalize(score::cpp::span<uint8_t> output)
-{
-    return SignFinalize(output);
-}
-
 score::Result<std::size_t> SignContextImpl::SingleShot(score::cpp::span<const uint8_t> data,
                                                        score::cpp::span<uint8_t> signature)
 {
@@ -340,11 +335,6 @@ std::size_t SignContextImpl::GetSignatureSize() const noexcept
     }
 
     return static_cast<std::size_t>(size_result.value());
-}
-
-std::size_t SignContextImpl::GetOutputSize() const noexcept
-{
-    return GetSignatureSize();
 }
 
 }  // namespace crypto

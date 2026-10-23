@@ -209,20 +209,20 @@ the daemon copies data into an internal provider-compatible buffer transparently
 Base Class Hierarchy
 --------------------
 
-Three base interfaces capture shared behavior across operation contexts,
-promoting DRY code reuse:
+Two base interfaces capture the behavior shared across operation contexts.
+Each streaming context declares its own ``Update``, finalization and size
+queries, since their shape differs per operation:
 
 .. code-block:: none
 
    IContext
-   ├── IStreamingContext (Init + Update)
-   │   ├── IStreamingOutputContext (+ Finalize + GetOutputSize)
-   │   │   ├── IHashContext (+ SingleShot, GetDigestSize)
-   │   │   ├── ICipherContext (+ Init with IV, SingleShot; direction from config)
-   │   │   ├── ISignContext (+ SignFinalize, SingleShot, GetSignatureSize)
-   │   │   └── IMacContext (+ Verify, GetMacSize)
-   │   ├── IAeadContext (+ UpdateAad, Finalize, VerifyAndFinalize, GetTagSize)
-   │   └── IVerifySignatureContext (+ VerifyFinalize, SingleShot)
+   ├── IStreamingContext (Init + Reset)
+   │   ├── IHashContext (+ Update, Finalize, SingleShot, GetDigestSize)
+   │   ├── IMacContext (+ Update, Finalize, Verify, GetMacSize)
+   │   ├── ICipherContext (+ Update(in, out), Finalize, SingleShot, GetMaximumOutputSize; direction from config)
+   │   ├── ISignContext (+ Update, SignFinalize, SingleShot, GetSignatureSize)
+   │   ├── IVerifySignatureContext (+ Update, VerifyFinalize, SingleShot)
+   │   └── IAeadContext (+ UpdateAad, Update(in, out), Finalize, VerifyAndFinalize, GetTagSize)
    ├── IRandomContext (Generate, Seed)
    ├── IKeyManagementContext (key lifecycle operations)
    ├── ICertificateManagementContext (certificate lifecycle operations)
@@ -253,11 +253,8 @@ daemon state, not owned data copies:
    └── IDataObject (data, size)
 
 - ``IContext``: Root base with ``Uptr`` typedef and virtual destructor
-- ``IStreamingContext``: Adds ``Init() → Result<std::monostate>``,
-  ``Update(span<const uint8_t>) → Result<std::monostate>``, and
-  ``Reset() → Result<std::monostate>`` for streaming patterns
-- ``IStreamingOutputContext``: Adds ``Finalize(span<uint8_t>) → Result<size_t>``
-  and ``GetOutputSize() → size_t`` for operations that produce output
+- ``IStreamingContext``: Adds ``Init(optional<span<const uint8_t>> iv) → Result<std::monostate>``
+  and ``Reset() → Result<std::monostate>`` for streaming patterns
 
 Contexts needing extra ``Init`` parameters (e.g., IV for encrypt/AEAD) hide
 the base ``Init()`` with a more specific signature.
@@ -646,8 +643,8 @@ The architecture is decomposed along three axes:
    operation-specific code. This enables minimal-dependency compilation
    units and independent unit testing.
 
-3. **Base hierarchy vs. concrete contexts**: Three base interfaces
-   (``IContext``, ``IStreamingContext``, ``IStreamingOutputContext``)
-   capture shared streaming behavior, while concrete contexts add
-   operation-specific methods. Configs are separated into ``config/``
+3. **Base hierarchy vs. concrete contexts**: Two base interfaces
+   (``IContext``, ``IStreamingContext``) capture shared streaming
+   behavior, while concrete contexts add operation-specific methods,
+   including their own ``Update`` and finalization. Configs are separated into ``config/``
    to decouple configuration from the interfaces they parameterize.

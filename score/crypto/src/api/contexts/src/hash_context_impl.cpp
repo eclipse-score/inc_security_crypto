@@ -317,12 +317,6 @@ score::Result<std::monostate> HashContextImpl::Reset()
 
 std::size_t HashContextImpl::GetDigestSize() const noexcept
 {
-    // For hash contexts, digest size and output size are the same.
-    return GetOutputSize();
-}
-
-std::size_t HashContextImpl::GetOutputSize() const noexcept
-{
     auto control_req_result = proto::ControlRequestBuilder()
                                   .forDataNodeId(m_context_id)
                                   .operation({actors::OP_ACTOR_HASH_HANDLER, hash_ops::HASH_GET_DIGEST_SIZE})

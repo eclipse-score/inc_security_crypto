@@ -177,8 +177,8 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
                     return "CIPHER_FINALIZE";
                 case cipher_ops::CIPHER_SS:
                     return "CIPHER_SS";
-                case cipher_ops::CIPHER_GET_OUTPUT_SIZE:
-                    return "CIPHER_GET_OUTPUT_SIZE";
+                case cipher_ops::CIPHER_GET_MAX_OUTPUT_SIZE:
+                    return "CIPHER_GET_MAX_OUTPUT_SIZE";
                 case cipher_ops::CIPHER_RESET:
                     return "CIPHER_RESET";
                 case cipher_ops::CIPHER_GET_IV_SIZE:

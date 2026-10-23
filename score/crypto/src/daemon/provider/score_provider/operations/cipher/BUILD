@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 # Cipher executor + abstract base cipher handler for the score interface family.
 cc_library(
@@ -32,5 +32,16 @@ cc_library(
         "//score/crypto/src/daemon/provider/handler:handler_headers",
         "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
         "//score/crypto/src/api/common:crypto_common",
+    ],
+)
+
+cc_test(
+    name = "score_cipher_handler_test",
+    srcs = ["score_cipher_handler_test.cpp"],
+    deps = [
+        ":score_cipher_handler",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
+        "@googletest//:gtest_main",
     ],
 )

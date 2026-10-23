@@ -110,12 +110,11 @@ The public API surface is organized into the following interface groups:
    :status: invalid
    :language: cpp
 
-   ``IContext`` → ``IStreamingContext`` → ``IStreamingOutputContext``
-   base hierarchy.  All streaming methods (``Init()``, ``Update()``,
-   ``Reset()``, ``Finalize()``, ``GetOutputSize()``) are **protected**
-   in the base classes.  Derived context interfaces selectively expose
-   them in their public sections via ``using``-declarations so that
-   each context presents a self-contained, user-friendly API surface.
+   ``IContext`` → ``IStreamingContext`` base hierarchy.
+   ``IStreamingContext`` holds only ``Init()`` and ``Reset()``, both
+   **protected**; derived context interfaces expose them via
+   ``using``-declarations.  Each derived context declares its own
+   ``Update()``, finalization and size queries.
 
    ``IStreamingContext::Init()`` accepts an
    ``std::optional<span<const uint8_t>> iv`` parameter (default
@@ -360,11 +359,10 @@ The public API surface is organized into the following interface groups:
    :status: invalid
    :language: cpp
 
-   Cryptographic hashing. Extends ``IStreamingOutputContext``;
-   exposes ``Init()``, ``Update()``, ``Reset()``, and ``Finalize()``
-   from the base classes via ``using``-declarations plus ``SingleShot()``
-   and ``GetDigestSize()``. ``GetOutputSize()`` is intentionally not
-   exposed — use ``GetDigestSize()`` instead.
+   Cryptographic hashing. Extends ``IStreamingContext``; exposes
+   ``Init()`` and ``Reset()`` via ``using``-declarations and declares
+   ``Update()``, ``Finalize()``, ``SingleShot()``, and
+   ``GetDigestSize()``.
 
 .. real_arc_int:: IMacContext
    :id: real_arc_int__crypto__i_mac_context
@@ -375,11 +373,9 @@ The public API surface is organized into the following interface groups:
    :language: cpp
 
    Message authentication code generation (HMAC, CMAC, GMAC, etc.). Extends
-   ``IStreamingOutputContext``; exposes ``Init()`` with the optional-IV
-   base signature, ``Update()``, ``Reset()``, and ``Finalize()`` via
-   ``using``-declarations; adds ``Verify()`` and ``GetMacSize()``.
-   ``GetOutputSize()`` is intentionally not exposed — use ``GetMacSize()``
-   instead.
+   ``IStreamingContext``; exposes ``Init()`` with the optional-IV base
+   signature and ``Reset()`` via ``using``-declarations; declares
+   ``Update()``, ``Finalize()``, ``Verify()``, and ``GetMacSize()``.
 
 .. real_arc_int:: ICipherContext
    :id: real_arc_int__crypto__i_cipher_context
@@ -389,10 +385,12 @@ The public API surface is organized into the following interface groups:
    :status: invalid
    :language: cpp
 
-   Symmetric encryption and decryption. Extends
-   ``IStreamingOutputContext``; exposes ``Init()``, ``Reset()``,
-   ``Finalize()``, and ``GetOutputSize()`` from the base, plus
-   cipher-specific ``Update(input, output)`` and ``SingleShot()``.
+   Symmetric encryption and decryption. Extends ``IStreamingContext``;
+   exposes ``Init()`` and ``Reset()`` from the base and declares
+   ``Update(input, output)``, ``Finalize()``, ``SingleShot()``, and
+   ``GetMaximumOutputSize(input_size)``.  The latter bounds the output of
+   ``Update()`` and ``SingleShot()`` for that input length, and of
+   ``Finalize()`` for an input length of 0.
    ``Init()`` uses the base optional-IV signature (``span`` implicitly
    converts to ``optional<span>``); for IV-based modes (AES-CBC,
    AES-CTR) an IV must be provided, for ECB ``std::nullopt`` is valid.
@@ -424,11 +422,10 @@ The public API surface is organized into the following interface groups:
    :status: invalid
    :language: cpp
 
-   Digital signature generation. Extends ``IStreamingOutputContext``;
-   exposes ``Init()``, ``Update()``, and ``Reset()`` from the base.
-   Adds ``SignFinalize()``, ``SingleShot()``, and
-   ``GetSignatureSize()``.  Base ``Finalize()`` and
-   ``GetOutputSize()`` are not exposed.
+   Digital signature generation. Extends ``IStreamingContext``;
+   exposes ``Init()`` and ``Reset()`` from the base.  Declares
+   ``Update()``, ``SignFinalize()``, ``SingleShot()``, and
+   ``GetSignatureSize()``.
 
 .. real_arc_int:: IVerifySignatureContext
    :id: real_arc_int__crypto__i_verify_sign_context
@@ -439,8 +436,8 @@ The public API surface is organized into the following interface groups:
    :language: cpp
 
    Digital signature verification. Extends ``IStreamingContext``;
-   exposes ``Init()``, ``Update()``, and ``Reset()`` from the base.
-   Adds ``VerifyFinalize()`` and ``SingleShot()``.
+   exposes ``Init()`` and ``Reset()`` from the base.  Declares
+   ``Update()``, ``VerifyFinalize()``, and ``SingleShot()``.
 
 .. real_arc_int:: IRandomContext
    :id: real_arc_int__crypto__i_random_context
