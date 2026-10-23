@@ -1,0 +1,95 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml uc_trust_store_member_add
+title Use Case: Add a Certificate to a Trust Store
+autonumber
+hide footbox
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ParticipantPadding 18
+skinparam sequenceMessageAlign center
+
+actor Application as App
+participant "Trust-store context + IPC" as Context
+participant "CERT:TRUST_STORE\nhandler + executor" as Executor
+participant "CertManagementService" as Service
+participant "TrustStoreManager" as TrustManager
+participant "TrustStoreHandler" as StoreHandler
+participant "ICertSlotHandler" as Backend
+participant "CertSlotManager" as SlotManager
+participant "Trust-store descriptor" as Descriptor
+
+App -> Context : AddCertificateToTrustStore(store, cert)
+Context -> Executor : TRUST_STORE_ADD_CERT
+Executor -> Service : resolve trust store and certificate
+group Planned: AddCertificateToTrustStoreWithCrl, CRL propagation from the source
+  Executor -> Service : ResolveCrlForOperation(cert)
+  Service --> Executor : CrlData::Sptrc (null if none)
+end
+Executor -> TrustManager : AddMember(store, cert, client, CrlData::Sptrc)
+TrustManager -> TrustManager : CheckTrustStoreWritePermission(client)
+
+alt write denied
+  TrustManager --> Executor : access denied
+else authorized
+  TrustManager -> StoreHandler : AddMember(cert, CrlData::Sptrc)
+  loop configured members
+    StoreHandler -> Backend : load current member certificate
+    Backend --> StoreHandler : certificate or empty slot
+  end
+
+  alt fingerprint matches a member (any kind)
+    alt exclusive-mutable member
+      opt CRL supplied
+        StoreHandler -> Backend : StoreCrl(slot, CrlData)
+        StoreHandler -> SlotManager : InvalidateCrl(slot)
+        StoreHandler -> StoreHandler : RefreshMemberCrlLocked(slot)
+      end
+      StoreHandler -> StoreHandler : CommitStateLocked, SetAnchorLocked
+      StoreHandler -> Descriptor : persist member state
+    else shared-static or conditional-external member
+      alt CRL supplied
+        StoreHandler --> TrustManager : unsupported operation
+      else no CRL
+        StoreHandler --> TrustManager : success (already a member)
+      end
+    end
+  else no matching fingerprint
+    StoreHandler -> StoreHandler : find an empty exclusive-mutable slot
+    alt empty owned slot available (state kEmpty)
+      StoreHandler -> Backend : StoreCertificate(slot, cert)
+      StoreHandler -> SlotManager : InvalidateSlotCaches(slot)
+      opt CRL supplied
+        StoreHandler -> Backend : StoreCrl(slot, CrlData), rollback on failure
+      end
+      StoreHandler -> StoreHandler : CommitStateLocked, rollback on failure
+      StoreHandler -> StoreHandler : RefreshMemberCrlLocked, SetAnchorLocked
+      StoreHandler -> Descriptor : persist member state
+    else no slot available
+      StoreHandler --> TrustManager : kTrustStoreCapacityExceeded
+    end
+  end
+  TrustManager --> Executor : result
+end
+Executor --> Context : operation result
+Context --> App : success or error
+
+note over StoreHandler, Backend
+  The trust store writes only exclusive-mutable slots. Shared-static and
+  conditional-external slots are managed through the slot APIs. Removing a
+  member clears only an exclusive slot; enable, disable, and acknowledge
+  are separate operations. A failed write to an empty exclusive slot rolls
+  back by clearing the slot and invalidating its caches.
+end note
+@enduml

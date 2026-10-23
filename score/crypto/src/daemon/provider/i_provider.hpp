@@ -36,6 +36,16 @@ namespace score::crypto::daemon::data_plane
 {
 class IShmFactory;
 }  // namespace score::crypto::daemon::data_plane
+namespace score::crypto::daemon::provider::cert_management
+{
+class ICertParser;
+}  // namespace score::crypto::daemon::provider::cert_management
+
+namespace score::crypto::daemon::cert_management
+{
+class ICertSlotHandler;
+struct CertSlotConfig;
+}  // namespace score::crypto::daemon::cert_management
 
 namespace score::crypto::daemon::provider
 {
@@ -117,6 +127,31 @@ class IProvider
     /// Returns nullptr for providers that do not implement IKeyFactory (e.g., PKCS#11
     /// which creates keys through Pkcs11KeyMgmtHandler which is both Handler and IKeyFactory).
     virtual std::shared_ptr<key_management::IKeyFactory> GetKeyFactory()
+    {
+        return nullptr;
+    }
+
+    /// Return the provider's certificate parser for ICertSlotHandler injection.
+    ///
+    /// Returns nullptr if the provider does not support certificate parsing.
+    /// SlotHandlerFactory resolves the configured/default parser, either during its
+    /// explicit Initialize() call or lazily when a slot handler is first requested.
+    /// Cert context operations (verify, CSR, etc.) are handled by ICryptoHandlerFactory.
+    virtual std::shared_ptr<provider::cert_management::ICertParser> GetCertParser()
+    {
+        return nullptr;
+    }
+
+    /// Return a handler for a provider-owned certificate storage slot.
+    ///
+    /// Returns nullptr when this provider does not implement certificate-slot
+    /// storage. The caller selects the provider by name via slot.storage_backend
+    /// (name-based lookup), NOT via the kCertManagement capability bit. A provider
+    /// may implement this method without advertising kCertManagement — that bit
+    /// exclusively governs GetCertParser() selection.
+    virtual std::shared_ptr<::score::crypto::daemon::cert_management::ICertSlotHandler> GetCertSlotHandler(
+        const ::score::crypto::daemon::cert_management::CertSlotConfig& /*config*/,
+        std::shared_ptr<provider::cert_management::ICertParser> /*parser*/)
     {
         return nullptr;
     }

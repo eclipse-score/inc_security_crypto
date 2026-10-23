@@ -1,0 +1,173 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+
+@startuml cert_management_data_model
+title Certificate Management: Stored Objects, Ownership, and Lifetime
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #46535E
+skinparam class {
+  BorderColor #596B78
+  FontColor #20313D
+}
+skinparam package {
+  BackgroundColor #F4F7F9
+  BorderColor #596B78
+}
+
+package "Configuration (fixed after startup)" {
+  class CertSlotConfig #FFFFFF {
+    slot_name
+    deployment_path
+    access_policy
+    integrity_policy
+  }
+  class TrustStoreConfig #FFFFFF {
+    store_name
+    deployment_path
+    access_policy
+    conditional_slot_initialization
+  }
+  class TrustStoreMemberConfig #FFFFFF {
+    slot_name
+    kind: shared-static,\nexclusive-mutable,\nconditional-external
+  }
+}
+
+package "Immutable values (shared by pointer)" {
+  class CertObject #E3F0E6 {
+    bytes, format
+    chain metadata:\nsubject, issuer, SKID, AKID,\nfingerprint, validity, isCA
+  }
+  class CrlData #E3F0E6 {
+    bytes, format
+    metadata (optional)
+  }
+}
+
+package "Daemon-lifetime owners and caches" {
+  class CertSlotRegistry #DCEBFA {
+    slot handle -> config
+    name index
+    app resource map
+  }
+  class CertSlotManager #DCEBFA {
+    handler per slot
+    SlotCache per slot:
+      certificate (weak) + generation
+      CRL state (presence, metadata; strong)
+      CRL snapshot (weak) + generation
+  }
+  class "ICertSlotHandler\n(file-backed, CRL handler)" as SlotHandler #DCEBFA
+  class TrustStoreManager #DCEBFA {
+    store list, name index
+    slot -> stores reverse index
+    client -> store -> ref count
+  }
+  class TrustStoreHandler #DCEBFA {
+    member state: enabled,\naccepted fingerprint
+    anchors (strong, filtered view)
+    CRLs (strong, shared)
+  }
+  class CertRegistry #DCEBFA {
+    id -> CertEntry
+  }
+}
+
+package "Per client (released with the client's node)" {
+  class CertSlotDataNode #FFF2CC {
+    slot handle
+  }
+  class TrustStoreDataNode #FFF2CC {
+    trust store handle
+  }
+  class CertDataNode #FFF2CC
+  class CertEntry #FFF2CC {
+    owner client
+    slot handle (none if ephemeral)
+    session CRL
+  }
+}
+
+package "Persisted (deployment storage)" {
+  class "Slot descriptor" as SlotDescriptor #F4E1D2 {
+    [certificate] path, format
+    [certificate_metadata]
+    [crl] path, format, metadata
+  }
+  class "Certificate and\nCRL files" as Files #F4E1D2
+  class "Trust-store descriptor" as StoreDescriptor #F4E1D2 {
+    member enabled flag
+    accepted fingerprint
+  }
+}
+
+TrustStoreConfig *-- "0..*" TrustStoreMemberConfig
+TrustStoreMemberConfig ..> CertSlotConfig : by slot_name
+CertSlotRegistry o-- "0..*" CertSlotConfig
+
+CertSlotManager --> CertSlotRegistry
+CertSlotManager *-- "1 per slot" SlotHandler
+CertSlotManager ..> CertObject : weak
+CertSlotManager ..> CrlData : weak snapshot
+SlotHandler --> SlotDescriptor
+SlotDescriptor --> Files
+
+TrustStoreManager *-- "0..*" TrustStoreHandler
+TrustStoreHandler *-- TrustStoreConfig
+TrustStoreHandler --> CertSlotManager : slot backends
+TrustStoreHandler o-- "0..*" CertObject : anchors
+TrustStoreHandler o-- "0..*" CrlData : CRLs
+TrustStoreHandler --> StoreDescriptor
+
+CertSlotDataNode ..> CertSlotRegistry : handle
+TrustStoreDataNode ..> TrustStoreManager : handle
+CertDataNode *-- CertEntry
+CertRegistry o-- "0..*" CertEntry
+CertEntry o-- CertObject : shared with\nslot cache
+CertEntry o-- "0..1" CrlData : session CRL,\nnever persisted
+
+note bottom of CertSlotManager
+  Caches slot content: the certificate and the CRL snapshot are held
+  weakly, the CRL state strongly. A write through the daemon
+  invalidates the slot's certificate and CRL entries and advances
+  their generations, so a load that overlapped its own invalidation
+  is not cached.
+end note
+
+note bottom of TrustStoreHandler
+  Holds strong references to the CertObject and CrlData snapshots of
+  its enabled members, the same objects the slot manager hands out.
+  The set is filtered by member enablement and, for conditional
+  members, by the accepted fingerprint. The references are released
+  when no client holds the store (per-client reference counts).
+end note
+
+note bottom of CertEntry
+  Per-client state attaches here. The CertObject it wraps is
+  shared with every other reader of the slot; the session CRL
+  is visible only through this entry.
+end note
+
+legend bottom
+  |= Fill |= Lifetime and ownership |
+  |<#FFFFFF> | Configuration, fixed at startup |
+  |<#E3F0E6> | Immutable value, shared by pointer |
+  |<#DCEBFA> | Daemon-lifetime owner or cache |
+  |<#FFF2CC> | Per client; released with the client's node |
+  |<#F4E1D2> | Persisted in deployment storage |
+endlegend
+@enduml
