@@ -188,6 +188,8 @@ namespace
             algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
         if (!expected_digest_size.has_value() || m_prehashed_data.size() != expected_digest_size.value())
         {
+            score::mw::log::LogError() << LOG_PREFIX << "FinalizeSign: prehashed input size " << m_prehashed_data.size()
+                                       << " does not match expected digest size for " << m_algorithm;
             m_state = StreamOperationState::IDLE;
             m_prehashed_data.clear();
             return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
@@ -280,6 +282,8 @@ namespace
             algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
         if (!expected_digest_size.has_value() || data.size() != expected_digest_size.value())
         {
+            score::mw::log::LogError() << LOG_PREFIX << "SingleShotSign: prehashed input size " << data.size()
+                                       << " does not match expected digest size for " << m_algorithm;
             m_state = StreamOperationState::IDLE;
             return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
         }

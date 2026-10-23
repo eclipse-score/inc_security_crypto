@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/ecdsa_common.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"

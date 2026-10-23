@@ -125,19 +125,24 @@ score::Result<std::uint64_t> CreateDaemonContext(
     {
         builder = builder.with_in_val_uint64(request.key_node_id.value());
     }
+    else
+    {
+        builder = builder.with_no_param();
+    }
 
     if (request.mode.has_value())
     {
         builder = builder.with_in_val_uint8(static_cast<std::uint8_t>(request.mode.value()));
+    }
+    else
+    {
+        builder = builder.with_no_param();
     }
 
     if (request.padding.has_value())
     {
         builder = builder.with_in_val_uint8(static_cast<std::uint8_t>(request.padding.value()));
     }
-    else if (request.signature_input_mode.has_value())
-    {
-        builder = builder.with_no_param();
     else
     {
         builder = builder.with_no_param();
@@ -146,6 +151,10 @@ score::Result<std::uint64_t> CreateDaemonContext(
     if (request.signature_input_mode.has_value())
     {
         builder = builder.with_in_val_uint8(static_cast<std::uint8_t>(request.signature_input_mode.value()));
+    }
+    else
+    {
+        builder = builder.with_no_param();
     }
 
     auto control_req_result = builder.build();
