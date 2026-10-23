@@ -51,7 +51,7 @@ class IVerifySignatureContext : public IStreamingContext
     using IStreamingContext::Reset;
 
     /// @brief Feeds a chunk of input data into the operation.
-    /// @return std::monostate on success, error if Init() was not called
+    /// @return std::monostate on success, error on failure
     /// @note Can be called multiple times after Init().
     virtual score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) = 0;
 

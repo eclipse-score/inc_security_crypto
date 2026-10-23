@@ -58,7 +58,7 @@ class IStreamingContext : public IContext
     ///           MAC contexts accept an optional IV (e.g. GMAC), and
     ///           cipher/AEAD contexts require a mandatory IV via their own
     ///           public Init(span) signature.
-    /// @return std::monostate on success, error if context is in an invalid state
+    /// @return std::monostate on success, error on failure
     /// @note Must be called before the derived context's Update(). Calling Init()
     ///       on an already-active stream resets the context for a new operation.
     virtual score::Result<std::monostate> Init(std::optional<score::cpp::span<const uint8_t>> iv = std::nullopt) = 0;

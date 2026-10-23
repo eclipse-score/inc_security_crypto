@@ -131,8 +131,7 @@ class ICipherContext : public IStreamingContext
     /// cipher block (one byte for a stream mode such as CTR).
     ///
     /// @param input_size Length of the input passed to the call being sized
-    /// @return Maximum number of bytes the call writes, error if the daemon
-    ///         query fails or the bound overflows std::size_t
+    /// @return Maximum number of bytes the call writes on success, error on failure
     virtual score::Result<std::size_t> GetMaximumOutputSize(std::size_t input_size) const = 0;
 
   protected:
