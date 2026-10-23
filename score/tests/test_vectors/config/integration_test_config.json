@@ -161,6 +161,26 @@
         "allowed_write_uids": [0],
         "deployment_path" : "/opt/crypto/etc/integration_openssl_ecdsa_p521_pub.kv",
         "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "RSA_PSS_2048_SHA256_PublicKeySlot_OpenSSL",
+        "algorithm": "RSA-2048",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_rsa_pss_2048_sha256_pub.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "RSA_PSS_3072_SHA384_PublicKeySlot_OpenSSL",
+        "algorithm": "RSA-3072",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_rsa_pss_3072_sha384_pub.kv",
+        "deployment_format" : "kv"
       }
     ],
     "app_key_slot_entries": [
@@ -323,6 +343,26 @@
         "uid": 1000,
         "app_resource_id": "ECDSA_P521_PublicKeySlot_OpenSSL",
         "slot_name": "ECDSA_P521_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "RSA_PSS_2048_SHA256_PublicKeySlot_OpenSSL",
+        "slot_name": "RSA_PSS_2048_SHA256_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "RSA_PSS_2048_SHA256_PublicKeySlot_OpenSSL",
+        "slot_name": "RSA_PSS_2048_SHA256_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "RSA_PSS_3072_SHA384_PublicKeySlot_OpenSSL",
+        "slot_name": "RSA_PSS_3072_SHA384_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "RSA_PSS_3072_SHA384_PublicKeySlot_OpenSSL",
+        "slot_name": "RSA_PSS_3072_SHA384_PublicKeySlot_OpenSSL"
       }
     ]
   }

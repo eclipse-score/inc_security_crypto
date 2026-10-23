@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_ECDSA_COMMON_HPP
-#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_ECDSA_COMMON_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
@@ -23,9 +23,22 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
-namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 {
+
+inline constexpr std::size_t kSignatureInputModeParamIndex{6U};
+
+[[nodiscard]] inline bool IsPrehashed(const ::score::crypto::daemon::provider::handler::InitializationParams& params)
+{
+    if (params.context_creation_params.size() <= kSignatureInputModeParamIndex)
+    {
+        return false;
+    }
+    const auto* mode = std::get_if<std::uint8_t>(&params.context_creation_params[kSignatureInputModeParamIndex]);
+    return mode != nullptr && *mode == static_cast<std::uint8_t>(::score::crypto::SignatureInputMode::kPrehashed);
+}
 
 /// @brief Whether @p algorithm names a complete ECDSA signature scheme.
 ///
@@ -61,6 +74,17 @@ class Stream final
         const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
         const common::AlgorithmId& algorithm);
 
+    /// @brief Like Bind(), but without the EC-key-type check or the
+    ///        IsAlgorithmSupported() gate.
+    ///
+    /// @note For the RSA-PSS/Ed25519 handlers, which share this Stream but
+    ///       bind keys of other types and validate the algorithm themselves.
+    ///
+    /// @param init_params Context initialization parameters; retained so that
+    ///        Reset() can rebuild the context from them.
+    [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> BindAny(
+        const ::score::crypto::daemon::provider::handler::InitializationParams& init_params);
+
     /// @brief Replaces the digest context with a fresh one.
     ///
     /// @pre Bind() has succeeded.
@@ -87,6 +111,21 @@ class Stream final
   private:
     void Free() noexcept;
 
+    /// @brief Shared setup for Bind() and BindAny(): validates the bound key,
+    ///        records @p init_params, and allocates the digest context.
+    ///
+    /// @param init_params Context initialization parameters to validate and
+    ///        retain; see Bind().
+    /// @param operation Name of the calling public method, used to attribute
+    ///        error log messages (e.g. "Bind" or "BindAny").
+    /// @param require_ec_key Whether the bound key must be an EC key pair;
+    ///        Bind() needs this (ECDSA only ever binds EC keys), BindAny()
+    ///        does not (it also serves RSA-PSS/Ed25519 handlers).
+    [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> BindCommon(
+        const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
+        std::string_view operation,
+        bool require_ec_key);
+
     EVP_MD_CTX* m_md_ctx{nullptr};
     ::score::crypto::daemon::provider::handler::InitializationParams m_init_params;
 };
@@ -100,6 +139,6 @@ DerToP1363(const std::uint8_t* der, std::size_t der_len, std::size_t field_size)
 [[nodiscard]] Expected<common::OwnedBuffer, ::score::crypto::daemon::common::DaemonErrorCode>
 P1363ToDer(const std::uint8_t* raw, std::size_t raw_len, std::size_t field_size);
 
-}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 
-#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_ECDSA_COMMON_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP

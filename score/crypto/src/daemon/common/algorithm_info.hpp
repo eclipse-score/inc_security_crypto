@@ -94,6 +94,8 @@ struct KeyAlgorithmInfo
     std::size_t key_size;  ///< Default key size in bytes
 };
 
+inline constexpr std::size_t kEd25519KeySize{32U};
+
 inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
     {"HMAC-SHA256", 32U},
     {"HMAC-SHA384", 48U},
@@ -109,6 +111,10 @@ inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
     {"ECDSA-P256", 32U},
     {"ECDSA-P384", 48U},
     {"ECDSA-P521", 66U},
+    {"RSA-2048", 256U},
+    {"RSA-3072", 384U},
+    {"RSA-4096", 512U},
+    {"Ed25519", kEd25519KeySize},
 };
 
 /// @brief Look up default key size by algorithm name.
@@ -124,6 +130,15 @@ inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
     }
     return std::nullopt;
 }
+
+// ---------------------------------------------------------------------------
+// Signature algorithm properties (provider-independent)
+// ---------------------------------------------------------------------------
+
+/// @brief Maximum message size buffered by Ed25519 sign/verify operations.
+/// @note This is a resource-policy limit, not an Ed25519 algorithm limit.
+inline constexpr std::size_t kMaxEd25519MessageSize{1024U * 1024U};
+inline constexpr std::size_t kEd25519SignatureSize{64U};
 
 // ---------------------------------------------------------------------------
 // Symmetric cipher properties (provider-independent)
@@ -170,11 +185,12 @@ inline constexpr CipherAlgorithmInfo kCipherAlgorithms[] = {
 ///       byte length of the field order, so P-521 yields 2 * 66 = 132 bytes.
 struct EcCurveInfo
 {
-    std::string_view name;        ///< Curve identifier as used in AlgorithmId, e.g. "P256"
-    std::string_view group_name;  ///< Standard NIST designation of the curve, e.g. "P-256"
-    std::size_t field_size;       ///< Byte length of one coordinate / of r and s
-    std::size_t signature_size;   ///< P1363 signature length = 2 * field_size
-    std::size_t key_bits;         ///< Nominal key strength in bits
+    std::string_view name;                ///< Curve identifier as used in AlgorithmId, e.g. "P256"
+    std::string_view group_name;          ///< Standard NIST designation of the curve, e.g. "P-256"
+    std::string_view openssl_group_name;  ///< OpenSSL canonical group identifier, e.g. "prime256v1"
+    std::size_t field_size;               ///< Byte length of one coordinate / of r and s
+    std::size_t signature_size;           ///< P1363 signature length = 2 * field_size
+    std::size_t key_bits;                 ///< Nominal key strength in bits
 };
 
 /// @note Curve names are spelled without an inner hyphen ("P256", not "P-256")
@@ -186,11 +202,66 @@ struct EcCurveInfo
 ///       of @c group_name does not follow from @c name in general, so each curve
 ///       carries both.
 inline constexpr EcCurveInfo kEcCurves[] = {
-    {"P256", "P-256", 32U, 64U, 256U},
-    {"P384", "P-384", 48U, 96U, 384U},
+    {"P256", "P-256", "prime256v1", 32U, 64U, 256U},
+    {"P384", "P-384", "secp384r1", 48U, 96U, 384U},
     // NIST's largest prime curve is P-521 (not P-512); 521 bits is 66 bytes.
-    {"P521", "P-521", 66U, 132U, 521U},
+    {"P521", "P-521", "secp521r1", 66U, 132U, 521U},
 };
+
+struct RsaKeyInfo
+{
+    std::string_view name;
+    std::size_t modulus_size;
+    std::size_t key_bits;
+};
+
+inline constexpr RsaKeyInfo kRsaKeys[] = {
+    {"RSA-2048", 256U, 2048U},
+    {"RSA-3072", 384U, 3072U},
+    {"RSA-4096", 512U, 4096U},
+};
+
+/// Offset of the digit run within an entry of kRsaKeys, e.g. "2048" in "RSA-2048".
+inline constexpr std::size_t kRsaKeySizeSubstringStart{4U};
+inline constexpr std::string_view kRsaPssAlgorithmPrefix{"RSA-PSS-"};
+
+[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfo(std::string_view algorithm) noexcept
+{
+    for (const auto& entry : kRsaKeys)
+    {
+        if (algorithm == entry.name)
+        {
+            return entry;
+        }
+    }
+    return std::nullopt;
+}
+
+/// @brief Look up RSA key properties from an RSA-PSS signature algorithm.
+[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfoForSignatureAlgorithm(
+    std::string_view algorithm) noexcept
+{
+    if (algorithm.substr(0, kRsaPssAlgorithmPrefix.size()) != kRsaPssAlgorithmPrefix)
+    {
+        return std::nullopt;
+    }
+    const auto remainder = algorithm.substr(kRsaPssAlgorithmPrefix.size());
+    for (const auto& entry : kRsaKeys)
+    {
+        const auto key_size_substring = entry.name.substr(kRsaKeySizeSubstringStart);
+
+        if (remainder.substr(0, key_size_substring.size()) == key_size_substring)
+        {
+            return entry;
+        }
+    }
+    return std::nullopt;
+}
+
+[[nodiscard]] inline constexpr bool IsEd25519Algorithm(std::string_view algorithm) noexcept
+{
+    return algorithm == "Ed25519";
+}
 
 /// @brief Extract the curve of an ECDSA signature algorithm identifier.
 ///
@@ -221,6 +292,27 @@ inline constexpr EcCurveInfo kEcCurves[] = {
         }
     }
     return std::nullopt;
+}
+
+/// @brief Look up the digest size for a signature algorithm identifier.
+/// @return digest size in bytes, or std::nullopt if the digest is unknown.
+[[nodiscard]] inline constexpr std::optional<std::size_t> LookupSignatureDigestSize(std::string_view algorithm) noexcept
+{
+    for (const auto& entry : kHashAlgorithms)
+    {
+        if (algorithm.find(entry.name) != std::string_view::npos)
+        {
+            return entry.digest_size;
+        }
+    }
+    return std::nullopt;
+}
+
+[[nodiscard]] inline constexpr bool IsRsaPssAlgorithm(std::string_view algorithm) noexcept
+{
+    return algorithm.find("RSA-PSS-") == 0U && LookupSignatureDigest(algorithm).has_value() &&
+           (algorithm.find("RSA-PSS-2048-") == 0U || algorithm.find("RSA-PSS-3072-") == 0U ||
+            algorithm.find("RSA-PSS-4096-") == 0U);
 }
 
 /// @brief True when the identifier names an ECDSA key or signature algorithm.

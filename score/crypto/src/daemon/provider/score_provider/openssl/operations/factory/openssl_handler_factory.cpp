@@ -20,7 +20,9 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/random/openssl_random_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/sign/openssl_ecdsa_sign_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/sign/openssl_rsa_pss_ed25519_sign_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/verify/openssl_ecdsa_verify_handler.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/verify/openssl_rsa_pss_ed25519_verify_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/cipher_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/hash/hash_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
@@ -99,6 +101,11 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateSignHandler(const common
         auto sign_executor = std::make_unique<operations::sign::SignExecutor>();
         return std::make_shared<OpenSslEcdsaSignHandler>(std::move(sign_executor), algorithm);
     }
+    if (OpenSslRsaPssEd25519SignHandler::IsAlgorithmSupported(algorithm))
+    {
+        auto sign_executor = std::make_unique<operations::sign::SignExecutor>();
+        return std::make_shared<OpenSslRsaPssEd25519SignHandler>(std::move(sign_executor), algorithm);
+    }
 
     score::result::Error error(
         static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
@@ -113,6 +120,11 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateVerifyHandler(const comm
     {
         auto verify_executor = std::make_unique<operations::verify::VerifyExecutor>();
         return std::make_shared<OpenSslEcdsaVerifyHandler>(std::move(verify_executor), algorithm);
+    }
+    if (OpenSslRsaPssEd25519VerifyHandler::IsAlgorithmSupported(algorithm))
+    {
+        auto verify_executor = std::make_unique<operations::verify::VerifyExecutor>();
+        return std::make_shared<OpenSslRsaPssEd25519VerifyHandler>(std::move(verify_executor), algorithm);
     }
 
     score::result::Error error(

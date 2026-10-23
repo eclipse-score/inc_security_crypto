@@ -45,7 +45,7 @@ cc_library(
 cc_library(
     name = "provider_openssl_headers",
     hdrs = [
-        "detail/ecdsa_common.hpp",
+        "detail/signature_common.hpp",
         "operations/cipher/openssl_cipher_handler.hpp",
         "operations/factory/openssl_handler_factory.hpp",
         "operations/hash/openssl_hash_handler.hpp",
@@ -53,7 +53,9 @@ cc_library(
         "operations/mac/openssl_hmac_handler.hpp",
         "operations/random/openssl_random_handler.hpp",
         "operations/sign/openssl_ecdsa_sign_handler.hpp",
+        "operations/sign/openssl_rsa_pss_ed25519_sign_handler.hpp",
         "operations/verify/openssl_ecdsa_verify_handler.hpp",
+        "operations/verify/openssl_rsa_pss_ed25519_verify_handler.hpp",
         "provider_openssl.hpp",
     ],
     includes = ["."],
@@ -81,7 +83,7 @@ cc_library(
 cc_library(
     name = "provider_openssl_library",
     srcs = [
-        "detail/ecdsa_common.cpp",
+        "detail/signature_common.cpp",
         "detail/openssl_algorithm_info.hpp",
         "key_management/openssl_key_factory.cpp",
         "key_management/openssl_key_handler.cpp",
@@ -92,7 +94,9 @@ cc_library(
         "operations/mac/openssl_hmac_handler.cpp",
         "operations/random/openssl_random_handler.cpp",
         "operations/sign/openssl_ecdsa_sign_handler.cpp",
+        "operations/sign/openssl_rsa_pss_ed25519_sign_handler.cpp",
         "operations/verify/openssl_ecdsa_verify_handler.cpp",
+        "operations/verify/openssl_rsa_pss_ed25519_verify_handler.cpp",
         "provider_openssl.cpp",
     ],
     implementation_deps = [

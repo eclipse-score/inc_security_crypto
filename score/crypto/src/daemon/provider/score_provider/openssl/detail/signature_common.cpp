@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/ecdsa_common.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
@@ -25,7 +25,7 @@
 
 #include <string_view>
 
-namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 {
 
 using ::score::crypto::daemon::common::DaemonErrorCode;
@@ -75,28 +75,23 @@ EVP_PKEY* Stream::Key() const noexcept
     return openssl_key->GetPkey();
 }
 
-Expected<std::monostate, DaemonErrorCode> Stream::Bind(
+Expected<std::monostate, DaemonErrorCode> Stream::BindCommon(
     const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
-    const common::AlgorithmId& algorithm)
+    std::string_view operation,
+    bool require_ec_key)
 {
-    if (!IsAlgorithmSupported(algorithm))
-    {
-        score::mw::log::LogError() << kLogPrefix << "Unsupported algorithm:" << algorithm;
-        return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
-    }
-
     Free();
 
     if (init_params.bound_key_handler == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << "Bind: signature context requires a bound key";
+        score::mw::log::LogError() << kLogPrefix << operation << ": signature context requires a bound key";
         return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
     }
 
     // Provider-id check validates the key comes from the same provider (no dynamic_cast/RTTI).
     if (init_params.bound_key_handler->GetProviderId() != init_params.provider_id)
     {
-        score::mw::log::LogError() << kLogPrefix << "Bind: bound key is not an OpenSSL key handler"
+        score::mw::log::LogError() << kLogPrefix << operation << ": bound key is not an OpenSSL key handler"
                                    << " (key provider_id=" << init_params.bound_key_handler->GetProviderId()
                                    << ", expected=" << init_params.provider_id << ")";
         return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
@@ -107,14 +102,14 @@ Expected<std::monostate, DaemonErrorCode> Stream::Bind(
     EVP_PKEY* pkey = Key();
     if (pkey == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << "Bind: bound key holds no EC key pair";
+        score::mw::log::LogError() << kLogPrefix << operation << ": bound key holds no key pair";
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }
 
-    if (EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC)
+    if (require_ec_key && EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC)
     {
-        score::mw::log::LogError() << kLogPrefix << "Bind: bound key is not an EC key";
+        score::mw::log::LogError() << kLogPrefix << operation << ": bound key is not an EC key";
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }
@@ -122,12 +117,31 @@ Expected<std::monostate, DaemonErrorCode> Stream::Bind(
     m_md_ctx = EVP_MD_CTX_new();
     if (m_md_ctx == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << "EVP_MD_CTX_new failed";
+        score::mw::log::LogError() << kLogPrefix << operation << ": EVP_MD_CTX_new failed";
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kAllocationFailed);
     }
 
     return std::monostate{};
+}
+
+Expected<std::monostate, DaemonErrorCode> Stream::Bind(
+    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
+    const common::AlgorithmId& algorithm)
+{
+    if (!IsAlgorithmSupported(algorithm))
+    {
+        score::mw::log::LogError() << kLogPrefix << "Bind: unsupported algorithm " << algorithm;
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+
+    return BindCommon(init_params, "Bind", /*require_ec_key=*/true);
+}
+
+Expected<std::monostate, DaemonErrorCode> Stream::BindAny(
+    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
+{
+    return BindCommon(init_params, "BindAny", /*require_ec_key=*/false);
 }
 
 Expected<std::monostate, DaemonErrorCode> Stream::Restart()
@@ -226,4 +240,4 @@ Expected<common::OwnedBuffer, DaemonErrorCode> P1363ToDer(const std::uint8_t* ra
     return out;
 }
 
-}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature

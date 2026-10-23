@@ -14,7 +14,12 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_OPENSSL_ALGORITHM_INFO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_OPENSSL_ALGORITHM_INFO_HPP
 
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+
 #include <openssl/evp.h>
+#include <openssl/rsa.h>
 
 #include <cstddef>
 #include <string_view>
@@ -119,6 +124,16 @@ inline constexpr std::string_view kSupportedSignatureAlgorithms[] = {
     "ECDSA-P256-SHA256",
     "ECDSA-P384-SHA384",
     "ECDSA-P521-SHA512",
+    "RSA-PSS-2048-SHA256",
+    "RSA-PSS-2048-SHA384",
+    "RSA-PSS-2048-SHA512",
+    "RSA-PSS-3072-SHA256",
+    "RSA-PSS-3072-SHA384",
+    "RSA-PSS-3072-SHA512",
+    "RSA-PSS-4096-SHA256",
+    "RSA-PSS-4096-SHA384",
+    "RSA-PSS-4096-SHA512",
+    "Ed25519",
 };
 
 /// @brief Whether the OpenSSL provider serves @p algorithm for signing and verification.
@@ -132,6 +147,25 @@ inline constexpr std::string_view kSupportedSignatureAlgorithms[] = {
         }
     }
     return false;
+}
+
+/// @brief Configure an initialized OpenSSL digest-sign/verify context for RSA-PSS.
+/// @return an initialization error if the context or any RSA-PSS parameter could not be configured.
+[[nodiscard]] inline ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
+ConfigureRsaPssContext(EVP_MD_CTX* context, std::string_view algorithm) noexcept
+{
+    EVP_PKEY_CTX* pkey_context = context == nullptr ? nullptr : EVP_MD_CTX_get_pkey_ctx(context);
+    const auto digest_name = ::score::crypto::daemon::common::LookupSignatureDigest(algorithm);
+    const EVP_MD* digest = digest_name.has_value() ? LookupHashEVPMD(digest_name.value()) : nullptr;
+    if (pkey_context == nullptr || digest == nullptr ||
+        EVP_PKEY_CTX_set_rsa_padding(pkey_context, RSA_PKCS1_PSS_PADDING) != 1 ||
+        EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_context, RSA_PSS_SALTLEN_DIGEST) != 1 ||
+        EVP_PKEY_CTX_set_rsa_mgf1_md(pkey_context, digest) != 1)
+    {
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::kAlgorithmInitializationFailed);
+    }
+    return std::monostate{};
 }
 
 }  // namespace score::crypto::daemon::provider::openssl::detail
