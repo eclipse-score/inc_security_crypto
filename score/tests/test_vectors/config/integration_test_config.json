@@ -203,7 +203,7 @@
         "deployment_format" : "kv"
       }
     ],
-    "app_key_slot_entries": [
+    "app_key_slot_mappings": [
       {
         "uid": 0,
         "app_resource_id": "test/hmac",

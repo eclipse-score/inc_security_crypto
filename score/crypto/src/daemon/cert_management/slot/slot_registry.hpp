@@ -137,7 +137,7 @@ class CertSlotRegistry : public std::enable_shared_from_this<CertSlotRegistry>
 
     /// @brief Register an application-local resource ID mapping.
     ///
-    /// Called at startup by ConfigDrivenSlotCatalog for each AppCertSlotEntry.
+    /// Called at startup by ConfigDrivenSlotCatalog for each AppCertSlotMapping.
     /// Maps (uid, app_resource_id) → actual cert slot name in this registry.
     ///
     /// @param uid             UID of the application.

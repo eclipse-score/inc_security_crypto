@@ -160,8 +160,8 @@ class CertificateManagementIntegrationTest : public ::testing::Test
         trust_store.allowed_uids = {0U};
         trust_store.allowed_write_uids = {0U};
         m_config.AddTrustStoreEntry(std::move(trust_store));
-        m_config.AddAppCertSlotEntry({0U, "device_certificate", "device/root-ca"});
-        m_config.AddAppTrustStoreEntry({0U, "tls_roots", "tls-roots"});
+        m_config.AddAppCertSlotMapping({0U, "device_certificate", "device/root-ca"});
+        m_config.AddAppTrustStoreMapping({0U, "tls_roots", "tls-roots"});
 
         m_parser = std::make_shared<openssl::OpenSslCertParser>(common::ProviderId{0U});
         m_provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});

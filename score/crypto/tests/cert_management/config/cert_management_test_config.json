@@ -55,12 +55,12 @@
         "deployment_format": "kv"
       }
     ],
-    "app_cert_slot_entries": [
+    "app_cert_slot_mappings": [
       { "uid": 0,    "app_resource_id": "root_ca",     "slot_name": "test/root-ca" },
       { "uid": 0,    "app_resource_id": "device_cert", "slot_name": "test/device-cert" },
       { "uid": 1000, "app_resource_id": "device_cert", "slot_name": "test/device-cert" }
     ],
-    "app_trust_store_entries": [
+    "app_trust_store_mappings": [
       { "uid": 0,    "app_resource_id": "tls_roots", "trust_store_name": "test/tls-roots" },
       { "uid": 1000, "app_resource_id": "tls_roots", "trust_store_name": "test/tls-roots" },
       { "uid": 0,    "app_resource_id": "ota_roots", "trust_store_name": "test/ota-roots" }

@@ -46,7 +46,7 @@ table KeySlotEntry {
 /// Per-application resource ID to key slot name mapping
 /// Applications reference keys by portable application-local names
 /// (e.g., "signing_key")
-table AppKeySlotEntry {
+table AppKeySlotMapping {
   /// UID of the application that owns this mapping
   uid: uint32;
   /// Application-local resource name
@@ -60,7 +60,7 @@ table KeySlotConfig {
   /// All key slot definitions
   slot_entries: [KeySlotEntry] (required);
   /// All per-app key slot mappings
-  app_key_slot_entries: [AppKeySlotEntry] (required);
+  app_key_slot_mappings: [AppKeySlotMapping] (required);
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +75,15 @@ enum TrustStoreMemberKind : byte {
   kExclusiveMutable = 1,
   /// External slot; disabled after unexpected content change
   kConditionalExternal = 2
+}
+
+/// Integrity enforcement for a certificate slot's stored content.
+/// Values match the authored JSON vocabulary.
+enum IntegrityPolicy : byte {
+  /// No descriptor hash check
+  disabled = 0,
+  /// LoadCertificate fails unless the descriptor cert_hash matches the content
+  required = 1
 }
 
 /// Default initialisation policy for conditional members
@@ -108,8 +117,8 @@ table CertSlotEntry {
   deployment_path: string (required);
   /// Descriptor format (default "kv")
   deployment_format: string = "kv";
-  /// Integrity enforcement: "disabled" (default) or "required"
-  integrity_policy: string = "disabled";
+  /// Integrity enforcement (default disabled)
+  integrity_policy: IntegrityPolicy = disabled;
 }
 
 /// Single trust store definition
@@ -134,7 +143,7 @@ table TrustStoreEntry {
 /// Per-application resource ID to certificate slot name mapping
 /// Applications reference cert slots by portable local names rather than
 /// daemon slot names
-table AppCertSlotEntry {
+table AppCertSlotMapping {
   /// UID of the application that owns this mapping
   uid: uint32;
   /// Application-local resource name (e.g., "device_cert")
@@ -144,7 +153,7 @@ table AppCertSlotEntry {
 }
 
 /// Per-application resource ID to trust store name mapping
-table AppTrustStoreEntry {
+table AppTrustStoreMapping {
   /// UID of the application that owns this mapping
   uid: uint32;
   /// Application-local resource name (e.g., "tls_roots")
@@ -160,9 +169,9 @@ table CertSlotConfig {
   /// All trust store definitions
   trust_store_entries: [TrustStoreEntry];
   /// Per-app cert slot resource ID mappings
-  app_cert_slot_entries: [AppCertSlotEntry];
+  app_cert_slot_mappings: [AppCertSlotMapping];
   /// Per-app trust store resource ID mappings
-  app_trust_store_entries: [AppTrustStoreEntry];
+  app_trust_store_mappings: [AppTrustStoreMapping];
   /// Provider name pinned as the daemon-wide certificate parser; unset selects the default
   parser_provider_name: string;
 }

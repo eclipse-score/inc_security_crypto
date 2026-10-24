@@ -18,7 +18,9 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
@@ -33,12 +35,41 @@ class KeySlotConfig;
 class CertSlotConfig;
 class CertSlotEntry;
 class TrustStoreEntry;
-class AppCertSlotEntry;
-class AppTrustStoreEntry;
+class AppCertSlotMapping;
+class AppTrustStoreMapping;
 }  // namespace score::crypto::daemon::config::keyslot
 
 namespace score::crypto::daemon::config
 {
+
+class FlatBufferConfigParser;
+
+/// @brief A configuration file read into memory and checked against the "CCFG" envelope.
+///
+/// Only FlatBufferConfigParser::LoadFile() creates one, so holding a ConfigFile means its
+/// bytes have passed validation. Load it once and pass it to each section parser.
+class ConfigFile
+{
+  public:
+    /// @brief Pointer to the validated file bytes. Valid for the lifetime of this object.
+    const uint8_t* data() const noexcept
+    {
+        return m_bytes.data();
+    }
+
+    /// @brief Number of validated bytes.
+    size_t size() const noexcept
+    {
+        return m_bytes.size();
+    }
+
+  private:
+    friend class FlatBufferConfigParser;
+
+    explicit ConfigFile(std::vector<uint8_t> bytes) : m_bytes{std::move(bytes)} {}
+
+    std::vector<uint8_t> m_bytes;
+};
 
 /// @brief Parser for FlatBuffers-based configuration files.
 ///
@@ -46,15 +77,9 @@ namespace score::crypto::daemon::config
 /// namespace via FlatBuffers) into KeyConfig and CertificateConfig objects that
 /// the rest of the daemon recognises.
 ///
-/// ### Single-file binary entry point
-///
-/// Use ParseAll() for the normal daemon startup path. It reads a generated
-/// binary FlatBuffers file containing the full crypto stack configuration.
-///
-/// ### Component-specific entry points
-///
-/// ParseFrom{File,Buffer} and ParseCertConfigFromFile remain available for
-/// callers that need to load a specific configuration section.
+/// The file is read and validated once by LoadFile(). Each section parser then reads
+/// only its own section from the loaded file. An absent section is not an error; a
+/// present section that cannot be parsed is.
 class FlatBufferConfigParser
 {
   public:
@@ -67,53 +92,34 @@ class FlatBufferConfigParser
     FlatBufferConfigParser& operator=(FlatBufferConfigParser&&) = delete;
 
     // -----------------------------------------------------------------------
-    // Unified entry point - populates all config sections
+    // File loading and section entry points
     // -----------------------------------------------------------------------
 
-    /// @brief Parse the complete crypto stack configuration from a single file.
+    /// @brief Read a binary config file and validate its envelope.
     ///
-    /// Reads a binary FlatBuffers file containing both configuration sections.
-    ///
-    /// This is the recommended call site for daemon startup.  Pass the path
-    /// obtained from the CRYPTO_CONFIG_FILE environment variable.
-    ///
-    /// @param filepath    Path to the generated binary config file (.bin)
-    /// @param key_config  Output KeyConfig to populate
-    /// @param cert_config Output CertificateConfig to populate
-    /// @return Success or DaemonErrorCode on failure
-    static Expected<std::monostate, common::DaemonErrorCode> ParseAll(std::string_view filepath,
-                                                                      KeyConfig& key_config,
-                                                                      CertificateConfig& cert_config);
+    /// @param filepath Path to the generated binary config file (.bin)
+    /// @return The validated file, or DaemonErrorCode if it cannot be read or validated
+    static Expected<ConfigFile, common::DaemonErrorCode> LoadFile(std::string_view filepath);
 
-    // -----------------------------------------------------------------------
-    // Per-component entry points - dedicated single-section parsers
-    //
-    // Use these when only one config section is needed, or to make it
-    // explicit in Config::ParseConfig() which components are being loaded.
-    // Each reads the config file once and extracts only its own section.
-    // -----------------------------------------------------------------------
+    /// @brief Parse the key management section (key_slot_config) from a loaded file.
+    ///
+    /// @param file       Validated file from LoadFile()
+    /// @param out_config Output KeyConfig; replaced only when the section parses fully, so it is
+    ///                   left unchanged when the section is absent or fails to parse
+    /// @return true if the section was present and parsed, false if the file has no
+    ///         key_slot_config, or DaemonErrorCode if the present section is malformed
+    static Expected<bool, common::DaemonErrorCode> ParseKeyManagementConfig(const ConfigFile& file,
+                                                                            KeyConfig& out_config);
 
-    /// @brief Parse only the key management section (key_slot_config) from a config file.
+    /// @brief Parse the certificate management section (cert_slot_config) from a loaded file.
     ///
-    /// Accepts the same binary format as ParseAll(). The cert management section,
-    /// if present in the file, is silently ignored.
-    ///
-    /// Use this in Config::ParseConfig() as the single control point for key
-    /// management config loading: removing this call disables key slot loading
-    /// without affecting any other component.
-    static Expected<std::monostate, common::DaemonErrorCode> ParseKeyManagementConfig(std::string_view filepath,
-                                                                                      KeyConfig& out_config);
-
-    /// @brief Parse only the certificate management section (cert_slot_config) from a config file.
-    ///
-    /// Accepts the same binary format as ParseAll(). The key management section,
-    /// if present in the file, is silently ignored.
-    ///
-    /// Use this in Config::ParseConfig() as the single control point for cert
-    /// management config loading: removing this call disables cert slot and trust
-    /// store loading without affecting any other component.
-    static Expected<std::monostate, common::DaemonErrorCode> ParseCertManagementConfig(std::string_view filepath,
-                                                                                       CertificateConfig& out_config);
+    /// @param file       Validated file from LoadFile()
+    /// @param out_config Output CertificateConfig; replaced only when the section parses fully, so it is
+    ///                   left unchanged when the section is absent or fails to parse
+    /// @return true if the section was present and parsed, false if the file has no
+    ///         cert_slot_config, or DaemonErrorCode if the present section is malformed
+    static Expected<bool, common::DaemonErrorCode> ParseCertManagementConfig(const ConfigFile& file,
+                                                                             CertificateConfig& out_config);
 
     // -----------------------------------------------------------------------
     // Low-level helpers — key slot config (binary FlatBuffers)
@@ -128,33 +134,19 @@ class FlatBufferConfigParser
                                                                              size_t size,
                                                                              KeyConfig& out_config);
 
-    // -----------------------------------------------------------------------
-    // Low-level helpers - cert management config (binary FlatBuffers)
-    // -----------------------------------------------------------------------
-
-    /// @brief Parse certificate management configuration from a binary FlatBuffers file.
-    static Expected<std::monostate, common::DaemonErrorCode> ParseCertConfigFromFile(std::string_view filepath,
-                                                                                     CertificateConfig& out_config);
-
   private:
     static constexpr std::string_view LOG_PREFIX = "[FLATBUFFER_PARSER] ";
-    static constexpr size_t kMinBufferSize = 4U;
-
-    // -----------------------------------------------------------------------
-    // ParseAll helpers
-    // -----------------------------------------------------------------------
-
-    /// Parse both key and cert config from a FlatBuffers binary buffer.
-    /// Validates the "CCFG" file identifier before parsing.
-    static Expected<std::monostate, common::DaemonErrorCode> ParseAllFromBinary(const uint8_t* data,
-                                                                                size_t size,
-                                                                                KeyConfig& key_config,
-                                                                                CertificateConfig& cert_config);
+    static constexpr size_t kMinBufferSize = 8U;
 
     // -----------------------------------------------------------------------
     // Key slot config helpers
     // -----------------------------------------------------------------------
 
+    /// @brief Check that a buffer is large enough and carries the "CCFG" file identifier.
+    /// @param data Start of the buffer.
+    /// @param size Length of the buffer in bytes.
+    /// @return Success, or kInvalidArgument when the buffer is null, too small, has an unexpected
+    ///         identifier, or fails FlatBuffers verification.
     static Expected<std::monostate, common::DaemonErrorCode> ValidateBuffer(const uint8_t* data, size_t size);
 
     static Expected<std::monostate, common::DaemonErrorCode> ParseKeySlotConfig(const keyslot::CryptoConfig* root,
@@ -164,7 +156,7 @@ class FlatBufferConfigParser
         const keyslot::KeySlotConfig* key_slot_config,
         KeyConfig& out_config);
 
-    static Expected<std::monostate, common::DaemonErrorCode> ParseAppKeySlotEntries(
+    static Expected<std::monostate, common::DaemonErrorCode> ParseAppKeySlotMappings(
         const keyslot::KeySlotConfig* key_slot_config,
         KeyConfig& out_config);
 
@@ -184,11 +176,11 @@ class FlatBufferConfigParser
         const keyslot::CertSlotConfig* cert_slot_config,
         CertificateConfig& out_config);
 
-    static Expected<std::monostate, common::DaemonErrorCode> ParseAppCertSlotEntries(
+    static Expected<std::monostate, common::DaemonErrorCode> ParseAppCertSlotMappings(
         const keyslot::CertSlotConfig* cert_slot_config,
         CertificateConfig& out_config);
 
-    static Expected<std::monostate, common::DaemonErrorCode> ParseAppTrustStoreEntries(
+    static Expected<std::monostate, common::DaemonErrorCode> ParseAppTrustStoreMappings(
         const keyslot::CertSlotConfig* cert_slot_config,
         CertificateConfig& out_config);
 };

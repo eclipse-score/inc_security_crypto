@@ -37,6 +37,8 @@
 namespace score::crypto::daemon::config
 {
 
+class ConfigFile;
+
 // Configuration environment variable and default paths
 /// @brief Environment variable name for the crypto stack configuration file.
 ///
@@ -91,21 +93,21 @@ class IPCConfig
 
     /// @brief Return the number of IPC worker threads.
     /// @return The configured thread count.
-    uint32_t GetNumOfIPCThreads() const
+    uint32_t GetNumOfIPCThreads() const noexcept
     {
         return m_num_ipc_threads;
     }
 
     /// @brief Return the address on which the IPC server listens.
     /// @return The configured server address.
-    const std::string& GetServerAddress() const
+    const std::string& GetServerAddress() const noexcept
     {
         return m_server_address;
     }
 
     /// @brief Return the IPC server port.
     /// @return The configured server port.
-    uint16_t GetServerPort() const
+    uint16_t GetServerPort() const noexcept
     {
         return m_server_port;
     }
@@ -220,21 +222,21 @@ class GeneralConfig
 
     /// @brief Return the configured daemon log level.
     /// @return The log-level string.
-    const std::string& GetLogLevel() const
+    const std::string& GetLogLevel() const noexcept
     {
         return m_log_level;
     }
 
     /// @brief Return the maximum number of concurrent sessions.
     /// @return The configured session limit.
-    uint32_t GetMaxSessions() const
+    uint32_t GetMaxSessions() const noexcept
     {
         return m_max_sessions;
     }
 
     /// @brief Return the daemon-wide resource quota policy.
     /// @return The configured quota policy.
-    const ResourceQuotaPolicy& GetQuotaPolicy() const
+    const ResourceQuotaPolicy& GetQuotaPolicy() const noexcept
     {
         return m_quota_policy;
     }
@@ -319,7 +321,7 @@ class KeyConfig
     ///
     /// The daemon's SlotRegistry stores these mappings and resolves them
     /// transparently during ResolveResource IPC calls.
-    struct AppKeySlotEntry
+    struct AppKeySlotMapping
     {
         uint32_t uid;                 ///< UID of the application that owns this mapping
         std::string app_resource_id;  ///< Application-local resource name
@@ -337,23 +339,23 @@ class KeyConfig
 
     /// @brief Get all parsed key slot definitions.
     /// @return The configured key slot definitions.
-    const std::vector<KeySlotEntry>& GetSlotEntries() const
+    const std::vector<KeySlotEntry>& GetSlotEntries() const noexcept
     {
         return m_slot_entries;
     }
 
     /// @brief Add an application resource mapping entry (called by parser).
     /// @param entry Application-to-key-slot mapping to add.
-    void AddAppKeySlotEntry(AppKeySlotEntry entry)
+    void AddAppKeySlotMapping(AppKeySlotMapping entry)
     {
-        m_app_key_slot_entries.push_back(std::move(entry));
+        m_app_key_slot_mappings.push_back(std::move(entry));
     }
 
     /// @brief Get all per-application key slot resource ID mappings.
     /// @return The configured application-to-key-slot mappings.
-    const std::vector<AppKeySlotEntry>& GetAppKeySlotEntries() const
+    const std::vector<AppKeySlotMapping>& GetAppKeySlotMappings() const noexcept
     {
-        return m_app_key_slot_entries;
+        return m_app_key_slot_mappings;
     }
 
     /// @brief Path to an optional key slot manifest used by catalog tooling.
@@ -368,14 +370,14 @@ class KeyConfig
 
     /// @brief Return the optional key slot manifest path.
     /// @return The configured path, or an empty string when no manifest is used.
-    const std::string& GetManifestPath() const
+    const std::string& GetManifestPath() const noexcept
     {
         return m_manifest_path;
     }
 
   private:
     std::vector<KeySlotEntry> m_slot_entries;
-    std::vector<AppKeySlotEntry> m_app_key_slot_entries;
+    std::vector<AppKeySlotMapping> m_app_key_slot_mappings;
     std::string m_manifest_path;
 };
 
@@ -424,6 +426,17 @@ class CertificateConfig
         kConditionalExternal = 2U,
     };
 
+    /// Integrity enforcement for the content a certificate slot stores.
+    enum class IntegrityPolicy : uint8_t
+    {
+        /// No integrity check is applied to the stored content.
+        kDisabled = 0U,
+
+        /// The stored content must pass the integrity check the deployment defines before it is used.
+        /// The check is deployment-specific and may cover certificate content, CRL data, or other material.
+        kRequired = 1U,
+    };
+
     /// Initial policy for conditional members that have no persisted state.
     enum class ConditionalSlotInitialization : uint8_t
     {
@@ -451,7 +464,7 @@ class CertificateConfig
     ///
     /// Applications reference cert slots by portable local names rather than
     /// daemon slot names.
-    struct AppCertSlotEntry
+    struct AppCertSlotMapping
     {
         uint32_t uid;                 ///< UID of the application that owns this mapping
         std::string app_resource_id;  ///< Application-local resource name
@@ -462,7 +475,7 @@ class CertificateConfig
     ///
     /// Applications reference trust stores by portable local names rather than
     /// daemon trust store names.
-    struct AppTrustStoreEntry
+    struct AppTrustStoreMapping
     {
         uint32_t uid;                  ///< UID of the application that owns this mapping
         std::string app_resource_id;   ///< Application-local resource name
@@ -488,13 +501,12 @@ class CertificateConfig
         std::string deployment_path;
         /// @brief Deployment descriptor format identifier. Defaults to "kv".
         std::string deployment_format{"kv"};
-        /// @brief Integrity enforcement policy: "disabled" (default) or "required".
+        /// @brief Integrity enforcement policy. Defaults to kDisabled.
         ///
-        /// "required": LoadCertificate fails if the [certificate] descriptor section
-        /// has no cert_hash entry or the stored hash does not match the file content.
+        /// kRequired: the stored content must pass the deployment's integrity check before use.
         /// The policy lives here (out-of-band from the descriptor) so a compromised
-        /// descriptor cannot bypass the check.
-        std::string integrity_policy{"disabled"};
+        /// descriptor cannot switch the check off.
+        IntegrityPolicy integrity_policy{IntegrityPolicy::kDisabled};
     };
 
     /// @brief A single trust store definition from the configuration source.
@@ -534,7 +546,7 @@ class CertificateConfig
     ///
     /// An empty value means the provider manager's kCertManagement default is used.
     /// @return The configured provider name, or empty when the default is used.
-    const common::ProviderName& GetParserProviderName() const
+    const common::ProviderName& GetParserProviderName() const noexcept
     {
         return m_parser_provider_name;
     }
@@ -548,7 +560,7 @@ class CertificateConfig
 
     /// @brief Get all parsed certificate slot definitions.
     /// @return The configured certificate slot definitions.
-    const std::vector<CertSlotEntry>& GetSlotEntries() const
+    const std::vector<CertSlotEntry>& GetSlotEntries() const noexcept
     {
         return m_slot_entries;
     }
@@ -562,35 +574,35 @@ class CertificateConfig
 
     /// @brief Add an application-to-certificate-slot mapping.
     /// @param entry Application resource mapping to add.
-    void AddAppCertSlotEntry(AppCertSlotEntry entry)
+    void AddAppCertSlotMapping(AppCertSlotMapping entry)
     {
-        m_app_cert_slot_entries.push_back(std::move(entry));
+        m_app_cert_slot_mappings.push_back(std::move(entry));
     }
 
     /// @brief Get all application-to-certificate-slot mappings.
     /// @return The configured application resource mappings.
-    const std::vector<AppCertSlotEntry>& GetAppCertSlotEntries() const
+    const std::vector<AppCertSlotMapping>& GetAppCertSlotMappings() const noexcept
     {
-        return m_app_cert_slot_entries;
+        return m_app_cert_slot_mappings;
     }
 
     /// @brief Add an application-to-trust-store mapping.
     /// @param entry Application resource mapping to add.
-    void AddAppTrustStoreEntry(AppTrustStoreEntry entry)
+    void AddAppTrustStoreMapping(AppTrustStoreMapping entry)
     {
-        m_app_trust_store_entries.push_back(std::move(entry));
+        m_app_trust_store_mappings.push_back(std::move(entry));
     }
 
     /// @brief Get all application-to-trust-store mappings.
     /// @return The configured application resource mappings.
-    const std::vector<AppTrustStoreEntry>& GetAppTrustStoreEntries() const
+    const std::vector<AppTrustStoreMapping>& GetAppTrustStoreMappings() const noexcept
     {
-        return m_app_trust_store_entries;
+        return m_app_trust_store_mappings;
     }
 
     /// @brief Get all parsed trust store definitions.
     /// @return The configured trust store definitions.
-    const std::vector<TrustStoreEntry>& GetTrustStoreEntries() const
+    const std::vector<TrustStoreEntry>& GetTrustStoreEntries() const noexcept
     {
         return m_trust_store_entries;
     }
@@ -599,8 +611,8 @@ class CertificateConfig
     common::ProviderName m_parser_provider_name;
     std::vector<CertSlotEntry> m_slot_entries;
     std::vector<TrustStoreEntry> m_trust_store_entries;
-    std::vector<AppCertSlotEntry> m_app_cert_slot_entries;
-    std::vector<AppTrustStoreEntry> m_app_trust_store_entries;
+    std::vector<AppCertSlotMapping> m_app_cert_slot_mappings;
+    std::vector<AppTrustStoreMapping> m_app_trust_store_mappings;
 };
 
 /**
@@ -647,8 +659,13 @@ class Config
     bool ParseCommandLine(int argc, char** argv);
 
     /**
-     * @brief Parse the binary FlatBuffers configuration
-     * @return true if parsing succeeded, false on error
+     * @brief Parse the crypto stack configuration from the resolved config file.
+     *
+     * When no config file is found on the default paths, the configuration stays empty and
+     * this is not an error. A path given by CRYPTO_CONFIG_FILE that does not exist, or a file
+     * that cannot be read or parsed, is an error.
+     *
+     * @return true if the configuration was loaded or no default file was found; false on error
      */
     bool ParseConfig();
 
@@ -661,45 +678,57 @@ class Config
     // Const access for components (read-only)
     /// @brief Return the IPC configuration (read-only).
     /// @return The IPC configuration section.
-    const IPCConfig& GetIPCConfig() const
+    const IPCConfig& GetIPCConfig() const noexcept
     {
         return m_ipc;
     }
     /// @brief Return the provider configuration (read-only).
     /// @return The provider configuration section.
-    const ProviderConfig& GetProviderConfig() const
+    const ProviderConfig& GetProviderConfig() const noexcept
     {
         return m_provider;
     }
     /// @brief Return the provider initialization configuration (read-only).
     /// @return The provider initialization section.
-    const ProviderInitConfig& GetProviderInitConfig() const
+    const ProviderInitConfig& GetProviderInitConfig() const noexcept
     {
         return m_provider_init;
     }
     /// @brief Return the general daemon configuration (read-only).
     /// @return The general configuration section.
-    const GeneralConfig& GetGeneralConfig() const
+    const GeneralConfig& GetGeneralConfig() const noexcept
     {
         return m_general;
     }
     /// @brief Return the key management configuration (read-only).
     /// @return The key configuration section.
-    const KeyConfig& GetKeyConfig() const
+    const KeyConfig& GetKeyConfig() const noexcept
     {
         return m_key;
     }
     /// @brief Return the certificate management configuration (read-only).
     /// @return The certificate configuration section.
-    const CertificateConfig& GetCertificateConfig() const
+    const CertificateConfig& GetCertificateConfig() const noexcept
     {
         return m_certificate;
+    }
+    /// @brief Whether the key management section was present in the configuration file.
+    /// @return true if the section was present and loaded.
+    bool IsKeyManagementEnabled() const noexcept
+    {
+        return m_key_management_enabled;
+    }
+    /// @brief Whether the certificate management section was present in the configuration file.
+    /// @return true if the section was present and loaded.
+    bool IsCertManagementEnabled() const noexcept
+    {
+        return m_cert_management_enabled;
     }
 
 #ifdef SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
     /// @brief Return the PKCS#11 provider configuration (read-only).
     /// @return The PKCS#11 configuration section.
-    const Pkcs11Config& GetPkcs11Config() const
+    const Pkcs11Config& GetPkcs11Config() const noexcept
     {
         return m_pkcs11;
     }
@@ -708,7 +737,7 @@ class Config
 #ifdef SCORE_CRYPTO_SCORE_BACKEND_ENABLED
     /// @brief Return the Score provider configuration (read-only).
     /// @return The Score provider configuration section.
-    const ScoreProviderConfig& GetScoreProviderConfig() const
+    const ScoreProviderConfig& GetScoreProviderConfig() const noexcept
     {
         return m_score_provider;
     }
@@ -771,6 +800,8 @@ class Config
     GeneralConfig m_general;
     KeyConfig m_key;
     CertificateConfig m_certificate;
+    bool m_key_management_enabled{false};
+    bool m_cert_management_enabled{false};
 #ifdef SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
     Pkcs11Config m_pkcs11;
 #endif
@@ -781,32 +812,65 @@ class Config
     // ---------------------------------------------------------------------------
     // Per-component config section parsers (called from ParseConfig).
     //
-    // Each method is the single control point for its config component.
-    // To disable a component's config loading, remove or comment out the
-    // corresponding call in ParseConfig().  To add a new component (e.g.
-    // provider management), add a new private method here and call it from
+    // Each method loads one component's section and sets that component's
+    // enabled flag. To add a new component (e.g. provider management), add a
+    // new private method here, give it an enabled flag, and call it from
     // ParseConfig().
     //
-    // All methods accept the resolved config file path.  An absent section in
-    // the file is silently accepted (empty config for that component).
+    // An absent section sets the flag to false and returns true. A present
+    // section that cannot be parsed returns false.
     // ---------------------------------------------------------------------------
 
-    /// Populate m_key from the key_slot_config section of the config file.
-    bool ParseKeyManagementSection(std::string_view filepath);
+    /// Populate m_key from the key_slot_config section; sets m_key_management_enabled.
+    bool ParseKeyManagementSection(const ConfigFile& file);
 
-    /// Populate m_certificate from the cert_slot_config section of the config file.
-    bool ParseCertManagementSection(std::string_view filepath);
+    /// Populate m_certificate from the cert_slot_config section; sets m_cert_management_enabled.
+    bool ParseCertManagementSection(const ConfigFile& file);
 
     // ---------------------------------------------------------------------------
     // Low-level argument / environment helpers
     // ---------------------------------------------------------------------------
 
+    /// @brief Look up an environment variable.
+    ///
+    /// When @p env is non-empty it is used instead of the process environment, so tests can
+    /// supply their own values.
+    /// @param name Variable name.
+    /// @param env  Override map; empty means read the process environment.
+    /// @return The value, or an empty string if the variable is not set.
     std::string GetEnvVar(const char* name, const std::map<std::string, std::string>& env) const;
+
+    /// @brief Parse a string-valued command-line option.
+    ///
+    /// Not implemented yet: always returns false and leaves @p target unchanged.
+    /// @param arg    The argument as it appeared on the command line.
+    /// @param value  The value to parse.
+    /// @param option The option name the value belongs to.
+    /// @param target Receives the parsed value on success.
+    /// @return true if the argument was recognised and parsed.
     bool ParseStringArg(const std::string& arg,
                         const std::string& value,
                         const std::string& option,
                         std::string& target);
+
+    /// @brief Parse an unsigned 32-bit command-line option.
+    ///
+    /// Not implemented yet: always returns false and leaves @p target unchanged.
+    /// @param arg    The argument as it appeared on the command line.
+    /// @param value  The value to parse.
+    /// @param option The option name the value belongs to.
+    /// @param target Receives the parsed value on success.
+    /// @return true if the argument was recognised and parsed.
     bool ParseUint32Arg(const std::string& arg, const std::string& value, const std::string& option, uint32_t& target);
+
+    /// @brief Parse an unsigned 16-bit command-line option.
+    ///
+    /// Not implemented yet: always returns false and leaves @p target unchanged.
+    /// @param arg    The argument as it appeared on the command line.
+    /// @param value  The value to parse.
+    /// @param option The option name the value belongs to.
+    /// @param target Receives the parsed value on success.
+    /// @return true if the argument was recognised and parsed.
     bool ParseUint16Arg(const std::string& arg, const std::string& value, const std::string& option, uint16_t& target);
 };
 

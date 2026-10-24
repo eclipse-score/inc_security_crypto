@@ -58,7 +58,7 @@ score::crypto::Expected<std::monostate, common::DaemonErrorCode> ConfigDrivenTru
     const auto loaded = manager.Load(std::move(configs), std::move(registry), std::move(slot_manager));
     if (!loaded.has_value())
         return loaded;
-    for (const auto& mapping : m_config.GetAppTrustStoreEntries())
+    for (const auto& mapping : m_config.GetAppTrustStoreMappings())
         manager.RegisterAppResource(mapping.uid, mapping.app_resource_id, mapping.trust_store_name);
     return std::monostate{};
 }
