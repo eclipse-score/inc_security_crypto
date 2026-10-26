@@ -33,6 +33,16 @@ daemon_binary="$(resolve_runfile "$1")"
 readonly daemon_binary
 client_binary="$(resolve_runfile "$2")"
 readonly client_binary
+grpc_library="$(resolve_runfile "$3")"
+readonly grpc_library
+shift 3
+runtime_library_path="$(dirname "${grpc_library}")"
+for library in "$@"; do
+    resolved_library="$(resolve_runfile "${library}")"
+    runtime_library_path="${runtime_library_path}:$(dirname "${resolved_library}")"
+done
+runtime_library_path="${runtime_library_path}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+readonly runtime_library_path
 daemon_pid=""
 
 cleanup() {
@@ -45,7 +55,7 @@ cleanup() {
 trap cleanup EXIT
 
 rm -f "${control_socket}"
-"${daemon_binary}" >"${daemon_log}" 2>&1 &
+LD_LIBRARY_PATH="${runtime_library_path}" "${daemon_binary}" >"${daemon_log}" 2>&1 &
 daemon_pid="$!"
 
 for _ in {1..100}; do
@@ -66,7 +76,7 @@ if [[ ! -S "${control_socket}" ]]; then
     exit 1
 fi
 
-if ! "${client_binary}" "${endpoint}"; then
+if ! LD_LIBRARY_PATH="${runtime_library_path}" "${client_binary}" "${endpoint}"; then
     printf 'Hashing client failed. Crypto daemon log:\n' >&2
     cat "${daemon_log}" >&2
     exit 1

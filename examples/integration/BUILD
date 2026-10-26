@@ -29,10 +29,14 @@ sh_test(
     args = [
         "$(rootpath @score_security_crypto//score/crypto/src/daemon:crypto_daemon)",
         "$(rootpath :hashing_client)",
+        "$(rootpath @score_security_crypto//third_party/grpc:libgrpc_shared)",
+        "$(rootpaths @score_security_crypto//third_party/openssl:openssl_so)",
     ],
     data = [
         ":hashing_client",
         "@score_security_crypto//score/crypto/src/daemon:crypto_daemon",
+        "@score_security_crypto//third_party/grpc:libgrpc_shared",
+        "@score_security_crypto//third_party/openssl:openssl_so",
     ],
     tags = ["exclusive"],
 )
