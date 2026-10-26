@@ -311,7 +311,7 @@ filegroup(
 # ===============================================================================
 
 # tooling
-bazel_dep(name = "score_tooling", version = "2.2.1")
+bazel_dep(name = "score_tooling", version = "3.0.1")
 
 # LLVM source-based coverage pipeline (C++ + Rust): the qualified S-CORE
 # coverage tool, successor of @score_tooling//coverage. See tools/coverage/.
