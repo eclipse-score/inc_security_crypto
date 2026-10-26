@@ -221,6 +221,70 @@ struct GenerateKeyParams
     }
 };
 
+/// @brief Encapsulate using an imported public-key resource.
+/// The resulting shared secret is ephemeral, derive-only and non-exportable.
+struct EncapsulateKeyParams
+{
+    CryptoResourceId peer_public_key{};
+    AlgorithmId algorithm{};
+
+    EncapsulateKeyParams& SetPeerPublicKey(const CryptoResourceId& key) noexcept
+    {
+        peer_public_key = key;
+        return *this;
+    }
+    EncapsulateKeyParams& SetAlgorithm(const AlgorithmId& value) noexcept
+    {
+        algorithm = value;
+        return *this;
+    }
+    score::Result<std::monostate> Validate() const noexcept
+    {
+        if (peer_public_key.id == 0U || peer_public_key.type != ResourceType::kKey || algorithm.empty() ||
+            algorithm.truncated())
+        {
+            return score::Result<std::monostate>{
+                score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Invalid encapsulation parameters")};
+        }
+        return std::monostate{};
+    }
+};
+
+/// @brief Decapsulate using a private-key resource and peer ciphertext.
+/// Ciphertext is borrowed until the call returns. Only a secret guard is returned.
+struct DecapsulateKeyParams
+{
+    CryptoResourceId private_key{};
+    score::cpp::span<const uint8_t> ciphertext{};
+    AlgorithmId algorithm{};
+
+    DecapsulateKeyParams& SetPrivateKey(const CryptoResourceId& key) noexcept
+    {
+        private_key = key;
+        return *this;
+    }
+    DecapsulateKeyParams& SetCiphertext(score::cpp::span<const uint8_t> value) noexcept
+    {
+        ciphertext = value;
+        return *this;
+    }
+    DecapsulateKeyParams& SetAlgorithm(const AlgorithmId& value) noexcept
+    {
+        algorithm = value;
+        return *this;
+    }
+    score::Result<std::monostate> Validate() const noexcept
+    {
+        if (private_key.id == 0U || private_key.type != ResourceType::kKey || algorithm.empty() ||
+            algorithm.truncated() || ciphertext.empty() || ciphertext.data() == nullptr)
+        {
+            return score::Result<std::monostate>{
+                score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Invalid decapsulation parameters")};
+        }
+        return std::monostate{};
+    }
+};
+
 /// @brief Parameters for key derivation via IKeyManagementContext::DeriveKey().
 ///
 /// Supports HKDF, TLS 1.2 PRF, TLS 1.3 HKDF, PBKDF2, and SP800-108
@@ -278,8 +342,9 @@ struct DeriveKeyParams
 
 /// @brief Parameters for key agreement via IKeyManagementContext::AgreeKey().
 ///
-/// Supports raw key agreement (ECDH, X25519, ML-KEM decapsulation) and
+/// Supports key agreement (ECDH, X25519) and
 /// combined agree-then-derive (ECIES, TLS key exchange) when kdf is set.
+/// For KEM, use DecapsulateKeyParams or EncapsulateKeyParams.
 struct AgreeKeyParams
 {
     /// @brief Handle to this party's private key (required).
@@ -290,7 +355,7 @@ struct AgreeKeyParams
     score::cpp::span<const uint8_t> peer_public_key{};
 
     /// @brief Key agreement algorithm (required).
-    /// Examples: "ECDH-P256", "X25519", "ML-KEM-768"
+    /// Examples: "ECDH-P256", "X25519"
     AlgorithmId agreement_algorithm{};
 
     /// @brief Format of the peer public key data. Defaults to raw/uncompressed.
@@ -533,11 +598,11 @@ struct UnwrapKeyParams
 struct ImportKeyParams
 {
     /// @brief Key data to import (required). Points to caller-owned memory.
-    /// For public keys: DER-encoded SubjectPublicKeyInfo or PEM equivalent.
+    /// For public keys: DER/PEM, or algorithm-defined bytes with FormatType::kRaw.
     score::cpp::span<const uint8_t> key_data{};
 
-    /// @brief Encoding format of key_data: DER (binary ASN.1) or PEM (base64-armored).
-    /// Both formats are meaningful only for asymmetric (public) keys.
+    /// @brief Encoding of key_data: DER, PEM or provider-supported raw key bytes.
+    /// The IAV provider requires kRaw and accepts public keys only.
     /// Symmetric keys have no ASN.1 structure and must not be imported via this struct.
     FormatType format{FormatType::kDer};
 

@@ -155,10 +155,3 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = ["//score/crypto/src/daemon/common"],
 )
-
-cc_library(
-    name = "kem_handler_operations",
-    hdrs = ["operations/kem_handler_operations.hpp"],
-    visibility = ["//:__subpackages__"],
-    deps = ["//score/crypto/src/daemon/common"],
-)

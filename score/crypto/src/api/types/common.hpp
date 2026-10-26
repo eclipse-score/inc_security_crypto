@@ -88,7 +88,8 @@ enum class ProviderType : uint8_t
 enum class FormatType : uint8_t
 {
     kDer,  ///< Distinguished Encoding Rules (binary) encoding.
-    kPem   ///< Privacy-Enhanced Mail (text) encoding.
+    kPem,  ///< Privacy-Enhanced Mail (text) encoding.
+    kRaw   ///< Algorithm-defined raw key encoding; supported only where explicitly implemented.
 };
 
 /// @brief Direction of a symmetric cipher operation.

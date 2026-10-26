@@ -15,7 +15,9 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
     name = "key_mgmt_executor",
-    srcs = ["src/key_mgmt_executor.cpp"],
+    srcs = [
+        "src/key_mgmt_executor.cpp",
+    ],
     hdrs = [
         "key_mgmt_context.hpp",
         "key_mgmt_executor.hpp",

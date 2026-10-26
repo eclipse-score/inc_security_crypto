@@ -43,7 +43,6 @@
 #include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/cipher_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
-#include "score/crypto/src/daemon/provider/handler/operations/kem_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/mac_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/random_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/sign_handler_operations.hpp"
@@ -80,8 +79,6 @@ constexpr std::string_view ActorName(OperationActor actor) noexcept
             return "SIGN_HANDLER";
         case actors::OP_ACTOR_VERIFY_HANDLER:
             return "VERIFY_HANDLER";
-        case actors::OP_ACTOR_KEM_HANDLER:
-            return "KEM_HANDLER";
         case actors::OP_ACTOR_RANDOM_HANDLER:
             return "RANDOM_HANDLER";
         default:
@@ -236,19 +233,6 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
                     return "<unknown_random_op>";
             }
 
-        case actors::OP_ACTOR_KEM_HANDLER:
-            switch (action)
-            {
-                case provider::handler::kem_handler_operations::KEM_ENCAPSULATE:
-                    return "KEM_ENCAPSULATE";
-                case provider::handler::kem_handler_operations::KEM_DECAPSULATE:
-                    return "KEM_DECAPSULATE";
-                case provider::handler::kem_handler_operations::KEM_RESET:
-                    return "KEM_RESET";
-                default:
-                    return "<unknown_kem_op>";
-            }
-
         case actors::OP_ACTOR_KEY_MANAGEMENT:
             switch (action)
             {
@@ -264,6 +248,12 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
                     return "KEY_DERIVE_TO_SLOT";
                 case km_ops::KEY_AGREE:
                     return "KEY_AGREE";
+                case km_ops::KEY_GET_ENCAPSULATION_SIZE:
+                    return "KEY_GET_ENCAPSULATION_SIZE";
+                case km_ops::KEY_ENCAPSULATE:
+                    return "KEY_ENCAPSULATE";
+                case km_ops::KEY_DECAPSULATE:
+                    return "KEY_DECAPSULATE";
                 case km_ops::KEY_AGREE_TO_SLOT:
                     return "KEY_AGREE_TO_SLOT";
                 case km_ops::KEY_WRAP:

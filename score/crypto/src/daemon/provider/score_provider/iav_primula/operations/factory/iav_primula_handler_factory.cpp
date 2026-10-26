@@ -14,10 +14,9 @@
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/operations/factory/iav_primula_handler_factory.hpp"
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
-#include "score/crypto/src/daemon/provider/score_provider/iav_primula/operations/kem/iav_primula_kem_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/operations/sign/iav_primula_sign_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/operations/verify/iav_primula_verify_handler.hpp"
-#include "score/crypto/src/daemon/provider/score_provider/operations/kem/kem_executor.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/operations/key_management/score_key_management_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/sign_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/verify_executor.hpp"
 
@@ -50,6 +49,13 @@ IavPrimulaHandlerFactory::IavPrimulaHandlerFactory(std::shared_ptr<key_managemen
 {
 }
 
+::score::Result<handler::Handler::Sptr> IavPrimulaHandlerFactory::CreateKeyManagementHandler()
+{
+    auto executor =
+        std::make_unique<crypto_executor::KeyManagementExecutor>(m_key_factory, m_slot_handler, m_km_service);
+    return std::make_shared<operations::key_management::ScoreKeyManagementHandler>(std::move(executor));
+}
+
 ::score::Result<handler::Handler::Sptr> IavPrimulaHandlerFactory::CreateSignHandler(
     const common::AlgorithmId& algorithm)
 {
@@ -72,16 +78,6 @@ IavPrimulaHandlerFactory::IavPrimulaHandlerFactory(std::shared_ptr<key_managemen
     }
 
     return std::make_shared<IavPrimulaVerifyHandler>(std::make_unique<operations::verify::VerifyExecutor>(), algorithm);
-}
-
-::score::Result<handler::Handler::Sptr> IavPrimulaHandlerFactory::CreateKemHandler(const common::AlgorithmId& algorithm)
-{
-    if (!common::IsPqcKemAlgorithm(algorithm))
-    {
-        return MakeUnsupportedAlgorithmError("Algorithm is not a supported iavPrimula KEM algorithm: " + algorithm);
-    }
-
-    return std::make_shared<IavPrimulaKemHandler>(std::make_unique<operations::kem::KemExecutor>(), algorithm);
 }
 
 }  // namespace score::crypto::daemon::provider::score_provider::iav_primula

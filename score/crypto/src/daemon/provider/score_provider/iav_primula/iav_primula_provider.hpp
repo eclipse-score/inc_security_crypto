@@ -45,6 +45,11 @@ class IavPrimulaProvider final : public ::score::crypto::daemon::provider::score
     void Shutdown() override;
     [[nodiscard]] bool InitialiseBackend(const ProviderInitContext& ctx) override;
 
+    [[nodiscard]] common::ProviderCapability GetProviderCapabilities() override
+    {
+        return common::ProviderCapability::kCrypto | common::ProviderCapability::kKeyManagement;
+    }
+
     // --- Key management capability ---
     std::shared_ptr<key_management::IKeyFactory> GetKeyFactory() override;
     std::shared_ptr<key_management::IKeySlotHandler> GetKeySlotHandler(
