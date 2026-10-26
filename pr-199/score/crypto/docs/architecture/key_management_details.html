@@ -596,31 +596,32 @@ touches every layer of the subsystem.</p>
 <li><p><a class="reference internal" href="#key-release" id="id15">Key release</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#mac-operation-example" id="id16">MAC Operation Example</a></p>
+<li><p><a class="reference internal" href="#kem-operations" id="id16">KEM operations</a></p></li>
+<li><p><a class="reference internal" href="#mac-operation-example" id="id17">MAC Operation Example</a></p>
 <ul>
-<li><p><a class="reference internal" href="#step-1-resolve-the-key-slot" id="id17">Step 1 — Resolve the key slot</a></p></li>
-<li><p><a class="reference internal" href="#step-2-load-the-key" id="id18">Step 2 — Load the key</a></p></li>
-<li><p><a class="reference internal" href="#step-3-create-the-mac-context-context-creation-with-key-binding" id="id19">Step 3 — Create the MAC context (context creation with key binding)</a></p></li>
-<li><p><a class="reference internal" href="#step-4-perform-mac-operations" id="id20">Step 4 — Perform MAC operations</a></p></li>
-<li><p><a class="reference internal" href="#step-5-release-resources" id="id21">Step 5 — Release resources</a></p></li>
+<li><p><a class="reference internal" href="#step-1-resolve-the-key-slot" id="id18">Step 1 — Resolve the key slot</a></p></li>
+<li><p><a class="reference internal" href="#step-2-load-the-key" id="id19">Step 2 — Load the key</a></p></li>
+<li><p><a class="reference internal" href="#step-3-create-the-mac-context-context-creation-with-key-binding" id="id20">Step 3 — Create the MAC context (context creation with key binding)</a></p></li>
+<li><p><a class="reference internal" href="#step-4-perform-mac-operations" id="id21">Step 4 — Perform MAC operations</a></p></li>
+<li><p><a class="reference internal" href="#step-5-release-resources" id="id22">Step 5 — Release resources</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#thread-safety" id="id22">Thread Safety</a></p></li>
-<li><p><a class="reference internal" href="#multi-client-key-deduplication" id="id23">Multi-Client Key Deduplication</a></p></li>
-<li><p><a class="reference internal" href="#access-control" id="id24">Access Control</a></p></li>
-<li><p><a class="reference internal" href="#pkcs-11-session-management" id="id25">PKCS#11 Session Management</a></p>
+<li><p><a class="reference internal" href="#thread-safety" id="id23">Thread Safety</a></p></li>
+<li><p><a class="reference internal" href="#multi-client-key-deduplication" id="id24">Multi-Client Key Deduplication</a></p></li>
+<li><p><a class="reference internal" href="#access-control" id="id25">Access Control</a></p></li>
+<li><p><a class="reference internal" href="#pkcs-11-session-management" id="id26">PKCS#11 Session Management</a></p>
 <ul>
-<li><p><a class="reference internal" href="#session-pools" id="id26">Session Pools</a></p></li>
-<li><p><a class="reference internal" href="#session-key-pinning-and-operation-borrow" id="id27">Session key pinning and operation borrow</a></p></li>
-<li><p><a class="reference internal" href="#thread-safe-login-state" id="id28">Thread-safe login state</a></p></li>
-<li><p><a class="reference internal" href="#session-validation" id="id29">Session validation</a></p></li>
-<li><p><a class="reference internal" href="#multi-token-coexistence" id="id30">Multi-Token Coexistence</a></p></li>
+<li><p><a class="reference internal" href="#session-pools" id="id27">Session Pools</a></p></li>
+<li><p><a class="reference internal" href="#session-key-pinning-and-operation-borrow" id="id28">Session key pinning and operation borrow</a></p></li>
+<li><p><a class="reference internal" href="#thread-safe-login-state" id="id29">Thread-safe login state</a></p></li>
+<li><p><a class="reference internal" href="#session-validation" id="id30">Session validation</a></p></li>
+<li><p><a class="reference internal" href="#multi-token-coexistence" id="id31">Multi-Token Coexistence</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#id1" id="id31">Access Control</a></p></li>
-<li><p><a class="reference internal" href="#configuration" id="id32">Configuration</a></p>
+<li><p><a class="reference internal" href="#id1" id="id32">Access Control</a></p></li>
+<li><p><a class="reference internal" href="#configuration" id="id33">Configuration</a></p>
 <ul>
-<li><p><a class="reference internal" href="#deployment-descriptor" id="id33">Deployment Descriptor</a></p></li>
+<li><p><a class="reference internal" href="#deployment-descriptor" id="id34">Deployment Descriptor</a></p></li>
 </ul>
 </li>
 </ul>
@@ -798,12 +799,24 @@ that client.</p>
 </dl>
 </section>
 </section>
+<section id="kem-operations">
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">KEM operations</a><a class="headerlink" href="#kem-operations" title="Link to this heading">#</a></h2>
+<p>ML-KEM encapsulation and decapsulation are key-management operations. The
+client supplies managed public or private key resources; the provider returns a
+new ephemeral shared-secret key which is registered through the normal
+<code class="docutils literal notranslate"><span class="pre">KeyRegistry</span></code> and returned as a <code class="docutils literal notranslate"><span class="pre">CryptoResourceGuard</span></code>. Ciphertext is public
+operation output, while shared-secret bytes never appear in IPC responses.</p>
+<p>The source key is retained and locked for the full provider call. The resulting
+secret is derive-only, non-exportable, and released through the same
+<code class="docutils literal notranslate"><span class="pre">KeyDataNode</span></code> lifecycle as every other ephemeral key. KEM therefore has no
+separate daemon actor, handler, or operation context.</p>
+</section>
 <section id="mac-operation-example">
-<h2><a class="toc-backref" href="#id16" role="doc-backlink">MAC Operation Example</a><a class="headerlink" href="#mac-operation-example" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">MAC Operation Example</a><a class="headerlink" href="#mac-operation-example" title="Link to this heading">#</a></h2>
 <p>This section traces a complete HMAC-SHA256 operation from application code
 down to the OpenSSL <code class="docutils literal notranslate"><span class="pre">EVP_MAC</span></code> API.</p>
 <section id="step-1-resolve-the-key-slot">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">Step 1 — Resolve the key slot</a><a class="headerlink" href="#step-1-resolve-the-key-slot" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Step 1 — Resolve the key slot</a><a class="headerlink" href="#step-1-resolve-the-key-slot" title="Link to this heading">#</a></h3>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Application code (client side)</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">stack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CreateCryptoStack</span><span class="p">(</span><span class="n">stack_config</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">ctx</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">stack</span><span class="o">-&gt;</span><span class="n">CreateCryptoContext</span><span class="p">().</span><span class="n">value</span><span class="p">();</span>
@@ -819,7 +832,7 @@ down to the OpenSSL <code class="docutils literal notranslate"><span class="pre"
 → <code class="docutils literal notranslate"><span class="pre">KeySlotDataNode</span></code> stored in <code class="docutils literal notranslate"><span class="pre">DataManager</span></code> → <code class="docutils literal notranslate"><span class="pre">slot_node_id</span></code> returned.</p>
 </section>
 <section id="step-2-load-the-key">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Step 2 — Load the key</a><a class="headerlink" href="#step-2-load-the-key" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Step 2 — Load the key</a><a class="headerlink" href="#step-2-load-the-key" title="Link to this heading">#</a></h3>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Create a key management context and load the key explicitly.</span>
 <span class="c1">// This step allows reuse of the same key across multiple MAC contexts.</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">km</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">CreateKeyManagementContext</span><span class="p">(</span><span class="n">KeyManagementContextConfig</span><span class="p">{}).</span><span class="n">value</span><span class="p">();</span>
@@ -849,7 +862,7 @@ and sets <code class="docutils literal notranslate"><span class="pre">ref_count<
 </ol>
 </section>
 <section id="step-3-create-the-mac-context-context-creation-with-key-binding">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink">Step 3 — Create the MAC context (context creation with key binding)</a><a class="headerlink" href="#step-3-create-the-mac-context-context-creation-with-key-binding" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">Step 3 — Create the MAC context (context creation with key binding)</a><a class="headerlink" href="#step-3-create-the-mac-context-context-creation-with-key-binding" title="Link to this heading">#</a></h3>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">MacContextConfig</span><span class="w"> </span><span class="n">mac_cfg</span><span class="p">;</span>
 <span class="n">mac_cfg</span><span class="p">.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="s">"HMAC-SHA256"</span><span class="p">).</span><span class="n">SetKey</span><span class="p">(</span><span class="n">key_guard</span><span class="p">);</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">mac</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">CreateMacContext</span><span class="p">(</span><span class="n">mac_cfg</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
@@ -916,7 +929,7 @@ client.  The key material is ready to be consumed by <code class="docutils liter
 the <code class="docutils literal notranslate"><span class="pre">OpenSslKeyHandler</span></code> retains the authoritative copy until it is released.</p>
 </section>
 <section id="step-4-perform-mac-operations">
-<h3><a class="toc-backref" href="#id20" role="doc-backlink">Step 4 — Perform MAC operations</a><a class="headerlink" href="#step-4-perform-mac-operations" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Step 4 — Perform MAC operations</a><a class="headerlink" href="#step-4-perform-mac-operations" title="Link to this heading">#</a></h3>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">mac</span><span class="o">-&gt;</span><span class="n">Update</span><span class="p">(</span><span class="n">span_of_data</span><span class="p">);</span>
 <span class="n">mac</span><span class="o">-&gt;</span><span class="n">Update</span><span class="p">(</span><span class="n">more_data</span><span class="p">);</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">mac_tag</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mac</span><span class="o">-&gt;</span><span class="n">Finalize</span><span class="p">().</span><span class="n">value</span><span class="p">();</span>
@@ -941,7 +954,7 @@ client-provided shared-memory buffer.</p></li>
 </ol>
 </section>
 <section id="step-5-release-resources">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">Step 5 — Release resources</a><a class="headerlink" href="#step-5-release-resources" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">Step 5 — Release resources</a><a class="headerlink" href="#step-5-release-resources" title="Link to this heading">#</a></h3>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">mac</span><span class="p">.</span><span class="n">reset</span><span class="p">();</span><span class="w">       </span><span class="c1">// ~MacContext() → CTX_CLOSE</span>
 <span class="n">key_guard</span><span class="p">.</span><span class="n">reset</span><span class="p">();</span><span class="w"> </span><span class="c1">// ~CryptoResourceGuard() → KEY_RELEASE</span>
 </pre></div>
@@ -968,7 +981,7 @@ its <code class="docutils literal notranslate"><span class="pre">shared_ptr</spa
 </section>
 </section>
 <section id="thread-safety">
-<h2><a class="toc-backref" href="#id22" role="doc-backlink">Thread Safety</a><a class="headerlink" href="#thread-safety" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id23" role="doc-backlink">Thread Safety</a><a class="headerlink" href="#thread-safety" title="Link to this heading">#</a></h2>
 <p>The key management subsystem uses a three-level lock hierarchy:</p>
 <div class="pst-scrollable-table-container"><table class="table" id="id6">
 <caption><span class="caption-number">Table 2 </span><span class="caption-text">Lock Hierarchy</span><a class="headerlink" href="#id6" title="Link to this table">#</a></caption>
@@ -1014,7 +1027,7 @@ increment/decrement; the <code class="docutils literal notranslate"><span class=
 <code class="docutils literal notranslate"><span class="pre">m_referencing_clients</span></code> vector updates inside <code class="docutils literal notranslate"><span class="pre">AddRef</span></code> / <code class="docutils literal notranslate"><span class="pre">Release</span></code>.</p>
 </section>
 <section id="multi-client-key-deduplication">
-<h2><a class="toc-backref" href="#id23" role="doc-backlink">Multi-Client Key Deduplication</a><a class="headerlink" href="#multi-client-key-deduplication" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id24" role="doc-backlink">Multi-Client Key Deduplication</a><a class="headerlink" href="#multi-client-key-deduplication" title="Link to this heading">#</a></h2>
 <p>When multiple client processes resolve and load the <strong>same</strong> slot
 simultaneously:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>App1: RESOLVE_RESOURCE("HmacSlot") → slot_node_id_A
@@ -1040,15 +1053,15 @@ conflict, looks up the winning node via <code class="docutils literal notranslat
 immediately — no key material leaks.</p>
 </section>
 <section id="access-control">
-<h2><a class="toc-backref" href="#id24" role="doc-backlink">Access Control</a><a class="headerlink" href="#access-control" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id25" role="doc-backlink">Access Control</a><a class="headerlink" href="#access-control" title="Link to this heading">#</a></h2>
 </section>
 <section id="pkcs-11-session-management">
-<span id="pkcs11-session-management"></span><h2><a class="toc-backref" href="#id25" role="doc-backlink">PKCS#11 Session Management</a><a class="headerlink" href="#pkcs-11-session-management" title="Link to this heading">#</a></h2>
+<span id="pkcs11-session-management"></span><h2><a class="toc-backref" href="#id26" role="doc-backlink">PKCS#11 Session Management</a><a class="headerlink" href="#pkcs-11-session-management" title="Link to this heading">#</a></h2>
 <p>The PKCS#11 provider manages sessions, login state, and key object lifetime
 differently from the OpenSSL provider.  This section documents the design
 decisions and their rationale.</p>
 <section id="session-pools">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink">Session Pools</a><a class="headerlink" href="#session-pools" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">Session Pools</a><a class="headerlink" href="#session-pools" title="Link to this heading">#</a></h3>
 <p>Each <code class="docutils literal notranslate"><span class="pre">Pkcs11Provider</span></code> maintains two pools of PKCS#11 sessions — one for
 Read-Only (RO) and one for Read-Write (RW) operations.  The pools are
 protected by <code class="docutils literal notranslate"><span class="pre">m_poolMutex</span></code> so that the gRPC thread pool can acquire and
@@ -1065,7 +1078,7 @@ module-slot pair.</p></li>
 </ol>
 </section>
 <section id="session-key-pinning-and-operation-borrow">
-<h3><a class="toc-backref" href="#id27" role="doc-backlink">Session key pinning and operation borrow</a><a class="headerlink" href="#session-key-pinning-and-operation-borrow" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">Session key pinning and operation borrow</a><a class="headerlink" href="#session-key-pinning-and-operation-borrow" title="Link to this heading">#</a></h3>
 <p>PKCS#11 v2.40 §5.7 states that <strong>session objects</strong> (<code class="docutils literal notranslate"><span class="pre">CKA_TOKEN=false</span></code>) are
 destroyed when the session that created them is closed.  They are visible to
 all sessions of the same application, but the <em>creating</em> session must remain
@@ -1087,7 +1100,7 @@ restriction and may be borrowed concurrently.  The borrow is released
 automatically when the <code class="docutils literal notranslate"><span class="pre">ResolvedKey</span></code> goes out of scope.</p>
 </section>
 <section id="thread-safe-login-state">
-<h3><a class="toc-backref" href="#id28" role="doc-backlink">Thread-safe login state</a><a class="headerlink" href="#thread-safe-login-state" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">Thread-safe login state</a><a class="headerlink" href="#thread-safe-login-state" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">TokenAuthGuard</span></code> maintains a reference-counted login state:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">EnsureUserState</span></code>: if <code class="docutils literal notranslate"><span class="pre">m_activeUserCount</span> <span class="pre">==</span> <span class="pre">0</span></code>, calls <code class="docutils literal notranslate"><span class="pre">C_Login</span></code>;
@@ -1099,7 +1112,7 @@ when it reaches zero.  Protected by <code class="docutils literal notranslate"><
 concurrent crypto operations that each require a logged-in session.</p>
 </section>
 <section id="session-validation">
-<h3><a class="toc-backref" href="#id29" role="doc-backlink">Session validation</a><a class="headerlink" href="#session-validation" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">Session validation</a><a class="headerlink" href="#session-validation" title="Link to this heading">#</a></h3>
 <p>Before executing a cryptographic operation, the handler calls
 <code class="docutils literal notranslate"><span class="pre">Pkcs11Provider::ValidateSession(session)</span></code> which invokes
 <code class="docutils literal notranslate"><span class="pre">C_GetSessionInfo</span></code>.  If the session has become invalid (e.g. device
@@ -1107,7 +1120,7 @@ removal), the operation returns <code class="docutils literal notranslate"><span
 propagating a cryptic PKCS#11 error code.</p>
 </section>
 <section id="multi-token-coexistence">
-<h3><a class="toc-backref" href="#id30" role="doc-backlink">Multi-Token Coexistence</a><a class="headerlink" href="#multi-token-coexistence" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">Multi-Token Coexistence</a><a class="headerlink" href="#multi-token-coexistence" title="Link to this heading">#</a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">Pkcs11ProviderFactory</span></code> supports multiple tokens from the same
 PKCS#11 library (e.g. multiple SoftHSM slots).  Each <code class="docutils literal notranslate"><span class="pre">Pkcs11TokenEntry</span></code>
 in <code class="docutils literal notranslate"><span class="pre">Pkcs11Config</span></code> becomes a separate <code class="docutils literal notranslate"><span class="pre">Pkcs11Provider</span></code> instance that
@@ -1131,7 +1144,7 @@ are fully isolated between tokens.</p>
 </section>
 </section>
 <section id="id1">
-<h2><a class="toc-backref" href="#id31" role="doc-backlink">Access Control</a><a class="headerlink" href="#id1" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id32" role="doc-backlink">Access Control</a><a class="headerlink" href="#id1" title="Link to this heading">#</a></h2>
 <p>Access decisions are centralized in <code class="docutils literal notranslate"><span class="pre">AccessPolicyEnforcer</span></code>.  The enforcer
 is called at two independent points:</p>
 <ol class="arabic simple">
@@ -1152,7 +1165,7 @@ listed provider.</p></li>
 mediator’s routing, the enforcer rejects unauthorized operations.</p>
 </section>
 <section id="configuration">
-<h2><a class="toc-backref" href="#id32" role="doc-backlink">Configuration</a><a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id33" role="doc-backlink">Configuration</a><a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
 <p>Each key slot is described by a <code class="docutils literal notranslate"><span class="pre">KeySlotConfig</span></code>:</p>
 <div class="pst-scrollable-table-container"><table class="table" id="id7">
 <caption><span class="caption-number">Table 3 </span><span class="caption-text">KeySlotConfig Fields</span><a class="headerlink" href="#id7" title="Link to this table">#</a></caption>
@@ -1207,7 +1220,7 @@ façade maps this string to a concrete <code class="docutils literal notranslate
 </table>
 </div>
 <section id="deployment-descriptor">
-<span id="id2"></span><h3><a class="toc-backref" href="#id33" role="doc-backlink">Deployment Descriptor</a><a class="headerlink" href="#deployment-descriptor" title="Link to this heading">#</a></h3>
+<span id="id2"></span><h3><a class="toc-backref" href="#id34" role="doc-backlink">Deployment Descriptor</a><a class="headerlink" href="#deployment-descriptor" title="Link to this heading">#</a></h3>
 <p>All dynamic per-slot data that is too volatile to bake into a compiled catalog
 is stored in a deployment descriptor file referenced by
 <code class="docutils literal notranslate"><span class="pre">KeySlotConfig::deployment_path</span></code>.  The file is read at slot load time by
@@ -1387,6 +1400,7 @@ and one dep in <code class="docutils literal notranslate"><span class="pre">daem
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-release">Key release</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#kem-operations">KEM operations</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mac-operation-example">MAC Operation Example</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-resolve-the-key-slot">Step 1 — Resolve the key slot</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-load-the-key">Step 2 — Load the key</a></li>
