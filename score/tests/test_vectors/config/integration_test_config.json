@@ -181,6 +181,26 @@
         "allowed_write_uids": [0],
         "deployment_path" : "/opt/crypto/etc/integration_openssl_rsa_pss_3072_sha384_pub.kv",
         "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL",
+        "algorithm": "RSA-4096",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "SIGN|VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_rsa4096_pss.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "Ed25519_RFC8032_IntegrationTestKey_OpenSSL",
+        "algorithm": "Ed25519",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "SIGN|VERIFY",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_ed25519.kv",
+        "deployment_format" : "kv"
       }
     ],
     "app_key_slot_entries": [
@@ -363,6 +383,26 @@
         "uid": 1000,
         "app_resource_id": "RSA_PSS_3072_SHA384_PublicKeySlot_OpenSSL",
         "slot_name": "RSA_PSS_3072_SHA384_PublicKeySlot_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL",
+        "slot_name": "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL",
+        "slot_name": "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "Ed25519_RFC8032_IntegrationTestKey_OpenSSL",
+        "slot_name": "Ed25519_RFC8032_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "Ed25519_RFC8032_IntegrationTestKey_OpenSSL",
+        "slot_name": "Ed25519_RFC8032_IntegrationTestKey_OpenSSL"
       }
     ]
   }

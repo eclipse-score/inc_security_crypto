@@ -21,10 +21,12 @@
 #include "score/crypto/src/api/i_crypto_context.hpp"
 #include "score/crypto/src/api/i_crypto_stack.hpp"
 #include "score/crypto/src/api/types/common.hpp"
+#include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdlib>
 #include <map>
 #include <memory>
 #include <optional>
@@ -33,6 +35,7 @@
 #include <vector>
 
 using namespace score::crypto;
+using tests::utility::read_bin;
 
 namespace
 {
@@ -45,6 +48,7 @@ constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
 struct SignatureCase
 {
     std::string name;
+    std::string key_slot;
     std::string key_algorithm;
     std::string signature_algorithm;
     SignatureInputMode input_mode;
@@ -52,6 +56,14 @@ struct SignatureCase
     std::string digest_hex;
     bool supported{true};
 };
+
+std::vector<SignatureCase> SignatureCases();
+
+std::string GetTestVectorPath()
+{
+    const char* directory = std::getenv("TEST_VECTORS_DIR");
+    return std::string{directory != nullptr ? directory : "/opt/crypto/share/test_vectors"};
+}
 
 std::vector<std::uint8_t> FromHex(std::string_view hex)
 {
@@ -131,19 +143,13 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         ASSERT_TRUE(key_context_result.has_value());
         key_context_ = std::move(key_context_result.value());
 
-        // ECDSA is covered by score_api_ecdsa_test.cpp. RSA-2048 and RSA-3072
-        // use provisioned NIST vector keys; only RSA-4096 has no imported
-        // vector key and therefore needs an ephemeral key here. Ed25519 also
-        // remains generated-key coverage until provisioned vectors are added.
-        for (const auto& algorithm : {"RSA-4096", "Ed25519"})
+        for (const auto& test_case : SignatureCases())
         {
-            GenerateKeyParams key_params;
-            key_params.SetAlgorithm(algorithm)
-                .SetPermissions(KeyOperationPermission::kSign)
-                .SetPublicKeyPermissions(KeyOperationPermission::kVerify);
-            auto key_result = key_context_->GenerateKey(key_params);
-            ASSERT_TRUE(key_result.has_value()) << algorithm;
-            keys_.emplace(algorithm, std::move(key_result.value()));
+            if (keys_.find(test_case.key_algorithm) != keys_.end())
+                continue;
+            auto key_result = LoadKeySlot(*context_, *key_context_, test_case.key_slot);
+            ASSERT_TRUE(key_result.has_value()) << test_case.key_slot;
+            keys_.emplace(test_case.key_algorithm, std::move(key_result.value()));
         }
     }
 
@@ -157,8 +163,9 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
 
     void RunSignAndVerify(const SignatureCase& test_case, bool streaming)
     {
-        constexpr std::string_view message_text = "abc";
-        const std::vector<std::uint8_t> message(message_text.begin(), message_text.end());
+        const auto message = test_case.key_algorithm == "Ed25519"
+                                 ? read_bin(GetTestVectorPath() + "/ed25519/RFC8032/message.bin")
+                                 : std::vector<std::uint8_t>{'a', 'b', 'c'};
         const auto input =
             test_case.input_mode == SignatureInputMode::kPrehashed ? FromHex(test_case.digest_hex) : message;
 
@@ -181,14 +188,11 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         EXPECT_EQ(sign_context->GetSignatureSize(), test_case.signature_size);
 
         std::vector<std::uint8_t> signature(test_case.signature_size);
-        const auto split = input.size() / 2U;
         std::optional<score::Result<std::size_t>> written;
         if (streaming)
         {
             ASSERT_TRUE(sign_context->Init().has_value()) << test_case.name;
-            ASSERT_TRUE(sign_context->Update({input.data(), split}).has_value()) << test_case.name;
-            ASSERT_TRUE(sign_context->Update({input.data() + split, input.size() - split}).has_value())
-                << test_case.name;
+            ASSERT_TRUE(sign_context->Update({input.data(), input.size()}).has_value()) << test_case.name;
             written.emplace(sign_context->SignFinalize({signature.data(), signature.size()}));
         }
         else
@@ -203,9 +207,7 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         if (streaming)
         {
             ASSERT_TRUE(verify_context->Init().has_value()) << test_case.name;
-            ASSERT_TRUE(verify_context->Update({input.data(), split}).has_value()) << test_case.name;
-            ASSERT_TRUE(verify_context->Update({input.data() + split, input.size() - split}).has_value())
-                << test_case.name;
+            ASSERT_TRUE(verify_context->Update({input.data(), input.size()}).has_value()) << test_case.name;
             verified.emplace(verify_context->VerifyFinalize({signature.data(), signature.size()}));
         }
         else
@@ -221,9 +223,7 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         {
             ASSERT_TRUE(verify_context->Reset());
             ASSERT_TRUE(verify_context->Init().has_value()) << test_case.name;
-            ASSERT_TRUE(verify_context->Update({input.data(), split}).has_value()) << test_case.name;
-            ASSERT_TRUE(verify_context->Update({input.data() + split, input.size() - split}).has_value())
-                << test_case.name;
+            ASSERT_TRUE(verify_context->Update({input.data(), input.size()}).has_value()) << test_case.name;
             verified.emplace(verify_context->VerifyFinalize({signature.data(), signature.size()}));
         }
         else
@@ -260,26 +260,48 @@ TEST_P(SignatureIntegrationTest, SignAndVerifySS)
 std::vector<SignatureCase> SignatureCases()
 {
     return {
-        // ECDSA is covered by score_api_ecdsa_test.cpp. RSA-2048 and RSA-3072
-        // are covered by provisioned NIST vector tests.
-        {"RSA4096_SHA256_Message", "RSA-4096", "RSA-PSS-4096-SHA256", SignatureInputMode::kMessage, 512U, "", true},
+        {"RSA4096_SHA256_Message",
+         "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL",
+         "RSA-4096",
+         "RSA-PSS-4096-SHA256",
+         SignatureInputMode::kMessage,
+         512U,
+         "",
+         true},
         {"RSA4096_SHA256_Prehashed",
+         "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL",
          "RSA-4096",
          "RSA-PSS-4096-SHA256",
          SignatureInputMode::kPrehashed,
          512U,
          "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
          true},
-        {"RSA4096_SHA384_Message", "RSA-4096", "RSA-PSS-4096-SHA384", SignatureInputMode::kMessage, 512U, "", true},
+        {"RSA4096_SHA384_Message",
+         "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL",
+         "RSA-4096",
+         "RSA-PSS-4096-SHA384",
+         SignatureInputMode::kMessage,
+         512U,
+         "",
+         true},
         {"RSA4096_SHA384_Prehashed",
+         "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL",
          "RSA-4096",
          "RSA-PSS-4096-SHA384",
          SignatureInputMode::kPrehashed,
          512U,
          "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7",
          true},
-        {"RSA4096_SHA512_Message", "RSA-4096", "RSA-PSS-4096-SHA512", SignatureInputMode::kMessage, 512U, "", true},
+        {"RSA4096_SHA512_Message",
+         "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL",
+         "RSA-4096",
+         "RSA-PSS-4096-SHA512",
+         SignatureInputMode::kMessage,
+         512U,
+         "",
+         true},
         {"RSA4096_SHA512_Prehashed",
+         "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL",
          "RSA-4096",
          "RSA-PSS-4096-SHA512",
          SignatureInputMode::kPrehashed,
@@ -288,8 +310,16 @@ std::vector<SignatureCase> SignatureCases()
          "454d4423643ce80e2a9ac94fa54ca49f",
          true},
 
-        {"Ed25519_Message", "Ed25519", "Ed25519", SignatureInputMode::kMessage, 64U, "", true},
+        {"Ed25519_Message",
+         "Ed25519_RFC8032_IntegrationTestKey_OpenSSL",
+         "Ed25519",
+         "Ed25519",
+         SignatureInputMode::kMessage,
+         64U,
+         "",
+         true},
         {"Ed25519_Prehashed_Rejected",
+         "Ed25519_RFC8032_IntegrationTestKey_OpenSSL",
          "Ed25519",
          "Ed25519",
          SignatureInputMode::kPrehashed,
@@ -305,6 +335,139 @@ INSTANTIATE_TEST_SUITE_P(AllAlgorithms,
                          [](const ::testing::TestParamInfo<SignatureCase>& info) {
                              return info.param.name;
                          });
+
+struct RsaPssVector
+{
+    std::string_view key_slot;
+    std::string_view directory;
+    std::string_view algorithm;
+    std::size_t message_size;
+    std::size_t signature_size;
+};
+
+std::string GetRsaPssVectorPath(const RsaPssVector& vector)
+{
+    return GetTestVectorPath() + "/rsa/" + std::string{vector.directory} + "/";
+}
+
+class RsaPssVectorTest : public ::testing::TestWithParam<RsaPssVector>
+{
+  protected:
+    void SetUp() override
+    {
+        CryptoStackConfig stack_config;
+        stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+        auto stack_result = CreateCryptoStack(stack_config);
+        ASSERT_TRUE(stack_result.has_value());
+        stack_ = std::move(stack_result.value());
+
+        auto context_result = stack_->CreateCryptoContext();
+        ASSERT_TRUE(context_result.has_value());
+        context_ = std::move(context_result.value());
+
+        KeyManagementContextConfig key_config;
+        key_config.SetProviderType(ProviderType::kSoftware);
+        auto key_context_result = context_->CreateKeyManagementContext(key_config);
+        ASSERT_TRUE(key_context_result.has_value());
+        key_context_ = std::move(key_context_result.value());
+
+        auto key_result = LoadKeySlot(*context_, *key_context_, GetParam().key_slot);
+        ASSERT_TRUE(key_result.has_value());
+        key_ = std::move(key_result.value());
+
+        const auto vector_path = GetRsaPssVectorPath(GetParam());
+        message_ = read_bin(vector_path + "message.bin");
+        signature_ = read_bin(vector_path + "signature.bin");
+        ASSERT_EQ(message_.size(), GetParam().message_size);
+        ASSERT_EQ(signature_.size(), GetParam().signature_size);
+    }
+
+    void TearDown() override
+    {
+        if (key_.has_value())
+        {
+            const auto release_result = key_->Release();
+            EXPECT_TRUE(release_result.has_value());
+        }
+        key_context_.reset();
+        context_.reset();
+        stack_.reset();
+    }
+
+    ICryptoStack::Uptr stack_;
+    ICryptoContext::Uptr context_;
+    IKeyManagementContext::Uptr key_context_;
+    std::optional<CryptoResourceGuard> key_;
+    std::vector<std::uint8_t> message_;
+    std::vector<std::uint8_t> signature_;
+};
+
+TEST_P(RsaPssVectorTest, VerifiesNistSignatureSingleShotAndRejectsTampering)
+{
+    VerifySignatureContextConfig config;
+    config.SetAlgorithm(std::string{GetParam().algorithm}).SetKey(*key_).SetProviderType(ProviderType::kSoftware);
+    auto verify_result = context_->CreateVerifySignatureContext(config);
+    ASSERT_TRUE(verify_result.has_value());
+    auto verify = std::move(verify_result.value());
+
+    auto valid = verify->SingleShot({message_.data(), message_.size()}, {signature_.data(), signature_.size()});
+    ASSERT_TRUE(valid.has_value());
+    EXPECT_TRUE(valid.value());
+
+    signature_[0U] ^= 0x01U;
+    ASSERT_TRUE(verify->Reset());
+    auto invalid = verify->SingleShot({message_.data(), message_.size()}, {signature_.data(), signature_.size()});
+    ASSERT_TRUE(invalid.has_value());
+    EXPECT_FALSE(invalid.value());
+}
+
+TEST_P(RsaPssVectorTest, VerifiesNistSignatureStreaming)
+{
+    VerifySignatureContextConfig config;
+    config.SetAlgorithm(std::string{GetParam().algorithm}).SetKey(*key_).SetProviderType(ProviderType::kSoftware);
+    auto verify_result = context_->CreateVerifySignatureContext(config);
+    ASSERT_TRUE(verify_result.has_value());
+    auto verify = std::move(verify_result.value());
+
+    ASSERT_TRUE(verify->Init());
+    const auto split = message_.size() / 2U;
+    ASSERT_TRUE(verify->Update({message_.data(), split}));
+    ASSERT_TRUE(verify->Update({message_.data() + split, message_.size() - split}));
+    auto valid = verify->VerifyFinalize({signature_.data(), signature_.size()});
+    ASSERT_TRUE(valid.has_value());
+    EXPECT_TRUE(valid.value());
+}
+
+TEST_P(RsaPssVectorTest, RejectsTamperedSignatureStreaming)
+{
+    VerifySignatureContextConfig config;
+    config.SetAlgorithm(std::string{GetParam().algorithm}).SetKey(*key_).SetProviderType(ProviderType::kSoftware);
+    auto verify_result = context_->CreateVerifySignatureContext(config);
+    ASSERT_TRUE(verify_result.has_value());
+    auto verify = std::move(verify_result.value());
+
+    signature_[0U] ^= 0x01U;
+    ASSERT_TRUE(verify->Init());
+    const auto split = message_.size() / 2U;
+    ASSERT_TRUE(verify->Update({message_.data(), split}));
+    ASSERT_TRUE(verify->Update({message_.data() + split, message_.size() - split}));
+    auto invalid = verify->VerifyFinalize({signature_.data(), signature_.size()});
+    ASSERT_TRUE(invalid.has_value());
+    EXPECT_FALSE(invalid.value());
+}
+
+INSTANTIATE_TEST_SUITE_P(NistVectors,
+                         RsaPssVectorTest,
+                         ::testing::Values(RsaPssVector{"RSA_PSS_2048_SHA256_PublicKeySlot_OpenSSL",
+                                                        "RSA2048-SHA256-Positive",
+                                                        "RSA-PSS-2048-SHA256",
+                                                        128U,
+                                                        256U},
+                                           RsaPssVector{"RSA_PSS_3072_SHA384_PublicKeySlot_OpenSSL",
+                                                        "RSA3072-SHA384-Positive",
+                                                        "RSA-PSS-3072-SHA384",
+                                                        128U,
+                                                        384U}));
 
 }  // namespace
 

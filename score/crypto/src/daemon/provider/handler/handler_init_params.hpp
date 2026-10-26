@@ -48,7 +48,7 @@ struct InitializationParams
     /// vector without requiring mediator changes for each new field.
     /// Wire layout: [0]=context_type, [1]=algorithm, [2]=provider_type(opt),
     ///              [3]=key_node_id(opt), [4]=operation_mode(opt, MAC only),
-    ///              [5]=cipher padding (cipher contexts) or signature input mode.
+    ///              [5]=cipher padding (cipher contexts), [6]=signature input mode.
     common::RequestParameters context_creation_params{};
 };
 
