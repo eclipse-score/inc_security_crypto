@@ -1,0 +1,50 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
+
+common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
+common --registry=https://bcr.bazel.build
+common --lockfile_mode=error
+common --experimental_isolated_extension_usages
+
+build --java_language_version=17
+build --tool_java_language_version=17
+build --java_runtime_version=remotejdk_17
+build --tool_java_runtime_version=remotejdk_17
+
+# Do not use automatically detected host C++ toolchains.
+build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+
+build:x86_64-linux --incompatible_strict_action_env
+build:x86_64-linux --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+build:x86_64-linux --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+build:x86_64-linux --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+build:x86_64-linux --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
+build:x86_64-linux --features=use_pthread
+build:x86_64-linux --@score_communication//score/memory/shared/flags:use_typedshmd=False
+
+# Build the daemon with both backend families enabled (the repository default).
+build:all-backends --@score_security_crypto//score/crypto/src/backend:score_crypto_score_backend_enabled=True
+build:all-backends --@score_security_crypto//score/crypto/src/backend:score_crypto_score_openssl_enabled=True
+build:all-backends --@score_security_crypto//score/crypto/src/backend:score_crypto_pkcs11_backend_enabled=True
+
+# Build and run using only the SCORE OpenSSL backend.
+build:openssl-only --@score_security_crypto//score/crypto/src/backend:score_crypto_score_backend_enabled=True
+build:openssl-only --@score_security_crypto//score/crypto/src/backend:score_crypto_score_openssl_enabled=True
+build:openssl-only --@score_security_crypto//score/crypto/src/backend:score_crypto_pkcs11_backend_enabled=False
+
+# Build using only the PKCS#11 backend.
+build:pkcs11-only --@score_security_crypto//score/crypto/src/backend:score_crypto_score_backend_enabled=False
+build:pkcs11-only --@score_security_crypto//score/crypto/src/backend:score_crypto_score_openssl_enabled=False
+build:pkcs11-only --@score_security_crypto//score/crypto/src/backend:score_crypto_pkcs11_backend_enabled=True
+
+test --test_output=errors

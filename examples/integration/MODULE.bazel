@@ -1,0 +1,105 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
+
+module(name = "score_security_crypto_integration_example")
+
+bazel_dep(name = "score_security_crypto", version = "0.0.0")
+local_path_override(
+    module_name = "score_security_crypto",
+    path = "../..",
+)
+
+# The integration configuration sets a public score_communication build flag,
+# so the dependency must also be directly visible to this root module.
+bazel_dep(name = "score_communication", version = "0.5.0")
+bazel_dep(name = "rules_cc", version = "0.2.25")
+
+# Keep the consumer's Python rules compatible with score_tooling until the
+# dependency graph moves to the newer rules_python layout.
+bazel_dep(name = "rules_python", version = "2.3.1")
+single_version_override(
+    module_name = "rules_python",
+    version = "1.5.4",
+)
+
+# protobuf 36.0 was yanked due to a macOS prebuilt integrity issue. Select the
+# corrected registry revision when the dependency graph is resolved by a
+# standalone consumer module.
+bazel_dep(name = "protobuf", version = "36.0.bcr.1")
+
+# A root module does not inherit dependency overrides. Mirror the source
+# revisions currently required by score_security_crypto so this Linux-only
+# example exercises the same gRPC stack as the repository build. The QNX-only
+# patches remain owned by the repository root and are outside this example.
+archive_override(
+    module_name = "grpc",
+    integrity = "sha256-CvN7gAlTEwtHwHW1ZoPuYL3D7aPDf8YAQZP1tWl1ggQ=",
+    strip_prefix = "grpc-1.76.0",
+    urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.76.0.tar.gz"],
+)
+
+archive_override(
+    module_name = "abseil-cpp",
+    integrity = "sha256-m3oGQwXp/ZTRJP+mzDWFkutCtdpYj7TgfQklSqQAhts=",
+    strip_prefix = "abseil-cpp-20250512.1",
+    urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20250512.1.tar.gz"],
+)
+
+archive_override(
+    module_name = "protobuf",
+    integrity = "sha256-w6Cp7OiTLjHDtzbi2xixxC5wcM2biBOIsm0BqnHiTKI=",
+    strip_prefix = "protobuf-31.1",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v31.1.tar.gz"],
+)
+
+single_version_override(
+    module_name = "grpc-java",
+    version = "1.82.0",
+)
+
+single_version_override(
+    module_name = "rules_swift",
+    version = "3.1.2",
+)
+
+single_version_override(
+    module_name = "rules_apple",
+    version = "4.3.3",
+)
+
+# Keep the PKCS#11/Rust logging bridge aligned with the Baselibs structure used
+# by the current score_security_crypto checkout. Remove this override once the
+# corresponding score_logging release is available in the registry.
+git_override(
+    module_name = "score_logging",
+    commit = "3fce1678fc0aee311c6ae24c293422fc51a91de5",
+    remote = "https://github.com/eclipse-score/logging.git",
+)
+
+# Toolchains declared as dev dependencies by score_security_crypto are not
+# inherited by consuming modules, so the example registers its own toolchains.
+bazel_dep(name = "score_bazel_platforms", version = "1.1.0")
+
+bazel_dep(name = "score_bazel_cpp_toolchains", version = "1.0.5", dev_dependency = True)
+
+gcc = use_extension("@score_bazel_cpp_toolchains//extensions:gcc.bzl", "gcc", dev_dependency = True)
+gcc.toolchain(
+    name = "score_gcc_x86_64_toolchain",
+    target_cpu = "x86_64",
+    target_os = "linux",
+    use_default_package = True,
+    version = "12.2.0",
+)
+use_repo(gcc, "score_gcc_x86_64_toolchain")
+
+bazel_dep(name = "score_toolchains_rust", version = "0.10.0", dev_dependency = True)
