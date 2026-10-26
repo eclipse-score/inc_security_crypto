@@ -18,11 +18,13 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
 #include <openssl/bn.h>
+#include <openssl/core_names.h>
 #include <openssl/ec.h>
 #include <openssl/ecdsa.h>
 
 #include "score/mw/log/logging.h"
 
+#include <string>
 #include <string_view>
 
 namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
@@ -78,7 +80,7 @@ EVP_PKEY* Stream::Key() const noexcept
 Expected<std::monostate, DaemonErrorCode> Stream::BindCommon(
     const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
     std::string_view operation,
-    bool require_ec_key)
+    std::string_view algorithm)
 {
     Free();
 
@@ -107,9 +109,40 @@ Expected<std::monostate, DaemonErrorCode> Stream::BindCommon(
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }
 
-    if (require_ec_key && EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC)
+    const int key_type = EVP_PKEY_get_base_id(pkey);
+
+    bool key_matches_algorithm = false;
+    if (algo_info::IsEcdsaAlgorithm(algorithm))
     {
-        score::mw::log::LogError() << kLogPrefix << operation << ": bound key is not an EC key";
+        const auto curve = algo_info::LookupEcCurveOfAlgorithm(algorithm);
+        if (curve.has_value())
+        {
+            std::string group_name(curve->openssl_group_name.size() + 1U, '\0');
+            std::size_t group_name_size = 0U;
+            const bool read =
+                EVP_PKEY_get_utf8_string_param(
+                    pkey, OSSL_PKEY_PARAM_GROUP_NAME, group_name.data(), group_name.size(), &group_name_size) == 1;
+            const bool trailing_nul = group_name_size > 0U && group_name[group_name_size - 1U] == '\0';
+            const std::size_t actual_size = group_name_size - (trailing_nul ? 1U : 0U);
+            key_matches_algorithm = key_type == EVP_PKEY_EC && read &&
+                                    std::string_view{group_name.data(), actual_size} == curve->openssl_group_name;
+        }
+    }
+    else if (algo_info::IsRsaPssAlgorithm(algorithm))
+    {
+        const auto rsa = algo_info::LookupRsaKeyInfoForSignatureAlgorithm(algorithm);
+        key_matches_algorithm =
+            rsa.has_value() && key_type == EVP_PKEY_RSA && EVP_PKEY_get_bits(pkey) == static_cast<int>(rsa->key_bits);
+    }
+    else if (algo_info::IsEd25519Algorithm(algorithm))
+    {
+        key_matches_algorithm = key_type == EVP_PKEY_ED25519;
+    }
+
+    if (!key_matches_algorithm)
+    {
+        score::mw::log::LogError() << kLogPrefix << operation
+                                   << ": bound key type, size, or curve is incompatible with " << algorithm;
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }
@@ -135,13 +168,14 @@ Expected<std::monostate, DaemonErrorCode> Stream::Bind(
         return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
-    return BindCommon(init_params, "Bind", /*require_ec_key=*/true);
+    return BindCommon(init_params, "Bind", std::string_view{algorithm.data(), algorithm.size()});
 }
 
 Expected<std::monostate, DaemonErrorCode> Stream::BindAny(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
+    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
+    const common::AlgorithmId& algorithm)
 {
-    return BindCommon(init_params, "BindAny", /*require_ec_key=*/false);
+    return BindCommon(init_params, "BindAny", std::string_view{algorithm.data(), algorithm.size()});
 }
 
 Expected<std::monostate, DaemonErrorCode> Stream::Restart()

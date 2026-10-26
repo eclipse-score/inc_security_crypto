@@ -57,7 +57,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::Ini
         score::mw::log::LogError() << kLogPrefix << "InitializeContext: prehashed mode is unsupported for Ed25519";
         return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
     }
-    auto bound = m_stream.BindAny(params);
+    auto bound = m_stream.BindAny(params, m_algorithm);
     if (!bound.has_value())
         return bound;
     m_buffer.clear();
@@ -106,8 +106,10 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::Ini
     m_buffer.clear();
     if (!IsEd25519())
     {
+        // AUTO accepts any legal salt length recovered from the signature, instead of
+        // requiring it to match this provider's own (fixed) signing default.
         auto configured = ::score::crypto::daemon::provider::openssl::detail::ConfigureRsaPssContext(
-            m_stream.Context(), std::string_view{m_algorithm.data(), m_algorithm.size()});
+            m_stream.Context(), std::string_view{m_algorithm.data(), m_algorithm.size()}, RSA_PSS_SALTLEN_AUTO);
         if (!configured.has_value())
         {
             score::mw::log::LogError() << kLogPrefix << "InitVerify: RSA-PSS context configuration failed for "
@@ -196,10 +198,9 @@ Expected<bool, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::FinalizeVerif
             digest_name.has_value()
                 ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
                 : nullptr;
-        const bool configured = pctx != nullptr && digest != nullptr && EVP_PKEY_verify_init(pctx) == 1 &&
-                                EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) == 1 &&
-                                EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, RSA_PSS_SALTLEN_DIGEST) == 1 &&
-                                EVP_PKEY_CTX_set_rsa_mgf1_md(pctx, digest) == 1 &&
+        const bool configured = pctx != nullptr && EVP_PKEY_verify_init(pctx) == 1 &&
+                                ::score::crypto::daemon::provider::openssl::detail::ConfigureRsaPssPkeyContext(
+                                    pctx, digest, RSA_PSS_SALTLEN_AUTO) &&
                                 EVP_PKEY_CTX_set_signature_md(pctx, digest) == 1;
         const int verify_result =
             configured ? EVP_PKEY_verify(pctx, signature.data(), signature.size(), m_buffer.data(), m_buffer.size())

@@ -74,8 +74,7 @@ class Stream final
         const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
         const common::AlgorithmId& algorithm);
 
-    /// @brief Like Bind(), but without the EC-key-type check or the
-    ///        IsAlgorithmSupported() gate.
+    /// @brief Like Bind(), validating the key against the selected algorithm.
     ///
     /// @note For the RSA-PSS/Ed25519 handlers, which share this Stream but
     ///       bind keys of other types and validate the algorithm themselves.
@@ -83,7 +82,8 @@ class Stream final
     /// @param init_params Context initialization parameters; retained so that
     ///        Reset() can rebuild the context from them.
     [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> BindAny(
-        const ::score::crypto::daemon::provider::handler::InitializationParams& init_params);
+        const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
+        const common::AlgorithmId& algorithm);
 
     /// @brief Replaces the digest context with a fresh one.
     ///
@@ -118,13 +118,12 @@ class Stream final
     ///        retain; see Bind().
     /// @param operation Name of the calling public method, used to attribute
     ///        error log messages (e.g. "Bind" or "BindAny").
-    /// @param require_ec_key Whether the bound key must be an EC key pair;
-    ///        Bind() needs this (ECDSA only ever binds EC keys), BindAny()
-    ///        does not (it also serves RSA-PSS/Ed25519 handlers).
+    /// @param algorithm The signature algorithm; its key type, size, and (for
+    ///        ECDSA) curve are checked against the bound key.
     [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> BindCommon(
         const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
         std::string_view operation,
-        bool require_ec_key);
+        std::string_view algorithm);
 
     EVP_MD_CTX* m_md_ctx{nullptr};
     ::score::crypto::daemon::provider::handler::InitializationParams m_init_params;
