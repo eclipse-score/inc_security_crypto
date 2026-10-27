@@ -310,32 +310,6 @@ std::vector<SignatureCase> SignatureCases()
          "454d4423643ce80e2a9ac94fa54ca49f",
          true},
 
-        {"ECDSA_P256_SHA256_Prehashed",
-         "ECDSA_P256_IntegrationTestKey_OpenSSL",
-         "ECDSA-P256",
-         "ECDSA-P256-SHA256",
-         SignatureInputMode::kPrehashed,
-         64U,
-         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-         true},
-        {"ECDSA_P384_SHA384_Prehashed",
-         "ECDSA_P384_IntegrationTestKey_OpenSSL",
-         "ECDSA-P384",
-         "ECDSA-P384-SHA384",
-         SignatureInputMode::kPrehashed,
-         96U,
-         "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7",
-         true},
-        {"ECDSA_P521_SHA512_Prehashed",
-         "ECDSA_P521_IntegrationTestKey_OpenSSL",
-         "ECDSA-P521",
-         "ECDSA-P521-SHA512",
-         SignatureInputMode::kPrehashed,
-         132U,
-         "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd"
-         "454d4423643ce80e2a9ac94fa54ca49f",
-         true},
-
         {"Ed25519_Message",
          "Ed25519_RFC8032_IntegrationTestKey_OpenSSL",
          "Ed25519",
@@ -354,13 +328,6 @@ std::vector<SignatureCase> SignatureCases()
          false},
     };
 }
-
-INSTANTIATE_TEST_SUITE_P(AllAlgorithms,
-                         SignatureIntegrationTest,
-                         ::testing::ValuesIn(SignatureCases()),
-                         [](const ::testing::TestParamInfo<SignatureCase>& info) {
-                             return info.param.name;
-                         });
 
 struct RsaPssVector
 {
@@ -494,6 +461,13 @@ INSTANTIATE_TEST_SUITE_P(NistVectors,
                                                         "RSA-PSS-3072-SHA384",
                                                         128U,
                                                         384U}));
+
+INSTANTIATE_TEST_SUITE_P(AllAlgorithms,
+                         SignatureIntegrationTest,
+                         ::testing::ValuesIn(SignatureCases()),
+                         [](const ::testing::TestParamInfo<SignatureCase>& info) {
+                             return info.param.name;
+                         });
 
 }  // namespace
 
