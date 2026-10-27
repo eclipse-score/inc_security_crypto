@@ -18,22 +18,16 @@
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 
-#include <cstddef>
-#include <memory>
-#include <string_view>
-
 namespace score::crypto::daemon::provider::openssl
 {
 
 /// OpenSSL implementation of IKeyFactory.
 ///
-/// Key material model:
-///   GenerateKey — RAND_bytes → heap buffer → OpenSslKeyHandler (owns unique_ptr<uint8_t[]>)
-///   ImportKey   — memcpy → heap buffer → OpenSslKeyHandler
+/// An algorithm naming an ECDSA curve yields an EC key pair, an AES or HMAC
+/// algorithm a symmetric key, and any other algorithm kUnsupportedAlgorithm.
 ///
-/// Each returned IKeyHandler (OpenSslKeyHandler) owns exclusive heap memory for
-/// one key. Zeroization uses OPENSSL_cleanse, which is guaranteed not to be
-/// optimized away by the compiler.
+/// Each returned IKeyHandler (OpenSslKeyHandler) exclusively owns the material
+/// of one key: a heap buffer zeroized with OPENSSL_cleanse, or an EVP_PKEY.
 ///
 /// Thread safety: GenerateKey and ImportKey are safe to call concurrently
 /// because each call allocates independent memory. The returned OpenSslKeyHandler
@@ -49,42 +43,18 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     OpenSslKeyFactory(OpenSslKeyFactory&&) = delete;
     OpenSslKeyFactory& operator=(OpenSslKeyFactory&&) = delete;
 
-    /// Generate a symmetric key using OpenSSL RAND_bytes, or an ECDSA key pair.
-    ///
-    /// Symmetric key size is derived from request.algorithm:
-    ///   HMAC-SHA256 → 32 B  |  HMAC-SHA384 → 48 B  |  HMAC-SHA512 → 64 B
-    ///   AES-128-*   → 16 B  |  AES-192-*   → 24 B  |  AES-256-*   → 32 B
-    ///
-    /// An algorithm naming an ECDSA curve ("ECDSA-P256", "ECDSA-P384",
-    /// "ECDSA-P521") produces a key pair instead; the returned handler owns a
-    /// single EVP_PKEY carrying both halves.
+    /// Generate a key of the family named by request.algorithm.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
-    /// Import raw key material by copying into a new heap buffer, or parse a
-    /// DER-encoded EC key when request.algorithm names an ECDSA curve.
+    /// Import raw symmetric key material, or a DER-encoded EC key.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const key_management::KeyImportRequest& request) override;
 
   private:
     common::ProviderId m_provider_id{common::kInvalidProviderId};
-
-    /// Generate an EC key pair on the curve named by request.algorithm.
-    [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
-                                            ::score::crypto::daemon::common::DaemonErrorCode>
-    GenerateEcKey(const key_management::KeyGenerationRequest& request);
-
-    /// Parse DER key material (PKCS#8 private key or SubjectPublicKeyInfo) into
-    /// an EVP_PKEY.
-    [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
-                                            ::score::crypto::daemon::common::DaemonErrorCode>
-    ImportEcKey(const key_management::KeyImportRequest& request);
-
-    /// Map well-known algorithm names to symmetric key sizes in bytes.
-    /// Returns 0 for unknown algorithms.
-    [[nodiscard]] static std::size_t DetermineKeySize(const common::AlgorithmId& algorithm) noexcept;
 };
 
 }  // namespace score::crypto::daemon::provider::openssl

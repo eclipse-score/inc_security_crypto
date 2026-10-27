@@ -62,8 +62,8 @@ inline constexpr Pkcs11AlgoEntry kAlgoEntries[] = {
 /// Case-sensitive substring matching (uppercase expected, matching the AlgorithmId
 /// values used by the daemon).
 ///
-/// Adding a new algorithm: extend kAlgoEntries and add a matching entry to
-/// OpenSslKeyHandler::DetermineKeySize() for cross-provider consistency.
+/// Adding a new algorithm: extend kAlgoEntries and common::kKeyAlgorithms with
+/// the same key size.
 [[nodiscard]] inline std::optional<Pkcs11AlgoInfo> LookupAlgorithm(const common::AlgorithmId& algo) noexcept
 {
     for (const auto& entry : kAlgoEntries)
