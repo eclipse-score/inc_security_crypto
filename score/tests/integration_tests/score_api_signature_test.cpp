@@ -217,23 +217,52 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         }
         ASSERT_TRUE(verified->has_value()) << test_case.name;
         EXPECT_TRUE(verified->value()) << test_case.name;
+    }
 
-        signature[0U] ^= 0x01U;
+    void RunRejectsTamperedSignature(const SignatureCase& test_case, bool streaming)
+    {
+        const auto message = test_case.key_algorithm == "Ed25519"
+                                 ? read_bin(GetTestVectorPath() + "/ed25519/RFC8032/message.bin")
+                                 : std::vector<std::uint8_t>{'a', 'b', 'c'};
+        const auto input =
+            test_case.input_mode == SignatureInputMode::kPrehashed ? FromHex(test_case.digest_hex) : message;
+        ASSERT_NE(context_, nullptr);
+        ASSERT_NE(keys_.find(test_case.key_algorithm), keys_.end());
+        const auto& key = keys_.at(test_case.key_algorithm);
+        auto sign_context = MakeSignContext(*context_, test_case, key);
+        auto verify_context = MakeVerifyContext(*context_, test_case, key);
+        if (!test_case.supported)
+        {
+            EXPECT_EQ(sign_context, nullptr) << test_case.name;
+            EXPECT_EQ(verify_context, nullptr) << test_case.name;
+            return;
+        }
+        ASSERT_NE(sign_context, nullptr) << test_case.name;
+        ASSERT_NE(verify_context, nullptr) << test_case.name;
+
+        std::vector<std::uint8_t> signature(test_case.signature_size);
         if (streaming)
         {
-            ASSERT_TRUE(verify_context->Reset());
-            ASSERT_TRUE(verify_context->Init().has_value()) << test_case.name;
-            ASSERT_TRUE(verify_context->Update({input.data(), input.size()}).has_value()) << test_case.name;
-            verified.emplace(verify_context->VerifyFinalize({signature.data(), signature.size()}));
+            ASSERT_TRUE(sign_context->Init().has_value());
+            ASSERT_TRUE(sign_context->Update({input.data(), input.size()}).has_value());
+            ASSERT_TRUE(sign_context->SignFinalize({signature.data(), signature.size()}).has_value());
+            signature[0U] ^= 0x01U;
+            ASSERT_TRUE(verify_context->Init().has_value());
+            ASSERT_TRUE(verify_context->Update({input.data(), input.size()}).has_value());
+            auto result = verify_context->VerifyFinalize({signature.data(), signature.size()});
+            ASSERT_TRUE(result.has_value()) << test_case.name;
+            EXPECT_FALSE(result.value()) << test_case.name;
         }
         else
         {
-            ASSERT_TRUE(verify_context->Reset());
-            verified.emplace(
-                verify_context->SingleShot({input.data(), input.size()}, {signature.data(), signature.size()}));
+            ASSERT_TRUE(sign_context->SingleShot({input.data(), input.size()}, {signature.data(), signature.size()})
+                            .has_value());
+            signature[0U] ^= 0x01U;
+            auto result =
+                verify_context->SingleShot({input.data(), input.size()}, {signature.data(), signature.size()});
+            ASSERT_TRUE(result.has_value()) << test_case.name;
+            EXPECT_FALSE(result.value()) << test_case.name;
         }
-        ASSERT_TRUE(verified->has_value()) << test_case.name;
-        EXPECT_FALSE(verified->value()) << test_case.name;
     }
 
     static ICryptoStack::Uptr stack_;
@@ -255,6 +284,16 @@ TEST_P(SignatureIntegrationTest, SignAndVerifyStreaming)
 TEST_P(SignatureIntegrationTest, SignAndVerifySS)
 {
     RunSignAndVerify(GetParam(), false);
+}
+
+TEST_P(SignatureIntegrationTest, RejectsTamperedSignatureStreaming)
+{
+    RunRejectsTamperedSignature(GetParam(), true);
+}
+
+TEST_P(SignatureIntegrationTest, RejectsTamperedSignatureSS)
+{
+    RunRejectsTamperedSignature(GetParam(), false);
 }
 
 std::vector<SignatureCase> SignatureCases()

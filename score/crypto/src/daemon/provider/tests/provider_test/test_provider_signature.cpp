@@ -253,13 +253,37 @@ TEST_P(ProviderSignatureTest, SignAndVerifySingleShot)
     auto verified_response =
         Execute(*verify, common::actors::OP_ACTOR_VERIFY_HANDLER, verify_ops::VERIFY_SS, {input, signed_input});
     ASSERT_TRUE(std::get<bool>(verified_response.at(0))) << test_case.name;
+}
 
+TEST_P(ProviderSignatureTest, RejectsTamperedSignatureSingleShot)
+{
+    const auto& test_case = GetParam();
+    if (!test_case.supported)
+    {
+        GTEST_SKIP() << "Unsupported signature configuration";
+    }
+    const auto& key = *keys_.at(test_case.key_algorithm);
+    auto sign = CreateHandler("SIGN", test_case);
+    auto verify = CreateHandler("VERIFY", test_case);
+    ASSERT_NE(sign, nullptr);
+    ASSERT_NE(verify, nullptr);
+    const auto params = InitParams(test_case, key);
+    ASSERT_TRUE(sign->InitializeContext(params).has_value());
+    ASSERT_TRUE(verify->InitializeContext(params).has_value());
+    const auto input = score::cpp::span<const std::uint8_t>{test_case.input.data(), test_case.input.size()};
+    std::vector<std::uint8_t> signature(test_case.signature_size);
+    auto signed_response = Execute(*sign,
+                                   common::actors::OP_ACTOR_SIGN_HANDLER,
+                                   sign_ops::SIGN_SS,
+                                   {input, score::cpp::span<std::uint8_t>{signature.data(), signature.size()}});
+    ASSERT_EQ(std::get<std::uint64_t>(signed_response.at(0)), test_case.signature_size);
     signature[0U] ^= 0x01U;
     ASSERT_TRUE(verify->Reset().has_value());
-    signed_input = {signature.data(), signature.size()};
-    auto tampered_response =
-        Execute(*verify, common::actors::OP_ACTOR_VERIFY_HANDLER, verify_ops::VERIFY_SS, {input, signed_input});
-    EXPECT_FALSE(std::get<bool>(tampered_response.at(0))) << test_case.name;
+    auto result = Execute(*verify,
+                          common::actors::OP_ACTOR_VERIFY_HANDLER,
+                          verify_ops::VERIFY_SS,
+                          {input, score::cpp::span<const std::uint8_t>{signature.data(), signature.size()}});
+    EXPECT_FALSE(std::get<bool>(result.at(0))) << test_case.name;
 }
 
 TEST_P(ProviderSignatureTest, SignAndVerifyStreaming)
@@ -319,6 +343,59 @@ TEST_P(ProviderSignatureTest, SignAndVerifyStreaming)
                                    verify_ops::VERIFY_FINALIZE,
                                    {score::cpp::span<const std::uint8_t>{signature.data(), signature.size()}});
     EXPECT_TRUE(std::get<bool>(verify_response.at(0))) << test_case.name;
+}
+
+TEST_P(ProviderSignatureTest, RejectsTamperedSignatureStreaming)
+{
+    const auto& test_case = GetParam();
+    if (!test_case.supported)
+    {
+        GTEST_SKIP() << "Unsupported signature configuration";
+    }
+    const auto& key = *keys_.at(test_case.key_algorithm);
+    auto sign = CreateHandler("SIGN", test_case);
+    auto verify = CreateHandler("VERIFY", test_case);
+    ASSERT_NE(sign, nullptr);
+    ASSERT_NE(verify, nullptr);
+    const auto params = InitParams(test_case, key);
+    ASSERT_TRUE(sign->InitializeContext(params).has_value());
+    ASSERT_TRUE(verify->InitializeContext(params).has_value());
+    const auto input = score::cpp::span<const std::uint8_t>{test_case.input.data(), test_case.input.size()};
+    const auto split = test_case.input.size() / 2U;
+    ASSERT_TRUE(Execute(*sign, common::actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_INIT).empty());
+    ASSERT_TRUE(Execute(*sign,
+                        common::actors::OP_ACTOR_SIGN_HANDLER,
+                        sign_ops::SIGN_UPDATE,
+                        {score::cpp::span<const std::uint8_t>{input.data(), split}})
+                    .empty());
+    ASSERT_TRUE(Execute(*sign,
+                        common::actors::OP_ACTOR_SIGN_HANDLER,
+                        sign_ops::SIGN_UPDATE,
+                        {score::cpp::span<const std::uint8_t>{input.data() + split, input.size() - split}})
+                    .empty());
+    std::vector<std::uint8_t> signature(test_case.signature_size);
+    auto sign_response = Execute(*sign,
+                                 common::actors::OP_ACTOR_SIGN_HANDLER,
+                                 sign_ops::SIGN_FINALIZE,
+                                 {score::cpp::span<std::uint8_t>{signature.data(), signature.size()}});
+    ASSERT_EQ(std::get<std::uint64_t>(sign_response.at(0)), test_case.signature_size);
+    signature[0U] ^= 0x01U;
+    ASSERT_TRUE(Execute(*verify, common::actors::OP_ACTOR_VERIFY_HANDLER, verify_ops::VERIFY_INIT).empty());
+    ASSERT_TRUE(Execute(*verify,
+                        common::actors::OP_ACTOR_VERIFY_HANDLER,
+                        verify_ops::VERIFY_UPDATE,
+                        {score::cpp::span<const std::uint8_t>{input.data(), split}})
+                    .empty());
+    ASSERT_TRUE(Execute(*verify,
+                        common::actors::OP_ACTOR_VERIFY_HANDLER,
+                        verify_ops::VERIFY_UPDATE,
+                        {score::cpp::span<const std::uint8_t>{input.data() + split, input.size() - split}})
+                    .empty());
+    auto result = Execute(*verify,
+                          common::actors::OP_ACTOR_VERIFY_HANDLER,
+                          verify_ops::VERIFY_FINALIZE,
+                          {score::cpp::span<const std::uint8_t>{signature.data(), signature.size()}});
+    EXPECT_FALSE(std::get<bool>(result.at(0))) << test_case.name;
 }
 
 TEST_P(ProviderSignatureTest, RejectsEd25519MessagesAboveConfiguredLimit)
