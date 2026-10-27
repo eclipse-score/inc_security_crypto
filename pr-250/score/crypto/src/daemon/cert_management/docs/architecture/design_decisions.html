@@ -599,7 +599,7 @@
 <span id="crypto-cert-management-design-decisions"></span><h1>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h1>
 <section id="trust-stores-reference-certificate-slots-not-raw-paths">
 <h2>Trust Stores Reference Certificate Slots, Not Raw Paths<a class="headerlink" href="#trust-stores-reference-certificate-slots-not-raw-paths" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-546204ac">
+<div class="need_container docutils container" id="SNCB-05883178">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__ts_ref_slots">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -735,7 +735,7 @@ slot entry and a trust-store membership entry.</p></li>
 </section>
 <section id="trust-store-notification-is-owned-by-certmanagementservice-not-certslotmanager">
 <h2>Trust-Store Notification Is Owned by CertManagementService, Not CertSlotManager<a class="headerlink" href="#trust-store-notification-is-owned-by-certmanagementservice-not-certslotmanager" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-c411269f">
+<div class="need_container docutils container" id="SNCB-dc6654a9">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__notify_ownership">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -755,7 +755,7 @@ slot entry and a trust-store membership entry.</p></li>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
 <div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_cert_management_architecture</span></span></div>
-<div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">Certificate-slot and CRL mutations are reachable only through CertManagementService::StoreCertificate, ClearSlot, StoreCrl, and ClearCrl. Each performs the underlying CertSlotManager write and then, when the stored content may have changed, notifies every trust store referencing the slot, whether the write succeeded or failed. CertSlotManager itself has no trust-store awareness and never calls TrustStoreManager.</span></span></div>
+<div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">Certificate-slot and CRL mutations are reachable only through CertManagementService::UpdateSlot (overloaded for certificates and CRLs), ClearSlot, and ClearSlotCrl. Each performs the underlying CertSlotManager write and then, when the stored content may have changed, notifies every trust store referencing the slot, whether the write succeeded or failed. CertSlotManager itself has no trust-store awareness and never calls TrustStoreManager.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
 <div class="line"><span></span></div>
@@ -790,8 +790,8 @@ certificate slots they reference (see
 <code class="docutils literal notranslate"><span class="pre">dec_rec__crypto_cert_mgmt__ts_ref_slots</span></code>). Something must notify every
 referencing trust store after a slot write that may have changed the stored content. <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code>
 already depends on <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> — it holds a <code class="docutils literal notranslate"><span class="pre">CertSlotManager::Sptr</span></code>,
-includes its header, and is friend-gated into
-<code class="docutils literal notranslate"><span class="pre">CertSlotManager::GetTrustStoreCertSlotHandler</span></code> for Tier-3 backend access.
+includes its header, and uses the trust-store seam of <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> (for
+example <code class="docutils literal notranslate"><span class="pre">GetTrustStoreCertSlotHandler</span></code>) as a dependency inside the component.
 Any design that issues the notification from inside <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> itself
 needs the reverse dependency, which is circular, not a layering refinement.</p>
 <p>Four placements were considered:</p>
@@ -809,7 +809,7 @@ notification into <code class="docutils literal notranslate"><span class="pre">C
 backend write that may have changed the stored content. Requires <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> to depend on
 <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code>, which already depends on <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> — a
 circular dependency. The exclusive-slot write guard in
-<code class="docutils literal notranslate"><span class="pre">CertSlotManager::ApplyWriteChecks</span></code> would need to ask <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code>
+<code class="docutils literal notranslate"><span class="pre">CertSlotRegistry::CheckWriteAccess</span></code> would need to ask <code class="docutils literal notranslate"><span class="pre">TrustStoreManager</span></code>
 whether a slot is a trust-store-owned member.</p></li>
 <li><p><strong>A registered observer on ``CertSlotManager``</strong> — <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> exposes
 a slot-change callback interface that <code class="docutils literal notranslate"><span class="pre">CertManagementService</span></code> wires to
@@ -821,19 +821,21 @@ caller can forget a separate notification call.</p></li>
 <li><p><strong>``CertManagementService`` owns both the write and the notification</strong> —
 the service wraps <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code>’s four mutation methods; after each
 call that may have changed the stored content, successful or failed, it
-calls <code class="docutils literal notranslate"><span class="pre">TrustStoreManager::GetMembershipsForSlot</span></code> and fans out to
-<code class="docutils literal notranslate"><span class="pre">NotifySlotChanged</span></code> (certificate updates) or <code class="docutils literal notranslate"><span class="pre">NotifySlotCrlChanged</span></code> (CRL
-updates) for each referencing store. <code class="docutils literal notranslate"><span class="pre">CertManagementService</span></code> already holds
+calls <code class="docutils literal notranslate"><span class="pre">TrustStoreManager::NotifySlotChanged</span></code> (certificate updates) or
+<code class="docutils literal notranslate"><span class="pre">TrustStoreManager::NotifySlotCrlChanged</span></code> (CRL updates) with the slot. The
+trust store manager finds the referencing stores itself and updates each one.
+<code class="docutils literal notranslate"><span class="pre">CertManagementService</span></code> already holds
 both <code class="docutils literal notranslate"><span class="pre">CertSlotManager::Sptr</span></code> and <code class="docutils literal notranslate"><span class="pre">TrustStoreManager::Sptr</span></code> as sibling
 dependencies, so this introduces no new dependency edge.</p></li>
 </ol>
 </section>
 <section id="id2">
 <h3>Decision<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
-<p>Option 4 was selected. <code class="docutils literal notranslate"><span class="pre">CertManagementService::StoreCertificate</span></code>/<code class="docutils literal notranslate"><span class="pre">ClearSlot</span></code>
-call <code class="docutils literal notranslate"><span class="pre">TrustStoreManager::NotifySlotChanged</span></code>, which reloads only the changed
+<p>Option 4 was selected. The certificate overload of
+<code class="docutils literal notranslate"><span class="pre">CertManagementService::UpdateSlot</span></code> and <code class="docutils literal notranslate"><span class="pre">ClearSlot</span></code> call
+<code class="docutils literal notranslate"><span class="pre">TrustStoreManager::NotifySlotChanged</span></code>, which reloads only the changed
 member’s anchor and CRL entries, leaving other members’ cached entries
-untouched. <code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code>/<code class="docutils literal notranslate"><span class="pre">ClearCrl</span></code> call
+untouched. The CRL overload of <code class="docutils literal notranslate"><span class="pre">UpdateSlot</span></code> and <code class="docutils literal notranslate"><span class="pre">ClearSlotCrl</span></code> call
 <code class="docutils literal notranslate"><span class="pre">TrustStoreManager::NotifySlotCrlChanged</span></code>, which calls
 <code class="docutils literal notranslate"><span class="pre">TrustStoreHandler::OnSlotCrlChanged</span></code>. The handler takes the slot’s current CRL
 snapshot — or none, after a delete — from <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> and replaces the
@@ -841,8 +843,9 @@ member’s cached CRL with it, without reloading the certificate, since a CRL
 refresh changes revocation data, not the anchor’s identity. Reading the current
 snapshot, rather than receiving one in the notification, keeps concurrent
 updates ordered by the slot’s state and not by notification arrival.
-<code class="docutils literal notranslate"><span class="pre">GetSlotManager()</span></code> remains available for read-only slot operations, which
-have no trust-store side effect to coordinate; only the four mutation methods
+<code class="docutils literal notranslate"><span class="pre">GetSlotManager()</span></code> returns the read-only <code class="docutils literal notranslate"><span class="pre">ICertSlotManager</span></code> view, which
+offers the read operations. Reads have no trust-store side effect to coordinate;
+only the four mutation methods
 are redirected through the service.</p>
 </section>
 <section id="id3">
@@ -858,13 +861,14 @@ holds both collaborators, rather than introducing a cycle between them.</p></li>
 </ul>
 <p><strong>Negative:</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">CertManagementService::GetSlotManager()</span></code> returns the underlying
-<code class="docutils literal notranslate"><span class="pre">CertSlotManager::Sptr</span></code> for read-only operations (<code class="docutils literal notranslate"><span class="pre">LoadCertificate</span></code>,
-<code class="docutils literal notranslate"><span class="pre">GetSlotInfo</span></code>, <code class="docutils literal notranslate"><span class="pre">HasCrl</span></code>, <code class="docutils literal notranslate"><span class="pre">GetCrlNextUpdate</span></code>, and similar). A caller that
-holds this handle can still call its <code class="docutils literal notranslate"><span class="pre">StoreCertificate</span></code>/<code class="docutils literal notranslate"><span class="pre">ClearSlot</span></code>/
-<code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code>/<code class="docutils literal notranslate"><span class="pre">ClearCrl</span></code> methods directly and silently lose trust-store
-notification; nothing at the type level prevents this. The constraint is
-documented on <code class="docutils literal notranslate"><span class="pre">GetSlotManager()</span></code> but not enforced.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CertManagementService::GetSlotManager()</span></code> returns the read-only
+<code class="docutils literal notranslate"><span class="pre">ICertSlotManager</span></code> view (<code class="docutils literal notranslate"><span class="pre">LoadCertificate</span></code>, <code class="docutils literal notranslate"><span class="pre">GetSlotInfo</span></code>, <code class="docutils literal notranslate"><span class="pre">HasCrl</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GetCrlNextUpdate</span></code>, and similar). Callers outside the component cannot reach
+the mutation methods through it. Inside the component, <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code> is
+still reachable, and a component-internal caller that calls its
+<code class="docutils literal notranslate"><span class="pre">StoreCertificate</span></code>/<code class="docutils literal notranslate"><span class="pre">ClearSlot</span></code>/<code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code>/<code class="docutils literal notranslate"><span class="pre">ClearCrl</span></code> methods directly
+would silently skip trust-store notification. That rule is held by convention
+inside the component and is not enforced by the type system.</p></li>
 <li><p>A <code class="docutils literal notranslate"><span class="pre">kExclusiveMutable</span></code> trust-store member slot configured with a non-empty
 <code class="docutils literal notranslate"><span class="pre">allowed_write_uids</span></code> still lets a listed UID write it directly through
 <code class="docutils literal notranslate"><span class="pre">CertSlotManager</span></code>/<code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code>, bypassing both the trust store’s
@@ -881,7 +885,7 @@ kind of slot-state change would need to extend rather than reuse wholesale.</p><
 </section>
 <section id="crl-co-located-with-the-certificate-slot">
 <h2>CRL Co-located with the Certificate Slot<a class="headerlink" href="#crl-co-located-with-the-certificate-slot" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-1bd490d0">
+<div class="need_container docutils container" id="SNCB-ed8c9d22">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__crl_co_location">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -927,7 +931,7 @@ kind of slot-state change would need to extend rather than reuse wholesale.</p><
 </div>
 <p>A CRL is stored in the optional <code class="docutils literal notranslate"><span class="pre">[crl]</span></code> section of the certificate slot’s KV
 deployment descriptor alongside the <code class="docutils literal notranslate"><span class="pre">[certificate]</span></code> section. CRL storage and
-retrieval are encapsulated in <code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code>, which is composed into
+retrieval are encapsulated in <code class="docutils literal notranslate"><span class="pre">FileBackedCrlStorage</span></code>, which is composed into
 <code class="docutils literal notranslate"><span class="pre">FileBackedSlotHandler</span></code>.</p>
 <section id="id4">
 <h3>Context<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
@@ -958,7 +962,7 @@ because no independent resource exists.</p></li>
 <p>CRL co-location with the cert slot (option 3) was selected. <code class="docutils literal notranslate"><span class="pre">ICertSlotHandler</span></code>
 is extended with <code class="docutils literal notranslate"><span class="pre">HasCrl</span></code>, <code class="docutils literal notranslate"><span class="pre">GetCrlMetadata</span></code>, <code class="docutils literal notranslate"><span class="pre">LoadCrlData</span></code>, <code class="docutils literal notranslate"><span class="pre">StoreCrl</span></code>,
 and <code class="docutils literal notranslate"><span class="pre">ClearCrl</span></code> — implemented by the composed
-<code class="docutils literal notranslate"><span class="pre">CrlHandler</span></code>. The descriptor persists the CRL fingerprint, issuer fingerprint,
+<code class="docutils literal notranslate"><span class="pre">FileBackedCrlStorage</span></code>. The descriptor persists the CRL fingerprint, issuer fingerprint,
 <code class="docutils literal notranslate"><span class="pre">thisUpdate</span></code>, <code class="docutils literal notranslate"><span class="pre">nextUpdate</span></code>, and <code class="docutils literal notranslate"><span class="pre">cRLNumber</span></code>. The public
 <code class="docutils literal notranslate"><span class="pre">ICertificateObject</span></code> exposes this as optional <code class="docutils literal notranslate"><span class="pre">CrlMetadata</span></code>; encoding format
 remains an internal persistence detail. Persisted <code class="docutils literal notranslate"><span class="pre">CrlMetadata</span></code> is written
@@ -1004,7 +1008,7 @@ for revocation checking.</p></li>
 </section>
 <section id="mutation-default-deny-with-explicit-writer-uid">
 <h2>Mutation Default-Deny with Explicit Writer UID<a class="headerlink" href="#mutation-default-deny-with-explicit-writer-uid" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-b4b1b9ad">
+<div class="need_container docutils container" id="SNCB-337cb722">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__deny_mutation">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1149,7 +1153,7 @@ a configuration invariant; <code class="docutils literal notranslate"><span clas
 </section>
 <section id="provider-boundary-parsing-only-no-private-key-or-hsm-handle-crossing">
 <h2>Provider Boundary: Parsing Only; No Private Key or HSM Handle Crossing<a class="headerlink" href="#provider-boundary-parsing-only-no-private-key-or-hsm-handle-crossing" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-1b40840b">
+<div class="need_container docutils container" id="SNCB-b0512ef7">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__provider_boundary">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1271,7 +1275,7 @@ expose.</p></li>
 </section>
 <section id="one-canonical-certificate-parser-selected-by-configuration">
 <h2>One Canonical Certificate Parser, Selected by Configuration<a class="headerlink" href="#one-canonical-certificate-parser-selected-by-configuration" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-6589dcdc">
+<div class="need_container docutils container" id="SNCB-45c63309">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__parser_authority">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1360,9 +1364,11 @@ capability supplies the parser.</p></li>
 eagerly and returns the resolution error without exposing the parser, so a
 caller can fail fast at startup; <code class="docutils literal notranslate"><span class="pre">CertManagementModule::Create</span></code> invokes it only
 when a parser provider is explicitly configured, and returns no module when that
-configured provider cannot be honoured. A successful parser is cached and shared
-across copies of the factory. A failed resolution is not cached, so a later call
-retries once the provider set is complete.</p>
+configured provider cannot be honoured. A successful parser is cached by the shared
+factory. A failed resolution is not cached, so a later call
+retries once the provider set is complete. <code class="docutils literal notranslate"><span class="pre">SlotHandlerFactory::Create</span></code> returns
+the resolution error without creating a handler when no parser is available;
+the slot manager caches only successfully created handlers.</p>
 <p>Context provider hints remain meaningful for context-scoped capabilities such as
 path validation and CSR generation. They do not select the parser.</p>
 </section>
@@ -1381,11 +1387,10 @@ failure, not a silent substitution.</p></li>
 <p><strong>Negative:</strong></p>
 <ul class="simple">
 <li><p>When no parser provider is configured and no provider offers the
-certificate-management capability, slot handlers are created without a parser.
-Operations that need one (certificate parsing, CRL validation) report an error
-at the point of use; slot enumeration, slot state, and trust-store membership
-listing remain available. Startup does not fail in this case, because no
-explicit deployment choice has been contradicted.</p></li>
+certificate-management capability, startup remains available but slot-handler
+creation fails. Operations requiring a slot handler, including slot state and
+writes, report the creation error even when they do not parse content. A later
+request retries creation; no restricted handler is cached.</p></li>
 <li><p>Because failed resolution is not cached, the diagnostic for a missing
 certificate-management provider is emitted on each attempt rather than once.</p></li>
 <li><p>A client cannot request a particular provider’s parsing behaviour. Deployments
@@ -1397,7 +1402,7 @@ express that through this component.</p></li>
 </section>
 <section id="a-trust-store-that-cannot-be-used-fails-closed-trust-increases-are-persisted-before-they-are-published">
 <h2>A Trust Store That Cannot Be Used Fails Closed; Trust Increases Are Persisted Before They Are Published<a class="headerlink" href="#a-trust-store-that-cannot-be-used-fails-closed-trust-increases-are-persisted-before-they-are-published" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-5bbb09b0">
+<div class="need_container docutils container" id="SNCB-b5e970a0">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__trst_str_vdty">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1517,7 +1522,7 @@ are a separate concern from this decision.</p></li>
 </section>
 <section id="a-trust-store-state-without-a-deployment-path-is-held-in-memory-only">
 <h2>A Trust-Store State Without a Deployment Path Is Held in Memory Only<a class="headerlink" href="#a-trust-store-state-without-a-deployment-path-is-held-in-memory-only" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-bf5dc1d4">
+<div class="need_container docutils container" id="SNCB-f51f5f5a">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto_cert_mgmt__trst_str_mem">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
