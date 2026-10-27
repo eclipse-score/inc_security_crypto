@@ -265,6 +265,37 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         }
     }
 
+    void RunEd25519KnownAnswer(const SignatureCase& test_case, bool streaming)
+    {
+        ASSERT_EQ(test_case.key_algorithm, "Ed25519");
+        ASSERT_NE(context_, nullptr);
+        ASSERT_NE(keys_.find(test_case.key_algorithm), keys_.end());
+
+        const auto message = read_bin(GetTestVectorPath() + "/ed25519/RFC8032/message.bin");
+        const auto expected = read_bin(GetTestVectorPath() + "/ed25519/RFC8032/signature.bin");
+        const auto& key = keys_.at(test_case.key_algorithm);
+        auto sign_context = MakeSignContext(*context_, test_case, key);
+        ASSERT_NE(sign_context, nullptr);
+        ASSERT_EQ(expected.size(), test_case.signature_size);
+
+        std::vector<std::uint8_t> signature(test_case.signature_size);
+        std::optional<score::Result<std::size_t>> result;
+        if (streaming)
+        {
+            ASSERT_TRUE(sign_context->Init().has_value());
+            ASSERT_TRUE(sign_context->Update({message.data(), message.size()}).has_value());
+            result.emplace(sign_context->SignFinalize({signature.data(), signature.size()}));
+        }
+        else
+        {
+            result.emplace(
+                sign_context->SingleShot({message.data(), message.size()}, {signature.data(), signature.size()}));
+        }
+        ASSERT_TRUE(result->has_value());
+        ASSERT_EQ(result->value(), expected.size());
+        EXPECT_EQ(signature, expected);
+    }
+
     static ICryptoStack::Uptr stack_;
     static ICryptoContext::Uptr context_;
     static IKeyManagementContext::Uptr key_context_;
@@ -294,6 +325,20 @@ TEST_P(SignatureIntegrationTest, RejectsTamperedSignatureStreaming)
 TEST_P(SignatureIntegrationTest, RejectsTamperedSignatureSS)
 {
     RunRejectsTamperedSignature(GetParam(), false);
+}
+
+class Ed25519SignatureTest : public SignatureIntegrationTest
+{
+};
+
+TEST_P(Ed25519SignatureTest, GeneratesExpectedSignatureStreaming)
+{
+    RunEd25519KnownAnswer(GetParam(), true);
+}
+
+TEST_P(Ed25519SignatureTest, GeneratesExpectedSignatureSS)
+{
+    RunEd25519KnownAnswer(GetParam(), false);
 }
 
 std::vector<SignatureCase> SignatureCases()
@@ -504,6 +549,13 @@ INSTANTIATE_TEST_SUITE_P(NistVectors,
 INSTANTIATE_TEST_SUITE_P(AllAlgorithms,
                          SignatureIntegrationTest,
                          ::testing::ValuesIn(SignatureCases()),
+                         [](const ::testing::TestParamInfo<SignatureCase>& info) {
+                             return info.param.name;
+                         });
+
+INSTANTIATE_TEST_SUITE_P(Ed25519,
+                         Ed25519SignatureTest,
+                         ::testing::Values(SignatureCases().at(6U)),
                          [](const ::testing::TestParamInfo<SignatureCase>& info) {
                              return info.param.name;
                          });
