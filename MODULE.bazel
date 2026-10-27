@@ -329,7 +329,7 @@ bazel_dep(name = "score_docs_as_code", version = "8.5.1")
 
 #process
 bazel_dep(name = "score_process_description", version = "2.2.1")
-bazel_dep(name = "score_platform", version = "0.7.3")
+bazel_dep(name = "score_platform", version = "0.7.4")
 
 # score baselibs
 bazel_dep(name = "score_baselibs", version = "0.2.16")
