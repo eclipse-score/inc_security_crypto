@@ -18,7 +18,7 @@ Certificate Management Component
 .. document:: Certificate Management Component
     :id: doc__crypto_cert_mgmt
     :version: 1
-    :status: draft
+    :status: valid
     :safety: QM
     :security: YES
     :tags: cert_management, crypto_daemon, certificate, trust_store

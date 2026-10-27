@@ -23,10 +23,10 @@ CertManagementModule::Sptr CertManagementModule::Create(data_manager::IDataManag
                                                         provider::ProviderManager::Sptr provider_manager,
                                                         const config::CertificateConfig& config)
 {
-    SlotHandlerFactory slot_handler_factory{provider_manager, config.GetParserProviderName()};
+    auto slot_handler_factory = std::make_shared<SlotHandlerFactory>(provider_manager, config.GetParserProviderName());
     if (!config.GetParserProviderName().empty())
     {
-        const auto parser_initialization = slot_handler_factory.Initialize();
+        const auto parser_initialization = slot_handler_factory->Initialize();
         if (!parser_initialization.has_value())
         {
             return nullptr;

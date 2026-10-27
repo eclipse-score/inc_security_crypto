@@ -148,7 +148,8 @@ class IProvider
     /// storage. The caller selects the provider by name via slot.storage_backend
     /// (name-based lookup), NOT via the kCertManagement capability bit. A provider
     /// may implement this method without advertising kCertManagement — that bit
-    /// exclusively governs GetCertParser() selection.
+    /// exclusively governs GetCertParser() selection. The supplied parser is the
+    /// canonical parser for certificate management.
     virtual std::shared_ptr<::score::crypto::daemon::cert_management::ICertSlotHandler> GetCertSlotHandler(
         const ::score::crypto::daemon::cert_management::CertSlotConfig& /*config*/,
         std::shared_ptr<provider::cert_management::ICertParser> /*parser*/)

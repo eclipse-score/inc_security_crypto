@@ -59,8 +59,8 @@ struct TrustStoreMemberSnapshot
 /// The handler owns everything specific to a single store. It holds the configuration, the
 /// runtime state of each member (enabled flag, accepted fingerprint), the cached anchors and
 /// CRLs, and the persisted member state in the store's deployment descriptor. Member
-/// certificates and CRLs are read and written through the slot backends, using the same
-/// friend-gated access as TrustStoreManager previously held. Cached slot state is evicted in
+/// certificates and CRLs are read and written through the slot backends, using the trust-store
+/// seam that CertSlotManager exposes inside cert_management. Cached slot state is evicted in
 /// CertSlotManager after every backend write made here.
 ///
 /// TrustStoreManager is the registry in front of the handlers. It owns the name index, the
@@ -254,13 +254,11 @@ class TrustStoreHandler final : public ITrustStoreHandler
         std::optional<std::array<uint8_t, score::crypto::kSha256FingerprintSize>> accepted_fingerprint;
     };
 
-    /// A member's live slot, backend handler, and configuration. Valid for the duration of
-    /// the call that resolved it.
+    /// A member's live slot and backend handler.
     struct ResolvedMember
     {
-        CertSlotHandle slot{};               ///< Slot the member occupies.
-        ICertSlotHandler* handler{nullptr};  ///< Backend handler of the slot. Owned by CertSlotManager.
-        const CertSlotConfig* cfg{nullptr};  ///< Slot configuration. Owned by the slot registry.
+        CertSlotHandle slot{};           ///< Slot occupied by this trust-store member.
+        ICertSlotHandler::Sptr handler;  ///< Shared ownership of the slot's backend handler.
     };
 
     /// The anchor and CRL a member contributes to the store. Both are empty for a member that is
@@ -283,10 +281,12 @@ class TrustStoreHandler final : public ITrustStoreHandler
     /// Return the configured member that occupies @p slot, or nullptr when the slot is not a member.
     /// @param slot Slot to look up.
     [[nodiscard]] const TrustStoreMemberConfig* FindMember(CertSlotHandle slot) const;
-    /// Load the slot's certificate through the slot manager's cache. Returns nullptr when the slot cannot be
-    /// loaded; the failure is logged.
+    /// Load the slot's certificate through the slot manager's cache. An empty slot and any other failure are
+    /// returned as distinct error codes; other failures are logged.
     /// @param slot Slot whose certificate is loaded.
-    [[nodiscard]] CertObject::Sptr LoadCertificateCached(CertSlotHandle slot);
+    /// @return The certificate, the slot manager's empty-slot error, or the load error.
+    [[nodiscard]] score::crypto::Expected<CertObject::Sptr, score::crypto::daemon::common::DaemonErrorCode>
+    LoadCertificateCached(CertSlotHandle slot);
     /// Evict the slot's certificate and CRL state from the slot manager's caches. Does nothing when the
     /// store has no slot manager.
     /// @param slot Slot whose cached state is evicted.

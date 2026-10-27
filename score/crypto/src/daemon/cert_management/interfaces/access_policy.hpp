@@ -34,7 +34,7 @@ struct AccessPolicy
     /// grants no write permission. Trust-store-owned exclusive slots must be
     /// configured with an empty list — see the "Mutation Default-Deny with
     /// Explicit Writer UID" design decision (design_decisions.rst) for why,
-    /// and the TODO in CertSlotManager::ApplyWriteChecks for enforcement status.
+    /// and the TODO in CertSlotRegistry::CheckWriteAccess for enforcement status.
     std::vector<uint32_t> allowed_write_uids;
 };
 

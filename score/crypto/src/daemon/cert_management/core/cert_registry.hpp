@@ -15,7 +15,6 @@
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_CORE_CERT_REGISTRY_HPP
 
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
-#include "score/crypto/src/daemon/cert_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
 
 #include <cstdint>

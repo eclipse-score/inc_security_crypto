@@ -15,6 +15,8 @@
 #include "score/crypto/src/daemon/common/storage/deployment_descriptor.hpp"
 #include "score/crypto/src/daemon/common/storage/file_io.hpp"
 
+#include <utility>
+
 namespace score::crypto::daemon::cert_management
 {
 namespace
@@ -65,15 +67,27 @@ score::crypto::Expected<score::crypto::CertificateSlotState, Error> LoadSlotStat
 }
 }  // namespace
 
-score::crypto::Expected<CertObject::Sptr, Error> FileBackedSlotHandler::LoadCertificate(const CertSlotConfig& slot)
+FileBackedSlotHandler::FileBackedSlotHandler(CertSlotConfig config,
+                                             provider::cert_management::ICertParser::Sptr parser,
+                                             common::storage::FileWriter writer)
+    : ICertSlotHandler{std::move(config)},
+      m_parser{std::move(parser)},
+      m_write_file{writer},
+      m_crl{GetConfig(), std::move(writer)}
 {
-    const std::lock_guard lock{m_slot_operation_mutex};
-    return LoadCertificateUnlocked(slot);
 }
 
-score::crypto::Expected<CertObject::Sptr, Error> FileBackedSlotHandler::LoadCertificateUnlocked(
-    const CertSlotConfig& slot)
+FileBackedSlotHandler::~FileBackedSlotHandler() = default;
+
+score::crypto::Expected<CertObject::Sptr, Error> FileBackedSlotHandler::LoadCertificate()
 {
+    const std::lock_guard lock{m_slot_operation_mutex};
+    return LoadCertificateUnlocked();
+}
+
+score::crypto::Expected<CertObject::Sptr, Error> FileBackedSlotHandler::LoadCertificateUnlocked()
+{
+    const auto& slot = GetConfig();
     auto descriptor = LoadDescriptor(slot);
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
@@ -98,39 +112,37 @@ score::crypto::Expected<CertObject::Sptr, Error> FileBackedSlotHandler::LoadCert
     return m_parser->ParseCertificate(bytes->data(), bytes->size(), format);
 }
 
-score::crypto::Expected<score::crypto::CertificateSlotState, Error> FileBackedSlotHandler::GetSlotState(
-    const CertSlotConfig& slot)
+score::crypto::Expected<score::crypto::CertificateSlotState, Error> FileBackedSlotHandler::GetSlotState()
 {
     const std::lock_guard lock{m_slot_operation_mutex};
-    return LoadSlotState(slot);
+    return LoadSlotState(GetConfig());
 }
 
-score::crypto::Expected<score::crypto::CertificateSlotInfo, Error> FileBackedSlotHandler::GetSlotInfo(
-    const CertSlotConfig& slot)
+score::crypto::Expected<score::crypto::CertificateSlotInfo, Error> FileBackedSlotHandler::GetSlotInfo()
 {
     const std::lock_guard lock{m_slot_operation_mutex};
-    auto state = LoadSlotState(slot);
+    auto state = LoadSlotState(GetConfig());
     if (!state)
         return score::crypto::make_unexpected(state.error());
     score::crypto::CertificateSlotInfo info{};
     info.state = *state;
-    const auto has_crl = m_crl.HasCrl(slot);
+    const auto has_crl = m_crl.HasCrl();
     if (!has_crl)
         return score::crypto::make_unexpected(has_crl.error());
     info.has_crl = has_crl.value();
     return info;
 }
 
-score::crypto::Expected<bool, Error> FileBackedSlotHandler::HasCrl(const CertSlotConfig& slot)
+score::crypto::Expected<bool, Error> FileBackedSlotHandler::HasCrl()
 {
     const std::lock_guard lock{m_slot_operation_mutex};
-    return m_crl.HasCrl(slot);
+    return m_crl.HasCrl();
 }
 
-score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCertificate(const CertSlotConfig& slot,
-                                                                                       const CertObject& cert)
+score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCertificate(const CertObject& cert)
 {
     const std::lock_guard lock{m_slot_operation_mutex};
+    const auto& slot = GetConfig();
     auto descriptor = LoadDescriptor(slot);
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
@@ -172,9 +184,10 @@ score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCerti
     return SaveDescriptor(slot, *descriptor, m_write_file);
 }
 
-score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::ClearSlot(const CertSlotConfig& slot)
+score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::ClearSlot()
 {
     const std::lock_guard lock{m_slot_operation_mutex};
+    const auto& slot = GetConfig();
     auto descriptor = LoadDescriptor(slot);
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
@@ -199,40 +212,39 @@ score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::ClearSlot(
     return SaveDescriptor(slot, *descriptor, m_write_file);
 }
 
-score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCrl(const CertSlotConfig& slot,
-                                                                               const CrlData& crl)
+score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCrl(const CrlData& crl)
 {
     const std::lock_guard lock{m_slot_operation_mutex};
-    return m_crl.StoreCrl(slot, crl);
+    return m_crl.StoreCrl(crl);
 }
 
-score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::ClearCrl(const CertSlotConfig& slot)
+score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::ClearCrl()
 {
     const std::lock_guard lock{m_slot_operation_mutex};
-    return m_crl.ClearCrl(slot);
+    return m_crl.ClearCrl();
 }
 
-score::crypto::Expected<std::optional<score::crypto::CrlMetadata>, Error> FileBackedSlotHandler::GetCrlMetadata(
-    const CertSlotConfig& slot)
+score::crypto::Expected<std::optional<score::crypto::CrlMetadata>, Error> FileBackedSlotHandler::GetCrlMetadata()
 {
     const std::lock_guard lock{m_slot_operation_mutex};
-    auto metadata = m_crl.GetCrlMetadata(slot);
+    auto metadata = m_crl.GetCrlMetadata();
     if (!metadata.has_value() || metadata->has_value() || !m_parser)
+    {
         return metadata;
+    }
     // The descriptor has no cached metadata; if a CRL exists (e.g. written out of band),
     // derive the metadata from it.
-    const auto crl = m_crl.LoadCrlData(slot);
+    const auto crl = m_crl.LoadCrlData();
     if (!crl.has_value() || !crl->has_value())
         return std::optional<score::crypto::CrlMetadata>{};
-    return DeriveCrlMetadata(slot, **crl);
+    return DeriveCrlMetadata(**crl);
 }
 
-std::optional<score::crypto::CrlMetadata> FileBackedSlotHandler::DeriveCrlMetadata(const CertSlotConfig& slot,
-                                                                                   const CrlData& crl)
+std::optional<score::crypto::CrlMetadata> FileBackedSlotHandler::DeriveCrlMetadata(const CrlData& crl)
 {
     if (!m_parser)
         return std::nullopt;
-    const auto certificate = LoadCertificateUnlocked(slot);
+    const auto certificate = LoadCertificateUnlocked();
     if (!certificate.has_value())
         return std::nullopt;
 
@@ -243,14 +255,14 @@ std::optional<score::crypto::CrlMetadata> FileBackedSlotHandler::DeriveCrlMetada
     return result.has_value() ? std::optional<score::crypto::CrlMetadata>{result.value()} : std::nullopt;
 }
 
-score::crypto::Expected<std::optional<CrlData>, Error> FileBackedSlotHandler::LoadCrlData(const CertSlotConfig& slot)
+score::crypto::Expected<std::optional<CrlData>, Error> FileBackedSlotHandler::LoadCrlData()
 {
     const std::lock_guard lock{m_slot_operation_mutex};
-    auto crl = m_crl.LoadCrlData(slot);
+    auto crl = m_crl.LoadCrlData();
     if (!crl.has_value() || !crl->has_value() || (*crl)->metadata.has_value())
         return crl;
     // The descriptor has no cached metadata for an existing CRL (e.g. written out of band).
-    (*crl)->metadata = DeriveCrlMetadata(slot, **crl);
+    (*crl)->metadata = DeriveCrlMetadata(**crl);
     return crl;
 }
 }  // namespace score::crypto::daemon::cert_management

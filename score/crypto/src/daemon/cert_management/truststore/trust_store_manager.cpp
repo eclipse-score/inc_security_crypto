@@ -47,7 +47,6 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::Load(const std
         }
     }
 
-    std::lock_guard lock(m_mutex);
     m_stores.clear();
     m_name_index.clear();
     m_app_resource_map.clear();
@@ -70,6 +69,8 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::Load(const std
             const auto slot = registry->ResolveSlotInternal(member.slot_name);
             if (!slot.has_value())
             {
+                // The store reports this member itself: its constructor marks the store invalid, so it
+                // never needs change notifications. Returning an error here would stop every other store.
                 continue;
             }
             auto& stores = m_slot_memberships[slot.value().index];
@@ -88,7 +89,6 @@ score::crypto::Expected<std::monostate, Error> TrustStoreManager::Load(const std
 
 std::shared_ptr<TrustStoreHandler> TrustStoreManager::FindStore(TrustStoreHandle handle) const
 {
-    std::lock_guard lock(m_mutex);
     if (!handle.IsValid() || handle.index >= m_stores.size())
     {
         return nullptr;
@@ -103,7 +103,6 @@ ITrustStoreHandler::Sptr TrustStoreManager::GetStore(TrustStoreHandle handle) co
 
 score::crypto::Expected<TrustStoreHandle, Error> TrustStoreManager::ResolveByName(const std::string& name) const
 {
-    std::lock_guard lock(m_mutex);
     const auto it = m_name_index.find(name);
     if (it == m_name_index.end())
     {
@@ -116,7 +115,6 @@ void TrustStoreManager::RegisterAppResource(uint32_t uid,
                                             const std::string& app_resource_id,
                                             const std::string& store_name)
 {
-    std::lock_guard lock(m_mutex);
     m_app_resource_map[uid][app_resource_id] = store_name;
 }
 
@@ -124,7 +122,6 @@ score::crypto::Expected<TrustStoreHandle, Error> TrustStoreManager::ResolveAppRe
     const std::string& app_resource_id,
     data_manager::ClientId client_id) const
 {
-    std::lock_guard lock(m_mutex);
     const uint32_t uid = control_plane::protocol::GetUidFromClientId(client_id);
     const auto resources = m_app_resource_map.find(uid);
     if (resources == m_app_resource_map.end())
@@ -152,7 +149,6 @@ score::crypto::Expected<TrustStoreHandle, Error> TrustStoreManager::ResolveAppRe
 
 const TrustStoreConfig* TrustStoreManager::GetStoreConfig(TrustStoreHandle handle) const
 {
-    std::lock_guard lock(m_mutex);
     return handle.index < m_stores.size() ? &m_stores[handle.index]->GetConfig() : nullptr;
 }
 
@@ -162,7 +158,6 @@ const TrustStoreConfig* TrustStoreManager::GetStoreConfig(TrustStoreHandle handl
 
 std::vector<TrustStoreHandle> TrustStoreManager::GetMembershipsForSlot(CertSlotHandle slot) const
 {
-    std::lock_guard lock(m_mutex);
     const auto it = m_slot_memberships.find(slot.index);
     if (it == m_slot_memberships.end())
     {
@@ -278,19 +273,25 @@ void TrustStoreManager::CleanupClient(data_manager::ClientId client_id)
 // Slot change notification
 // ---------------------------------------------------------------------------
 
-void TrustStoreManager::NotifySlotChanged(TrustStoreHandle handle, CertSlotHandle changed_slot)
+void TrustStoreManager::NotifySlotChanged(CertSlotHandle changed_slot)
 {
-    if (const auto store = FindStore(handle))
+    for (const auto handle : GetMembershipsForSlot(changed_slot))
     {
-        store->OnSlotChanged(changed_slot);
+        if (const auto store = FindStore(handle))
+        {
+            store->OnSlotChanged(changed_slot);
+        }
     }
 }
 
-void TrustStoreManager::NotifySlotCrlChanged(TrustStoreHandle handle, CertSlotHandle changed_slot)
+void TrustStoreManager::NotifySlotCrlChanged(CertSlotHandle changed_slot)
 {
-    if (const auto store = FindStore(handle))
+    for (const auto handle : GetMembershipsForSlot(changed_slot))
     {
-        store->OnSlotCrlChanged(changed_slot);
+        if (const auto store = FindStore(handle))
+        {
+            store->OnSlotCrlChanged(changed_slot);
+        }
     }
 }
 

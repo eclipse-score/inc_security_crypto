@@ -31,7 +31,7 @@ participant "CertRegistry" as Registry
 
 App -> Context : LoadCertificate(slot resource)
 Context -> Executor : CERT_LOAD(slot_node_id)
-Executor -> Service : ResolveSlotForOperation(client, slot_node_id)
+Executor -> Service : ResolveCertSlotHandle(client, slot_node_id)
 Service -> DataManager : get client-scoped slot node
 DataManager --> Service : CertSlotHandle
 Service --> Executor : slot handle and configuration

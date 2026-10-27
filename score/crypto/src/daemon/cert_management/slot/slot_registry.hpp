@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -30,24 +29,6 @@
 
 namespace score::crypto::daemon::cert_management
 {
-
-/// @brief Internal registry entry for a certificate slot. Owned by CertSlotRegistry.
-struct CertSlotRegistryEntry
-{
-    /// Immutable slot configuration registered at daemon startup.
-    CertSlotConfig config;
-};
-
-/// @brief Groups the stable identity/location parameters for cert registration operations.
-struct CertRegistrationParams
-{
-    /// Client that owns the certificate data node being registered.
-    data_manager::ClientId client_id{0U};
-    /// Parent data node under which the certificate node is created.
-    data_manager::DataNodeId parent_id{0U};
-    /// Source slot handle, or a default invalid handle for an ephemeral certificate.
-    CertSlotHandle slot_handle{};
-};
 
 /// @brief Central registry for all certificate slot configurations.
 ///
@@ -57,10 +38,8 @@ struct CertRegistrationParams
 ///
 /// Thread safety: register slots and application resource mappings before
 /// concurrent request handling begins. The slot table and both indexes are
-/// immutable afterward, so lock-free lookups may run concurrently. Do not call
-/// RegisterSlot concurrently with ResolveSlot, ResolveSlotInternal, GetConfig,
-/// or GetSlotCount, or RegisterAppResource concurrently with ResolveAppResource.
-/// The internal mutex serializes registration updates and GetAllHandles snapshots.
+/// immutable afterward, so lock-free lookups may run concurrently. Registration
+/// must not overlap any other call on this registry.
 class CertSlotRegistry : public std::enable_shared_from_this<CertSlotRegistry>
 {
   public:
@@ -82,8 +61,7 @@ class CertSlotRegistry : public std::enable_shared_from_this<CertSlotRegistry>
     /// @param config Fully populated slot configuration.
     /// @return A lightweight handle to the registered slot, or an invalid
     ///         default handle if a slot with this name is already registered.
-    /// @note Serialized with other slot registrations and GetAllHandles(). Must
-    ///       not overlap lock-free slot lookups.
+    /// @note Startup only; must not overlap any other call on this registry.
     CertSlotHandle RegisterSlot(CertSlotConfig config);
 
     /// @brief Resolve slot name + client_id → CertSlotHandle.
@@ -119,6 +97,30 @@ class CertSlotRegistry : public std::enable_shared_from_this<CertSlotRegistry>
                             score::crypto::daemon::common::DaemonErrorCode>
     GetConfig(CertSlotHandle handle) const;
 
+    /// @brief Check whether a handle refers to a registered slot.
+    /// @param handle Handle to validate.
+    /// @return true if the handle refers to a registered slot; false otherwise.
+    /// @note Lock-free read; call only after slot registration is complete.
+    [[nodiscard]] bool IsValidHandle(CertSlotHandle handle) const noexcept;
+
+    /// @brief Check that a client may write a slot.
+    /// @param handle    Handle of the slot to write.
+    /// @param client_id Client requesting the write.
+    /// @return Success; kInvalidResourceId for an unknown handle; or the access-policy error when the
+    ///         client has no write permission.
+    /// @note Lock-free read; call only after slot registration is complete.
+    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+    CheckWriteAccess(CertSlotHandle handle, data_manager::ClientId client_id) const;
+
+    /// @brief Check that a client may read a slot.
+    /// @param handle    Handle of the slot to read.
+    /// @param client_id Client requesting the read.
+    /// @return Success; kInvalidResourceId for an unknown handle; or the access-policy error when the
+    ///         client is not allowed to access the slot.
+    /// @note Lock-free read; call only after slot registration is complete.
+    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+    CheckReadAccess(CertSlotHandle handle, data_manager::ClientId client_id) const;
+
     /// @brief Get the total number of registered slots.
     /// @return The number of registered slots.
     /// @note Lock-free read; call only after slot registration is complete.
@@ -130,7 +132,7 @@ class CertSlotRegistry : public std::enable_shared_from_this<CertSlotRegistry>
     /// filtered by client access policy; client request paths should resolve
     /// resources through ResolveSlot() or ResolveAppResource().
     /// @return Handles for all slots registered when the snapshot is taken.
-    /// @note Acquires the internal mutex and may run concurrently with slot registration.
+    /// @note Lock-free read; call only after slot registration is complete.
     std::vector<CertSlotHandle> GetAllHandles() const;
 
     /// @brief Register an application-local resource ID mapping.
@@ -160,17 +162,11 @@ class CertSlotRegistry : public std::enable_shared_from_this<CertSlotRegistry>
         data_manager::ClientId client_id) const;
 
   private:
-    /// Check whether @p handle refers to an entry in the registered slot table.
-    /// @param handle Handle to validate.
-    /// @return true if the handle is valid; false otherwise.
-    bool IsValidHandle(CertSlotHandle handle) const noexcept;
-
-    std::vector<CertSlotRegistryEntry> m_registry;
+    std::vector<CertSlotConfig> m_registry;
     std::unordered_map<std::string, uint32_t> m_name_index;
     /// Per-UID app resource map: uid → { app_resource_id → slot_name }.
     /// Populated at startup by RegisterAppResource(); read-only after that.
     std::unordered_map<uint32_t, std::unordered_map<std::string, std::string>> m_app_resource_map;
-    mutable std::mutex m_mutex;
 
     static constexpr std::string_view kLogPrefix = "[CERT_SLOT_REGISTRY] ";
 };

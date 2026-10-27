@@ -22,7 +22,6 @@ namespace score::crypto::daemon::cert_management
 
 CertSlotHandle CertSlotRegistry::RegisterSlot(CertSlotConfig config)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
     const std::string name = config.slot_name;
 
     if (m_name_index.find(name) != m_name_index.end())
@@ -34,11 +33,8 @@ CertSlotHandle CertSlotRegistry::RegisterSlot(CertSlotConfig config)
     // Entries are append-only, so the current size is the next stable slot index.
     const auto index = static_cast<uint32_t>(m_registry.size());
 
-    CertSlotRegistryEntry entry{};
-    entry.config = std::move(config);
-
     m_name_index[name] = index;
-    m_registry.push_back(std::move(entry));
+    m_registry.push_back(std::move(config));
     return CertSlotHandle{index};
 }
 
@@ -52,7 +48,7 @@ score::crypto::Expected<CertSlotHandle, score::crypto::daemon::common::DaemonErr
     auto it = m_name_index.find(slot_name);
     if (it == m_name_index.end())
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
-    auto access_result = AccessPolicyEnforcer::CheckSlotAccess(m_registry[it->second].config, client_id);
+    auto access_result = AccessPolicyEnforcer::CheckSlotAccess(m_registry[it->second], client_id);
     if (!access_result.has_value())
         return score::crypto::make_unexpected(access_result.error());
     return CertSlotHandle{it->second};
@@ -75,7 +71,7 @@ CertSlotRegistry::GetConfig(CertSlotHandle handle) const
     // m_registry.size() without a lock — consistent with GetSlotCount() and IsValidHandle().
     if (!IsValidHandle(handle))
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
-    return std::cref(m_registry[handle.index].config);
+    return std::cref(m_registry[handle.index]);
 }
 
 std::size_t CertSlotRegistry::GetSlotCount() const noexcept
@@ -85,7 +81,6 @@ std::size_t CertSlotRegistry::GetSlotCount() const noexcept
 
 std::vector<CertSlotHandle> CertSlotRegistry::GetAllHandles() const
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
     std::vector<CertSlotHandle> handles;
     handles.reserve(m_registry.size());
     for (uint32_t i = 0U; i < static_cast<uint32_t>(m_registry.size()); ++i)
@@ -100,11 +95,36 @@ bool CertSlotRegistry::IsValidHandle(CertSlotHandle handle) const noexcept
     return handle.IsValid() && handle.index < static_cast<uint32_t>(m_registry.size());
 }
 
+score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+CertSlotRegistry::CheckWriteAccess(CertSlotHandle handle, data_manager::ClientId client_id) const
+{
+    if (!IsValidHandle(handle))
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
+    auto write_check = AccessPolicyEnforcer::CheckWritePermission(m_registry[handle.index], client_id);
+    if (!write_check.has_value())
+        return write_check;
+
+    // TODO(cert-slot-mgr): exclusive-slot guard — return kAccessDenied when the slot
+    // is a kExclusiveMutable member of any trust store. Requires a membership query
+    // callback to avoid a circular dependency with TrustStoreManager. Until this
+    // lands, correctness relies on a configuration invariant documented on
+    // AccessPolicy::allowed_write_uids (access_policy.hpp) and in design_decisions.rst.
+
+    return std::monostate{};
+}
+
+score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+CertSlotRegistry::CheckReadAccess(CertSlotHandle handle, data_manager::ClientId client_id) const
+{
+    if (!IsValidHandle(handle))
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidResourceId);
+    return AccessPolicyEnforcer::CheckSlotAccess(m_registry[handle.index], client_id);
+}
+
 void CertSlotRegistry::RegisterAppResource(uint32_t uid,
                                            const std::string& app_resource_id,
                                            const std::string& slot_name)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
     auto& uid_map = m_app_resource_map[uid];
     if (uid_map.find(app_resource_id) != uid_map.end())
     {

@@ -27,18 +27,24 @@ namespace
 constexpr std::string_view kLogPrefix{"[CertMgmt] "};
 }
 
+SlotHandlerFactory::SlotHandlerFactory(provider::ProviderManager::Sptr provider_manager,
+                                       common::ProviderName parser_provider_name)
+    : m_provider_manager{std::move(provider_manager)}, m_parser_provider_name{std::move(parser_provider_name)}
+{
+}
+
 score::crypto::Expected<provider::cert_management::ICertParser::Sptr, common::DaemonErrorCode>
 SlotHandlerFactory::ResolveCertParser() const
 {
-    if (m_parser_cache->resolved.load(std::memory_order_acquire))
+    if (m_parser_cache.resolved.load(std::memory_order_acquire))
     {
-        return m_parser_cache->parser;
+        return m_parser_cache.parser;
     }
 
-    std::lock_guard<std::mutex> lock(m_parser_cache->mutex);
-    if (m_parser_cache->resolved.load(std::memory_order_relaxed))
+    const std::lock_guard lock{m_parser_cache.mutex};
+    if (m_parser_cache.resolved.load(std::memory_order_relaxed))
     {
-        return m_parser_cache->parser;
+        return m_parser_cache.parser;
     }
 
     const bool parser_provider_is_pinned = !m_parser_provider_name.empty();
@@ -87,9 +93,9 @@ SlotHandlerFactory::ResolveCertParser() const
         return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
     }
 
-    m_parser_cache->parser = std::move(parser);
-    m_parser_cache->resolved.store(true, std::memory_order_release);
-    return m_parser_cache->parser;
+    m_parser_cache.parser = std::move(parser);
+    m_parser_cache.resolved.store(true, std::memory_order_release);
+    return m_parser_cache.parser;
 }
 
 score::crypto::Expected<std::monostate, common::DaemonErrorCode> SlotHandlerFactory::Initialize() const
@@ -102,27 +108,36 @@ score::crypto::Expected<std::monostate, common::DaemonErrorCode> SlotHandlerFact
     return std::monostate{};
 }
 
-ICertSlotHandler::Sptr SlotHandlerFactory::operator()(const CertSlotConfig& slot) const
+score::crypto::Expected<ICertSlotHandler::Sptr, common::DaemonErrorCode> SlotHandlerFactory::Create(
+    const CertSlotConfig& slot) const
 {
-    auto parser_result = ResolveCertParser();
-    auto cert_parser = parser_result.has_value() ? parser_result.value() : nullptr;
+    auto parser = ResolveCertParser();
+    if (!parser.has_value())
+    {
+        return score::crypto::make_unexpected(parser.error());
+    }
 
     if (slot.storage_backend == "DEFAULT")
     {
-        return std::make_shared<FileBackedSlotHandler>(std::move(cert_parser));
+        return ICertSlotHandler::Sptr{std::make_shared<FileBackedSlotHandler>(slot, parser.value())};
     }
 
     if (!m_provider_manager)
     {
-        return nullptr;
+        return score::crypto::make_unexpected(common::DaemonErrorCode::kProviderNotAvailable);
     }
 
     auto provider = m_provider_manager->GetProvider(slot.storage_backend);
     if (!provider)
     {
-        return nullptr;
+        return score::crypto::make_unexpected(common::DaemonErrorCode::kProviderNotAvailable);
     }
-    return provider->GetCertSlotHandler(slot, std::move(cert_parser));
+    auto handler = provider->GetCertSlotHandler(slot, parser.value());
+    if (!handler)
+    {
+        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    }
+    return handler;
 }
 
 }  // namespace score::crypto::daemon::cert_management

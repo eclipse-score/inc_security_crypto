@@ -11,7 +11,7 @@
 ' SPDX-License-Identifier: Apache-2.0
 ' *******************************************************************************
 
-@startuml cert_management_static
+@startuml cert_management_composition
 top to bottom direction
 skinparam componentStyle rectangle
 skinparam packageStyle rectangle
@@ -22,7 +22,7 @@ package "cert_management" {
     [CertManagementModule] as Module #DCEFE2
     [CertManagementService\n<size:9>public values: api/types</size>] as Service #DCEFE2
     [CertRegistry] as Registry
-    [CertEntry\n<size:9>per-client record, session CRL</size>] as Entry
+    [CertEntry] as Entry
   }
 
   package "nodes" {
@@ -32,12 +32,12 @@ package "cert_management" {
   }
 
   package "slot" {
-    [CertSlotManager\n<size:9>sole owner of slot caches</size>\n<size:9>access checks via policy/</size>] as SlotMgr #DCEFE2
+    [CertSlotManager\n<size:9>access checks via policy/</size>] as SlotMgr #DCEFE2
     [CertSlotRegistry] as SlotReg
     [ConfigDrivenSlotCatalog] as SlotCatalog
     [SlotHandlerFactory] as Factory
     [FileBackedSlotHandler\n<size:9>providers implement the same interface</size>] as FileHandler
-    [CrlHandler\n<size:9>persists via deployment storage</size>] as Crl #FCE4D6
+    [FileBackedCrlStorage\n<size:9>persists via deployment storage</size>] as Crl #FCE4D6
   }
 
   package "truststore" {
@@ -74,6 +74,7 @@ package "daemon/provider" {
 Module --> Service : creates and publishes
 Module --> SlotCatalog : creates
 Module --> TsCatalog : creates
+Module --> Factory : creates and configures
 
 Service --> Registry
 Service --> SlotMgr
@@ -86,13 +87,11 @@ Service ..> TsNode : creates
 
 Registry --> Entry : indexes
 CertNode --> Entry : wraps
-CertNode --> Registry : unregisters on destruction
-Entry --> Values : holds
 
 ' Slot storage
 SlotMgr --> ICertSlotHandler
 SlotMgr --> SlotReg
-SlotMgr ..> Factory : resolves handler per slot (cached)
+SlotMgr ..> Factory : creates handler per slot;\nmanager caches successful creation
 
 SlotCatalog --> Config
 SlotCatalog ..> SlotReg : populates
@@ -110,7 +109,7 @@ TsCatalog --> Config
 TsCatalog ..> TsMgr : populates
 
 TsMgr --> SlotReg
-TsMgr --> TsHandler : owns
+TsMgr --> TsHandler
 
 TsHandler ..|> ITrustStoreHandler
 TsHandler --> SlotReg
@@ -129,8 +128,9 @@ legend bottom
   |<#DCEBFA> | Provider contracts required by the component |
   |<#FFF0CC> | Provider-neutral values and configuration types |
   |<#FCE4D6> | Slot-storage helper |
-  |<#FFFFFF> | Component-owned implementation detail |
-  Colors show ownership and dependency roles, not call-site usage or Bazel visibility.
+  |<#FFFFFF> | Component implementation detail |
+  Colors distinguish component, provider-contract, value, and helper roles;
+  they do not indicate call-site usage or Bazel visibility.
 endlegend
 
 @enduml

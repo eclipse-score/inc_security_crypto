@@ -45,8 +45,8 @@ namespace score::crypto::daemon::cert_management
 /// @brief Registry of named trust stores.
 ///
 /// A trust store is a named, many-to-many view over typed certificate slots. A slot may back
-/// multiple trust stores simultaneously; a certificate write to the slot through
-/// CertManagementService triggers NotifySlotChanged() for every referencing store.
+/// multiple trust stores simultaneously; NotifySlotChanged() updates every store that references
+/// the slot.
 ///
 /// Each store is a TrustStoreHandler, which owns the store's member state, anchor and CRL
 /// cache, member mutations, and persisted state. This class owns what spans stores: the name
@@ -68,13 +68,14 @@ namespace score::crypto::daemon::cert_management
 ///
 /// Runtime:
 ///   AddRef()/ReleaseRef() track active context count per client and store.
-///   NotifySlotChanged(id, slot) refreshes the changed member in a warm cache.
+///   NotifySlotChanged(slot) refreshes the changed member in every warm store that references it.
 ///   AddMember() / RemoveMember() mutate membership and persist to the descriptor.
 ///
-/// Thread safety: one mutex guards the registry state (stores list, indices, ref counts).
-/// It is released before a handler is called, except for cache eviction, which takes the
-/// handler's own mutex while the registry mutex is held. Handlers never call back into this
-/// class, so the lock order is registry mutex, then handler mutex.
+/// Thread safety: the stores, the name and application-resource indices, and the slot membership
+/// index are built by Load() and RegisterAppResource() before concurrent use begins, and are read
+/// without locking afterwards. Only the per-client reference counts change at runtime, and one mutex
+/// guards them. Cache eviction takes the handler's own mutex while that mutex is held. Handlers never
+/// call back into this class, so the lock order is registry mutex, then handler mutex.
 class TrustStoreManager
 {
   public:
@@ -152,8 +153,6 @@ class TrustStoreManager
 
     /// @brief Return the set of trust store IDs that contain a given cert slot.
     ///
-    /// Used by CertManagementService::SaveCertificate to fan out NotifyUpdate().
-    ///
     /// @param slot_handle Certificate slot to look up.
     /// @return Handles of all stores referencing the slot; empty if none.
     [[nodiscard]] std::vector<TrustStoreHandle> GetMembershipsForSlot(CertSlotHandle slot_handle) const;
@@ -202,14 +201,14 @@ class TrustStoreManager
     /// Evicts the slot's cached state and reloads only that member's anchor and CRL entry from
     /// the slot's current content. Other members are not re-read. A store whose anchors have
     /// not been loaded yet only has the slot's cached state evicted.
-    /// Called by CertManagementService after StoreCertificate and ClearSlot.
+    /// Called by CertManagementService after StoreCertificate and ClearSlot. Every trust store
+    /// that references the slot is updated.
     ///
     /// A kConditionalExternal member is instead disabled (and the state persisted) until
     /// acknowledged via AcknowledgeMemberUpdate().
     ///
-    /// @param handle       Trust store that references the slot.
     /// @param changed_slot Slot whose certificate changed.
-    void NotifySlotChanged(TrustStoreHandle handle, CertSlotHandle changed_slot);
+    void NotifySlotChanged(CertSlotHandle changed_slot);
 
     /// @brief Refresh one member slot's CRL in the trust store's handler cache.
     ///
@@ -217,11 +216,11 @@ class TrustStoreManager
     /// NotifySlotChanged(), this does not invalidate or reload the slot's certificate and does
     /// not affect conditional-external member enable/disable state — a CRL update is a
     /// revocation-data refresh, not a change to the anchor's identity.
-    /// Called by CertManagementService::NotifySlotCrlChanged() after StoreCrl/ClearCrl.
+    /// Called by CertManagementService after the CRL overload of UpdateSlot or ClearSlotCrl. Every
+    /// trust store that references the slot is updated.
     ///
-    /// @param handle       Trust store that references the slot.
     /// @param changed_slot Slot whose CRL changed.
-    void NotifySlotCrlChanged(TrustStoreHandle handle, CertSlotHandle changed_slot);
+    void NotifySlotCrlChanged(CertSlotHandle changed_slot);
 
     /// @brief Add a certificate to a trust store's runtime anchor set.
     ///
@@ -259,7 +258,7 @@ class TrustStoreManager
     ///
     /// Only operates on kExclusiveMutable members — the trust store owns these.
     /// Shared-static and conditional-external slots are externally managed;
-    /// callers use CertManagementService::StoreCrl directly for those.
+    /// callers use the CertManagementService::UpdateSlot CRL overload for those.
     ///
     /// Returns kInvalidResourceId if @p slot is not a member of the trust store.
     /// Returns kUnsupportedOperation if the slot is not kExclusiveMutable.
@@ -389,14 +388,15 @@ class TrustStoreManager
 
   private:
     /// Returns the handler of @p handle, or nullptr if the handle is invalid or out of range.
-    /// The registry mutex is not held after the call returns.
+    /// The store list is read without locking; it is fixed after Load().
     [[nodiscard]] std::shared_ptr<TrustStoreHandler> FindStore(TrustStoreHandle handle) const;
 
     /// Evict the anchor cache for @p handle if no client currently holds a ref to it.
     /// Must be called with m_mutex held.
     void MaybeEvictAnchorCache(TrustStoreHandle handle);
 
-    mutable std::mutex m_mutex;
+    /// Guards m_client_ref_counts. The other members are not locked: they are written only during startup.
+    std::mutex m_mutex;
 
     std::vector<std::shared_ptr<TrustStoreHandler>> m_stores;
     std::unordered_map<std::string, TrustStoreId> m_name_index;

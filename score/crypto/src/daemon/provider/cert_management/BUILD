@@ -16,7 +16,7 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "cert_parser_headers",
     hdrs = ["i_cert_parser.hpp"],
-    includes = ["."],
+    linkstatic = True,
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
@@ -31,7 +31,7 @@ cc_library(
 cc_library(
     name = "cert_management_operation_codes",
     hdrs = ["cert_management_operations.hpp"],
-    includes = ["."],
+    linkstatic = True,
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/common",

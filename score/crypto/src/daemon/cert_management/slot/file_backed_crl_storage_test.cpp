@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/daemon/cert_management/slot/crl_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/file_backed_crl_storage.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -28,12 +29,12 @@ namespace
 namespace cert = score::crypto::daemon::cert_management;
 namespace storage = score::crypto::daemon::common::storage;
 
-class CrlHandlerTest : public ::testing::Test
+class FileBackedCrlStorageTest : public ::testing::Test
 {
   protected:
     void SetUp() override
     {
-        m_directory = ::tests::utility::TempDirectory("score_crl_handler_test");
+        m_directory = ::tests::utility::TempDirectory("score_file_backed_crl_storage_test");
         std::filesystem::create_directories(m_directory);
         m_descriptor = m_directory / "slot.kv";
         m_crl = m_directory / "certificate.crl";
@@ -45,6 +46,7 @@ class CrlHandlerTest : public ::testing::Test
 
         m_slot.deployment_path = m_descriptor.string();
         m_slot.deployment_format = "kv";
+        m_handler = std::make_unique<cert::FileBackedCrlStorage>(m_slot);
     }
 
     void TearDown() override
@@ -72,14 +74,14 @@ class CrlHandlerTest : public ::testing::Test
     std::filesystem::path m_descriptor;
     std::filesystem::path m_crl;
     cert::CertSlotConfig m_slot;
-    cert::CrlHandler m_handler;
+    std::unique_ptr<cert::FileBackedCrlStorage> m_handler;
 };
 
-TEST_F(CrlHandlerTest, GetCrlMetadata_WellFormedFields_ReturnsMetadata)
+TEST_F(FileBackedCrlStorageTest, GetCrlMetadata_WellFormedFields_ReturnsMetadata)
 {
     WriteDescriptor("200");
 
-    const auto result = m_handler.GetCrlMetadata(m_slot);
+    const auto result = m_handler->GetCrlMetadata();
     ASSERT_TRUE(result.has_value());
     ASSERT_TRUE(result->has_value());
     EXPECT_EQ((*result)->this_update, 100);
@@ -89,21 +91,21 @@ TEST_F(CrlHandlerTest, GetCrlMetadata_WellFormedFields_ReturnsMetadata)
 
 // A malformed cached value is treated as absent: the call succeeds with no metadata
 // rather than returning an error or throwing.
-TEST_F(CrlHandlerTest, GetCrlMetadata_MalformedNextUpdate_ReturnsNoMetadata)
+TEST_F(FileBackedCrlStorageTest, GetCrlMetadata_MalformedNextUpdate_ReturnsNoMetadata)
 {
     WriteDescriptor("not_a_number");
 
-    const auto result = m_handler.GetCrlMetadata(m_slot);
+    const auto result = m_handler->GetCrlMetadata();
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(result->has_value());
 }
 
 // The CRL bytes remain readable when the cached metadata is malformed.
-TEST_F(CrlHandlerTest, LoadCrlData_MalformedNextUpdate_ReturnsBytesWithoutMetadata)
+TEST_F(FileBackedCrlStorageTest, LoadCrlData_MalformedNextUpdate_ReturnsBytesWithoutMetadata)
 {
     WriteDescriptor("not_a_number");
 
-    const auto crl = m_handler.LoadCrlData(m_slot);
+    const auto crl = m_handler->LoadCrlData();
     ASSERT_TRUE(crl.has_value());
     ASSERT_TRUE(crl->has_value());
     EXPECT_EQ((*crl)->bytes, m_crl_bytes);

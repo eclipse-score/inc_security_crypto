@@ -25,31 +25,30 @@ participant "Public context + IPC" as Context
 participant "CERT:MANAGEMENT\nhandler + executor" as Executor
 participant "CertManagementService" as Service
 participant "CertSlotManager" as SlotManager
+participant "CertSlotRegistry" as Registry
 participant "ICertSlotHandler +\nstorage" as Backend
 participant "TrustStoreManager" as TrustManager
 participant "TrustStoreHandler" as StoreHandler
 
 App -> Context : SaveCertificate(cert, target slot)
 Context -> Executor : save request
-Executor -> Service : StoreCertificate(slot, client, cert)
+Executor -> Service : UpdateSlot(slot, client, cert)
 Service -> SlotManager : StoreCertificate(slot, client, cert)
-SlotManager -> SlotManager : ApplyWriteChecks(config, client)
+SlotManager -> Registry : CheckWriteAccess(slot, client)
 
 alt write denied
   SlotManager --> Service : access error
   Service --> Executor : error
   Executor --> Context : error response
 else write allowed
-  SlotManager -> Backend : StoreCertificate(config, cert)
+  SlotManager -> Backend : StoreCertificate(cert)
   Backend -> Backend : write certificate and descriptor,\ndiscard the CRL of the previous certificate
   Backend --> SlotManager : success or error
   SlotManager -> SlotManager : invalidate certificate and CRL cache entries,\nadvance slot generation
   SlotManager --> Service : result
 
-  Service -> TrustManager : GetMembershipsForSlot(slot)
-  TrustManager --> Service : referencing trust stores
+  Service -> TrustManager : NotifySlotChanged(slot)
   loop each referencing trust store
-    Service -> TrustManager : NotifySlotChanged(store, slot)
     TrustManager -> StoreHandler : OnSlotChanged(slot)
     StoreHandler -> SlotManager : InvalidateSlotCaches(slot)
     alt conditional-external member
@@ -63,7 +62,7 @@ else write allowed
   Service --> Executor : result
 
   group Planned: SaveCertificateWithCrl, CRL propagation from the source
-    Executor -> Service : StoreCrl(slot, client, CRL)
+    Executor -> Service : UpdateSlot(slot, client, CRL)
     note right of Service
       CRL taken from the source (session CRL or source slot). Same
       notification path as a CRL import: see "Import a CRL".

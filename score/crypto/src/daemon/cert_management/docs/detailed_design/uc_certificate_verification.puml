@@ -36,7 +36,7 @@ Service --> Handler : CertEntry
 
 App -> Context : SetVerificationTrustStore(store resource)
 Context -> Handler : SetTrustStore(node id)
-Handler -> Service : ResolveTrustStoreForOperation(client, node id)
+Handler -> Service : ResolveTrustStoreHandle(client, node id)
 Service --> Handler : TrustStoreHandle
 Handler -> TrustManager : AddRef(handle, client)
 TrustManager -> StoreHandler : warm the cache if cold

@@ -34,7 +34,7 @@ App -> Context : AddCertificateToTrustStore(store, cert)
 Context -> Executor : TRUST_STORE_ADD_CERT
 Executor -> Service : resolve trust store and certificate
 group Planned: AddCertificateToTrustStoreWithCrl, CRL propagation from the source
-  Executor -> Service : ResolveCrlForOperation(cert)
+  Executor -> Service : ResolveCrlData(cert)
   Service --> Executor : CrlData::Sptrc (null if none)
 end
 Executor -> TrustManager : AddMember(store, cert, client, CrlData::Sptrc)

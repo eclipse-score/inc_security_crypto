@@ -15,14 +15,15 @@
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_SLOT_FILE_BACKED_SLOT_HANDLER_HPP
 
 #include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_handler.hpp"
-#include "score/crypto/src/daemon/cert_management/slot/crl_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/deployment_loader.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/deployment_writer.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/file_backed_crl_storage.hpp"
 #include "score/crypto/src/daemon/common/storage/file_io.hpp"
 #include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
 
 #include <memory>
 #include <mutex>
+#include <utility>
 
 namespace score::crypto::daemon::cert_management
 {
@@ -36,60 +37,51 @@ class FileBackedSlotHandler final : public ICertSlotHandler
     /// Maximum accepted certificate size in bytes, enforced when storing and when loading.
     static constexpr std::size_t kMaxCertSize = 64U * 1024U;  // 64 KiB — ample for any X.509 cert
 
-    /// @param parser Parser for certificate and CRL data.
+    /// @param config Configuration of the slot this handler serves.
+    /// @param parser Canonical certificate parser.
     /// @param writer Write primitive for the certificate file, CRL file, and descriptor; WriteFile by default.
-    explicit FileBackedSlotHandler(provider::cert_management::ICertParser::Sptr parser,
-                                   common::storage::FileWriter writer = common::storage::WriteFile)
-        : m_parser{std::move(parser)}, m_write_file{writer}, m_crl{std::move(writer)}
-    {
-    }
-    ~FileBackedSlotHandler() override = default;
+    explicit FileBackedSlotHandler(CertSlotConfig config,
+                                   provider::cert_management::ICertParser::Sptr parser,
+                                   common::storage::FileWriter writer = common::storage::WriteFile);
+    ~FileBackedSlotHandler() override;
 
     FileBackedSlotHandler(const FileBackedSlotHandler&) = delete;
     FileBackedSlotHandler& operator=(const FileBackedSlotHandler&) = delete;
 
     /// @copydoc ICertSlotHandler::LoadCertificate
-    score::crypto::Expected<CertObject::Sptr, common::DaemonErrorCode> LoadCertificate(const CertSlotConfig&) override;
+    score::crypto::Expected<CertObject::Sptr, common::DaemonErrorCode> LoadCertificate() override;
     /// @copydoc ICertSlotHandler::GetSlotState
-    score::crypto::Expected<score::crypto::CertificateSlotState, common::DaemonErrorCode> GetSlotState(
-        const CertSlotConfig&) override;
+    score::crypto::Expected<score::crypto::CertificateSlotState, common::DaemonErrorCode> GetSlotState() override;
     /// @copydoc ICertSlotHandler::GetSlotInfo
-    score::crypto::Expected<score::crypto::CertificateSlotInfo, common::DaemonErrorCode> GetSlotInfo(
-        const CertSlotConfig&) override;
+    score::crypto::Expected<score::crypto::CertificateSlotInfo, common::DaemonErrorCode> GetSlotInfo() override;
     /// @copydoc ICertSlotHandler::HasCrl
-    score::crypto::Expected<bool, common::DaemonErrorCode> HasCrl(const CertSlotConfig&) override;
+    score::crypto::Expected<bool, common::DaemonErrorCode> HasCrl() override;
     /// @copydoc ICertSlotHandler::StoreCertificate
-    score::crypto::Expected<std::monostate, common::DaemonErrorCode> StoreCertificate(const CertSlotConfig&,
-                                                                                      const CertObject&) override;
+    score::crypto::Expected<std::monostate, common::DaemonErrorCode> StoreCertificate(const CertObject& cert) override;
     /// @copydoc ICertSlotHandler::ClearSlot
-    score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearSlot(const CertSlotConfig&) override;
+    score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearSlot() override;
     /// @copydoc ICertSlotHandler::StoreCrl
-    score::crypto::Expected<std::monostate, common::DaemonErrorCode> StoreCrl(const CertSlotConfig&,
-                                                                              const CrlData&) override;
+    score::crypto::Expected<std::monostate, common::DaemonErrorCode> StoreCrl(const CrlData& crl) override;
     /// @copydoc ICertSlotHandler::ClearCrl
-    score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearCrl(const CertSlotConfig&) override;
+    score::crypto::Expected<std::monostate, common::DaemonErrorCode> ClearCrl() override;
     /// @copydoc ICertSlotHandler::GetCrlMetadata
-    score::crypto::Expected<std::optional<score::crypto::CrlMetadata>, common::DaemonErrorCode> GetCrlMetadata(
-        const CertSlotConfig&) override;
+    score::crypto::Expected<std::optional<score::crypto::CrlMetadata>, common::DaemonErrorCode> GetCrlMetadata()
+        override;
     /// @copydoc ICertSlotHandler::LoadCrlData
-    score::crypto::Expected<std::optional<CrlData>, common::DaemonErrorCode> LoadCrlData(
-        const CertSlotConfig&) override;
+    score::crypto::Expected<std::optional<CrlData>, common::DaemonErrorCode> LoadCrlData() override;
 
   private:
     /// Load a certificate while the caller holds m_slot_operation_mutex.
-    /// @param slot Configuration of the slot to read.
     /// @return The parsed certificate, or an error if the descriptor, file, or
     ///         certificate cannot be loaded or parsed.
-    [[nodiscard]] score::crypto::Expected<CertObject::Sptr, common::DaemonErrorCode> LoadCertificateUnlocked(
-        const CertSlotConfig& slot);
+    [[nodiscard]] score::crypto::Expected<CertObject::Sptr, common::DaemonErrorCode> LoadCertificateUnlocked();
 
     /// Metadata derived by validating @p crl against the slot's certificate; empty when unavailable.
-    /// @param slot Configuration of the slot containing the issuer certificate.
-    /// @param crl CRL data to validate against that certificate.
+    /// @param crl CRL data to validate against the slot's certificate.
     /// @return Validated CRL metadata, or std::nullopt if validation is unavailable or fails.
-    std::optional<score::crypto::CrlMetadata> DeriveCrlMetadata(const CertSlotConfig& slot, const CrlData& crl);
+    std::optional<score::crypto::CrlMetadata> DeriveCrlMetadata(const CrlData& crl);
 
-    using Handler = CrlHandler;
+    using Handler = FileBackedCrlStorage;
     /// Serializes certificate and CRL operations on this slot handler instance.
     std::mutex m_slot_operation_mutex;
     provider::cert_management::ICertParser::Sptr m_parser;

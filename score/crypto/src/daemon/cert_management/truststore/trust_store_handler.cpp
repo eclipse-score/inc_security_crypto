@@ -41,6 +41,12 @@ std::optional<std::array<uint8_t, score::crypto::kSha256FingerprintSize>> CopyFi
     return copy;
 }
 
+// True when a slot has no certificate to read. Any other load error means the content could not be read.
+bool IsEmptySlotError(Error error)
+{
+    return error == Error::kKeySlotEmpty || error == Error::kResourceNotAllocated;
+}
+
 }  // namespace
 
 TrustStoreHandler::TrustStoreHandler(TrustStoreHandle handle,
@@ -71,9 +77,16 @@ const TrustStoreConfig& TrustStoreHandler::GetConfig() const noexcept
 
 bool TrustStoreHandler::ValidateMembers() const
 {
-    // Without a registry, member names cannot be resolved, so there is nothing to check.
+    // Without a registry, member names cannot be resolved. A store that lists members cannot be used
+    // without them, and one with no members has nothing to check.
     if (!m_registry)
     {
+        if (!m_config.members.empty())
+        {
+            score::mw::log::LogError() << kLogPrefix << "Trust store " << m_config.store_name
+                                       << " lists members but no certificate slot registry is available";
+            return false;
+        }
         return true;
     }
     std::unordered_set<uint32_t> seen;
@@ -281,19 +294,16 @@ std::optional<TrustStoreHandler::ResolvedMember> TrustStoreHandler::ResolveSlot(
     {
         return std::nullopt;
     }
-    const auto cfg = m_registry->GetConfig(slot);
-    if (!cfg.has_value())
+    if (!m_registry->IsValidHandle(slot))
     {
         return std::nullopt;
     }
-    // The returned handler is owned by CertSlotManager for the daemon lifetime, so the raw
-    // pointer is valid for any call made here.
-    auto* handler = m_slot_manager->GetTrustStoreCertSlotHandler(slot).get();
-    if (handler == nullptr)
+    auto handler = m_slot_manager->GetTrustStoreCertSlotHandler(slot);
+    if (!handler.has_value())
     {
         return std::nullopt;
     }
-    return ResolvedMember{slot, handler, &cfg.value().get()};
+    return ResolvedMember{slot, std::move(handler.value())};
 }
 
 std::optional<TrustStoreHandler::ResolvedMember> TrustStoreHandler::ResolveMember(
@@ -328,17 +338,21 @@ const TrustStoreMemberConfig* TrustStoreHandler::FindMember(CertSlotHandle slot)
     return nullptr;
 }
 
-CertObject::Sptr TrustStoreHandler::LoadCertificateCached(CertSlotHandle slot)
+score::crypto::Expected<CertObject::Sptr, Error> TrustStoreHandler::LoadCertificateCached(CertSlotHandle slot)
 {
     if (!m_slot_manager)
     {
-        return nullptr;
+        return score::crypto::make_unexpected(Error::kInvalidOperation);
     }
     auto loaded = m_slot_manager->LoadCertificateForTrustStore(slot);
     if (!loaded.has_value())
     {
-        score::mw::log::LogError() << kLogPrefix << "Failed to load certificate for trust-store slot";
-        return nullptr;
+        // An empty slot is an expected state for callers to handle, so only other failures are logged.
+        if (!IsEmptySlotError(loaded.error()))
+        {
+            score::mw::log::LogError() << kLogPrefix << "Failed to load certificate for trust-store slot";
+        }
+        return score::crypto::make_unexpected(loaded.error());
     }
     return std::move(loaded.value());
 }
@@ -434,7 +448,7 @@ score::crypto::Expected<TrustStoreHandler::MemberContent, Error> TrustStoreHandl
     if (!loaded.has_value())
     {
         // An empty slot is a valid member state; any other failure is reported to the caller.
-        if (loaded.error() == Error::kKeySlotEmpty || loaded.error() == Error::kResourceNotAllocated)
+        if (IsEmptySlotError(loaded.error()))
         {
             return content;
         }
@@ -498,6 +512,9 @@ TrustStoreHandler::ResolveAllLocked()
     std::vector<std::pair<CertSlotHandle, MemberContent>> all;
     bool state_changed = false;
     std::optional<Error> failure;
+    // Conditional members that have no accepted fingerprint when they are reached. An acceptance made
+    // here is undone below if it cannot be persisted.
+    std::vector<CertSlotHandle> unaccepted;
     if (m_registry)
     {
         for (const auto& member : m_config.members)
@@ -505,7 +522,16 @@ TrustStoreHandler::ResolveAllLocked()
             const auto slot = m_registry->ResolveSlotInternal(member.slot_name);
             if (!slot.has_value())
             {
-                continue;
+                // A member that does not resolve would shrink the trust set silently, so the store fails instead.
+                score::mw::log::LogError() << kLogPrefix << "Member " << member.slot_name << " of store "
+                                           << m_config.store_name << " does not resolve to a certificate slot";
+                failure = Error::kTrustStoreInvalid;
+                break;
+            }
+            if (member.kind == TrustStoreMemberKind::kConditionalExternal &&
+                !m_states[slot.value().index].accepted_fingerprint.has_value())
+            {
+                unaccepted.push_back(slot.value());
             }
             auto content = ResolveMemberContentLocked(member, slot.value(), state_changed);
             if (!content.has_value())
@@ -522,6 +548,24 @@ TrustStoreHandler::ResolveAllLocked()
         const auto persisted = PersistStateLocked();
         if (!persisted.has_value())
         {
+            // A first-use acceptance must be durable before its certificate becomes an anchor. Undo the
+            // acceptances made here and fail the resolution, so that nothing is installed.
+            bool accepted_here = false;
+            for (const auto& slot : unaccepted)
+            {
+                auto& accepted = m_states[slot.index].accepted_fingerprint;
+                if (accepted.has_value())
+                {
+                    accepted.reset();
+                    accepted_here = true;
+                }
+            }
+            if (accepted_here)
+            {
+                score::mw::log::LogError()
+                    << kLogPrefix << "Failed to persist conditional acceptance; acceptance rolled back";
+                return score::crypto::make_unexpected(persisted.error());
+            }
             score::mw::log::LogError() << kLogPrefix << "Failed to persist member state after resolving members";
         }
     }
@@ -732,12 +776,12 @@ bool TrustStoreHandler::AcceptedFingerprintMatchesLocked(CertSlotHandle slot)
     {
         return false;
     }
-    const auto cert = LoadCertificateCached(slot);
-    if (!cert)
+    const auto cached = LoadCertificateCached(slot);
+    if (!cached.has_value() || !cached.value())
     {
         return false;
     }
-    const auto& fingerprint = cert->GetFingerprint();
+    const auto& fingerprint = cached.value()->GetFingerprint();
     const auto& accepted = state.accepted_fingerprint.value();
     return fingerprint.size() == accepted.size() &&
            std::equal(fingerprint.begin(), fingerprint.end(), accepted.begin());
@@ -841,7 +885,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::AddMember(cons
             continue;
         }
         const auto& target = resolved.value();
-        const auto current = target.handler->LoadCertificate(*target.cfg);
+        const auto current = target.handler->LoadCertificate();
         if (!current.has_value())
         {
             if (current.error() == Error::kResourceNotAllocated || current.error() == Error::kKeySlotEmpty)
@@ -863,7 +907,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::AddMember(cons
             // still have changed the slot, so its CRL cache is dropped either way.
             if (has_crl)
             {
-                const auto stored = target.handler->StoreCrl(*target.cfg, *crl);
+                const auto stored = target.handler->StoreCrl(*crl);
                 InvalidateCrl(target.slot);
                 if (!stored.has_value())
                 {
@@ -908,7 +952,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::AddMember(cons
             continue;
         }
         const auto& target = resolved.value();
-        const auto state = target.handler->GetSlotState(*target.cfg);
+        const auto state = target.handler->GetSlotState();
         if (!state.has_value() || state.value() != score::crypto::CertificateSlotState::kEmpty)
         {
             // Occupied by a different cert.
@@ -919,11 +963,11 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::AddMember(cons
         // here is cleared again (best effort) so the slot is not left holding an anchor that
         // the caller was told was not added.
         const auto roll_back = [&] {
-            static_cast<void>(target.handler->ClearSlot(*target.cfg));
+            static_cast<void>(target.handler->ClearSlot());
             InvalidateSlotCaches(target.slot);
         };
 
-        const auto stored = target.handler->StoreCertificate(*target.cfg, *cert);
+        const auto stored = target.handler->StoreCertificate(*cert);
         InvalidateSlotCaches(target.slot);
         if (!stored.has_value())
         {
@@ -932,7 +976,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::AddMember(cons
 
         if (has_crl)
         {
-            const auto crl_stored = target.handler->StoreCrl(*target.cfg, *crl);
+            const auto crl_stored = target.handler->StoreCrl(*crl);
             InvalidateCrl(target.slot);
             if (!crl_stored.has_value())
             {
@@ -976,7 +1020,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::StoreCrlForMem
         {
             return score::crypto::make_unexpected(Error::kUnsupportedOperation);
         }
-        const auto stored = target.handler->StoreCrl(*target.cfg, crl);
+        const auto stored = target.handler->StoreCrl(crl);
         InvalidateCrl(target.slot);
         if (!stored.has_value())
         {
@@ -1008,7 +1052,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::ClearCrlForMem
             return score::crypto::make_unexpected(Error::kUnsupportedOperation);
         }
 
-        const auto cleared = target.handler->ClearCrl(*target.cfg);
+        const auto cleared = target.handler->ClearCrl();
         InvalidateCrl(target.slot);
         if (!cleared.has_value())
         {
@@ -1039,7 +1083,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::RemoveMember(c
             continue;
         }
         const auto& target = resolved.value();
-        const auto current = target.handler->LoadCertificate(*target.cfg);
+        const auto current = target.handler->LoadCertificate();
         if (!current.has_value())
         {
             continue;
@@ -1050,7 +1094,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::RemoveMember(c
         {
             continue;
         }
-        const auto cleared = target.handler->ClearSlot(*target.cfg);
+        const auto cleared = target.handler->ClearSlot();
         InvalidateSlotCaches(target.slot);
         if (!cleared.has_value())
         {
@@ -1093,7 +1137,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::EnableMember(C
             return score::crypto::make_unexpected(Error::kInvalidResourceId);
         }
         const auto& target = backend.value();
-        auto fresh_cert = target.handler->LoadCertificate(*target.cfg);
+        auto fresh_cert = target.handler->LoadCertificate();
         if (!fresh_cert.has_value() || !fresh_cert.value())
         {
             return score::crypto::make_unexpected(Error::kInvalidOperation);
@@ -1112,7 +1156,8 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::EnableMember(C
     }
     else
     {
-        cert = LoadCertificateCached(slot);
+        auto loaded = LoadCertificateCached(slot);
+        cert = loaded.has_value() ? std::move(loaded.value()) : nullptr;
     }
 
     // A trust increase is persisted before it is published.
@@ -1178,7 +1223,7 @@ score::crypto::Expected<std::monostate, Error> TrustStoreHandler::AcknowledgeMem
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
     }
     const auto& target = resolved.value();
-    auto loaded = target.handler->LoadCertificate(*target.cfg);
+    auto loaded = target.handler->LoadCertificate();
     if (!loaded.has_value() || !loaded.value())
     {
         return score::crypto::make_unexpected(Error::kInvalidOperation);
@@ -1227,7 +1272,7 @@ score::crypto::Expected<std::vector<CertSlotHandle>, Error> TrustStoreHandler::G
             continue;
         }
         const auto& target = resolved.value();
-        const auto state = target.handler->GetSlotState(*target.cfg);
+        const auto state = target.handler->GetSlotState();
         if (!state.has_value() || state.value() != score::crypto::CertificateSlotState::kOccupied)
         {
             continue;
@@ -1261,16 +1306,24 @@ score::crypto::Expected<TrustStoreHandler::MemberSnapshot, Error> TrustStoreHand
             return score::crypto::make_unexpected(Error::kResourceNotFound);
         }
         const auto& target = backend.value();
-        auto fresh_cert = target.handler->LoadCertificate(*target.cfg);
-        if (!fresh_cert.has_value() || !fresh_cert.value())
+        auto fresh_cert = target.handler->LoadCertificate();
+        if (!fresh_cert.has_value())
         {
-            return score::crypto::make_unexpected(Error::kResourceNotFound);
+            // An empty slot reads as absent; any other failure is reported as it is.
+            return score::crypto::make_unexpected(IsEmptySlotError(fresh_cert.error()) ? Error::kResourceNotFound
+                                                                                       : fresh_cert.error());
         }
         cert = std::move(fresh_cert.value());
     }
     else
     {
-        cert = LoadCertificateCached(slot);
+        auto loaded = LoadCertificateCached(slot);
+        if (!loaded.has_value())
+        {
+            return score::crypto::make_unexpected(IsEmptySlotError(loaded.error()) ? Error::kResourceNotFound
+                                                                                   : loaded.error());
+        }
+        cert = std::move(loaded.value());
     }
     if (!cert)
     {

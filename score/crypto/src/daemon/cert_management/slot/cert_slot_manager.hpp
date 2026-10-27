@@ -19,13 +19,13 @@
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_slot_config.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/policy/access_policy_enforcer.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <string_view>
@@ -35,37 +35,32 @@
 namespace score::crypto::daemon::cert_management
 {
 
-class TrustStoreManager;
+class SlotHandlerFactory;
 
 /// @brief Central owner of certificate slot handler instances and the sole
 ///        enforcement point for slot-level access policy.
 ///
-/// All backend operations on a certificate slot must pass through this manager.
-/// No caller outside CertSlotManager may hold or call a raw ICertSlotHandler, except through the Tier 2
-/// accessor below and under the constraints stated there.
+/// All backend operations on a certificate slot pass through this manager, and no caller holds a raw
+/// ICertSlotHandler. The class implements ICertSlotManager, the read-only view handed to consumers
+/// outside the component. Mutations are called by CertManagementService, which keeps the trust stores
+/// that reference a slot in step with each update.
 ///
-/// The API is divided into three tiers:
+/// The API is divided into three groups:
 ///
-///   Tier 1 — operation-oriented (executor / IPC handler path).
-///             Authorization is unconditional inside each method.
-///             Read ops call CheckSlotAccess; write ops also call CheckWritePermission.
+///   Reads — the ICertSlotManager operations. Each one calls CheckSlotAccess for the requesting client.
 ///
-///   Tier 2 — GetProviderCertSlotHandler (public).
-///             For provider extension dispatch that needs functionality beyond
-///             ICertSlotHandler (e.g. custom PKCS#11 attributes). CertSlotManager
-///             runs the same slot policy before returning the handler; the caller
-///             dynamic_casts to its extended type. Only provider code calls this
-///             accessor. Mutations go through the Tier 1 write methods, which run the
-///             trust-store notification and cache invalidation.
+///   Writes — the operations that change a slot. Each one calls CheckSlotAccess and CheckWritePermission.
+///            Called by CertManagementService, which runs the trust-store notification afterwards.
 ///
-///   Tier 3 — GetTrustStoreCertSlotHandler (private, friend-gated).
-///             For TrustStoreManager only, which has already enforced trust-store
-///             write policy + membership/kind check before calling this method.
+///   Trust-store seam — the methods that TrustStoreManager and TrustStoreHandler use, within this
+///            component, to read a member's certificate and CRL, to reach its backend handler, and to
+///            evict its cached state. These do no client check: the trust store has already enforced
+///            its own write policy and membership rules before calling them. Code outside
+///            cert_management must not use them.
 ///
 /// Handler instances are created lazily on first access and cached per slot
-/// (keyed by CertSlotHandle::index). This eliminates the per-call PKCS#11 session
-/// overhead that existed when CertManagementService created a fresh handler on
-/// every ResolveSlotForOperation call.
+/// (keyed by CertSlotHandle::index), avoiding repeated backend handler and
+/// PKCS#11 session creation across operations on the same slot.
 ///
 /// Thread safety: m_handlers and m_slot_cache are guarded by m_mutex. Backend calls
 /// are made without holding that mutex and may be invoked concurrently for the
@@ -75,11 +70,8 @@ class TrustStoreManager;
 /// part it reads (certificate or CRL) before its backend read and caches the result
 /// only if that generation is unchanged afterwards, so a read that overlaps a write
 /// or invalidation is returned to its caller but never cached.
-class CertSlotManager final
+class CertSlotManager final : public ICertSlotManager
 {
-    friend class TrustStoreManager;
-    friend class TrustStoreHandler;
-
   public:
     using Sptr = std::shared_ptr<CertSlotManager>;
 
@@ -87,7 +79,7 @@ class CertSlotManager final
     /// @param registry Resolves slot handles to their configuration. Without it every operation fails with
     ///                 kInternalError.
     /// @param factory  Creates the backend handler for a slot on first access. Without it no handler can be created.
-    CertSlotManager(CertSlotRegistry::Sptr registry, CertSlotHandlerFactory factory);
+    CertSlotManager(CertSlotRegistry::Sptr registry, std::shared_ptr<SlotHandlerFactory> factory);
     ~CertSlotManager() = default;
 
     CertSlotManager(const CertSlotManager&) = delete;
@@ -96,7 +88,7 @@ class CertSlotManager final
     CertSlotManager& operator=(CertSlotManager&&) = delete;
 
     // -----------------------------------------------------------------------
-    // Tier 1 — read operations (CheckSlotAccess inside)
+    // Reads (ICertSlotManager; CheckSlotAccess inside)
     // -----------------------------------------------------------------------
 
     /// @brief Load the certificate stored in a slot.
@@ -104,30 +96,27 @@ class CertSlotManager final
     /// slot's handler and cached.
     /// @param slot      Slot to read.
     /// @param client_id Client requesting the read; checked against the slot's access policy.
-    /// @return The parsed certificate, an access-policy or registry error, kInternalError when no handler is
-    ///         available, or the handler's error (e.g. for an empty slot).
+    /// @return The parsed certificate, or an access-policy, registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<CertObject::Sptr, score::crypto::daemon::common::DaemonErrorCode>
-    LoadCertificate(CertSlotHandle slot, data_manager::ClientId client_id);
+    LoadCertificate(CertSlotHandle slot, data_manager::ClientId client_id) override;
 
     /// @brief Return the state and descriptive information of a slot.
     /// @param slot      Slot to inspect.
     /// @param client_id Client requesting the read; checked against the slot's access policy.
-    /// @return The slot information, an access-policy or registry error, kInternalError when no handler is
-    ///         available, or the handler's error.
+    /// @return The slot information, or an access-policy, registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<score::crypto::CertificateSlotInfo,
                                           score::crypto::daemon::common::DaemonErrorCode>
-    GetSlotInfo(CertSlotHandle slot, data_manager::ClientId client_id);
+    GetSlotInfo(CertSlotHandle slot, data_manager::ClientId client_id) override;
 
     /// @brief Report whether a slot has a stored CRL.
     /// @details Answered from the slot's cached CRL state (see m_slot_cache); populated from the backend on first
     /// access and after any write that can change CRL state.
     /// @param slot      Slot to inspect.
     /// @param client_id Client requesting the read; checked against the slot's access policy.
-    /// @return True when a CRL is stored, an access-policy or registry error, kInternalError when no handler is
-    ///         available, or the handler's error.
+    /// @return True when a CRL is stored, or an access-policy, registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> HasCrl(
         CertSlotHandle slot,
-        data_manager::ClientId client_id);
+        data_manager::ClientId client_id) override;
 
     /// @brief Load the slot's CRL as an immutable snapshot.
     /// @details Bytes, format, and metadata are read from the backend together. The snapshot is immutable: a holder
@@ -135,20 +124,19 @@ class CertSlotManager final
     /// @param slot      Slot to read.
     /// @param client_id Client requesting the read; checked against the slot's access policy.
     /// @return The snapshot, or a null pointer when the slot has no CRL; an access-policy or registry error,
-    ///         kInternalError when no handler is available, or the handler's error.
+    ///         a factory or handler error.
     [[nodiscard]] score::crypto::Expected<CrlData::Sptrc, score::crypto::daemon::common::DaemonErrorCode> LoadCrlData(
         CertSlotHandle slot,
-        data_manager::ClientId client_id);
+        data_manager::ClientId client_id) override;
 
     /// @brief Return the metadata of the slot's CRL from the cached entry, without reading the CRL itself.
     /// @param slot      Slot to inspect.
     /// @param client_id Client requesting the read; checked against the slot's access policy.
     /// @return The metadata, an empty optional when the slot has no CRL or the CRL has no usable metadata
-    ///         (HasCrl() tells the two apart), an access-policy or registry error, kInternalError when no
-    ///         handler is available, or the handler's error.
+    ///         (HasCrl() tells the two apart), or an access-policy, registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<std::optional<score::crypto::CrlMetadata>,
                                           score::crypto::daemon::common::DaemonErrorCode>
-    GetCrlMetadata(CertSlotHandle slot, data_manager::ClientId client_id);
+    GetCrlMetadata(CertSlotHandle slot, data_manager::ClientId client_id) override;
 
     /// @brief Return the next-update time of the slot's CRL.
     /// @details Answered from the cached CRL entry.
@@ -156,13 +144,13 @@ class CertSlotManager final
     /// @param client_id Client requesting the read; checked against the slot's access policy.
     /// @return The next-update time as Unix epoch seconds; kResourceNotAllocated both when no CRL is stored and when
     ///         a stored CRL has no usable next-update value (including a malformed one), since either way no value
-    ///         is available; or an access-policy, registry, or handler error.
+    ///         is available; or an access-policy, registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<int64_t, score::crypto::daemon::common::DaemonErrorCode> GetCrlNextUpdate(
         CertSlotHandle slot,
-        data_manager::ClientId client_id);
+        data_manager::ClientId client_id) override;
 
     // -----------------------------------------------------------------------
-    // Tier 1 — write operations (CheckSlotAccess + CheckWritePermission inside)
+    // Writes (CheckSlotAccess + CheckWritePermission inside)
     // -----------------------------------------------------------------------
 
     /// @brief Store a certificate in a slot.
@@ -174,8 +162,7 @@ class CertSlotManager final
     /// @param content_may_have_changed Optional. Set to true when the write reaches the backend, even if it fails.
     ///        The caller uses it to decide whether dependent trust stores must be refreshed.
     ///        Not modified when the write is refused or no handler is available.
-    /// @return Success, an access-policy or registry error, kInternalError when no handler is available, or the
-    ///         handler's error.
+    /// @return Success, or an access-policy, registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     StoreCertificate(CertSlotHandle slot,
                      data_manager::ClientId client_id,
@@ -189,8 +176,7 @@ class CertSlotManager final
     /// @param content_may_have_changed Optional. Set to true when the write reaches the backend, even if it fails.
     ///        The caller uses it to decide whether dependent trust stores must be refreshed.
     ///        Not modified when the write is refused or no handler is available.
-    /// @return Success, an access-policy or registry error, kInternalError when no handler is available, or the
-    ///         handler's error.
+    /// @return Success, or an access-policy, registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     ClearSlot(CertSlotHandle slot, data_manager::ClientId client_id, bool* content_may_have_changed = nullptr);
 
@@ -203,8 +189,7 @@ class CertSlotManager final
     /// @param content_may_have_changed Optional. Set to true when the write reaches the backend, even if it fails.
     ///        The caller uses it to decide whether dependent trust stores must be refreshed.
     ///        Not modified when the write is refused or no handler is available.
-    /// @return Success, an access-policy or registry error, kInternalError when no handler is available, or the
-    ///         handler's error.
+    /// @return Success, or an access-policy, registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> StoreCrl(
         CertSlotHandle slot,
         data_manager::ClientId client_id,
@@ -218,49 +203,29 @@ class CertSlotManager final
     /// @param content_may_have_changed Optional. Set to true when the write reaches the backend, even if it fails.
     ///        The caller uses it to decide whether dependent trust stores must be refreshed.
     ///        Not modified when the write is refused or no handler is available.
-    /// @return Success, an access-policy or registry error, kInternalError when no handler is available, or the
-    ///         handler's error.
+    /// @return Success, or an access-policy, registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     ClearCrl(CertSlotHandle slot, data_manager::ClientId client_id, bool* content_may_have_changed = nullptr);
 
     // -----------------------------------------------------------------------
-    // Tier 2 — provider extension escape hatch
+    // Trust-store seam: used by TrustStoreManager and TrustStoreHandler inside this component.
     //
-    // CertSlotManager runs CheckSlotAccess (always) and optionally
-    // CheckWritePermission (when require_write=true) before returning the handler.
-    // The caller dynamic_casts to its extended provider type for custom operations.
-    // Must only be called from a provider extension dispatch, not from general
-    // executor handler code.
-    // -----------------------------------------------------------------------
-
-    /// @brief Return the slot's backend handler for provider-specific operations.
-    /// @param slot          Slot whose handler is returned.
-    /// @param client_id     Client requesting the handler; checked against the slot's access policy.
-    /// @param require_write When true the client also needs write permission on the slot.
-    /// @return The handler, an access-policy or registry error, or kInternalError when no handler is available.
-    [[nodiscard]] score::crypto::Expected<ICertSlotHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode>
-    GetProviderCertSlotHandler(CertSlotHandle slot, data_manager::ClientId client_id, bool require_write = false);
-
-  private:
-    // -----------------------------------------------------------------------
-    // Tier 3 — trust-store backend seam (friend-gated)
-    //
-    // TrustStoreManager has already enforced trust-store write policy +
-    // membership/kind check before calling this method. No client_id — the
-    // trust store is the authority for exclusive-slot mutations.
+    // TrustStoreManager has already enforced trust-store write policy and the membership and
+    // kind check before calling these methods. No client_id: the trust store is the authority for
+    // exclusive-slot mutations.
     // -----------------------------------------------------------------------
 
     /// @brief Return the slot's backend handler for the trust-store seam.
     /// @param slot Slot whose handler is returned.
-    /// @return The handler, or nullptr if the slot is not found or the factory returns null.
-    [[nodiscard]] ICertSlotHandler::Sptr GetTrustStoreCertSlotHandler(CertSlotHandle slot);
+    /// @return The handler, or a registry or factory error.
+    [[nodiscard]] score::crypto::Expected<ICertSlotHandler::Sptr, common::DaemonErrorCode> GetTrustStoreCertSlotHandler(
+        CertSlotHandle slot);
 
     /// @brief Load the slot's certificate without a client access check.
     /// @details Goes through the same certificate cache as LoadCertificate(), so one cache serves every reader of a
     /// slot. Trust-store anchor loading uses this method.
     /// @param slot Slot to read.
-    /// @return The parsed certificate, a registry error, kInternalError when no handler is available, or the
-    ///         handler's error.
+    /// @return The parsed certificate, or a registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<CertObject::Sptr, score::crypto::daemon::common::DaemonErrorCode>
     LoadCertificateForTrustStore(CertSlotHandle slot);
 
@@ -276,6 +241,13 @@ class CertSlotManager final
     /// @param slot Slot whose cached state is evicted.
     void InvalidateSlotCaches(CertSlotHandle slot);
 
+    /// @brief Evict the cached CRL state and snapshot for a slot.
+    /// @details Called after a write that changes only the CRL (StoreCrl, ClearCrl), and by TrustStoreHandler
+    /// before it re-reads a member whose CRL may have changed outside this manager.
+    /// @param slot Slot whose CRL state is evicted.
+    void InvalidateCrl(CertSlotHandle slot);
+
+  private:
     // Internal helpers
 
     /// @brief Look up a slot's configuration in the registry.
@@ -286,28 +258,20 @@ class CertSlotManager final
                                           score::crypto::daemon::common::DaemonErrorCode>
     GetConfig(CertSlotHandle slot) const;
 
-    /// @brief Check that a client may write a slot.
-    /// @param cfg       Configuration of the slot to write.
-    /// @param client_id Client requesting the write.
-    /// @return Success, or the access-policy error when the client has no write permission.
-    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    ApplyWriteChecks(const CertSlotConfig& cfg, data_manager::ClientId client_id);
-
     /// @brief Return the cached handler for a slot, creating it via the factory on first use.
     /// @details Must be called with m_mutex held.
     /// @param slot Slot whose handler is returned.
-    /// @return The handler, or nullptr when there is no factory or registry, the slot is unknown, or the factory
-    ///         returns null.
-    [[nodiscard]] ICertSlotHandler::Sptr GetOrCreate(CertSlotHandle slot);
+    /// @return The handler, or the registry or factory error.
+    [[nodiscard]] score::crypto::Expected<ICertSlotHandler::Sptr, common::DaemonErrorCode> GetOrCreate(
+        CertSlotHandle slot);
 
     /// @brief Load a slot's certificate through the certificate cache.
     /// @details Shared body of LoadCertificate() and LoadCertificateForTrustStore(): serves the cache and otherwise
     /// reads through the slot's handler. Manages its own locking; the backend call is made without holding m_mutex.
     /// @param slot Slot to read.
-    /// @param cfg  Configuration of @p slot.
-    /// @return The parsed certificate, kInternalError when no handler is available, or the handler's error.
+    /// @return The parsed certificate, or a factory or handler error.
     [[nodiscard]] score::crypto::Expected<CertObject::Sptr, score::crypto::daemon::common::DaemonErrorCode>
-    LoadCertificateCached(CertSlotHandle slot, const CertSlotConfig& cfg);
+    LoadCertificateCached(CertSlotHandle slot);
 
     /// Presence and metadata of one slot's CRL, as cached without the CRL bytes.
     struct CrlState
@@ -348,8 +312,7 @@ class CertSlotManager final
     /// @brief Check access to a slot and return its cached CRL state.
     /// @param slot      Slot to inspect.
     /// @param client_id Client requesting the read; checked against the slot's access policy.
-    /// @return The CRL state, an access-policy or registry error, kInternalError when no handler is available, or
-    ///         the handler's error.
+    /// @return The CRL state, or an access-policy, registry, factory, or handler error.
     [[nodiscard]] score::crypto::Expected<CrlState, score::crypto::daemon::common::DaemonErrorCode> GetCrlStateChecked(
         CertSlotHandle slot,
         data_manager::ClientId client_id);
@@ -359,27 +322,20 @@ class CertSlotManager final
     /// with LoadCertificate().
     /// @param slot    Slot to inspect.
     /// @param handler Handler used to read the state on a miss.
-    /// @param cfg     Configuration of @p slot.
     /// @return The CRL state, or the handler's error.
-    [[nodiscard]] score::crypto::Expected<CrlState, score::crypto::daemon::common::DaemonErrorCode>
-    GetOrLoadCrlState(CertSlotHandle slot, const ICertSlotHandler::Sptr& handler, const CertSlotConfig& cfg);
+    [[nodiscard]] score::crypto::Expected<CrlState, score::crypto::daemon::common::DaemonErrorCode> GetOrLoadCrlState(
+        CertSlotHandle slot,
+        const ICertSlotHandler::Sptr& handler);
 
     /// @brief Return the slot's CRL snapshot, serving a live cached snapshot or reading one from the handler.
     /// @details Manages its own locking, as GetOrLoadCrlState() does.
     /// @param slot Slot to read.
-    /// @param cfg  Configuration of @p slot.
-    /// @return The snapshot, or a null pointer when the slot has no CRL; kInternalError when no handler is
-    ///         available, or the handler's error.
+    /// @return The snapshot, a null pointer when the slot has no CRL, or a factory or handler error.
     [[nodiscard]] score::crypto::Expected<CrlData::Sptrc, score::crypto::daemon::common::DaemonErrorCode>
-    GetOrLoadCrlData(CertSlotHandle slot, const CertSlotConfig& cfg);
-
-    /// @brief Evict the cached CRL state and snapshot for a slot.
-    /// @details Called after a write that changes only the CRL (StoreCrl, ClearCrl).
-    /// @param slot Slot whose CRL state is evicted.
-    void InvalidateCrl(CertSlotHandle slot);
+    GetOrLoadCrlData(CertSlotHandle slot);
 
     CertSlotRegistry::Sptr m_registry;
-    CertSlotHandlerFactory m_factory;
+    std::shared_ptr<SlotHandlerFactory> m_factory;
     std::unordered_map<uint32_t, ICertSlotHandler::Sptr> m_handlers;
     /// Certificate and CRL caches keyed by slot index. See SlotCache.
     std::unordered_map<uint32_t, SlotCache> m_slot_cache;

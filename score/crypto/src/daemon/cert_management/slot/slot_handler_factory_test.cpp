@@ -14,6 +14,7 @@
 #include "score/crypto/src/daemon/cert_management/slot/slot_handler_factory.hpp"
 
 #include "score/crypto/src/daemon/cert_management/cert_management_module.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
@@ -70,23 +71,24 @@ class FakeParser final : public cert_provider::ICertParser
 class FakeCertSlotHandler final : public cert::ICertSlotHandler
 {
   public:
-    score::crypto::Expected<cert::CertObject::Sptr, Error> LoadCertificate(const cert::CertSlotConfig&) override
+    FakeCertSlotHandler() : cert::ICertSlotHandler{cert::CertSlotConfig{}} {}
+
+    score::crypto::Expected<cert::CertObject::Sptr, Error> LoadCertificate() override
     {
         return score::crypto::make_unexpected(Error::kUnsupportedOperation);
     }
 
-    score::crypto::Expected<score::crypto::CertificateSlotState, Error> GetSlotState(
-        const cert::CertSlotConfig&) override
+    score::crypto::Expected<score::crypto::CertificateSlotState, Error> GetSlotState() override
     {
         return score::crypto::CertificateSlotState::kEmpty;
     }
 
-    score::crypto::Expected<score::crypto::CertificateSlotInfo, Error> GetSlotInfo(const cert::CertSlotConfig&) override
+    score::crypto::Expected<score::crypto::CertificateSlotInfo, Error> GetSlotInfo() override
     {
         return score::crypto::CertificateSlotInfo{};
     }
 
-    score::crypto::Expected<bool, Error> HasCrl(const cert::CertSlotConfig&) override
+    score::crypto::Expected<bool, Error> HasCrl() override
     {
         return false;
     }
@@ -135,11 +137,10 @@ class FakeProvider final : public provider::IProvider
         return m_parser;
     }
 
-    std::shared_ptr<cert::ICertSlotHandler> GetCertSlotHandler(
-        const cert::CertSlotConfig&,
-        std::shared_ptr<cert_provider::ICertParser> parser) override
+    std::shared_ptr<cert::ICertSlotHandler> GetCertSlotHandler(const cert::CertSlotConfig&,
+                                                               cert_provider::ICertParser::Sptr parser) override
     {
-        m_last_parser_seen_by_slot_handler = parser;
+        m_last_parser_seen_by_slot_handler = std::move(parser);
         return m_slot_handler;
     }
 
@@ -147,7 +148,7 @@ class FakeProvider final : public provider::IProvider
     std::shared_ptr<cert_provider::ICertParser> m_parser;
     std::shared_ptr<cert::ICertSlotHandler> m_slot_handler;
     int m_get_cert_parser_calls{0};
-    std::shared_ptr<cert_provider::ICertParser> m_last_parser_seen_by_slot_handler;
+    cert_provider::ICertParser::Sptr m_last_parser_seen_by_slot_handler;
 
   private:
     bool m_initialized{false};
@@ -160,28 +161,29 @@ provider::ProviderManager::Sptr MakeProviderManager()
     return std::make_shared<provider::ProviderManager>(score::crypto::daemon::config::ProviderInitConfig{});
 }
 
-TEST(SlotHandlerFactoryTest, NullProviderManager_DefaultBackend_ReturnsFileBackedHandler)
+TEST(SlotHandlerFactoryTest, NullProviderManager_DefaultBackend_ReturnsParserError)
 {
     cert::SlotHandlerFactory factory{nullptr};
     cert::CertSlotConfig slot;
     slot.storage_backend = "DEFAULT";
 
-    auto handler = factory(slot);
-
-    ASSERT_NE(handler, nullptr);
-    EXPECT_NE(std::dynamic_pointer_cast<cert::FileBackedSlotHandler>(handler), nullptr);
+    const auto handler = factory.Create(slot);
+    ASSERT_FALSE(handler.has_value());
+    EXPECT_EQ(handler.error(), Error::kUnsupportedOperation);
 }
 
-TEST(SlotHandlerFactoryTest, NullProviderManager_NamedBackend_ReturnsNull)
+TEST(SlotHandlerFactoryTest, NullProviderManager_NamedBackend_ReturnsParserError)
 {
     cert::SlotHandlerFactory factory{nullptr};
     cert::CertSlotConfig slot;
     slot.storage_backend = "SOME_PROVIDER";
 
-    EXPECT_EQ(factory(slot), nullptr);
+    const auto handler = factory.Create(slot);
+    ASSERT_FALSE(handler.has_value());
+    EXPECT_EQ(handler.error(), Error::kUnsupportedOperation);
 }
 
-TEST(SlotHandlerFactoryTest, NoCertManagementProvider_DefaultBackend_ReturnsFileBackedHandler)
+TEST(SlotHandlerFactoryTest, NoCertManagementProvider_DefaultBackend_ReturnsParserError)
 {
     auto manager = MakeProviderManager();
     auto software_provider = std::make_shared<FakeProvider>();  // No capabilities advertised.
@@ -192,16 +194,32 @@ TEST(SlotHandlerFactoryTest, NoCertManagementProvider_DefaultBackend_ReturnsFile
     cert::CertSlotConfig slot;
     slot.storage_backend = "DEFAULT";
 
-    auto handler = factory(slot);
-
-    ASSERT_NE(handler, nullptr);
-    EXPECT_NE(std::dynamic_pointer_cast<cert::FileBackedSlotHandler>(handler), nullptr);
+    const auto handler = factory.Create(slot);
+    ASSERT_FALSE(handler.has_value());
+    EXPECT_EQ(handler.error(), Error::kUnsupportedOperation);
 }
 
-TEST(SlotHandlerFactoryTest, UnknownNamedBackend_ReturnsNull)
+TEST(SlotHandlerFactoryTest, DefaultBackendCreatesFileBackedHandlerWhenParserIsAvailable)
+{
+    auto manager = MakeProviderManager();
+    auto cert_provider = std::make_shared<FakeProvider>();
+    cert_provider->m_capabilities = common::ProviderCapability::kCertManagement;
+    cert_provider->m_parser = std::make_shared<FakeParser>();
+    ASSERT_TRUE(manager->RegisterProvider("CERT_PROVIDER", cert_provider, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(manager->Initialize());
+
+    cert::SlotHandlerFactory factory{manager};
+    const auto handler = factory.Create(cert::CertSlotConfig{});
+    ASSERT_TRUE(handler.has_value());
+    EXPECT_NE(std::dynamic_pointer_cast<cert::FileBackedSlotHandler>(handler.value()), nullptr);
+}
+
+TEST(SlotHandlerFactoryTest, UnknownNamedBackend_ReturnsProviderError)
 {
     auto manager = MakeProviderManager();
     auto registered_provider = std::make_shared<FakeProvider>();
+    registered_provider->m_capabilities = common::ProviderCapability::kCertManagement;
+    registered_provider->m_parser = std::make_shared<FakeParser>();
     ASSERT_TRUE(manager->RegisterProvider("OTHER", registered_provider, common::CryptoProviderType::SOFTWARE));
     ASSERT_TRUE(manager->Initialize());
 
@@ -209,11 +227,61 @@ TEST(SlotHandlerFactoryTest, UnknownNamedBackend_ReturnsNull)
     cert::CertSlotConfig slot;
     slot.storage_backend = "UNKNOWN";
 
-    EXPECT_EQ(factory(slot), nullptr);
+    const auto handler = factory.Create(slot);
+    ASSERT_FALSE(handler.has_value());
+    EXPECT_EQ(handler.error(), Error::kProviderNotAvailable);
+}
+
+TEST(SlotHandlerFactoryTest, NamedBackendWithoutHandlerReturnsUnsupportedOperation)
+{
+    auto manager = MakeProviderManager();
+    auto cert_provider = std::make_shared<FakeProvider>();
+    cert_provider->m_capabilities = common::ProviderCapability::kCertManagement;
+    cert_provider->m_parser = std::make_shared<FakeParser>();
+    ASSERT_TRUE(manager->RegisterProvider("CERT_PROVIDER", cert_provider, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(manager->Initialize());
+
+    cert::SlotHandlerFactory factory{manager};
+    cert::CertSlotConfig slot;
+    slot.storage_backend = "CERT_PROVIDER";
+    const auto handler = factory.Create(slot);
+    ASSERT_FALSE(handler.has_value());
+    EXPECT_EQ(handler.error(), Error::kUnsupportedOperation);
+}
+
+TEST(SlotHandlerFactoryTest, SlotManagerPropagatesUnavailablePinnedProvider)
+{
+    auto factory = std::make_shared<cert::SlotHandlerFactory>(MakeProviderManager(), "MISSING");
+    cert::CertSlotConfig slot;
+    slot.slot_name = "test/slot";
+    slot.access_policy.allowed_write_uids = {0U};
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    const auto slot_handle = registry->RegisterSlot(slot);
+    cert::CertSlotManager slot_manager{registry, factory};
+
+    const auto load = slot_manager.LoadCertificateForTrustStore(slot_handle);
+    ASSERT_FALSE(load.has_value());
+    EXPECT_EQ(load.error(), Error::kProviderNotAvailable);
+    const auto handler = slot_manager.GetTrustStoreCertSlotHandler(slot_handle);
+    ASSERT_FALSE(handler.has_value());
+    EXPECT_EQ(handler.error(), Error::kProviderNotAvailable);
+    const auto info = slot_manager.GetSlotInfo(slot_handle, 0U);
+    ASSERT_FALSE(info.has_value());
+    EXPECT_EQ(info.error(), Error::kProviderNotAvailable);
+    bool content_changed = false;
+    const auto clear = slot_manager.ClearSlot(slot_handle, 0U, &content_changed);
+    ASSERT_FALSE(clear.has_value());
+    EXPECT_EQ(clear.error(), Error::kProviderNotAvailable);
+    EXPECT_FALSE(content_changed);
 }
 
 TEST(CertManagementModuleTest, UsesConfiguredParserProvider)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_mgmt__parser_authority");
+    RecordProperty("Description", "Uses the configured provider as the certificate parser.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     auto manager = MakeProviderManager();
     auto openssl_provider = std::make_shared<FakeProvider>();
     openssl_provider->m_capabilities = common::ProviderCapability::kCertManagement;
@@ -392,11 +460,62 @@ TEST(SlotHandlerFactoryTest, NamedBackend_ReceivesCanonicalParser)
     cert::CertSlotConfig slot;
     slot.storage_backend = "HW";
 
-    auto handler = factory(slot);
+    auto handler = factory.Create(slot);
 
-    EXPECT_EQ(handler, fake_handler);
+    ASSERT_TRUE(handler.has_value());
+    EXPECT_EQ(handler.value(), fake_handler);
     EXPECT_EQ(hw_provider->m_last_parser_seen_by_slot_handler, parser);
     EXPECT_EQ(cert_provider->m_get_cert_parser_calls, 1);
+}
+
+TEST(SlotHandlerFactoryTest, SlotManagerRetriesFailedCreationAndCachesSuccessfulHandler)
+{
+    auto manager = MakeProviderManager();
+    auto cert_provider = std::make_shared<FakeProvider>();
+    cert_provider->m_capabilities = common::ProviderCapability::kCertManagement;
+    ASSERT_TRUE(manager->RegisterProvider("CERT_PROVIDER", cert_provider, common::CryptoProviderType::SOFTWARE));
+
+    auto hw_provider = std::make_shared<FakeProvider>();
+    auto fake_handler = std::make_shared<FakeCertSlotHandler>();
+    hw_provider->m_slot_handler = fake_handler;
+    ASSERT_TRUE(manager->RegisterProvider("HW", hw_provider, common::CryptoProviderType::HARDWARE));
+    ASSERT_TRUE(manager->Initialize());
+
+    auto factory = std::make_shared<cert::SlotHandlerFactory>(manager, "CERT_PROVIDER");
+    cert::CertSlotConfig slot;
+    slot.slot_name = "test/slot";
+    slot.storage_backend = "HW";
+    slot.access_policy.allowed_write_uids = {0U};
+    auto registry = std::make_shared<cert::CertSlotRegistry>();
+    const auto slot_handle = registry->RegisterSlot(slot);
+    cert::CertSlotManager slot_manager{registry, factory};
+
+    const auto unavailable = slot_manager.LoadCertificateForTrustStore(slot_handle);
+    ASSERT_FALSE(unavailable.has_value());
+    EXPECT_EQ(unavailable.error(), Error::kUnsupportedOperation);
+    const auto slot_info = slot_manager.GetSlotInfo(slot_handle, 0U);
+    ASSERT_FALSE(slot_info.has_value());
+    EXPECT_EQ(slot_info.error(), Error::kUnsupportedOperation);
+    bool content_changed = false;
+    const auto clear = slot_manager.ClearSlot(slot_handle, 0U, &content_changed);
+    ASSERT_FALSE(clear.has_value());
+    EXPECT_EQ(clear.error(), Error::kUnsupportedOperation);
+    EXPECT_FALSE(content_changed);
+    EXPECT_EQ(hw_provider->m_last_parser_seen_by_slot_handler, nullptr);
+    EXPECT_EQ(cert_provider->m_get_cert_parser_calls, 3);
+
+    auto parser = std::make_shared<FakeParser>();
+    cert_provider->m_parser = parser;
+
+    const auto handler = slot_manager.GetTrustStoreCertSlotHandler(slot_handle);
+    ASSERT_TRUE(handler.has_value());
+    EXPECT_EQ(handler.value(), fake_handler);
+    EXPECT_EQ(hw_provider->m_last_parser_seen_by_slot_handler, parser);
+    hw_provider->m_slot_handler.reset();
+    const auto cached_handler = slot_manager.GetTrustStoreCertSlotHandler(slot_handle);
+    ASSERT_TRUE(cached_handler.has_value());
+    EXPECT_EQ(cached_handler.value(), fake_handler);
+    EXPECT_EQ(cert_provider->m_get_cert_parser_calls, 4);
 }
 
 }  // namespace

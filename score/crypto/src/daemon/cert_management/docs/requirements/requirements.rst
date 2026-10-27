@@ -47,7 +47,7 @@ Functional requirements
    loading, storage, state, metadata, and release operations through a slot
    handler.
 
-.. comp_req:: Parse provider-neutral certificates
+.. comp_req:: Represent certificates in a provider-neutral format
    :id: comp_req__crypto_cert_management__parse
    :version: 1
    :reqtype: Functional
@@ -101,8 +101,7 @@ Functional requirements
 
    A change to one certificate slot shall refresh only the anchor and CRL cache
    entries of trust-store members backed by that slot. Concurrent readers of a
-   trust store's anchor and CRL caches shall observe a complete anchor set, and
-   never a partially rebuilt set.
+   trust store's anchor and CRL caches shall observe a complete anchor set.
 
 .. comp_req:: Persist certificate and CRL state
    :id: comp_req__crypto_cert_management__persistence

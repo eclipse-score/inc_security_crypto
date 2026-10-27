@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/daemon/cert_management/slot/crl_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/file_backed_crl_storage.hpp"
 
 #include "score/crypto/src/daemon/cert_management/slot/deployment_loader.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/deployment_writer.hpp"
@@ -85,29 +85,32 @@ score::crypto::Expected<bool, Error> CrlFilePresent(const Descriptor& descriptor
 }
 }  // namespace
 
-CrlHandler::CrlHandler(file_io::FileWriter writer) : m_write_file{std::move(writer)} {}
+FileBackedCrlStorage::FileBackedCrlStorage(CertSlotConfig config, file_io::FileWriter writer)
+    : m_config{std::move(config)}, m_write_file{std::move(writer)}
+{
+}
 
-std::string CrlHandler::FormatName(score::crypto::FormatType format)
+std::string FileBackedCrlStorage::FormatName(score::crypto::FormatType format)
 {
     return format == score::crypto::FormatType::kDer ? "der" : "pem";
 }
 
-score::crypto::Expected<bool, Error> CrlHandler::HasCrl(const CertSlotConfig& slot) const
+score::crypto::Expected<bool, Error> FileBackedCrlStorage::HasCrl() const
 {
-    const auto descriptor = LoadDescriptor(slot);
+    const auto descriptor = LoadDescriptor(m_config);
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
     return CrlFilePresent(*descriptor);
 }
 
-score::crypto::Expected<std::monostate, Error> CrlHandler::StoreCrl(const CertSlotConfig& slot, const CrlData& crl)
+score::crypto::Expected<std::monostate, Error> FileBackedCrlStorage::StoreCrl(const CrlData& crl)
 {
     if (crl.bytes.empty() || crl.bytes.size() > kMaxCrlSize)
         return score::crypto::make_unexpected(Error::kInvalidArgument);
     const score::crypto::span<const std::uint8_t> data{crl.bytes.data(), crl.bytes.size()};
     const auto format = crl.format;
     const auto& metadata = crl.metadata;
-    auto descriptor = LoadDescriptor(slot);
+    auto descriptor = LoadDescriptor(m_config);
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
     auto path = descriptor->Get("crl", "crl_path");
@@ -123,7 +126,7 @@ score::crypto::Expected<std::monostate, Error> CrlHandler::StoreCrl(const CertSl
         }
         else
         {
-            path = slot.deployment_path + ".crl";
+            path = m_config.deployment_path + ".crl";
         }
     }
     auto result = m_write_file(path, data);
@@ -143,12 +146,12 @@ score::crypto::Expected<std::monostate, Error> CrlHandler::StoreCrl(const CertSl
         descriptor->Set("crl", "crl_next_update", std::to_string(metadata->next_update));
         descriptor->Set("crl", "crl_number", std::to_string(metadata->crl_number));
     }
-    return SaveDescriptor(slot, *descriptor, m_write_file);
+    return SaveDescriptor(m_config, *descriptor, m_write_file);
 }
 
-score::crypto::Expected<std::monostate, Error> CrlHandler::ClearCrl(const CertSlotConfig& slot)
+score::crypto::Expected<std::monostate, Error> FileBackedCrlStorage::ClearCrl()
 {
-    auto descriptor = LoadDescriptor(slot);
+    auto descriptor = LoadDescriptor(m_config);
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
     const auto path = descriptor->Get("crl", "crl_path");
@@ -161,13 +164,12 @@ score::crypto::Expected<std::monostate, Error> CrlHandler::ClearCrl(const CertSl
     descriptor->RemoveSection("crl");
     if (!path.empty())
         descriptor->Set("crl", "crl_path", path);
-    return SaveDescriptor(slot, *descriptor, m_write_file);
+    return SaveDescriptor(m_config, *descriptor, m_write_file);
 }
 
-score::crypto::Expected<std::optional<score::crypto::CrlMetadata>, Error> CrlHandler::GetCrlMetadata(
-    const CertSlotConfig& slot) const
+score::crypto::Expected<std::optional<score::crypto::CrlMetadata>, Error> FileBackedCrlStorage::GetCrlMetadata() const
 {
-    const auto descriptor = LoadDescriptor(slot);
+    const auto descriptor = LoadDescriptor(m_config);
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
     const auto present = CrlFilePresent(*descriptor);
@@ -178,9 +180,9 @@ score::crypto::Expected<std::optional<score::crypto::CrlMetadata>, Error> CrlHan
     return ParseMetadata(*descriptor);
 }
 
-score::crypto::Expected<std::optional<CrlData>, Error> CrlHandler::LoadCrlData(const CertSlotConfig& slot) const
+score::crypto::Expected<std::optional<CrlData>, Error> FileBackedCrlStorage::LoadCrlData() const
 {
-    auto descriptor = LoadDescriptor(slot);
+    auto descriptor = LoadDescriptor(m_config);
     if (!descriptor)
         return score::crypto::make_unexpected(descriptor.error());
 

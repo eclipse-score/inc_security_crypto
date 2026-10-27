@@ -54,7 +54,7 @@ class FileBackedSlotHandlerRealParserTest : public ::testing::Test
         m_slot.deployment_format = "kv";
 
         m_parser = std::make_shared<openssl_ns::OpenSslCertParser>(score::crypto::daemon::common::ProviderId{1U});
-        m_handler = std::make_unique<cert::FileBackedSlotHandler>(m_parser);
+        m_handler = std::make_unique<cert::FileBackedSlotHandler>(m_slot, m_parser);
     }
 
     void TearDown() override
@@ -79,7 +79,7 @@ TEST_F(FileBackedSlotHandlerRealParserTest, LoadCertificate_MetadataMatchesTestV
     RecordProperty("TestType", "requirements-based");
     RecordProperty("DerivationTechnique", "requirements-analysis");
 
-    const auto result = m_handler->LoadCertificate(m_slot);
+    const auto result = m_handler->LoadCertificate();
     ASSERT_TRUE(result.has_value());
     ASSERT_NE(*result, nullptr);
 
@@ -99,12 +99,12 @@ TEST_F(FileBackedSlotHandlerRealParserTest, StoreThenLoad_SubjectAndIsCAMatch)
     RecordProperty("TestType", "requirements-based");
     RecordProperty("DerivationTechnique", "requirements-analysis");
 
-    const auto initial = m_handler->LoadCertificate(m_slot);
+    const auto initial = m_handler->LoadCertificate();
     ASSERT_TRUE(initial.has_value());
-    ASSERT_TRUE(m_handler->StoreCertificate(m_slot, **initial).has_value());
+    ASSERT_TRUE(m_handler->StoreCertificate(**initial).has_value());
 
-    cert::FileBackedSlotHandler fresh_handler{m_parser};
-    const auto reloaded = fresh_handler.LoadCertificate(m_slot);
+    cert::FileBackedSlotHandler fresh_handler{m_slot, m_parser};
+    const auto reloaded = fresh_handler.LoadCertificate();
     ASSERT_TRUE(reloaded.has_value());
 
     EXPECT_EQ((*reloaded)->GetSubject(), (*initial)->GetSubject());
@@ -141,7 +141,7 @@ class FileBackedSlotHandlerAlgorithmVarietyTest : public ::testing::TestWithPara
         m_slot.deployment_path = descriptor_path.string();
         m_slot.deployment_format = "kv";
         m_parser = std::make_shared<openssl_ns::OpenSslCertParser>(score::crypto::daemon::common::ProviderId{1U});
-        m_handler = std::make_unique<cert::FileBackedSlotHandler>(m_parser);
+        m_handler = std::make_unique<cert::FileBackedSlotHandler>(m_slot, m_parser);
     }
 
     void TearDown() override
@@ -166,7 +166,7 @@ TEST_P(FileBackedSlotHandlerAlgorithmVarietyTest, LoadCertificate_MetadataIsCorr
     RecordProperty("DerivationTechnique", "equivalence-classes");
 
     const auto& param = GetParam();
-    const auto result = m_handler->LoadCertificate(m_slot);
+    const auto result = m_handler->LoadCertificate();
     ASSERT_TRUE(result.has_value()) << "LoadCertificate failed for: " << param.pem_path;
     ASSERT_NE(*result, nullptr);
 

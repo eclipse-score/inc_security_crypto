@@ -124,7 +124,7 @@ Trust-Store Notification Is Owned by CertManagementService, Not CertSlotManager
    :version: 1
    :status: accepted
    :context: doc__crypto_cert_management_architecture
-   :decision: Certificate-slot and CRL mutations are reachable only through CertManagementService::StoreCertificate, ClearSlot, StoreCrl, and ClearCrl. Each performs the underlying CertSlotManager write and then, when the stored content may have changed, notifies every trust store referencing the slot, whether the write succeeded or failed. CertSlotManager itself has no trust-store awareness and never calls TrustStoreManager.
+   :decision: Certificate-slot and CRL mutations are reachable only through CertManagementService::UpdateSlot (overloaded for certificates and CRLs), ClearSlot, and ClearSlotCrl. Each performs the underlying CertSlotManager write and then, when the stored content may have changed, notifies every trust store referencing the slot, whether the write succeeded or failed. CertSlotManager itself has no trust-store awareness and never calls TrustStoreManager.
 
    .. :affects: comp__crypto_cert_management
 
@@ -141,8 +141,8 @@ certificate slots they reference (see
 ``dec_rec__crypto_cert_mgmt__ts_ref_slots``). Something must notify every
 referencing trust store after a slot write that may have changed the stored content. ``TrustStoreManager``
 already depends on ``CertSlotManager`` — it holds a ``CertSlotManager::Sptr``,
-includes its header, and is friend-gated into
-``CertSlotManager::GetTrustStoreCertSlotHandler`` for Tier-3 backend access.
+includes its header, and uses the trust-store seam of ``CertSlotManager`` (for
+example ``GetTrustStoreCertSlotHandler``) as a dependency inside the component.
 Any design that issues the notification from inside ``CertSlotManager`` itself
 needs the reverse dependency, which is circular, not a layering refinement.
 
@@ -162,7 +162,7 @@ Four placements were considered:
    backend write that may have changed the stored content. Requires ``CertSlotManager`` to depend on
    ``TrustStoreManager``, which already depends on ``CertSlotManager`` — a
    circular dependency. The exclusive-slot write guard in
-   ``CertSlotManager::ApplyWriteChecks`` would need to ask ``TrustStoreManager``
+   ``CertSlotRegistry::CheckWriteAccess`` would need to ask ``TrustStoreManager``
    whether a slot is a trust-store-owned member.
 
 3. **A registered observer on ``CertSlotManager``** — ``CertSlotManager`` exposes
@@ -176,19 +176,21 @@ Four placements were considered:
 4. **``CertManagementService`` owns both the write and the notification** —
    the service wraps ``CertSlotManager``'s four mutation methods; after each
    call that may have changed the stored content, successful or failed, it
-   calls ``TrustStoreManager::GetMembershipsForSlot`` and fans out to
-   ``NotifySlotChanged`` (certificate updates) or ``NotifySlotCrlChanged`` (CRL
-   updates) for each referencing store. ``CertManagementService`` already holds
+   calls ``TrustStoreManager::NotifySlotChanged`` (certificate updates) or
+   ``TrustStoreManager::NotifySlotCrlChanged`` (CRL updates) with the slot. The
+   trust store manager finds the referencing stores itself and updates each one.
+   ``CertManagementService`` already holds
    both ``CertSlotManager::Sptr`` and ``TrustStoreManager::Sptr`` as sibling
    dependencies, so this introduces no new dependency edge.
 
 Decision
 --------
 
-Option 4 was selected. ``CertManagementService::StoreCertificate``/``ClearSlot``
-call ``TrustStoreManager::NotifySlotChanged``, which reloads only the changed
+Option 4 was selected. The certificate overload of
+``CertManagementService::UpdateSlot`` and ``ClearSlot`` call
+``TrustStoreManager::NotifySlotChanged``, which reloads only the changed
 member's anchor and CRL entries, leaving other members' cached entries
-untouched. ``StoreCrl``/``ClearCrl`` call
+untouched. The CRL overload of ``UpdateSlot`` and ``ClearSlotCrl`` call
 ``TrustStoreManager::NotifySlotCrlChanged``, which calls
 ``TrustStoreHandler::OnSlotCrlChanged``. The handler takes the slot's current CRL
 snapshot — or none, after a delete — from ``CertSlotManager`` and replaces the
@@ -196,8 +198,9 @@ member's cached CRL with it, without reloading the certificate, since a CRL
 refresh changes revocation data, not the anchor's identity. Reading the current
 snapshot, rather than receiving one in the notification, keeps concurrent
 updates ordered by the slot's state and not by notification arrival.
-``GetSlotManager()`` remains available for read-only slot operations, which
-have no trust-store side effect to coordinate; only the four mutation methods
+``GetSlotManager()`` returns the read-only ``ICertSlotManager`` view, which
+offers the read operations. Reads have no trust-store side effect to coordinate;
+only the four mutation methods
 are redirected through the service.
 
 Consequences
@@ -214,13 +217,14 @@ Consequences
 
 **Negative:**
 
-* ``CertManagementService::GetSlotManager()`` returns the underlying
-  ``CertSlotManager::Sptr`` for read-only operations (``LoadCertificate``,
-  ``GetSlotInfo``, ``HasCrl``, ``GetCrlNextUpdate``, and similar). A caller that
-  holds this handle can still call its ``StoreCertificate``/``ClearSlot``/
-  ``StoreCrl``/``ClearCrl`` methods directly and silently lose trust-store
-  notification; nothing at the type level prevents this. The constraint is
-  documented on ``GetSlotManager()`` but not enforced.
+* ``CertManagementService::GetSlotManager()`` returns the read-only
+  ``ICertSlotManager`` view (``LoadCertificate``, ``GetSlotInfo``, ``HasCrl``,
+  ``GetCrlNextUpdate``, and similar). Callers outside the component cannot reach
+  the mutation methods through it. Inside the component, ``CertSlotManager`` is
+  still reachable, and a component-internal caller that calls its
+  ``StoreCertificate``/``ClearSlot``/``StoreCrl``/``ClearCrl`` methods directly
+  would silently skip trust-store notification. That rule is held by convention
+  inside the component and is not enforced by the type system.
 * A ``kExclusiveMutable`` trust-store member slot configured with a non-empty
   ``allowed_write_uids`` still lets a listed UID write it directly through
   ``CertSlotManager``/``ICertSlotHandler``, bypassing both the trust store's
@@ -248,7 +252,7 @@ CRL Co-located with the Certificate Slot
 
 A CRL is stored in the optional ``[crl]`` section of the certificate slot's KV
 deployment descriptor alongside the ``[certificate]`` section. CRL storage and
-retrieval are encapsulated in ``CrlHandler``, which is composed into
+retrieval are encapsulated in ``FileBackedCrlStorage``, which is composed into
 ``FileBackedSlotHandler``.
 
 Context
@@ -283,7 +287,7 @@ Decision
 CRL co-location with the cert slot (option 3) was selected. ``ICertSlotHandler``
 is extended with ``HasCrl``, ``GetCrlMetadata``, ``LoadCrlData``, ``StoreCrl``,
 and ``ClearCrl`` — implemented by the composed
-``CrlHandler``. The descriptor persists the CRL fingerprint, issuer fingerprint,
+``FileBackedCrlStorage``. The descriptor persists the CRL fingerprint, issuer fingerprint,
 ``thisUpdate``, ``nextUpdate``, and ``cRLNumber``. The public
 ``ICertificateObject`` exposes this as optional ``CrlMetadata``; encoding format
 remains an internal persistence detail. Persisted ``CrlMetadata`` is written
@@ -583,9 +587,11 @@ Resolution is lazy on first slot-handler creation. ``Initialize()`` resolves
 eagerly and returns the resolution error without exposing the parser, so a
 caller can fail fast at startup; ``CertManagementModule::Create`` invokes it only
 when a parser provider is explicitly configured, and returns no module when that
-configured provider cannot be honoured. A successful parser is cached and shared
-across copies of the factory. A failed resolution is not cached, so a later call
-retries once the provider set is complete.
+configured provider cannot be honoured. A successful parser is cached by the shared
+factory. A failed resolution is not cached, so a later call
+retries once the provider set is complete. ``SlotHandlerFactory::Create`` returns
+the resolution error without creating a handler when no parser is available;
+the slot manager caches only successfully created handlers.
 
 Context provider hints remain meaningful for context-scoped capabilities such as
 path validation and CSR generation. They do not select the parser.
@@ -606,11 +612,10 @@ Consequences
 **Negative:**
 
 * When no parser provider is configured and no provider offers the
-  certificate-management capability, slot handlers are created without a parser.
-  Operations that need one (certificate parsing, CRL validation) report an error
-  at the point of use; slot enumeration, slot state, and trust-store membership
-  listing remain available. Startup does not fail in this case, because no
-  explicit deployment choice has been contradicted.
+  certificate-management capability, startup remains available but slot-handler
+  creation fails. Operations requiring a slot handler, including slot state and
+  writes, report the creation error even when they do not parse content. A later
+  request retries creation; no restricted handler is cached.
 * Because failed resolution is not cached, the diagnostic for a missing
   certificate-management provider is emitted on each attempt rather than once.
 * A client cannot request a particular provider's parsing behaviour. Deployments

@@ -116,10 +116,8 @@ package "Persisted (deployment storage)" {
 }
 
 TrustStoreConfig *-- "0..*" TrustStoreMemberConfig
-TrustStoreMemberConfig ..> CertSlotConfig : by slot_name
 CertSlotRegistry o-- "0..*" CertSlotConfig
 
-CertSlotManager --> CertSlotRegistry
 CertSlotManager *-- "1 per slot" SlotHandler
 CertSlotManager ..> CertObject : weak
 CertSlotManager ..> CrlData : weak snapshot
@@ -128,13 +126,10 @@ SlotDescriptor --> Files
 
 TrustStoreManager *-- "0..*" TrustStoreHandler
 TrustStoreHandler *-- TrustStoreConfig
-TrustStoreHandler --> CertSlotManager : slot backends
 TrustStoreHandler o-- "0..*" CertObject : anchors
 TrustStoreHandler o-- "0..*" CrlData : CRLs
 TrustStoreHandler --> StoreDescriptor
 
-CertSlotDataNode ..> CertSlotRegistry : handle
-TrustStoreDataNode ..> TrustStoreManager : handle
 CertDataNode *-- CertEntry
 CertRegistry o-- "0..*" CertEntry
 CertEntry o-- CertObject : shared with\nslot cache

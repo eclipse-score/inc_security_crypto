@@ -27,6 +27,7 @@ participant "ICertParser" as Parser
 participant "CertManagementService" as Service
 participant "CertEntry\n(per client)" as Entry
 participant "CertSlotManager" as SlotManager
+participant "CertSlotRegistry" as Registry
 participant "TrustStoreHandler" as StoreHandler
 participant "TrustStoreManager" as TrustManager
 
@@ -48,12 +49,13 @@ else persist = false
   end note
   Executor --> Context : success
 else persist = true (slot resource, write access required)
-  Executor -> Service : StoreCrl(slot, client, CrlData)
+  Executor -> Service : UpdateSlot(slot, client, CrlData)
   Service -> SlotManager : StoreCrl(slot, client, CrlData)
-  SlotManager -> SlotManager : ApplyWriteChecks(config, client),\nstore CRL, invalidate CRL cache entry
+  SlotManager -> Registry : CheckWriteAccess(slot, client)
+  SlotManager -> SlotManager : store CRL, invalidate CRL cache entry
   SlotManager --> Service : success
+  Service -> TrustManager : NotifySlotCrlChanged(slot)
   loop each trust store referencing the slot
-    Service -> TrustManager : NotifySlotCrlChanged(store, slot)
     TrustManager -> StoreHandler : OnSlotCrlChanged(slot)
     StoreHandler -> SlotManager : LoadCrlDataForTrustStore(slot)
     SlotManager --> StoreHandler : shared CrlData::Sptrc

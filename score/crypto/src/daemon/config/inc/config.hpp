@@ -421,7 +421,10 @@ class CertificateConfig
     /// Initial policy for conditional members that have no persisted state.
     enum class ConditionalSlotInitialization : uint8_t
     {
-        /// Enable the member and accept its current certificate fingerprint.
+        /// Enable the member and accept its current certificate fingerprint. When the store has a
+        /// deployment path the acceptance is persisted first. A memory-only store (no deployment
+        /// path) keeps it only for the life of the process, so each restart accepts whatever
+        /// certificate the slot holds at that time.
         kEnableAndAcceptCurrent = 0U,
 
         /// Disable the member until its current fingerprint is acknowledged.

@@ -21,24 +21,22 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
-#include <utility>
-#include <variant>
 
 namespace score::crypto::daemon::cert_management
 {
 
-/// @brief CertSlotHandlerFactory callable that resolves a slot's storage backend
+/// @brief Factory that resolves a slot's storage backend
 ///        ("DEFAULT" -> FileBackedSlotHandler, otherwise a named provider) on
 ///        every invocation.
 ///
 /// Owns canonical parser selection for certificate slots. An explicit parser provider
 /// name pins the selection; otherwise the kCertManagement capability default is used.
-/// Successful resolution is shared across copies of this factory. Failed resolution is
+/// Successful resolution is cached by the factory. Failed resolution is
 /// not cached, allowing a later call to retry. The provider registry is also consulted
 /// for named slot backends.
 ///
-/// The provider manager is held strongly because this callable may resolve parsers and
-/// named backends after construction. Copies share the parser cache.
+/// The provider manager is held strongly because the factory may resolve parsers and
+/// named backends after construction.
 class SlotHandlerFactory final
 {
   public:
@@ -49,34 +47,31 @@ class SlotHandlerFactory final
     /// @param parser_provider_name Exact provider name to use for parsing; empty selects
     ///        the provider manager's kCertManagement default.
     explicit SlotHandlerFactory(provider::ProviderManager::Sptr provider_manager,
-                                common::ProviderName parser_provider_name = {})
-        : m_provider_manager{std::move(provider_manager)},
-          m_parser_provider_name{std::move(parser_provider_name)},
-          m_parser_cache{std::make_shared<ParserCache>()}
-    {
-    }
+                                common::ProviderName parser_provider_name = {});
 
-    /// @brief Resolve and validate the parser before creating slot handlers.
+    /// @brief Resolve the certificate parser now, so that a failure can be reported at a chosen point.
     ///
-    /// The parser remains owned by this factory and is supplied to created slot handlers.
-    /// Failure is returned without caching, so a later call can retry. Callers may omit
-    /// this method and allow operator() to resolve the parser on demand.
+    /// Resolution is shared with Create(). A successful result is cached and used for every handler
+    /// the factory creates afterwards. A failure is not cached, so the next call tries again. Startup
+    /// calls this method when a parser provider is configured, and a failure there stops startup.
+    /// Without this call, the parser is resolved on the first call to Create() instead.
+    /// @return Success, or the error from the parser resolution.
     [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> Initialize() const;
 
     /// @brief Create a slot handler for the given slot configuration.
+    ///
+    /// Resolves the canonical parser before creating the handler. Failed resolution can be retried.
     /// @param slot Slot configuration; storage_backend selects FileBackedSlotHandler
     ///        ("DEFAULT") or the ICertSlotHandler implementation of a named provider.
-    /// @return The constructed handler, or nullptr when the provider registry is absent,
-    ///         the named backend provider cannot be found, or the provider declines to
-    ///         produce a handler for the slot.
-    [[nodiscard]] ICertSlotHandler::Sptr operator()(const CertSlotConfig& slot) const;
+    /// @return A non-null handler, or the parser or backend selection error.
+    [[nodiscard]] score::crypto::Expected<ICertSlotHandler::Sptr, common::DaemonErrorCode> Create(
+        const CertSlotConfig& slot) const;
 
   private:
     struct ParserCache
     {
         std::mutex mutex;
         provider::cert_management::ICertParser::Sptr parser;
-        // Published after parser assignment so initialized readers can avoid the mutex.
         std::atomic<bool> resolved{false};
     };
 
@@ -85,7 +80,7 @@ class SlotHandlerFactory final
 
     provider::ProviderManager::Sptr m_provider_manager;
     common::ProviderName m_parser_provider_name;
-    std::shared_ptr<ParserCache> m_parser_cache;
+    mutable ParserCache m_parser_cache;
 };
 
 }  // namespace score::crypto::daemon::cert_management

@@ -11,12 +11,16 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
+#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/config_driven_slot_catalog.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/deployment_loader.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/slot_handler_factory.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/config_driven_trust_store_catalog.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
+#include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
@@ -36,8 +40,59 @@ namespace
 namespace cert = score::crypto::daemon::cert_management;
 namespace common = score::crypto::daemon::common;
 namespace config = score::crypto::daemon::config;
+namespace provider = score::crypto::daemon::provider;
 namespace storage = score::crypto::daemon::common::storage;
 namespace openssl = score::crypto::daemon::provider::score_provider::openssl;
+
+class TestParserProvider final : public provider::IProvider
+{
+  public:
+    explicit TestParserProvider(std::shared_ptr<openssl::OpenSslCertParser> parser) : m_parser{std::move(parser)} {}
+
+    bool Initialize(const provider::ProviderInitContext& context) override
+    {
+        m_provider_id = context.numeric_id;
+        m_provider_name = context.name;
+        m_initialized = true;
+        return true;
+    }
+
+    void Shutdown() override
+    {
+        m_initialized = false;
+    }
+
+    [[nodiscard]] bool IsInitialized() const override
+    {
+        return m_initialized;
+    }
+
+    common::ProviderId GetProviderId() const override
+    {
+        return m_provider_id;
+    }
+
+    const common::ProviderName& GetProviderName() const override
+    {
+        return m_provider_name;
+    }
+
+    provider::cert_management::ICertParser::Sptr GetCertParser() override
+    {
+        return m_parser;
+    }
+
+    [[nodiscard]] common::ProviderCapability GetProviderCapabilities() override
+    {
+        return common::ProviderCapability::kCertManagement;
+    }
+
+  private:
+    std::shared_ptr<openssl::OpenSslCertParser> m_parser;
+    common::ProviderId m_provider_id{common::kInvalidProviderId};
+    common::ProviderName m_provider_name;
+    bool m_initialized{false};
+};
 
 // ---------------------------------------------------------------------------
 // Helper — build a ClientId from explicit pid/uid fields.
@@ -108,15 +163,19 @@ class CertificateManagementIntegrationTest : public ::testing::Test
         m_config.AddAppCertSlotEntry({0U, "device_certificate", "device/root-ca"});
         m_config.AddAppTrustStoreEntry({0U, "tls_roots", "tls-roots"});
 
-        m_parser = std::make_shared<openssl::OpenSslCertParser>(1U);
+        m_parser = std::make_shared<openssl::OpenSslCertParser>(common::ProviderId{0U});
+        m_provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
+        auto parser_provider = std::make_shared<TestParserProvider>(m_parser);
+        ASSERT_TRUE(
+            m_provider_manager->RegisterProvider("OPENSSL", parser_provider, common::CryptoProviderType::SOFTWARE));
+        ASSERT_TRUE(m_provider_manager->Initialize());
         m_slot_registry = std::make_shared<cert::CertSlotRegistry>();
         cert::ConfigDrivenSlotCatalog slot_catalog{m_config};
         slot_catalog.Load(*m_slot_registry);
 
         m_trust_store_manager = std::make_shared<cert::TrustStoreManager>();
-        m_slot_manager = std::make_shared<cert::CertSlotManager>(m_slot_registry, [this](const cert::CertSlotConfig&) {
-            return std::make_shared<cert::FileBackedSlotHandler>(m_parser);
-        });
+        auto factory = std::make_shared<cert::SlotHandlerFactory>(m_provider_manager);
+        m_slot_manager = std::make_shared<cert::CertSlotManager>(m_slot_registry, std::move(factory));
         cert::ConfigDrivenTrustStoreCatalog trust_store_catalog{m_config};
         trust_store_catalog.Load(*m_trust_store_manager, m_slot_registry, m_slot_manager);
     }
@@ -138,6 +197,7 @@ class CertificateManagementIntegrationTest : public ::testing::Test
     std::filesystem::path m_certificate_path;
     std::filesystem::path m_trust_store_path;
     config::CertificateConfig m_config;
+    provider::ProviderManager::Sptr m_provider_manager;
     std::shared_ptr<openssl::OpenSslCertParser> m_parser;
     cert::CertSlotRegistry::Sptr m_slot_registry;
     cert::CertSlotManager::Sptr m_slot_manager;
@@ -161,8 +221,8 @@ TEST_F(CertificateManagementIntegrationTest, LoadsPersistsUpdatesAndInvalidatesT
     const auto slot_config = m_slot_registry->GetConfig(*slot);
     ASSERT_TRUE(slot_config.has_value());
 
-    auto slot_handler = std::make_shared<cert::FileBackedSlotHandler>(m_parser);
-    const auto initial = slot_handler->LoadCertificate(slot_config.value().get());
+    auto slot_handler = std::make_shared<cert::FileBackedSlotHandler>(slot_config.value().get(), m_parser);
+    const auto initial = slot_handler->LoadCertificate();
     ASSERT_TRUE(initial.has_value());
     EXPECT_EQ((*initial)->GetSubject(), "CN=cert-management-test,O=Eclipse");
     EXPECT_TRUE((*initial)->IsCA());
@@ -182,7 +242,7 @@ TEST_F(CertificateManagementIntegrationTest, LoadsPersistsUpdatesAndInvalidatesT
     const auto updated = m_parser->ParseCertificate(
         reinterpret_cast<const std::uint8_t*>(updated_pem.data()), updated_pem.size(), score::crypto::FormatType::kPem);
     ASSERT_TRUE(updated.has_value());
-    ASSERT_TRUE(slot_handler->StoreCertificate(slot_config.value().get(), **updated).has_value());
+    ASSERT_TRUE(slot_handler->StoreCertificate(**updated).has_value());
 
     const auto descriptor = cert::DeploymentLoader::Load(m_descriptor_path.string(), "kv");
     ASSERT_TRUE(descriptor.has_value());
@@ -190,7 +250,7 @@ TEST_F(CertificateManagementIntegrationTest, LoadsPersistsUpdatesAndInvalidatesT
     EXPECT_EQ(descriptor->Get("certificate_metadata", "issuer"), "CN=cert-management-updated,O=Eclipse");
     EXPECT_EQ(descriptor->Get("certificate_metadata", "is_ca"), "true");
 
-    m_trust_store_manager->NotifySlotChanged(*trust_store_handle, *slot);
+    m_trust_store_manager->NotifySlotChanged(*slot);
     const auto updated_anchors = trust_store->GetAnchors();
     ASSERT_TRUE(updated_anchors.has_value());
     ASSERT_EQ(updated_anchors->size(), 1U);
@@ -366,10 +426,8 @@ TEST_F(CertificateManagementIntegrationTest, WritesDeniedWhenAllowedWriteUidsIsE
     // access_policy.allowed_write_uids left empty — default-deny for all UIDs.
     const auto locked_slot = registry->RegisterSlot(cfg);
 
-    auto handler = std::make_shared<cert::FileBackedSlotHandler>(m_parser);
-    cert::CertSlotManager locked_mgr{registry, [&handler](const cert::CertSlotConfig&) {
-                                         return handler;
-                                     }};
+    auto factory = std::make_shared<cert::SlotHandlerFactory>(m_provider_manager);
+    cert::CertSlotManager locked_mgr{registry, std::move(factory)};
 
     const auto src_slot = m_slot_registry->ResolveAppResource("device_certificate", 0U);
     ASSERT_TRUE(src_slot.has_value());

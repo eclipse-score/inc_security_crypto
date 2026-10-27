@@ -19,36 +19,37 @@ namespace score::crypto::daemon::cert_management
 
 using DaemonError = score::crypto::daemon::common::DaemonErrorCode;
 
-score::crypto::Expected<std::monostate, DaemonError> ICertSlotHandler::StoreCertificate(const CertSlotConfig& /*slot*/,
-                                                                                        const CertObject& /*cert*/)
+const CertSlotConfig& ICertSlotHandler::GetConfig() const noexcept
+{
+    return m_config;
+}
+
+score::crypto::Expected<std::monostate, DaemonError> ICertSlotHandler::StoreCertificate(const CertObject& /*cert*/)
 {
     return score::crypto::make_unexpected(DaemonError::kUnsupportedOperation);
 }
 
-score::crypto::Expected<std::monostate, DaemonError> ICertSlotHandler::ClearSlot(const CertSlotConfig& /*slot*/)
+score::crypto::Expected<std::monostate, DaemonError> ICertSlotHandler::ClearSlot()
 {
     return score::crypto::make_unexpected(DaemonError::kUnsupportedOperation);
 }
 
-score::crypto::Expected<std::monostate, DaemonError> ICertSlotHandler::StoreCrl(const CertSlotConfig& /*slot*/,
-                                                                                const CrlData& /*crl*/)
+score::crypto::Expected<std::monostate, DaemonError> ICertSlotHandler::StoreCrl(const CrlData& /*crl*/)
 {
     return score::crypto::make_unexpected(DaemonError::kUnsupportedOperation);
 }
 
-score::crypto::Expected<std::monostate, DaemonError> ICertSlotHandler::ClearCrl(const CertSlotConfig& /*slot*/)
+score::crypto::Expected<std::monostate, DaemonError> ICertSlotHandler::ClearCrl()
 {
     return score::crypto::make_unexpected(DaemonError::kUnsupportedOperation);
 }
 
-score::crypto::Expected<std::optional<score::crypto::CrlMetadata>, DaemonError> ICertSlotHandler::GetCrlMetadata(
-    const CertSlotConfig& /*slot*/)
+score::crypto::Expected<std::optional<score::crypto::CrlMetadata>, DaemonError> ICertSlotHandler::GetCrlMetadata()
 {
     return std::optional<score::crypto::CrlMetadata>{};
 }
 
-score::crypto::Expected<std::optional<CrlData>, DaemonError> ICertSlotHandler::LoadCrlData(
-    const CertSlotConfig& /*slot*/)
+score::crypto::Expected<std::optional<CrlData>, DaemonError> ICertSlotHandler::LoadCrlData()
 {
     return score::crypto::make_unexpected(DaemonError::kUnsupportedOperation);
 }

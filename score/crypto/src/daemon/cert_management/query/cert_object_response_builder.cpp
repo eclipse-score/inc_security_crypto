@@ -81,7 +81,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
 }
 
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode>
-BuildCertSlotInfoResponse(CertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id)
+BuildCertSlotInfoResponse(ICertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id)
 {
     auto info_res = mgr.GetSlotInfo(slot, client_id);
     if (!info_res.has_value())
@@ -103,7 +103,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     slot_node_ids.reserve(slots.size());
     for (const auto& slot : slots)
     {
-        auto nid_res = service.ResolveCertSlot(slot, client_id);
+        auto nid_res = service.ResolveCertSlotNode(slot, client_id);
         if (!nid_res.has_value())
             return score::crypto::make_unexpected(nid_res.error());
         slot_node_ids.push_back(static_cast<std::uint64_t>(nid_res.value()));
@@ -121,7 +121,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     CertManagementService& service,
     std::uint64_t client_id)
 {
-    auto nid_res = service.ResolveCertSlot(member.slot_handle, client_id);
+    auto nid_res = service.ResolveCertSlotNode(member.slot_handle, client_id);
     if (!nid_res.has_value())
         return score::crypto::make_unexpected(nid_res.error());
     const auto kind_res = ToApiMemberKind(member.kind);

@@ -34,14 +34,20 @@
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/slot_handler_factory.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
+#include "score/crypto/src/daemon/provider/i_provider.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 #include "score/span.hpp"
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -53,6 +59,8 @@ namespace
 namespace cert = score::crypto::daemon::cert_management;
 namespace query = cert::query;
 namespace common = score::crypto::daemon::common;
+namespace config = score::crypto::daemon::config;
+namespace provider = score::crypto::daemon::provider;
 
 // ---------------------------------------------------------------------------
 // Helpers — extract typed value from ResponseParameter variant
@@ -159,55 +167,52 @@ void ExpectResponseParametersEqual(const common::ResponseParameters& actual, con
 
 struct SlotHandlerStub : public cert::ICertSlotHandler
 {
+    SlotHandlerStub() : cert::ICertSlotHandler{cert::CertSlotConfig{}} {}
+
     mutable score::crypto::Expected<score::crypto::CertificateSlotInfo, score::crypto::daemon::common::DaemonErrorCode>
         slot_info_result{score::crypto::CertificateSlotInfo{score::crypto::CertificateSlotState::kOccupied}};
 
-    score::crypto::Expected<cert::CertObject::Sptr, score::crypto::daemon::common::DaemonErrorCode> LoadCertificate(
-        const cert::CertSlotConfig&) override
+    score::crypto::Expected<cert::CertObject::Sptr, score::crypto::daemon::common::DaemonErrorCode> LoadCertificate()
+        override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
 
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> StoreCertificate(
-        const cert::CertSlotConfig&,
         const cert::CertObject&) override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
 
-    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ClearSlot(
-        const cert::CertSlotConfig&) override
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ClearSlot() override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
 
     score::crypto::Expected<score::crypto::CertificateSlotState, score::crypto::daemon::common::DaemonErrorCode>
-    GetSlotState(const cert::CertSlotConfig&) override
+    GetSlotState() override
     {
         return score::crypto::CertificateSlotState::kEmpty;
     }
 
     score::crypto::Expected<score::crypto::CertificateSlotInfo, score::crypto::daemon::common::DaemonErrorCode>
-    GetSlotInfo(const cert::CertSlotConfig&) override
+    GetSlotInfo() override
     {
         return slot_info_result;
     }
 
-    score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> HasCrl(
-        const cert::CertSlotConfig&) override
+    score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> HasCrl() override
     {
         return slot_info_result.has_value() && slot_info_result->has_crl;
     }
 
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> StoreCrl(
-        const cert::CertSlotConfig&,
         const cert::CrlData&) override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
 
-    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ClearCrl(
-        const cert::CertSlotConfig&) override
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ClearCrl() override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
@@ -308,10 +313,99 @@ TEST(BuildCertObjectResponse, OversizedDnsReturnResponseTooLarge)
 // ===========================================================================
 // BuildCertSlotInfoResponse
 //
-// CertSlotManager is constructed with a minimal CertSlotRegistry and a factory
-// that returns a SlotHandlerStub.  CheckSlotAccess is unconditionally permissive
-// for reads, so no UID configuration is required.
+// CertSlotManager uses the real SlotHandlerFactory; a registered test provider
+// returns the SlotHandlerStub. CheckSlotAccess is permissive for reads, so no UID
+// configuration is required.
 // ===========================================================================
+
+class QueryTestParser final : public provider::cert_management::ICertParser
+{
+  public:
+    score::crypto::Expected<cert::CertObject::Sptr, common::DaemonErrorCode>
+    ParseCertificate(const std::uint8_t*, std::size_t, score::crypto::FormatType) override
+    {
+        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    }
+
+    score::crypto::Expected<std::vector<cert::CertObject::Sptr>, common::DaemonErrorCode>
+    ParseCertificates(const std::uint8_t*, std::size_t, score::crypto::FormatType) override
+    {
+        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    }
+
+    score::crypto::Expected<std::vector<std::uint8_t>, common::DaemonErrorCode> EncodeCertificate(
+        const cert::CertObject&,
+        score::crypto::FormatType) override
+    {
+        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    }
+
+    score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode>
+    ValidateCrl(const cert::CrlData&, const std::uint8_t*, std::size_t, score::crypto::FormatType) override
+    {
+        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+    }
+};
+
+class QueryTestProvider final : public provider::IProvider
+{
+  public:
+    QueryTestProvider(provider::cert_management::ICertParser::Sptr parser, cert::ICertSlotHandler::Sptr handler)
+        : m_parser{std::move(parser)}, m_handler{std::move(handler)}
+    {
+    }
+
+    bool Initialize(const provider::ProviderInitContext& context) override
+    {
+        m_provider_id = context.numeric_id;
+        m_provider_name = context.name;
+        m_initialized = true;
+        return true;
+    }
+
+    void Shutdown() override
+    {
+        m_initialized = false;
+    }
+
+    [[nodiscard]] bool IsInitialized() const override
+    {
+        return m_initialized;
+    }
+
+    common::ProviderId GetProviderId() const override
+    {
+        return m_provider_id;
+    }
+
+    const common::ProviderName& GetProviderName() const override
+    {
+        return m_provider_name;
+    }
+
+    provider::cert_management::ICertParser::Sptr GetCertParser() override
+    {
+        return m_parser;
+    }
+
+    std::shared_ptr<cert::ICertSlotHandler> GetCertSlotHandler(const cert::CertSlotConfig&,
+                                                               provider::cert_management::ICertParser::Sptr) override
+    {
+        return m_handler;
+    }
+
+    [[nodiscard]] common::ProviderCapability GetProviderCapabilities() override
+    {
+        return common::ProviderCapability::kCertManagement;
+    }
+
+  private:
+    provider::cert_management::ICertParser::Sptr m_parser;
+    cert::ICertSlotHandler::Sptr m_handler;
+    common::ProviderId m_provider_id{common::kInvalidProviderId};
+    common::ProviderName m_provider_name;
+    bool m_initialized{false};
+};
 
 class BuildCertSlotInfoResponseTest : public ::testing::Test
 {
@@ -323,13 +417,17 @@ class BuildCertSlotInfoResponseTest : public ::testing::Test
         auto registry = std::make_shared<cert::CertSlotRegistry>();
         cert::CertSlotConfig cfg;
         cfg.slot_name = "test/serializer-slot";
+        cfg.storage_backend = "QUERY_TEST_PROVIDER";
         slot_handle_ = registry->RegisterSlot(cfg);
 
         stub_ = std::make_shared<SlotHandlerStub>();
-        auto stub_ptr = stub_;
-        mgr_ = std::make_unique<cert::CertSlotManager>(std::move(registry), [stub_ptr](const cert::CertSlotConfig&) {
-            return stub_ptr;
-        });
+        auto provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
+        auto test_provider = std::make_shared<QueryTestProvider>(std::make_shared<QueryTestParser>(), stub_);
+        ASSERT_TRUE(provider_manager->RegisterProvider(
+            "QUERY_TEST_PROVIDER", test_provider, common::CryptoProviderType::SOFTWARE));
+        ASSERT_TRUE(provider_manager->Initialize());
+        auto factory = std::make_shared<cert::SlotHandlerFactory>(std::move(provider_manager));
+        mgr_ = std::make_unique<cert::CertSlotManager>(std::move(registry), std::move(factory));
     }
 
     cert::CertSlotHandle slot_handle_{};

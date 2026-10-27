@@ -15,7 +15,7 @@
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_QUERY_CERT_OBJECT_RESPONSE_BUILDER_HPP
 
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_object.hpp"
-#include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
+#include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -79,7 +79,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
 /// GET_CERT_SLOT_OBJECT handler. Always small and fixed-size; no payload
 /// budget check needed.
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode>
-BuildCertSlotInfoResponse(CertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id);
+BuildCertSlotInfoResponse(ICertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id);
 
 /// @brief Build the lightweight list of a trust store's occupied member slot IDs.
 ///

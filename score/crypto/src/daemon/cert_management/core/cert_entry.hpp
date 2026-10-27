@@ -24,6 +24,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <vector>
 
 namespace score::crypto::daemon::cert_management
 {
@@ -43,14 +44,10 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     /// @param owner        The client that owns this entry.
     /// @param object       Owning cert object (must not be nullptr).
     /// @param slot_handle  Non-default only when cert was loaded from a slot.
-    CertEntry(data_manager::ClientId owner, CertObject::Sptr object, CertSlotHandle slot_handle = CertSlotHandle{})
-        : m_object{std::move(object)}, m_slot_handle{slot_handle}, m_owner_client_id{owner}
-    {
-    }
+    CertEntry(data_manager::ClientId owner, CertObject::Sptr object, CertSlotHandle slot_handle = CertSlotHandle{});
 
-    /// Default destructor; shared ownership of the underlying CertObject is
-    /// released automatically.
-    ~CertEntry() = default;
+    /// Releases this entry's shared ownership of the underlying CertObject and any session CRL.
+    ~CertEntry();
 
     CertEntry(const CertEntry&) = delete;
     CertEntry& operator=(const CertEntry&) = delete;
@@ -63,10 +60,7 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     /// @note Thread-safe. The underlying value is fixed at construction and
     ///       never modified afterward, so concurrent calls from any thread
     ///       require no external synchronization.
-    [[nodiscard]] CertObject::Sptr GetCertObject() const noexcept
-    {
-        return m_object;
-    }
+    [[nodiscard]] CertObject::Sptr GetCertObject() const noexcept;
 
     /// Return the slot this certificate was loaded from, if any.
     ///
@@ -75,32 +69,24 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     /// @note Thread-safe. The underlying value is fixed at construction and
     ///       never modified afterward, so concurrent calls from any thread
     ///       require no external synchronization.
-    [[nodiscard]] CertSlotHandle GetSlotHandle() const noexcept
-    {
-        return m_slot_handle;
-    }
+    [[nodiscard]] CertSlotHandle GetSlotHandle() const noexcept;
 
     // -----------------------------------------------------------------------
     // Session-scoped CRL association
     //
-    // A session CRL is validated externally (signature, issuer match, validity)
-    // before being attached. CertEntry stores the bytes verbatim; no re-validation
-    // occurs. The association is session-lifetime — it does not survive a daemon
-    // restart and is never written to disk. This allows ImportCrl() to associate
-    // a CRL with an ephemeral kCertificate without requiring slot write access.
+    // A session CRL is validated by the caller (signature, issuer match, validity)
+    // before it is attached. CertEntry stores the bytes verbatim and does not
+    // validate them again. The association lasts for the session only: it is not
+    // kept across a daemon restart and is never written to disk. An ephemeral
+    // kCertificate can therefore carry a CRL without write access to a slot.
     // -----------------------------------------------------------------------
 
-    /// Attach a previously-validated CRL to this entry for the current session.
+    /// Attach a validated CRL to this entry for the current session.
     ///
     /// @param crl  Encoded CRL bytes, encoding, and optional metadata; stored verbatim without re-validation.
     /// @note Thread-safe. Access to the session CRL state is serialized
     ///       internally via a dedicated mutex.
-    void AttachSessionCrl(CrlData crl)
-    {
-        auto snapshot = std::make_shared<const CrlData>(std::move(crl));
-        const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        m_session_crl = std::move(snapshot);
-    }
+    void AttachSessionCrl(CrlData crl);
 
     /// Check whether a session-scoped CRL has been attached.
     ///
@@ -108,74 +94,17 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     ///         since been cleared.
     /// @note Thread-safe. Access to the session CRL state is serialized
     ///       internally via a dedicated mutex.
-    [[nodiscard]] bool HasSessionCrl() const
-    {
-        const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        return m_session_crl != nullptr;
-    }
+    [[nodiscard]] bool HasSessionCrl() const;
 
-    /// Retrieve the attached session CRL bytes, if any.
-    ///
-    /// @return A copy of the session CRL bytes, or an empty optional when no
-    ///         CRL is currently attached.
-    /// @note Thread-safe. Access to the session CRL state is serialized
-    ///       internally via a dedicated mutex.
-    [[nodiscard]] std::optional<std::vector<uint8_t>> GetSessionCrl() const
-    {
-        const auto crl = GetSessionCrlSnapshot();
-        if (!crl)
-            return std::nullopt;
-        return crl->bytes;
-    }
-
-    /// Return the encoding format of the attached session CRL.
-    ///
-    /// @return The attached CRL's format, or an empty optional when no CRL
-    ///         is attached.
-    /// @note Thread-safe. Access to the session CRL state is serialized
-    ///       internally via a dedicated mutex.
-    [[nodiscard]] std::optional<score::crypto::FormatType> GetSessionCrlFormat() const
-    {
-        const auto crl = GetSessionCrlSnapshot();
-        if (!crl)
-            return std::nullopt;
-        return crl->format;
-    }
-
-    /// Return the parsed metadata of the attached session CRL, if any.
-    ///
-    /// @return The metadata passed to the most recent AttachSessionCrl() call,
-    ///         or an empty optional when none was supplied or no CRL is attached.
-    /// @note Thread-safe. Access to the session CRL state is serialized
-    ///       internally via a dedicated mutex.
-    [[nodiscard]] std::optional<score::crypto::CrlMetadata> GetSessionCrlMetadata() const
-    {
-        const auto crl = GetSessionCrlSnapshot();
-        if (!crl)
-            return std::nullopt;
-        return crl->metadata;
-    }
-
-    /// Remove the session CRL association (e.g. after persisting to a slot).
+    /// Remove the session CRL association.
     ///
     /// @note Thread-safe. Access to the session CRL state is serialized
     ///       internally via a dedicated mutex.
-    void ClearSessionCrl()
-    {
-        const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        m_session_crl.reset();
-    }
+    void ClearSessionCrl();
 
-    /// Retrieve the session CRL bytes, format, and metadata together as a
-    /// single consistent snapshot.
+    /// Return the bytes, format, and metadata of the attached session CRL as one snapshot.
     ///
-    /// Prefer this over calling GetSessionCrl(), GetSessionCrlFormat(), and
-    /// GetSessionCrlMetadata() separately when more than one of these fields
-    /// is needed: those calls each acquire and release the internal mutex
-    /// independently, so an AttachSessionCrl() or ClearSessionCrl() call
-    /// interleaved between them could otherwise produce a combination of
-    /// fields that never existed together (e.g. new bytes paired with the
-    /// previous format).
+    /// The fields come from one immutable object, so they always belong to the same attachment.
     ///
     /// @return The attached CRL snapshot, or a null pointer when no CRL is
     ///         currently attached. The snapshot is immutable: a later attach or
@@ -183,11 +112,7 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     /// @note Thread-safe. Access to the session CRL state is serialized
     ///       internally via a dedicated mutex; only the pointer is copied
     ///       under the lock.
-    [[nodiscard]] CrlData::Sptrc GetSessionCrlSnapshot() const
-    {
-        const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        return m_session_crl;
-    }
+    [[nodiscard]] CrlData::Sptrc GetSessionCrlSnapshot() const;
 
     // -----------------------------------------------------------------------
     // Ownership
@@ -199,10 +124,7 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     /// @note Thread-safe. The underlying value is fixed at construction and
     ///       never modified afterward, so concurrent calls from any thread
     ///       require no external synchronization.
-    [[nodiscard]] data_manager::ClientId GetOwner() const noexcept
-    {
-        return m_owner_client_id;
-    }
+    [[nodiscard]] data_manager::ClientId GetOwner() const noexcept;
 
     /// Check whether the given client owns this entry.
     ///
@@ -211,10 +133,7 @@ class CertEntry final : public std::enable_shared_from_this<CertEntry>
     /// @note Thread-safe. The underlying value is fixed at construction and
     ///       never modified afterward, so concurrent calls from any thread
     ///       require no external synchronization.
-    [[nodiscard]] bool IsOwnedBy(data_manager::ClientId client_id) const noexcept
-    {
-        return m_owner_client_id == client_id;
-    }
+    [[nodiscard]] bool IsOwnedBy(data_manager::ClientId client_id) const noexcept;
 
   private:
     /// Provider-neutral certificate held by this entry.

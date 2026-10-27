@@ -13,9 +13,8 @@
 //
 // Component-level tests for TrustStoreManager.
 //
-// Uses the real FileBackedSlotHandler, real OpenSslCertParser, and the central
-// test vectors so that trust-store anchor loading, eviction, and mutation
-// operations are exercised against real certificate material — not stubs.
+// Uses the real SlotHandlerFactory, OpenSSL provider, file-backed slot handler,
+// and central test vectors to exercise trust-store anchor loading, eviction, and mutations.
 //
 // All cert bytes come from score/tests/test_vectors/certificate/basic/ and all slot
 // state is backed by KV descriptor files in a per-test temp directory.
@@ -33,8 +32,11 @@
 
 #include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/cert_management/slot/slot_handler_factory.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
+#include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
@@ -50,15 +52,69 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace
 {
 namespace cert = score::crypto::daemon::cert_management;
 namespace dm = score::crypto::daemon::data_manager;
+namespace config = score::crypto::daemon::config;
+namespace provider = score::crypto::daemon::provider;
 namespace openssl_ns = score::crypto::daemon::provider::score_provider::openssl;
 namespace storage = score::crypto::daemon::common::storage;
+namespace common = score::crypto::daemon::common;
 using Error = score::crypto::daemon::common::DaemonErrorCode;
+
+class OpenSslParserProvider final : public provider::IProvider
+{
+  public:
+    explicit OpenSslParserProvider(provider::cert_management::ICertParser::Sptr parser) : m_parser{std::move(parser)} {}
+
+    bool Initialize(const provider::ProviderInitContext& context) override
+    {
+        m_provider_id = context.numeric_id;
+        m_provider_name = context.name;
+        m_initialized = true;
+        return true;
+    }
+
+    void Shutdown() override
+    {
+        m_initialized = false;
+    }
+
+    [[nodiscard]] bool IsInitialized() const override
+    {
+        return m_initialized;
+    }
+
+    common::ProviderId GetProviderId() const override
+    {
+        return m_provider_id;
+    }
+
+    const common::ProviderName& GetProviderName() const override
+    {
+        return m_provider_name;
+    }
+
+    provider::cert_management::ICertParser::Sptr GetCertParser() override
+    {
+        return m_parser;
+    }
+
+    [[nodiscard]] common::ProviderCapability GetProviderCapabilities() override
+    {
+        return common::ProviderCapability::kCertManagement;
+    }
+
+  private:
+    provider::cert_management::ICertParser::Sptr m_parser;
+    common::ProviderId m_provider_id{common::kInvalidProviderId};
+    common::ProviderName m_provider_name;
+    bool m_initialized{false};
+};
 
 // Test-vector subjects — match certificate_manifest.json
 static constexpr std::string_view kSubjectInitial = "CN=cert-management-test,O=Eclipse";
@@ -83,13 +139,33 @@ static constexpr dm::ClientId kClientB = 2U;  // uid=0, pid=2
 class TrustStoreManagerTest : public ::testing::Test
 {
   protected:
+    static void SetUpTestSuite()
+    {
+        s_provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
+        s_parser = std::make_shared<openssl_ns::OpenSslCertParser>(common::ProviderId{0U});
+        auto openssl_provider = std::make_shared<OpenSslParserProvider>(s_parser);
+        ASSERT_TRUE(
+            s_provider_manager->RegisterProvider("OPENSSL", openssl_provider, common::CryptoProviderType::SOFTWARE));
+        ASSERT_TRUE(s_provider_manager->Initialize());
+    }
+
+    static void TearDownTestSuite()
+    {
+        s_parser.reset();
+        if (s_provider_manager)
+        {
+            s_provider_manager->Shutdown();
+            s_provider_manager.reset();
+        }
+    }
+
     void SetUp() override
     {
         m_dir = ::tests::utility::TempDirectory("score_ts_mgr_test");
         std::filesystem::remove_all(m_dir);
         std::filesystem::create_directories(m_dir);
 
-        m_parser = std::make_shared<openssl_ns::OpenSslCertParser>(score::crypto::daemon::common::ProviderId{1U});
+        m_parser = s_parser;
 
         // root-anchor: slot backed by the initial test vector cert.
         m_root_cert = m_dir / "root_ca.pem";
@@ -122,10 +198,7 @@ class TrustStoreManagerTest : public ::testing::Test
 
     cert::CertSlotManager::Sptr MakeSlotManager(cert::CertSlotRegistry::Sptr registry)
     {
-        auto parser = m_parser;
-        cert::CertSlotHandlerFactory factory = [parser](const cert::CertSlotConfig&) {
-            return std::make_shared<cert::FileBackedSlotHandler>(parser);
-        };
+        auto factory = std::make_shared<cert::SlotHandlerFactory>(s_provider_manager);
         return std::make_shared<cert::CertSlotManager>(std::move(registry), std::move(factory));
     }
 
@@ -167,8 +240,13 @@ class TrustStoreManagerTest : public ::testing::Test
     std::filesystem::path m_root_slot_kv;
     std::filesystem::path m_empty_cert;
     std::filesystem::path m_empty_slot_kv;
+    static provider::ProviderManager::Sptr s_provider_manager;
+    static std::shared_ptr<openssl_ns::OpenSslCertParser> s_parser;
     std::shared_ptr<openssl_ns::OpenSslCertParser> m_parser;
 };
+
+provider::ProviderManager::Sptr TrustStoreManagerTest::s_provider_manager;
+std::shared_ptr<openssl_ns::OpenSslCertParser> TrustStoreManagerTest::s_parser;
 
 // ---------------------------------------------------------------------------
 // Basic: lazy anchor loading and slot membership index
@@ -824,8 +902,8 @@ TEST_F(TrustStoreManagerTest, AddMember_PersistFailure_LeavesNothingTrusted)
     const auto anchors = manager.GetStore(ts_handle)->GetAnchors();
     ASSERT_TRUE(anchors.has_value());
     EXPECT_TRUE(anchors->empty());
-    cert::FileBackedSlotHandler fresh_handler{m_parser};
-    const auto state = fresh_handler.GetSlotState(MakeSlotConfig("empty-anchor", m_empty_slot_kv));
+    cert::FileBackedSlotHandler fresh_handler{MakeSlotConfig("empty-anchor", m_empty_slot_kv), m_parser};
+    const auto state = fresh_handler.GetSlotState();
     ASSERT_TRUE(state.has_value());
     EXPECT_EQ(state.value(), score::crypto::CertificateSlotState::kEmpty);
 }
@@ -870,8 +948,8 @@ TEST_F(TrustStoreManagerTest, AddMember_NewMember_CrlWriteFailure_ReturnsErrorAn
     const auto crl = std::make_shared<const cert::CrlData>(cert::CrlData{crl_bytes, score::crypto::FormatType::kDer});
     EXPECT_FALSE(manager.AddMember(ts_handle, cert, kClientA, crl).has_value());
 
-    cert::FileBackedSlotHandler fresh_handler{m_parser};
-    const auto state = fresh_handler.GetSlotState(MakeSlotConfig("excl-anchor", kv));
+    cert::FileBackedSlotHandler fresh_handler{MakeSlotConfig("excl-anchor", kv), m_parser};
+    const auto state = fresh_handler.GetSlotState();
     ASSERT_TRUE(state.has_value());
     EXPECT_EQ(state.value(), score::crypto::CertificateSlotState::kEmpty);
     const auto anchors = manager.GetStore(ts_handle)->GetAnchors();
@@ -1051,9 +1129,9 @@ TEST_F(TrustStoreManagerTest, AddMember_ToExclusiveSlot_AddsAnchorAndPersistsToD
     EXPECT_EQ((*after)[0]->GetSubject(), kSubjectInitial);
 
     // Verify persistence: a fresh handler must read the cert from disk.
-    cert::FileBackedSlotHandler fresh_handler{m_parser};
     const auto empty_cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
-    auto persisted = fresh_handler.LoadCertificate(empty_cfg);
+    cert::FileBackedSlotHandler fresh_handler{empty_cfg, m_parser};
+    auto persisted = fresh_handler.LoadCertificate();
     ASSERT_TRUE(persisted.has_value());
     EXPECT_EQ((*persisted)->GetSubject(), kSubjectInitial);
 }
@@ -1284,7 +1362,7 @@ TEST_F(TrustStoreManagerTest, ConditionalExternal_FingerprintMismatch_AutoDisabl
     const auto updated = ParseCert("score/tests/test_vectors/certificate/basic/certificate_updated.pem");
     ASSERT_NE(updated, nullptr);
     ASSERT_TRUE(slot_manager->StoreCertificate(slot, kClientA, *updated).has_value());
-    manager.NotifySlotChanged(ts_handle, slot);
+    manager.NotifySlotChanged(slot);
 
     // Step 3: The direct slot update disables the conditional member until it is acknowledged.
     {
@@ -1342,12 +1420,12 @@ TEST_F(TrustStoreManagerTest, AddMember_WithCrlBytes_StoresAndPersistsCrl)
     ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA, crl_ptr).has_value());
 
     // Verify via a fresh handler: cert and CRL are both on disk.
-    cert::FileBackedSlotHandler fresh_handler{m_parser};
     const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
-    ASSERT_TRUE(fresh_handler.LoadCertificate(cfg).has_value());
-    ASSERT_TRUE(fresh_handler.HasCrl(cfg).has_value());
-    ASSERT_TRUE(fresh_handler.HasCrl(cfg).value());
-    const auto loaded_crl = fresh_handler.LoadCrlData(cfg);
+    cert::FileBackedSlotHandler fresh_handler{cfg, m_parser};
+    ASSERT_TRUE(fresh_handler.LoadCertificate().has_value());
+    ASSERT_TRUE(fresh_handler.HasCrl().has_value());
+    ASSERT_TRUE(fresh_handler.HasCrl().value());
+    const auto loaded_crl = fresh_handler.LoadCrlData();
     ASSERT_TRUE(loaded_crl.has_value());
     ASSERT_TRUE(loaded_crl->has_value());
     EXPECT_EQ((*loaded_crl)->bytes, crl);
@@ -1381,10 +1459,10 @@ TEST_F(TrustStoreManagerTest, AddMember_ExistingExclusiveMember_UpsertsCrl)
     // First add: cert only, no CRL.
     ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA).has_value());
     {
-        cert::FileBackedSlotHandler fh{m_parser};
         const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
-        ASSERT_TRUE(fh.HasCrl(cfg).has_value());
-        EXPECT_FALSE(fh.HasCrl(cfg).value());
+        cert::FileBackedSlotHandler fh{cfg, m_parser};
+        ASSERT_TRUE(fh.HasCrl().has_value());
+        EXPECT_FALSE(fh.HasCrl().value());
     }
 
     // Second add: same cert, with CRL — upsert path.
@@ -1392,11 +1470,11 @@ TEST_F(TrustStoreManagerTest, AddMember_ExistingExclusiveMember_UpsertsCrl)
     const auto crl_ptr = std::make_shared<const cert::CrlData>(cert::CrlData{crl, score::crypto::FormatType::kDer});
     ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA, crl_ptr).has_value());
 
-    cert::FileBackedSlotHandler fresh_handler{m_parser};
     const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
-    ASSERT_TRUE(fresh_handler.HasCrl(cfg).has_value());
-    ASSERT_TRUE(fresh_handler.HasCrl(cfg).value());
-    const auto loaded_crl = fresh_handler.LoadCrlData(cfg);
+    cert::FileBackedSlotHandler fresh_handler{cfg, m_parser};
+    ASSERT_TRUE(fresh_handler.HasCrl().has_value());
+    ASSERT_TRUE(fresh_handler.HasCrl().value());
+    const auto loaded_crl = fresh_handler.LoadCrlData();
     ASSERT_TRUE(loaded_crl.has_value());
     ASSERT_TRUE(loaded_crl->has_value());
     EXPECT_EQ((*loaded_crl)->bytes, crl);
@@ -1465,9 +1543,9 @@ TEST_F(TrustStoreManagerTest, AddMember_DeduplicationChecksAllMemberTypes)
     ASSERT_TRUE(manager.AddMember(ts_handle, cert, kClientA).has_value());
 
     // The exclusive slot must still be empty — not consumed by AddMember.
-    cert::FileBackedSlotHandler fresh_handler{m_parser};
     const auto exclusive_cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
-    const auto state = fresh_handler.GetSlotState(exclusive_cfg);
+    cert::FileBackedSlotHandler fresh_handler{exclusive_cfg, m_parser};
+    const auto state = fresh_handler.GetSlotState();
     ASSERT_TRUE(state.has_value());
     EXPECT_EQ(*state, score::crypto::CertificateSlotState::kEmpty);
 }
@@ -1505,11 +1583,11 @@ TEST_F(TrustStoreManagerTest, StoreCrlForMember_WritesToExclusiveSlot)
     ASSERT_TRUE(manager.StoreCrlForMember(ts_handle, slot_handle, crl_data, kClientA).has_value());
 
     // Verify persistence: fresh handler must read the CRL.
-    cert::FileBackedSlotHandler fresh_handler{m_parser};
     const auto cfg = MakeSlotConfig("empty-anchor", m_empty_slot_kv);
-    ASSERT_TRUE(fresh_handler.HasCrl(cfg).has_value());
-    ASSERT_TRUE(fresh_handler.HasCrl(cfg).value());
-    const auto loaded_crl = fresh_handler.LoadCrlData(cfg);
+    cert::FileBackedSlotHandler fresh_handler{cfg, m_parser};
+    ASSERT_TRUE(fresh_handler.HasCrl().has_value());
+    ASSERT_TRUE(fresh_handler.HasCrl().value());
+    const auto loaded_crl = fresh_handler.LoadCrlData();
     ASSERT_TRUE(loaded_crl.has_value());
     ASSERT_TRUE(loaded_crl->has_value());
     EXPECT_EQ((*loaded_crl)->bytes, crl);
@@ -1898,7 +1976,7 @@ TEST_F(TrustStoreManagerTest, ConditionalExternal_EmptyDeploymentPath_Unacknowle
         const auto updated = ParseCert("score/tests/test_vectors/certificate/basic/certificate_updated.pem");
         ASSERT_NE(updated, nullptr);
         ASSERT_TRUE(slot_manager->StoreCertificate(slot, kClientA, *updated).has_value());
-        manager.NotifySlotChanged(ts_handle, slot);
+        manager.NotifySlotChanged(slot);
         auto disabled = store->GetAnchors();
         ASSERT_TRUE(disabled.has_value());
         EXPECT_EQ(disabled->size(), 0U);
@@ -1986,7 +2064,7 @@ TEST_F(TrustStoreManagerTest, NotifySlotChanged_ReloadsOnlyTheChangedMember)
         std::filesystem::copy_file(kUpdatedPemPath, other_cert, std::filesystem::copy_options::overwrite_existing));
 
     ASSERT_TRUE(slot_manager->StoreCertificate(root_slot, kClientA, *updated).has_value());
-    manager.NotifySlotChanged(ts_handle, root_slot);
+    manager.NotifySlotChanged(root_slot);
 
     auto after_root_update = store->GetAnchors();
     ASSERT_TRUE(after_root_update.has_value());
@@ -1994,7 +2072,7 @@ TEST_F(TrustStoreManagerTest, NotifySlotChanged_ReloadsOnlyTheChangedMember)
     EXPECT_EQ(CountWithSubject(*after_root_update, kSubjectUpdated), 1);
     EXPECT_EQ(CountWithSubject(*after_root_update, kSubjectInitial), 1);
 
-    manager.NotifySlotChanged(ts_handle, other_slot);
+    manager.NotifySlotChanged(other_slot);
     auto after_other_update = store->GetAnchors();
     ASSERT_TRUE(after_other_update.has_value());
     ASSERT_EQ(after_other_update->size(), 2U);
@@ -2052,7 +2130,7 @@ TEST_F(TrustStoreManagerTest, NotifySlotChanged_ConditionalMember_DisabledOnlyWh
     ASSERT_EQ(loaded->size(), 2U);
 
     ASSERT_TRUE(slot_manager->StoreCertificate(other_slot, kClientA, *updated).has_value());
-    manager.NotifySlotChanged(ts_handle, other_slot);
+    manager.NotifySlotChanged(other_slot);
     auto after_shared_update = store->GetAnchors();
     ASSERT_TRUE(after_shared_update.has_value());
     ASSERT_EQ(after_shared_update->size(), 2U);
@@ -2060,7 +2138,7 @@ TEST_F(TrustStoreManagerTest, NotifySlotChanged_ConditionalMember_DisabledOnlyWh
     EXPECT_EQ(CountWithSubject(*after_shared_update, kSubjectUpdated), 1);
 
     ASSERT_TRUE(slot_manager->StoreCertificate(root_slot, kClientA, *updated).has_value());
-    manager.NotifySlotChanged(ts_handle, root_slot);
+    manager.NotifySlotChanged(root_slot);
     auto after_conditional_update = store->GetAnchors();
     ASSERT_TRUE(after_conditional_update.has_value());
     ASSERT_EQ(after_conditional_update->size(), 1U);
@@ -2106,7 +2184,7 @@ TEST_F(TrustStoreManagerTest, NotifySlotChanged_ConditionalMember_IdenticalRewri
     const auto same_cert = ParseCert(kInitialPemPath);
     ASSERT_NE(same_cert, nullptr);
     ASSERT_TRUE(slot_manager->StoreCertificate(root_slot, kClientA, *same_cert).has_value());
-    manager.NotifySlotChanged(ts_handle, root_slot);
+    manager.NotifySlotChanged(root_slot);
 
     auto after = store->GetAnchors();
     ASSERT_TRUE(after.has_value());
@@ -2143,7 +2221,7 @@ TEST_F(TrustStoreManagerTest, NotifySlotChanged_BeforeFirstLoad_NextReadSeesNewC
     ASSERT_NE(store, nullptr);
 
     ASSERT_TRUE(slot_manager->StoreCertificate(root_slot, kClientA, *updated).has_value());
-    manager.NotifySlotChanged(ts_handle, root_slot);
+    manager.NotifySlotChanged(root_slot);
 
     auto anchors = store->GetAnchors();
     ASSERT_TRUE(anchors.has_value());
@@ -2239,7 +2317,7 @@ TEST_F(TrustStoreManagerTest, ConcurrentReads_DuringSlotUpdates_ObserveCompleteA
             const auto& next = (i % 2 == 0) ? updated : initial;
             if (!slot_manager->StoreCertificate(root_slot, kClientA, *next).has_value())
                 writes_succeeded.store(false);
-            manager.NotifySlotChanged(ts_handle, root_slot);
+            manager.NotifySlotChanged(root_slot);
         }
         writer_done.store(true);
     });
