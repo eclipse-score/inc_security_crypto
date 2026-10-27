@@ -63,15 +63,13 @@ class CipherContextImpl final : public ICipherContext
     score::Result<std::monostate> Init(std::optional<score::cpp::span<const uint8_t>> iv) override;
     score::Result<std::monostate> Reset() override;
 
-    // -- IStreamingOutputContext --
-    score::Result<std::size_t> Finalize(score::cpp::span<uint8_t> output) override;
-    std::size_t GetOutputSize() const noexcept override;
-
     // -- ICipherContext --
     score::Result<std::size_t> Update(score::cpp::span<const uint8_t> input, score::cpp::span<uint8_t> output) override;
+    score::Result<std::size_t> Finalize(score::cpp::span<uint8_t> output) override;
     score::Result<std::size_t> SingleShot(std::optional<score::cpp::span<const uint8_t>> iv,
                                           score::cpp::span<const uint8_t> input,
                                           score::cpp::span<uint8_t> output) override;
+    score::Result<std::size_t> GetMaximumOutputSize(std::size_t input_size) const override;
 
   private:
     void CloseContext() noexcept;

@@ -65,14 +65,10 @@ class SignContextImpl final : public ISignContext
 
     // -- IStreamingContext --
     score::Result<std::monostate> Init(std::optional<score::cpp::span<const uint8_t>> iv) override;
-    score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) override;
     score::Result<std::monostate> Reset() override;
 
-    // -- IStreamingOutputContext --
-    score::Result<std::size_t> Finalize(score::cpp::span<uint8_t> output) override;
-    std::size_t GetOutputSize() const noexcept override;
-
     // -- ISignContext --
+    score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) override;
     score::Result<std::size_t> SignFinalize(score::cpp::span<uint8_t> signature) override;
     score::Result<std::size_t> SingleShot(score::cpp::span<const uint8_t> data,
                                           score::cpp::span<uint8_t> signature) override;

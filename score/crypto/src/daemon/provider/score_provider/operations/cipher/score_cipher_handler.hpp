@@ -111,6 +111,13 @@ class ScoreCipherHandler : public handler::Handler
     /// @brief Required IV / nonce length in bytes (0 for ECB).
     [[nodiscard]] virtual std::size_t GetIvSize() const noexcept;
 
+    /// @brief Upper bound on the bytes one update, single-shot or finalize writes.
+    /// @param input_size Input length of the call being sized, 0 for finalize.
+    /// @return input_size plus one block; kUnsupportedAlgorithm when the block
+    ///         size is unknown, kInvalidArgument when the sum overflows.
+    [[nodiscard]] Expected<std::size_t, common::DaemonErrorCode> GetMaxOutputSize(
+        std::size_t input_size) const noexcept;
+
     /// @brief Initialize the cipher stream with the bound key and the given IV.
     /// @param iv Absent for IV-less modes; implementations reject a missing IV
     ///           when GetIvSize() is non-zero.

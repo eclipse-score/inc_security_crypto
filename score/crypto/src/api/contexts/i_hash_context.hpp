@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_API_CONTEXTS_I_HASH_CONTEXT_HPP
 #define SCORE_CRYPTO_SRC_API_CONTEXTS_I_HASH_CONTEXT_HPP
 
-#include "score/crypto/src/api/contexts/i_streaming_output_context.hpp"
+#include "score/crypto/src/api/contexts/i_streaming_context.hpp"
 #include "score/result/result.h"
 #include "score/span.hpp"
 
@@ -29,14 +29,14 @@ namespace crypto
 
 /// @brief Interface for hash/digest operations.
 ///
-/// Exposes Init, Update, Reset, and Finalize from base classes plus
-/// hash-specific SingleShot() and GetDigestSize().
+/// Exposes Init() and Reset() from the base class and adds Update(),
+/// Finalize(), SingleShot() and GetDigestSize().
 /// Init() is exposed with the base default (iv = std::nullopt);
 /// hash implementations reject a non-null IV.
 ///
 /// Compatible with classical algorithms (SHA-256, SHA-3) and PQC hash-based
 /// schemes (e.g., XMSS/LMS hash functions, SHAKE for ML-DSA).
-class IHashContext : public IStreamingOutputContext
+class IHashContext : public IStreamingContext
 {
   public:
     using Uptr = std::unique_ptr<IHashContext>;
@@ -48,11 +48,20 @@ class IHashContext : public IStreamingOutputContext
     IHashContext(IHashContext&&) = default;
     IHashContext& operator=(IHashContext&&) = default;
 
-    // -- Streaming API (from base classes) --
+    // -- Streaming API (from base class) --
     using IStreamingContext::Init;
     using IStreamingContext::Reset;
-    using IStreamingContext::Update;
-    using IStreamingOutputContext::Finalize;
+
+    /// @brief Feeds a chunk of input data into the operation.
+    /// @return std::monostate on success, error on failure
+    /// @note Can be called multiple times after Init().
+    virtual score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) = 0;
+
+    /// @brief Finalizes the hash and writes the digest.
+    /// @param output Buffer to receive the digest, at least GetDigestSize() bytes
+    /// @return Number of bytes written on success, error on failure
+    /// @note After Finalize(), Init() must be called again before the next Update().
+    virtual score::Result<std::size_t> Finalize(score::cpp::span<uint8_t> output) = 0;
 
     /// @brief Computes the hash digest in a single call.
     /// @param input Data to hash
