@@ -31,6 +31,30 @@ cc_library(
     ],
 )
 
+# Per-family key generation and import behind OpenSslKeyFactory, and the helpers
+# the asymmetric families share; package-local
+# so that only the factory and its tests call the families directly.
+cc_library(
+    name = "openssl_key_family_headers",
+    hdrs = [
+        "key_management/detail/openssl_asymmetric_key.hpp",
+        "key_management/openssl_ec_key_pair.hpp",
+        "key_management/openssl_ed25519_key_pair.hpp",
+        "key_management/openssl_rsa_key_pair.hpp",
+        "key_management/openssl_symmetric_key.hpp",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//visibility:private"],
+    deps = [
+        ":openssl_key_management_headers",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+    ],
+)
+
 cc_library(
     name = "openssl_cert_management_headers",
     hdrs = ["cert_management/openssl_cert_parser.hpp"],
@@ -158,8 +182,14 @@ cc_library(
     srcs = [
         "detail/signature_common.cpp",
         "detail/openssl_algorithm_info.hpp",
+        "key_management/detail/openssl_asymmetric_key.cpp",
+        "key_management/detail/openssl_key_handle.hpp",
+        "key_management/openssl_ec_key_pair.cpp",
+        "key_management/openssl_ed25519_key_pair.cpp",
         "key_management/openssl_key_factory.cpp",
         "key_management/openssl_key_handler.cpp",
+        "key_management/openssl_rsa_key_pair.cpp",
+        "key_management/openssl_symmetric_key.cpp",
         "operations/cipher/openssl_cipher_handler.cpp",
         "operations/factory/openssl_handler_factory.cpp",
         "operations/hash/openssl_hash_handler.cpp",
@@ -187,6 +217,7 @@ cc_library(
     deps = [
         ":openssl_cert_parser_library",
         ":openssl_detail_headers",
+        ":openssl_key_family_headers",
         ":openssl_key_management_headers",
         ":provider_openssl_headers",
         "//score/crypto/src/daemon/cert_management",
@@ -228,8 +259,10 @@ cc_test(
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     deps = [
+        ":openssl_key_family_headers",
         ":provider_openssl_library",
         "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/tests/utility",
         "@googletest//:gtest_main",

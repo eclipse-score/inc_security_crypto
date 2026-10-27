@@ -15,21 +15,34 @@
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/detail/openssl_asymmetric_key.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_ec_key_pair.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_ed25519_key_pair.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_rsa_key_pair.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_symmetric_key.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>
 #include <cstring>
+#include <limits>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace km = score::crypto::daemon::key_management;
 namespace common = score::crypto::daemon::common;
+namespace openssl = score::crypto::daemon::provider::openssl;
 
 namespace
 {
+/// Distinct from the default-constructed kInvalidProviderId and from 0, so a
+/// handle that dropped or swapped the id fails the comparison.
+constexpr common::ProviderId kProviderId{7};
+
 /// Catalog row of @p name; requests reach the factory already resolved.
 score::crypto::AlgorithmDescriptor Row(std::string_view name)
 {
@@ -37,15 +50,106 @@ score::crypto::AlgorithmDescriptor Row(std::string_view name)
     EXPECT_TRUE(row.has_value()) << "not in the catalog: " << name;
     return row.value_or(score::crypto::AlgorithmDescriptor{});
 }
+
+/// Names of the catalog rows @p served accepts.
+template <typename Predicate>
+std::set<std::string_view> ServedRows(Predicate served)
+{
+    std::set<std::string_view> names;
+    for (const auto& row : score::crypto::kAlgorithmCatalog)
+    {
+        if (served(row))
+        {
+            names.insert(row.name);
+        }
+    }
+    return names;
+}
 }  // namespace
+
+// ============================================================================
+// Key family claims
+// ============================================================================
+
+TEST(OpenSslKeyFamilyTest, EcFamilyServesEccRowsOnEveryCurve)
+{
+    const std::set<std::string_view> expected{"ECDSA-P256",
+                                              "ECDSA-P384",
+                                              "ECDSA-P521",
+                                              "ECDSA-P256-SHA224",
+                                              "ECDSA-P256-SHA256",
+                                              "ECDSA-P256-SHA384",
+                                              "ECDSA-P256-SHA512",
+                                              "ECDSA-P384-SHA224",
+                                              "ECDSA-P384-SHA256",
+                                              "ECDSA-P384-SHA384",
+                                              "ECDSA-P384-SHA512",
+                                              "ECDSA-P521-SHA224",
+                                              "ECDSA-P521-SHA256",
+                                              "ECDSA-P521-SHA384",
+                                              "ECDSA-P521-SHA512"};
+    EXPECT_EQ(ServedRows(openssl::IsEcKeySupported), expected);
+
+    auto no_curve = Row("ECDSA-P256");
+    no_curve.curve = score::crypto::EccCurve::kNone;
+    EXPECT_FALSE(openssl::IsEcKeySupported(no_curve));
+}
+
+/// RSA-PSS rows name a signature scheme, so only the bare key rows are claimed.
+TEST(OpenSslKeyFamilyTest, RsaFamilyServesRsaKeyRowsOnly)
+{
+    const std::set<std::string_view> expected{"RSA-2048", "RSA-3072", "RSA-4096"};
+    EXPECT_EQ(ServedRows(openssl::IsRsaKeySupported), expected);
+
+    auto rsa_1024 = Row("RSA-2048");
+    rsa_1024.key_bits = 1024U;
+    EXPECT_FALSE(openssl::IsRsaKeySupported(rsa_1024));
+}
+
+TEST(OpenSslKeyFamilyTest, Ed25519FamilyServesEd25519Row)
+{
+    const std::set<std::string_view> expected{"Ed25519"};
+    EXPECT_EQ(ServedRows(openssl::IsEd25519KeySupported), expected);
+}
+
+TEST(OpenSslKeyFamilyTest, SymmetricFamilyServesAesAndSecretRows)
+{
+    const std::set<std::string_view> expected{"HMAC-SHA256",
+                                              "HMAC-SHA384",
+                                              "HMAC-SHA512",
+                                              "AES-128-CMAC",
+                                              "AES-256-CMAC",
+                                              "AES-128-CBC",
+                                              "AES-192-CBC",
+                                              "AES-256-CBC",
+                                              "AES-128-GCM",
+                                              "AES-192-GCM",
+                                              "AES-256-GCM",
+                                              "AES-128",
+                                              "AES-192",
+                                              "AES-256"};
+    EXPECT_EQ(ServedRows(openssl::IsSymmetricKeySupported), expected);
+}
+
+/// The factory asks the families in turn, so a row two families claimed would reach only the first.
+TEST(OpenSslKeyFamilyTest, NoRowIsClaimedByTwoFamilies)
+{
+    for (const auto& row : score::crypto::kAlgorithmCatalog)
+    {
+        const int claims = static_cast<int>(openssl::IsEcKeySupported(row)) +
+                           static_cast<int>(openssl::IsRsaKeySupported(row)) +
+                           static_cast<int>(openssl::IsEd25519KeySupported(row)) +
+                           static_cast<int>(openssl::IsSymmetricKeySupported(row));
+        EXPECT_LE(claims, 1) << row.name;
+    }
+}
 
 class OpenSslKeyHandlerTest : public ::testing::Test
 {
   protected:
     void SetUp() override
     {
-        m_factory =
-            std::make_shared<score::crypto::daemon::provider::openssl::OpenSslKeyFactory>(0);  // OPENSSL provider ID
+        m_factory = std::make_shared<score::crypto::daemon::provider::openssl::OpenSslKeyFactory>(kProviderId);
     }
 
     std::shared_ptr<score::crypto::daemon::provider::openssl::OpenSslKeyFactory> m_factory;
@@ -110,7 +214,7 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_Aes256_Returns32ByteKey)
     EXPECT_TRUE(release.has_value());
 }
 
-TEST_F(OpenSslKeyHandlerTest, GenerateKey_RowWithoutKey_ReturnsError)
+TEST_F(OpenSslKeyHandlerTest, GenerateKey_RowWithoutKey_ReturnsUnsupportedAlgorithm)
 {
     km::KeyGenerationRequest req{};
     req.algorithm = Row("SHA256");
@@ -119,7 +223,165 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_RowWithoutKey_ReturnsError)
     auto result = m_factory->GenerateKey(req);
 
     ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+}
+
+TEST_F(OpenSslKeyHandlerTest, GenerateKey_AesKeyRow_Returns32ByteKey)
+{
+    // Slot configurations name AES keys without a mode ("AES-256").
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("AES-256");
+    req.permissions = score::crypto::KeyOperationPermission::kEncrypt;
+
+    auto result = m_factory->GenerateKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result.value()->GetHandle().is_asymmetric);
+    EXPECT_EQ(result.value()->GetHandle().key_size, 32U);
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, GenerateKey_RsaSignatureRow_ReturnsUnsupportedAlgorithm)
+{
+    // An RSA-PSS row names a signature scheme, not a key to create.
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("RSA-PSS-2048-SHA256");
+    req.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto result = m_factory->GenerateKey(req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+}
+
+TEST_F(OpenSslKeyHandlerTest, GenerateKey_EcdsaSignatureRow_ProducesKeyPairOnItsCurve)
+{
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("ECDSA-P384-SHA256");
+    req.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto result = m_factory->GenerateKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    const auto& handle = result.value()->GetHandle();
+    EXPECT_TRUE(handle.is_asymmetric);
+    EXPECT_EQ(handle.key_size, 48U);
+    EXPECT_EQ(handle.permissions, score::crypto::KeyOperationPermission::kSign);
+
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, GenerateSymmetricKey_ZeroKeyBits_ReturnsInvalidArgument)
+{
+    // Every catalog symmetric row has a non-zero key size, so the guard needs a row with it cleared.
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("AES-256");
+    req.algorithm.key_bits = 0U;
+
+    auto result = openssl::GenerateSymmetricKey(kProviderId, req);
+
+    ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+}
+
+TEST_F(OpenSslKeyHandlerTest, GenerateRsaKeyPair_UnsupportedModulus_ReturnsUnsupportedAlgorithm)
+{
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("RSA-2048");
+    req.algorithm.key_bits = 1024U;
+
+    auto result = openssl::GenerateRsaKeyPair(kProviderId, req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+}
+
+TEST_F(OpenSslKeyHandlerTest, GenerateAsymmetricKey_ConfigureFails_ReturnsKeyGenerationFailed)
+{
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("Ed25519");
+    const openssl::detail::KeygenSpec spec{"ED25519", common::kEd25519KeySize, "test"};
+
+    auto result = openssl::detail::GenerateAsymmetricKey(kProviderId, req, spec, [](EVP_PKEY_CTX*) {
+        return false;
+    });
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyGenerationFailed);
+}
+
+TEST_F(OpenSslKeyHandlerTest, GenerateAsymmetricKey_UnknownKeyType_ReturnsAllocationFailed)
+{
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("Ed25519");
+    const openssl::detail::KeygenSpec spec{"NOPE", 0U, "test"};
+
+    auto result = openssl::detail::GenerateAsymmetricKey(kProviderId, req, spec);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
+}
+
+// ============================================================================
+// EC key pair generation tests
+// ============================================================================
+
+class OpenSslEcKeyGenerationTest : public OpenSslKeyHandlerTest, public ::testing::WithParamInterface<const char*>
+{
+};
+
+TEST_P(OpenSslEcKeyGenerationTest, GenerateKey_EcdsaCurve_ProducesKeyPair)
+{
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row(GetParam());
+    req.permissions = score::crypto::KeyOperationPermission::kSign;
+    req.public_key_permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->GenerateKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    const auto& handle = result.value()->GetHandle();
+    EXPECT_TRUE(handle.is_asymmetric);
+    EXPECT_EQ(handle.key_size, common::EcFieldSize(req.algorithm));
+    EXPECT_NE(handle.opaque_id, 0U);
+    EXPECT_EQ(result.value()->GetProviderId(), kProviderId);
+    EXPECT_EQ(handle.permissions, score::crypto::KeyOperationPermission::kSign);
+    ASSERT_TRUE(handle.public_key_permissions.has_value());
+    EXPECT_EQ(handle.public_key_permissions.value(), score::crypto::KeyOperationPermission::kVerify);
+
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+INSTANTIATE_TEST_SUITE_P(AllCurves,
+                         OpenSslEcKeyGenerationTest,
+                         ::testing::Values("ECDSA-P256", "ECDSA-P384", "ECDSA-P521"));
+
+TEST_F(OpenSslKeyHandlerTest, GenerateKey_EcdsaWithoutPublicKeyPermissions_LeavesPublicHalfUnrestricted)
+{
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("ECDSA-P256");
+    req.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto result = m_factory->GenerateKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result.value()->GetHandle().public_key_permissions.has_value());
+
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, GenerateEcKeyPair_UnsupportedCurve_ReturnsUnsupportedAlgorithm)
+{
+    // Every catalog ECC row names a supported curve, so the guard needs a row
+    // with its curve cleared.
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("ECDSA-P256");
+    req.algorithm.curve = score::crypto::EccCurve::kNone;
+
+    auto result = openssl::GenerateEcKeyPair(kProviderId, req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
 }
 
 // ============================================================================
@@ -146,7 +408,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_ValidKey_Succeeds)
     EXPECT_EQ(handler->GetHandle().key_size, 32U);
 
     // Verify key comes from the correct provider
-    ASSERT_EQ(handler->GetProviderId(), 0);  // OPENSSL provider ID
+    ASSERT_EQ(handler->GetProviderId(), kProviderId);
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
     const auto* openssl_handler =
         static_cast<const score::crypto::daemon::provider::openssl::OpenSslKeyHandler*>(handler.get());
@@ -186,6 +448,50 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_ZeroSize_ReturnsError)
     auto result = m_factory->ImportKey(req);
 
     ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_RowWithoutKey_ReturnsUnsupportedAlgorithm)
+{
+    const std::uint8_t raw_key[32] = {};
+    km::KeyImportRequest req{};
+    req.key_data = raw_key;
+    req.key_data_size = sizeof(raw_key);
+    req.algorithm = Row("SHA256");
+    req.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value()) << "A row of no key family must not be stored as raw symmetric bytes";
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_SymmetricFamilyWithoutMode_Succeeds)
+{
+    // Slot configurations name AES keys without a mode ("AES-256").
+    const std::uint8_t raw_key[32] = {};
+    km::KeyImportRequest req{};
+    req.key_data = raw_key;
+    req.key_data_size = sizeof(raw_key);
+    req.algorithm = Row("AES-256");
+    req.permissions = score::crypto::KeyOperationPermission::kEncrypt;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result.value()->GetHandle().is_asymmetric);
+    EXPECT_EQ(result.value()->GetHandle().key_size, sizeof(raw_key));
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
+    const auto* openssl_handler =
+        static_cast<const score::crypto::daemon::provider::openssl::OpenSslKeyHandler*>(result.value().get());
+    std::size_t out_size = 0U;
+    const auto* key_bytes = openssl_handler->GetRawKeyBytes(out_size);
+    ASSERT_NE(key_bytes, nullptr);
+    ASSERT_EQ(out_size, sizeof(raw_key));
+    EXPECT_EQ(std::memcmp(key_bytes, raw_key, sizeof(raw_key)), 0);
+
+    EXPECT_TRUE(result.value()->Release().has_value());
 }
 
 // ============================================================================
@@ -249,7 +555,375 @@ constexpr std::uint8_t kP384CompressedSpkiDer[] = {
     0x00, 0x22, 0x03, 0x32, 0x00, 0x03, 0xf6, 0x8d, 0x07, 0x37, 0xb9, 0x3e, 0x0f, 0x47, 0xfc, 0xf7, 0xe3, 0xce,
     0x01, 0x37, 0x7b, 0x5f, 0xb0, 0x4c, 0x89, 0x96, 0xee, 0xa9, 0x4a, 0xb1, 0x05, 0x1b, 0x0c, 0xa7, 0x0e, 0xe5,
     0x26, 0x5c, 0x24, 0x59, 0x51, 0x18, 0x34, 0xd1, 0x6c, 0x03, 0xd9, 0x69, 0xb0, 0xcd, 0x0a, 0x76, 0x80, 0x45};
+
+/// A P-256 key pair as an unencrypted PKCS#8 PrivateKeyInfo DER blob — the form a
+/// signing slot deploys.
+constexpr std::uint8_t kP256Pkcs8Der[] = {
+    0x30, 0x81, 0x87, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06,
+    0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x04, 0x6d, 0x30, 0x6b, 0x02, 0x01, 0x01, 0x04, 0x20,
+    0x66, 0x1e, 0x6b, 0x7d, 0x30, 0x12, 0xd4, 0x60, 0xe2, 0x5f, 0x5d, 0xa1, 0x64, 0x9f, 0x4c, 0x01, 0xe3, 0xa1,
+    0x5c, 0x39, 0xe0, 0xf0, 0x7e, 0x3e, 0x5d, 0xd7, 0xad, 0xd4, 0xd7, 0x67, 0xf2, 0xf9, 0xa1, 0x44, 0x03, 0x42,
+    0x00, 0x04, 0x90, 0x41, 0x6f, 0xd3, 0xed, 0x1c, 0xcf, 0x10, 0x0e, 0x20, 0x01, 0x78, 0xf7, 0xa5, 0xe4, 0x1c,
+    0x68, 0x53, 0x2e, 0x51, 0xe1, 0x73, 0xd5, 0x1c, 0x09, 0x96, 0x1c, 0x9f, 0x19, 0x75, 0x6a, 0xf7, 0x3d, 0x72,
+    0x9a, 0x28, 0xc9, 0x12, 0x6e, 0xf7, 0xbb, 0xab, 0x5f, 0xe9, 0x1f, 0x12, 0x7e, 0x4a, 0xed, 0xc4, 0x46, 0xee,
+    0xec, 0x08, 0x82, 0x81, 0xa1, 0x90, 0xa6, 0x27, 0x21, 0x0a, 0x8f, 0xa1};
+
+/// An Ed25519 public key as a SubjectPublicKeyInfo DER blob: valid DER, but not an EC key.
+constexpr std::uint8_t kEd25519SpkiDer[] = {0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21,
+                                            0x00, 0x4b, 0x8a, 0x1b, 0x83, 0x04, 0xb2, 0xf2, 0x76, 0xb2, 0x74,
+                                            0xb6, 0xc4, 0x54, 0xe4, 0x41, 0xcd, 0xf8, 0x93, 0x53, 0xe7, 0x7b,
+                                            0xb1, 0xc5, 0x8c, 0x0c, 0xcc, 0xe9, 0x41, 0x2c, 0xa2, 0x6b, 0x68};
+
+/// An RSA-2048 public key as a SubjectPublicKeyInfo DER blob.
+constexpr std::uint8_t kRsa2048SpkiDer[] = {
+    0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
+    0x03, 0x82, 0x01, 0x0f, 0x00, 0x30, 0x82, 0x01, 0x0a, 0x02, 0x82, 0x01, 0x01, 0x00, 0xcc, 0x4d, 0x5a, 0x2f, 0x94,
+    0x5c, 0x81, 0x2a, 0xac, 0xd7, 0x21, 0x7a, 0x3c, 0x58, 0x3a, 0x63, 0x48, 0xab, 0x40, 0x2a, 0x74, 0x78, 0xeb, 0x50,
+    0xd6, 0xfd, 0x88, 0x6f, 0xae, 0x8e, 0x5f, 0x1e, 0x2f, 0x25, 0x65, 0x99, 0x8d, 0xd0, 0x85, 0x0e, 0x03, 0x6a, 0xe8,
+    0xb2, 0xaa, 0x95, 0x25, 0x2f, 0xfc, 0x66, 0x5c, 0xda, 0x54, 0x13, 0x7a, 0x64, 0x2a, 0x64, 0xdf, 0xb5, 0x6d, 0x23,
+    0xb2, 0x22, 0xf0, 0x6e, 0x1a, 0xf4, 0x77, 0x82, 0xa5, 0x0c, 0x22, 0xa8, 0xa3, 0xc7, 0x40, 0x68, 0xae, 0x42, 0xe6,
+    0x60, 0x28, 0x18, 0xaf, 0x5f, 0xd1, 0x1a, 0x33, 0x05, 0x42, 0x55, 0xbc, 0xa8, 0x51, 0xa5, 0xc5, 0xd5, 0x8a, 0xe4,
+    0x07, 0xaa, 0x99, 0x51, 0xcb, 0x86, 0xaf, 0xa7, 0x85, 0xfc, 0x53, 0xd8, 0x97, 0x0b, 0xaa, 0xb3, 0xe4, 0xb9, 0x64,
+    0x85, 0x51, 0xcc, 0xb9, 0xa0, 0x69, 0x3d, 0xaa, 0x0b, 0x6a, 0x92, 0xfb, 0x92, 0x40, 0x8a, 0x89, 0xe1, 0xe7, 0xc4,
+    0x64, 0xb2, 0x76, 0x33, 0xf7, 0x83, 0x7c, 0xb2, 0x92, 0x80, 0x37, 0x34, 0x6d, 0x25, 0xb5, 0x8f, 0x1c, 0x4b, 0x04,
+    0x2b, 0xcd, 0x64, 0x18, 0x72, 0x46, 0xe1, 0x61, 0x13, 0x31, 0x35, 0x9d, 0x35, 0x5e, 0x97, 0xe0, 0xe5, 0xa5, 0x84,
+    0xc2, 0x18, 0xb0, 0x1e, 0x3e, 0x47, 0x76, 0x68, 0xf4, 0x49, 0xe5, 0x83, 0x6c, 0xd9, 0xb6, 0x00, 0x80, 0x0e, 0xa9,
+    0x61, 0x21, 0x3c, 0x3f, 0xec, 0x02, 0xee, 0x45, 0x54, 0xc0, 0x3a, 0x75, 0x54, 0xa0, 0x11, 0x25, 0xb9, 0x43, 0x58,
+    0xd3, 0xea, 0x95, 0x2b, 0xd0, 0xd9, 0xd5, 0xc9, 0x9c, 0x6c, 0x1d, 0xae, 0x69, 0x9c, 0x5c, 0xeb, 0xf7, 0x3a, 0x92,
+    0x5f, 0xf8, 0xde, 0x6b, 0xd5, 0x1d, 0x4d, 0xd4, 0x19, 0x4f, 0x85, 0x14, 0x64, 0x47, 0x1a, 0xb6, 0xac, 0x5f, 0x58,
+    0x98, 0x71, 0x5c, 0x7d, 0x02, 0x03, 0x01, 0x00, 0x01};
+
+/// @p der followed by one extra byte, which no complete DER key may carry.
+std::vector<std::uint8_t> WithTrailingByte(const std::uint8_t* der, std::size_t size)
+{
+    std::vector<std::uint8_t> bytes(der, der + size);
+    bytes.push_back(0x00U);
+    return bytes;
+}
 }  // namespace
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_Pkcs8EcKey_KeepsPrivateHalfPermissions)
+{
+    km::KeyImportRequest req{};
+    req.key_data = kP256Pkcs8Der;
+    req.key_data_size = sizeof(kP256Pkcs8Der);
+    req.algorithm = Row("ECDSA-P256");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    const auto& handle = result.value()->GetHandle();
+    EXPECT_TRUE(handle.is_asymmetric);
+    EXPECT_EQ(handle.key_size, common::EcFieldSize(req.algorithm));
+    EXPECT_EQ(handle.permissions, req.permissions) << "A private half was imported, so the slot's grant applies to it";
+    ASSERT_TRUE(handle.public_key_permissions.has_value());
+    EXPECT_EQ(handle.public_key_permissions.value(), req.permissions);
+
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_EcUnparsableDer_ReturnsInvalidFormat)
+{
+    const std::uint8_t garbage[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    km::KeyImportRequest req{};
+    req.key_data = garbage;
+    req.key_data_size = sizeof(garbage);
+    req.algorithm = Row("ECDSA-P256");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicKeyDerWithTrailingByte_ReturnsInvalidFormat)
+{
+    const auto spki = ReadP256SpkiDer();
+    const auto der = WithTrailingByte(spki.data(), spki.size());
+    km::KeyImportRequest req{};
+    req.key_data = der.data();
+    req.key_data_size = der.size();
+    req.algorithm = Row("ECDSA-P256");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_PrivateKeyDerWithTrailingByte_ReturnsInvalidFormat)
+{
+    // The private-key parse succeeds on the prefix, so the trailing byte must
+    // reject it rather than let the SubjectPublicKeyInfo fallback accept it.
+    const auto der = WithTrailingByte(kP256Pkcs8Der, sizeof(kP256Pkcs8Der));
+    km::KeyImportRequest req{};
+    req.key_data = der.data();
+    req.key_data_size = der.size();
+    req.algorithm = Row("ECDSA-P256");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_NonEcDer_ReturnsIncompatibleKeyType)
+{
+    km::KeyImportRequest req{};
+    req.key_data = kEd25519SpkiDer;
+    req.key_data_size = sizeof(kEd25519SpkiDer);
+    req.algorithm = Row("ECDSA-P256");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportEcKey_UnsupportedCurve_ReturnsUnsupportedAlgorithm)
+{
+    // Every catalog ECC row names a supported curve, so the guard needs a row
+    // with its curve cleared.
+    const auto spki = ReadP256SpkiDer();
+    km::KeyImportRequest req{};
+    req.key_data = spki.data();
+    req.key_data_size = spki.size();
+    req.algorithm = Row("ECDSA-P256");
+    req.algorithm.curve = score::crypto::EccCurve::kNone;
+    req.format = score::crypto::FormatType::kDer;
+
+    auto result = openssl::ImportEcKey(kProviderId, req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyOnOtherCurve_ReturnsIncompatibleKeyType)
+{
+    km::KeyImportRequest req{};
+    req.key_data = kP256Pkcs8Der;
+    req.key_data_size = sizeof(kP256Pkcs8Der);
+    req.algorithm = Row("ECDSA-P384");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyUnderEcdsaSignatureRow_Succeeds)
+{
+    const auto spki = ReadP256SpkiDer();
+    km::KeyImportRequest req{};
+    req.key_data = spki.data();
+    req.key_data_size = spki.size();
+    req.algorithm = Row("ECDSA-P256-SHA256");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value()->GetHandle().is_asymmetric);
+    EXPECT_EQ(result.value()->GetHandle().key_size, 32U);
+
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_SizeBeyondLong_ReturnsInvalidArgument)
+{
+    // The size check runs before the buffer is read, so a one-byte buffer is never overrun.
+    const std::uint8_t one_byte = 0x30U;
+    km::KeyImportRequest req{};
+    req.key_data = &one_byte;
+    req.key_data_size = std::numeric_limits<std::size_t>::max();
+    req.algorithm = Row("ECDSA-P256");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+}
+
+// ============================================================================
+// RSA and Ed25519 key pair tests
+// ============================================================================
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_RsaSignatureRow_ReturnsUnsupportedAlgorithm)
+{
+    km::KeyImportRequest req{};
+    req.key_data = kRsa2048SpkiDer;
+    req.key_data_size = sizeof(kRsa2048SpkiDer);
+    req.algorithm = Row("RSA-PSS-2048-SHA256");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value()) << "An RSA-PSS row must not be stored as raw symmetric bytes";
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportRsaKey_UnsupportedModulus_ReturnsUnsupportedAlgorithm)
+{
+    km::KeyImportRequest req{};
+    req.key_data = kRsa2048SpkiDer;
+    req.key_data_size = sizeof(kRsa2048SpkiDer);
+    req.algorithm = Row("RSA-2048");
+    req.algorithm.key_bits = 1024U;
+    req.format = score::crypto::FormatType::kDer;
+
+    auto result = openssl::ImportRsaKey(kProviderId, req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+}
+
+TEST_F(OpenSslKeyHandlerTest, GenerateKey_Rsa2048_ProducesKeyPair)
+{
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("RSA-2048");
+    req.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto result = m_factory->GenerateKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    const auto& handle = result.value()->GetHandle();
+    EXPECT_TRUE(handle.is_asymmetric);
+    EXPECT_EQ(handle.key_size, 256U);
+    EXPECT_NE(handle.opaque_id, 0U);
+    EXPECT_EQ(handle.permissions, score::crypto::KeyOperationPermission::kSign);
+    EXPECT_FALSE(handle.public_key_permissions.has_value()) << "An unset public grant stays unrestricted";
+    EXPECT_EQ(result.value()->GetProviderId(), kProviderId);
+
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, GenerateKey_Ed25519_ProducesKeyPair)
+{
+    km::KeyGenerationRequest req{};
+    req.algorithm = Row("Ed25519");
+    req.permissions = score::crypto::KeyOperationPermission::kSign;
+    req.public_key_permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->GenerateKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    const auto& handle = result.value()->GetHandle();
+    EXPECT_TRUE(handle.is_asymmetric);
+    EXPECT_EQ(handle.key_size, common::kEd25519KeySize);
+    EXPECT_NE(handle.opaque_id, 0U);
+    EXPECT_EQ(handle.permissions, score::crypto::KeyOperationPermission::kSign);
+    ASSERT_TRUE(handle.public_key_permissions.has_value());
+    EXPECT_EQ(handle.public_key_permissions.value(), score::crypto::KeyOperationPermission::kVerify);
+
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicOnlyEd25519Key_DropsPrivateHalfPermissions)
+{
+    km::KeyImportRequest req{};
+    req.key_data = kEd25519SpkiDer;
+    req.key_data_size = sizeof(kEd25519SpkiDer);
+    req.algorithm = Row("Ed25519");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value()->GetProviderId(), kProviderId);
+    const auto& handle = result.value()->GetHandle();
+    EXPECT_TRUE(handle.is_asymmetric);
+    EXPECT_EQ(handle.key_size, common::kEd25519KeySize);
+    EXPECT_EQ(handle.permissions, score::crypto::KeyOperationPermission::kNone);
+    ASSERT_TRUE(handle.public_key_permissions.has_value());
+    EXPECT_EQ(handle.public_key_permissions.value(), req.permissions);
+
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_NonRsaDerForRsaAlgorithm_ReturnsIncompatibleKeyType)
+{
+    km::KeyImportRequest req{};
+    req.key_data = kEd25519SpkiDer;
+    req.key_data_size = sizeof(kEd25519SpkiDer);
+    req.algorithm = Row("RSA-2048");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_RsaSpki_DropsPrivateHalfPermissions)
+{
+    km::KeyImportRequest req{};
+    req.key_data = kRsa2048SpkiDer;
+    req.key_data_size = sizeof(kRsa2048SpkiDer);
+    req.algorithm = Row("RSA-2048");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_TRUE(result.has_value());
+    const auto& handle = result.value()->GetHandle();
+    EXPECT_TRUE(handle.is_asymmetric);
+    EXPECT_EQ(handle.key_size, 256U);
+    EXPECT_EQ(handle.permissions, score::crypto::KeyOperationPermission::kNone);
+    ASSERT_TRUE(handle.public_key_permissions.has_value());
+    EXPECT_EQ(handle.public_key_permissions.value(), req.permissions);
+
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_RsaKeyOfOtherSize_ReturnsIncompatibleKeyType)
+{
+    km::KeyImportRequest req{};
+    req.key_data = kRsa2048SpkiDer;
+    req.key_data_size = sizeof(kRsa2048SpkiDer);
+    req.algorithm = Row("RSA-3072");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_NonEd25519DerForEd25519Algorithm_ReturnsIncompatibleKeyType)
+{
+    const auto spki = ReadP256SpkiDer();
+    km::KeyImportRequest req{};
+    req.key_data = spki.data();
+    req.key_data_size = spki.size();
+    req.algorithm = Row("Ed25519");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+}
 
 TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicOnlyEcKey_DropsPrivateHalfPermissions)
 {
@@ -271,6 +945,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicOnlyEcKey_DropsPrivateHalfPermissi
     const auto& handle = result.value()->GetHandle();
 
     EXPECT_TRUE(handle.is_asymmetric);
+    EXPECT_EQ(handle.key_size, common::EcFieldSize(req.algorithm));
     EXPECT_FALSE(score::crypto::HasPermission(handle.permissions, score::crypto::KeyOperationPermission::kSign))
         << "No private half was imported, so nothing may sign with this handle";
 
@@ -421,8 +1096,7 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_CompressedDerImport_StillExpo
     reimp.key_data_size = exported.value().bytes.size();
     reimp.algorithm = Row("ECDSA-P384-SHA512");
     reimp.format = score::crypto::FormatType::kRaw;
-    reimp.permissions =
-        score::crypto::KeyOperationPermission::kVerify | score::crypto::KeyOperationPermission::kExport;
+    reimp.permissions = score::crypto::KeyOperationPermission::kVerify | score::crypto::KeyOperationPermission::kExport;
 
     auto reimported = m_factory->ImportKey(reimp);
     ASSERT_TRUE(reimported.has_value()) << "The forced-uncompressed export must satisfy the raw import contract";
@@ -597,7 +1271,6 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_WithoutExportPermission_IsDen
     EXPECT_TRUE(imported.value()->Release().has_value());
 }
 
-
 TEST_F(OpenSslKeyHandlerTest, ReleaseKey_ZeroOpaque_Idempotent)
 {
     // Create a handler via GenerateKey and test that Release is idempotent
@@ -643,7 +1316,7 @@ TEST_F(OpenSslKeyHandlerTest, GetRawKeyBytes_ReleasedHandler_ReturnsNull)
     auto gen_result = m_factory->GenerateKey(req);
     ASSERT_TRUE(gen_result.has_value());
 
-    ASSERT_EQ(gen_result.value()->GetProviderId(), 0);  // OPENSSL provider ID
+    ASSERT_EQ(gen_result.value()->GetProviderId(), kProviderId);
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
     const auto* openssl_handler =
         static_cast<const score::crypto::daemon::provider::openssl::OpenSslKeyHandler*>(gen_result.value().get());
