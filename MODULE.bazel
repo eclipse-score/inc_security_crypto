@@ -311,7 +311,7 @@ filegroup(
 # ===============================================================================
 
 # tooling
-bazel_dep(name = "score_tooling", version = "2.2.1")
+bazel_dep(name = "score_tooling", version = "3.0.1")
 
 # LLVM source-based coverage pipeline (C++ + Rust): the qualified S-CORE
 # coverage tool, successor of @score_tooling//coverage. See tools/coverage/.
@@ -332,7 +332,7 @@ bazel_dep(name = "score_process_description", version = "2.2.1")
 bazel_dep(name = "score_platform", version = "0.7.3")
 
 # score baselibs
-bazel_dep(name = "score_baselibs", version = "0.2.15")
+bazel_dep(name = "score_baselibs", version = "0.2.16")
 
 # score communication
 bazel_dep(name = "score_communication", version = "0.5.0")
@@ -368,4 +368,4 @@ git_override(
 bazel_dep(name = "score_itf", version = "0.6.0", dev_dependency = True)
 
 # Provide the tools from the devcontainer to Bazel
-bazel_dep(name = "score_devcontainer", version = "1.11.2")
+bazel_dep(name = "score_devcontainer", version = "1.11.3")
