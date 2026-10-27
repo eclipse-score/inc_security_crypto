@@ -26,10 +26,10 @@ namespace score::crypto::daemon::cert_management
 {
 
 /// DataNode placed in the client's tree that references a shared CertEntry
-/// instance and keeps its CertRegistry alive for unregistering on destruction.
+/// instance and a weak reference to its CertRegistry.
 ///
 /// The registry and node share ownership of the CertEntry. On destruction,
-/// the node unregisters its entry from the registry.
+/// the node unregisters its entry if the registry is still alive.
 ///
 /// exclusiveAccess = false: multiple threads may read concurrently.
 class CertDataNode final : public data_manager::DataNode
@@ -58,10 +58,13 @@ class CertDataNode final : public data_manager::DataNode
     {
     }
 
-    /// @brief Unregisters the certificate entry from the registry.
+    /// @brief Unregisters the certificate entry if the registry is still alive.
     ~CertDataNode() override
     {
-        m_cert_registry->Unregister(m_registry_id);
+        if (const auto cert_registry = m_cert_registry.lock())
+        {
+            cert_registry->Unregister(m_registry_id);
+        }
     }
 
     /// Not copyable or movable; the registry entry is tied to this node's lifetime.
@@ -84,7 +87,7 @@ class CertDataNode final : public data_manager::DataNode
 
   private:
     std::shared_ptr<CertEntry> m_cert_instance;
-    CertRegistry::Sptr m_cert_registry;
+    std::weak_ptr<CertRegistry> m_cert_registry;
     CertRegistryId m_registry_id;
     data_manager::ClientId m_client_id;
 };

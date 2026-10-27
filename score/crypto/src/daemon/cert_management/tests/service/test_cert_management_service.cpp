@@ -246,7 +246,7 @@ TEST_F(CertManagementServiceTest, LoadCertFromSlot_ReturnsObjectWithExpectedSubj
     EXPECT_EQ(result.instance->GetCertObject()->GetSkid().size(), 20U);
 }
 
-TEST_F(CertManagementServiceTest, CertDataNodeCanUnregisterAfterServiceDestruction)
+TEST_F(CertManagementServiceTest, CertDataNodeCanBeDestroyedAfterServiceDestruction)
 {
     const auto result = LoadCert(kClientA);
     ASSERT_NE(result.node_id, 0U);

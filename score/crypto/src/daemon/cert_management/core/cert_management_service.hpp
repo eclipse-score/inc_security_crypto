@@ -339,8 +339,7 @@ class CertManagementService final
     CertSlotRegistry::Sptr m_slot_registry;         ///< Resolves certificate slot handles and configurations.
     CertSlotManager::Sptr m_slot_manager;           ///< Performs certificate and CRL operations on slots.
     TrustStoreManager::Sptr m_trust_store_manager;  ///< Resolves trust stores and tracks their slot memberships.
-    /// Shared with CertDataNodes so the registry stays alive while any node holds it, even after this service is
-    /// destroyed.
+    /// Data nodes hold weak references and unregister their entries while the registry is alive.
     CertRegistry::Sptr m_cert_registry{std::make_shared<CertRegistry>()};
     data_manager::IDataManager::Sptr m_data_manager;  ///< Owns and resolves client-scoped data nodes.
 

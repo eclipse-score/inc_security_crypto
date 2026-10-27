@@ -217,7 +217,7 @@ score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::
         return it->second;
     }
 
-    auto node = std::make_shared<CertSlotDataNode>(slot_handle, m_slot_registry);
+    auto node = std::make_shared<CertSlotDataNode>(slot_handle);
     auto node_id = m_data_manager->addNode(client_id, std::move(node));
     if (!node_id.has_value())
     {
@@ -251,7 +251,7 @@ score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::
         return it->second;
     }
 
-    auto node = std::make_shared<TrustStoreDataNode>(handle_res.value(), m_trust_store_manager);
+    auto node = std::make_shared<TrustStoreDataNode>(handle_res.value());
     auto node_id = m_data_manager->addNode(client_id, std::move(node));
     if (!node_id.has_value())
     {
