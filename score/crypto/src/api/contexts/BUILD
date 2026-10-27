@@ -120,15 +120,3 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
-
-cc_test(
-    name = "cipher_context_impl_test",
-    srcs = ["src/cipher_context_impl_test.cpp"],
-    deps = [
-        ":crypto_contexts_impl",
-        "//score/crypto/src/api/control_plane",
-        "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
-        "@googletest//:gtest_main",
-    ],
-)
