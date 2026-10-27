@@ -398,6 +398,101 @@ TEST_P(ProviderSignatureTest, RejectsTamperedSignatureStreaming)
     EXPECT_FALSE(std::get<bool>(result.at(0))) << test_case.name;
 }
 
+// The empty message is a valid signature input (RFC 8032 includes a zero-byte Ed25519 vector).
+// Single-shot, Update(empty) and Init -> Finalize must all sign/verify the same empty message.
+TEST_P(ProviderSignatureTest, SignAndVerifyEmptyMessage)
+{
+    const auto& test_case = GetParam();
+    if (!test_case.supported || test_case.input_mode != SignatureInputMode::kMessage)
+    {
+        GTEST_SKIP() << "Empty message applies to supported message-mode configurations only";
+    }
+    const auto& key = *keys_.at(test_case.key_algorithm);
+    auto sign = CreateHandler("SIGN", test_case);
+    auto verify = CreateHandler("VERIFY", test_case);
+    ASSERT_NE(sign, nullptr);
+    ASSERT_NE(verify, nullptr);
+    const auto params = InitParams(test_case, key);
+    ASSERT_TRUE(sign->InitializeContext(params).has_value());
+    ASSERT_TRUE(verify->InitializeContext(params).has_value());
+
+    const auto empty = score::cpp::span<const std::uint8_t>{};
+
+    // Single-shot sign, single-shot verify.
+    std::vector<std::uint8_t> signature(test_case.signature_size);
+    auto signed_response = Execute(*sign,
+                                   common::actors::OP_ACTOR_SIGN_HANDLER,
+                                   sign_ops::SIGN_SS,
+                                   {empty, score::cpp::span<std::uint8_t>{signature.data(), signature.size()}});
+    ASSERT_EQ(std::get<std::uint64_t>(signed_response.at(0)), test_case.signature_size);
+    const auto signature_input = score::cpp::span<const std::uint8_t>{signature.data(), signature.size()};
+    auto ss_verify =
+        Execute(*verify, common::actors::OP_ACTOR_VERIFY_HANDLER, verify_ops::VERIFY_SS, {empty, signature_input});
+    EXPECT_TRUE(std::get<bool>(ss_verify.at(0))) << test_case.name;
+
+    // Streaming Init -> Finalize (no Update) verifies against the single-shot signature.
+    ASSERT_TRUE(Execute(*verify, common::actors::OP_ACTOR_VERIFY_HANDLER, verify_ops::VERIFY_INIT).empty());
+    auto stream_verify =
+        Execute(*verify, common::actors::OP_ACTOR_VERIFY_HANDLER, verify_ops::VERIFY_FINALIZE, {signature_input});
+    EXPECT_TRUE(std::get<bool>(stream_verify.at(0))) << test_case.name;
+
+    // Streaming Init -> Update(empty) -> Finalize.
+    ASSERT_TRUE(Execute(*sign, common::actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_INIT).empty());
+    EXPECT_TRUE(Execute(*sign, common::actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_UPDATE, {empty}).empty());
+    std::vector<std::uint8_t> stream_signature(test_case.signature_size);
+    auto stream_sign = Execute(*sign,
+                               common::actors::OP_ACTOR_SIGN_HANDLER,
+                               sign_ops::SIGN_FINALIZE,
+                               {score::cpp::span<std::uint8_t>{stream_signature.data(), stream_signature.size()}});
+    ASSERT_EQ(std::get<std::uint64_t>(stream_sign.at(0)), test_case.signature_size);
+
+    ASSERT_TRUE(Execute(*verify, common::actors::OP_ACTOR_VERIFY_HANDLER, verify_ops::VERIFY_INIT).empty());
+    EXPECT_TRUE(Execute(*verify, common::actors::OP_ACTOR_VERIFY_HANDLER, verify_ops::VERIFY_UPDATE, {empty}).empty());
+    auto stream_verify_updated =
+        Execute(*verify,
+                common::actors::OP_ACTOR_VERIFY_HANDLER,
+                verify_ops::VERIFY_FINALIZE,
+                {score::cpp::span<const std::uint8_t>{stream_signature.data(), stream_signature.size()}});
+    EXPECT_TRUE(std::get<bool>(stream_verify_updated.at(0))) << test_case.name;
+
+    // Streaming Init -> Finalize on the sign side.
+    ASSERT_TRUE(Execute(*sign, common::actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_INIT).empty());
+    std::vector<std::uint8_t> init_finalize_signature(test_case.signature_size);
+    auto init_finalize_sign =
+        Execute(*sign,
+                common::actors::OP_ACTOR_SIGN_HANDLER,
+                sign_ops::SIGN_FINALIZE,
+                {score::cpp::span<std::uint8_t>{init_finalize_signature.data(), init_finalize_signature.size()}});
+    ASSERT_EQ(std::get<std::uint64_t>(init_finalize_sign.at(0)), test_case.signature_size);
+    auto init_finalize_verify = Execute(
+        *verify,
+        common::actors::OP_ACTOR_VERIFY_HANDLER,
+        verify_ops::VERIFY_SS,
+        {empty, score::cpp::span<const std::uint8_t>{init_finalize_signature.data(), init_finalize_signature.size()}});
+    EXPECT_TRUE(std::get<bool>(init_finalize_verify.at(0))) << test_case.name;
+}
+
+// A digest is never empty, so empty input in prehashed mode is still an invalid argument.
+TEST_P(ProviderSignatureTest, RejectsEmptyPrehashedInput)
+{
+    const auto& test_case = GetParam();
+    if (!test_case.supported || test_case.input_mode != SignatureInputMode::kPrehashed)
+    {
+        GTEST_SKIP() << "Applies to supported prehashed configurations only";
+    }
+    const auto& key = *keys_.at(test_case.key_algorithm);
+    auto sign = CreateHandler("SIGN", test_case);
+    ASSERT_NE(sign, nullptr);
+    ASSERT_TRUE(sign->InitializeContext(InitParams(test_case, key)).has_value());
+
+    std::vector<std::uint8_t> signature(test_case.signature_size);
+    common::RequestParameters request{score::cpp::span<const std::uint8_t>{},
+                                      score::cpp::span<std::uint8_t>{signature.data(), signature.size()}};
+    const auto result = sign->Execute({common::actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_SS}, request);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidArgument);
+}
+
 TEST_P(ProviderSignatureTest, RejectsEd25519MessagesAboveConfiguredLimit)
 {
     const auto& test_case = GetParam();

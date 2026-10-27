@@ -58,7 +58,12 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::Initi
     auto base = ScoreSignHandler::InitializeContext(params);
     if (!base.has_value())
         return base;
-    m_prehashed = signature::IsPrehashed(params);
+
+    const auto input_mode = signature::ParseInputMode(params);
+    if (!input_mode.has_value())
+        return make_unexpected(input_mode.error());
+    m_prehashed = input_mode.value() == ::score::crypto::SignatureInputMode::kPrehashed;
+
     if (m_prehashed && IsEd25519())
     {
         score::mw::log::LogError() << kLogPrefix << "InitializeContext: prehashed mode is unsupported for Ed25519";

@@ -30,14 +30,32 @@ namespace score::crypto::daemon::provider::score_provider::openssl::handler::sig
 
 inline constexpr std::size_t kSignatureInputModeParamIndex{6U};
 
-[[nodiscard]] inline bool IsPrehashed(const ::score::crypto::daemon::provider::handler::InitializationParams& params)
+using SignatureInputModeResult =
+    ::score::crypto::Expected<::score::crypto::SignatureInputMode, ::score::crypto::daemon::common::DaemonErrorCode>;
+
+[[nodiscard]] inline SignatureInputModeResult ParseInputMode(
+    const ::score::crypto::daemon::provider::handler::InitializationParams& params) noexcept
 {
     if (params.context_creation_params.size() <= kSignatureInputModeParamIndex)
     {
-        return false;
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
-    const auto* mode = std::get_if<std::uint8_t>(&params.context_creation_params[kSignatureInputModeParamIndex]);
-    return mode != nullptr && *mode == static_cast<std::uint8_t>(::score::crypto::SignatureInputMode::kPrehashed);
+
+    const auto* const mode = std::get_if<std::uint8_t>(&params.context_creation_params[kSignatureInputModeParamIndex]);
+    if (mode == nullptr)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
+
+    switch (*mode)
+    {
+        case static_cast<std::uint8_t>(::score::crypto::SignatureInputMode::kMessage):
+            return ::score::crypto::SignatureInputMode::kMessage;
+        case static_cast<std::uint8_t>(::score::crypto::SignatureInputMode::kPrehashed):
+            return ::score::crypto::SignatureInputMode::kPrehashed;
+        default:
+            return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
 }
 
 /// @brief Whether @p algorithm names a complete ECDSA signature scheme.

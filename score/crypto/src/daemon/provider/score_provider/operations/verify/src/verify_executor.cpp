@@ -109,7 +109,7 @@ Expected<ResponseParameters, DaemonErrorCode> VerifyExecutor::ExecuteStreaming(S
         {
             return make_unexpected(DaemonErrorCode::kInsufficientParameters);
         }
-        const auto dataSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[0]);
+        const auto dataSpan = handler::handler_utils::GetPossiblyEmptyInputSpan(request[0]);
         if (!dataSpan.has_value())
         {
             return make_unexpected(dataSpan.error());
@@ -173,7 +173,7 @@ Expected<ResponseParameters, DaemonErrorCode> VerifyExecutor::ExecuteSingleShot(
         return make_unexpected(DaemonErrorCode::kInsufficientParameters);
     }
 
-    const auto dataSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[0]);
+    const auto dataSpan = handler::handler_utils::GetPossiblyEmptyInputSpan(request[0]);
     if (!dataSpan.has_value())
     {
         return make_unexpected(dataSpan.error());
@@ -210,6 +210,14 @@ Expected<std::monostate, DaemonErrorCode> VerifyExecutor::ValidateStreamTransiti
     if (!op.has_value())
     {
         return make_unexpected(DaemonErrorCode::kInvalidOperation);
+    }
+
+    // Allow finalization without an update. After InitVerify(), this represents
+    // verifying the empty message.
+    if (op.value() == handler::StreamOperation::kFinalize && currentState == StreamOperationState::STREAM_INITIALIZED)
+    {
+        nextState = StreamOperationState::IDLE;
+        return std::monostate{};
     }
 
     const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());

@@ -59,13 +59,19 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& al
         return base_result;
     }
 
+    const auto input_mode = signature::ParseInputMode(init_params);
+    if (!input_mode.has_value())
+    {
+        return ::score::crypto::make_unexpected(input_mode.error());
+    }
+
     auto bound = m_stream.Bind(init_params, m_algorithm);
     if (!bound.has_value())
     {
         return bound;
     }
 
-    m_prehashed = signature::IsPrehashed(init_params);
+    m_prehashed = input_mode.value() == ::score::crypto::SignatureInputMode::kPrehashed;
     m_prehashed_data.clear();
 
     m_state = StreamOperationState::IDLE;

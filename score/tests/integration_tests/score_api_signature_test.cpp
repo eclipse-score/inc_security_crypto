@@ -21,6 +21,7 @@
 #include "score/crypto/src/api/i_crypto_context.hpp"
 #include "score/crypto/src/api/i_crypto_stack.hpp"
 #include "score/crypto/src/api/types/common.hpp"
+#include "score/span.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>
@@ -265,6 +266,102 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         }
     }
 
+    /// The empty message is a valid input (RFC 8032 has a zero-byte Ed25519 vector). Sign it through
+    /// single-shot, Update(empty) and Init -> Finalize, and verify every signature through every path.
+    void RunEmptyMessage(const SignatureCase& test_case)
+    {
+        ASSERT_NE(context_, nullptr);
+        ASSERT_NE(keys_.find(test_case.key_algorithm), keys_.end());
+        const auto& key = keys_.at(test_case.key_algorithm);
+        auto sign_context = MakeSignContext(*context_, test_case, key);
+        auto verify_context = MakeVerifyContext(*context_, test_case, key);
+        ASSERT_NE(sign_context, nullptr) << test_case.name;
+        ASSERT_NE(verify_context, nullptr) << test_case.name;
+
+        const score::cpp::span<const std::uint8_t> empty{};
+
+        // Single-shot sign.
+        std::vector<std::uint8_t> ss_signature(test_case.signature_size);
+        auto ss_written = sign_context->SingleShot(empty, {ss_signature.data(), ss_signature.size()});
+        ASSERT_TRUE(ss_written.has_value()) << test_case.name;
+        EXPECT_EQ(ss_written.value(), test_case.signature_size);
+
+        // Streaming sign: Init -> Update(empty) -> Finalize.
+        std::vector<std::uint8_t> update_signature(test_case.signature_size);
+        ASSERT_TRUE(sign_context->Init().has_value()) << test_case.name;
+        ASSERT_TRUE(sign_context->Update(empty).has_value()) << test_case.name;
+        ASSERT_TRUE(sign_context->SignFinalize({update_signature.data(), update_signature.size()}).has_value())
+            << test_case.name;
+
+        // Streaming sign: Init -> Finalize (no Update).
+        std::vector<std::uint8_t> finalize_signature(test_case.signature_size);
+        ASSERT_TRUE(sign_context->Init().has_value()) << test_case.name;
+        ASSERT_TRUE(sign_context->SignFinalize({finalize_signature.data(), finalize_signature.size()}).has_value())
+            << test_case.name;
+
+        for (const auto* signature : {&ss_signature, &update_signature, &finalize_signature})
+        {
+            const score::cpp::span<const std::uint8_t> signature_span{signature->data(), signature->size()};
+
+            auto ss_verified = verify_context->SingleShot(empty, signature_span);
+            ASSERT_TRUE(ss_verified.has_value()) << test_case.name;
+            EXPECT_TRUE(ss_verified.value()) << test_case.name;
+
+            ASSERT_TRUE(verify_context->Init().has_value()) << test_case.name;
+            ASSERT_TRUE(verify_context->Update(empty).has_value()) << test_case.name;
+            auto update_verified = verify_context->VerifyFinalize(signature_span);
+            ASSERT_TRUE(update_verified.has_value()) << test_case.name;
+            EXPECT_TRUE(update_verified.value()) << test_case.name;
+
+            ASSERT_TRUE(verify_context->Init().has_value()) << test_case.name;
+            auto finalize_verified = verify_context->VerifyFinalize(signature_span);
+            ASSERT_TRUE(finalize_verified.has_value()) << test_case.name;
+            EXPECT_TRUE(finalize_verified.value()) << test_case.name;
+        }
+
+        // A tampered signature must still be rejected for the empty message.
+        ss_signature[0U] ^= 0x01U;
+        auto tampered = verify_context->SingleShot(empty, {ss_signature.data(), ss_signature.size()});
+        ASSERT_TRUE(tampered.has_value()) << test_case.name;
+        EXPECT_FALSE(tampered.value()) << test_case.name;
+    }
+
+    /// A digest is never empty, so zero-length input in prehashed mode must be rejected on both the
+    /// sign and verify side, for single-shot and streaming (Update(empty) and Init -> Finalize).
+    void RunRejectsEmptyPrehashed(const SignatureCase& test_case)
+    {
+        ASSERT_NE(context_, nullptr);
+        ASSERT_NE(keys_.find(test_case.key_algorithm), keys_.end());
+        const auto& key = keys_.at(test_case.key_algorithm);
+        auto sign_context = MakeSignContext(*context_, test_case, key);
+        auto verify_context = MakeVerifyContext(*context_, test_case, key);
+        ASSERT_NE(sign_context, nullptr) << test_case.name;
+        ASSERT_NE(verify_context, nullptr) << test_case.name;
+
+        const score::cpp::span<const std::uint8_t> empty{};
+        std::vector<std::uint8_t> signature(test_case.signature_size);
+        const score::cpp::span<std::uint8_t> signature_out{signature.data(), signature.size()};
+        const score::cpp::span<const std::uint8_t> signature_in{signature.data(), signature.size()};
+
+        // Single-shot.
+        EXPECT_FALSE(sign_context->SingleShot(empty, signature_out).has_value()) << test_case.name;
+        EXPECT_FALSE(verify_context->SingleShot(empty, signature_in).has_value()) << test_case.name;
+
+        // Streaming: Init -> Update(empty) -> Finalize.
+        ASSERT_TRUE(sign_context->Init().has_value()) << test_case.name;
+        ASSERT_TRUE(sign_context->Update(empty).has_value()) << test_case.name;
+        EXPECT_FALSE(sign_context->SignFinalize(signature_out).has_value()) << test_case.name;
+        ASSERT_TRUE(verify_context->Init().has_value()) << test_case.name;
+        ASSERT_TRUE(verify_context->Update(empty).has_value()) << test_case.name;
+        EXPECT_FALSE(verify_context->VerifyFinalize(signature_in).has_value()) << test_case.name;
+
+        // Streaming: Init -> Finalize (no Update).
+        ASSERT_TRUE(sign_context->Init().has_value()) << test_case.name;
+        EXPECT_FALSE(sign_context->SignFinalize(signature_out).has_value()) << test_case.name;
+        ASSERT_TRUE(verify_context->Init().has_value()) << test_case.name;
+        EXPECT_FALSE(verify_context->VerifyFinalize(signature_in).has_value()) << test_case.name;
+    }
+
     void RunEd25519KnownAnswer(const SignatureCase& test_case, bool streaming)
     {
         ASSERT_EQ(test_case.key_algorithm, "Ed25519");
@@ -325,6 +422,34 @@ TEST_P(SignatureIntegrationTest, RejectsTamperedSignatureStreaming)
 TEST_P(SignatureIntegrationTest, RejectsTamperedSignatureSS)
 {
     RunRejectsTamperedSignature(GetParam(), false);
+}
+
+TEST_P(SignatureIntegrationTest, SignAndVerifyEmptyMessage)
+{
+    const auto& test_case = GetParam();
+    if (!test_case.supported)
+    {
+        GTEST_SKIP() << test_case.name << ": configuration is unsupported (expected to be rejected)";
+    }
+    if (test_case.input_mode != SignatureInputMode::kMessage)
+    {
+        GTEST_SKIP() << test_case.name << ": prehashed input cannot be empty (see RejectsEmptyPrehashedInput)";
+    }
+    RunEmptyMessage(test_case);
+}
+
+TEST_P(SignatureIntegrationTest, RejectsEmptyPrehashedInput)
+{
+    const auto& test_case = GetParam();
+    if (!test_case.supported)
+    {
+        GTEST_SKIP() << test_case.name << ": configuration is unsupported (expected to be rejected)";
+    }
+    if (test_case.input_mode != SignatureInputMode::kPrehashed)
+    {
+        GTEST_SKIP() << test_case.name << ": message mode accepts empty input (see SignAndVerifyEmptyMessage)";
+    }
+    RunRejectsEmptyPrehashed(test_case);
 }
 
 class Ed25519SignatureTest : public SignatureIntegrationTest
