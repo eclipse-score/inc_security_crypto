@@ -17,8 +17,10 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 cc_library(
     name = "openssl_key_management_headers",
     hdrs = [
+        "key_management/openssl_ec_key_pair.hpp",
         "key_management/openssl_key_factory.hpp",
         "key_management/openssl_key_handler.hpp",
+        "key_management/openssl_symmetric_key.hpp",
     ],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
@@ -83,8 +85,11 @@ cc_library(
     srcs = [
         "detail/ecdsa_common.cpp",
         "detail/openssl_algorithm_info.hpp",
+        "key_management/openssl_ec_key_pair.cpp",
         "key_management/openssl_key_factory.cpp",
+        "key_management/openssl_key_handle.hpp",
         "key_management/openssl_key_handler.cpp",
+        "key_management/openssl_symmetric_key.cpp",
         "operations/cipher/openssl_cipher_handler.cpp",
         "operations/factory/openssl_handler_factory.cpp",
         "operations/hash/openssl_hash_handler.cpp",
@@ -145,6 +150,7 @@ cc_test(
     }),
     deps = [
         ":provider_openssl_library",
+        "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "@googletest//:gtest_main",
     ],
