@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_STORAGE_KV_KV_DEPLOYMENT_WRITER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_STORAGE_KV_KV_DEPLOYMENT_WRITER_HPP
 
+#include "score/crypto/src/daemon/common/storage/file_io.hpp"
 #include "score/crypto/src/daemon/common/storage/i_deployment_writer.hpp"
 
 namespace score::crypto::daemon::common::storage
@@ -27,6 +28,11 @@ namespace score::crypto::daemon::common::storage
 class KvDeploymentWriter final : public IDeploymentWriter
 {
   public:
+    /// @brief Create a writer that persists through @p writer.
+    /// @param writer Write primitive; the default is WriteFile. Tests substitute a writer to control
+    ///               whether a write succeeds or fails.
+    explicit KvDeploymentWriter(FileWriter writer = WriteFile);
+
     /// @brief Validates and writes a descriptor in KV format.
     /// @param path Pre-validated destination path.
     /// @param descriptor Descriptor to serialize.
@@ -34,6 +40,9 @@ class KvDeploymentWriter final : public IDeploymentWriter
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Write(
         const std::string& path,
         const DeploymentDescriptor& descriptor) override;
+
+  private:
+    FileWriter m_write_file;
 };
 
 }  // namespace score::crypto::daemon::common::storage

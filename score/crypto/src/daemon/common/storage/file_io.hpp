@@ -18,6 +18,7 @@
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -48,6 +49,12 @@ namespace score::crypto::daemon::common::storage
 [[nodiscard]] score::crypto::Expected<std::monostate, DaemonErrorCode> WriteFile(
     const std::string& path,
     score::crypto::span<const std::uint8_t> data);
+
+/// Write primitive used by the storage components that persist files. Production code uses
+/// WriteFile. A test substitutes a writer to make a write succeed or fail at a chosen point.
+using FileWriter = std::function<score::crypto::Expected<std::monostate, DaemonErrorCode>(
+    const std::string& path,
+    score::crypto::span<const std::uint8_t> data)>;
 
 /// Check whether @p path refers to an existing regular file.
 ///

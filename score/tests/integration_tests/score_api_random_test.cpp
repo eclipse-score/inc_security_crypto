@@ -25,12 +25,12 @@
 /// of bytes arrives, the whole buffer is written, and successive draws differ.
 
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/config/random_context_config.hpp"
 #include "score/crypto/src/api/contexts/i_random_context.hpp"
 #include "score/crypto/src/api/crypto_stack_factory.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
 #include "score/crypto/src/api/i_crypto_stack.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>
