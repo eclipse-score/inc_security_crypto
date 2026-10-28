@@ -72,7 +72,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="Key Management Architecture" href="key_management_details.html" />
+    <link rel="next" title="Architecture Inspection Checklist" href="chklst_arc_inspection.html" />
     <link rel="prev" title="Interfaces" href="interfaces.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
@@ -507,7 +507,6 @@
 <li class="toctree-l2"><a class="reference internal" href="dynamic_architecture.html">API Dynamic Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="interfaces.html">Interfaces</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Provider Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="key_management_details.html">Key Management Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
 <li class="toctree-l2"><a class="reference internal" href="design_decisions.html">Design Decisions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data_plane_architecture.html">Data Plane Architecture</a></li>
@@ -626,63 +625,24 @@ specific to any algorithm family or provider.</p>
 </section>
 <section id="hash-algorithm-contract">
 <h3>Hash Algorithm Contract<a class="headerlink" href="#hash-algorithm-contract" title="Link to this heading">#</a></h3>
-<p>Hash algorithm identifiers are case-sensitive wire-level values. The standard
-algorithm name and the identifier passed to <code class="docutils literal notranslate"><span class="pre">HashContextConfig</span></code> are distinct:</p>
-<div class="pst-scrollable-table-container"><table class="table" id="id2">
-<caption><span class="caption-number">Table 1 </span><span class="caption-text">Supported hash algorithms</span><a class="headerlink" href="#id2" title="Link to this table">#</a></caption>
-<thead>
-<tr class="row-odd"><th class="head"><p>Standard name</p></th>
-<th class="head"><p>Canonical API identifier</p></th>
-<th class="head"><p>Digest size</p></th>
-<th class="head"><p>OpenSSL mapping</p></th>
-<th class="head"><p>PKCS#11 mapping</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>SHA-256</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">SHA256</span></code></p></td>
-<td><p>32 bytes</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">EVP_sha256</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">CKM_SHA256</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p>SHA-384</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">SHA384</span></code></p></td>
-<td><p>48 bytes</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">EVP_sha384</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">CKM_SHA384</span></code></p></td>
-</tr>
-<tr class="row-even"><td><p>SHA-512</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">SHA512</span></code></p></td>
-<td><p>64 bytes</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">EVP_sha512</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">CKM_SHA512</span></code></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>OpenSSL support is determined from the provider’s EVP mapping. PKCS#11 support
-requires both a daemon mapping and a token that implements the corresponding
-mechanism. A configured hardware provider therefore may reject an algorithm
-that the software provider supports; the daemon must return an explicit error
-rather than silently select another algorithm or digest size.</p>
-<p>For PKCS#11, <code class="docutils literal notranslate"><span class="pre">Pkcs11HandlerFactory</span></code> resolves the canonical identifier to a
-<code class="docutils literal notranslate"><span class="pre">CK_MECHANISM_TYPE</span></code> and calls <code class="docutils literal notranslate"><span class="pre">C_GetMechanismInfo</span></code> for the provider’s
-selected slot before acquiring a session or constructing the hash handler. A
-mechanism is accepted for hashing only when its returned flags include
-<code class="docutils literal notranslate"><span class="pre">CKF_DIGEST</span></code>; merely being listed by the token is not sufficient.
-<code class="docutils literal notranslate"><span class="pre">CKR_MECHANISM_INVALID</span></code> is reported to the client as
-<code class="docutils literal notranslate"><span class="pre">CryptoErrorCode::kUnsupportedAlgorithm</span></code>; other PKCS#11 query failures are
-translated through the daemon error mapping.</p>
+<p>Hash contexts expose a provider-neutral interface. The daemon resolves the
+requested algorithm against the provider selected for the deployment and
+returns <code class="docutils literal notranslate"><span class="pre">CryptoErrorCode::kUnsupportedAlgorithm</span></code> when that provider cannot
+perform it. The daemon does not silently substitute another algorithm or digest
+size. Algorithm availability can therefore differ between deployments without
+changing the public hash interface.</p>
+<p>The digest size required by a resolved algorithm is exposed through the hash
+context, allowing callers to allocate an output buffer without relying on
+provider-specific metadata.</p>
 <p>Both streaming and single-shot operations accept empty input. A streaming
 caller may invoke <code class="docutils literal notranslate"><span class="pre">Init()</span></code> followed directly by <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code> without an
 intermediate <code class="docutils literal notranslate"><span class="pre">Update()</span></code>; the result is the standard digest of the empty byte
 sequence.</p>
-<p>Provider adapters also recognize SHA-224. SHA-1 and MD5 are not exposed by the
-high-level Crypto API because no supported use case requires these
-cryptographically weak algorithms. SHA-3, SHAKE, CRC32, and CRC32 AUTOSAR are
-outside the hash provider contract.</p>
-<p>An undersized <code class="docutils literal notranslate"><span class="pre">Finalize</span></code> output is retryable: the caller may supply a larger
-buffer and call <code class="docutils literal notranslate"><span class="pre">Finalize</span></code> again without replaying the input. Other provider or
+<p>SHA-1 and MD5 are not exposed by the high-level Crypto API because no supported
+use case requires these cryptographically weak algorithms.</p>
+<p>An insufficient output buffer is a retryable finalization error. Provider
+adapters must either detect this condition before consuming the digest state or
+preserve the active provider operation when reporting it. Other provider or
 transport errors must be handled according to their returned error code; callers
 must not assume that every failure preserves a streaming operation.</p>
 </section>
@@ -851,11 +811,11 @@ returned to callers.</p>
       </div>
     </a>
     <a class="right-next"
-       href="key_management_details.html"
+       href="chklst_arc_inspection.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Key Management Architecture</p>
+        <p class="prev-next-title">Architecture Inspection Checklist</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

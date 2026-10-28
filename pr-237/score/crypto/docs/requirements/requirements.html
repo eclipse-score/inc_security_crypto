@@ -500,7 +500,7 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../../src/daemon/data_manager/docs/index.html">Data Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/daemon_architecture.html">Crypto Daemon Component Architecture</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../src/ipc/message_passing_adapter/docs/index.html">IPC Message Passing Adapter</a></li>
 </ul>
 <ul class="current nav bd-sidenav">
@@ -580,7 +580,7 @@
                   
   <section id="crypto-requirements">
 <h1>Crypto Requirements<a class="headerlink" href="#crypto-requirements" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-5558971d">
+<div class="need_container docutils container" id="SNCB-b6883d2f">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_requirements">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -629,7 +629,7 @@
 <p>The requirements in this section specify behavior provided by the Crypto
 component’s hash API. They do not make qualification claims about a complete
 deployed system.</p>
-<div class="need_container docutils container" id="SNCB-e8d2b004">
+<div class="need_container docutils container" id="SNCB-11ebd49f">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__hash_algorithms">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -660,8 +660,7 @@ deployed system.</p>
 <td class="meta" colspan="3"></td>
 </tr>
 <tr class="content row-odd"><td class="content" colspan="6"><p>The Crypto component shall provide SHA-256, SHA-384, and SHA-512 hash
-operations through the canonical algorithm identifiers <code class="docutils literal notranslate"><span class="pre">SHA256</span></code>,
-<code class="docutils literal notranslate"><span class="pre">SHA384</span></code>, and <code class="docutils literal notranslate"><span class="pre">SHA512</span></code> respectively.</p></td>
+operations.</p></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
 <div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp_req__crypto__hash_algorithms" title="comp_req__crypto__hash_algorithms">comp_req__crypto__hash_algorithms</a></span></span></div>
@@ -677,7 +676,7 @@ operations through the canonical algorithm identifiers <code class="docutils lit
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-822e4086">
+<div class="need_container docutils container" id="SNCB-8d191a9c">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__hash_streaming">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -724,7 +723,7 @@ operations through the canonical algorithm identifiers <code class="docutils lit
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-23491375">
+<div class="need_container docutils container" id="SNCB-3fd9abc2">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__hash_single_shot">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -772,7 +771,7 @@ streaming operation.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-73fa7541">
+<div class="need_container docutils container" id="SNCB-4a0c86ec">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__hash_digest_size">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -802,8 +801,9 @@ streaming operation.</p></td>
 </td>
 <td class="meta" colspan="3"></td>
 </tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p>The Crypto component shall report digest sizes of 32, 48, and 64 bytes for
-<code class="docutils literal notranslate"><span class="pre">SHA256</span></code>, <code class="docutils literal notranslate"><span class="pre">SHA384</span></code>, and <code class="docutils literal notranslate"><span class="pre">SHA512</span></code> respectively.</p></td>
+<tr class="content row-odd"><td class="content" colspan="6"><p>For each supported hash algorithm, the Crypto component shall expose through
+the hash interface the digest output size, in bytes, required by that
+algorithm.</p></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
 <div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp_req__crypto__hash_digest_size" title="comp_req__crypto__hash_digest_size">comp_req__crypto__hash_digest_size</a></span></span></div>
@@ -819,7 +819,7 @@ streaming operation.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-b8b6f64a">
+<div class="need_container docutils container" id="SNCB-ab562d02">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__hash_output_buffer">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -850,10 +850,7 @@ streaming operation.</p></td>
 <td class="meta" colspan="3"></td>
 </tr>
 <tr class="content row-odd"><td class="content" colspan="6"><p>The Crypto component shall reject a hash operation when the caller-provided
-output buffer is smaller than the digest size of the configured algorithm.
-For a streaming operation, this validation error shall not consume the
-active digest state, allowing <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code> to be retried with a sufficient
-output buffer.</p></td>
+output buffer is smaller than the digest size of the configured algorithm.</p></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
 <div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp_req__crypto__hash_output_buffer" title="comp_req__crypto__hash_output_buffer">comp_req__crypto__hash_output_buffer</a></span></span></div>
@@ -869,7 +866,55 @@ output buffer.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-00712ff2">
+<div class="need_container docutils container" id="SNCB-544d9fbd">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__hash_output_buffer_retry">
+<tbody>
+<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
+<div class="line"><span><span class="needs_title"><span class="needs_data">Preserve hash state after output-buffer validation</span></span></span></div>
+</div>
+</td>
+<td class="head_center" colspan="2"><div class="needs_head line-block">
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
+<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
+<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
+</div>
+</td>
+<td class="head_right" colspan="2"><div class="needs_head_right line-block">
+<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
+</div>
+</td>
+</tr>
+<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
+<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">crypto</span></span></span></div>
+<div class="line"><span class="needs_reqtype"><span class="needs_label">reqtype: </span><span class="needs_data">Functional</span></span></div>
+<div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
+</span></span></div>
+<div class="line"><span><div class="line">derived from: <span class="derived_from"><span><a class="external_link reference external" href="https://eclipse-score.github.io/score/main/features/security_crypto/requirements/index.html#feat_req__sec_crypt__hashing">feat_req__sec_crypt__hashing</a></span></span></div>
+<div class="line">satisfied by: <span class="satisfied_by"><span><a class="reference internal" href="../architecture/index.html#comp__crypto" title="comp_req__crypto__hash_output_buffer_retry">comp__crypto</a></span></span></div>
+</span></div>
+</div>
+</td>
+<td class="meta" colspan="3"></td>
+</tr>
+<tr class="content row-odd"><td class="content" colspan="6"><p>When streaming hash finalization reports that the output buffer is too small,
+the Crypto component shall preserve the active hash state so that
+<code class="docutils literal notranslate"><span class="pre">Finalize()</span></code> can be retried with a sufficient output buffer.</p></td>
+</tr>
+<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp_req__crypto__hash_output_buffer_retry" title="comp_req__crypto__hash_output_buffer_retry">comp_req__crypto__hash_output_buffer_retry</a></span></span></div>
+</div>
+</td>
+<td class="footer" colspan="2"><div class="needs_footer line-block">
+<div class="line"><span><span class="needs_type_name"><span class="needs_data">Component Requirement</span></span></span></div>
+</div>
+</td>
+<td class="footer_right" colspan="2"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="need_container docutils container" id="SNCB-29bb0633">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__hash_unsupported_algorithm">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -917,11 +962,11 @@ a digest size or another algorithm.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-4127a052">
+<div class="need_container docutils container" id="SNCB-cc8423e7">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__hash_provider_parity">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">Maintain provider-equivalent hash results</span></span></span></div>
+<div class="line"><span><span class="needs_title"><span class="needs_data">Maintain provider-independent hash results</span></span></span></div>
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
@@ -947,8 +992,8 @@ a digest size or another algorithm.</p></td>
 </td>
 <td class="meta" colspan="3"></td>
 </tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p>For each hash algorithm supported by multiple providers, those providers
-shall produce identical digests for identical input bytes.</p></td>
+<tr class="content row-odd"><td class="content" colspan="6"><p>For each supported hash algorithm, the Crypto stack shall return identical
+digests for identical input bytes independent of the selected provider.</p></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
 <div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp_req__crypto__hash_provider_parity" title="comp_req__crypto__hash_provider_parity">comp_req__crypto__hash_provider_parity</a></span></span></div>
@@ -964,11 +1009,14 @@ shall produce identical digests for identical input bytes.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-5c47f4c5">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__hash_provider_fallback">
+</section>
+<section id="provider-selection">
+<h2>Provider Selection<a class="headerlink" href="#provider-selection" title="Link to this heading">#</a></h2>
+<div class="need_container docutils container" id="SNCB-6bc13380">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__provider_fallback">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">Honor preferred-provider fallback</span></span></span></div>
+<div class="line"><span><span class="needs_title"><span class="needs_data">Honor preferred-provider fallback for context creation</span></span></span></div>
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
@@ -988,18 +1036,18 @@ shall produce identical digests for identical input bytes.</p></td>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
 <div class="line"><span><div class="line">derived from: <span class="derived_from"><span><a class="external_link reference external" href="https://eclipse-score.github.io/score/main/features/security_crypto/requirements/index.html#feat_req__sec_crypt__sw_fallback">feat_req__sec_crypt__sw_fallback</a></span></span></div>
-<div class="line">satisfied by: <span class="satisfied_by"><span><a class="reference internal" href="../architecture/index.html#comp__crypto" title="comp_req__crypto__hash_provider_fallback">comp__crypto</a></span></span></div>
+<div class="line">satisfied by: <span class="satisfied_by"><span><a class="reference internal" href="../architecture/index.html#comp__crypto" title="comp_req__crypto__provider_fallback">comp__crypto</a></span></span></div>
 </span></div>
 </div>
 </td>
 <td class="meta" colspan="3"></td>
 </tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p>When a hash context requests a preferred provider category, the Crypto
+<tr class="content row-odd"><td class="content" colspan="6"><p>When context creation requests a preferred provider category, the Crypto
 component shall use the corresponding fallback category only if the preferred
-provider is unavailable or does not support the requested hash algorithm.</p></td>
+provider is unavailable or does not support the requested operation.</p></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp_req__crypto__hash_provider_fallback" title="comp_req__crypto__hash_provider_fallback">comp_req__crypto__hash_provider_fallback</a></span></span></div>
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp_req__crypto__provider_fallback" title="comp_req__crypto__provider_fallback">comp_req__crypto__provider_fallback</a></span></span></div>
 </div>
 </td>
 <td class="footer" colspan="2"><div class="needs_footer line-block">
@@ -1012,7 +1060,10 @@ provider is unavailable or does not support the requested hash algorithm.</p></t
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-c24f5d9e">
+</section>
+<section id="hash-context-lifecycle">
+<h2>Hash Context Lifecycle<a class="headerlink" href="#hash-context-lifecycle" title="Link to this heading">#</a></h2>
+<div class="need_container docutils container" id="SNCB-33f60bc1">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto__hash_context_reset">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1110,6 +1161,8 @@ be reset to the idle state without changing its algorithm or provider binding.</
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hash-functionality">Hash Functionality</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#provider-selection">Provider Selection</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hash-context-lifecycle">Hash Context Lifecycle</a></li>
 </ul>
   </nav></div>
 
