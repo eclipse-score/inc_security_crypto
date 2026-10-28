@@ -135,9 +135,6 @@ inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
 // Signature algorithm properties (provider-independent)
 // ---------------------------------------------------------------------------
 
-/// @brief Maximum message size buffered by Ed25519 sign/verify operations.
-/// @note This is a resource-policy limit, not an Ed25519 algorithm limit.
-inline constexpr std::size_t kMaxEd25519MessageSize{1024U * 1024U};
 inline constexpr std::size_t kEd25519SignatureSize{64U};
 
 // ---------------------------------------------------------------------------

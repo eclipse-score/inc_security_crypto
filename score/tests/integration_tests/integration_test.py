@@ -219,8 +219,10 @@ class TestCryptoDaemon:
     def test_score_api_signature_streaming(
         self, target: Target, target_os: str, install_dir: str, openssl_backend: None
     ):
-        """Test streaming ECDSA, RSA-PSS and Ed25519 signing API."""
-        self._run_score_api_signature(target, target_os, install_dir, "*SignAndVerifyStreaming*")
+        """Test streaming ECDSA/RSA-PSS and Ed25519 streaming rejection."""
+        self._run_score_api_signature(
+            target, target_os, install_dir, "*SignAndVerifyStreaming*:*RejectsStreaming*"
+        )
 
     def test_score_api_signature_ss(
         self, target: Target, target_os: str, install_dir: str, openssl_backend: None

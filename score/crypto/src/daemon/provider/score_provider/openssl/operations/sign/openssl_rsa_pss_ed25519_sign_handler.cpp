@@ -93,16 +93,26 @@ std::size_t OpenSslRsaPssEd25519SignHandler::GetSignatureSize() const noexcept
 
 Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::InitSign()
 {
+    if (IsEd25519())
+    {
+        score::mw::log::LogError() << kLogPrefix << "InitSign: Ed25519 does not support streaming signing";
+        return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
+    }
+    return InitializeSignContext();
+}
+
+Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::InitializeSignContext()
+{
     auto restarted = m_stream.Restart();
     if (!restarted.has_value())
     {
-        score::mw::log::LogError() << kLogPrefix << "InitSign: failed to restart signing stream";
+        score::mw::log::LogError() << kLogPrefix << "InitializeSignContext: failed to restart signing stream";
         return restarted;
     }
     EVP_PKEY* key = m_stream.Key();
     if (key == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << "InitSign: no bound key";
+        score::mw::log::LogError() << kLogPrefix << "InitializeSignContext: no bound key";
         return make_unexpected(DaemonErrorCode::kStreamNotInitialized);
     }
     const auto digest = algo::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
@@ -115,7 +125,8 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::InitS
     }
     if (EVP_DigestSignInit_ex(m_stream.Context(), nullptr, digest_name, nullptr, nullptr, key, nullptr) != 1)
     {
-        score::mw::log::LogError() << kLogPrefix << "InitSign: EVP_DigestSignInit_ex failed for " << m_algorithm;
+        score::mw::log::LogError() << kLogPrefix << "InitializeSignContext: EVP_DigestSignInit_ex failed for "
+                                   << m_algorithm;
         return make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
     }
     m_buffer.clear();
@@ -125,8 +136,8 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::InitS
             m_stream.Context(), std::string_view{m_algorithm.data(), m_algorithm.size()}, RSA_PSS_SALTLEN_DIGEST);
         if (!configured.has_value())
         {
-            score::mw::log::LogError() << kLogPrefix << "InitSign: RSA-PSS context configuration failed for "
-                                       << m_algorithm;
+            score::mw::log::LogError() << kLogPrefix << "InitializeSignContext: RSA-PSS context configuration failed "
+                                       << "for " << m_algorithm;
             return configured;
         }
     }
@@ -136,6 +147,11 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::InitS
 Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::UpdateSign(
     score::cpp::span<const std::uint8_t> data)
 {
+    if (IsEd25519())
+    {
+        score::mw::log::LogError() << kLogPrefix << "UpdateSign: Ed25519 does not support streaming signing";
+        return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
+    }
     if (m_stream.Context() == nullptr)
     {
         score::mw::log::LogError() << kLogPrefix << "UpdateSign: signing stream is not initialized";
@@ -150,19 +166,6 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::Updat
         {
             score::mw::log::LogError() << kLogPrefix << "UpdateSign: prehashed input exceeds digest size for "
                                        << m_algorithm << "; buffered=" << m_buffer.size() << ", chunk=" << data.size();
-            return make_unexpected(DaemonErrorCode::kInvalidArgument);
-        }
-        m_buffer.insert(m_buffer.end(), data.begin(), data.end());
-        return std::monostate{};
-    }
-    if (IsEd25519())
-    {
-        if (m_buffer.size() > algo::kMaxEd25519MessageSize ||
-            data.size() > algo::kMaxEd25519MessageSize - m_buffer.size())
-        {
-            score::mw::log::LogError() << kLogPrefix << "UpdateSign: Ed25519 message exceeds configured limit"
-                                       << "; buffered=" << m_buffer.size() << ", chunk=" << data.size()
-                                       << ", limit=" << algo::kMaxEd25519MessageSize;
             return make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
         m_buffer.insert(m_buffer.end(), data.begin(), data.end());
@@ -197,6 +200,11 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::ResolveB
 Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::FinalizeSign(
     score::cpp::span<std::uint8_t> output)
 {
+    if (IsEd25519())
+    {
+        score::mw::log::LogError() << kLogPrefix << "FinalizeSign: Ed25519 does not support streaming signing";
+        return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
+    }
     auto size = ResolveBuffer(output);
     if (!size.has_value())
     {
@@ -247,14 +255,7 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::Finalize
                                           : Expected<std::size_t, DaemonErrorCode>{
                                                 make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed)};
     }
-    if (IsEd25519())
-    {
-        sign_result = EVP_DigestSign(m_stream.Context(), output.data(), &written, m_buffer.data(), m_buffer.size());
-    }
-    else
-    {
-        sign_result = EVP_DigestSignFinal(m_stream.Context(), output.data(), &written);
-    }
+    sign_result = EVP_DigestSignFinal(m_stream.Context(), output.data(), &written);
     m_state = StreamOperationState::IDLE;
     m_buffer.clear();
     if (sign_result != 1)
@@ -270,19 +271,13 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssEd25519SignHandler::SingleSh
     score::cpp::span<const std::uint8_t> data,
     score::cpp::span<std::uint8_t> output)
 {
-    if (IsEd25519() && data.size() > algo::kMaxEd25519MessageSize)
-    {
-        score::mw::log::LogError() << kLogPrefix << "SingleShotSign: Ed25519 message size " << data.size()
-                                   << " exceeds configured limit " << algo::kMaxEd25519MessageSize;
-        return make_unexpected(DaemonErrorCode::kInvalidArgument);
-    }
     auto size = ResolveBuffer(output);
     if (!size.has_value())
     {
         score::mw::log::LogError() << kLogPrefix << "SingleShotSign: output buffer resolution failed";
         return make_unexpected(size.error());
     }
-    auto initialized = InitSign();
+    auto initialized = InitializeSignContext();
     if (!initialized.has_value())
     {
         score::mw::log::LogError() << kLogPrefix << "SingleShotSign: signing initialization failed";

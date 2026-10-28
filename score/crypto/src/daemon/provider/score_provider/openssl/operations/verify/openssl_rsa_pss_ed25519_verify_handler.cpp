@@ -83,16 +83,26 @@ std::size_t OpenSslRsaPssEd25519VerifyHandler::GetSignatureSize() const noexcept
 }
 Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::InitVerify()
 {
+    if (IsEd25519())
+    {
+        score::mw::log::LogError() << kLogPrefix << "InitVerify: Ed25519 does not support streaming verification";
+        return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
+    }
+    return InitializeVerifyContext();
+}
+
+Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::InitializeVerifyContext()
+{
     auto restarted = m_stream.Restart();
     if (!restarted.has_value())
     {
-        score::mw::log::LogError() << kLogPrefix << "InitVerify: failed to restart verification stream";
+        score::mw::log::LogError() << kLogPrefix << "InitializeVerifyContext: failed to restart verification stream";
         return restarted;
     }
     EVP_PKEY* key = m_stream.Key();
     if (key == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << "InitVerify: no bound key";
+        score::mw::log::LogError() << kLogPrefix << "InitializeVerifyContext: no bound key";
         return make_unexpected(DaemonErrorCode::kStreamNotInitialized);
     }
     const auto digest = algo::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
@@ -105,7 +115,8 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::Ini
     }
     if (EVP_DigestVerifyInit_ex(m_stream.Context(), nullptr, digest_ptr, nullptr, nullptr, key, nullptr) != 1)
     {
-        score::mw::log::LogError() << kLogPrefix << "InitVerify: EVP_DigestVerifyInit_ex failed for " << m_algorithm;
+        score::mw::log::LogError() << kLogPrefix << "InitializeVerifyContext: EVP_DigestVerifyInit_ex failed for "
+                                   << m_algorithm;
         return make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
     }
     m_buffer.clear();
@@ -117,7 +128,8 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::Ini
             m_stream.Context(), std::string_view{m_algorithm.data(), m_algorithm.size()}, RSA_PSS_SALTLEN_AUTO);
         if (!configured.has_value())
         {
-            score::mw::log::LogError() << kLogPrefix << "InitVerify: RSA-PSS context configuration failed for "
+            score::mw::log::LogError() << kLogPrefix
+                                       << "InitializeVerifyContext: RSA-PSS context configuration failed for "
                                        << m_algorithm;
             return configured;
         }
@@ -127,6 +139,11 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::Ini
 Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::UpdateVerify(
     score::cpp::span<const std::uint8_t> data)
 {
+    if (IsEd25519())
+    {
+        score::mw::log::LogError() << kLogPrefix << "UpdateVerify: Ed25519 does not support streaming verification";
+        return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
+    }
     if (m_stream.Context() == nullptr)
     {
         score::mw::log::LogError() << kLogPrefix << "UpdateVerify: verification stream is not initialized";
@@ -141,19 +158,6 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::Upd
         {
             score::mw::log::LogError() << kLogPrefix << "UpdateVerify: prehashed input exceeds digest size for "
                                        << m_algorithm << "; buffered=" << m_buffer.size() << ", chunk=" << data.size();
-            return make_unexpected(DaemonErrorCode::kInvalidArgument);
-        }
-        m_buffer.insert(m_buffer.end(), data.begin(), data.end());
-        return std::monostate{};
-    }
-    if (IsEd25519())
-    {
-        if (m_buffer.size() > algo::kMaxEd25519MessageSize ||
-            data.size() > algo::kMaxEd25519MessageSize - m_buffer.size())
-        {
-            score::mw::log::LogError() << kLogPrefix << "UpdateVerify: Ed25519 message exceeds configured limit"
-                                       << "; buffered=" << m_buffer.size() << ", chunk=" << data.size()
-                                       << ", limit=" << algo::kMaxEd25519MessageSize;
             return make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
         m_buffer.insert(m_buffer.end(), data.begin(), data.end());
@@ -180,6 +184,11 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::Che
 Expected<bool, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::FinalizeVerify(
     score::cpp::span<const std::uint8_t> signature)
 {
+    if (IsEd25519())
+    {
+        score::mw::log::LogError() << kLogPrefix << "FinalizeVerify: Ed25519 does not support streaming verification";
+        return make_unexpected(DaemonErrorCode::kUnsupportedOperation);
+    }
     auto checked = CheckSignature(signature);
     if (!checked.has_value())
         return make_unexpected(checked.error());
@@ -229,10 +238,7 @@ Expected<bool, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::FinalizeVerif
         }
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
-    const int result =
-        IsEd25519()
-            ? EVP_DigestVerify(m_stream.Context(), signature.data(), signature.size(), m_buffer.data(), m_buffer.size())
-            : EVP_DigestVerifyFinal(m_stream.Context(), signature.data(), signature.size());
+    const int result = EVP_DigestVerifyFinal(m_stream.Context(), signature.data(), signature.size());
     m_state = StreamOperationState::IDLE;
     m_buffer.clear();
     if (result == 1)
@@ -246,16 +252,10 @@ Expected<bool, DaemonErrorCode> OpenSslRsaPssEd25519VerifyHandler::SingleShotVer
     score::cpp::span<const std::uint8_t> data,
     score::cpp::span<const std::uint8_t> signature)
 {
-    if (IsEd25519() && data.size() > algo::kMaxEd25519MessageSize)
-    {
-        score::mw::log::LogError() << kLogPrefix << "SingleShotVerify: Ed25519 message size " << data.size()
-                                   << " exceeds configured limit " << algo::kMaxEd25519MessageSize;
-        return make_unexpected(DaemonErrorCode::kInvalidArgument);
-    }
     auto checked = CheckSignature(signature);
     if (!checked.has_value())
         return make_unexpected(checked.error());
-    auto initialized = InitVerify();
+    auto initialized = InitializeVerifyContext();
     if (!initialized.has_value())
     {
         score::mw::log::LogError() << kLogPrefix << "SingleShotVerify: verification initialization failed";

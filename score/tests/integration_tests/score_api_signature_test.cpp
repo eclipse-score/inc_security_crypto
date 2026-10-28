@@ -188,6 +188,13 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         ASSERT_NE(verify_context, nullptr) << test_case.name;
         EXPECT_EQ(sign_context->GetSignatureSize(), test_case.signature_size);
 
+        if (streaming && test_case.key_algorithm == "Ed25519")
+        {
+            EXPECT_FALSE(sign_context->Init().has_value()) << test_case.name;
+            EXPECT_FALSE(verify_context->Init().has_value()) << test_case.name;
+            return;
+        }
+
         std::vector<std::uint8_t> signature(test_case.signature_size);
         std::optional<score::Result<std::size_t>> written;
         if (streaming)
@@ -266,8 +273,8 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         }
     }
 
-    /// The empty message is a valid input (RFC 8032 has a zero-byte Ed25519 vector). Sign it through
-    /// single-shot, Update(empty) and Init -> Finalize, and verify every signature through every path.
+    /// The empty message is a valid input (RFC 8032 has a zero-byte Ed25519 vector). Test single-shot
+    /// for Ed25519, and streaming paths for algorithms that support them.
     void RunEmptyMessage(const SignatureCase& test_case)
     {
         ASSERT_NE(context_, nullptr);
@@ -285,6 +292,20 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         auto ss_written = sign_context->SingleShot(empty, {ss_signature.data(), ss_signature.size()});
         ASSERT_TRUE(ss_written.has_value()) << test_case.name;
         EXPECT_EQ(ss_written.value(), test_case.signature_size);
+
+        if (test_case.key_algorithm == "Ed25519")
+        {
+            const score::cpp::span<const std::uint8_t> signature_span{ss_signature.data(), ss_signature.size()};
+            auto verified = verify_context->SingleShot(empty, signature_span);
+            ASSERT_TRUE(verified.has_value()) << test_case.name;
+            EXPECT_TRUE(verified.value()) << test_case.name;
+
+            ss_signature[0U] ^= 0x01U;
+            auto tampered = verify_context->SingleShot(empty, {ss_signature.data(), ss_signature.size()});
+            ASSERT_TRUE(tampered.has_value()) << test_case.name;
+            EXPECT_FALSE(tampered.value()) << test_case.name;
+            return;
+        }
 
         // Streaming sign: Init -> Update(empty) -> Finalize.
         std::vector<std::uint8_t> update_signature(test_case.signature_size);
@@ -362,7 +383,7 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         EXPECT_FALSE(verify_context->VerifyFinalize(signature_in).has_value()) << test_case.name;
     }
 
-    void RunEd25519KnownAnswer(const SignatureCase& test_case, bool streaming)
+    void RunEd25519KnownAnswer(const SignatureCase& test_case)
     {
         ASSERT_EQ(test_case.key_algorithm, "Ed25519");
         ASSERT_NE(context_, nullptr);
@@ -376,20 +397,9 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
         ASSERT_EQ(expected.size(), test_case.signature_size);
 
         std::vector<std::uint8_t> signature(test_case.signature_size);
-        std::optional<score::Result<std::size_t>> result;
-        if (streaming)
-        {
-            ASSERT_TRUE(sign_context->Init().has_value());
-            ASSERT_TRUE(sign_context->Update({message.data(), message.size()}).has_value());
-            result.emplace(sign_context->SignFinalize({signature.data(), signature.size()}));
-        }
-        else
-        {
-            result.emplace(
-                sign_context->SingleShot({message.data(), message.size()}, {signature.data(), signature.size()}));
-        }
-        ASSERT_TRUE(result->has_value());
-        ASSERT_EQ(result->value(), expected.size());
+        auto result = sign_context->SingleShot({message.data(), message.size()}, {signature.data(), signature.size()});
+        ASSERT_TRUE(result.has_value());
+        ASSERT_EQ(result.value(), expected.size());
         EXPECT_EQ(signature, expected);
     }
 
@@ -416,6 +426,10 @@ TEST_P(SignatureIntegrationTest, SignAndVerifySS)
 
 TEST_P(SignatureIntegrationTest, RejectsTamperedSignatureStreaming)
 {
+    if (GetParam().key_algorithm == "Ed25519")
+    {
+        GTEST_SKIP() << "Ed25519 does not support streaming signatures";
+    }
     RunRejectsTamperedSignature(GetParam(), true);
 }
 
@@ -456,18 +470,28 @@ class Ed25519SignatureTest : public SignatureIntegrationTest
 {
 };
 
-TEST_P(Ed25519SignatureTest, GeneratesExpectedSignatureStreaming)
+TEST_P(Ed25519SignatureTest, RejectsStreaming)
 {
-    RunEd25519KnownAnswer(GetParam(), true);
+    const auto& test_case = GetParam();
+    ASSERT_NE(context_, nullptr);
+    const auto& key = keys_.at(test_case.key_algorithm);
+    auto sign_context = MakeSignContext(*context_, test_case, key);
+    auto verify_context = MakeVerifyContext(*context_, test_case, key);
+    ASSERT_NE(sign_context, nullptr);
+    ASSERT_NE(verify_context, nullptr);
+    EXPECT_FALSE(sign_context->Init().has_value()) << test_case.name;
+    EXPECT_FALSE(verify_context->Init().has_value()) << test_case.name;
 }
 
 TEST_P(Ed25519SignatureTest, GeneratesExpectedSignatureSS)
 {
-    RunEd25519KnownAnswer(GetParam(), false);
+    RunEd25519KnownAnswer(GetParam());
 }
 
 std::vector<SignatureCase> SignatureCases()
 {
+    // Aggregate field order: name, key_slot, key_algorithm, signature_algorithm, input_mode,
+    // signature_size, digest_hex, supported.
     return {
         {"RSA4096_SHA256_Message",
          "RSA4096_PSS_NIST_IntegrationTestKey_OpenSSL",

@@ -35,6 +35,7 @@ class OpenSslRsaPssEd25519VerifyHandler final : public operations::verify::Score
 
   private:
     bool IsEd25519() const noexcept;
+    Expected<std::monostate, common::DaemonErrorCode> InitializeVerifyContext();
     Expected<std::monostate, common::DaemonErrorCode> CheckSignature(score::cpp::span<const std::uint8_t>) const;
     signature::Stream m_stream;
     std::vector<std::uint8_t> m_buffer;
