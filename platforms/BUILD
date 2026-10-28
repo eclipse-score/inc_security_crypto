@@ -52,6 +52,12 @@ config_setting(
 )
 
 config_setting(
+    name = "is_qnx",
+    constraint_values = ["@platforms//os:qnx"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "is_linux_aarch64",
     constraint_values = [
         "@platforms//os:linux",
