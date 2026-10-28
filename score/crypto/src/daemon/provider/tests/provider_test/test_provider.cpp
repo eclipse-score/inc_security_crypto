@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "score/crypto/src/daemon/common/actors.hpp"
-#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
@@ -119,34 +118,6 @@ TEST_F(ProviderHashTest, ProviderInitialization)
     ASSERT_NE(provider_, nullptr);
     EXPECT_EQ(provider_->GetProviderId(), 0);
     EXPECT_NE(provider_->GetCryptoHandlerFactory(), nullptr);
-}
-
-TEST_F(ProviderHashTest, HashAlgorithmMetadata)
-{
-    const auto sha256_info = common::LookupHashAlgorithmInfo("SHA256");
-    ASSERT_TRUE(sha256_info.has_value());
-    EXPECT_EQ(sha256_info->algorithm, common::HashAlgorithm::kSha256);
-    EXPECT_EQ(sha256_info->digest_size, 32U);
-
-    const auto sha224_info = common::LookupHashAlgorithmInfo("SHA224");
-    ASSERT_TRUE(sha224_info.has_value());
-    EXPECT_EQ(sha224_info->algorithm, common::HashAlgorithm::kSha224);
-    EXPECT_EQ(sha224_info->digest_size, 28U);
-
-    EXPECT_FALSE(common::LookupHashAlgorithmInfo("SHA1").has_value());
-    EXPECT_FALSE(common::LookupHashAlgorithmInfo("MD5").has_value());
-    EXPECT_FALSE(common::LookupDigestSize("UNSUPPORTED_ALGORITHM").has_value());
-}
-
-TEST(AlgorithmInfoTest, MacAlgorithmMetadata)
-{
-    const auto hmac_sha256_info = common::LookupMacAlgorithmInfo("HMAC-SHA256");
-    ASSERT_TRUE(hmac_sha256_info.has_value());
-    EXPECT_EQ(hmac_sha256_info->algorithm, common::MacAlgorithm::kHmacSha256);
-    EXPECT_EQ(hmac_sha256_info->mac_size, 32U);
-
-    EXPECT_FALSE(common::LookupMacAlgorithmInfo("HMAC-SHA1").has_value());
-    EXPECT_FALSE(common::LookupMacSize("UNSUPPORTED_ALGORITHM").has_value());
 }
 
 TEST_P(ProviderHashAlgorithmTest, SupportsSingleShotStreamingResetAndDigestSize)
@@ -299,28 +270,21 @@ TEST_P(ProviderHashAlgorithmTest, SupportsSingleShotStreamingResetAndDigestSize)
     EXPECT_EQ(retryOutput, expectedHello);
 }
 
-TEST_F(ProviderHashTest, SupportsSha224AndRejectsWeakHashAlgorithms)
+TEST_F(ProviderHashTest, SupportsSha224AndRejectsUnsupportedRequests)
 {
     auto factory = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(factory, nullptr);
 
     EXPECT_TRUE(factory->CreateHandler("HASH", "SHA224").has_value());
-    for (const char* algorithm : {"SHA1", "MD5"})
+    EXPECT_FALSE(factory->CreateHandler("UNSUPPORTED_HANDLER", "SHA256").has_value());
+
+    for (const char* algorithm : {"SHA1", "MD5", "UNSUPPORTED_ALGORITHM"})
     {
         const auto result = factory->CreateHandler("HASH", algorithm);
-        ASSERT_FALSE(result.has_value()) << "Unexpectedly accepted weak hash algorithm: " << algorithm;
+        ASSERT_FALSE(result.has_value()) << "Unexpectedly accepted unsupported hash algorithm: " << algorithm;
         EXPECT_EQ(*result.error(),
                   static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm));
     }
-}
-
-TEST_F(ProviderHashTest, RejectsUnsupportedHandlerAndAlgorithm)
-{
-    auto factory = provider_->GetCryptoHandlerFactory();
-    ASSERT_NE(factory, nullptr);
-
-    EXPECT_FALSE(factory->CreateHandler("UNSUPPORTED_HANDLER", "SHA256").has_value());
-    EXPECT_FALSE(factory->CreateHandler("HASH", "UNSUPPORTED_ALGORITHM").has_value());
 }
 
 TEST_F(ProviderHashTest, ReportsHashStreamStateViolations)
@@ -354,7 +318,7 @@ TEST_F(ProviderHashTest, ReportsHashStreamStateViolations)
         << "Init on an active stream must restart it";
 }
 
-TEST_F(ProviderHashTest, RejectsMalformedHashRequestShapesWithoutConsumingStream)
+TEST_F(ProviderHashTest, RejectsMalformedRequestsBeforeProviderExecutionAndPreservesStreamState)
 {
     auto factory = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(factory, nullptr);
@@ -388,6 +352,8 @@ TEST_F(ProviderHashTest, RejectsMalformedHashRequestShapesWithoutConsumingStream
     common::RequestParameters initRequest{};
     ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_INIT), initRequest).has_value());
 
+    // Request-shape validation happens before invoking the provider. This test
+    // does not imply that provider or transport failures preserve stream state.
     common::RequestParameters invalidUpdate{
         score::cpp::span<const std::uint8_t>{input.data(), input.size()},
         std::uint64_t{1U},

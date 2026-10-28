@@ -240,7 +240,7 @@ TEST_P(ParameterizedHashTest, HashingTest)
     EXPECT_EQ(zero_update_digest, expected_empty_hash);
 }
 
-TEST_F(HashExampleTest, PreservesArbitraryBinaryInputAcrossTheClientDaemonBoundary)
+TEST_F(HashExampleTest, PreservesArbitraryHashBytesAcrossTheClientDaemonBoundary)
 {
     CryptoStackConfig stack_config;
     stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
@@ -259,6 +259,8 @@ TEST_F(HashExampleTest, PreservesArbitraryBinaryInputAcrossTheClientDaemonBounda
     ASSERT_TRUE(hash_result.has_value()) << "Failed to create SHA-256 context";
     auto& hash = hash_result.value();
 
+    // Hash input is an opaque byte sequence. Embedded NUL and non-ASCII bytes
+    // must survive IPC transport unchanged.
     const std::array<uint8_t, 7U> input{0x00U, 0x01U, 0x7fU, 0x80U, 0xffU, 0x00U, 0x42U};
     const std::array<uint8_t, 32U> expected{
         0x81U, 0x84U, 0x56U, 0x98U, 0x34U, 0xaeU, 0x09U, 0xc8U, 0x6fU, 0x52U, 0xf8U, 0x46U, 0x62U, 0xbeU, 0x23U, 0x13U,

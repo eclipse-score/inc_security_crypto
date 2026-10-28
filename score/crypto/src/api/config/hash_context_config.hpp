@@ -26,8 +26,7 @@ namespace crypto
 ///
 /// Requires only an algorithm identifier. SHA-256, SHA-384, and SHA-512 use
 /// the identifiers "SHA256", "SHA384", and "SHA512", respectively.
-/// Provider categories can be requested with SetProviderType(). Explicit
-/// selection by a resolved provider resource is not supported.
+/// Provider categories can be requested with SetProviderType().
 ///
 /// @par Example
 /// @code

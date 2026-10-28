@@ -41,8 +41,7 @@ deployed system.
    :satisfied_by: comp__crypto
 
    The Crypto component shall provide SHA-256, SHA-384, and SHA-512 hash
-   operations through the canonical algorithm identifiers ``SHA256``,
-   ``SHA384``, and ``SHA512`` respectively.
+   operations.
 
 .. comp_req:: Provide streaming hash operation
    :id: comp_req__crypto__hash_streaming
@@ -81,8 +80,9 @@ deployed system.
    :status: valid
    :satisfied_by: comp__crypto
 
-   The Crypto component shall report digest sizes of 32, 48, and 64 bytes for
-   ``SHA256``, ``SHA384``, and ``SHA512`` respectively.
+   For each supported hash algorithm, the Crypto component shall expose through
+   the hash interface the digest output size, in bytes, required by that
+   algorithm.
 
 .. comp_req:: Reject undersized hash output buffers
    :id: comp_req__crypto__hash_output_buffer
@@ -96,9 +96,20 @@ deployed system.
 
    The Crypto component shall reject a hash operation when the caller-provided
    output buffer is smaller than the digest size of the configured algorithm.
-   For a streaming operation, this validation error shall not consume the
-   active digest state, allowing ``Finalize()`` to be retried with a sufficient
-   output buffer.
+
+.. comp_req:: Preserve hash state after output-buffer validation
+   :id: comp_req__crypto__hash_output_buffer_retry
+   :version: 1
+   :reqtype: Functional
+   :derived_from: feat_req__sec_crypt__hashing
+   :security: YES
+   :safety: QM
+   :status: valid
+   :satisfied_by: comp__crypto
+
+   When streaming hash finalization reports that the output buffer is too small,
+   the Crypto component shall preserve the active hash state so that
+   ``Finalize()`` can be retried with a sufficient output buffer.
 
 .. comp_req:: Reject unsupported hash algorithms
    :id: comp_req__crypto__hash_unsupported_algorithm
@@ -114,7 +125,7 @@ deployed system.
    algorithm cannot be resolved by the selected provider and shall not substitute
    a digest size or another algorithm.
 
-.. comp_req:: Maintain provider-equivalent hash results
+.. comp_req:: Maintain provider-independent hash results
    :id: comp_req__crypto__hash_provider_parity
    :version: 1
    :reqtype: Functional
@@ -124,11 +135,14 @@ deployed system.
    :status: valid
    :satisfied_by: comp__crypto
 
-   For each hash algorithm supported by multiple providers, those providers
-   shall produce identical digests for identical input bytes.
+   For each supported hash algorithm, the Crypto stack shall return identical
+   digests for identical input bytes independent of the selected provider.
 
-.. comp_req:: Honor preferred-provider fallback
-   :id: comp_req__crypto__hash_provider_fallback
+Provider Selection
+==================
+
+.. comp_req:: Honor preferred-provider fallback for context creation
+   :id: comp_req__crypto__provider_fallback
    :version: 1
    :reqtype: Functional
    :derived_from: feat_req__sec_crypt__sw_fallback
@@ -137,9 +151,12 @@ deployed system.
    :status: valid
    :satisfied_by: comp__crypto
 
-   When a hash context requests a preferred provider category, the Crypto
+   When context creation requests a preferred provider category, the Crypto
    component shall use the corresponding fallback category only if the preferred
-   provider is unavailable or does not support the requested hash algorithm.
+   provider is unavailable or does not support the requested operation.
+
+Hash Context Lifecycle
+======================
 
 .. comp_req:: Reset reusable hash contexts
    :id: comp_req__crypto__hash_context_reset

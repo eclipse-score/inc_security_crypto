@@ -41,6 +41,15 @@ cc_library(
     visibility = ["//:__subpackages__"],
 )
 
+cc_test(
+    name = "algorithm_info_test",
+    srcs = ["algorithm_info_test.cpp"],
+    deps = [
+        ":algorithm_info",
+        "@googletest//:gtest_main",
+    ],
+)
+
 # Header-only utility: human-readable names for OperationActor / OperationAction values.
 # Depends on the operation-constants headers (each only deps on :common).
 cc_library(
