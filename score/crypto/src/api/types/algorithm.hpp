@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string_view>
 
@@ -438,6 +439,56 @@ inline constexpr AlgorithmDescriptor kAlgorithmCatalog[] = {
         return std::nullopt;
     }
     return (static_cast<std::size_t>(row->key_bits) + 7U) / 8U;
+}
+
+/// @brief Output length in bytes of an algorithm whose output does not depend on its input.
+///
+/// Covers digests, MACs and signatures. Signatures are raw r || s, so
+/// ECDSA-P384-SHA384 gives 96.
+/// @return The length, or std::nullopt for algorithms without a fixed output.
+[[nodiscard]] inline constexpr std::optional<std::size_t> GetFixedOutputSize(Algorithm algorithm) noexcept
+{
+    const auto row = GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value() || (row->output_size == 0U))
+    {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(row->output_size);
+}
+
+/// @brief Upper bound on the bytes one call of an operation context writes.
+///
+/// Matches the context-level queries (GetDigestSize(), GetMacSize(),
+/// GetSignatureSize(), ICipherContext::GetMaximumOutputSize()), so buffers can
+/// be sized at compile time:
+/// - digest, MAC, signature: the fixed output size, whatever @p input_size;
+/// - block cipher: @p input_size plus one block, for update, single-shot and
+///   finalize (input_size 0) in either direction.
+///
+/// @return The bound, or std::nullopt for algorithms without a defined bound
+///         (keys, random generators, AEAD) and when the sum would overflow.
+[[nodiscard]] inline constexpr std::optional<std::size_t> GetMaximumOutputSize(Algorithm algorithm,
+                                                                               std::size_t input_size) noexcept
+{
+    const auto row = GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value())
+    {
+        return std::nullopt;
+    }
+    if (row->output_size != 0U)
+    {
+        return static_cast<std::size_t>(row->output_size);
+    }
+    if ((row->category != AlgorithmCategory::kCipher) || (row->block_size == 0U))
+    {
+        return std::nullopt;
+    }
+    const auto block_size = static_cast<std::size_t>(row->block_size);
+    if (input_size > (std::numeric_limits<std::size_t>::max() - block_size))
+    {
+        return std::nullopt;
+    }
+    return input_size + block_size;
 }
 
 }  // namespace score::crypto

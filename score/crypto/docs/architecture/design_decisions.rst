@@ -472,6 +472,8 @@ the providers unchanged. On top of it:
   the ``Algorithm`` enumerator by exact, case-sensitive match.
 * ``GetAlgorithmDescriptor()`` and ``GetAlgorithmCategory()`` expose the
   properties of a known algorithm.
+* ``GetFixedOutputSize()`` and ``GetMaximumOutputSize()`` give buffer sizes at
+  compile time, using the same rules as the context-level size queries.
 * The key, cipher and curve helpers in ``daemon/common/algorithm_info.hpp``
   resolve through the catalog; its hash and MAC tables stay as the list of
   algorithms the daemon supports. ECDSA identifiers are split into exact
