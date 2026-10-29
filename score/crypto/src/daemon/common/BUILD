@@ -34,11 +34,12 @@ cc_library(
     ],
 )
 
-# Header-only utility: algorithm sizing tables for hash, MAC, and key algorithms.
+# Header-only utility: algorithm properties for the daemon, resolved through the API algorithm catalog.
 cc_library(
     name = "algorithm_info",
     hdrs = ["algorithm_info.hpp"],
     visibility = ["//:__subpackages__"],
+    deps = ["//score/crypto/src/api/types:algorithm_types"],
 )
 
 cc_test(

@@ -14,11 +14,13 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 
 #include <pkcs11.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -34,47 +36,32 @@ struct Pkcs11AlgoInfo
     CK_ULONG value_len{0U};                                       ///< CKA_VALUE_LEN in bytes
 };
 
-/// @brief Lookup table entry mapping algorithm identifier substring to PKCS#11 parameters.
-struct Pkcs11AlgoEntry
-{
-    std::string_view algorithm;
-    Pkcs11AlgoInfo info;
-};
-
-/// @brief Lookup table for algorithm identifier to PKCS#11 parameters mapping.
+/// @brief Map a key or operation algorithm to the PKCS#11 key it needs.
 ///
-/// Each entry maps a daemon algorithm identifier substring (case-sensitive, uppercase
-/// expected) to its corresponding PKCS#11 parameters. Used by LookupAlgorithm for
-/// O(n) linear search; extend this table when adding new algorithm support.
-inline constexpr Pkcs11AlgoEntry kAlgoEntries[] = {
-    // HMAC family — generic secret keys; size varies by hash length
-    {"HMAC-SHA256", {CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 32U}},
-    {"HMAC-SHA384", {CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 48U}},
-    {"HMAC-SHA512", {CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 64U}},
-    // AES family
-    {"AES-128", {CKK_AES, CKM_AES_KEY_GEN, 16U}},
-    {"AES-192", {CKK_AES, CKM_AES_KEY_GEN, 24U}},
-    {"AES-256", {CKK_AES, CKM_AES_KEY_GEN, 32U}},
-};
-
-/// @brief Map a daemon algorithm identifier string to PKCS#11 parameters.
-///
-/// Returns an empty optional for unknown or unsupported algorithms.
-/// Case-sensitive substring matching (uppercase expected, matching the AlgorithmId
-/// values used by the daemon).
-///
-/// Adding a new algorithm: extend kAlgoEntries and add a matching entry to
-/// OpenSslKeyHandler::DetermineKeySize() for cross-provider consistency.
+/// The key type and length come from score::crypto::kAlgorithmCatalog by exact
+/// name, so "AES-256", "AES-256-CBC" and "AES-256-CMAC" all resolve to a
+/// 32-byte CKK_AES key and "HMAC-SHA256" to a 32-byte generic secret.
+/// @return the key attributes, or std::nullopt for unknown names and for key
+///         types this provider does not generate (elliptic-curve keys).
 [[nodiscard]] inline std::optional<Pkcs11AlgoInfo> LookupAlgorithm(const common::AlgorithmId& algo) noexcept
 {
-    for (const auto& entry : kAlgoEntries)
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(std::string_view{algo.data(), algo.size()});
+    if (!row.has_value())
     {
-        if (algo.find(entry.algorithm) != std::string::npos)
-        {
-            return entry.info;
-        }
+        return std::nullopt;
     }
-    return std::nullopt;
+    const auto value_len = static_cast<CK_ULONG>((static_cast<std::size_t>(row->key_bits) + 7U) / 8U);
+    switch (row->key_type)
+    {
+        case ::score::crypto::KeyType::kSecret:
+            return Pkcs11AlgoInfo{CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, value_len};
+        case ::score::crypto::KeyType::kAes:
+            return Pkcs11AlgoInfo{CKK_AES, CKM_AES_KEY_GEN, value_len};
+        case ::score::crypto::KeyType::kNone:
+        case ::score::crypto::KeyType::kEcc:
+        default:
+            return std::nullopt;
+    }
 }
 
 // ---------------------------------------------------------------------------
