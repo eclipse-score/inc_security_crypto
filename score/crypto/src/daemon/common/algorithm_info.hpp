@@ -14,9 +14,16 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
+
 #include <cstddef>
 #include <optional>
 #include <string_view>
+
+// Provider-independent algorithm properties for the daemon. The hash and MAC
+// tables list what the daemon supports; the key, cipher and curve lookups
+// resolve an identifier through score::crypto::kAlgorithmCatalog. Every lookup
+// matches exactly; nothing searches an identifier for a fragment of another.
 
 namespace score::crypto::daemon::common
 {
@@ -122,48 +129,21 @@ inline constexpr MacAlgorithmInfo kMacAlgorithms[] = {
 }
 
 // ---------------------------------------------------------------------------
-// Key algorithm properties (provider-independent)
+// Key algorithm properties
 // ---------------------------------------------------------------------------
 
-struct KeyAlgorithmInfo
-{
-    std::string_view name;
-    std::size_t key_size;  ///< Default key size in bytes
-};
-
-inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
-    {"HMAC-SHA256", 32U},
-    {"HMAC-SHA384", 48U},
-    {"HMAC-SHA512", 64U},
-    {"AES-128-CBC", 16U},
-    {"AES-192-CBC", 24U},
-    {"AES-256-CBC", 32U},
-    {"AES-128-GCM", 16U},
-    {"AES-192-GCM", 24U},
-    {"AES-256-GCM", 32U},
-    {"AES-128-CMAC", 16U},
-    {"AES-256-CMAC", 32U},
-    {"ECDSA-P256", 32U},
-    {"ECDSA-P384", 48U},
-    {"ECDSA-P521", 66U},
-};
-
 /// @brief Look up default key size by algorithm name.
-/// @return key size in bytes, or std::nullopt if unknown.
+///
+/// For elliptic curves this is the byte length of one coordinate.
+/// @return key size in bytes, or std::nullopt if the algorithm takes no key or is unknown.
 [[nodiscard]] inline constexpr std::optional<std::size_t> LookupKeySize(std::string_view algorithm) noexcept
 {
-    for (const auto& entry : kKeyAlgorithms)
-    {
-        if (entry.name == algorithm)
-        {
-            return entry.key_size;
-        }
-    }
-    return std::nullopt;
+    const auto id = ::score::crypto::FromAlgorithmName(algorithm);
+    return id.has_value() ? ::score::crypto::GetKeySizeBytes(*id) : std::nullopt;
 }
 
 // ---------------------------------------------------------------------------
-// Symmetric cipher properties (provider-independent)
+// Symmetric cipher properties
 // ---------------------------------------------------------------------------
 
 struct CipherAlgorithmInfo
@@ -174,69 +154,55 @@ struct CipherAlgorithmInfo
     std::size_t iv_size;     ///< Required IV / nonce length in bytes; 0 when none
 };
 
-// Currently only AES-CBC is supported by the daemon, but this table can be
-// extended to include other symmetric ciphers (AES-CTR, AES-ECB, etc.)
-inline constexpr CipherAlgorithmInfo kCipherAlgorithms[] = {
-    {"AES-128-CBC", 16U, 16U, 16U},
-    {"AES-192-CBC", 24U, 16U, 16U},
-    {"AES-256-CBC", 32U, 16U, 16U},
-};
-
-/// @brief Look up symmetric cipher properties by algorithm name.
-/// @return the entry, or std::nullopt if the algorithm is unknown.
+/// @brief Look up unauthenticated symmetric cipher properties by algorithm name.
+/// @return the properties, or std::nullopt if the name is not a cipher algorithm.
 [[nodiscard]] inline constexpr std::optional<CipherAlgorithmInfo> LookupCipher(std::string_view algorithm) noexcept
 {
-    for (const auto& entry : kCipherAlgorithms)
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value() || (row->category != ::score::crypto::AlgorithmCategory::kCipher))
     {
-        if (entry.name == algorithm)
-        {
-            return entry;
-        }
+        return std::nullopt;
     }
-    return std::nullopt;
+    return CipherAlgorithmInfo{
+        row->name, (static_cast<std::size_t>(row->key_bits) + 7U) / 8U, row->block_size, row->iv_size};
 }
 
 // ---------------------------------------------------------------------------
-// Elliptic-curve / ECDSA properties (provider-independent)
+// Elliptic-curve / ECDSA properties
 // ---------------------------------------------------------------------------
 
 /// @brief Properties of a NIST prime curve and the ECDSA variant built on it.
 ///
-/// @note @c signature_size is the IEEE P1363 fixed-length encoding r?s, which
+/// @note @c signature_size is the IEEE P1363 fixed-length encoding r||s, which
 ///       is the on-the-wire signature format of this stack.  It is twice the
 ///       byte length of the field order, so P-521 yields 2 * 66 = 132 bytes.
 struct EcCurveInfo
 {
-    std::string_view name;        ///< Curve identifier as used in AlgorithmId, e.g. "P256"
-    std::string_view group_name;  ///< Standard NIST designation of the curve, e.g. "P-256"
-    std::size_t field_size;       ///< Byte length of one coordinate / of r and s
-    std::size_t signature_size;   ///< P1363 signature length = 2 * field_size
-    std::size_t key_bits;         ///< Nominal key strength in bits
+    ::score::crypto::EccCurve curve;  ///< Structured curve identifier
+    std::string_view name;            ///< Curve token as used in AlgorithmId, e.g. "P256"
+    std::string_view group_name;      ///< Standard NIST designation of the curve, e.g. "P-256"
+    std::size_t field_size;           ///< Byte length of one coordinate / of r and s
+    std::size_t signature_size;       ///< P1363 signature length = 2 * field_size
+    std::size_t key_bits;             ///< Nominal key strength in bits
 };
 
-/// @note Curve names are spelled without an inner hyphen ("P256", not "P-256")
+/// @note Curve tokens are spelled without an inner hyphen ("P256", not "P-256")
 ///       so that the hyphen is unambiguously the separator in composite
-///       identifiers such as "ECDSA-P256-SHA256". This matches the AlgorithmId
-///       examples documented in score/crypto/src/api/common/types.hpp.
+///       identifiers such as "ECDSA-P256-SHA256".
 /// @note @c group_name carries the hyphen that @c name omits, and the two are not
-///       interchangeable where a provider selects a curve by name. The spelling
-///       of @c group_name does not follow from @c name in general, so each curve
-///       carries both.
+///       interchangeable where a provider selects a curve by name.
 inline constexpr EcCurveInfo kEcCurves[] = {
-    {"P256", "P-256", 32U, 64U, 256U},
-    {"P384", "P-384", 48U, 96U, 384U},
-    // NIST's largest prime curve is P-521 (not P-512); 521 bits is 66 bytes.
-    {"P521", "P-521", 66U, 132U, 521U},
+    {::score::crypto::EccCurve::kP256, "P256", "P-256", 32U, 64U, 256U},
+    {::score::crypto::EccCurve::kP384, "P384", "P-384", 48U, 96U, 384U},
+    {::score::crypto::EccCurve::kP521, "P521", "P-521", 66U, 132U, 521U},
 };
 
-/// @brief Extract the curve of an ECDSA signature algorithm identifier.
-///
-/// Accepts signature algorithms like ECDSA-P256-SHA256 i.e.ECDSA-<NIST curve>-<Hash algo>.
-[[nodiscard]] inline constexpr std::optional<EcCurveInfo> LookupEcCurveOfAlgorithm(std::string_view algorithm) noexcept
+/// @brief Look up a curve by its structured identifier.
+[[nodiscard]] inline constexpr std::optional<EcCurveInfo> LookupEcCurve(::score::crypto::EccCurve curve) noexcept
 {
     for (const auto& entry : kEcCurves)
     {
-        if (algorithm.find(entry.name) != std::string_view::npos)
+        if (entry.curve == curve)
         {
             return entry;
         }
@@ -244,26 +210,71 @@ inline constexpr EcCurveInfo kEcCurves[] = {
     return std::nullopt;
 }
 
-/// @brief Extract the message-digest name of a signature algorithm identifier.
+/// @brief Components of an ECDSA identifier.
+struct EcdsaName
+{
+    EcCurveInfo curve;
+    std::optional<std::string_view> digest;  ///< Hash token; absent for the bare key form "ECDSA-<curve>"
+};
+
+/// @brief Split an ECDSA identifier into its curve and digest tokens.
+///
+/// Accepts exactly "ECDSA-<curve>" (a key algorithm) and "ECDSA-<curve>-<hash>"
+/// (a signature scheme), where each token must equal a known curve or hash name.
+/// The pairing of curve and hash is not checked here; whether a provider
+/// serves it is the provider's decision.
+[[nodiscard]] inline constexpr std::optional<EcdsaName> ParseEcdsaName(std::string_view algorithm) noexcept
+{
+    constexpr std::string_view kPrefix{"ECDSA-"};
+    if (algorithm.substr(0U, kPrefix.size()) != kPrefix)
+    {
+        return std::nullopt;
+    }
+    const std::string_view rest = algorithm.substr(kPrefix.size());
+    const std::size_t dash = rest.find('-');
+    const std::string_view curve_token = rest.substr(0U, dash);
+
+    for (const auto& entry : kEcCurves)
+    {
+        if (entry.name != curve_token)
+        {
+            continue;
+        }
+        if (dash == std::string_view::npos)
+        {
+            return EcdsaName{entry, std::nullopt};
+        }
+        const std::string_view digest_token = rest.substr(dash + 1U);
+        if (!LookupDigestSize(digest_token).has_value())
+        {
+            return std::nullopt;
+        }
+        return EcdsaName{entry, digest_token};
+    }
+    return std::nullopt;
+}
+
+/// @brief Extract the curve of an ECDSA key or signature algorithm identifier.
+[[nodiscard]] inline constexpr std::optional<EcCurveInfo> LookupEcCurveOfAlgorithm(std::string_view algorithm) noexcept
+{
+    const auto parsed = ParseEcdsaName(algorithm);
+    return parsed.has_value() ? std::optional<EcCurveInfo>{parsed->curve} : std::nullopt;
+}
+
+/// @brief Extract the message-digest name of an ECDSA signature algorithm identifier.
 ///
 /// "ECDSA-P256-SHA256" -> "SHA256".
 [[nodiscard]] inline constexpr std::optional<std::string_view> LookupSignatureDigest(
     std::string_view algorithm) noexcept
 {
-    for (const auto& entry : kHashAlgorithms)
-    {
-        if (algorithm.find(entry.name) != std::string_view::npos)
-        {
-            return entry.name;
-        }
-    }
-    return std::nullopt;
+    const auto parsed = ParseEcdsaName(algorithm);
+    return parsed.has_value() ? parsed->digest : std::nullopt;
 }
 
 /// @brief True when the identifier names an ECDSA key or signature algorithm.
 [[nodiscard]] inline constexpr bool IsEcdsaAlgorithm(std::string_view algorithm) noexcept
 {
-    return (algorithm.find("ECDSA") != std::string_view::npos) && LookupEcCurveOfAlgorithm(algorithm).has_value();
+    return ParseEcdsaName(algorithm).has_value();
 }
 
 }  // namespace score::crypto::daemon::common
