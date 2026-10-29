@@ -15,6 +15,14 @@
 Data Manager
 ============
 
+.. comp:: Data Manager
+  :id: comp__crypto_data_manager
+  :version: 1
+  :status: valid
+  :safety: QM
+  :security: YES
+  :belongs_to: feat__security_crypto
+
 Overview
 --------
 
