@@ -56,6 +56,9 @@ class Pkcs11HandlerFactory final : public handler::ICryptoHandlerFactory
     ///
     /// Acquires a session from the provider pool using the handler type's
     /// static kRequirements. The session is released on handler destruction.
+    [[nodiscard]] bool IsAlgorithmSupported(const common::HandlerId& handlerId,
+                                            const common::AlgorithmId& algorithm) const override;
+
     [[nodiscard]] score::Result<handler::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
                                                                       const common::AlgorithmId& algorithm) override;
 

@@ -61,8 +61,12 @@ TEST(OpenSslAlgorithmInfoTest, EveryListedSignatureSchemeResolvesCurveAndDigest)
 /// The cipher handler accepts exactly the common-table rows the provider lists.
 TEST(OpenSslAlgorithmInfoTest, CipherHandlerAcceptsOnlyListedRows)
 {
-    for (const auto& row : algo_info::kCipherAlgorithms)
+    for (const auto& row : score::crypto::kAlgorithmCatalog)
     {
+        if (row.category != score::crypto::AlgorithmCategory::kCipher)
+        {
+            continue;
+        }
         const std::string name{row.name};
         EXPECT_EQ(OpenSslCipherHandler::IsAlgorithmSupported(name), detail::IsCipherSupported(row.name)) << name;
     }

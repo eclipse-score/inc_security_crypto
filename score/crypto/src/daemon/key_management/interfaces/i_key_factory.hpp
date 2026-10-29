@@ -62,6 +62,14 @@ class IKeyFactory
     [[nodiscard]] virtual score::crypto::Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const KeyGenerationRequest& request);
 
+    /// Tell whether GenerateKey() accepts this algorithm, without generating a key.
+    ///
+    /// Default: false, for factories that do not report capabilities.
+    [[nodiscard]] virtual bool IsKeyGenerationSupported(const common::AlgorithmId& /*algorithm*/) const
+    {
+        return false;
+    }
+
     /// Import raw key material.
     ///
     /// request.key_data is caller-owned and valid only for the duration of the
