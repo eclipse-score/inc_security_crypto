@@ -189,6 +189,19 @@ constexpr std::uint8_t kP256SpkiDer[] = {
     0xff, 0x3f, 0x02, 0x44, 0xf1, 0x37, 0x84, 0x52, 0x03, 0x0f, 0x28, 0x62, 0x0a, 0x4a, 0xd7, 0xbb, 0x13, 0x0f, 0x7c,
     0xbe, 0x39, 0x23, 0x32, 0x6a, 0x61, 0xc9, 0x96, 0x5b, 0xc6, 0x34, 0x39, 0x98, 0xc6, 0x53};
 
+/// A P-384 public key as a SubjectPublicKeyInfo DER blob whose EC point is in
+/// *compressed* form (lead byte 0x03, 49-byte point). Decoding it yields a key
+/// whose point-conversion format is compressed, which is exactly the condition
+/// that used to make ExportKey emit a 49-byte point instead of the 97-byte
+/// uncompressed point GetExportKeySize promises. Generated with:
+///   openssl ecparam -name secp384r1 -genkey -noout | \
+///   openssl ec -pubout -conv_form compressed -outform DER
+constexpr std::uint8_t kP384CompressedSpkiDer[] = {
+    0x30, 0x46, 0x30, 0x10, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x05, 0x2b, 0x81, 0x04,
+    0x00, 0x22, 0x03, 0x32, 0x00, 0x03, 0xf6, 0x8d, 0x07, 0x37, 0xb9, 0x3e, 0x0f, 0x47, 0xfc, 0xf7, 0xe3, 0xce,
+    0x01, 0x37, 0x7b, 0x5f, 0xb0, 0x4c, 0x89, 0x96, 0xee, 0xa9, 0x4a, 0xb1, 0x05, 0x1b, 0x0c, 0xa7, 0x0e, 0xe5,
+    0x26, 0x5c, 0x24, 0x59, 0x51, 0x18, 0x34, 0xd1, 0x6c, 0x03, 0xd9, 0x69, 0xb0, 0xcd, 0x0a, 0x76, 0x80, 0x45};
+
 /// Decode a hex string into bytes. Test vectors below are quoted verbatim from
 /// their source documents, so keeping them as hex keeps them auditable.
 std::vector<std::uint8_t> HexToBytes(std::string_view hex)
@@ -348,6 +361,57 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_P384_ReproducesTheInputPoint)
     EXPECT_EQ(exported.value().bytes, point) << "Export must reproduce the imported 0x04||X||Y point verbatim";
 
     EXPECT_TRUE(imported.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_CompressedDerImport_StillExportsUncompressed)
+{
+    // Regression: OSSL_PKEY_PARAM_PUB_KEY follows the key's point-conversion
+    // format. A key decoded from a compressed DER encoding keeps that compressed
+    // format, so a naive export would emit a 49-byte P-384 point that both
+    // disagrees with GetExportKeySize (97) and is rejected by the raw import
+    // path. ExportKey must force uncompressed serialisation so the raw
+    // round-trip contract holds.
+    km::KeyImportRequest req{};
+    req.key_data = kP384CompressedSpkiDer;
+    req.key_data_size = sizeof(kP384CompressedSpkiDer);
+    req.algorithm = "ECDSA-P384-SHA512";
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify | score::crypto::KeyOperationPermission::kExport;
+
+    auto imported = m_factory->ImportKey(req);
+    ASSERT_TRUE(imported.has_value()) << "A compressed-point SPKI is a legitimate public-key import";
+    const auto& handle = imported.value()->GetHandle();
+
+    // The size query must agree with the bytes the export actually produces.
+    auto size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kRaw);
+    ASSERT_TRUE(size.has_value());
+    EXPECT_EQ(size.value(), 97U) << "GetExportKeySize always reports the uncompressed P-384 length";
+
+    auto exported = m_factory->ExportKey(handle, score::crypto::FormatType::kRaw);
+    ASSERT_TRUE(exported.has_value());
+    ASSERT_EQ(exported.value().bytes.size(), 97U)
+        << "Export must be forced to the uncompressed 1 + 2*48 encoding, not the compressed 49";
+    EXPECT_EQ(exported.value().bytes.front(), 0x04) << "An uncompressed SEC1 point leads with 0x04";
+    EXPECT_EQ(exported.value().bytes.size(), size.value()) << "Export size must match the size query";
+
+    // And the uncompressed export must round-trip back through the raw import.
+    km::KeyImportRequest reimp{};
+    reimp.key_data = exported.value().bytes.data();
+    reimp.key_data_size = exported.value().bytes.size();
+    reimp.algorithm = "ECDSA-P384-SHA512";
+    reimp.format = score::crypto::FormatType::kRaw;
+    reimp.permissions =
+        score::crypto::KeyOperationPermission::kVerify | score::crypto::KeyOperationPermission::kExport;
+
+    auto reimported = m_factory->ImportKey(reimp);
+    ASSERT_TRUE(reimported.has_value()) << "The forced-uncompressed export must satisfy the raw import contract";
+
+    auto reexported = m_factory->ExportKey(reimported.value()->GetHandle(), score::crypto::FormatType::kRaw);
+    ASSERT_TRUE(reexported.has_value());
+    EXPECT_EQ(reexported.value().bytes, exported.value().bytes) << "Raw export/import must round-trip";
+
+    EXPECT_TRUE(imported.value()->Release().has_value());
+    EXPECT_TRUE(reimported.value()->Release().has_value());
 }
 
 TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_P256_ReproducesTheInputPoint)
