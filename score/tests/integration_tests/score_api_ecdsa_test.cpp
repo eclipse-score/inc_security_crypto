@@ -43,6 +43,7 @@
 /// @note NIST's largest prime curve is P-521 (not P-512), so that is the curve
 ///       used for the highest-strength cases here.
 
+#include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
 #include "score/crypto/src/api/config/key_operation_params.hpp"
 #include "score/crypto/src/api/config/sign_context_config.hpp"
@@ -637,6 +638,91 @@ constexpr std::size_t kP384SignatureSize = 96U;
 constexpr std::size_t kP521SignatureSize = 132U;
 
 // =========================================================================
+// Test 3: a key is refused for an ECDSA algorithm on another curve
+// =========================================================================
+
+struct CurveMismatchTestData
+{
+    std::string test_case_name;
+    std::string key_slot_name;
+    std::string signature_algorithm;
+};
+
+class EcdsaCurveMismatchTest : public ::testing::TestWithParam<CurveMismatchTestData>
+{
+};
+
+TEST_P(EcdsaCurveMismatchTest, SignAndVerifyContextsAreRefused)
+{
+    const auto test_data = GetParam();
+
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    auto& ctx = ctx_result.value();
+
+    KeyManagementContextConfig key_mgmt_config;
+    key_mgmt_config.SetProviderType(ProviderType::kSoftware);
+    auto key_mgmt_result = ctx->CreateKeyManagementContext(key_mgmt_config);
+    ASSERT_TRUE(key_mgmt_result.has_value()) << "Failed to create key management context";
+
+    auto key_result = LoadKeyFromSlot(*ctx, *key_mgmt_result.value(), test_data.key_slot_name);
+    ASSERT_TRUE(key_result.has_value()) << "Failed to load key from slot: " << test_data.key_slot_name;
+    auto key = std::move(key_result.value());
+
+    // The key's curve is fixed by its slot; an algorithm on another curve must
+    // be refused when the context is created, before any data is streamed.
+    const auto expected = static_cast<score::result::ErrorCode>(CryptoErrorCode::kIncompatibleKeyType);
+
+    SignContextConfig sign_config;
+    sign_config.SetAlgorithm(test_data.signature_algorithm).SetKey(key).SetProviderType(ProviderType::kSoftware);
+    auto sign_ctx = ctx->CreateSignContext(sign_config);
+    ASSERT_FALSE(sign_ctx.has_value()) << "Sign context accepted a key on another curve";
+    EXPECT_EQ(*sign_ctx.error(), expected) << sign_ctx.error().Message();
+
+    VerifySignatureContextConfig verify_config;
+    verify_config.SetAlgorithm(test_data.signature_algorithm).SetKey(key).SetProviderType(ProviderType::kSoftware);
+    auto verify_ctx = ctx->CreateVerifySignatureContext(verify_config);
+    ASSERT_FALSE(verify_ctx.has_value()) << "Verify context accepted a key on another curve";
+    EXPECT_EQ(*verify_ctx.error(), expected) << verify_ctx.error().Message();
+
+    ASSERT_NO_FATAL_FAILURE(ReleaseAndAssertKey(key));
+}
+
+TEST(EcdsaUnknownAlgorithmTest, SignContextIsRefusedAsUnsupportedAlgorithm)
+{
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    auto& ctx = ctx_result.value();
+
+    KeyManagementContextConfig key_mgmt_config;
+    key_mgmt_config.SetProviderType(ProviderType::kSoftware);
+    auto key_mgmt_result = ctx->CreateKeyManagementContext(key_mgmt_config);
+    ASSERT_TRUE(key_mgmt_result.has_value()) << "Failed to create key management context";
+
+    auto key_result = LoadKeyFromSlot(*ctx, *key_mgmt_result.value(), "ECDSA_P256_IntegrationTestKey_OpenSSL");
+    ASSERT_TRUE(key_result.has_value()) << "Failed to load the P-256 key";
+    auto key = std::move(key_result.value());
+
+    // The curve fits the key, but no provider offers this hash.
+    SignContextConfig config;
+    config.SetAlgorithm("ECDSA-P256-MD4").SetKey(key).SetProviderType(ProviderType::kSoftware);
+    auto sign_ctx = ctx->CreateSignContext(config);
+    ASSERT_FALSE(sign_ctx.has_value()) << "Sign context accepted an unknown algorithm";
+    EXPECT_EQ(*sign_ctx.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kUnsupportedAlgorithm))
+        << sign_ctx.error().Message();
+
+    ASSERT_NO_FATAL_FAILURE(ReleaseAndAssertKey(key));
+}
+
+// =========================================================================
 // Test Suites
 // =========================================================================
 
@@ -706,6 +792,28 @@ INSTANTIATE_TEST_SUITE_P(NistVectorsOnSoftwareProvider,
                                  "ECDSA_P521_PublicKeySlot_OpenSSL",
                              }),
                          [](const testing::TestParamInfo<KeySlotEcdsaTest::ParamType>& info) {
+                             return info.param.test_case_name;
+                         });
+
+INSTANTIATE_TEST_SUITE_P(CurveMismatchOnSoftwareProvider,
+                         EcdsaCurveMismatchTest,
+                         ::testing::Values(
+                             CurveMismatchTestData{
+                                 "P256Key_ECDSA_P384_SHA384",
+                                 "ECDSA_P256_IntegrationTestKey_OpenSSL",
+                                 "ECDSA-P384-SHA384",
+                             },
+                             CurveMismatchTestData{
+                                 "P384Key_ECDSA_P256_SHA256",
+                                 "ECDSA_P384_IntegrationTestKey_OpenSSL",
+                                 "ECDSA-P256-SHA256",
+                             },
+                             CurveMismatchTestData{
+                                 "P521Key_ECDSA_P384_SHA384",
+                                 "ECDSA_P521_IntegrationTestKey_OpenSSL",
+                                 "ECDSA-P384-SHA384",
+                             }),
+                         [](const testing::TestParamInfo<EcdsaCurveMismatchTest::ParamType>& info) {
                              return info.param.test_case_name;
                          });
 

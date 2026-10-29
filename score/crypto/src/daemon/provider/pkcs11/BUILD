@@ -44,6 +44,7 @@ cc_library(
         "//:__subpackages__",
     ],
     deps = [
+        "//score/crypto/src/api/types:algorithm_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_info",
     ],

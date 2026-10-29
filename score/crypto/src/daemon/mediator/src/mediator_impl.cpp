@@ -30,6 +30,7 @@
 #include "score/crypto/src/daemon/common/context_mode.hpp"
 #include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/key_compatibility.hpp"
 #include "score/crypto/src/daemon/common/operation_names.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
@@ -72,6 +73,17 @@ bool IsFallbackEligible(const score::crypto::CryptoErrorCode error) noexcept
            (error == score::crypto::CryptoErrorCode::kUnsupportedAlgorithm) ||
            (error == score::crypto::CryptoErrorCode::kProviderNotAvailable) ||
            (error == score::crypto::CryptoErrorCode::kIncompatibleKeyType);
+}
+
+// Factories report an unknown algorithm with either the public or the daemon
+// code; both reach the client as kUnsupportedAlgorithm.
+score::crypto::CryptoErrorCode ToFactoryError(const score::result::ErrorCode code) noexcept
+{
+    if (code == static_cast<score::result::ErrorCode>(common::DaemonErrorCode::kUnsupportedAlgorithm))
+    {
+        return score::crypto::CryptoErrorCode::kUnsupportedAlgorithm;
+    }
+    return static_cast<score::crypto::CryptoErrorCode>(code);
 }
 
 }  // namespace
@@ -257,6 +269,7 @@ MediatorImpl::BindAndAuthorizeKey(std::uint64_t client_id,
                                   std::uint64_t& key_node_id,
                                   const common::ProviderId& provider_id,
                                   std::string_view context_type,
+                                  std::string_view algorithm,
                                   const common::RequestParameters& params)
 {
     if (!m_km_service)
@@ -299,6 +312,19 @@ MediatorImpl::BindAndAuthorizeKey(std::uint64_t client_id,
                                    << ", required=" << static_cast<std::uint32_t>(required.value())
                                    << ", granted=" << static_cast<std::uint32_t>(granted) << ")";
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
+    }
+
+    // The key must also fit the algorithm: an EC key on another curve, or an
+    // AES key of another length, is refused here for every provider rather
+    // than left to each provider to notice.
+    const std::string_view key_algorithm{handle.value().algorithm.data(), handle.value().algorithm.size()};
+    const auto compatibility = common::CheckKeyCompatibility(algorithm, key_algorithm, handle.value().key_size);
+    if (compatibility == common::KeyCompatibility::kIncompatible)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key does not fit the algorithm"
+                                   << " (algorithm=" << algorithm << ", key_algorithm=" << key_algorithm
+                                   << ", key_node_id=" << key_node_id << ")";
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kIncompatibleKeyType);
     }
 
     auto bind_res = m_km_service->BindKeyToContext(client_id, context_node_id, key_node_id, provider_id);
@@ -407,7 +433,7 @@ MediatorImpl::ResolveProviderAndCreateHandler(const std::uint64_t client_id,
                 std::move(candidate), std::move(create_result).value(), candidate_index > 0U};
         }
 
-        last_error = static_cast<score::crypto::CryptoErrorCode>(*create_result.error());
+        last_error = ToFactoryError(*create_result.error());
         if (!IsFallbackEligible(last_error))
         {
             break;
@@ -559,8 +585,13 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     key_management::IKeyHandler::Sptr bound_key_handler;
     if (has_key_binding)
     {
-        auto bind_res = BindAndAuthorizeKey(
-            client_id, context_node_id, key_node_id, provider->GetProviderId(), context_type, operation.parameters);
+        auto bind_res = BindAndAuthorizeKey(client_id,
+                                            context_node_id,
+                                            key_node_id,
+                                            provider->GetProviderId(),
+                                            context_type,
+                                            algorithm,
+                                            operation.parameters);
         if (!bind_res.has_value())
         {
             const auto cleanup_result = m_data_manager->deleteNode(client_id, context_node_id);
