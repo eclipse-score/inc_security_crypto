@@ -75,6 +75,15 @@ constexpr std::string_view kP256Uy = "7903FE1008B8BC99A41AE9E95628BC64F2F1B20C2D
 constexpr std::string_view kP384Ux = "EC3A4E415B4E19A4568618029F427FA5DA9A8BC4AE92E02E06AAE5286B300C64DEF8F0EA9055866064A254515480BC13";
 constexpr std::string_view kP384Uy = "8015D9B72D7D57244EA8EF9AC0C621896708A59367F9DFB9F54CA84B3F1C9DB1288B231C3AE0D4FE7344FD2533264720";
 
+// P-384 SubjectPublicKeyInfo DER using the RFC 6979 A.2.6 public key.
+constexpr std::string_view kP384PublicKeyDer =
+    "3076301006072A8648CE3D020106052B81040022036200"
+    "04"
+    "EC3A4E415B4E19A4568618029F427FA5DA9A8BC4AE92E02E06AAE5286B300C64"
+    "DEF8F0EA9055866064A254515480BC13"
+    "8015D9B72D7D57244EA8EF9AC0C621896708A59367F9DFB9F54CA84B3F1C9DB1"
+    "288B231C3AE0D4FE7344FD2533264720";
+
 // =========================================================================
 // Helpers
 // =========================================================================
@@ -354,6 +363,35 @@ TEST_F(KeyImportExportTest, ImportEmptyKeyData_IsRejected)
 
     EXPECT_FALSE(key_mgmt_->ImportKey(import_params).has_value())
         << "Importing empty key material must fail";
+}
+
+// =========================================================================
+// Test 7: DER import rejects a curve/algorithm mismatch
+// =========================================================================
+//
+// The DER key contains a valid P-384 public key, but the import request
+// deliberately specifies ECDSA-P256-SHA256. ImportEcKey must reject the
+// mismatch instead of creating a handle whose algorithm does not describe
+// the actual EVP_PKEY curve.
+
+TEST_F(KeyImportExportTest, ImportDerP384WithP256Algorithm_IsRejected)
+{
+    const auto der_key = HexToBytes(kP384PublicKeyDer);
+
+    ASSERT_FALSE(der_key.empty());
+    ASSERT_EQ(der_key.size(), 120U)
+        << "P-384 SubjectPublicKeyInfo DER must have the expected size";
+
+    ImportKeyParams import_params;
+    import_params.SetKeyData(der_key.data(), der_key.size())
+        .SetFormat(FormatType::kDer)
+        .SetAlgorithm("ECDSA-P256-SHA256")  // Deliberate mismatch: DER is P-384.
+        .SetPermissions(KeyOperationPermission::kVerify | KeyOperationPermission::kExport);
+
+    const auto result = key_mgmt_->ImportKey(import_params);
+
+    EXPECT_FALSE(result.has_value())
+        << "Import must reject a P-384 DER key when the requested algorithm is ECDSA-P256-SHA256";
 }
 
 }  // namespace
