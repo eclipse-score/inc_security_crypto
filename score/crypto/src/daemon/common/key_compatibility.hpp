@@ -128,6 +128,56 @@ struct KeyShape
     return fits ? KeyCompatibility::kCompatible : KeyCompatibility::kIncompatible;
 }
 
+/// @brief Decide whether a key pinned to one algorithm may serve an operation.
+///
+/// A key fits many algorithms: an AES-256 key fits AES-256-CBC, AES-256-GCM
+/// and HMAC alike. Using one key in two modes can leak secrets one mode relies
+/// on, e.g. a single CBC block under a zero IV returns the GCM hash subkey.
+/// A key with a permitted algorithm is therefore usable for that algorithm
+/// only, compared exactly. This also covers algorithms CheckKeyCompatibility
+/// leaves unchecked.
+///
+/// @param operation_algorithm  Algorithm the context was created for.
+/// @param permitted_algorithm  Algorithm the key is pinned to; empty means no pin.
+[[nodiscard]] inline constexpr bool IsPermittedAlgorithm(std::string_view operation_algorithm,
+                                                         std::string_view permitted_algorithm) noexcept
+{
+    return permitted_algorithm.empty() || (operation_algorithm == permitted_algorithm);
+}
+
+/// @brief Decide whether a permitted algorithm can be set on a key at all.
+///
+/// Refuses a pin the key could never serve, such as an AES-128 key pinned to
+/// AES-256-GCM, and a pin that names no keyed operation, such as "AES-256" or
+/// "SHA256", which no context would ever match. The mistake is reported when
+/// the key is created rather than at every later use. A pin this table does
+/// not know is accepted and left to the exact match.
+[[nodiscard]] inline constexpr bool IsValidPermittedAlgorithm(std::string_view permitted_algorithm,
+                                                              std::string_view key_algorithm,
+                                                              std::size_t key_size_bytes) noexcept
+{
+    using ::score::crypto::AlgorithmCategory;
+
+    if (permitted_algorithm.empty())
+    {
+        return true;
+    }
+    const auto descriptor = ::score::crypto::GetAlgorithmDescriptor(permitted_algorithm);
+    if (descriptor.has_value())
+    {
+        switch (descriptor->category)
+        {
+            case AlgorithmCategory::kKey:
+            case AlgorithmCategory::kHash:
+            case AlgorithmCategory::kRandom:
+                return false;
+            default:
+                break;
+        }
+    }
+    return CheckKeyCompatibility(permitted_algorithm, key_algorithm, key_size_bytes) != KeyCompatibility::kIncompatible;
+}
+
 }  // namespace score::crypto::daemon::common
 
 #endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_KEY_COMPATIBILITY_HPP

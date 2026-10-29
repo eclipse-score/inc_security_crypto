@@ -80,6 +80,8 @@ struct KeyRegistrationParams
     data_manager::DataNodeId parent_id{0U};
     common::ProviderId provider_id{common::kInvalidProviderId};
     SlotHandle slot_handle{};  ///< Non-default only when loading from a slot.
+    /// The only operation algorithm the key may serve; empty means any it fits.
+    common::AlgorithmId permitted_algorithm{};
 };
 
 /// @brief Central registry for all key slot configurations.

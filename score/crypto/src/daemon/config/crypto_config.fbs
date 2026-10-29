@@ -37,6 +37,9 @@ table KeySlotEntry {
   deployment_path: string (required);
   /// Format of the deployment descriptor (default "kv").
   deployment_format: string (required);
+  /// The only operation algorithm keys from the slot may serve (e.g., "AES-256-GCM").
+  /// Absent or empty means any algorithm the key fits.
+  permitted_algorithm: string;
 }
 
 /// Per-application resource ID to key slot name mapping

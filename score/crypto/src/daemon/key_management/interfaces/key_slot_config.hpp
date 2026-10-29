@@ -173,6 +173,10 @@ struct KeySlotConfig
     /// @brief Permitted crypto operations for keys loaded from this slot.
     score::crypto::KeyOperationPermission allowed_operations{score::crypto::KeyOperationPermission::kNone};
 
+    /// @brief The only operation algorithm keys from this slot may serve (e.g. "AES-256-GCM").
+    ///        Empty means any algorithm the key fits.
+    common::AlgorithmId permitted_algorithm;
+
     /// @brief UID-based access control for this slot.
     AccessPolicy access_policy;
 

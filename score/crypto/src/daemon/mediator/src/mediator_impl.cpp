@@ -342,6 +342,17 @@ MediatorImpl::BindAndAuthorizeKey(std::uint64_t client_id,
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kIncompatibleKeyType);
     }
 
+    // A key pinned to one algorithm serves that algorithm only, even where the
+    // key would fit others, and even where the check above is left unchecked.
+    const auto& permitted_algorithm = handle.value().permitted_algorithm;
+    if (!common::IsPermittedAlgorithm(algorithm, permitted_algorithm))
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key is pinned to another algorithm"
+                                   << " (algorithm=" << algorithm << ", permitted_algorithm=" << permitted_algorithm
+                                   << ", key_node_id=" << key_node_id << ")";
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kIncompatibleKeyType);
+    }
+
     auto bind_res = m_km_service->BindKeyToContext(client_id, context_node_id, key_node_id, provider_id);
     if (!bind_res.has_value())
     {

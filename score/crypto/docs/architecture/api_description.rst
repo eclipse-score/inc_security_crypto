@@ -432,6 +432,43 @@ and the context is not created. A context algorithm that the catalog does
 not know is left to the provider; when no provider serves it, context
 creation returns ``CryptoErrorCode::kUnsupportedAlgorithm``.
 
+**Permitted algorithm:**
+
+A key that fits an algorithm usually fits several: an HMAC key fits every
+HMAC digest, and an AES-256 key fits AES-256-CBC and, when it also holds
+``kMac``, every HMAC. Using one key in two modes can leak what one mode
+relies on. For example, if the key material is also used for AES-256-GCM
+outside the daemon (no provider serves AES-GCM today), one AES-256-CBC
+block of zeros under a zero IV returns the GCM hash subkey. A key can
+therefore be pinned to one operation algorithm:
+
+- ``GenerateKeyParams::SetPermittedAlgorithm()`` for a generated key
+- ``"permitted_algorithm"`` on a key slot in the daemon configuration
+
+A pinned key serves that algorithm only, compared exactly and
+case-sensitively, including algorithms the catalog does not know. Any other
+context algorithm returns ``CryptoErrorCode::kIncompatibleKeyType``. An
+empty pin, the default, leaves the key usable for every algorithm it fits.
+
+A pin is checked when the key is created. Key generation fails, and the
+daemon skips a configured slot, when the key could never serve the pinned
+algorithm, or when the pin names a key, digest or random generator rather
+than a keyed operation (for example ``"AES-256"`` or ``"SHA256"``). A pin
+the catalog does not know is accepted and governed by the exact match alone.
+
+The pin is daemon policy: it is kept on the key's registry entry or slot
+configuration, not by the provider, so it applies the same to every
+provider.
+
+.. code-block:: json
+
+   {
+     "slot_name": "vehicle/aes-256-cbc",
+     "algorithm": "AES-256",
+     "allowed_operations": "ENCRYPT|DECRYPT",
+     "permitted_algorithm": "AES-256-CBC"
+   }
+
 **Querying permissions:**
 
 Permissions can be queried at runtime via:

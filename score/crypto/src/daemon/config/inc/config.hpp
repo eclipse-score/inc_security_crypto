@@ -276,6 +276,7 @@ class GeneralConfig
  *     "algorithm": "HMAC-SHA256",
  *     "provider_names": ["OPENSSL"],
  *     "allowed_operations": "MAC",
+ *     "permitted_algorithm": "HMAC-SHA256",
  *     "access_policy": { "allowed_uids": [0, 1000] },
  *     "deployment_path": "/opt/crypto/deploy/vehicle_hmac_256.kv",
  *     "deployment_format": "kv"
@@ -302,6 +303,8 @@ class KeyConfig
         std::string deployment_path;
         /// @brief Format of the deployment descriptor (default "kv").
         std::string deployment_format{"kv"};
+        /// @brief The only operation algorithm keys from this slot may serve; empty means any.
+        std::string permitted_algorithm;
     };
 
     /// @brief Per-application resource ID to slot name mapping.

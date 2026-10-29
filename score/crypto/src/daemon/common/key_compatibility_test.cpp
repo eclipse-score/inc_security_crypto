@@ -104,5 +104,45 @@ TEST(KeyCompatibilityTest, UnkeyedCategoriesAreNotChecked)
     EXPECT_EQ(CheckKeyCompatibility("ECDSA-P256", "ECDSA-P256", 32U), kSkip);
 }
 
+TEST(KeyCompatibilityTest, UnpinnedKeyServesAnyAlgorithm)
+{
+    EXPECT_TRUE(IsPermittedAlgorithm("AES-256-CBC", ""));
+    EXPECT_TRUE(IsPermittedAlgorithm("AES-256-ECB", ""));
+}
+
+TEST(KeyCompatibilityTest, PinnedKeyServesOnlyItsAlgorithm)
+{
+    EXPECT_TRUE(IsPermittedAlgorithm("AES-256-GCM", "AES-256-GCM"));
+    EXPECT_FALSE(IsPermittedAlgorithm("AES-256-CBC", "AES-256-GCM"));
+    EXPECT_FALSE(IsPermittedAlgorithm("ECDSA-P256-SHA384", "ECDSA-P256-SHA256"));
+    EXPECT_FALSE(IsPermittedAlgorithm("HMAC-SHA256", "AES-256-CMAC"));
+    // Uncatalogued algorithms are refused too, which CheckKeyCompatibility leaves to the provider.
+    EXPECT_FALSE(IsPermittedAlgorithm("AES-256-ECB", "AES-256-GCM"));
+    // Exact, case-sensitive match, like every other algorithm identifier.
+    EXPECT_FALSE(IsPermittedAlgorithm("aes-256-gcm", "AES-256-GCM"));
+}
+
+TEST(KeyCompatibilityTest, PinMustFitTheKey)
+{
+    EXPECT_TRUE(IsValidPermittedAlgorithm("", "AES-256", 32U));
+    EXPECT_TRUE(IsValidPermittedAlgorithm("AES-256-GCM", "AES-256", 32U));
+    EXPECT_TRUE(IsValidPermittedAlgorithm("HMAC-SHA256", "AES-256", 32U));
+    EXPECT_TRUE(IsValidPermittedAlgorithm("ECDSA-P256-SHA256", "ECDSA-P256", 32U));
+
+    EXPECT_FALSE(IsValidPermittedAlgorithm("AES-256-GCM", "AES-128", 16U));
+    EXPECT_FALSE(IsValidPermittedAlgorithm("ECDSA-P384-SHA384", "ECDSA-P256", 32U));
+    EXPECT_FALSE(IsValidPermittedAlgorithm("HMAC-SHA256", "ECDSA-P256", 32U));
+}
+
+TEST(KeyCompatibilityTest, PinMustNameAKeyedOperation)
+{
+    EXPECT_FALSE(IsValidPermittedAlgorithm("AES-256", "AES-256", 32U));
+    EXPECT_FALSE(IsValidPermittedAlgorithm("ECDSA-P256", "ECDSA-P256", 32U));
+    EXPECT_FALSE(IsValidPermittedAlgorithm("SHA256", "AES-256", 32U));
+    EXPECT_FALSE(IsValidPermittedAlgorithm("CTR-DRBG", "AES-256", 32U));
+    // Not in the catalog: nothing to judge, so the exact match alone governs.
+    EXPECT_TRUE(IsValidPermittedAlgorithm("AES-256-ECB", "AES-256", 32U));
+}
+
 }  // namespace
 }  // namespace score::crypto::daemon::common

@@ -101,6 +101,10 @@ namespace key_mgmt_request_parser
 ///   request[0] = algorithm              (string_view, required)
 ///   request[1] = permissions            (uint32_t,    optional)
 ///   request[2] = public_key_permissions (uint32_t,    optional, asymmetric only)
+///   next       = permitted_algorithm    (string_view, optional)
+///
+/// Both trailing parameters are optional, so the permitted algorithm sits at
+/// index 2 or 3. It is told apart from public_key_permissions by its type.
 [[nodiscard]] inline Expected<key_management::KeyGenerationRequest, score::crypto::daemon::common::DaemonErrorCode>
 BuildGenerationRequest(const common::RequestParameters& request)
 {
@@ -124,6 +128,17 @@ BuildGenerationRequest(const common::RequestParameters& request)
     // half of a key pair is public information, so withholding kVerify/kEncrypt
     // by default would cost compatibility without buying confidentiality.
     req.public_key_permissions = ExtractOptionalPermissions(request, 2U);
+
+    const std::size_t pin_index = req.public_key_permissions.has_value() ? 3U : 2U;
+    if (request.size() > pin_index)
+    {
+        const auto* pin = std::get_if<std::string_view>(&request[pin_index]);
+        if (pin == nullptr)
+        {
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+        }
+        req.permitted_algorithm = std::string(*pin);
+    }
 
     return req;
 }
