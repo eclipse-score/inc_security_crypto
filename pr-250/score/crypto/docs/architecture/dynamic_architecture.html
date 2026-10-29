@@ -682,7 +682,7 @@ use <code class="docutils literal notranslate"><span class="pre">LoadKey()</span
 <section id="hashing-example">
 <h2>Hashing Example<a class="headerlink" href="#hashing-example" title="Link to this heading">#</a></h2>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">HashContextConfig</span><span class="w"> </span><span class="n">hash_config</span><span class="p">;</span>
-<span class="n">hash_config</span><span class="p">.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="s">"SHA-256"</span><span class="p">);</span>
+<span class="n">hash_config</span><span class="p">.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="s">"SHA256"</span><span class="p">);</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">hash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">CreateHashContext</span><span class="p">(</span><span class="n">hash_config</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
 
 <span class="c1">// Streaming</span>
@@ -700,7 +700,7 @@ use <code class="docutils literal notranslate"><span class="pre">LoadKey()</span
 <h2>Context Reuse via Reset()<a class="headerlink" href="#context-reuse-via-reset" title="Link to this heading">#</a></h2>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Create the context once — expensive (factory + IPC)</span>
 <span class="n">HashContextConfig</span><span class="w"> </span><span class="n">hash_config</span><span class="p">;</span>
-<span class="n">hash_config</span><span class="p">.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="s">"SHA-256"</span><span class="p">);</span>
+<span class="n">hash_config</span><span class="p">.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="s">"SHA256"</span><span class="p">);</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">hash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">CreateHashContext</span><span class="p">(</span><span class="n">hash_config</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
 
 <span class="c1">// First message</span>
@@ -818,7 +818,7 @@ use <code class="docutils literal notranslate"><span class="pre">LoadKey()</span
 
 <span class="c1">// 2. Per-context override: tighter 200 ms deadline for hashing</span>
 <span class="n">HashContextConfig</span><span class="w"> </span><span class="n">hash_cfg</span><span class="p">;</span>
-<span class="n">hash_cfg</span><span class="p">.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="s">"SHA-256"</span><span class="p">)</span>
+<span class="n">hash_cfg</span><span class="p">.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="s">"SHA256"</span><span class="p">)</span>
 <span class="w">        </span><span class="p">.</span><span class="n">SetOperationTimeout</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">chrono</span><span class="o">::</span><span class="n">milliseconds</span><span class="p">{</span><span class="mi">200</span><span class="p">});</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">hash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">CreateHashContext</span><span class="p">(</span><span class="n">hash_cfg</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
 
