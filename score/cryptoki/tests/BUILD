@@ -22,7 +22,8 @@ filegroup(
 
 _COMMON_DEPS = [
     "//score/cryptoki:cryptoki_lib",
-    "//third_party/openssl:openssl_shared",
+    "@score_crates//:libc",
+    "@score_crates//:serde_json",
 ]
 
 _TESTS_WITH_COMMON = [
@@ -100,9 +101,6 @@ _CPP_LINKER_FLAGS = select({
     ),
     deps = _COMMON_DEPS + all_crate_deps(
         package_name = "score/cryptoki",
-        normal = True,
-    ) + all_crate_deps(
-        package_name = "score/cryptoki",
         normal_dev = True,
     ),
 ) for name in _TESTS_WITH_COMMON]
@@ -126,9 +124,6 @@ _CPP_LINKER_FLAGS = select({
         proc_macro_dev = True,
     ),
     deps = _COMMON_DEPS + all_crate_deps(
-        package_name = "score/cryptoki",
-        normal = True,
-    ) + all_crate_deps(
         package_name = "score/cryptoki",
         normal_dev = True,
     ),

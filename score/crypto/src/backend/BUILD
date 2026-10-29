@@ -125,7 +125,7 @@ cc_library(
 #       --//score/crypto/src/backend:pkcs11_backend=//external/vendor_hsm:backend
 label_flag(
     name = "pkcs11_backend",
-    build_setting_default = "//third_party/soft_hsm:softhsm_shared",
+    build_setting_default = "//third_party/soft_hsm:soft_hsm",
     visibility = ["//visibility:public"],
 )
 
