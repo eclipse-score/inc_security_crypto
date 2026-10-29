@@ -235,6 +235,7 @@ cc_library(
     visibility = [
         "//score/crypto/src/daemon:__pkg__",
         "//score/crypto/src/daemon:__subpackages__",
+        "//score/crypto/tests/cert_management:__pkg__",
     ],
     linkstatic = True,
     deps = [

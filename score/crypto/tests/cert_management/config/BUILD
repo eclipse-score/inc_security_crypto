@@ -27,3 +27,20 @@ filegroup(
     srcs = [":generate_cert_management_test_config"],
     visibility = ["//:__subpackages__"],
 )
+
+genrule(
+    name = "generate_cert_module_startup_config",
+    srcs = [
+        "//score/crypto/src/daemon/config:crypto_config_fbs_schema",
+        "cert_module_startup_config.json",
+    ],
+    outs = ["cert_module_startup_config.bin"],
+    cmd = "$(location @flatbuffers//:flatc) -b -o $(@D) $(SRCS)",
+    tools = ["@flatbuffers//:flatc"],
+)
+
+filegroup(
+    name = "cert_module_startup_config",
+    srcs = [":generate_cert_module_startup_config"],
+    visibility = ["//:__subpackages__"],
+)
