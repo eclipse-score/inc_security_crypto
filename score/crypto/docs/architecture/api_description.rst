@@ -166,6 +166,33 @@ to detect that the resource is still referenced by an active context — call
        // e.g. resource still used by an active context — destroy it first
    }
 
+Provider and Capability Discovery
+---------------------------------
+
+``ICryptoContext`` answers which providers exist and what they can do:
+
+- ``ResolveResource(name, ResourceType::kProvider)`` turns a configured
+  provider name into a ``CryptoResourceId`` whose ``id`` and
+  ``primary_provider`` are the provider id. Unknown names fail.
+- ``GetProviderInfo(provider_id)`` returns id, ``ProviderType``
+  (``kHardware`` or ``kSoftware`` as configured) and name.
+  ``GetProviderInfo(resource)`` does the same for the resource's
+  ``primary_provider``. Unknown ids return ``kInvalidArgument``.
+- ``QueryCapabilities(algorithm)`` reports the operations that at least one
+  provider accepts for that name, as entries in ``modes``:
+  ``HASH``, ``MAC``, ``CIPHER``, ``SIGN``, ``VERIFY``, ``RANDOM`` and
+  ``GENERATE_KEY``. ``supported`` is false and ``modes`` empty when no
+  provider accepts it, including for names outside the algorithm catalog.
+- ``QueryCapabilities()`` lists the providers and every catalog algorithm
+  with at least one operation, in catalog order.
+
+The daemon answers from the same checks that context creation and key
+generation apply, so a reported operation is one that
+``Create[Op]Context()`` or ``GenerateKey()`` would accept for that algorithm
+on at least one provider. It does not check key slots, permissions or
+memory. The answer is the union over providers; to target one provider, set
+``ProviderType`` on the context config.
+
 Memory and Data Plane Model
 ---------------------------
 

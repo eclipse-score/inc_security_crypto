@@ -160,6 +160,19 @@ class MediatorImpl : public IMediator
     bool HandleMediatorOperation(const control_plane::ControlRequest& request,
                                  const control_plane::SingleOperationRequest& operation,
                                  control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleProviderInfoOperation(const control_plane::SingleOperationRequest& operation,
+                                     control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleQueryCapabilitiesOperation(const control_plane::SingleOperationRequest& operation,
+                                          control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleSystemCapabilitiesOperation(const control_plane::SingleOperationRequest& operation,
+                                           control_plane::protocol::OperationResponseBuilder& responseBuilder);
+
+    /// Operations (capability_flags) that at least one provider accepts for @p algorithm.
+    [[nodiscard]] std::uint8_t CollectCapabilities(const common::AlgorithmId& algorithm) const;
+
+    /// Initialized providers, ordered by id.
+    [[nodiscard]] std::vector<std::shared_ptr<provider::IProvider>> InitializedProviders() const;
+
     bool HandleShmCreateObject(const control_plane::ControlRequest& request,
                                const control_plane::SingleOperationRequest& operation,
                                control_plane::protocol::OperationResponseBuilder& responseBuilder);

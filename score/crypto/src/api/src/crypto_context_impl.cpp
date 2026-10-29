@@ -29,6 +29,7 @@
 #include "score/crypto/src/api/contexts/src/sign_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/verify_signature_context_impl.hpp"
 #include "score/crypto/src/api/src/provider_type_converter.hpp"
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
@@ -91,6 +92,51 @@ struct ContextCreationRequest
     std::optional<daemon_common::ContextMode> mode{std::nullopt};
     std::optional<CipherPadding> padding{std::nullopt};
 };
+
+/// @brief Builds the public capability record from the daemon's operation flags.
+AlgorithmCapabilities MakeAlgorithmCapabilities(const AlgorithmId& algorithm, std::uint8_t flags)
+{
+    namespace cap = ::score::crypto::daemon::mediator::operations::capability_flags;
+    struct FlagName
+    {
+        std::uint8_t flag;
+        std::string_view name;
+    };
+    static constexpr FlagName kFlagNames[] = {
+        {cap::kHash, "HASH"},
+        {cap::kMac, "MAC"},
+        {cap::kCipher, "CIPHER"},
+        {cap::kSign, "SIGN"},
+        {cap::kVerify, "VERIFY"},
+        {cap::kRandom, "RANDOM"},
+        {cap::kGenerateKey, "GENERATE_KEY"},
+    };
+
+    AlgorithmCapabilities result{};
+    result.id = algorithm;
+    result.supported = (flags != 0U);
+    for (const auto& entry : kFlagNames)
+    {
+        if (((flags & entry.flag) != 0U) && (result.mode_count < AlgorithmCapabilities::kMaxModes))
+        {
+            result.modes[result.mode_count++] = entry.name;
+        }
+    }
+    return result;
+}
+
+/// @brief Builds the public provider record from PROVIDER_INFO wire values.
+ProviderInfo MakeProviderInfo(std::uint16_t id, std::uint8_t wire_type, const std::vector<std::uint8_t>& name)
+{
+    ProviderInfo info{};
+    info.id = id;
+    info.type = (wire_type <= static_cast<std::uint8_t>(ProviderType::kSoftwarePreferred))
+                    ? static_cast<ProviderType>(wire_type)
+                    : ProviderType::kDefault;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) bytes are UTF-8 text
+    info.name = std::string_view{reinterpret_cast<const char*>(name.data()), name.size()};
+    return info;
+}
 
 /// @brief Sends CTX_CREATE to the daemon and returns the new context's node id.
 ///
@@ -455,33 +501,161 @@ score::Result<std::unique_ptr<IRandomContext>> CryptoContextImpl::CreateRandomCo
 // Queries (TODO)
 // ---------------------------------------------------------------------------
 
-score::Result<AlgorithmCapabilities> CryptoContextImpl::QueryCapabilities(const AlgorithmId& /*algorithm*/)
+score::Result<AlgorithmCapabilities> CryptoContextImpl::QueryCapabilities(const AlgorithmId& algorithm)
 {
-    // TODO: Implement algorithm capability query via daemon IPC
-    return score::Result<AlgorithmCapabilities>{
-        score::unexpect,
-        MakeError(CryptoErrorCode::kUnsupportedOperation, "QueryCapabilities(algorithm) not yet implemented")};
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+    namespace med_ops = ::score::crypto::daemon::mediator::operations;
+
+    auto control_req_result = proto::ControlRequestBuilder()
+                                  .forDataNodeId(m_connection->GetConnectionNodeId())
+                                  .operation(med_ops::QueryCapabilities())
+                                  .with_in_string(std::string_view{algorithm})
+                                  .build();
+    if (!control_req_result.has_value())
+    {
+        return score::Result<AlgorithmCapabilities>{
+            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "Failed to build QUERY_CAPABILITIES request")};
+    }
+
+    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
+    validator.expectOperation(med_ops::QueryCapabilities()).expectSuccess();
+    if (!validator.isValid())
+    {
+        return score::Result<AlgorithmCapabilities>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError),
+                      "QUERY_CAPABILITIES daemon response invalid")};
+    }
+
+    auto flags = validator.getParameterAt<std::uint8_t>(0, 0);
+    if (!flags.has_value())
+    {
+        return score::Result<AlgorithmCapabilities>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kInternalError, "QUERY_CAPABILITIES response missing operation flags")};
+    }
+    return MakeAlgorithmCapabilities(algorithm, flags.value());
 }
 
 score::Result<SystemCapabilities> CryptoContextImpl::QueryCapabilities()
 {
-    // TODO: Implement system capability query via daemon IPC
-    return score::Result<SystemCapabilities>{
-        score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "QueryCapabilities() not yet implemented")};
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+    namespace med_ops = ::score::crypto::daemon::mediator::operations;
+
+    auto control_req_result = proto::ControlRequestBuilder()
+                                  .forDataNodeId(m_connection->GetConnectionNodeId())
+                                  .operation(med_ops::QuerySystemCapabilities())
+                                  .build();
+    if (!control_req_result.has_value())
+    {
+        return score::Result<SystemCapabilities>{
+            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "Failed to build SYSTEM_CAPABILITIES request")};
+    }
+
+    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
+    validator.expectOperation(med_ops::QuerySystemCapabilities()).expectSuccess();
+    if (!validator.isValid())
+    {
+        return score::Result<SystemCapabilities>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError),
+                      "SYSTEM_CAPABILITIES daemon response invalid")};
+    }
+
+    const auto malformed = [] {
+        return score::Result<SystemCapabilities>{
+            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "SYSTEM_CAPABILITIES response malformed")};
+    };
+
+    SystemCapabilities result{};
+    std::size_t index = 0U;
+
+    const auto provider_count = validator.getParameterAt<std::uint16_t>(0, index++);
+    if (!provider_count.has_value())
+    {
+        return malformed();
+    }
+    for (std::uint16_t i = 0U; i < provider_count.value(); ++i)
+    {
+        const auto id = validator.getParameterAt<std::uint16_t>(0, index++);
+        const auto type = validator.getParameterAt<std::uint8_t>(0, index++);
+        const auto name = validator.getParameterAt<proto::DataBufferReturn>(0, index++);
+        if (!id.has_value() || !type.has_value() || !name.has_value())
+        {
+            return malformed();
+        }
+        // The arrays are bounded; extra entries are dropped rather than failing the query.
+        if (result.provider_count < SystemCapabilities::kMaxProviders)
+        {
+            result.providers[result.provider_count++] = MakeProviderInfo(id.value(), type.value(), name.value());
+        }
+    }
+
+    const auto algorithm_count = validator.getParameterAt<std::uint16_t>(0, index++);
+    if (!algorithm_count.has_value())
+    {
+        return malformed();
+    }
+    for (std::uint16_t i = 0U; i < algorithm_count.value(); ++i)
+    {
+        const auto algorithm = validator.getParameterAt<std::uint16_t>(0, index++);
+        const auto flags = validator.getParameterAt<std::uint8_t>(0, index++);
+        if (!algorithm.has_value() || !flags.has_value())
+        {
+            return malformed();
+        }
+        const auto name = ToAlgorithmName(static_cast<Algorithm>(algorithm.value()));
+        if (!name.empty() && (result.algorithm_count < SystemCapabilities::kMaxAlgorithms))
+        {
+            result.algorithms[result.algorithm_count++] = MakeAlgorithmCapabilities(AlgorithmId{name}, flags.value());
+        }
+    }
+    return result;
 }
 
-score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(uint16_t /*provider_id*/)
+score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(uint16_t provider_id)
 {
-    // TODO: Implement provider info query via daemon IPC
-    return score::Result<ProviderInfo>{
-        score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "GetProviderInfo not yet implemented")};
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+    namespace med_ops = ::score::crypto::daemon::mediator::operations;
+
+    auto control_req_result = proto::ControlRequestBuilder()
+                                  .forDataNodeId(m_connection->GetConnectionNodeId())
+                                  .operation(med_ops::GetProviderInfo())
+                                  .with_in_val_uint64(provider_id)
+                                  .build();
+    if (!control_req_result.has_value())
+    {
+        return score::Result<ProviderInfo>{
+            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "Failed to build PROVIDER_INFO request")};
+    }
+
+    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
+    validator.expectOperation(med_ops::GetProviderInfo()).expectSuccess();
+    if (!validator.isValid())
+    {
+        return score::Result<ProviderInfo>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError),
+                      "PROVIDER_INFO daemon response invalid")};
+    }
+
+    const auto id = validator.getParameterAt<std::uint16_t>(0, 0);
+    const auto type = validator.getParameterAt<std::uint8_t>(0, 1);
+    const auto name = validator.getParameterAt<proto::DataBufferReturn>(0, 2);
+    if (!id.has_value() || !type.has_value() || !name.has_value())
+    {
+        return score::Result<ProviderInfo>{
+            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "PROVIDER_INFO response malformed")};
+    }
+    return MakeProviderInfo(id.value(), type.value(), name.value());
 }
 
-score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(const CryptoResourceId& /*resourceId*/)
+score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(const CryptoResourceId& resourceId)
 {
-    // TODO: Implement provider info query via daemon IPC
-    return score::Result<ProviderInfo>{
-        score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "GetProviderInfo not yet implemented")};
+    return GetProviderInfo(resourceId.primary_provider);
 }
 
 // ---------------------------------------------------------------------------

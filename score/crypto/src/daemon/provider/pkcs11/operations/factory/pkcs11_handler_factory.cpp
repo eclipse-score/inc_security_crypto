@@ -38,6 +38,20 @@ Pkcs11HandlerFactory::Pkcs11HandlerFactory(const Pkcs11Module& module, Pkcs11Pro
 {
 }
 
+bool Pkcs11HandlerFactory::IsAlgorithmSupported(const common::HandlerId& handlerId,
+                                                const common::AlgorithmId& algorithm) const
+{
+    if (handlerId == common::context_types::kHash)
+    {
+        return Pkcs11HashHandler::IsAlgorithmSupported(algorithm);
+    }
+    if (handlerId == common::context_types::kMac)
+    {
+        return Pkcs11MacHandler::IsAlgorithmSupported(algorithm);
+    }
+    return false;
+}
+
 score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHandler(const common::HandlerId& handlerId,
                                                                           const common::AlgorithmId& algorithm)
 {

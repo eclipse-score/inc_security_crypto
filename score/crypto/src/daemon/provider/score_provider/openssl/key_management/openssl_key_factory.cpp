@@ -56,6 +56,16 @@ key_management::ProviderKeyHandle MakeHandle(common::ProviderId provider_id,
 
 OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id) {};
 
+bool OpenSslKeyFactory::IsKeyGenerationSupported(const common::AlgorithmId& algorithm) const
+{
+    const std::string_view name{algorithm.data(), algorithm.size()};
+    if (::score::crypto::daemon::common::IsEcdsaAlgorithm(name))
+    {
+        return ::score::crypto::daemon::common::LookupEcCurveOfAlgorithm(name).has_value();
+    }
+    return DetermineKeySize(algorithm) != 0U;
+}
+
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::GenerateKey(const key_management::KeyGenerationRequest& request)
 {
