@@ -1122,7 +1122,7 @@ the WCET bound.</p>
 
 <span class="c1">// Per-context override: 200 ms for hash, disabled for key gen</span>
 <span class="n">HashContextConfig</span><span class="w"> </span><span class="n">hash_cfg</span><span class="p">;</span>
-<span class="n">hash_cfg</span><span class="p">.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="s">"SHA-256"</span><span class="p">)</span>
+<span class="n">hash_cfg</span><span class="p">.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="s">"SHA256"</span><span class="p">)</span>
 <span class="w">        </span><span class="p">.</span><span class="n">SetOperationTimeout</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">chrono</span><span class="o">::</span><span class="n">milliseconds</span><span class="p">{</span><span class="mi">200</span><span class="p">});</span>
 
 <span class="n">KeyManagementContextConfig</span><span class="w"> </span><span class="n">keygen_cfg</span><span class="p">;</span>
