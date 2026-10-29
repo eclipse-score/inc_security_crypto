@@ -161,6 +161,26 @@ cc_binary(
 )
 
 cc_binary(
+    name = "score_api_capabilities_test",
+    srcs = ["score_api_capabilities_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    defines = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": ["SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:openssl_backend_active": ["SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }),
+    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
     name = "score_demo",
     srcs = ["score_demo.cpp"],
     data = [
@@ -189,6 +209,7 @@ integration_test(
         ":score_api_hash_test",
         ":score_api_mac_test",
         ":score_api_key_permissions_test",
+        ":score_api_capabilities_test",
         ":hash_performance_test",
         ":score_demo",
         "//score/crypto/src/daemon:crypto_daemon",

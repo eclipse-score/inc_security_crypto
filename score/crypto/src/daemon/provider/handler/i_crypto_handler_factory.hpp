@@ -53,6 +53,20 @@ class ICryptoHandlerFactory
     virtual ::score::Result<Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
                                                          const common::AlgorithmId& algorithm) = 0;
 
+    /**
+     * @brief Tell whether CreateHandler() would accept this handler type and algorithm.
+     *
+     * Answers from the same gates CreateHandler() applies, without creating a
+     * handler or touching provider resources. Used for capability queries.
+     *
+     * @return false by default, for factories that do not report capabilities.
+     */
+    [[nodiscard]] virtual bool IsAlgorithmSupported(const common::HandlerId& /*handlerId*/,
+                                                    const common::AlgorithmId& /*algorithm*/) const
+    {
+        return false;
+    }
+
   protected:
     ICryptoHandlerFactory() = default;
 };

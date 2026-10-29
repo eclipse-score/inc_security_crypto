@@ -23,6 +23,7 @@
 
 #include "score/mw/log/logging.h"
 
+#include <cstddef>
 #include <string_view>
 
 namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
@@ -115,6 +116,17 @@ Expected<std::monostate, DaemonErrorCode> Stream::Bind(
     if (EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC)
     {
         score::mw::log::LogError() << kLogPrefix << "Bind: bound key is not an EC key";
+        m_init_params = {};
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
+    }
+
+    // The mediator refuses a key on another curve; this guards callers that
+    // reach the stream without passing through it.
+    const auto curve = algo_info::LookupEcCurveOfAlgorithm(std::string_view{algorithm.data(), algorithm.size()});
+    if (!curve.has_value() || (static_cast<std::size_t>(EVP_PKEY_get_bits(pkey)) != curve->key_bits))
+    {
+        score::mw::log::LogError() << kLogPrefix << "Bind: bound key is not on the curve of " << algorithm
+                                   << " (key bits=" << EVP_PKEY_get_bits(pkey) << ")";
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }

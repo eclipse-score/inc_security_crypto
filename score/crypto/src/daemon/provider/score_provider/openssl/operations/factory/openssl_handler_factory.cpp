@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/factory/openssl_handler_factory.hpp"
+#include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cipher/openssl_cipher_handler.hpp"
@@ -39,6 +40,37 @@ OpenSslHandlerFactory::OpenSslHandlerFactory(std::shared_ptr<key_management::IKe
                                              key_management::KeyManagementService::Sptr km_service)
     : ScoreHandlerFactory{std::move(km_handler), std::move(slot_handler), std::move(km_service)}
 {
+}
+
+bool OpenSslHandlerFactory::IsAlgorithmSupported(const common::HandlerId& handlerId,
+                                                 const common::AlgorithmId& algorithm) const
+{
+    if (handlerId == common::context_types::kHash)
+    {
+        return OpenSslHashHandler::IsAlgorithmSupported(algorithm);
+    }
+    if (handlerId == common::context_types::kMac)
+    {
+        return OpenSslHmacHandler::IsAlgorithmSupported(algorithm);
+    }
+    if (handlerId == common::context_types::kCipher)
+    {
+        return OpenSslCipherHandler::IsAlgorithmSupported(algorithm);
+    }
+    if (handlerId == common::context_types::kSign)
+    {
+        return OpenSslEcdsaSignHandler::IsAlgorithmSupported(algorithm);
+    }
+    if (handlerId == common::context_types::kVerify)
+    {
+        return OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(algorithm);
+    }
+    if (handlerId == common::context_types::kRandom)
+    {
+        // The empty name selects the default generator; it is not an algorithm to report.
+        return !algorithm.empty() && OpenSslRandomHandler::IsAlgorithmSupported(algorithm);
+    }
+    return false;
 }
 
 score::Result<HandlerSptr> OpenSslHandlerFactory::CreateHashHandler(const common::AlgorithmId& algorithm)

@@ -70,6 +70,11 @@ Pkcs11KeyFactory::Pkcs11KeyFactory(std::weak_ptr<Pkcs11Provider> provider,
 {
 }
 
+bool Pkcs11KeyFactory::IsKeyGenerationSupported(const common::AlgorithmId& algorithm) const
+{
+    return detail::LookupAlgorithm(algorithm).has_value();
+}
+
 score::crypto::Expected<key_management::IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode>
 Pkcs11KeyFactory::GenerateKey(const key_management::KeyGenerationRequest& request)
 {
