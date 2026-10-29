@@ -158,6 +158,9 @@ inline constexpr std::string_view kSupportedSignatureAlgorithms[] = {
 }
 
 /// @brief Configure RSA-PSS padding, salt length and MGF1 digest on a raw EVP_PKEY_CTX.
+/// @param pkey_context The initialized sign/verify EVP_PKEY_CTX to configure.
+/// @param digest The digest used for the MGF1 mask generation function.
+/// @param salt_length RSA_PSS_SALTLEN_DIGEST, RSA_PSS_SALTLEN_AUTO or an explicit salt length in bytes.
 /// @return false if the context, digest, or any RSA-PSS parameter could not be set.
 [[nodiscard]] inline bool ConfigureRsaPssPkeyContext(EVP_PKEY_CTX* pkey_context,
                                                      const EVP_MD* digest,
