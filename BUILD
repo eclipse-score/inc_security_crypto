@@ -18,8 +18,8 @@ load("@rules_uv//uv:venv.bzl", "create_venv")
 docs(
     source_dir = ".",
     external_needs = [
-        "@score_platform//:needs_json_file",
         "@score_process_description//:needs_json",
+        "@score_platform//:needs_json",
     ],
 )
 
