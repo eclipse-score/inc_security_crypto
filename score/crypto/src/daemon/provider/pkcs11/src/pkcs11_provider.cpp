@@ -316,7 +316,8 @@ Expected<CK_SESSION_HANDLE, score::crypto::daemon::common::DaemonErrorCode> Pkcs
 }
 
 void Pkcs11Provider::ReleaseSession(const CK_SESSION_HANDLE session,
-                                    const Pkcs11HandlerRequirements& usedRequirements) noexcept
+                                    const Pkcs11HandlerRequirements& usedRequirements,
+                                    const Pkcs11SessionDisposition disposition) noexcept
 {
     std::lock_guard<std::mutex> lock(m_poolMutex);
     auto& pool = (usedRequirements.sessionType == Pkcs11SessionType::ReadWrite) ? m_rwPool : m_roPool;
@@ -340,7 +341,8 @@ void Pkcs11Provider::ReleaseSession(const CK_SESSION_HANDLE session,
 
     if (it != pool.end())
     {
-        if (m_config.cleanupStrategy == Pkcs11SessionCleanupStrategy::kHardCleanup)
+        if ((m_config.cleanupStrategy == Pkcs11SessionCleanupStrategy::kHardCleanup) ||
+            (disposition == Pkcs11SessionDisposition::kDiscard))
         {
             // Erase the entry: unique_ptr<SessionGuard> destructor calls Close(),
             // which calls C_CloseSession.  No closed-but-idle slots are left in
@@ -372,6 +374,34 @@ bool Pkcs11Provider::ValidateSession(const CK_SESSION_HANDLE session) const noex
     CK_SESSION_INFO info{};
     const CK_RV rv = fns->C_GetSessionInfo(session, &info);
     return (rv == CKR_OK);
+}
+
+Expected<bool, score::crypto::daemon::common::DaemonErrorCode> Pkcs11Provider::SupportsMechanism(
+    const CK_MECHANISM_TYPE mechanism,
+    const CK_FLAGS requiredFlags) const noexcept
+{
+    if (!m_initialized || (m_module == nullptr) || (m_config.slotId == kSlotIdAutoDetect))
+    {
+        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUninitializedStack);
+    }
+
+    CK_FUNCTION_LIST* const fns = m_module->GetFunctionList();
+    if ((fns == nullptr) || (fns->C_GetMechanismInfo == nullptr))
+    {
+        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    }
+
+    CK_MECHANISM_INFO mechanism_info{};
+    const CK_RV rv = fns->C_GetMechanismInfo(m_config.slotId, mechanism, &mechanism_info);
+    if (rv == CKR_OK)
+    {
+        return (mechanism_info.flags & requiredFlags) == requiredFlags;
+    }
+    if (rv == CKR_MECHANISM_INVALID)
+    {
+        return false;
+    }
+    return make_unexpected(Pkcs11Module::MapErrorReturn(rv));
 }
 
 // ============================================================================

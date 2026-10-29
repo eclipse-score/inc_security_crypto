@@ -34,6 +34,9 @@ namespace crypto
 /// Init() is exposed with the base default (iv = std::nullopt);
 /// hash implementations reject a non-null IV.
 ///
+/// Empty input is valid: Init() followed directly by Finalize() returns the
+/// digest of the empty byte sequence, as does SingleShot() with an empty span.
+///
 /// Compatible with classical algorithms (SHA-256, SHA-3) and PQC hash-based
 /// schemes (e.g., XMSS/LMS hash functions, SHAKE for ML-DSA).
 class IHashContext : public IStreamingContext
@@ -72,6 +75,7 @@ class IHashContext : public IStreamingContext
                                                   score::cpp::span<uint8_t> output) = 0;
 
     /// @brief Returns the digest size in bytes for the configured algorithm.
+    /// @return Digest size, or zero when the daemon query or response validation fails.
     /// @note For variable-output hash functions (e.g., SHAKE), returns the
     ///       default output length configured at context creation.
     virtual std::size_t GetDigestSize() const noexcept = 0;

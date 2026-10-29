@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string_view>
 
 #include "score/crypto/src/daemon/common/actors.hpp"
@@ -66,6 +67,37 @@ inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities
     {"KEY", common::ProviderCapability::kKeyManagement},
 }};
 
+/// @brief Daemon-side interpretation of a public ProviderType wire value.
+struct ProviderTypePreference final
+{
+    common::CryptoProviderType primary;
+    std::optional<common::CryptoProviderType> fallback;
+};
+
+/// @brief Decode the stable ProviderType wire contract without losing preferred-provider fallback semantics.
+/// @return The decoded preference, or std::nullopt for an unknown wire value.
+[[nodiscard]] inline constexpr std::optional<ProviderTypePreference> DecodeProviderTypePreference(
+    const std::uint8_t wire_value) noexcept
+{
+    using ProviderType = common::CryptoProviderType;
+
+    switch (wire_value)
+    {
+        case 0U:
+            return ProviderTypePreference{ProviderType::DEFAULT, std::nullopt};
+        case 1U:
+            return ProviderTypePreference{ProviderType::HARDWARE, std::nullopt};
+        case 2U:
+            return ProviderTypePreference{ProviderType::SOFTWARE, std::nullopt};
+        case 3U:
+            return ProviderTypePreference{ProviderType::HARDWARE, ProviderType::SOFTWARE};
+        case 4U:
+            return ProviderTypePreference{ProviderType::SOFTWARE, ProviderType::HARDWARE};
+        default:
+            return std::nullopt;
+    }
+}
+
 // CTX_CREATE
 // Request:  data_node_id = connection_id (parent node),
 //           param[0]: string — handler context type (e.g. "HASH" or "CERT:...")
@@ -84,6 +116,21 @@ inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities
 //           uint64_t — daemon-assigned context_id (DataNodeId)
 // Effect:   Creates cryptographic context, initializes handler with specified algorithm
 inline constexpr OperationAction CTX_CREATE = 1;
+
+// Stable CTX_CREATE parameter positions. Handler-specific extensions may use
+// later positions; the mediator validates only the common prefix.
+inline constexpr std::size_t CTX_PARAM_HANDLER_TYPE = 0U;
+inline constexpr std::size_t CTX_PARAM_ALGORITHM = 1U;
+inline constexpr std::size_t CTX_PARAM_PROVIDER_TYPE = 2U;
+inline constexpr std::size_t CTX_PARAM_KEY_NODE_ID = 3U;
+inline constexpr std::size_t CTX_PARAM_OPERATION_MODE = 4U;
+inline constexpr std::size_t CTX_PARAM_CIPHER_PADDING = 5U;
+
+/// @brief Defensive upper bound for malformed CTX_CREATE requests.
+///
+/// This is intentionally larger than the common prefix so handlers can add
+/// opaque parameters without requiring mediator changes.
+inline constexpr std::size_t CTX_MAX_PARAMETER_COUNT = 10U;
 
 // CTX_CLOSE
 // Request:  data_node_id = context_id (the context to close),

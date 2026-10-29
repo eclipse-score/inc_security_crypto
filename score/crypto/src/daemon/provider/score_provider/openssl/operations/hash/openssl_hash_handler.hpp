@@ -20,8 +20,9 @@
 #include "score/crypto/src/daemon/provider/score_provider/operations/hash/hash_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/hash/score_hash_handler.hpp"
 #include <openssl/evp.h>
+
+#include <cstddef>
 #include <memory>
-#include <optional>
 #include <string>
 
 namespace score::crypto::daemon::provider::score_provider::openssl::handler
@@ -32,10 +33,12 @@ class OpenSslHashHandler final
 {
   public:
     using Sptr = std::shared_ptr<OpenSslHashHandler>;
+    using DigestUpdateFunction = int (*)(EVP_MD_CTX*, const void*, std::size_t);
 
     explicit OpenSslHashHandler(
         std::unique_ptr<::score::crypto::daemon::provider::score_provider::operations::hash::HashExecutor> executor,
-        common::AlgorithmId algorithm);
+        common::AlgorithmId algorithm,
+        DigestUpdateFunction digestUpdate = &EVP_DigestUpdate);
     ~OpenSslHashHandler() override;
 
     // Handler interface overrides (OpenSSL-specific initialization and cleanup)
@@ -44,16 +47,14 @@ class OpenSslHashHandler final
     Expected<std::monostate, common::DaemonErrorCode> Reset() override;
 
     // ScoreHashHandler typed method overrides (OpenSSL crypto implementation)
-    Expected<std::monostate, common::DaemonErrorCode> InitHash(
-        const std::optional<common::RequestParameter> initialDataOrIV) override;
-    Expected<std::monostate, common::DaemonErrorCode> UpdateHash(const common::RequestParameter& dataToHash) override;
+    Expected<std::monostate, common::DaemonErrorCode> InitHash() override;
+    Expected<std::monostate, common::DaemonErrorCode> UpdateHash(
+        score::cpp::span<const std::uint8_t> dataToHash) override;
     Expected<common::ResponseParameters, common::DaemonErrorCode> FinalizeHash(
-        common::RequestParameter hashOutput,
-        const std::optional<common::RequestParameter> finalDataToHash) override;
+        score::cpp::span<std::uint8_t> hashOutput) override;
     Expected<common::ResponseParameters, common::DaemonErrorCode> SingleShotHash(
-        const common::RequestParameter& dataToHash,
-        common::RequestParameter outputHash,
-        std::optional<common::RequestParameter> initializationVector) override;
+        score::cpp::span<const std::uint8_t> dataToHash,
+        score::cpp::span<std::uint8_t> outputHash) override;
 
     /// @brief Check if the given algorithm is supported by this handler.
     [[nodiscard]] static bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
@@ -61,6 +62,7 @@ class OpenSslHashHandler final
   private:
     // OpenSSL-specific stream context management
     EVP_MD_CTX* mCurrentStreamContext;
+    DigestUpdateFunction mDigestUpdate;
 
     // Helper methods (OpenSSL provider-specific)
     const EVP_MD* GetEVPMD(const std::string& algorithm) const;

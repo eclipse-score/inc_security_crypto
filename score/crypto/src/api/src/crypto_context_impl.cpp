@@ -231,6 +231,16 @@ CryptoContextImpl::~CryptoContextImpl() {}
 
 score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContext(const HashContextConfig& config)
 {
+    if (config.provider.has_value())
+    {
+        score::mw::log::LogError()
+            << "[API][CryptoContextImpl] ERROR: Explicit provider resources are not supported for hash contexts";
+        return score::Result<std::unique_ptr<IHashContext>>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kUnsupportedOperation,
+                      "Explicit provider resource selection is not supported for hash contexts")};
+    }
+
     ContextCreationRequest request{};
     request.context_type = daemon_common::context_types::kHash;
     request.algorithm = &config.algorithm;
