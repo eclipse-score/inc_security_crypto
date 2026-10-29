@@ -169,12 +169,6 @@ inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
 }
 
 // ---------------------------------------------------------------------------
-// Signature algorithm properties (provider-independent)
-// ---------------------------------------------------------------------------
-
-inline constexpr std::size_t kEd25519SignatureSize{64U};
-
-// ---------------------------------------------------------------------------
 // Symmetric cipher properties (provider-independent)
 // ---------------------------------------------------------------------------
 
@@ -290,6 +284,8 @@ inline constexpr std::string_view kRsaPssAlgorithmPrefix{"RSA-PSS-"};
     }
     return std::nullopt;
 }
+
+inline constexpr std::size_t kEd25519SignatureSize{64U};
 
 [[nodiscard]] inline constexpr bool IsEd25519Algorithm(std::string_view algorithm) noexcept
 {

@@ -46,9 +46,14 @@ struct InitializationParams
     /// Raw CTX_CREATE parameters [0..N] as received on the wire.
     /// Handlers may extract provider-specific extended parameters from this
     /// vector without requiring mediator changes for each new field.
-    /// Wire layout: [0]=context_type, [1]=algorithm, [2]=provider_type(opt),
-    ///              [3]=key_node_id(opt), [4]=operation_mode(opt, MAC only),
-    ///              [5]=cipher padding (cipher contexts), [6]=signature input mode.
+    /// Wire layout:
+    /// [0]=context_type
+    /// [1]=algorithm
+    /// [2]=provider_type(opt)
+    /// [3]=key_node_id(opt)
+    /// [4]=operation_mode(opt, MAC only)
+    /// [5]=cipher padding (cipher contexts)
+    /// [6]=signature input mode
     common::RequestParameters context_creation_params{};
 };
 

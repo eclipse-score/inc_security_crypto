@@ -43,7 +43,9 @@ OpenSslEcdsaSignHandler::~OpenSslEcdsaSignHandler() = default;
 
 bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
 {
-    return signature::IsAlgorithmSupported(algorithm);
+    const std::string_view algo{algorithm.data(), algorithm.size()};
+    return ::score::crypto::daemon::provider::openssl::detail::IsSignatureAlgorithmSupported(algo) &&
+           algo_info::IsEcdsaAlgorithm(algo) && algo_info::LookupSignatureDigest(algo).has_value();
 }
 
 // ---------------------------------------------------------------------------
@@ -59,7 +61,7 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& al
         return base_result;
     }
 
-    const auto input_mode = signature::ParseInputMode(init_params);
+    const auto input_mode = ::score::crypto::daemon::provider::handler::ParseInputMode(init_params);
     if (!input_mode.has_value())
     {
         return ::score::crypto::make_unexpected(input_mode.error());

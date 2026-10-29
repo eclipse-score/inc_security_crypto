@@ -95,31 +95,6 @@ CheckAndGetSpan(typename detail::SpanTraits<T>::ParamType param, const bool allo
 }
 
 /**
- * @brief Extract an input span that may be empty.
- *
- * Unlike CheckAndGetSpan(), a zero-length span (with null or non-null data) is accepted. Use it for
- * message inputs where the empty message is valid, e.g. signing or verifying an empty message.
- * Output buffers and signatures must still be validated with CheckAndGetSpan().
- *
- * @param param The RequestParameter variant expected to hold a span<const uint8_t>.
- * @return The extracted span on success, or an error code otherwise.
- *
- * @retval score::cpp::span<const std::uint8_t> Span successfully extracted; it may be empty.
- * @retval score::crypto::daemon::common::DaemonErrorCode::kInvalidDataType Parameter does not hold a
- *         span<const uint8_t>.
- */
-[[nodiscard]] inline Expected<score::cpp::span<const std::uint8_t>, ::score::crypto::daemon::common::DaemonErrorCode>
-GetPossiblyEmptyInputSpan(const common::RequestParameter& param) noexcept
-{
-    const auto* const span = std::get_if<score::cpp::span<const std::uint8_t>>(&param);
-    if (span == nullptr)
-    {
-        return make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidDataType);
-    }
-    return *span;
-}
-
-/**
  * @brief Extract a scalar value from a RequestParameter.
  *
  * @tparam T The scalar alternative the parameter is expected to hold (e.g. std::uint64_t).

@@ -23,12 +23,9 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
-#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cipher/openssl_cipher_handler.hpp"
 
 #include <gtest/gtest.h>
-
-#include <string_view>
 
 #include <string>
 #include <string_view>
@@ -38,7 +35,6 @@ namespace
 
 namespace detail = score::crypto::daemon::provider::openssl::detail;
 namespace algo_info = score::crypto::daemon::common;
-namespace signature = score::crypto::daemon::provider::score_provider::openssl::handler::signature;
 using score::crypto::daemon::provider::score_provider::openssl::handler::OpenSslCipherHandler;
 
 /// Every cipher the provider lists has properties in the common table.
@@ -93,14 +89,15 @@ TEST(OpenSslAlgorithmInfoTest, UnlistedButResolvableSchemeIsRefused)
     ASSERT_TRUE(algo_info::LookupSignatureDigest(unlisted).has_value());
 
     EXPECT_FALSE(detail::IsSignatureAlgorithmSupported(unlisted));
-    EXPECT_FALSE(signature::IsAlgorithmSupported(unlisted));
 }
 
 /// The bare key form is a key algorithm, not a signature scheme.
 TEST(OpenSslAlgorithmInfoTest, BareKeyFormIsNotASignatureScheme)
 {
-    EXPECT_FALSE(signature::IsAlgorithmSupported(std::string{"ECDSA-P256"}));
-    EXPECT_TRUE(signature::IsAlgorithmSupported(std::string{"ECDSA-P256-SHA256"}));
+    const std::string bare{"ECDSA-P256"};
+    const std::string full{"ECDSA-P256-SHA256"};
+    EXPECT_TRUE(detail::IsSignatureAlgorithmSupported(full));
+    EXPECT_FALSE(detail::IsSignatureAlgorithmSupported(bare));
 }
 
 }  // namespace

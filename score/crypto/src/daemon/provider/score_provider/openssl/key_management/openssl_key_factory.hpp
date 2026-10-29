@@ -112,7 +112,11 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
 
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
-    ImportAsymmetricKey(const key_management::KeyImportRequest& request);
+    ImportRsaKey(const key_management::KeyImportRequest& request);
+
+    [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
+                                            ::score::crypto::daemon::common::DaemonErrorCode>
+    ImportEd25519Key(const key_management::KeyImportRequest& request);
 
     /// Per-algorithm constants for GenerateAsymmetricKey.
     struct KeygenSpec

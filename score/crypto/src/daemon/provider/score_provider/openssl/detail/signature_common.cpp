@@ -39,15 +39,6 @@ namespace
 constexpr std::string_view kLogPrefix = "[OPENSSL_ECDSA]";
 }  // namespace
 
-bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
-{
-    // The provider list is the gate; the common table must also resolve the
-    // curve and digest because the handlers read field size and digest there.
-    const std::string_view algo{algorithm.data(), algorithm.size()};
-    return ::score::crypto::daemon::provider::openssl::detail::IsSignatureAlgorithmSupported(algo) &&
-           algo_info::IsEcdsaAlgorithm(algo) && algo_info::LookupSignatureDigest(algo).has_value();
-}
-
 // ---------------------------------------------------------------------------
 // Stream
 // ---------------------------------------------------------------------------
@@ -78,23 +69,24 @@ EVP_PKEY* Stream::Key() const noexcept
     return openssl_key->GetPkey();
 }
 
-Expected<std::monostate, DaemonErrorCode> Stream::BindCommon(
+Expected<std::monostate, DaemonErrorCode> Stream::Bind(
     const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
-    std::string_view operation,
-    std::string_view algorithm)
+    const common::AlgorithmId& algorithm_id)
 {
+    const std::string_view algorithm{algorithm_id.data(), algorithm_id.size()};
+
     Free();
 
     if (init_params.bound_key_handler == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << operation << ": signature context requires a bound key";
+        score::mw::log::LogError() << kLogPrefix << "Bind: signature context requires a bound key";
         return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
     }
 
     // Provider-id check validates the key comes from the same provider (no dynamic_cast/RTTI).
     if (init_params.bound_key_handler->GetProviderId() != init_params.provider_id)
     {
-        score::mw::log::LogError() << kLogPrefix << operation << ": bound key is not an OpenSSL key handler"
+        score::mw::log::LogError() << kLogPrefix << "Bind: bound key is not an OpenSSL key handler"
                                    << " (key provider_id=" << init_params.bound_key_handler->GetProviderId()
                                    << ", expected=" << init_params.provider_id << ")";
         return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
@@ -105,7 +97,7 @@ Expected<std::monostate, DaemonErrorCode> Stream::BindCommon(
     EVP_PKEY* pkey = Key();
     if (pkey == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << operation << ": bound key holds no key pair";
+        score::mw::log::LogError() << kLogPrefix << "Bind: bound key holds no key pair";
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }
@@ -145,7 +137,7 @@ Expected<std::monostate, DaemonErrorCode> Stream::BindCommon(
 
     if (!key_matches_algorithm)
     {
-        score::mw::log::LogError() << kLogPrefix << operation
+        score::mw::log::LogError() << kLogPrefix << "Bind"
                                    << ": bound key type, size, or curve is incompatible with " << algorithm;
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
@@ -154,32 +146,12 @@ Expected<std::monostate, DaemonErrorCode> Stream::BindCommon(
     m_md_ctx = EVP_MD_CTX_new();
     if (m_md_ctx == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << operation << ": EVP_MD_CTX_new failed";
+        score::mw::log::LogError() << kLogPrefix << "Bind: EVP_MD_CTX_new failed";
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kAllocationFailed);
     }
 
     return std::monostate{};
-}
-
-Expected<std::monostate, DaemonErrorCode> Stream::Bind(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
-    const common::AlgorithmId& algorithm)
-{
-    if (!IsAlgorithmSupported(algorithm))
-    {
-        score::mw::log::LogError() << kLogPrefix << "Bind: unsupported algorithm " << algorithm;
-        return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
-    }
-
-    return BindCommon(init_params, "Bind", std::string_view{algorithm.data(), algorithm.size()});
-}
-
-Expected<std::monostate, DaemonErrorCode> Stream::BindAny(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
-    const common::AlgorithmId& algorithm)
-{
-    return BindCommon(init_params, "BindAny", std::string_view{algorithm.data(), algorithm.size()});
 }
 
 Expected<std::monostate, DaemonErrorCode> Stream::Restart()

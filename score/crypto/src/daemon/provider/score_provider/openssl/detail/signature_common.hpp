@@ -18,6 +18,7 @@
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
+#include "score/crypto/src/daemon/provider/handler/src/context_mode.hpp"
 
 #include <openssl/evp.h>
 
@@ -27,44 +28,6 @@
 
 namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 {
-
-inline constexpr std::size_t kSignatureInputModeParamIndex{6U};
-
-using SignatureInputModeResult =
-    ::score::crypto::Expected<::score::crypto::SignatureInputMode, ::score::crypto::daemon::common::DaemonErrorCode>;
-
-[[nodiscard]] inline SignatureInputModeResult ParseInputMode(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& params) noexcept
-{
-    if (params.context_creation_params.size() <= kSignatureInputModeParamIndex)
-    {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
-    }
-
-    const auto* const mode = std::get_if<std::uint8_t>(&params.context_creation_params[kSignatureInputModeParamIndex]);
-    if (mode == nullptr)
-    {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
-    }
-
-    switch (*mode)
-    {
-        case static_cast<std::uint8_t>(::score::crypto::SignatureInputMode::kMessage):
-            return ::score::crypto::SignatureInputMode::kMessage;
-        case static_cast<std::uint8_t>(::score::crypto::SignatureInputMode::kPrehashed):
-            return ::score::crypto::SignatureInputMode::kPrehashed;
-        default:
-            return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
-    }
-}
-
-/// @brief Whether @p algorithm names a complete ECDSA signature scheme.
-///
-/// A signature algorithm must name the digest as well as the curve: there is no
-/// implied default pairing. Requiring it here means the bare key form
-/// ("ECDSA-P256") is rejected at CTX_CREATE rather than surviving until the
-/// first Init(), where the failure would be much harder to attribute.
-[[nodiscard]] bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
 
 /// @brief Owns the digest context and bound key of one ECDSA context.
 ///
@@ -82,24 +45,15 @@ class Stream final
     Stream(Stream&&) = delete;
     Stream& operator=(Stream&&) = delete;
 
-    /// @brief Validates the bound key and allocates a digest context.
+    /// @brief Validates the bound key against @p algorithm and allocates a digest context.
+    ///
+    /// @note The algorithm itself is assumed already validated by the caller's
+    ///       own IsAlgorithmSupported() (checked at handler construction time);
+    ///       this only checks that the bound key matches it.
     ///
     /// @param init_params Context initialization parameters; retained so that
     ///        Reset() can rebuild the context from them.
-    /// @param algorithm The context's algorithm, checked against
-    ///        IsAlgorithmSupported().
     [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> Bind(
-        const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
-        const common::AlgorithmId& algorithm);
-
-    /// @brief Like Bind(), validating the key against the selected algorithm.
-    ///
-    /// @note For the RSA-PSS/Ed25519 handlers, which share this Stream but
-    ///       bind keys of other types and validate the algorithm themselves.
-    ///
-    /// @param init_params Context initialization parameters; retained so that
-    ///        Reset() can rebuild the context from them.
-    [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> BindAny(
         const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
         const common::AlgorithmId& algorithm);
 
@@ -128,20 +82,6 @@ class Stream final
 
   private:
     void Free() noexcept;
-
-    /// @brief Shared setup for Bind() and BindAny(): validates the bound key,
-    ///        records @p init_params, and allocates the digest context.
-    ///
-    /// @param init_params Context initialization parameters to validate and
-    ///        retain; see Bind().
-    /// @param operation Name of the calling public method, used to attribute
-    ///        error log messages (e.g. "Bind" or "BindAny").
-    /// @param algorithm The signature algorithm; its key type, size, and (for
-    ///        ECDSA) curve are checked against the bound key.
-    [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> BindCommon(
-        const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
-        std::string_view operation,
-        std::string_view algorithm);
 
     EVP_MD_CTX* m_md_ctx{nullptr};
     ::score::crypto::daemon::provider::handler::InitializationParams m_init_params;

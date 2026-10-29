@@ -269,10 +269,13 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
     }
 
     const auto algorithm = std::string_view{request.algorithm.data(), request.algorithm.size()};
-    if (::score::crypto::daemon::common::LookupRsaKeyInfo(algorithm).has_value() ||
-        ::score::crypto::daemon::common::IsEd25519Algorithm(algorithm))
+    if (::score::crypto::daemon::common::LookupRsaKeyInfo(algorithm).has_value())
     {
-        return ImportAsymmetricKey(request);
+        return ImportRsaKey(request);
+    }
+    if (::score::crypto::daemon::common::IsEd25519Algorithm(algorithm))
+    {
+        return ImportEd25519Key(request);
     }
 
     std::vector<std::uint8_t> key_bytes(request.key_data, request.key_data + request.key_data_size);
@@ -314,39 +317,67 @@ OpenSslKeyFactory::GenerateEd25519Key(const key_management::KeyGenerationRequest
 }
 
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::ImportAsymmetricKey(const key_management::KeyImportRequest& request)
+OpenSslKeyFactory::ImportRsaKey(const key_management::KeyImportRequest& request)
 {
+    const auto info = ::score::crypto::daemon::common::LookupRsaKeyInfo(
+        std::string_view{request.algorithm.data(), request.algorithm.size()});
+    if (!info.has_value())
+    {
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+
     auto parsed = ParseDerKey(request);
     if (!parsed.has_value())
     {
-        score::mw::log::LogError() << kLogPrefix << "ImportAsymmetricKey: could not parse DER key material";
+        score::mw::log::LogError() << kLogPrefix << "ImportRsaKey: could not parse DER key material";
         return ::score::crypto::make_unexpected(parsed.error());
     }
 
     if (!parsed.value().pkey)
     {
-        score::mw::log::LogError() << kLogPrefix << "ImportAsymmetricKey: parsed key is empty";
+        score::mw::log::LogError() << kLogPrefix << "ImportRsaKey: parsed key is empty";
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
     }
 
-    const auto algorithm = std::string_view{request.algorithm.data(), request.algorithm.size()};
-    const auto rsa_info = ::score::crypto::daemon::common::LookupRsaKeyInfo(algorithm);
-    const bool is_rsa_algorithm = rsa_info.has_value();
-    const int expected_type = is_rsa_algorithm ? EVP_PKEY_RSA : EVP_PKEY_ED25519;
-    if (EVP_PKEY_get_base_id(parsed.value().pkey.get()) != expected_type)
+    if (EVP_PKEY_get_base_id(parsed.value().pkey.get()) != EVP_PKEY_RSA)
     {
-        score::mw::log::LogError() << kLogPrefix << "ImportAsymmetricKey: parsed key has incompatible type";
+        score::mw::log::LogError() << kLogPrefix << "ImportRsaKey: parsed key is not an RSA key";
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
     }
-    if (is_rsa_algorithm && EVP_PKEY_get_bits(parsed.value().pkey.get()) != static_cast<int>(rsa_info->key_bits))
+    if (EVP_PKEY_get_bits(parsed.value().pkey.get()) != static_cast<int>(info->key_bits))
     {
-        score::mw::log::LogError() << kLogPrefix << "ImportAsymmetricKey: RSA modulus size is incompatible";
+        score::mw::log::LogError() << kLogPrefix << "ImportRsaKey: RSA modulus size is incompatible";
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
     }
 
-    const std::size_t key_size =
-        is_rsa_algorithm ? rsa_info->modulus_size : ::score::crypto::daemon::common::kEd25519KeySize;
-    return CreateImportedAsymmetricKey(request, std::move(parsed.value()), key_size);
+    return CreateImportedAsymmetricKey(request, std::move(parsed.value()), info->modulus_size);
+}
+
+::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::ImportEd25519Key(const key_management::KeyImportRequest& request)
+{
+    auto parsed = ParseDerKey(request);
+    if (!parsed.has_value())
+    {
+        score::mw::log::LogError() << kLogPrefix << "ImportEd25519Key: could not parse DER key material";
+        return ::score::crypto::make_unexpected(parsed.error());
+    }
+
+    if (!parsed.value().pkey)
+    {
+        score::mw::log::LogError() << kLogPrefix << "ImportEd25519Key: parsed key is empty";
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+    }
+
+    if (EVP_PKEY_get_base_id(parsed.value().pkey.get()) != EVP_PKEY_ED25519)
+    {
+        score::mw::log::LogError() << kLogPrefix << "ImportEd25519Key: parsed key is not an Ed25519 key";
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+    }
+
+    return CreateImportedAsymmetricKey(
+        request, std::move(parsed.value()), ::score::crypto::daemon::common::kEd25519KeySize);
 }
 
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>

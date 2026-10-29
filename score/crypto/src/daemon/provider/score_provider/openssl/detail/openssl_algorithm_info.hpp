@@ -170,6 +170,8 @@ inline constexpr std::string_view kSupportedSignatureAlgorithms[] = {
 }
 
 /// @brief Configure an initialized OpenSSL digest-sign/verify context for RSA-PSS.
+/// @param context The initialized digest-sign/verify context to configure.
+/// @param algorithm The RSA-PSS signature algorithm identifier, used to look up the digest.
 /// @param salt_length RSA_PSS_SALTLEN_DIGEST for signing (fixed per RFC 8017 §9.1); RSA_PSS_SALTLEN_AUTO
 ///        for verification, so signatures using any legal salt length are accepted.
 /// @return an initialization error if the context or any RSA-PSS parameter could not be configured.

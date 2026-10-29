@@ -109,7 +109,7 @@ Expected<ResponseParameters, DaemonErrorCode> SignExecutor::ExecuteStreaming(Sco
         {
             return make_unexpected(DaemonErrorCode::kInsufficientParameters);
         }
-        const auto dataSpan = handler::handler_utils::GetPossiblyEmptyInputSpan(request[0]);
+        const auto dataSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[0], true);
         if (!dataSpan.has_value())
         {
             return make_unexpected(dataSpan.error());
@@ -173,7 +173,7 @@ Expected<ResponseParameters, DaemonErrorCode> SignExecutor::ExecuteSingleShot(Sc
         return make_unexpected(DaemonErrorCode::kInsufficientParameters);
     }
 
-    const auto dataSpan = handler::handler_utils::GetPossiblyEmptyInputSpan(request[0]);
+    const auto dataSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[0], true);
     if (!dataSpan.has_value())
     {
         return make_unexpected(dataSpan.error());
@@ -214,13 +214,8 @@ Expected<std::monostate, DaemonErrorCode> SignExecutor::ValidateStreamTransition
 
     // Allow finalization without an update. After InitSign(), this represents
     // signing the empty message.
-    if (op.value() == handler::StreamOperation::kFinalize && currentState == StreamOperationState::STREAM_INITIALIZED)
-    {
-        nextState = StreamOperationState::IDLE;
-        return std::monostate{};
-    }
-
-    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());
+    const auto result = handler::handler_utils::ValidateStreamOperationSequence(
+        currentState, op.value(), true, DaemonErrorCode::kInvalidStreamOperation);
     if (!result.has_value())
     {
         return make_unexpected(result.error());
