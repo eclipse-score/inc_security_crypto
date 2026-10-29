@@ -22,6 +22,7 @@
 #include <openssl/rsa.h>
 
 #include <cstddef>
+#include <optional>
 #include <string_view>
 
 // The common algorithm tables in daemon/common/algorithm_info.hpp hold the
@@ -81,6 +82,26 @@ namespace score::crypto::daemon::provider::openssl::detail
             return EVP_sha512();
     }
     return nullptr;
+}
+
+/// @brief Look up the OpenSSL canonical group name for a provider-neutral EC curve.
+/// @return e.g. "prime256v1" for "P256", or nullopt if the curve is not supported.
+[[nodiscard]] inline constexpr std::optional<std::string_view> LookupOpenSslGroupName(
+    std::string_view curve_name) noexcept
+{
+    if (curve_name == "P256")
+    {
+        return "prime256v1";
+    }
+    if (curve_name == "P384")
+    {
+        return "secp384r1";
+    }
+    if (curve_name == "P521")
+    {
+        return "secp521r1";
+    }
+    return std::nullopt;
 }
 
 /// @brief Symmetric cipher identifiers the OpenSSL provider serves.

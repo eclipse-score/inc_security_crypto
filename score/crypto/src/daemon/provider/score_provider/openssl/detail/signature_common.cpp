@@ -24,6 +24,7 @@
 
 #include "score/mw/log/logging.h"
 
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -115,9 +116,12 @@ Expected<std::monostate, DaemonErrorCode> Stream::BindCommon(
     if (algo_info::IsEcdsaAlgorithm(algorithm))
     {
         const auto curve = algo_info::LookupEcCurveOfAlgorithm(algorithm);
-        if (curve.has_value())
+        const auto openssl_group_name =
+            curve.has_value() ? ::score::crypto::daemon::provider::openssl::detail::LookupOpenSslGroupName(curve->name)
+                              : std::nullopt;
+        if (openssl_group_name.has_value())
         {
-            std::string group_name(curve->openssl_group_name.size() + 1U, '\0');
+            std::string group_name(openssl_group_name->size() + 1U, '\0');
             std::size_t group_name_size = 0U;
             const bool read =
                 EVP_PKEY_get_utf8_string_param(
@@ -125,7 +129,7 @@ Expected<std::monostate, DaemonErrorCode> Stream::BindCommon(
             const bool trailing_nul = group_name_size > 0U && group_name[group_name_size - 1U] == '\0';
             const std::size_t actual_size = group_name_size - (trailing_nul ? 1U : 0U);
             key_matches_algorithm = key_type == EVP_PKEY_EC && read &&
-                                    std::string_view{group_name.data(), actual_size} == curve->openssl_group_name;
+                                    std::string_view{group_name.data(), actual_size} == openssl_group_name.value();
         }
     }
     else if (algo_info::IsRsaPssAlgorithm(algorithm))

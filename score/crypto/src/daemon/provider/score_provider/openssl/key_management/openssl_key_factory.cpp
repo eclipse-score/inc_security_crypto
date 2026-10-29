@@ -14,6 +14,7 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
 #include <openssl/core_names.h>  // OSSL_PKEY_PARAM_GROUP_NAME
@@ -224,19 +225,29 @@ OpenSslKeyFactory::GenerateEcKey(const key_management::KeyGenerationRequest& req
             ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
+    const auto openssl_group_name =
+        ::score::crypto::daemon::provider::openssl::detail::LookupOpenSslGroupName(curve->name);
+    if (!openssl_group_name.has_value())
+    {
+        score::mw::log::LogError() << kLogPrefix << "GenerateEcKey: no OpenSSL group name for curve '"
+                                   << std::string{curve->name} << "'";
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+
     const KeygenSpec spec{"EC", curve->field_size, "GenerateEcKey"};
     return GenerateAsymmetricKey(request, spec, [&](EVP_PKEY_CTX* ctx) {
         // OSSL_PARAM takes a non-const char*, but only reads the group name.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-        char* group_name = const_cast<char*>(curve->openssl_group_name.data());
+        char* group_name = const_cast<char*>(openssl_group_name->data());
         OSSL_PARAM params[] = {
-            OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, group_name, curve->openssl_group_name.size()),
+            OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, group_name, openssl_group_name->size()),
             OSSL_PARAM_construct_end(),
         };
         if (EVP_PKEY_CTX_set_params(ctx, params) != 1)
         {
             score::mw::log::LogError() << kLogPrefix << "GenerateEcKey: failed to select group "
-                                       << std::string{curve->openssl_group_name.data()};
+                                       << std::string{*openssl_group_name};
             return false;
         }
         return true;
@@ -362,7 +373,17 @@ OpenSslKeyFactory::ImportEcKey(const key_management::KeyImportRequest& request)
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
     }
 
-    std::string imported_group(curve->openssl_group_name.size() + 1U, '\0');
+    const auto openssl_group_name =
+        ::score::crypto::daemon::provider::openssl::detail::LookupOpenSslGroupName(curve->name);
+    if (!openssl_group_name.has_value())
+    {
+        score::mw::log::LogError() << kLogPrefix << "ImportEcKey: no OpenSSL group name for curve '"
+                                   << std::string{curve->name} << "'";
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+
+    std::string imported_group(openssl_group_name->size() + 1U, '\0');
     std::size_t imported_group_size = 0U;
     const bool group_name_read = EVP_PKEY_get_utf8_string_param(parsed.value().pkey.get(),
                                                                 OSSL_PKEY_PARAM_GROUP_NAME,
@@ -371,7 +392,7 @@ OpenSslKeyFactory::ImportEcKey(const key_management::KeyImportRequest& request)
                                                                 &imported_group_size) == 1;
     const bool has_trailing_nul = imported_group_size > 0U && imported_group[imported_group_size - 1U] == '\0';
     const std::size_t group_name_size = imported_group_size - (has_trailing_nul ? 1U : 0U);
-    if (!group_name_read || std::string_view{imported_group.data(), group_name_size} != curve->openssl_group_name)
+    if (!group_name_read || std::string_view{imported_group.data(), group_name_size} != openssl_group_name.value())
     {
         score::mw::log::LogError() << kLogPrefix << "ImportEcKey: parsed key is on an incompatible curve";
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);

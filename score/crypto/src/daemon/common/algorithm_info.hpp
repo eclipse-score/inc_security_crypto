@@ -219,12 +219,11 @@ inline constexpr CipherAlgorithmInfo kCipherAlgorithms[] = {
 ///       byte length of the field order, so P-521 yields 2 * 66 = 132 bytes.
 struct EcCurveInfo
 {
-    std::string_view name;                ///< Curve identifier as used in AlgorithmId, e.g. "P256"
-    std::string_view group_name;          ///< Standard NIST designation of the curve, e.g. "P-256"
-    std::string_view openssl_group_name;  ///< OpenSSL canonical group identifier, e.g. "prime256v1"
-    std::size_t field_size;               ///< Byte length of one coordinate / of r and s
-    std::size_t signature_size;           ///< P1363 signature length = 2 * field_size
-    std::size_t key_bits;                 ///< Nominal key strength in bits
+    std::string_view name;        ///< Curve identifier as used in AlgorithmId, e.g. "P256"
+    std::string_view group_name;  ///< Standard NIST designation of the curve, e.g. "P-256"
+    std::size_t field_size;       ///< Byte length of one coordinate / of r and s
+    std::size_t signature_size;   ///< P1363 signature length = 2 * field_size
+    std::size_t key_bits;         ///< Nominal key strength in bits
 };
 
 /// @note Curve names are spelled without an inner hyphen ("P256", not "P-256")
@@ -236,10 +235,10 @@ struct EcCurveInfo
 ///       of @c group_name does not follow from @c name in general, so each curve
 ///       carries both.
 inline constexpr EcCurveInfo kEcCurves[] = {
-    {"P256", "P-256", "prime256v1", 32U, 64U, 256U},
-    {"P384", "P-384", "secp384r1", 48U, 96U, 384U},
+    {"P256", "P-256", 32U, 64U, 256U},
+    {"P384", "P-384", 48U, 96U, 384U},
     // NIST's largest prime curve is P-521 (not P-512); 521 bits is 66 bytes.
-    {"P521", "P-521", "secp521r1", 66U, 132U, 521U},
+    {"P521", "P-521", 66U, 132U, 521U},
 };
 
 struct RsaKeyInfo
