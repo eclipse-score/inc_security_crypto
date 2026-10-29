@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
 
+#include "score/crypto/src/daemon/key_management/core/key_entry.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_request_parser.hpp"
@@ -265,15 +266,18 @@ KeyManagementExecutor::HandleExport(const KeyMgmtExecutionContext& ctx, common::
     }
     const auto format = format_res.value();
 
-    // Resolve the live key handler so the factory can read its provider handle.
-    auto handler_res = m_service->ResolveKeyForOperation(ctx.client_id, key_nid_res.value());
-    if (!handler_res.has_value())
+    // Resolve the owning KeyEntry so the factory can read its provider handle.
+    // Holding the KeyEntry (not just the handler) for the whole operation keeps
+    // the key material alive: a concurrent release from another context cannot
+    // run ~KeyEntry -> IKeyHandler::Release() and free it mid-export.
+    auto entry_res = m_service->ResolveKeyForOperation(ctx.client_id, key_nid_res.value());
+    if (!entry_res.has_value())
     {
         score::mw::log::LogError() << LOG_PREFIX << "HandleExport: key resolution failed";
-        return score::crypto::make_unexpected(handler_res.error());
+        return score::crypto::make_unexpected(entry_res.error());
     }
 
-    const auto& handle = handler_res.value()->GetHandle();
+    const auto& handle = entry_res.value()->GetHandle();
 
     // A handle's opaque_id is only meaningful to the provider that issued it;
     // letting another provider's factory reinterpret it as its own pointer
@@ -327,14 +331,16 @@ KeyManagementExecutor::HandleGetExportSize(const KeyMgmtExecutionContext& ctx, c
     }
     const auto format = format_res.value();
 
-    auto handler_res = m_service->ResolveKeyForOperation(ctx.client_id, key_nid_res.value());
-    if (!handler_res.has_value())
+    // Hold the owning KeyEntry for the whole operation so a concurrent release
+    // from another context cannot free the key material before GetExportKeySize.
+    auto entry_res = m_service->ResolveKeyForOperation(ctx.client_id, key_nid_res.value());
+    if (!entry_res.has_value())
     {
         score::mw::log::LogError() << LOG_PREFIX << "HandleGetExportSize: key resolution failed";
-        return score::crypto::make_unexpected(handler_res.error());
+        return score::crypto::make_unexpected(entry_res.error());
     }
 
-    const auto& handle = handler_res.value()->GetHandle();
+    const auto& handle = entry_res.value()->GetHandle();
 
     // Reject a key owned by a different provider before the factory reinterprets
     // its opaque_id as a native pointer (mismatched provider => SIGSEGV).

@@ -291,7 +291,7 @@ Expected<SlotResolution, score::crypto::daemon::common::DaemonErrorCode> KeyMana
 // ResolveKeyForOperation
 // ---------------------------------------------------------------------------
 
-Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode>
+Expected<std::shared_ptr<KeyEntry>, score::crypto::daemon::common::DaemonErrorCode>
 KeyManagementService::ResolveKeyForOperation(data_manager::ClientId client_id,
                                              data_manager::DataNodeId key_node_id) const
 {
@@ -313,13 +313,11 @@ KeyManagementService::ResolveKeyForOperation(data_manager::ClientId client_id,
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
 
-    auto handler = key_node->GetKeyHandler();
-    if (!handler)
-    {
-        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
-    }
-
-    return handler;
+    // Return the owning KeyEntry (not just the IKeyHandler). The caller keeps it
+    // alive for the duration of the operation so a concurrent release from
+    // another context cannot run ~KeyEntry -> IKeyHandler::Release() and free the
+    // key material mid-use.
+    return key_node;
 }
 
 // ---------------------------------------------------------------------------

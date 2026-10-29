@@ -399,16 +399,44 @@ OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, sc
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
+    // OSSL_PKEY_PARAM_PUB_KEY serialises the point in the key's own
+    // point-conversion format. A key decoded from a compressed DER encoding
+    // keeps that compressed format, so reading it directly would yield e.g. a
+    // 49-byte P-384 point — disagreeing with GetExportKeySize (97) and rejected
+    // by the raw import path, breaking the round-trip contract. Force
+    // uncompressed output on a private duplicate so the shared key other clients
+    // may be using concurrently is never mutated.
+    EvpPkeyPtr export_pkey{EVP_PKEY_dup(pkey)};
+    if (!export_pkey)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
+    }
+
+    constexpr std::string_view kUncompressedFormat = "uncompressed";
+    // OSSL_PARAM takes a non-const char*, but only reads the format string.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+    char* point_format = const_cast<char*>(kUncompressedFormat.data());
+    OSSL_PARAM format_params[] = {
+        OSSL_PARAM_construct_utf8_string(
+            OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT, point_format, kUncompressedFormat.size()),
+        OSSL_PARAM_construct_end(),
+    };
+    if (EVP_PKEY_set_params(export_pkey.get(), format_params) != 1)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+
     // OSSL_PKEY_PARAM_PUB_KEY yields the uncompressed point 0x04||X||Y, which is
     // exactly the raw form this factory imports — so export round-trips import.
     std::size_t out_len = 0U;
-    if (EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, nullptr, 0U, &out_len) != 1)
+    if (EVP_PKEY_get_octet_string_param(export_pkey.get(), OSSL_PKEY_PARAM_PUB_KEY, nullptr, 0U, &out_len) != 1)
     {
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
     }
 
     key_management::SecureKeyBytes out{out_len};
-    if (EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, out.bytes.data(), out_len, &out_len) != 1)
+    if (EVP_PKEY_get_octet_string_param(
+            export_pkey.get(), OSSL_PKEY_PARAM_PUB_KEY, out.bytes.data(), out_len, &out_len) != 1)
     {
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
     }
