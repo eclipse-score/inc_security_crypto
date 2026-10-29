@@ -16,10 +16,12 @@
 
 #include "score/mw/log/logging.h"
 #include <sys/stat.h>
+#include <cerrno>
 #include <cstdlib>
 
 #include <map>
 #include <string>
+#include <system_error>
 #include <vector>
 
 namespace score::crypto::daemon::config
@@ -142,7 +144,10 @@ bool Config::ParseConfig()
         struct stat st;
         if (::stat(env_path, &st) != 0)
         {
-            score::mw::log::LogError() << "[CONFIG] Config file does not exist: " << std::string_view{env_path};
+            const int stat_error = errno;
+            const std::error_code error{stat_error, std::generic_category()};
+            score::mw::log::LogError() << "[CONFIG] Could not inspect config file " << std::string_view{env_path}
+                                       << ": " << error.message();
             return false;
         }
         resolved_path = env_path;
@@ -157,6 +162,17 @@ bool Config::ParseConfig()
                 resolved_path = std::string{path};
                 break;
             }
+
+            const int stat_error = errno;
+            if (stat_error == ENOENT)
+            {
+                continue;
+            }
+
+            const std::error_code error{stat_error, std::generic_category()};
+            score::mw::log::LogError() << "[CONFIG] Could not inspect default config path " << path << ": "
+                                       << error.message();
+            return false;
         }
     }
 

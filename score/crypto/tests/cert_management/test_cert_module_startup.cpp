@@ -38,6 +38,23 @@ constexpr std::string_view kConfiguredProviderName = "OPENSSL";
 class CertModuleStartupTest : public ::testing::Test
 {
   protected:
+    static void SetUpTestSuite()
+    {
+        configured_manager_ = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
+        auto configured_provider = std::make_shared<openssl::OpenSSL>();
+        ASSERT_TRUE(configured_manager_->RegisterProvider(
+            std::string{kConfiguredProviderName}, configured_provider, common::CryptoProviderType::SOFTWARE));
+        ASSERT_TRUE(configured_manager_->Initialize());
+        ASSERT_TRUE(configured_provider->IsInitialized());
+
+        differently_named_manager_ = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
+        auto differently_named_provider = std::make_shared<openssl::OpenSSL>();
+        ASSERT_TRUE(differently_named_manager_->RegisterProvider(
+            "ALT_PROVIDER", differently_named_provider, common::CryptoProviderType::SOFTWARE));
+        ASSERT_TRUE(differently_named_manager_->Initialize());
+        ASSERT_TRUE(differently_named_provider->IsInitialized());
+    }
+
     void SetUp() override
     {
         const auto file = config::FlatBufferConfigParser::LoadFile(kConfigPath);
@@ -50,17 +67,16 @@ class CertModuleStartupTest : public ::testing::Test
     }
 
     config::CertificateConfig m_config;
+    static provider::ProviderManager::Sptr configured_manager_;
+    static provider::ProviderManager::Sptr differently_named_manager_;
 };
+
+provider::ProviderManager::Sptr CertModuleStartupTest::configured_manager_;
+provider::ProviderManager::Sptr CertModuleStartupTest::differently_named_manager_;
 
 TEST_F(CertModuleStartupTest, StartsWithConfiguredParserProvider)
 {
-    auto manager = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
-    auto configured_provider = std::make_shared<openssl::OpenSSL>();
-    ASSERT_TRUE(manager->RegisterProvider(
-        std::string{kConfiguredProviderName}, configured_provider, common::CryptoProviderType::SOFTWARE));
-    ASSERT_TRUE(manager->Initialize());
-
-    const auto module = cert::CertManagementModule::Create(nullptr, manager, m_config);
+    const auto module = cert::CertManagementModule::Create(nullptr, configured_manager_, m_config);
 
     ASSERT_NE(module, nullptr);
     EXPECT_NE(module->GetService(), nullptr);
@@ -68,12 +84,6 @@ TEST_F(CertModuleStartupTest, StartsWithConfiguredParserProvider)
 
 TEST_F(CertModuleStartupTest, FailsWhenConfiguredParserProviderIsUnavailable)
 {
-    auto manager = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
-    auto differently_named_provider = std::make_shared<openssl::OpenSSL>();
-    ASSERT_TRUE(
-        manager->RegisterProvider("ALT_PROVIDER", differently_named_provider, common::CryptoProviderType::SOFTWARE));
-    ASSERT_TRUE(manager->Initialize());
-
-    EXPECT_EQ(cert::CertManagementModule::Create(nullptr, manager, m_config), nullptr);
+    EXPECT_EQ(cert::CertManagementModule::Create(nullptr, differently_named_manager_, m_config), nullptr);
 }
 }  // namespace

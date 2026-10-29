@@ -24,7 +24,7 @@
         "slot_name": "test/exclusive-slot",
         "storage_backend": "DEFAULT",
         "allowed_uids": [0],
-        "allowed_write_uids": [0],
+        "allowed_write_uids": [],
         "deployment_path": "/opt/crypto/deploy/certs/exclusive.kv",
         "deployment_format": "kv",
         "integrity_policy": "disabled"

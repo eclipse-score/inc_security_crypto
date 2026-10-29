@@ -109,7 +109,7 @@ table CertSlotEntry {
   slot_name: string (required);
   /// Storage backend: "DEFAULT" (FileBackedSlotHandler) or a provider name
   storage_backend: string = "DEFAULT";
-  /// UIDs permitted to read/load from the slot
+  /// UIDs intended to be permitted to read/load from the slot; currently unenforced
   allowed_uids: [uint32];
   /// UIDs permitted to write into the slot
   allowed_write_uids: [uint32];
@@ -130,7 +130,7 @@ table TrustStoreEntry {
   members: [TrustStoreMemberEntry];
   /// Default initialisation policy for conditional-external members
   conditional_slot_init: ConditionalSlotInit = kDisableUntilAccepted;
-  /// UIDs permitted to query this trust store
+  /// Reserved for future UID-based query authorization; currently not enforced
   allowed_uids: [uint32];
   /// UIDs permitted to mutate membership (add/remove/enable/disable)
   allowed_write_uids: [uint32];
