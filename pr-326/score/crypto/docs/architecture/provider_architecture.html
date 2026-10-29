@@ -72,7 +72,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="Key Management Architecture" href="key_management_details.html" />
+    <link rel="next" title="Architecture Inspection Checklist" href="chklst_arc_inspection.html" />
     <link rel="prev" title="Interfaces" href="interfaces.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
@@ -507,7 +507,6 @@
 <li class="toctree-l2"><a class="reference internal" href="dynamic_architecture.html">API Dynamic Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="interfaces.html">Interfaces</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Provider Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="key_management_details.html">Key Management Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
 <li class="toctree-l2"><a class="reference internal" href="design_decisions.html">Design Decisions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data_plane_architecture.html">Data Plane Architecture</a></li>
@@ -623,6 +622,29 @@ integer constants (<code class="docutils literal notranslate"><span class="pre">
 <code class="docutils literal notranslate"><span class="pre">MAC_INIT</span></code>, etc.) that identify each IPC operation.
 Both provider families include these headers directly — the constants are not
 specific to any algorithm family or provider.</p>
+</section>
+<section id="hash-algorithm-contract">
+<h3>Hash Algorithm Contract<a class="headerlink" href="#hash-algorithm-contract" title="Link to this heading">#</a></h3>
+<p>Hash contexts expose a provider-neutral interface. The daemon resolves the
+requested algorithm against the provider selected for the deployment and
+returns <code class="docutils literal notranslate"><span class="pre">CryptoErrorCode::kUnsupportedAlgorithm</span></code> when that provider cannot
+perform it. The daemon does not silently substitute another algorithm or digest
+size. Algorithm availability can therefore differ between deployments without
+changing the public hash interface.</p>
+<p>The digest size required by a resolved algorithm is exposed through the hash
+context, allowing callers to allocate an output buffer without relying on
+provider-specific metadata.</p>
+<p>Both streaming and single-shot operations accept empty input. A streaming
+caller may invoke <code class="docutils literal notranslate"><span class="pre">Init()</span></code> followed directly by <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code> without an
+intermediate <code class="docutils literal notranslate"><span class="pre">Update()</span></code>; the result is the standard digest of the empty byte
+sequence.</p>
+<p>SHA-1 and MD5 are not exposed by the high-level Crypto API because no supported
+use case requires these cryptographically weak algorithms.</p>
+<p>An insufficient output buffer is a retryable finalization error. Provider
+adapters must either detect this condition before consuming the digest state or
+preserve the active provider operation when reporting it. Other provider or
+transport errors must be handled according to their returned error code; callers
+must not assume that every failure preserves a streaming operation.</p>
 </section>
 <section id="provider-configuration">
 <h3>Provider Configuration<a class="headerlink" href="#provider-configuration" title="Link to this heading">#</a></h3>
@@ -789,11 +811,11 @@ returned to callers.</p>
       </div>
     </a>
     <a class="right-next"
-       href="key_management_details.html"
+       href="chklst_arc_inspection.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Key Management Architecture</p>
+        <p class="prev-next-title">Architecture Inspection Checklist</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -820,6 +842,7 @@ returned to callers.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#score-provider-family">Score Provider Family</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pkcs-11-provider-family">PKCS#11 Provider Family</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#shared-operation-constants">Shared Operation Constants</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#hash-algorithm-contract">Hash Algorithm Contract</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#provider-configuration">Provider Configuration</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration-flow">Configuration flow</a></li>
 </ul>
