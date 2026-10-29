@@ -387,6 +387,24 @@ daemon returns ``CryptoErrorCode::kKeyOperationNotPermitted`` and the
 context is not created. This is a fail-fast check — no resources are
 allocated on permission violation.
 
+**Key/algorithm fit:**
+
+After the permission check, the daemon compares the key's algorithm with
+the context algorithm, using the algorithm catalog
+(``score/crypto/src/api/types/algorithm.hpp``):
+
+.. code-block:: none
+
+   ECDSA-<curve>-<hash>     → EC key on the same curve (any hash)
+   AES-<n>-CBC / -GCM       → AES key of n bits
+   AES-<n>-CMAC             → AES key of n bits
+   HMAC-<hash>              → any symmetric key (AES or generic secret)
+
+A key that does not fit returns ``CryptoErrorCode::kIncompatibleKeyType``
+and the context is not created. A context algorithm that the catalog does
+not know is left to the provider; when no provider serves it, context
+creation returns ``CryptoErrorCode::kUnsupportedAlgorithm``.
+
 **Querying permissions:**
 
 Permissions can be queried at runtime via:

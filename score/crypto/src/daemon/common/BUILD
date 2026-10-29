@@ -51,6 +51,26 @@ cc_test(
     ],
 )
 
+# Header-only utility: decides whether a key's algorithm fits an operation algorithm.
+cc_library(
+    name = "key_compatibility",
+    hdrs = ["key_compatibility.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":algorithm_info",
+        "//score/crypto/src/api/types:algorithm_types",
+    ],
+)
+
+cc_test(
+    name = "key_compatibility_test",
+    srcs = ["key_compatibility_test.cpp"],
+    deps = [
+        ":key_compatibility",
+        "@googletest//:gtest_main",
+    ],
+)
+
 # Header-only utility: human-readable names for OperationActor / OperationAction values.
 # Depends on the operation-constants headers (each only deps on :common).
 cc_library(
