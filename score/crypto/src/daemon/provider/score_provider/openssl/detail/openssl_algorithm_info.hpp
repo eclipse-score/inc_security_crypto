@@ -14,12 +14,9 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_OPENSSL_ALGORITHM_INFO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_OPENSSL_ALGORITHM_INFO_HPP
 
-#include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
-#include "score/crypto/src/daemon/common/daemon_error.hpp"
 
 #include <openssl/evp.h>
-#include <openssl/rsa.h>
 
 #include <cstddef>
 #include <optional>
@@ -155,41 +152,6 @@ inline constexpr std::string_view kSupportedSignatureAlgorithms[] = {
         }
     }
     return false;
-}
-
-/// @brief Configure RSA-PSS padding, salt length and MGF1 digest on a raw EVP_PKEY_CTX.
-/// @param pkey_context The initialized sign/verify EVP_PKEY_CTX to configure.
-/// @param digest The digest used for the MGF1 mask generation function.
-/// @param salt_length RSA_PSS_SALTLEN_DIGEST, RSA_PSS_SALTLEN_AUTO or an explicit salt length in bytes.
-/// @return false if the context, digest, or any RSA-PSS parameter could not be set.
-[[nodiscard]] inline bool ConfigureRsaPssPkeyContext(EVP_PKEY_CTX* pkey_context,
-                                                     const EVP_MD* digest,
-                                                     int salt_length) noexcept
-{
-    return pkey_context != nullptr && digest != nullptr &&
-           EVP_PKEY_CTX_set_rsa_padding(pkey_context, RSA_PKCS1_PSS_PADDING) == 1 &&
-           EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_context, salt_length) == 1 &&
-           EVP_PKEY_CTX_set_rsa_mgf1_md(pkey_context, digest) == 1;
-}
-
-/// @brief Configure an initialized OpenSSL digest-sign/verify context for RSA-PSS.
-/// @param context The initialized digest-sign/verify context to configure.
-/// @param algorithm The RSA-PSS signature algorithm identifier, used to look up the digest.
-/// @param salt_length RSA_PSS_SALTLEN_DIGEST for signing (fixed per RFC 8017 §9.1); RSA_PSS_SALTLEN_AUTO
-///        for verification, so signatures using any legal salt length are accepted.
-/// @return an initialization error if the context or any RSA-PSS parameter could not be configured.
-[[nodiscard]] inline ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
-ConfigureRsaPssContext(EVP_MD_CTX* context, std::string_view algorithm, int salt_length) noexcept
-{
-    EVP_PKEY_CTX* pkey_context = context == nullptr ? nullptr : EVP_MD_CTX_get_pkey_ctx(context);
-    const auto digest_name = ::score::crypto::daemon::common::LookupSignatureDigest(algorithm);
-    const EVP_MD* digest = digest_name.has_value() ? LookupHashEVPMD(digest_name.value()) : nullptr;
-    if (!ConfigureRsaPssPkeyContext(pkey_context, digest, salt_length))
-    {
-        return ::score::crypto::make_unexpected(
-            ::score::crypto::daemon::common::DaemonErrorCode::kAlgorithmInitializationFailed);
-    }
-    return std::monostate{};
 }
 
 }  // namespace score::crypto::daemon::provider::openssl::detail

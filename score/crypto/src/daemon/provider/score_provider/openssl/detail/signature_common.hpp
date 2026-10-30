@@ -96,6 +96,24 @@ DerToP1363(const std::uint8_t* der, std::size_t der_len, std::size_t field_size)
 [[nodiscard]] Expected<common::OwnedBuffer, ::score::crypto::daemon::common::DaemonErrorCode>
 P1363ToDer(const std::uint8_t* raw, std::size_t raw_len, std::size_t field_size);
 
+/// @brief Configure RSA-PSS padding, salt length and MGF1 digest on a raw EVP_PKEY_CTX.
+/// @param pkey_context The initialized sign/verify EVP_PKEY_CTX to configure.
+/// @param digest The digest used for the MGF1 mask generation function.
+/// @param salt_length RSA_PSS_SALTLEN_DIGEST, RSA_PSS_SALTLEN_AUTO or an explicit salt length in bytes.
+/// @return false if the context, digest, or any RSA-PSS parameter could not be set.
+[[nodiscard]] bool ConfigureRsaPssPkeyContext(EVP_PKEY_CTX* pkey_context,
+                                              const EVP_MD* digest,
+                                              int salt_length) noexcept;
+
+/// @brief Configure an initialized OpenSSL digest-sign/verify context for RSA-PSS.
+/// @param context The initialized digest-sign/verify context to configure.
+/// @param algorithm The RSA-PSS signature algorithm identifier, used to look up the digest.
+/// @param salt_length RSA_PSS_SALTLEN_DIGEST for signing (fixed per RFC 8017 §9.1); RSA_PSS_SALTLEN_AUTO
+///        for verification, so signatures using any legal salt length are accepted.
+/// @return an initialization error if the context or any RSA-PSS parameter could not be configured.
+[[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
+ConfigureRsaPssContext(EVP_MD_CTX* context, std::string_view algorithm, int salt_length) noexcept;
+
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 
 #endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP

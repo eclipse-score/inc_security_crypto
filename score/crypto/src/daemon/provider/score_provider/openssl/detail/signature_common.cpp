@@ -21,6 +21,7 @@
 #include <openssl/core_names.h>
 #include <openssl/ec.h>
 #include <openssl/ecdsa.h>
+#include <openssl/rsa.h>
 
 #include "score/mw/log/logging.h"
 
@@ -38,6 +39,35 @@ namespace
 {
 constexpr std::string_view kLogPrefix = "[OPENSSL_ECDSA]";
 }  // namespace
+
+// ---------------------------------------------------------------------------
+// RSA-PSS configuration
+// ---------------------------------------------------------------------------
+
+bool ConfigureRsaPssPkeyContext(EVP_PKEY_CTX* pkey_context, const EVP_MD* digest, int salt_length) noexcept
+{
+    return pkey_context != nullptr && digest != nullptr &&
+           EVP_PKEY_CTX_set_rsa_padding(pkey_context, RSA_PKCS1_PSS_PADDING) == 1 &&
+           EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_context, salt_length) == 1 &&
+           EVP_PKEY_CTX_set_rsa_mgf1_md(pkey_context, digest) == 1;
+}
+
+Expected<std::monostate, DaemonErrorCode> ConfigureRsaPssContext(EVP_MD_CTX* context,
+                                                                 std::string_view algorithm,
+                                                                 int salt_length) noexcept
+{
+    EVP_PKEY_CTX* pkey_context = context == nullptr ? nullptr : EVP_MD_CTX_get_pkey_ctx(context);
+    const auto digest_name = algo_info::LookupSignatureDigest(algorithm);
+    const EVP_MD* digest =
+        digest_name.has_value()
+            ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
+            : nullptr;
+    if (!ConfigureRsaPssPkeyContext(pkey_context, digest, salt_length))
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
+    }
+    return std::monostate{};
+}
 
 // ---------------------------------------------------------------------------
 // Stream

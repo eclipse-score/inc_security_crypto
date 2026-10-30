@@ -15,10 +15,12 @@
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 
 #include "score/mw/log/logging.h"
 
 #include <openssl/evp.h>
+#include <openssl/rsa.h>
 
 #include <string>
 #include <string_view>
@@ -34,6 +36,7 @@ constexpr std::string_view kLogPrefix{"[OPENSSL_RSA_PSS_VERIFY_HANDLER] "};
 namespace algo = ::score::crypto::daemon::common;
 using ::score::crypto::daemon::common::DaemonErrorCode;
 using ::score::crypto::daemon::common::StreamOperationState;
+namespace signature = ::score::crypto::daemon::provider::score_provider::openssl::handler::signature;
 
 OpenSslRsaPssVerifyHandler::OpenSslRsaPssVerifyHandler(std::unique_ptr<operations::verify::VerifyExecutor> executor,
                                                        const common::AlgorithmId& algorithm)
@@ -130,7 +133,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssVerifyHandler::Initialize
     m_buffer.clear();
     // AUTO accepts any legal salt length recovered from the signature, instead of
     // requiring it to match this provider's own (fixed) signing default.
-    auto configured = ::score::crypto::daemon::provider::openssl::detail::ConfigureRsaPssContext(
+    auto configured = signature::ConfigureRsaPssContext(
         m_stream.Context(), std::string_view{m_algorithm.data(), m_algorithm.size()}, RSA_PSS_SALTLEN_AUTO);
     if (!configured.has_value())
     {
@@ -206,8 +209,7 @@ Expected<bool, DaemonErrorCode> OpenSslRsaPssVerifyHandler::FinalizeVerify(
                 ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
                 : nullptr;
         const bool configured = pctx != nullptr && EVP_PKEY_verify_init(pctx) == 1 &&
-                                ::score::crypto::daemon::provider::openssl::detail::ConfigureRsaPssPkeyContext(
-                                    pctx, digest, RSA_PSS_SALTLEN_AUTO) &&
+                                signature::ConfigureRsaPssPkeyContext(pctx, digest, RSA_PSS_SALTLEN_AUTO) &&
                                 EVP_PKEY_CTX_set_signature_md(pctx, digest) == 1;
         const int verify_result =
             configured ? EVP_PKEY_verify(pctx, signature.data(), signature.size(), m_buffer.data(), m_buffer.size())

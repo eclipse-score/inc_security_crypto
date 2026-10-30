@@ -15,10 +15,12 @@
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 
 #include "score/mw/log/logging.h"
 
 #include <openssl/evp.h>
+#include <openssl/rsa.h>
 
 #include <algorithm>
 #include <cstring>
@@ -36,6 +38,7 @@ constexpr std::string_view kLogPrefix{"[OPENSSL_RSA_PSS_SIGN_HANDLER] "};
 namespace algo = ::score::crypto::daemon::common;
 using ::score::crypto::daemon::common::DaemonErrorCode;
 using ::score::crypto::daemon::common::StreamOperationState;
+namespace signature = ::score::crypto::daemon::provider::score_provider::openssl::handler::signature;
 
 OpenSslRsaPssSignHandler::OpenSslRsaPssSignHandler(std::unique_ptr<operations::sign::SignExecutor> executor,
                                                    const common::AlgorithmId& algorithm)
@@ -130,7 +133,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::InitializeSi
         return make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
     }
     m_buffer.clear();
-    auto configured = ::score::crypto::daemon::provider::openssl::detail::ConfigureRsaPssContext(
+    auto configured = signature::ConfigureRsaPssContext(
         m_stream.Context(), std::string_view{m_algorithm.data(), m_algorithm.size()}, RSA_PSS_SALTLEN_DIGEST);
     if (!configured.has_value())
     {
@@ -211,8 +214,7 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssSignHandler::FinalizeSign(sc
                 ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
                 : nullptr;
         const bool configured = pctx != nullptr && EVP_PKEY_sign_init(pctx) == 1 &&
-                                ::score::crypto::daemon::provider::openssl::detail::ConfigureRsaPssPkeyContext(
-                                    pctx, digest, RSA_PSS_SALTLEN_DIGEST) &&
+                                signature::ConfigureRsaPssPkeyContext(pctx, digest, RSA_PSS_SALTLEN_DIGEST) &&
                                 EVP_PKEY_CTX_set_signature_md(pctx, digest) == 1;
         std::size_t prehashed_written = output.size();
         const int prehashed_sign_result =
