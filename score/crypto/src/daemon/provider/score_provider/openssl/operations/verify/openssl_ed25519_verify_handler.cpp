@@ -58,7 +58,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslEd25519VerifyHandler::Initializ
         return base;
     }
 
-    const auto input_mode = ::score::crypto::daemon::provider::handler::ParseInputMode(params);
+    const auto input_mode = ::score::crypto::daemon::common::ParseInputMode(params.context_creation_params);
     if (!input_mode.has_value())
     {
         return make_unexpected(input_mode.error());

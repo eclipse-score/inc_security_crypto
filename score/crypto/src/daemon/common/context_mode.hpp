@@ -15,6 +15,8 @@
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_MODE_HPP
 
 #include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 
 #include <cstddef>
@@ -105,6 +107,34 @@ inline constexpr std::size_t kContextModeParamIndex = 4U;
         return std::nullopt;
     }
     return ParseContextMode(*raw);
+}
+
+/// @brief CTX_CREATE wire slot that carries the SignatureInputMode byte (SIGN / VERIFY contexts).
+inline constexpr std::size_t kSignatureInputModeParamIndex = 6U;
+
+/// @brief Reads the SignatureInputMode from CTX_CREATE parameters.
+/// @return kInvalidArgument when the slot is absent, not a byte, or outside the vocabulary.
+[[nodiscard]] inline score::crypto::Expected<score::crypto::SignatureInputMode, DaemonErrorCode> ParseInputMode(
+    const RequestParameters& params) noexcept
+{
+    if (params.size() <= kSignatureInputModeParamIndex)
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
+    const auto* const raw = std::get_if<std::uint8_t>(&params[kSignatureInputModeParamIndex]);
+    if (raw == nullptr)
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
+    switch (*raw)
+    {
+        case static_cast<std::uint8_t>(score::crypto::SignatureInputMode::kMessage):
+            return score::crypto::SignatureInputMode::kMessage;
+        case static_cast<std::uint8_t>(score::crypto::SignatureInputMode::kPrehashed):
+            return score::crypto::SignatureInputMode::kPrehashed;
+        default:
+            return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
 }
 
 }  // namespace score::crypto::daemon::common

@@ -61,12 +61,19 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::InitializeCo
         return base;
     }
 
-    const auto input_mode = ::score::crypto::daemon::provider::handler::ParseInputMode(params);
+    const auto input_mode = ::score::crypto::daemon::common::ParseInputMode(params.context_creation_params);
     if (!input_mode.has_value())
     {
         return make_unexpected(input_mode.error());
     }
     m_prehashed = input_mode.value() == ::score::crypto::SignatureInputMode::kPrehashed;
+    m_digest_size = 0U;
+    if (m_prehashed)
+    {
+        const auto digest_size =
+            algo::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        m_digest_size = digest_size.value_or(0U);
+    }
 
     auto bound = m_stream.Bind(params, m_algorithm);
     if (!bound.has_value())
@@ -144,10 +151,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::UpdateSign(
     }
     if (m_prehashed)
     {
-        const auto expected_digest_size =
-            algo::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
-        if (!expected_digest_size.has_value() || m_buffer.size() > expected_digest_size.value() ||
-            data.size() > expected_digest_size.value() - m_buffer.size())
+        if (m_digest_size == 0U || m_buffer.size() > m_digest_size || data.size() > m_digest_size - m_buffer.size())
         {
             score::mw::log::LogError() << kLogPrefix << "UpdateSign: prehashed input exceeds digest size for "
                                        << m_algorithm << "; buffered=" << m_buffer.size() << ", chunk=" << data.size();
@@ -192,13 +196,10 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssSignHandler::FinalizeSign(sc
     }
     if (m_prehashed)
     {
-        const auto expected_digest_size =
-            algo::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
-        if (!expected_digest_size.has_value() || m_buffer.size() != expected_digest_size.value())
+        if (m_digest_size == 0U || m_buffer.size() != m_digest_size)
         {
             score::mw::log::LogError() << kLogPrefix << "FinalizeSign: prehashed input has " << m_buffer.size()
-                                       << " bytes; expected "
-                                       << (expected_digest_size.has_value() ? expected_digest_size.value() : 0U);
+                                       << " bytes; expected " << m_digest_size;
             m_state = StreamOperationState::IDLE;
             m_buffer.clear();
             return make_unexpected(DaemonErrorCode::kInvalidArgument);
@@ -265,13 +266,10 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssSignHandler::SingleShotSign(
     }
     if (m_prehashed)
     {
-        const auto expected_digest_size =
-            algo::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
-        if (!expected_digest_size.has_value() || data.size() != expected_digest_size.value())
+        if (m_digest_size == 0U || data.size() != m_digest_size)
         {
             score::mw::log::LogError() << kLogPrefix << "SingleShotSign: prehashed input has " << data.size()
-                                       << " bytes; expected "
-                                       << (expected_digest_size.has_value() ? expected_digest_size.value() : 0U);
+                                       << " bytes; expected " << m_digest_size;
             m_state = StreamOperationState::IDLE;
             return make_unexpected(DaemonErrorCode::kInvalidArgument);
         }

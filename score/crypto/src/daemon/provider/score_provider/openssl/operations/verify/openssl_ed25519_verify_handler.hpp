@@ -45,11 +45,22 @@ class OpenSslEd25519VerifyHandler final : public operations::verify::ScoreVerify
         const ::score::crypto::daemon::provider::handler::InitializationParams&) override;
     Expected<std::monostate, common::DaemonErrorCode> Reset() override;
     std::size_t GetSignatureSize() const noexcept override;
+    /// @copydoc ScoreVerifyHandler::InitVerify
+    /// @note Streaming is not supported for Ed25519.
     Expected<std::monostate, common::DaemonErrorCode> InitVerify() override;
+    /// @copydoc ScoreVerifyHandler::UpdateVerify
+    /// @note Streaming is not supported for Ed25519.
     Expected<std::monostate, common::DaemonErrorCode> UpdateVerify(score::cpp::span<const std::uint8_t>) override;
+    /// @copydoc ScoreVerifyHandler::FinalizeVerify
+    /// @note Streaming is not supported for Ed25519.
     Expected<bool, common::DaemonErrorCode> FinalizeVerify(score::cpp::span<const std::uint8_t>) override;
-    Expected<bool, common::DaemonErrorCode> SingleShotVerify(score::cpp::span<const std::uint8_t>,
-                                                             score::cpp::span<const std::uint8_t>) override;
+    /// @brief Verifies an Ed25519 signature in one call.
+    /// @param data Message to verify.
+    /// @param signature Exactly 64 bytes containing the Ed25519 signature.
+    /// @return true for a valid signature, false for an invalid signature, or an error
+    ///         if verification cannot be completed.
+    Expected<bool, common::DaemonErrorCode> SingleShotVerify(score::cpp::span<const std::uint8_t> data,
+                                                             score::cpp::span<const std::uint8_t> signature) override;
     static bool IsAlgorithmSupported(const common::AlgorithmId&) noexcept;
 
   private:

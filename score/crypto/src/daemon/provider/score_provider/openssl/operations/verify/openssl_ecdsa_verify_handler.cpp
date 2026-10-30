@@ -58,7 +58,7 @@ bool OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& 
         return base_result;
     }
 
-    const auto input_mode = ::score::crypto::daemon::provider::handler::ParseInputMode(init_params);
+    const auto input_mode = ::score::crypto::daemon::common::ParseInputMode(init_params.context_creation_params);
     if (!input_mode.has_value())
     {
         return ::score::crypto::make_unexpected(input_mode.error());

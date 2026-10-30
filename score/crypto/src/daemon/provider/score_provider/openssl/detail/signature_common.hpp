@@ -15,10 +15,10 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP
 
 #include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/context_mode.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
-#include "score/crypto/src/daemon/provider/handler/src/context_mode.hpp"
 
 #include <openssl/evp.h>
 
@@ -29,7 +29,7 @@
 namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 {
 
-/// @brief Owns the digest context and bound key of one ECDSA context.
+/// @brief Owns the digest context and bound key of one signature context (ECDSA, RSA-PSS or Ed25519).
 ///
 /// Signing and verification differ only in which EVP_Digest* family they call,
 /// so the setup and teardown either direction needs live here and each handler

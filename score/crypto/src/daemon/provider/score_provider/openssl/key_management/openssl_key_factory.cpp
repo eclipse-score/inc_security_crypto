@@ -262,13 +262,13 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
-    if (::score::crypto::daemon::common::IsEcdsaAlgorithm(
-            std::string_view{request.algorithm.data(), request.algorithm.size()}))
+    const auto algorithm = std::string_view{request.algorithm.data(), request.algorithm.size()};
+
+    if (::score::crypto::daemon::common::IsEcdsaAlgorithm(algorithm))
     {
         return ImportEcKey(request);
     }
 
-    const auto algorithm = std::string_view{request.algorithm.data(), request.algorithm.size()};
     if (::score::crypto::daemon::common::LookupRsaKeyInfo(algorithm).has_value())
     {
         return ImportRsaKey(request);

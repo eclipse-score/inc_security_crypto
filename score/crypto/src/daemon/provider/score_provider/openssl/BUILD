@@ -139,7 +139,6 @@ cc_library(
         ":openssl_key_management_headers",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
-        "//score/crypto/src/daemon/provider/handler:context_mode_hdr",
         "//score/crypto/src/daemon/provider/score_provider",
         "//score/crypto/src/daemon/provider/score_provider/operations/cipher:score_cipher_handler",
         "//score/crypto/src/daemon/provider/score_provider/operations/factory:score_handler_factory",

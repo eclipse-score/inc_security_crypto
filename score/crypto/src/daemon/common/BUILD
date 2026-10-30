@@ -30,6 +30,7 @@ cc_library(
     deps = [
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/types:types",
+        "//score/crypto/src/common:common_types",
         "@score_baselibs//score/result",
     ],
 )

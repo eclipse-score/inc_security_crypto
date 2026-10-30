@@ -45,11 +45,21 @@ class OpenSslEd25519SignHandler final : public operations::sign::ScoreSignHandle
         const ::score::crypto::daemon::provider::handler::InitializationParams&) override;
     Expected<std::monostate, common::DaemonErrorCode> Reset() override;
     std::size_t GetSignatureSize() const noexcept override;
+    /// @copydoc ScoreSignHandler::InitSign
+    /// @note Streaming is not supported for Ed25519.
     Expected<std::monostate, common::DaemonErrorCode> InitSign() override;
+    /// @copydoc ScoreSignHandler::UpdateSign
+    /// @note Streaming is not supported for Ed25519.
     Expected<std::monostate, common::DaemonErrorCode> UpdateSign(score::cpp::span<const std::uint8_t>) override;
+    /// @copydoc ScoreSignHandler::FinalizeSign
+    /// @note Streaming is not supported for Ed25519.
     Expected<std::size_t, common::DaemonErrorCode> FinalizeSign(score::cpp::span<std::uint8_t>) override;
-    Expected<std::size_t, common::DaemonErrorCode> SingleShotSign(score::cpp::span<const std::uint8_t>,
-                                                                  score::cpp::span<std::uint8_t>) override;
+    /// @brief Signs the complete message in one call using Ed25519.
+    /// @param data Message to sign.
+    /// @param signature Caller-provided buffer with room for at least 64 bytes.
+    /// @return Number of bytes written, or an error if signing cannot be completed.
+    Expected<std::size_t, common::DaemonErrorCode> SingleShotSign(score::cpp::span<const std::uint8_t> data,
+                                                                  score::cpp::span<std::uint8_t> signature) override;
     static bool IsAlgorithmSupported(const common::AlgorithmId&) noexcept;
 
   private:

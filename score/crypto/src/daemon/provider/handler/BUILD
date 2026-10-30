@@ -50,19 +50,6 @@ cc_library(
 )
 
 cc_library(
-    name = "context_mode_hdr",
-    hdrs = ["src/context_mode.hpp"],
-    visibility = [
-        "//score/crypto/src/daemon/provider:__subpackages__",
-        "//score/crypto/src/daemon/src/provider:__subpackages__",
-    ],
-    deps = [
-        ":handler_headers",
-        "//score/crypto/src/daemon/common",
-    ],
-)
-
-cc_library(
     name = "handler_utils_hdr",
     hdrs = ["src/handler_utils.hpp"],
     visibility = [

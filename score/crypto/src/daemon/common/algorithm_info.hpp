@@ -131,6 +131,7 @@ struct KeyAlgorithmInfo
     std::size_t key_size;  ///< Default key size in bytes
 };
 
+/// Ed25519 key size in bytes (RFC 8032).
 inline constexpr std::size_t kEd25519KeySize{32U};
 
 inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
@@ -235,6 +236,7 @@ inline constexpr EcCurveInfo kEcCurves[] = {
     {"P521", "P-521", 66U, 132U, 521U},
 };
 
+/// @brief Properties of a supported RSA key size.
 struct RsaKeyInfo
 {
     std::string_view name;
@@ -242,6 +244,7 @@ struct RsaKeyInfo
     std::size_t key_bits;
 };
 
+/// Supported RSA key sizes.
 inline constexpr RsaKeyInfo kRsaKeys[] = {
     {"RSA-2048", 256U, 2048U},
     {"RSA-3072", 384U, 3072U},
@@ -250,8 +253,12 @@ inline constexpr RsaKeyInfo kRsaKeys[] = {
 
 /// Offset of the digit run within an entry of kRsaKeys, e.g. "2048" in "RSA-2048".
 inline constexpr std::size_t kRsaKeySizeSubstringStart{4U};
+
+/// Prefix of RSA-PSS signature algorithm identifiers, e.g. "RSA-PSS-2048-SHA256".
 inline constexpr std::string_view kRsaPssAlgorithmPrefix{"RSA-PSS-"};
 
+/// @brief Look up RSA key properties from an RSA key algorithm identifier.
+/// @return the matching entry of kRsaKeys, or std::nullopt if the key size is unsupported.
 [[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfo(std::string_view algorithm) noexcept
 {
     for (const auto& entry : kRsaKeys)
@@ -285,8 +292,10 @@ inline constexpr std::string_view kRsaPssAlgorithmPrefix{"RSA-PSS-"};
     return std::nullopt;
 }
 
+/// Ed25519 signature size in bytes (RFC 8032).
 inline constexpr std::size_t kEd25519SignatureSize{64U};
 
+/// @brief True when the identifier names the Ed25519 key or signature algorithm.
 [[nodiscard]] inline constexpr bool IsEd25519Algorithm(std::string_view algorithm) noexcept
 {
     return algorithm == "Ed25519";
@@ -337,6 +346,10 @@ inline constexpr std::size_t kEd25519SignatureSize{64U};
     return std::nullopt;
 }
 
+/// @brief True when the identifier names a complete RSA-PSS signature scheme.
+///
+/// The identifier must carry a supported key size and a known digest,
+/// e.g. "RSA-PSS-2048-SHA256".
 [[nodiscard]] inline constexpr bool IsRsaPssAlgorithm(std::string_view algorithm) noexcept
 {
     return algorithm.find("RSA-PSS-") == 0U && LookupSignatureDigest(algorithm).has_value() &&

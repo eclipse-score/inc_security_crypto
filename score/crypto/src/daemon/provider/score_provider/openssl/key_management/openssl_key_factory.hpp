@@ -74,18 +74,23 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     ImportKey(const key_management::KeyImportRequest& request) override;
 
   private:
+    /// Result of parsing DER key material.
     struct ParsedDerKey
     {
-        EvpPkeyPtr pkey{};
-        bool has_private_half{false};
+        EvpPkeyPtr pkey{};             ///< Parsed key
+        bool has_private_half{false};  ///< True for PKCS#8 private keys, false for SubjectPublicKeyInfo
     };
 
     common::ProviderId m_provider_id{common::kInvalidProviderId};
 
+    /// Parse DER key material (PKCS#8 private key or SubjectPublicKeyInfo) of any
+    /// supported asymmetric type into an EVP_PKEY.
     [[nodiscard]] ::score::crypto::Expected<ParsedDerKey, common::DaemonErrorCode> ParseDerKey(
         const key_management::KeyImportRequest& request);
 
-    // This helper only handles behavior shared after the algorithm-specific key validation.
+    /// Wraps an already validated, parsed key in an OpenSslKeyHandler.
+    ///
+    /// Only handles behavior shared after the algorithm-specific key validation.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode>
     CreateImportedAsymmetricKey(const key_management::KeyImportRequest& request,
                                 ParsedDerKey parsed,
@@ -102,18 +107,22 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportEcKey(const key_management::KeyImportRequest& request);
 
+    /// Generate an RSA key pair of the size named by request.algorithm (2048, 3072 or 4096 bits).
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateRsaKey(const key_management::KeyGenerationRequest& request);
 
+    /// Generate an Ed25519 key pair.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateEd25519Key(const key_management::KeyGenerationRequest& request);
 
+    /// Import a DER-encoded RSA key and validate that its size matches request.algorithm.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportRsaKey(const key_management::KeyImportRequest& request);
 
+    /// Import a DER-encoded Ed25519 key.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportEd25519Key(const key_management::KeyImportRequest& request);

@@ -56,6 +56,9 @@ struct VerifySignatureContextConfig : public BaseContextConfig
         return *this;
     }
 
+    /// @brief Selects whether the verified input is a message or an already computed digest.
+    /// @param mode Input mode to use for the context.
+    /// @return Reference to this config for chaining.
     VerifySignatureContextConfig& SetInputMode(SignatureInputMode mode) noexcept
     {
         input_mode = mode;
