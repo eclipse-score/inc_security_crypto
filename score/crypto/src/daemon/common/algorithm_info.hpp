@@ -207,26 +207,28 @@ inline constexpr CipherAlgorithmInfo kCipherAlgorithms[] = {
 ///       byte length of the field order, so P-521 yields 2 * 66 = 132 bytes.
 struct EcCurveInfo
 {
-    std::string_view name;        ///< Curve identifier as used in AlgorithmId, e.g. "P256"
-    std::string_view group_name;  ///< Standard NIST designation of the curve, e.g. "P-256"
+    std::string_view name;                ///< Curve identifier as used in AlgorithmId, e.g. "P256"
+    std::string_view group_name;          ///< Standard NIST designation of the curve, e.g. "P-256"
+    std::string_view openssl_group_name;  ///< OpenSSL-specific curve name, e.g. "prime256v1" for P-256"
     std::size_t field_size;       ///< Byte length of one coordinate / of r and s
     std::size_t signature_size;   ///< P1363 signature length = 2 * field_size
     std::size_t key_bits;         ///< Nominal key strength in bits
 };
 
-/// @note Curve names are spelled without an inner hyphen ("P256", not "P-256")
-///       so that the hyphen is unambiguously the separator in composite
-///       identifiers such as "ECDSA-P256-SHA256". This matches the AlgorithmId
-///       examples documented in score/crypto/src/api/common/types.hpp.
-/// @note @c group_name carries the hyphen that @c name omits, and the two are not
-///       interchangeable where a provider selects a curve by name. The spelling
-///       of @c group_name does not follow from @c name in general, so each curve
-///       carries both.
+/// @note Curve identifiers used in AlgorithmId are spelled without an inner
+///       hyphen ("P256", not "P-256"), so that the hyphen remains the
+///       separator in composite identifiers such as "ECDSA-P256-SHA256".
+///
+/// @note @c group_name contains the standard NIST curve designation
+///       ("P-256", "P-384", "P-521") and must not be assumed to be the
+///       provider-specific curve name.
+///
+/// @note @c openssl_group_name contains the name expected/reported by the
+///       OpenSSL provider, e.g. "prime256v1" for P-256.
 inline constexpr EcCurveInfo kEcCurves[] = {
-    {"P256", "P-256", 32U, 64U, 256U},
-    {"P384", "P-384", 48U, 96U, 384U},
-    // NIST's largest prime curve is P-521 (not P-512); 521 bits is 66 bytes.
-    {"P521", "P-521", 66U, 132U, 521U},
+    {"P256", "P-256", "prime256v1", 32U, 64U, 256U},
+    {"P384", "P-384", "secp384r1", 48U, 96U, 384U},
+    {"P521", "P-521", "secp521r1", 66U, 132U, 521U},
 };
 
 /// @brief Extract the curve of an ECDSA signature algorithm identifier.

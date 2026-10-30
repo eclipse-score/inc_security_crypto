@@ -225,13 +225,20 @@ class KeyManagementService final
         data_manager::ClientId client_id,
         data_manager::DataNodeId slot_node_id);
 
-    /// Resolve a key DataNode ID (a KeyDataNode) back to its IKeyHandler.
+    /// Resolve a key DataNode ID (a KeyDataNode) back to its backing KeyEntry.
     ///
     /// Used by executor handlers that need a ProviderKeyHandle or the raw
     /// IKeyHandler to build provider-level request structs (WrapKey, ExportKey, ...).
-    [[nodiscard]] Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode> ResolveKeyForOperation(
-        data_manager::ClientId client_id,
-        data_manager::DataNodeId key_node_id) const;
+    ///
+    /// Returns the owning KeyEntry (not just the IKeyHandler) so the caller can
+    /// keep it alive for the full duration of the operation. The KeyEntry
+    /// destructor calls IKeyHandler::Release(), which frees the underlying key
+    /// material regardless of how many IKeyHandler shared_ptrs still exist;
+    /// holding only the handler would therefore not prevent a concurrent release
+    /// (from another key-management context sharing the same key) from freeing
+    /// the key material mid-operation, causing a use-after-free.
+    [[nodiscard]] Expected<std::shared_ptr<KeyEntry>, score::crypto::daemon::common::DaemonErrorCode>
+    ResolveKeyForOperation(data_manager::ClientId client_id, data_manager::DataNodeId key_node_id) const;
 
     // ------------------------------------------------------------------
     // Accessors

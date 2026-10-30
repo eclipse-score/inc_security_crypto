@@ -107,6 +107,7 @@ inline constexpr std::string_view kSupportedCiphers[] = {
 inline constexpr std::string_view kSupportedSignatureAlgorithms[] = {
     "ECDSA-P256-SHA256",
     "ECDSA-P384-SHA384",
+    "ECDSA-P384-SHA512",
     "ECDSA-P521-SHA512",
 };
 

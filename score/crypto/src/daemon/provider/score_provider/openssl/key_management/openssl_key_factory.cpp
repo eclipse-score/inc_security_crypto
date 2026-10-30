@@ -52,9 +52,92 @@ key_management::ProviderKeyHandle MakeHandle(common::ProviderId provider_id,
     handle.key_size = key_size;
     return handle;
 }
+
+/// SEC1 tag of an uncompressed EC point. Compressed (0x02/0x03) and hybrid
+/// (0x06/0x07) encodings are deliberately not accepted on the raw import path.
+constexpr std::uint8_t kUncompressedPointTag = 0x04U;
+
+/// Build an EC public-key EVP_PKEY from a raw uncompressed SEC1 point.
+///
+/// @param group_name NIST group designation, e.g. "P-384".
+/// @param point      0x04||X||Y, length 1 + 2*field_size (validated by caller).
+/// @param point_len  Byte length of @p point.
+/// @return An owning EVP_PKEY, or nullptr if the point is not a valid public
+///         key on the named curve.
+EvpPkeyPtr BuildEcPublicKeyFromRawPoint(std::string_view group_name,
+                                        const std::uint8_t* point,
+                                        std::size_t point_len) noexcept
+{
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_name(nullptr, "EC", nullptr);
+    if (ctx == nullptr)
+    {
+        return EvpPkeyPtr{};
+    }
+
+    EVP_PKEY* pkey = nullptr;
+    const bool ok = [&]() -> bool {
+        if (EVP_PKEY_fromdata_init(ctx) != 1)
+        {
+            return false;
+        }
+
+        // OSSL_PARAM takes non-const pointers but only reads the inputs here.
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        char* group = const_cast<char*>(group_name.data());
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        void* pub = const_cast<std::uint8_t*>(point);
+        OSSL_PARAM params[] = {
+            OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, group, group_name.size()),
+            OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_PUB_KEY, pub, point_len),
+            OSSL_PARAM_construct_end(),
+        };
+
+        return EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) == 1;
+    }();
+
+    EVP_PKEY_CTX_free(ctx);
+
+    EvpPkeyPtr owned_pkey{pkey};
+    if (!ok || !owned_pkey)
+    {
+        return EvpPkeyPtr{};
+    }
+
+    // EVP_PKEY_fromdata accepts the point encoding without proving the point
+    // lies on the curve; an off-curve public key is a classic avenue for
+    // invalid-curve attacks, so verify it explicitly before handing it out.
+    EVP_PKEY_CTX* check_ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, owned_pkey.get(), nullptr);
+    if (check_ctx == nullptr)
+    {
+        return EvpPkeyPtr{};
+    }
+    const bool on_curve = EVP_PKEY_public_check(check_ctx) == 1;
+    EVP_PKEY_CTX_free(check_ctx);
+
+    if (!on_curve)
+    {
+        return EvpPkeyPtr{};
+    }
+    return owned_pkey;
+}
+
+/// Recover the EVP_PKEY an asymmetric handle refers to.
+///
+/// The OpenSSL provider stores the EVP_PKEY address in opaque_id (see
+/// GenerateEcKey / ImportEcKey). Interpreting it is the issuing provider's
+/// prerogative, as documented on ProviderKeyHandle.
+[[nodiscard]] EVP_PKEY* PkeyFromHandle(const key_management::ProviderKeyHandle& handle) noexcept
+{
+    if (handle.opaque_id == 0U)
+    {
+        return nullptr;
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
+    return reinterpret_cast<EVP_PKEY*>(static_cast<std::uintptr_t>(handle.opaque_id));
+}
 }  // namespace
 
-OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id) {};
+OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id){};
 
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::GenerateKey(const key_management::KeyGenerationRequest& request)
@@ -183,69 +266,309 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
     return std::make_shared<OpenSslKeyHandler>(std::move(key_bytes), handle);
 }
 
-::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::ImportEcKey(const key_management::KeyImportRequest& request)
+::score::crypto::Expected<
+    key_management::IKeyHandler::Sptr,
+    ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::ImportEcKey(
+    const key_management::KeyImportRequest& request)
 {
-    const auto curve = ::score::crypto::daemon::common::LookupEcCurveOfAlgorithm(
-        std::string_view{request.algorithm.data(), request.algorithm.size()});
+    const auto curve =
+        ::score::crypto::daemon::common::LookupEcCurveOfAlgorithm(
+            std::string_view{
+                request.algorithm.data(),
+                request.algorithm.size()});
+
     if (!curve.has_value())
     {
         return ::score::crypto::make_unexpected(
-            ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+            ::score::crypto::daemon::common::DaemonErrorCode::
+                kUnsupportedAlgorithm);
+    }
+
+    // A raw import contains only an uncompressed SEC1 public point.
+    // It follows a dedicated path and never claims private-half permissions.
+    if (request.format == score::crypto::FormatType::kRaw)
+    {
+        return ImportRawEcPublicKey(request, curve.value());
     }
 
     if (request.format != score::crypto::FormatType::kDer)
     {
-        score::mw::log::LogError() << kLogPrefix << "ImportEcKey: only DER-encoded EC keys are supported";
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+        score::mw::log::LogError()
+            << kLogPrefix
+            << "ImportEcKey: only DER-encoded EC keys are supported";
+
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::
+                kInvalidFormat);
     }
 
-    // d2i_AutoPrivateKey advances the pointer it is given, so hand it a copy.
+    // d2i_AutoPrivateKey advances the supplied pointer, so use a local copy.
     const unsigned char* der = request.key_data;
-    EVP_PKEY* pkey = d2i_AutoPrivateKey(nullptr, &der, static_cast<long>(request.key_data_size));
+
+    EVP_PKEY* pkey = d2i_AutoPrivateKey(
+        nullptr,
+        &der,
+        static_cast<long>(request.key_data_size));
+
     const bool has_private_half = (pkey != nullptr);
+
     if (pkey == nullptr)
     {
-        // Fall back to a SubjectPublicKeyInfo blob: a verify-only slot legitimately
-        // holds just the public half.
+        // Fall back to a SubjectPublicKeyInfo public key.
         const unsigned char* spki = request.key_data;
-        pkey = d2i_PUBKEY(nullptr, &spki, static_cast<long>(request.key_data_size));
+
+        pkey = d2i_PUBKEY(
+            nullptr,
+            &spki,
+            static_cast<long>(request.key_data_size));
     }
 
-    // Take ownership immediately so every path below is leak-free.
+    // Take ownership immediately so every return path is leak-free.
     EvpPkeyPtr owned_pkey{pkey};
 
     if (!owned_pkey)
     {
-        score::mw::log::LogError() << kLogPrefix << "ImportEcKey: could not parse DER key material";
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+        score::mw::log::LogError()
+            << kLogPrefix
+            << "ImportEcKey: could not parse DER key material";
+
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::
+                kInvalidFormat);
     }
 
     if (EVP_PKEY_get_base_id(owned_pkey.get()) != EVP_PKEY_EC)
     {
-        score::mw::log::LogError() << kLogPrefix << "ImportEcKey: parsed key is not an EC key";
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+        score::mw::log::LogError()
+            << kLogPrefix
+            << "ImportEcKey: parsed key is not an EC key";
+
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::
+                kIncompatibleKeyType);
+    }
+    // Validate that the curve contained in the DER key matches the curve
+    // associated with the requested algorithm.
+    std::array<char, 80U> actual_group_name{};
+    std::size_t actual_group_name_length{0U};
+
+    if (EVP_PKEY_get_utf8_string_param(
+            owned_pkey.get(),
+            OSSL_PKEY_PARAM_GROUP_NAME,
+            actual_group_name.data(),
+            actual_group_name.size(),
+            &actual_group_name_length) <= 0)
+    {
+        score::mw::log::LogError()
+            << kLogPrefix
+            << "ImportEcKey: could not retrieve curve name from DER key";
+
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::
+                kInvalidFormat);
     }
 
-    // The grant describes the slot, not the material that arrived in it. A slot
-    // allowing kSign may still deploy a bare SubjectPublicKeyInfo blob, and a
-    // handle claiming kSign over a key with no private scalar would satisfy the
-    // mediator's check and fail inside OpenSSL instead, where the cause is far
-    // less legible. No private half means no private-half operation.
-    const auto private_half_permissions =
-        has_private_half ? request.permissions : score::crypto::KeyOperationPermission::kNone;
+    const std::string_view actual_group_name_view{
+        actual_group_name.data(),
+        actual_group_name_length};
 
-    auto handle = MakeHandle(m_provider_id, request.algorithm, private_half_permissions, curve->field_size, true);
+    if (actual_group_name_view != curve->openssl_group_name)
+    {
+        score::mw::log::LogError()
+            << kLogPrefix
+            << "ImportEcKey: curve in DER key ("
+            << actual_group_name_view
+            << ") does not match the curve required by algorithm "
+            << std::string_view{
+                   request.algorithm.data(),
+                   request.algorithm.size()}
+            << " (expected "
+            << curve->openssl_group_name
+            << ')';
+
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::
+                kIncompatibleKeyType);
+    }
+
+    // A public-only key must not claim permissions requiring a private half.
+    const auto private_half_permissions =
+        has_private_half
+            ? request.permissions
+            : score::crypto::KeyOperationPermission::kNone;
+
+    auto handle = MakeHandle(
+        m_provider_id,
+        request.algorithm,
+        private_half_permissions,
+        curve->field_size,
+        true);
+
+    handle.opaque_id = static_cast<std::uint64_t>(
+        reinterpret_cast<std::uintptr_t>(owned_pkey.get()));
+    // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+
+    // The import permission set also governs the public half.
+    handle.public_key_permissions = request.permissions;
+
+    return std::make_shared<OpenSslKeyHandler>(
+        std::move(owned_pkey),
+        handle);
+}
+
+::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::ImportRawEcPublicKey(const key_management::KeyImportRequest& request,
+                                        const common::EcCurveInfo& curve)
+{
+    // A raw EC public key is the uncompressed SEC1 point 0x04||X||Y. Its length
+    // is fixed by the curve, so a wrong length is the cheapest way to reject a
+    // compressed point (1+field_size) or truncated input before touching OpenSSL.
+    const std::size_t expected_len = 1U + (2U * curve.field_size);
+    if (request.key_data_size != expected_len)
+    {
+        score::mw::log::LogError() << kLogPrefix << "ImportRawEcPublicKey: expected " << expected_len
+                                   << " bytes for an uncompressed " << std::string{curve.group_name} << " point, got "
+                                   << request.key_data_size;
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+    }
+
+    // Even at the right length, a 0x02/0x03 (compressed) or 0x06/0x07 (hybrid)
+    // lead byte is a different encoding and is rejected rather than reinterpreted.
+    if (request.key_data[0] != kUncompressedPointTag)
+    {
+        score::mw::log::LogError() << kLogPrefix
+                                   << "ImportRawEcPublicKey: point is not uncompressed (0x04); lead byte 0x"
+                                   << request.key_data[0];
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+    }
+
+    EvpPkeyPtr owned_pkey = BuildEcPublicKeyFromRawPoint(curve.group_name, request.key_data, request.key_data_size);
+    if (!owned_pkey)
+    {
+        score::mw::log::LogError() << kLogPrefix
+                                   << "ImportRawEcPublicKey: point is not a valid public key on curve "
+                                   << std::string{curve.group_name};
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+    }
+
+    // Raw import delivers no private scalar, so the private half can perform
+    // nothing; only the public half carries the slot's grant (verify / export).
+    auto handle = MakeHandle(
+        m_provider_id, request.algorithm, score::crypto::KeyOperationPermission::kNone, curve.field_size, true);
     handle.opaque_id = static_cast<std::uint64_t>(
         reinterpret_cast<std::uintptr_t>(owned_pkey.get()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-
-    // An import request carries one permission set for whatever material it
-    // contains, so it governs both halves. Leaving this nullopt would mean
-    // "public half unrestricted", which is the right default for a generated
-    // key but would let an imported key ignore its slot's allowed_operations.
     handle.public_key_permissions = request.permissions;
 
     return std::make_shared<OpenSslKeyHandler>(std::move(owned_pkey), handle);
+}
+
+::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+{
+    const auto curve = CheckRawEcExport(handle, format);
+    if (!curve.has_value())
+    {
+        return ::score::crypto::make_unexpected(curve.error());
+    }
+
+    EVP_PKEY* pkey = PkeyFromHandle(handle);
+    if (pkey == nullptr)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
+
+    // OSSL_PKEY_PARAM_PUB_KEY serialises the point in the key's own
+    // point-conversion format. A key decoded from a compressed DER encoding
+    // keeps that compressed format, so reading it directly would yield e.g. a
+    // 49-byte P-384 point — disagreeing with GetExportKeySize (97) and rejected
+    // by the raw import path, breaking the round-trip contract. Force
+    // uncompressed output on a private duplicate so the shared key other clients
+    // may be using concurrently is never mutated.
+    EvpPkeyPtr export_pkey{EVP_PKEY_dup(pkey)};
+    if (!export_pkey)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
+    }
+
+    constexpr std::string_view kUncompressedFormat = "uncompressed";
+    // OSSL_PARAM takes a non-const char*, but only reads the format string.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+    char* point_format = const_cast<char*>(kUncompressedFormat.data());
+    OSSL_PARAM format_params[] = {
+        OSSL_PARAM_construct_utf8_string(
+            OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT, point_format, kUncompressedFormat.size()),
+        OSSL_PARAM_construct_end(),
+    };
+    if (EVP_PKEY_set_params(export_pkey.get(), format_params) != 1)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+
+    // OSSL_PKEY_PARAM_PUB_KEY yields the uncompressed point 0x04||X||Y, which is
+    // exactly the raw form this factory imports — so export round-trips import.
+    std::size_t out_len = 0U;
+    if (EVP_PKEY_get_octet_string_param(export_pkey.get(), OSSL_PKEY_PARAM_PUB_KEY, nullptr, 0U, &out_len) != 1)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+
+    key_management::SecureKeyBytes out{out_len};
+    if (EVP_PKEY_get_octet_string_param(
+            export_pkey.get(), OSSL_PKEY_PARAM_PUB_KEY, out.bytes.data(), out_len, &out_len) != 1)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+    out.bytes.resize(out_len);
+
+    return out;
+}
+
+::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+{
+    const auto curve = CheckRawEcExport(handle, format);
+    if (!curve.has_value())
+    {
+        return ::score::crypto::make_unexpected(curve.error());
+    }
+
+    // The uncompressed point length is fixed by the curve, so the size query is
+    // answered from metadata alone and matches what ExportKey will produce.
+    return 1U + (2U * curve->field_size);
+}
+
+::score::crypto::Expected<common::EcCurveInfo, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::CheckRawEcExport(const key_management::ProviderKeyHandle& handle,
+                                    score::crypto::FormatType format) const
+{
+    // Only the raw public-point export is implemented; DER/PEM key export stays
+    // on the base class's unsupported path.
+    if (format != score::crypto::FormatType::kRaw)
+    {
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    }
+
+    const auto curve = ::score::crypto::daemon::common::LookupEcCurveOfAlgorithm(
+        std::string_view{handle.algorithm.data(), handle.algorithm.size()});
+    if (!handle.is_asymmetric || !curve.has_value())
+    {
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+    }
+
+    // Exporting a public key is still an export: it is gated by kExport on the
+    // public half's grant. A nullopt grant means unrestricted, matching the
+    // documented default for a public key.
+    const auto public_permissions =
+        handle.public_key_permissions.value_or(score::crypto::KeyOperationPermission::kAll);
+    if (!score::crypto::HasPermission(public_permissions, score::crypto::KeyOperationPermission::kExport))
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+
+    return curve.value();
 }
 
 // static
