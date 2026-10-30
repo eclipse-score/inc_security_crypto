@@ -213,6 +213,60 @@ inline control_plane::protocol::OperationIdentifier DestroyShmObject()
                                                         .operationAction = operations::SHM_DESTROY_OBJECT};
 }
 
+// PROVIDER_INFO
+// Request:  uint64 — provider id
+// Response: status_code (SUCCESS / kInvalidArgument for an unknown id)
+//           param[0]: uint16     — provider id
+//           param[1]: uint8      — wire ProviderType (0 = default, 1 = hardware, 2 = software)
+//           param[2]: DataBuffer — provider name (UTF-8, not NUL-terminated)
+inline constexpr OperationAction PROVIDER_INFO = 6;
+
+// QUERY_CAPABILITIES
+// Request:  string — algorithm name, as in the algorithm catalog
+// Response: status_code (SUCCESS)
+//           param[0]: uint8 — CapabilityFlags of the operations at least one
+//                             provider accepts for this name; 0 if none
+inline constexpr OperationAction QUERY_CAPABILITIES = 7;
+
+// SYSTEM_CAPABILITIES
+// Request:  no parameters
+// Response: status_code (SUCCESS)
+//           param[0]: uint16 — provider count P
+//           P times:  uint16 provider id, uint8 wire ProviderType, DataBuffer name
+//           then:     uint16 — algorithm count A
+//           A times:  uint16 Algorithm enumerator, uint8 CapabilityFlags (never 0)
+// Effect:   Lists the providers and every catalog algorithm at least one of
+//           them accepts, in catalog order.
+inline constexpr OperationAction SYSTEM_CAPABILITIES = 8;
+
+/// Operation bits reported by QUERY_CAPABILITIES and SYSTEM_CAPABILITIES.
+namespace capability_flags
+{
+inline constexpr std::uint8_t kHash = 1U << 0U;
+inline constexpr std::uint8_t kMac = 1U << 1U;
+inline constexpr std::uint8_t kCipher = 1U << 2U;
+inline constexpr std::uint8_t kSign = 1U << 3U;
+inline constexpr std::uint8_t kVerify = 1U << 4U;
+inline constexpr std::uint8_t kRandom = 1U << 5U;
+inline constexpr std::uint8_t kGenerateKey = 1U << 6U;
+}  // namespace capability_flags
+
+inline control_plane::protocol::OperationIdentifier GetProviderInfo()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::PROVIDER_INFO};
+}
+inline control_plane::protocol::OperationIdentifier QueryCapabilities()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::QUERY_CAPABILITIES};
+}
+inline control_plane::protocol::OperationIdentifier QuerySystemCapabilities()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::SYSTEM_CAPABILITIES};
+}
+
 // Starting point for custom OPs
 inline constexpr OperationAction CUSTOM_OP_START = 1 << (std::numeric_limits<OperationAction>::digits - 1);
 

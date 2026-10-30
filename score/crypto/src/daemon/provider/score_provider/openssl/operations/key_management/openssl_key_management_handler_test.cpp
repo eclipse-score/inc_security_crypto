@@ -39,6 +39,8 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <string_view>
 
 namespace km = score::crypto::daemon::key_management;
 namespace dm = score::crypto::daemon::data_manager;
@@ -283,6 +285,153 @@ TEST_F(KeyManagementHandlerTest, GenerateKey_UnknownAlgorithm_ReturnsError)
     auto result = m_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, params);
     ASSERT_FALSE(result.has_value());
+}
+
+// ============================================================================
+// Permitted algorithm: a key pinned to one operation algorithm
+// ============================================================================
+
+namespace
+{
+constexpr auto kGenerate = km::operations::KEY_GENERATE;
+constexpr auto kKeyMgmtActor = score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT;
+
+const km::KeySlotConfig* FindSlotConfig(km::SlotRegistry& registry, const std::string& slot_name)
+{
+    auto handle = registry.ResolveSlot(slot_name, (1000ULL << 32) | 42ULL);
+    if (!handle.has_value())
+    {
+        return nullptr;
+    }
+    auto config = registry.GetConfig(handle.value());
+    return config.has_value() ? config.value() : nullptr;
+}
+
+config::KeyConfig::KeySlotEntry MakeHmacSlotEntry(const std::string& slot_name, const std::string& permitted)
+{
+    config::KeyConfig::KeySlotEntry entry{};
+    entry.slot_name = slot_name;
+    entry.algorithm = "HMAC-SHA256";
+    entry.provider_names = {"OPENSSL"};
+    entry.allowed_operations = "MAC";
+    entry.allowed_uids = {0U, 1000U};
+    entry.allowed_write_uids = {0U};
+    entry.deployment_path = "/opt/crypto/deploy/test_hmac_sha256.kv";
+    entry.permitted_algorithm = permitted;
+    return entry;
+}
+}  // namespace
+
+TEST_F(KeyManagementHandlerTest, GenerateKey_WithoutPermittedAlgorithm_LeavesKeyUnpinned)
+{
+    const std::string algo = "HMAC-SHA256";
+    common::RequestParameters params{std::string_view(algo),
+                                     static_cast<std::uint32_t>(score::crypto::KeyOperationPermission::kMac)};
+
+    auto gen = m_handler->Execute({kKeyMgmtActor, kGenerate}, params);
+    ASSERT_TRUE(gen.has_value());
+
+    auto peek = m_service->PeekKeyHandle(kAllowedClient, std::get<std::uint64_t>(gen.value()[0]));
+    ASSERT_TRUE(peek.has_value());
+    EXPECT_TRUE(peek.value().permitted_algorithm.empty());
+}
+
+TEST_F(KeyManagementHandlerTest, GenerateKey_WithPermittedAlgorithm_PinsTheKey)
+{
+    const std::string algo = "HMAC-SHA256";
+    const std::string pin = "HMAC-SHA256";
+    common::RequestParameters params{std::string_view(algo),
+                                     static_cast<std::uint32_t>(score::crypto::KeyOperationPermission::kMac),
+                                     std::string_view(pin)};
+
+    auto gen = m_handler->Execute({kKeyMgmtActor, kGenerate}, params);
+    ASSERT_TRUE(gen.has_value());
+
+    auto peek = m_service->PeekKeyHandle(kAllowedClient, std::get<std::uint64_t>(gen.value()[0]));
+    ASSERT_TRUE(peek.has_value());
+    EXPECT_EQ(peek.value().permitted_algorithm, pin);
+}
+
+TEST_F(KeyManagementHandlerTest, GenerateKey_PermittedAlgorithmAfterPublicKeyPermissions_IsRead)
+{
+    // Both trailing parameters are optional; the pin follows the public half's
+    // permissions when they are sent, and is told apart by its type.
+    const std::string algo = "HMAC-SHA256";
+    const std::string pin = "HMAC-SHA384";
+    common::RequestParameters params{std::string_view(algo),
+                                     static_cast<std::uint32_t>(score::crypto::KeyOperationPermission::kMac),
+                                     static_cast<std::uint32_t>(score::crypto::KeyOperationPermission::kNone),
+                                     std::string_view(pin)};
+
+    auto gen = m_handler->Execute({kKeyMgmtActor, kGenerate}, params);
+    ASSERT_TRUE(gen.has_value());
+
+    auto peek = m_service->PeekKeyHandle(kAllowedClient, std::get<std::uint64_t>(gen.value()[0]));
+    ASSERT_TRUE(peek.has_value());
+    EXPECT_EQ(peek.value().permitted_algorithm, pin);
+}
+
+TEST_F(KeyManagementHandlerTest, GenerateKey_PermittedAlgorithmTheKeyCannotServe_IsRefused)
+{
+    const std::string algo = "HMAC-SHA256";
+    // Another key type, another key length, and a name that is no keyed operation.
+    for (const std::string pin : {"ECDSA-P256-SHA256", "AES-256-GCM", "SHA256"})
+    {
+        common::RequestParameters params{std::string_view(algo),
+                                         static_cast<std::uint32_t>(score::crypto::KeyOperationPermission::kMac),
+                                         std::string_view(pin)};
+
+        auto gen = m_handler->Execute({kKeyMgmtActor, kGenerate}, params);
+        ASSERT_FALSE(gen.has_value()) << "pin " << pin << " was accepted for an HMAC key";
+        EXPECT_EQ(gen.error(), common::DaemonErrorCode::kIncompatibleKeyType) << "pin " << pin;
+    }
+}
+
+TEST_F(KeyManagementHandlerTest, GenerateKey_MalformedPermittedAlgorithm_IsRefused)
+{
+    const std::string algo = "HMAC-SHA256";
+    common::RequestParameters params{std::string_view(algo),
+                                     static_cast<std::uint32_t>(score::crypto::KeyOperationPermission::kMac),
+                                     static_cast<std::uint64_t>(42U)};
+
+    auto gen = m_handler->Execute({kKeyMgmtActor, kGenerate}, params);
+    ASSERT_FALSE(gen.has_value());
+    EXPECT_EQ(gen.error(), common::DaemonErrorCode::kInvalidArgument);
+}
+
+TEST_F(KeyManagementHandlerTest, SlotPermittedAlgorithm_IsReportedBeforeLoading)
+{
+    config::KeyConfig extra{};
+    extra.AddSlotEntry(MakeHmacSlotEntry("test/pinned-hmac", "HMAC-SHA256"));
+    km::ConfigDrivenSlotCatalog{extra}.Load(*m_slot_registry);
+
+    const auto slot_node = ResolveSlotToDataNode("test/pinned-hmac", kAllowedClient);
+    ASSERT_NE(slot_node, 0U) << "slot resolution failed";
+
+    auto peek = m_service->PeekKeyHandle(kAllowedClient, slot_node);
+    ASSERT_TRUE(peek.has_value());
+    EXPECT_EQ(peek.value().permitted_algorithm, "HMAC-SHA256");
+
+    // Slots without a pin stay unpinned.
+    const auto unpinned = ResolveSlotToDataNode("test/hmac-sha256", kAllowedClient);
+    ASSERT_NE(unpinned, 0U);
+    auto unpinned_peek = m_service->PeekKeyHandle(kAllowedClient, unpinned);
+    ASSERT_TRUE(unpinned_peek.has_value());
+    EXPECT_TRUE(unpinned_peek.value().permitted_algorithm.empty());
+}
+
+TEST_F(KeyManagementHandlerTest, SlotPermittedAlgorithmTheKeyCannotServe_SkipsTheSlot)
+{
+    config::KeyConfig extra{};
+    extra.AddSlotEntry(MakeHmacSlotEntry("test/pinned-to-gcm", "AES-256-GCM"));
+    extra.AddSlotEntry(MakeHmacSlotEntry("test/pinned-to-key", "HMAC-SHA256-KEY-ONLY"));
+    extra.AddSlotEntry(MakeHmacSlotEntry("test/pinned-to-hash", "SHA256"));
+    km::ConfigDrivenSlotCatalog{extra}.Load(*m_slot_registry);
+
+    EXPECT_EQ(FindSlotConfig(*m_slot_registry, "test/pinned-to-gcm"), nullptr);
+    EXPECT_EQ(FindSlotConfig(*m_slot_registry, "test/pinned-to-hash"), nullptr);
+    // Not in the catalog: accepted, the exact match alone governs.
+    ASSERT_NE(FindSlotConfig(*m_slot_registry, "test/pinned-to-key"), nullptr);
 }
 
 // ============================================================================

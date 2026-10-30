@@ -73,6 +73,50 @@
         "deployment_format" : "kv"
       },
       {
+        "slot_name": "HMAC_SHA256_PinnedSlot_OpenSSL",
+        "algorithm": "AES-256",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "MAC",
+        "permitted_algorithm": "HMAC-SHA256",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_hmac.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "HMAC_SHA256_PinnedToSha384Slot_OpenSSL",
+        "algorithm": "AES-256",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "MAC",
+        "permitted_algorithm": "HMAC-SHA384",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_hmac.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "HMAC_SHA256_PinnedSlot",
+        "algorithm": "AES-256",
+        "provider_names": ["PKCS11_ENGINE"],
+        "allowed_operations": "MAC",
+        "permitted_algorithm": "HMAC-SHA256",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_softhsm_hmac.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "HMAC_SHA256_PinnedToSha384Slot",
+        "algorithm": "AES-256",
+        "provider_names": ["PKCS11_ENGINE"],
+        "allowed_operations": "MAC",
+        "permitted_algorithm": "HMAC-SHA384",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_softhsm_hmac.kv",
+        "deployment_format" : "kv"
+      },
+      {
         "slot_name": "AES128_CBC_IntegrationTestKey_OpenSSL",
         "algorithm": "AES-128-CBC",
         "provider_names": ["OPENSSL"],
@@ -200,6 +244,26 @@
         "slot_name": "HMAC_SHA256_SignOnlySlot"
       },
       {
+        "uid": 0,
+        "app_resource_id": "HMAC_SHA256_PinnedSlot_OpenSSL",
+        "slot_name": "HMAC_SHA256_PinnedSlot_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "HMAC_SHA256_PinnedToSha384Slot_OpenSSL",
+        "slot_name": "HMAC_SHA256_PinnedToSha384Slot_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "HMAC_SHA256_PinnedSlot",
+        "slot_name": "HMAC_SHA256_PinnedSlot"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "HMAC_SHA256_PinnedToSha384Slot",
+        "slot_name": "HMAC_SHA256_PinnedToSha384Slot"
+      },
+      {
         "uid": 1000,
         "app_resource_id": "test/hmac",
         "slot_name": "test/hmac-sha256"
@@ -233,6 +297,26 @@
         "uid": 1000,
         "app_resource_id": "HMAC_SHA256_SignOnlySlot",
         "slot_name": "HMAC_SHA256_SignOnlySlot"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "HMAC_SHA256_PinnedSlot_OpenSSL",
+        "slot_name": "HMAC_SHA256_PinnedSlot_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "HMAC_SHA256_PinnedToSha384Slot_OpenSSL",
+        "slot_name": "HMAC_SHA256_PinnedToSha384Slot_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "HMAC_SHA256_PinnedSlot",
+        "slot_name": "HMAC_SHA256_PinnedSlot"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "HMAC_SHA256_PinnedToSha384Slot",
+        "slot_name": "HMAC_SHA256_PinnedToSha384Slot"
       },
       {
         "uid": 0,

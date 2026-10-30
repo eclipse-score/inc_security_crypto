@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 /// @file algorithm_info_test.cpp
-/// @brief Verifies provider-neutral hash and MAC metadata lookup.
+/// @brief Verifies provider-neutral algorithm metadata lookup.
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 
@@ -53,3 +53,100 @@ TEST(AlgorithmInfoTest, MacAlgorithmMetadata)
 
 }  // namespace
 }  // namespace score::crypto::daemon::common
+
+namespace
+{
+
+namespace algo_info = score::crypto::daemon::common;
+using score::crypto::EccCurve;
+
+TEST(AlgorithmInfoTest, SizesComeFromTheMatchingCategoryOnly)
+{
+    EXPECT_EQ(algo_info::LookupDigestSize("SHA384"), 48U);
+    EXPECT_FALSE(algo_info::LookupDigestSize("HMAC-SHA384").has_value());
+    EXPECT_EQ(algo_info::LookupMacSize("HMAC-SHA384"), 48U);
+    EXPECT_FALSE(algo_info::LookupMacSize("SHA384").has_value());
+    EXPECT_TRUE(algo_info::LookupCipher("AES-192-CBC").has_value());
+    EXPECT_FALSE(algo_info::LookupCipher("AES-192").has_value());
+    EXPECT_FALSE(algo_info::LookupCipher("AES-192-GCM").has_value());
+}
+
+TEST(AlgorithmInfoTest, CipherPropertiesAreInBytes)
+{
+    const auto cbc = algo_info::LookupCipher("AES-256-CBC");
+    ASSERT_TRUE(cbc.has_value());
+    EXPECT_EQ(cbc->key_size, 32U);
+    EXPECT_EQ(cbc->block_size, 16U);
+    EXPECT_EQ(cbc->iv_size, 16U);
+}
+
+TEST(AlgorithmInfoTest, EcdsaNameSplitsIntoExactTokens)
+{
+    const auto key = algo_info::ParseEcdsaName("ECDSA-P384");
+    ASSERT_TRUE(key.has_value());
+    EXPECT_EQ(key->curve.curve, EccCurve::kP384);
+    EXPECT_FALSE(key->digest.has_value());
+
+    const auto scheme = algo_info::ParseEcdsaName("ECDSA-P256-SHA384");
+    ASSERT_TRUE(scheme.has_value());
+    EXPECT_EQ(scheme->curve.curve, EccCurve::kP256);
+    EXPECT_EQ(scheme->digest, "SHA384");
+}
+
+TEST(AlgorithmInfoTest, EcdsaNameRejectsFragmentsOfOtherTokens)
+{
+    // Each of these contains a curve and/or a hash name as a substring.
+    for (const auto name : {"ECDSA-P2561-SHA256",
+                            "ECDSA-P256-SHA2566",
+                            "ECDSA-P256-SHA256-",
+                            "ECDSA-P256-",
+                            "XECDSA-P256-SHA256",
+                            "ECDSA-P-256-SHA256",
+                            "EC-P256",
+                            "ECDSA-",
+                            "ECDSA",
+                            "P256"})
+    {
+        EXPECT_FALSE(algo_info::ParseEcdsaName(name).has_value()) << name;
+        EXPECT_FALSE(algo_info::IsEcdsaAlgorithm(name)) << name;
+        EXPECT_FALSE(algo_info::LookupEcCurveOfAlgorithm(name).has_value()) << name;
+    }
+}
+
+TEST(AlgorithmInfoTest, CurveTableMatchesCatalog)
+{
+    for (const auto& curve : algo_info::kEcCurves)
+    {
+        EXPECT_EQ(curve.signature_size, 2U * curve.field_size) << curve.name;
+        const auto by_id = algo_info::LookupEcCurve(curve.curve);
+        ASSERT_TRUE(by_id.has_value());
+        EXPECT_EQ(by_id->name, curve.name);
+    }
+    for (const auto& row : score::crypto::kAlgorithmCatalog)
+    {
+        if (row.curve == EccCurve::kNone)
+        {
+            continue;
+        }
+        const auto curve = algo_info::LookupEcCurveOfAlgorithm(row.name);
+        ASSERT_TRUE(curve.has_value()) << row.name;
+        EXPECT_EQ(curve->curve, row.curve) << row.name;
+        EXPECT_EQ(curve->key_bits, row.key_bits) << row.name;
+        if (row.output_size != 0U)
+        {
+            EXPECT_EQ(curve->signature_size, row.output_size) << row.name;
+        }
+    }
+}
+
+TEST(AlgorithmInfoTest, KeySizeCoversKeyAndOperationRows)
+{
+    EXPECT_EQ(algo_info::LookupKeySize("AES-256"), 32U);
+    EXPECT_EQ(algo_info::LookupKeySize("AES-128-CBC"), 16U);
+    EXPECT_EQ(algo_info::LookupKeySize("HMAC-SHA512"), 64U);
+    EXPECT_EQ(algo_info::LookupKeySize("ECDSA-P521"), 66U);
+    EXPECT_FALSE(algo_info::LookupKeySize("SHA256").has_value());
+    EXPECT_FALSE(algo_info::LookupKeySize("AES-512").has_value());
+}
+
+}  // namespace

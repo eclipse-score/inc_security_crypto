@@ -60,7 +60,8 @@ Expected<KeyDataNodeResult, score::crypto::daemon::common::DaemonErrorCode> KeyM
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
-    auto key_node = std::make_shared<KeyEntry>(std::move(handler), params.provider_id, params.slot_handle);
+    auto key_node = std::make_shared<KeyEntry>(
+        std::move(handler), params.provider_id, params.slot_handle, params.permitted_algorithm);
 
     auto& registry = GetProviderRegistry(params.provider_id);
 
@@ -140,7 +141,11 @@ Expected<KeyDataNodeResult, score::crypto::daemon::common::DaemonErrorCode> KeyM
         return score::crypto::make_unexpected(load_result.error());
     }
 
-    return RegisterKeyMaterial(params, std::move(load_result.value()));
+    // The slot's pin travels with the loaded key, so a KeyDataNode is held to
+    // it exactly as the KeySlotDataNode is.
+    KeyRegistrationParams slot_params{params};
+    slot_params.permitted_algorithm = slot_config.permitted_algorithm;
+    return RegisterKeyMaterial(slot_params, std::move(load_result.value()));
 }
 
 // ---------------------------------------------------------------------------
@@ -363,6 +368,7 @@ Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> KeyM
         handle.provider_id = slot_config->GetPrimaryProviderId();
         handle.permissions = slot_config->allowed_operations;
         handle.algorithm = slot_config->algorithm;
+        handle.permitted_algorithm = slot_config->permitted_algorithm;
         return handle;
     }
 
@@ -380,7 +386,10 @@ Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> KeyM
             score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: KeyDataNode has no backing KeyEntry";
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
-        return key_entry->GetHandle();
+        // The pin is daemon policy kept on the entry, not in the provider's handle.
+        ProviderKeyHandle handle = key_entry->GetHandle();
+        handle.permitted_algorithm = key_entry->GetPermittedAlgorithm();
+        return handle;
     }
 
     score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: key_node_id=" << key_node_id

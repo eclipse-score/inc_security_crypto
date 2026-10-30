@@ -174,6 +174,11 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseS
         }
         slot_entry.deployment_format = entry->deployment_format()->str();
 
+        if (entry->permitted_algorithm() != nullptr)
+        {
+            slot_entry.permitted_algorithm = entry->permitted_algorithm()->str();
+        }
+
         out_config.AddSlotEntry(std::move(slot_entry));
 
         score::mw::log::LogDebug() << LOG_PREFIX << "Loaded slot: '" << out_config.GetSlotEntries().back().slot_name

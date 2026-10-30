@@ -596,6 +596,11 @@ Each key slot is described by a ``KeySlotConfig``:
    * - ``allowed_operations``
      - ``KeyOperationPermission``
      - Bitmask: ``kMac``, ``kEncrypt``, ``kDecrypt``, ``kSign``, …
+   * - ``permitted_algorithm``
+     - ``AlgorithmId``
+     - Optional. The only operation algorithm keys from the slot may serve
+       (e.g. ``"AES-256-CBC"``); empty means any algorithm the key fits. A
+       slot whose pin its key can never serve is skipped at load.
    * - ``access_policy``
      - ``AccessPolicy``
      - ``allowed_uids``, ``allowed_write_uids``

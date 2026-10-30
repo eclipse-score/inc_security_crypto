@@ -36,6 +36,9 @@ class OpenSslHandlerFactory final
 
     ~OpenSslHandlerFactory() override = default;
 
+    [[nodiscard]] bool IsAlgorithmSupported(const common::HandlerId& handlerId,
+                                            const common::AlgorithmId& algorithm) const override;
+
   protected:
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateHashHandler(
         const common::AlgorithmId& algorithm) override;

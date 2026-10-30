@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <utility>
 #include <vector>
 
 namespace score::crypto::daemon::key_management
@@ -46,8 +47,15 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
     /// @param handler        Owning key handler (must not be nullptr).
     /// @param provider_id    Numeric provider ID (uint16_t) that created this key.
     /// @param slot_handle    Non-default only when key was loaded from a slot.
-    KeyEntry(IKeyHandler::Sptr handler, common::ProviderId provider_id, SlotHandle slot_handle = SlotHandle{})
-        : m_handler{std::move(handler)}, m_provider_id{provider_id}, m_slot_handle{slot_handle}
+    /// @param permitted_algorithm The only operation algorithm the key may serve; empty means any.
+    KeyEntry(IKeyHandler::Sptr handler,
+             common::ProviderId provider_id,
+             SlotHandle slot_handle = SlotHandle{},
+             common::AlgorithmId permitted_algorithm = {})
+        : m_handler{std::move(handler)},
+          m_provider_id{provider_id},
+          m_slot_handle{slot_handle},
+          m_permitted_algorithm{std::move(permitted_algorithm)}
     {
     }
 
@@ -69,6 +77,12 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
     [[nodiscard]] const ProviderKeyHandle& GetHandle() const noexcept
     {
         return m_handler->GetHandle();
+    }
+
+    /// The only operation algorithm this key may serve; empty means any it fits.
+    [[nodiscard]] const common::AlgorithmId& GetPermittedAlgorithm() const noexcept
+    {
+        return m_permitted_algorithm;
     }
 
     /// Access the key handler (e.g., for crypto operations that need raw bytes).
@@ -117,6 +131,7 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
     IKeyHandler::Sptr m_handler;
     common::ProviderId m_provider_id;
     SlotHandle m_slot_handle;
+    common::AlgorithmId m_permitted_algorithm;
 
     mutable std::mutex m_ref_mutex;  ///< Protects m_referencing_clients.
     std::atomic<std::uint32_t> m_ref_count{0U};

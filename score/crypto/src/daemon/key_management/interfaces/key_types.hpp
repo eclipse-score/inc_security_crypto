@@ -61,6 +61,14 @@ struct ProviderKeyHandle
 
     common::AlgorithmId algorithm{};
     std::size_t key_size{0U};
+
+    /// The only operation algorithm this key may serve, e.g. "AES-256-GCM".
+    /// Empty means any algorithm the key fits.
+    ///
+    /// Policy owned by the daemon, not by the provider: providers leave it
+    /// empty and KeyManagementService::PeekKeyHandle() fills it in from the
+    /// key's registry entry or slot configuration.
+    common::AlgorithmId permitted_algorithm{};
 };
 
 /// @brief The permission set that governs @p required for this key.
@@ -108,6 +116,9 @@ struct KeyGenerationRequest
     /// @brief Operations the public key is permitted to perform (asymmetric only).
     /// Use kExport bit to control public key exportability.
     std::optional<score::crypto::KeyOperationPermission> public_key_permissions{std::nullopt};
+    /// @brief The only operation algorithm the key may serve; empty means any.
+    /// Enforced by the daemon, so providers may ignore it.
+    common::AlgorithmId permitted_algorithm{};
     score::crypto::ExtendedParameters provider_properties{};
 };
 

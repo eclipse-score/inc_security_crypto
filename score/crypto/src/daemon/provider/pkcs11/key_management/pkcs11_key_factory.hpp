@@ -60,6 +60,8 @@ class Pkcs11KeyFactory : public key_management::IKeyFactory
                                           score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
+    [[nodiscard]] bool IsKeyGenerationSupported(const common::AlgorithmId& algorithm) const override;
+
     /// Import raw key material via C_CreateObject (session object, CKA_TOKEN=false).
     ///
     /// Acquires a session from the provider, creates an object, and registers it in the store.

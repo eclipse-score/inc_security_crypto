@@ -200,6 +200,14 @@ struct GenerateKeyParams
     /// Only meaningful when algorithm is asymmetric.
     std::optional<KeyOperationPermission> public_key_permissions{std::nullopt};
 
+    /// @brief The only operation algorithm the key may serve, e.g. "AES-256-GCM".
+    /// Empty (default) means any algorithm the key fits. When set, a context is
+    /// refused with kIncompatibleKeyType unless its algorithm equals this one
+    /// exactly, which stops one key from being used in two modes. Generation
+    /// fails if the key could never serve the algorithm, or if it names no
+    /// keyed operation (e.g. "AES-256").
+    AlgorithmId permitted_algorithm{};
+
     // -- Fluent builder --
 
     GenerateKeyParams& SetAlgorithm(const AlgorithmId& alg) noexcept
@@ -217,6 +225,12 @@ struct GenerateKeyParams
     GenerateKeyParams& SetPublicKeyPermissions(KeyOperationPermission perms) noexcept
     {
         public_key_permissions = perms;
+        return *this;
+    }
+
+    GenerateKeyParams& SetPermittedAlgorithm(const AlgorithmId& alg) noexcept
+    {
+        permitted_algorithm = alg;
         return *this;
     }
 };
