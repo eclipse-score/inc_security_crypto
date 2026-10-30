@@ -39,7 +39,7 @@ struct ScoreProviderEntry
 {
     /// Provider name used to register and look up this provider in ProviderManager.
     std::string providerName{};
-    /// Implementation tag that selects the concrete factory, e.g. "openssl".
+    /// Implementation tag that selects the concrete factory, e.g. "openssl" or "primula".
     std::string providerImpl{};
     /// Provider type (SOFTWARE, HARDWARE, etc.)
     /// Note: Uses string to avoid including common/types.hpp in config header

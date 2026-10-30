@@ -44,14 +44,70 @@ inline constexpr OperationAction KEY_GENERATE = 0x10;
 
 inline constexpr OperationAction KEY_GENERATE_TO_SLOT = 0x11;
 inline constexpr OperationAction KEY_PERSIST = 0x12;
+
+// KEY_DERIVE
+// Request:  data_node_id = context_id,
+//           param[0]: uint64 — source key resource id
+//           param[1]: string — derived-key algorithm
+//           param[2]: uint32 — permissions bitmask (KeyOperationPermission)
+//           param[3..10]: KDF algorithm, salt, label, seed, and optional KDF parameters
+// Response: status_code (SUCCESS/error)
+//           param[0]: uint64 — daemon-assigned ephemeral key resource id
+//           param[1]: uint16 — primary provider id
+// Effect:   Derives ephemeral key material. A non-exportable source cannot produce an exportable derived key.
 inline constexpr OperationAction KEY_DERIVE = 0x20;
 inline constexpr OperationAction KEY_DERIVE_TO_SLOT = 0x21;
+
 inline constexpr OperationAction KEY_AGREE = 0x30;
 inline constexpr OperationAction KEY_AGREE_TO_SLOT = 0x31;
+
+// KEY_GET_ENCAPSULATION_SIZE
+// Request:  data_node_id = context_id,
+//           param[0]: string — KEM algorithm
+//           param[1]: uint64 — peer public-key resource id
+// Response: status_code (SUCCESS/error)
+//           param[0]: uint64 — required ciphertext size
+// Effect:   Returns the ciphertext capacity without creating key material.
+inline constexpr OperationAction KEY_GET_ENCAPSULATION_SIZE = 0x32;
+
+// KEY_ENCAPSULATE
+// Request:  data_node_id = context_id,
+//           param[0]: string — KEM algorithm
+//           param[1]: uint64 — peer public-key resource id
+//           param[2]: uint64 — caller ciphertext capacity
+// Response: status_code (SUCCESS/error)
+//           param[0]: buffer — ciphertext
+//           param[1]: uint64 — daemon-assigned shared-secret resource id
+//           param[2]: uint16 — primary provider id
+// Effect:   Creates an ephemeral, non-exportable, derive-only shared secret.
+inline constexpr OperationAction KEY_ENCAPSULATE = 0x33;
+
+// KEY_DECAPSULATE
+// Request:  data_node_id = context_id,
+//           param[0]: string — KEM algorithm
+//           param[1]: uint64 — private-key resource id
+//           param[2]: buffer — ciphertext
+// Response: status_code (SUCCESS/error)
+//           param[0]: uint64 — daemon-assigned shared-secret resource id
+//           param[1]: uint16 — primary provider id
+// Effect:   Creates an ephemeral, non-exportable, derive-only shared secret.
+inline constexpr OperationAction KEY_DECAPSULATE = 0x34;
+
 inline constexpr OperationAction KEY_WRAP = 0x40;
 inline constexpr OperationAction KEY_GET_WRAP_SIZE = 0x41;
 inline constexpr OperationAction KEY_UNWRAP = 0x50;
 inline constexpr OperationAction KEY_UNWRAP_TO_SLOT = 0x51;
+
+// KEY_IMPORT
+// Request:  data_node_id = context_id,
+//           param[0]: string — key algorithm
+//           param[1]: buffer — encoded key material
+//           param[2]: uint8 — key format (FormatType)
+//           param[3]: uint32 — permissions bitmask (KeyOperationPermission)
+// Response: status_code (SUCCESS/error)
+//           param[0]: uint64 — daemon-assigned ephemeral key resource id
+//           param[1]: uint16 — primary provider id
+// Effect:   Imports ephemeral key material into the daemon key pool, ref_count = 1.
 inline constexpr OperationAction KEY_IMPORT = 0x60;
 inline constexpr OperationAction KEY_IMPORT_TO_SLOT = 0x61;
 

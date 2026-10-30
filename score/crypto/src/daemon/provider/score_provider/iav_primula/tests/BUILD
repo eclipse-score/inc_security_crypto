@@ -1,0 +1,39 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+cc_test(
+    name = "iav_primula_key_management_test",
+    srcs = ["iav_primula_key_management_test.cpp"],
+    deps = [
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/key_management",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
+        "//score/crypto/src/daemon/provider/score_provider/iav_primula:provider_iav_primula_library",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "iav_primula_signature_test",
+    srcs = ["iav_primula_signature_test.cpp"],
+    deps = [
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/provider/handler:sign_handler_operations",
+        "//score/crypto/src/daemon/provider/score_provider/iav_primula:provider_iav_primula_library",
+        "//score/crypto/src/daemon/provider/score_provider/operations/sign:score_sign_handler",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "iav_primula_verification_test",
+    srcs = ["iav_primula_verification_test.cpp"],
+    deps = [
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/provider/handler:verify_handler_operations",
+        "//score/crypto/src/daemon/provider/score_provider/iav_primula:provider_iav_primula_library",
+        "//score/crypto/src/daemon/provider/score_provider/operations/verify:score_verify_handler",
+        "@googletest//:gtest_main",
+    ],
+)

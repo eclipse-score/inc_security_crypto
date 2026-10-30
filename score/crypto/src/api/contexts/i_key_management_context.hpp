@@ -32,6 +32,14 @@ namespace score
 namespace crypto
 {
 
+/// Ciphertext is written into the caller's output buffer. The secret remains
+/// in the provider and is accessible only through authorized key derivation.
+struct EncapsulationResult
+{
+    CryptoResourceGuard shared_secret;
+    std::size_t ciphertext_size;
+};
+
 /// @brief Interface for key lifecycle management operations.
 ///
 /// All key-producing methods return a CryptoResourceGuard that owns the
@@ -59,6 +67,8 @@ namespace crypto
 /// with a fluent builder API (e.g., GenerateKeyParams, DeriveKeyParams).
 /// Key derivation uses structured KdfParameters with typed fields,
 /// supporting HKDF, TLS 1.2 PRF, TLS 1.3 HKDF, PBKDF2, and SP800-108.
+/// KEM outputs are always ephemeral and non-exportable; EncapsulateKey() returns
+/// the secret guard together with the ciphertext length. KEM has no slot overload.
 ///
 /// Two key usage paths after creation:
 /// - **Slot-direct**: Pass a resolved kKeySlot directly to config.SetKey().
@@ -122,6 +132,26 @@ class IKeyManagementContext : public IContext
                                                       const GenerateKeyParams& params) = 0;
 
     // =========================================================================
+    // Key Encapsulation (ephemeral, non-exportable shared secrets)
+    // =========================================================================
+
+    /// @brief Query ciphertext capacity without producing a secret.
+    virtual score::Result<std::size_t> GetEncapsulationCiphertextSize(const EncapsulateKeyParams& params) = 0;
+
+    /// @brief Produce ciphertext and a non-exportable, derive-only secret guard.
+    /// @param params Imported public-key resource and its KEM algorithm; requires kAgree.
+    /// @param ciphertext_out Caller-owned output; query capacity first with GetEncapsulationCiphertextSize().
+    /// @return Ciphertext length and a guard for provider-owned secret storage.
+    /// No secret bytes are returned. Ignore ciphertext_out on failure.
+    virtual score::Result<EncapsulationResult> EncapsulateKey(const EncapsulateKeyParams& params,
+                                                              score::cpp::span<uint8_t> ciphertext_out) = 0;
+
+    /// @brief Recover a shared secret into provider storage; returns only its guard.
+    /// The private-key resource must belong to this context's provider and permit kAgree.
+    /// Use DeriveKey() with the returned guard, then release the guard after derivation.
+    virtual score::Result<CryptoResourceGuard> DecapsulateKey(const DecapsulateKeyParams& params) = 0;
+
+    // =========================================================================
     // Key Derivation
     // =========================================================================
 
@@ -144,11 +174,11 @@ class IKeyManagementContext : public IContext
     // Key Agreement
     // =========================================================================
 
-    /// @brief Performs key agreement (ECDH, X25519, ML-KEM decapsulation).
+    /// @brief Performs key agreement (ECDH, X25519). Use DecapsulateKey() for KEM.
     ///
     /// When AgreeKeyParams::kdf is set, the daemon shall perform agreement + KDF
     /// atomically in a single IPC call, returning the derived key directly.
-    /// When kdf is omitted, the raw shared secret is returned.
+    /// When kdf is omitted, returns a guard for the provider-held shared secret.
     ///
     /// @param params Agreement parameters (private key, peer public key,
     ///        agreement algorithm, optional KDF for combined agree+derive).

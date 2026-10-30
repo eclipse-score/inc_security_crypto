@@ -46,10 +46,13 @@ namespace crypto
 /// IReleaseCallback bound to the daemon connection.
 ///
 /// Currently implements:
-///   - GenerateKey (ephemeral overload) — returns CryptoResourceGuard
+///   - GenerateKey, ImportKey, ExportKey (ephemeral overloads)
+///   - GetEncapsulationCiphertextSize, EncapsulateKey, DecapsulateKey
+///   - LoadKey
 ///   - Key release via CryptoResourceGuard RAII / explicit Release()
 ///
-/// Other operations (DeriveKey, AgreeKey, etc.) return kUnsupportedOperation stubs.
+/// Provider support is required for each operation; the IAV KEM backend is
+/// still incomplete. Slot-writing operations, DeriveKey, and AgreeKey are stubs.
 class KeyManagementContextImpl final : public IKeyManagementContext
 {
   public:
@@ -73,6 +76,12 @@ class KeyManagementContextImpl final : public IKeyManagementContext
                                               const std::optional<CryptoResourceId>& public_slot,
                                               const GenerateKeyParams& params) override;
 
+    // -- KEM (all secret outputs are managed, non-exportable resources) --
+    score::Result<std::size_t> GetEncapsulationCiphertextSize(const EncapsulateKeyParams& params) override;
+    score::Result<EncapsulationResult> EncapsulateKey(const EncapsulateKeyParams& params,
+                                                      score::cpp::span<uint8_t> ciphertext_out) override;
+    score::Result<CryptoResourceGuard> DecapsulateKey(const DecapsulateKeyParams& params) override;
+
     // -- Key Derivation (stubs) --
     score::Result<CryptoResourceGuard> DeriveKey(const DeriveKeyParams& params) override;
     score::Result<std::monostate> DeriveKey(const CryptoResourceId& target_slot,
@@ -91,19 +100,19 @@ class KeyManagementContextImpl final : public IKeyManagementContext
     score::Result<std::monostate> UnwrapKey(const CryptoResourceId& target_slot,
                                             const UnwrapKeyParams& params) override;
 
-    // -- Key Import (stubs) --
+    // -- Key Import (ephemeral implemented; slot overload is a stub) --
     score::Result<CryptoResourceGuard> ImportKey(const ImportKeyParams& params) override;
     score::Result<std::monostate> ImportKey(const CryptoResourceId& target_slot,
                                             const ImportKeyParams& params) override;
 
-    // -- Key Loading (stub) --
+    // -- Key Loading --
     score::Result<CryptoResourceGuard> LoadKey(const CryptoResourceId& slot) override;
 
     // -- Key Wrapping (stubs) --
     score::Result<std::size_t> WrapKey(const WrapKeyParams& params, score::cpp::span<uint8_t> output) override;
     score::Result<std::size_t> GetWrapKeySize(const WrapKeyParams& params) override;
 
-    // -- Key Export (stubs) --
+    // -- Key Export --
     score::Result<std::size_t> ExportKey(const CryptoResourceId& key,
                                          score::cpp::span<uint8_t> output,
                                          FormatType format) override;
@@ -116,6 +125,11 @@ class KeyManagementContextImpl final : public IKeyManagementContext
     score::Result<KeySlotInfo> GetKeySlotInfo(const CryptoResourceId& slot) override;
 
   private:
+    score::Result<daemon::control_plane::protocol::SingleOperationResponse> ExchangeKeyOperation(
+        const Expected<daemon::control_plane::protocol::ControlRequest, CryptoErrorCode>& request,
+        std::size_t response_parameter_count);
+    score::Result<CryptoResourceGuard> MakeKeyGuard(const daemon::common::ResponseParameters& parameters,
+                                                    std::size_t offset);
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     score::crypto::daemon::control_plane::protocol::DataNodeId m_context_id;
 

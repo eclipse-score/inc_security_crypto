@@ -29,14 +29,36 @@ namespace score::crypto::daemon::key_management
 
 class IKeySlotHandler;
 
+struct KeyEncapsulationRequest
+{
+    const IKeyHandler& public_key;
+    common::AlgorithmId algorithm;
+};
+
+struct KeyDecapsulationRequest
+{
+    const IKeyHandler& private_key;
+    common::AlgorithmId algorithm;
+    score::cpp::span<const std::uint8_t> ciphertext;
+};
+
+/// Internal provider result. Only ciphertext can be serialized; shared_secret
+/// must first be registered with KeyManagementService.
+struct ProviderEncapsulationResult
+{
+    std::vector<std::uint8_t> ciphertext;
+    IKeyHandler::Sptr shared_secret;
+};
+
 /// Provider-side factory for creating and importing key material.
 ///
 /// Each provider backend (OpenSSL, PKCS#11, TEE) implements this interface.
 /// The factory is a long-lived singleton per provider: it is constructed once
 /// during provider initialization and shared across all daemon operations.
 ///
-/// Every successful method returns an IKeyHandler::Sptr. The caller transfers
-/// ownership to a KeyDataNode via KeyManagementService::RegisterKeyMaterial().
+/// Methods creating key material return an owning IKeyHandler::Sptr, directly
+/// or within ProviderEncapsulationResult. The caller registers that material
+/// via KeyManagementService::RegisterKeyMaterial().
 ///
 /// Methods other than GenerateKey have default implementations that return
 /// kNotSupported, so providers implement only what they support.
@@ -70,6 +92,26 @@ class IKeyFactory
     /// Default: returns kNotSupported.
     [[nodiscard]] virtual score::crypto::Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const KeyImportRequest& request);
+
+    /// Query ciphertext capacity without generating or registering secret material.
+    ///
+    /// Default: returns kUnsupportedOperation.
+    [[nodiscard]] virtual Expected<std::size_t, common::DaemonErrorCode> GetEncapsulationCiphertextSize(
+        const KeyEncapsulationRequest& request) const;
+
+    /// Return ciphertext and a fresh owning, derive-only shared-secret handler.
+    /// The caller must hold an operation lease on request.public_key throughout.
+    ///
+    /// Default: returns kUnsupportedOperation.
+    [[nodiscard]] virtual Expected<ProviderEncapsulationResult, common::DaemonErrorCode> EncapsulateKey(
+        const KeyEncapsulationRequest& request);
+
+    /// Return a fresh owning, derive-only shared-secret handler. Do not export it.
+    /// The caller must hold an operation lease on request.private_key throughout.
+    ///
+    /// Default: returns kUnsupportedOperation.
+    [[nodiscard]] virtual Expected<IKeyHandler::Sptr, common::DaemonErrorCode> DecapsulateKey(
+        const KeyDecapsulationRequest& request);
 
     /// Derive a child key using the specified KDF.
     ///

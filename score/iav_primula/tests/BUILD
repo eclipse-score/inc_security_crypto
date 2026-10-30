@@ -14,8 +14,8 @@
 load("@rules_rust//rust:defs.bzl", "rust_test")
 
 rust_test(
-    name = "hello_test",
-    srcs = ["hello_test.rs"],
+    name = "ffi_test",
+    srcs = ["ffi_test.rs"],
     edition = "2021",
     deps = ["//score/iav_primula"],
 )

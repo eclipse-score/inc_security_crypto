@@ -17,11 +17,13 @@
 #include "score/crypto/src/api/config/key_operation_params.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
+#include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace score::crypto::daemon::key_management
@@ -31,12 +33,20 @@ namespace score::crypto::daemon::key_management
 // ProviderKeyHandle — opaque per-key runtime reference
 // ---------------------------------------------------------------------------
 
+/// Distinguishes KEM input roles and shared-secret output from other key material.
+enum class KeyMaterialKind : std::uint8_t
+{
+    kUnspecified,
+    kPublicKey,
+    kPrivateKey,
+    kSymmetricKey,
+    kSharedSecret
+};
+
 /// Runtime reference to key material held by a specific provider.
 ///
-/// The opaque_id is allocated, interpreted, and freed exclusively by the
-/// provider that issued the handle.  Callers must not dereference or
-/// arithmetic-shift opaque_id.
-///
+/// Only the issuing provider may interpret or dereference opaque_id. This
+/// internal metadata is never a client resource identity.
 ///   OpenSSL  : opaque_id maps to raw key bytes managed by the factory
 ///   PKCS#11  : opaque_id maps to (CK_SESSION_HANDLE, CK_OBJECT_HANDLE)
 ///   TEE/PSA  : opaque_id = persistent key identifier from the TEE driver
@@ -61,6 +71,7 @@ struct ProviderKeyHandle
 
     common::AlgorithmId algorithm{};
     std::size_t key_size{0U};
+    KeyMaterialKind material_kind{KeyMaterialKind::kUnspecified};
 };
 
 /// @brief The permission set that governs @p required for this key.
@@ -137,7 +148,7 @@ struct KeyDeriveRequest
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
 };
 
-/// Parameters for key agreement (ECDH, X25519, ML-KEM).
+/// Parameters for key agreement (ECDH, X25519). KEM uses dedicated factory requests.
 ///
 /// When kdf is set, the provider performs agree-then-derive atomically,
 /// matching AgreeKeyParams semantics from the client API.
@@ -194,13 +205,14 @@ struct UnwrapKeyRequest
 };
 
 // ---------------------------------------------------------------------------
-// SecureKeyBytes — RAII container for exported key material
+// SecureKeyBytes — move-only storage for temporary or provider-owned secrets
 // ---------------------------------------------------------------------------
 
 /// Bytes are securely zeroized on destruction.
 ///
-/// Ephemeral keys remain associated with their creating provider for the
-/// duration of the context. Must not be stored in persistent data structures.
+/// Allocate to the final size before filling the buffer. Do not resize or
+/// reallocate populated secret storage: discarded allocations cannot be wiped
+/// by this owner. This container does not lock pages or exclude crash dumps.
 struct SecureKeyBytes
 {
     std::vector<std::uint8_t> bytes;
@@ -210,16 +222,21 @@ struct SecureKeyBytes
 
     ~SecureKeyBytes()
     {
-        for (auto& b : bytes)
-        {
-            b = 0U;
-        }
+        common::SecureZeroizeAndClear(bytes);
     }
 
     SecureKeyBytes(const SecureKeyBytes&) = delete;
     SecureKeyBytes& operator=(const SecureKeyBytes&) = delete;
     SecureKeyBytes(SecureKeyBytes&&) noexcept = default;
-    SecureKeyBytes& operator=(SecureKeyBytes&&) noexcept = default;
+    SecureKeyBytes& operator=(SecureKeyBytes&& other) noexcept
+    {
+        if (this != &other)
+        {
+            common::SecureZeroizeAndClear(bytes);
+            bytes = std::move(other.bytes);
+        }
+        return *this;
+    }
 };
 
 // ---------------------------------------------------------------------------

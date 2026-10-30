@@ -105,6 +105,7 @@ class ScoreSignHandler : public handler::Handler
         score::cpp::span<const std::uint8_t> data);
 
     /// @brief Produce the signature over the accumulated message.
+    /// Message data must be supplied through UpdateSign() before finalization.
     /// @param signature Caller-provided output buffer, already resolved by the executor.
     /// @return Bytes written.
     [[nodiscard]] virtual Expected<std::size_t, common::DaemonErrorCode> FinalizeSign(

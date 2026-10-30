@@ -67,7 +67,7 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
 }
 
 // ---------------------------------------------------------------------------
-// Default implementations — return unsupported
+// Default provider hooks — return kUnsupportedOperation when not overridden.
 // ---------------------------------------------------------------------------
 
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateHashHandler(const common::AlgorithmId& /*algorithm*/)
@@ -97,7 +97,7 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
 
-::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateCipherHandler(
+    ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateCipherHandler(
     const common::AlgorithmId& /*algorithm*/)
 {
     ::score::result::Error error(
