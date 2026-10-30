@@ -38,7 +38,6 @@ constexpr std::string_view kLogPrefix{"[OPENSSL_RSA_PSS_SIGN_HANDLER] "};
 namespace algo = ::score::crypto::daemon::common;
 using ::score::crypto::daemon::common::DaemonErrorCode;
 using ::score::crypto::daemon::common::StreamOperationState;
-namespace signature = ::score::crypto::daemon::provider::score_provider::openssl::handler::signature;
 
 OpenSslRsaPssSignHandler::OpenSslRsaPssSignHandler(std::unique_ptr<operations::sign::SignExecutor> executor,
                                                    const common::AlgorithmId& algorithm)
