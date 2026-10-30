@@ -30,7 +30,7 @@ namespace ProviderTypeConverter
 /// @brief Encode a client-side ProviderType preference as its IPC wire value.
 ///
 /// The wire protocol carries the raw uint8_t representation of the ProviderType
-/// enumerator.  The daemon decodes this with its own FromWireProviderType()
+/// enumerator. The daemon decodes this with DecodeProviderTypePreference()
 /// function and maps it to its internal CryptoProviderType classification.
 ///
 /// This function must NOT depend on daemon-internal headers — the client library
@@ -46,6 +46,12 @@ inline constexpr std::uint8_t ToWireValue(ProviderType api_type) noexcept
 {
     return static_cast<std::uint8_t>(api_type);
 }
+
+static_assert(ToWireValue(ProviderType::kDefault) == 0U, "ProviderType wire value changed");
+static_assert(ToWireValue(ProviderType::kHardware) == 1U, "ProviderType wire value changed");
+static_assert(ToWireValue(ProviderType::kSoftware) == 2U, "ProviderType wire value changed");
+static_assert(ToWireValue(ProviderType::kHardwarePreferred) == 3U, "ProviderType wire value changed");
+static_assert(ToWireValue(ProviderType::kSoftwarePreferred) == 4U, "ProviderType wire value changed");
 
 }  // namespace ProviderTypeConverter
 
