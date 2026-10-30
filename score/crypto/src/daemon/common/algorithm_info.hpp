@@ -27,63 +27,100 @@ namespace score::crypto::daemon::common
 // Hash algorithm properties (provider-independent)
 // ---------------------------------------------------------------------------
 
-struct HashAlgorithmInfo
+/// @brief Provider-neutral identifiers for supported hash algorithms.
+enum class HashAlgorithm
 {
-    std::string_view name;
-    std::size_t digest_size;  ///< Output size in bytes
+    kSha256,  ///< SHA-256.
+    kSha384,  ///< SHA-384.
+    kSha512,  ///< SHA-512.
+    kSha224,  ///< SHA-224.
 };
 
-inline constexpr std::array<HashAlgorithmInfo, 6UL> kHashAlgorithms{{
-    {"SHA256", 32U},
-    {"SHA384", 48U},
-    {"SHA512", 64U},
-    {"SHA224", 28U},
-    {"SHA1", 20U},
-    {"MD5", 16U},
+/// @brief Provider-neutral metadata for a hash algorithm.
+struct HashAlgorithmInfo
+{
+    HashAlgorithm algorithm;  ///< Internal algorithm identifier.
+    std::string_view name;    ///< API algorithm identifier.
+    std::size_t digest_size;  ///< Output size in bytes.
+};
+
+inline constexpr std::array<HashAlgorithmInfo, 4UL> kHashAlgorithms{{
+    {HashAlgorithm::kSha256, "SHA256", 32U},
+    {HashAlgorithm::kSha384, "SHA384", 48U},
+    {HashAlgorithm::kSha512, "SHA512", 64U},
+    {HashAlgorithm::kSha224, "SHA224", 28U},
 }};
 
-/// @brief Look up digest size by algorithm name.
-/// @return digest size in bytes, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<std::size_t> LookupDigestSize(std::string_view algorithm) noexcept
+/// @brief Look up provider-independent hash algorithm metadata.
+/// @return algorithm metadata, or std::nullopt if unknown.
+[[nodiscard]] inline constexpr std::optional<HashAlgorithmInfo> LookupHashAlgorithmInfo(
+    std::string_view algorithm) noexcept
 {
     for (const auto& entry : kHashAlgorithms)
     {
         if (entry.name == algorithm)
         {
-            return entry.digest_size;
+            return entry;
         }
     }
     return std::nullopt;
+}
+
+/// @brief Look up digest size by algorithm name.
+/// @return digest size in bytes, or std::nullopt if unknown.
+[[nodiscard]] inline constexpr std::optional<std::size_t> LookupDigestSize(std::string_view algorithm) noexcept
+{
+    const auto info = LookupHashAlgorithmInfo(algorithm);
+    return info.has_value() ? std::optional<std::size_t>{info->digest_size} : std::nullopt;
 }
 
 // ---------------------------------------------------------------------------
 // MAC algorithm properties (provider-independent)
 // ---------------------------------------------------------------------------
 
+/// @brief Provider-neutral identifiers for supported MAC algorithms.
+enum class MacAlgorithm
+{
+    kHmacSha256,  ///< HMAC with SHA-256.
+    kHmacSha384,  ///< HMAC with SHA-384.
+    kHmacSha512,  ///< HMAC with SHA-512.
+};
+
+/// @brief Provider-neutral metadata for a MAC algorithm.
 struct MacAlgorithmInfo
 {
-    std::string_view name;
-    std::size_t mac_size;  ///< Output tag size in bytes
+    MacAlgorithm algorithm;  ///< Internal algorithm identifier.
+    std::string_view name;   ///< API algorithm identifier.
+    std::size_t mac_size;    ///< Output tag size in bytes.
 };
 
 inline constexpr std::array<MacAlgorithmInfo, 3UL> kMacAlgorithms = {{
-    {"HMAC-SHA256", 32U},
-    {"HMAC-SHA384", 48U},
-    {"HMAC-SHA512", 64U},
+    {MacAlgorithm::kHmacSha256, "HMAC-SHA256", 32U},
+    {MacAlgorithm::kHmacSha384, "HMAC-SHA384", 48U},
+    {MacAlgorithm::kHmacSha512, "HMAC-SHA512", 64U},
 }};
 
-/// @brief Look up MAC output size by algorithm name.
-/// @return MAC size in bytes, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<std::size_t> LookupMacSize(std::string_view algorithm) noexcept
+/// @brief Look up provider-independent MAC algorithm metadata.
+/// @return algorithm metadata, or std::nullopt if unknown.
+[[nodiscard]] inline constexpr std::optional<MacAlgorithmInfo> LookupMacAlgorithmInfo(
+    std::string_view algorithm) noexcept
 {
     for (const auto& entry : kMacAlgorithms)
     {
         if (entry.name == algorithm)
         {
-            return entry.mac_size;
+            return entry;
         }
     }
     return std::nullopt;
+}
+
+/// @brief Look up MAC output size by algorithm name.
+/// @return MAC size in bytes, or std::nullopt if unknown.
+[[nodiscard]] inline constexpr std::optional<std::size_t> LookupMacSize(std::string_view algorithm) noexcept
+{
+    const auto info = LookupMacAlgorithmInfo(algorithm);
+    return info.has_value() ? std::optional<std::size_t>{info->mac_size} : std::nullopt;
 }
 
 // ---------------------------------------------------------------------------

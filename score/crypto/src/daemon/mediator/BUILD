@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
     name = "mediator_operations",
@@ -19,7 +19,19 @@ cc_library(
     visibility = [
         "//:__subpackages__",
     ],
-    deps = ["//score/crypto/src/daemon/common"],
+    deps = [
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
+    ],
+)
+
+cc_test(
+    name = "provider_type_preference_test",
+    srcs = ["provider_type_preference_test.cpp"],
+    deps = [
+        ":mediator_operations",
+        "@googletest//:gtest_main",
+    ],
 )
 
 cc_library(
