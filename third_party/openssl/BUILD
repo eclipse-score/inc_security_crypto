@@ -152,5 +152,5 @@ filegroup(
         ":openssl_libcrypto_so_extract",
         ":openssl_libssl_so_extract",
     ],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
 )

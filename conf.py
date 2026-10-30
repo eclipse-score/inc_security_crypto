@@ -48,6 +48,7 @@ exclude_patterns = [
     ".venv_docs",
     "_build",
     "examples/README.md",
+    "examples/integration/**",  # standalone consumer module
     "score/tests/**",
     "score/crypto/src/backend/README.md",  # developer-only README
     "score/cryptoki/README.md",  # developer-only README
