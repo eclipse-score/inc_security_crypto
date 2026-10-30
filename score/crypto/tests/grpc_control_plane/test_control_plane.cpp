@@ -16,6 +16,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -140,8 +141,13 @@ class ControlPlaneTest : public ::testing::Test
         // Namespace alias to avoid conflicts with unistd.h daemon() function
         namespace ipc = score::crypto::ipc;
 
-        // Generate unique socket path for this test
-        _socket_path = "/tmp/test_crypto_" + std::to_string(getpid()) + "_" +
+        // Generate unique socket path for this test. Use $TEST_TMPDIR (Bazel's
+        // per-test scratch dir) so the Unix socket lands on a real filesystem:
+        // on QNX /tmp is a /dev/shmem symlink, which cannot host a socket file
+        // and makes bind() fail. Fall back to /tmp for non-Bazel runs.
+        const char* tmp_dir = std::getenv("TEST_TMPDIR");
+        _socket_path = std::string(tmp_dir && tmp_dir[0] != '\0' ? tmp_dir : "/tmp") + "/test_crypto_" +
+                       std::to_string(getpid()) + "_" +
                        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".sock";
 
         // Create default config for testing
