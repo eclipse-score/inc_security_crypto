@@ -12,7 +12,7 @@
 // *******************************************************************************
 
 // Crypto Configuration Schema
-// Covers key slot configuration and certificate management configuration.
+// Covers component configuration and references to backend-owned configuration.
 
 file_identifier "CCFG";  // Crypto Configuration
 
@@ -177,6 +177,27 @@ table CertSlotConfig {
 }
 
 // ---------------------------------------------------------------------------
+// Provider backend configuration references
+// ---------------------------------------------------------------------------
+
+/// Reference to a backend-owned configuration file.
+///
+/// The common crypto configuration deliberately does not include backend
+/// schemas. This keeps disabled backends out of the binary and lets each
+/// backend own, version, parse, and validate its custom configuration.
+table BackendConfigReference {
+  /// Stable backend parser identifier, e.g. "openssl", "pkcs11", or "primula".
+  backend_id: string (required);
+  /// Absolute path, or a path relative to this common configuration file.
+  config_path: string (required);
+}
+
+/// Backend-specific configuration files available to compiled-in providers.
+table BackendConfigSection {
+  entries: [BackendConfigReference];
+}
+
+// ---------------------------------------------------------------------------
 // Top-level configuration root
 // ---------------------------------------------------------------------------
 
@@ -192,6 +213,7 @@ table CertSlotConfig {
 table CryptoConfig {
   key_slot_config: KeySlotConfig;
   cert_slot_config: CertSlotConfig;
+  backend_config: BackendConfigSection;
 }
 
 root_type CryptoConfig;

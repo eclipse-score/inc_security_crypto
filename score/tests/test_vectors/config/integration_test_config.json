@@ -25,7 +25,7 @@
       {
         "slot_name": "test/pkcs11-AES-256",
         "algorithm": "AES-256",
-        "provider_names": ["PKCS11_ENGINE"],
+        "provider_names": ["PKCS11_CONFIGURED_ENGINE"],
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
@@ -45,7 +45,7 @@
       {
         "slot_name": "HMAC_SHA256_IntegrationTestKey",
         "algorithm": "AES-256",
-        "provider_names": ["PKCS11_ENGINE"],
+        "provider_names": ["PKCS11_CONFIGURED_ENGINE"],
         "allowed_operations": "MAC",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
@@ -65,7 +65,7 @@
       {
         "slot_name": "HMAC_SHA256_SignOnlySlot",
         "algorithm": "AES-256",
-        "provider_names": ["PKCS11_ENGINE"],
+        "provider_names": ["PKCS11_CONFIGURED_ENGINE"],
         "allowed_operations": "SIGN",
         "allowed_uids": [0, 1000],
         "allowed_write_uids": [0],
@@ -403,6 +403,14 @@
         "uid": 1000,
         "app_resource_id": "Ed25519_RFC8032_IntegrationTestKey_OpenSSL",
         "slot_name": "Ed25519_RFC8032_IntegrationTestKey_OpenSSL"
+      }
+    ]
+  },
+  "backend_config": {
+    "entries": [
+      {
+        "backend_id": "pkcs11",
+        "config_path": "integration_pkcs11_config.bin"
       }
     ]
   }

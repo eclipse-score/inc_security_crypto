@@ -29,14 +29,14 @@
 namespace score::crypto::daemon::config::keyslot
 {
 // Forward declarations for FlatBuffers-generated types (key slot config)
-class CryptoConfig;
-class KeySlotConfig;
+struct CryptoConfig;
+struct KeySlotConfig;
 // Forward declarations for FlatBuffers-generated types (cert config)
-class CertSlotConfig;
-class CertSlotEntry;
-class TrustStoreEntry;
-class AppCertSlotMapping;
-class AppTrustStoreMapping;
+struct CertSlotConfig;
+struct CertSlotEntry;
+struct TrustStoreEntry;
+struct AppCertSlotMapping;
+struct AppTrustStoreMapping;
 }  // namespace score::crypto::daemon::config::keyslot
 
 namespace score::crypto::daemon::config
@@ -120,6 +120,12 @@ class FlatBufferConfigParser
     ///         cert_slot_config, or DaemonErrorCode if the present section is malformed
     static Expected<bool, common::DaemonErrorCode> ParseCertManagementConfig(const ConfigFile& file,
                                                                              CertificateConfig& out_config);
+
+    /// @brief Parse provider-neutral references to backend-owned config files.
+    /// @return true when the section is present, false when absent, or an error
+    ///         when the section is malformed.
+    static Expected<bool, common::DaemonErrorCode> ParseBackendConfigReferences(const ConfigFile& file,
+                                                                                BackendConfigCatalog& out_config);
 
     // -----------------------------------------------------------------------
     // Low-level helpers — key slot config (binary FlatBuffers)
