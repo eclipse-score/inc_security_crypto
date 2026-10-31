@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
 
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 
 #include "score/mw/log/logging.h"
@@ -57,6 +58,8 @@ Pkcs11KeyManagementHandler::Execute(const common::OperationIdentifier& operation
 
 static constexpr const char* kSupportedAlgorithms[] =
     {"HMAC-SHA256", "HMAC-SHA384", "HMAC-SHA512", "AES-128", "AES-192", "AES-256"};
+static_assert(common::AllInCatalog(kSupportedAlgorithms),
+              "every PKCS#11 key algorithm must be in score::crypto::kAlgorithmCatalog");
 
 bool Pkcs11KeyManagementHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
 {

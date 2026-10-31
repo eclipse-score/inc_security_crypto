@@ -436,6 +436,80 @@ Consequences
 
 ---
 
+Algorithm Catalog Alongside ``AlgorithmId``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. dec_rec:: Structured Algorithm Catalog Alongside String AlgorithmId
+   :id: dec_rec__crypto__alg_catalog
+   :version: 1
+   :status: proposed
+   :context: doc__crypto_architecture
+   :decision: ``AlgorithmId`` stays the string on the wire and in the configs. A constexpr catalog (``score/crypto/src/api/types/algorithm.hpp``) maps every known name, by exact match, to an ``Algorithm`` enumerator and an ``AlgorithmDescriptor`` holding category, key type, key length, hash, curve, mode and fixed output size. Code that needs a property of an algorithm reads it from the catalog instead of searching the name for fragments.
+
+   .. :affects: comp__crypto
+
+Context
+-------
+
+The daemon derived algorithm properties by searching identifiers for
+fragments: ``"P256"`` anywhere in a name selected the P-256 curve, ``"SHA256"``
+anywhere selected SHA-256, and ``"ECDSA"`` plus a curve anywhere made a name an
+ECDSA algorithm, so ``"XECDSA-P256"`` and ``"ECDSA-P2561-SHA256"`` were accepted.
+RSA-PSS names were parsed by prefix and their digest found by searching for a
+hash name, so ``"RSA-PSS-20481-SHA256"`` resolved to a 2048-bit key.
+The PKCS#11 provider took the key type and length from the first entry of its
+table found anywhere in the name (``"AES-128"``, ``"HMAC-SHA256"``, ...). Each
+table repeated its own list of names, none recorded the key type an operation
+algorithm needs, and nothing compared a key's algorithm with the operation's
+before binding them, so a P-256 key could be bound to an ECDSA-P384 context.
+
+Decision
+--------
+
+The open set stays: ``AlgorithmId`` remains ``FixedCapacityString<64>``
+(see the previous record), and a name the catalog does not know is passed to
+the providers unchanged. On top of it:
+
+* ``FromAlgorithmName()`` / ``ToAlgorithmName()`` convert between the string and
+  the ``Algorithm`` enumerator by exact, case-sensitive match.
+* ``GetAlgorithmDescriptor()`` and ``GetAlgorithmCategory()`` expose the
+  properties of a known algorithm.
+* The hash, MAC, key, cipher and curve helpers in
+  ``daemon/common/algorithm_info.hpp`` resolve through the catalog; the daemon
+  keeps no hash or MAC table of its own. ECDSA identifiers are split into exact
+  ``ECDSA-<curve>[-<hash>]`` tokens, where the hash token must name a hash row,
+  so any curve/hash pairing such as ``"ECDSA-P256-SHA384"`` is an ECDSA name
+  without a row of its own. The RSA-PSS and Ed25519 helpers read modulus
+  length, digest and key type from the catalog row.
+* Providers map the catalog's ``HashFunction`` to their own digest type
+  (``EVP_MD``, ``CKM_SHA*``) in a ``switch`` without a default case, so a hash
+  added to the catalog does not compile without an explicit support decision
+  in every provider. MD5 and SHA-1 have catalog rows and are refused there;
+  the OpenSSL provider serves ECDSA for every pairing whose hash it maps.
+* Ed25519 has no parameters, so ``"Ed25519"`` is a single row of category
+  signature with key type ``kEd25519``, and names both the key and the scheme.
+* The catalog holds properties; each provider keeps its own list of the names
+  it serves. ``AllInCatalog()`` checks such a list at compile time, so an entry
+  that is misspelt or not in the catalog under the expected category fails the
+  build instead of leaving the algorithm silently unserved. ECDSA pairings
+  without a catalog row have no ``Algorithm`` enumerator.
+
+Consequences
+------------
+
+**Positive:**
+
+* One table holds the properties of every known algorithm, available to client and daemon.
+* No identifier is accepted because it contains another identifier.
+* Key and operation algorithms can be compared on key type, length and curve.
+
+**Negative:**
+
+* A new algorithm needs a catalog row in addition to provider support; a
+  provider list entry without one does not compile.
+
+---
+
 Synchronous-Only IPC Model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
