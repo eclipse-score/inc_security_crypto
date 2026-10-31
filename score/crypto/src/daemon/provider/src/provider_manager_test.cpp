@@ -21,10 +21,14 @@
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
 
 #include <gtest/gtest.h>
+#include <cstddef>
 #include <memory>
+#include <string>
+#include <utility>
 
 namespace provider = score::crypto::daemon::provider;
 namespace common = score::crypto::daemon::common;
+namespace config = score::crypto::daemon::config;
 
 namespace
 {
@@ -41,6 +45,8 @@ class ConfigurableStubProvider final : public provider::IProvider
 
     bool Initialize(const provider::ProviderInitContext& ctx) override
     {
+        (void)ctx;
+        ++m_initialization_attempts;
         if (m_fail_init)
         {
             return false;
@@ -51,6 +57,7 @@ class ConfigurableStubProvider final : public provider::IProvider
 
     void Shutdown() override
     {
+        ++m_shutdown_calls;
         m_initialized = false;
     }
 
@@ -73,12 +80,29 @@ class ConfigurableStubProvider final : public provider::IProvider
         return m_capabilities;
     }
 
+    void SetInitializationFailure(bool fail_init)
+    {
+        m_fail_init = fail_init;
+    }
+
+    std::size_t GetInitializationAttempts() const noexcept
+    {
+        return m_initialization_attempts;
+    }
+
+    std::size_t GetShutdownCalls() const noexcept
+    {
+        return m_shutdown_calls;
+    }
+
   private:
     std::string m_name;
     common::ProviderId m_id;
     bool m_fail_init;
     common::ProviderCapability m_capabilities;
     bool m_initialized{false};
+    std::size_t m_initialization_attempts{0U};
+    std::size_t m_shutdown_calls{0U};
 };
 }  // namespace
 
@@ -91,7 +115,7 @@ class ProviderManagerTypeTest : public ::testing::Test
     void SetUp() override
     {
         score::crypto::daemon::config::Config config;
-        m_mgr = std::make_shared<provider::ProviderManager>(config.GetProviderInitConfig());
+        m_mgr = std::make_shared<provider::ProviderManager>(config.GetProviderRoutingPolicy());
 
         // Register SW_PROVIDER (ID 0)
         m_mgr->RegisterProvider("SW_PROVIDER",
@@ -176,7 +200,7 @@ TEST_F(ProviderManagerTypeTest, UnknownProviderReturnsFalse)
 TEST(ProviderManagerInitStateTest, FailedProviderRemainsRegisteredButUnavailable)
 {
     score::crypto::daemon::config::Config config;
-    provider::ProviderManager mgr(config.GetProviderInitConfig());
+    provider::ProviderManager mgr(config.GetProviderRoutingPolicy());
 
     auto ok_provider = std::make_shared<ConfigurableStubProvider>("OK_PROVIDER", 0, false);
     auto fail_provider = std::make_shared<ConfigurableStubProvider>("FAIL_PROVIDER", 1, true);
@@ -206,7 +230,7 @@ namespace
 provider::ProviderManager::Sptr MakeCapabilityManager()
 {
     score::crypto::daemon::config::Config config;
-    auto mgr = std::make_shared<provider::ProviderManager>(config.GetProviderInitConfig());
+    auto mgr = std::make_shared<provider::ProviderManager>(config.GetProviderRoutingPolicy());
 
     mgr->RegisterProvider(
         "SW_PROVIDER",
@@ -254,7 +278,7 @@ TEST(ProviderManagerCapabilityTest, PreferenceOrderPicksAmongCapableProviders)
 TEST(ProviderManagerCapabilityTest, ReturnsNullWhenNoProviderOffersCapability)
 {
     score::crypto::daemon::config::Config config;
-    provider::ProviderManager mgr(config.GetProviderInitConfig());
+    provider::ProviderManager mgr(config.GetProviderRoutingPolicy());
     mgr.RegisterProvider(
         "SW_PROVIDER",
         std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false, common::ProviderCapability::kCrypto),
@@ -262,6 +286,13 @@ TEST(ProviderManagerCapabilityTest, ReturnsNullWhenNoProviderOffersCapability)
     mgr.Initialize();
 
     EXPECT_EQ(mgr.GetProviderForCapability(common::ProviderCapability::kCertManagement), nullptr);
+}
+
+TEST(ProviderManagerCapabilityTest, NoneCapabilityNeverSelectsAProvider)
+{
+    auto mgr = MakeCapabilityManager();
+
+    EXPECT_EQ(mgr->GetProviderForCapability(common::ProviderCapability::kNone), nullptr);
 }
 
 TEST(ProviderManagerCapabilityTest, FallsBackToCapableProviderOutsidePreference)
@@ -278,7 +309,7 @@ TEST(ProviderManagerCapabilityTest, FallsBackToCapableProviderOutsidePreference)
 TEST(ProviderManagerCapabilityTest, UninitializedProviderIsNotSelected)
 {
     score::crypto::daemon::config::Config config;
-    provider::ProviderManager mgr(config.GetProviderInitConfig());
+    provider::ProviderManager mgr(config.GetProviderRoutingPolicy());
     // Capable on paper, but initialization fails so it must be skipped.
     mgr.RegisterProvider("FAIL_PROVIDER",
                          std::make_shared<ConfigurableStubProvider>(
@@ -289,6 +320,154 @@ TEST(ProviderManagerCapabilityTest, UninitializedProviderIsNotSelected)
     EXPECT_EQ(mgr.GetProviderForCapability(common::ProviderCapability::kCertManagement), nullptr);
 }
 
+TEST(ProviderManagerCapabilityTest, RoutingPolicyControlsCapabilityPreference)
+{
+    config::ProviderRoutingPolicy routing_policy;
+    routing_policy.SetCapabilityRouting(
+        common::ProviderCapability::kCrypto,
+        config::CapabilityRoutingRule{{common::CryptoProviderType::SOFTWARE, common::CryptoProviderType::HARDWARE},
+                                      true});
+    provider::ProviderManager mgr(std::move(routing_policy));
+    mgr.RegisterProvider(
+        "HW_PROVIDER",
+        std::make_shared<ConfigurableStubProvider>("HW_PROVIDER", 0, false, common::ProviderCapability::kCrypto),
+        common::CryptoProviderType::HARDWARE);
+    mgr.RegisterProvider(
+        "SW_PROVIDER",
+        std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 1, false, common::ProviderCapability::kCrypto),
+        common::CryptoProviderType::SOFTWARE);
+    ASSERT_TRUE(mgr.Initialize());
+
+    auto selected = mgr.GetProviderForCapability(common::ProviderCapability::kCrypto);
+    ASSERT_NE(selected, nullptr);
+    EXPECT_EQ(selected->GetProviderName(), "SW_PROVIDER");
+}
+
+TEST(ProviderManagerCapabilityTest, ExplicitCategoryDefaultIsPreferredWithinCapabilityCategory)
+{
+    config::ProviderRoutingPolicy routing_policy;
+    routing_policy.SetDefaultProviderForType(common::CryptoProviderType::SOFTWARE, "SECOND_SW");
+    routing_policy.SetCapabilityRouting(common::ProviderCapability::kCrypto,
+                                        config::CapabilityRoutingRule{{common::CryptoProviderType::SOFTWARE}, false});
+    provider::ProviderManager mgr(std::move(routing_policy));
+    auto first = std::make_shared<ConfigurableStubProvider>("FIRST_SW", 0, false, common::ProviderCapability::kCrypto);
+    auto second =
+        std::make_shared<ConfigurableStubProvider>("SECOND_SW", 1, false, common::ProviderCapability::kCrypto);
+    ASSERT_TRUE(mgr.RegisterProvider("FIRST_SW", first, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.RegisterProvider("SECOND_SW", second, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.Initialize());
+
+    EXPECT_EQ(mgr.GetProviderForCapability(common::ProviderCapability::kCrypto), second);
+}
+
+TEST(ProviderManagerCapabilityTest, RoutingPolicyCanDisableUnlistedCapabilityFallback)
+{
+    config::ProviderRoutingPolicy routing_policy;
+    routing_policy.SetCapabilityRouting(common::ProviderCapability::kCertManagement,
+                                        config::CapabilityRoutingRule{{common::CryptoProviderType::SOFTWARE}, false});
+    provider::ProviderManager mgr(std::move(routing_policy));
+    mgr.RegisterProvider("HW_PROVIDER",
+                         std::make_shared<ConfigurableStubProvider>(
+                             "HW_PROVIDER", 0, false, common::ProviderCapability::kCertManagement),
+                         common::CryptoProviderType::HARDWARE);
+    ASSERT_TRUE(mgr.Initialize());
+
+    EXPECT_EQ(mgr.GetProviderForCapability(common::ProviderCapability::kCertManagement), nullptr);
+}
+
+TEST(ProviderManagerCapabilityTest, DisabledFallbackDoesNotInitializeExcludedProviderCategory)
+{
+    config::ProviderRoutingPolicy routing_policy;
+    routing_policy.SetCapabilityRouting(common::ProviderCapability::kCrypto,
+                                        config::CapabilityRoutingRule{{common::CryptoProviderType::SOFTWARE}, false});
+    provider::ProviderManager mgr(std::move(routing_policy));
+    auto hardware_provider =
+        std::make_shared<ConfigurableStubProvider>("HW_PROVIDER", 0, false, common::ProviderCapability::kCrypto);
+    auto software_provider =
+        std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 1, false, common::ProviderCapability::kCrypto);
+    ASSERT_TRUE(mgr.RegisterProvider("HW_PROVIDER", hardware_provider, common::CryptoProviderType::HARDWARE));
+    ASSERT_TRUE(mgr.RegisterProvider("SW_PROVIDER", software_provider, common::CryptoProviderType::SOFTWARE));
+
+    EXPECT_EQ(mgr.GetProviderForCapability(common::ProviderCapability::kCrypto), software_provider);
+    EXPECT_EQ(software_provider->GetInitializationAttempts(), 1U);
+    EXPECT_EQ(hardware_provider->GetInitializationAttempts(), 0U);
+}
+
+TEST(ProviderManagerCapabilityTest, CombinedCapabilityRuleRequiresEveryRequestedCapability)
+{
+    const auto combined_capability = common::ProviderCapability::kCrypto | common::ProviderCapability::kKeyManagement;
+    config::ProviderRoutingPolicy routing_policy;
+    routing_policy.SetCapabilityRouting(
+        combined_capability,
+        config::CapabilityRoutingRule{{common::CryptoProviderType::SOFTWARE, common::CryptoProviderType::HARDWARE},
+                                      true});
+    provider::ProviderManager mgr(std::move(routing_policy));
+    mgr.RegisterProvider(
+        "CRYPTO_ONLY",
+        std::make_shared<ConfigurableStubProvider>("CRYPTO_ONLY", 0, false, common::ProviderCapability::kCrypto),
+        common::CryptoProviderType::SOFTWARE);
+    mgr.RegisterProvider("COMBINED",
+                         std::make_shared<ConfigurableStubProvider>("COMBINED", 1, false, combined_capability),
+                         common::CryptoProviderType::HARDWARE);
+
+    const auto selected = mgr.GetProviderForCapability(combined_capability);
+    ASSERT_NE(selected, nullptr);
+    EXPECT_EQ(selected->GetProviderName(), "COMBINED");
+}
+
+TEST(ProviderManagerInitStateTest, RegisteredProviderCanRecoverAfterDeferredInitializationFailure)
+{
+    provider::ProviderManager mgr;
+    auto deferred_provider = std::make_shared<ConfigurableStubProvider>("DEFERRED_HSM", 0, true);
+    ASSERT_TRUE(mgr.RegisterProvider("DEFERRED_HSM", deferred_provider, common::CryptoProviderType::HARDWARE));
+
+    ASSERT_TRUE(mgr.Initialize());
+    EXPECT_TRUE(mgr.IsProviderRegistered("DEFERRED_HSM"));
+    EXPECT_EQ(mgr.GetProvider("DEFERRED_HSM"), nullptr);
+
+    deferred_provider->SetInitializationFailure(false);
+    EXPECT_EQ(mgr.GetProvider("DEFERRED_HSM"), deferred_provider);
+}
+
+TEST(ProviderManagerInitStateTest, OptionalFactoryFailureIsDiagnosticOnly)
+{
+    provider::ProviderManager mgr;
+    ASSERT_TRUE(mgr.RegisterProvider("OPENSSL",
+                                     std::make_shared<ConfigurableStubProvider>("OPENSSL", 0, false),
+                                     common::CryptoProviderType::SOFTWARE));
+    mgr.RecordFactoryResult("Pkcs11ProviderFactory",
+                            provider::ProviderFactoryResult{
+                                0U,
+                                {provider::ProviderFailure{"Pkcs11ProviderFactory",
+                                                           "OPTIONAL_HSM",
+                                                           provider::ProviderFailureReason::kProviderUnavailable,
+                                                           common::DaemonErrorCode::kProviderNotAvailable}}});
+
+    EXPECT_TRUE(mgr.Initialize());
+    ASSERT_EQ(mgr.GetInitializationFailures().size(), 1U);
+    EXPECT_EQ(mgr.GetInitializationFailures().front().providerName, "OPTIONAL_HSM");
+}
+
+TEST(ProviderManagerInitStateTest, ConstructionFailureDiagnosticDoesNotChangeRoutingManagerState)
+{
+    provider::ProviderManager mgr;
+    ASSERT_TRUE(mgr.RegisterProvider("OPENSSL",
+                                     std::make_shared<ConfigurableStubProvider>("OPENSSL", 0, false),
+                                     common::CryptoProviderType::SOFTWARE));
+    mgr.RecordFactoryResult(
+        "ProviderManagerFactory",
+        provider::ProviderFactoryResult{
+            0U,
+            {provider::ProviderFailure{"ProviderManagerFactory",
+                                       "REQUIRED_HSM",
+                                       provider::ProviderFailureReason::kRequiredProviderUnavailable,
+                                       common::DaemonErrorCode::kProviderNotAvailable}}});
+
+    EXPECT_TRUE(mgr.Initialize());
+    ASSERT_EQ(mgr.GetInitializationFailures().size(), 1U);
+    EXPECT_EQ(mgr.GetInitializationFailures().front().providerName, "REQUIRED_HSM");
+}
+
 // ===========================================================================
 // Default provider resolution prefers successfully-initialized providers
 // ===========================================================================
@@ -296,7 +475,7 @@ TEST(ProviderManagerCapabilityTest, UninitializedProviderIsNotSelected)
 TEST(ProviderManagerDefaultResolutionTest, DefaultSkipsFailedPreferredProvider)
 {
     score::crypto::daemon::config::Config config;
-    provider::ProviderManager mgr(config.GetProviderInitConfig());
+    provider::ProviderManager mgr(config.GetProviderRoutingPolicy());
 
     // Preferred category (HARDWARE) is registered but fails to initialize;
     // the SOFTWARE provider initializes successfully.
@@ -313,4 +492,121 @@ TEST(ProviderManagerDefaultResolutionTest, DefaultSkipsFailedPreferredProvider)
     auto def = mgr.GetProvider(common::CryptoProviderType::DEFAULT);
     ASSERT_NE(def, nullptr);
     EXPECT_EQ(def->GetProviderName(), "SW_PROVIDER");
+}
+
+TEST(ProviderManagerDefaultResolutionTest, DefaultUsesAnotherProviderInPreferredCategoryBeforeNextCategory)
+{
+    provider::ProviderManager mgr;
+    auto failed_hardware = std::make_shared<ConfigurableStubProvider>("FAILED_HW", 0, true);
+    auto available_hardware = std::make_shared<ConfigurableStubProvider>("AVAILABLE_HW", 1, false);
+    auto software = std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 2, false);
+    ASSERT_TRUE(mgr.RegisterProvider("FAILED_HW", failed_hardware, common::CryptoProviderType::HARDWARE));
+    ASSERT_TRUE(mgr.RegisterProvider("AVAILABLE_HW", available_hardware, common::CryptoProviderType::HARDWARE));
+    ASSERT_TRUE(mgr.RegisterProvider("SW_PROVIDER", software, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.Initialize());
+
+    EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::DEFAULT), available_hardware);
+}
+
+TEST(ProviderManagerDefaultResolutionTest, ExplicitRoutingPolicyOverridesDefaultPreference)
+{
+    config::ProviderRoutingPolicy routing_policy;
+    routing_policy.SetDefaultProviderForType(common::CryptoProviderType::DEFAULT, "SW_PROVIDER");
+    provider::ProviderManager mgr(std::move(routing_policy));
+
+    mgr.RegisterProvider("HW_PROVIDER",
+                         std::make_shared<ConfigurableStubProvider>("HW_PROVIDER", 0, false),
+                         common::CryptoProviderType::HARDWARE);
+    mgr.RegisterProvider("SW_PROVIDER",
+                         std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 1, false),
+                         common::CryptoProviderType::SOFTWARE);
+    ASSERT_TRUE(mgr.Initialize());
+
+    auto selected = mgr.GetProvider(common::CryptoProviderType::DEFAULT);
+    ASSERT_NE(selected, nullptr);
+    EXPECT_EQ(selected->GetProviderName(), "SW_PROVIDER");
+}
+
+TEST(ProviderManagerDefaultResolutionTest, ProviderCategoryMappingUsesRegistrationOrder)
+{
+    provider::ProviderManager mgr;
+    auto first = std::make_shared<ConfigurableStubProvider>("FIRST_SW", 0, false);
+    auto second = std::make_shared<ConfigurableStubProvider>("SECOND_SW", 1, false);
+    ASSERT_TRUE(mgr.RegisterProvider("FIRST_SW", first, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.RegisterProvider("SECOND_SW", second, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.Initialize());
+
+    EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::SOFTWARE), first);
+}
+
+TEST(ProviderManagerDefaultResolutionTest, ExplicitCategoryMappingControlsImplicitDefault)
+{
+    config::ProviderRoutingPolicy routing_policy;
+    routing_policy.SetDefaultProviderForType(common::CryptoProviderType::SOFTWARE, "SECOND_SW");
+    routing_policy.defaultProviderPreference = {common::CryptoProviderType::SOFTWARE};
+    provider::ProviderManager mgr(std::move(routing_policy));
+    auto first = std::make_shared<ConfigurableStubProvider>("FIRST_SW", 0, false);
+    auto second = std::make_shared<ConfigurableStubProvider>("SECOND_SW", 1, false);
+    ASSERT_TRUE(mgr.RegisterProvider("FIRST_SW", first, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.RegisterProvider("SECOND_SW", second, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.Initialize());
+
+    EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::SOFTWARE), second);
+    EXPECT_EQ(mgr.GetProvider(common::CryptoProviderType::DEFAULT), second);
+}
+
+TEST(ProviderManagerDefaultResolutionTest, ExplicitCategoryMappingRejectsProviderTypeMismatch)
+{
+    config::ProviderRoutingPolicy routing_policy;
+    routing_policy.SetDefaultProviderForType(common::CryptoProviderType::HARDWARE, "SW_PROVIDER");
+    provider::ProviderManager mgr(std::move(routing_policy));
+    ASSERT_TRUE(mgr.RegisterProvider("SW_PROVIDER",
+                                     std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false),
+                                     common::CryptoProviderType::SOFTWARE));
+
+    EXPECT_FALSE(mgr.Initialize());
+}
+
+TEST(ProviderManagerDefaultResolutionTest, RuntimeCategoryOverrideRejectsProviderTypeMismatch)
+{
+    provider::ProviderManager mgr;
+    ASSERT_TRUE(mgr.RegisterProvider("SW_PROVIDER",
+                                     std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false),
+                                     common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.Initialize());
+
+    EXPECT_FALSE(mgr.SetDefaultProviderForType(common::CryptoProviderType::HARDWARE, 0U));
+    EXPECT_TRUE(mgr.SetDefaultProviderForType(common::CryptoProviderType::DEFAULT, 0U));
+}
+
+TEST(ProviderManagerLifecycleTest, ShutdownIsIdempotent)
+{
+    provider::ProviderManager mgr;
+    auto provider_instance = std::make_shared<ConfigurableStubProvider>("OPENSSL", 0, false);
+    ASSERT_TRUE(mgr.RegisterProvider("OPENSSL", provider_instance, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.Initialize());
+
+    mgr.Shutdown();
+    mgr.Shutdown();
+
+    EXPECT_EQ(provider_instance->GetShutdownCalls(), 1U);
+}
+
+TEST(ProviderManagerLifecycleTest, ShutdownPreventsProviderReinitialization)
+{
+    provider::ProviderManager mgr;
+    auto provider_instance = std::make_shared<ConfigurableStubProvider>("OPENSSL", 0, false);
+    ASSERT_TRUE(mgr.RegisterProvider("OPENSSL", provider_instance, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.Initialize());
+    ASSERT_EQ(provider_instance->GetInitializationAttempts(), 1U);
+
+    mgr.Shutdown();
+
+    EXPECT_EQ(mgr.GetProvider("OPENSSL"), nullptr);
+    EXPECT_FALSE(mgr.Initialize());
+    EXPECT_FALSE(mgr.RegisterProvider("SECOND_PROVIDER",
+                                      std::make_shared<ConfigurableStubProvider>("SECOND_PROVIDER", 1, false),
+                                      common::CryptoProviderType::SOFTWARE));
+    EXPECT_EQ(provider_instance->GetInitializationAttempts(), 1U);
+    EXPECT_EQ(provider_instance->GetShutdownCalls(), 1U);
 }

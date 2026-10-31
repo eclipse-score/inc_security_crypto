@@ -22,10 +22,10 @@
 #include "provider_manager.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 
-#include <string>
-
 namespace score::crypto::daemon::provider
 {
+
+class ProviderManagerFactoryTestPeer;
 
 /**
  * @brief Factory for creating and initializing ProviderManager instances
@@ -66,8 +66,11 @@ class ProviderManagerFactory
   private:
     ProviderManagerFactory() = delete;
 
-    [[nodiscard]] static bool IsProviderAllowed(const std::string& provider_name,
-                                                const config::ProviderInitConfig& provider_config);
+    friend class ProviderManagerFactoryTestPeer;
+
+    [[nodiscard]] static score::crypto::Expected<std::shared_ptr<ProviderManager>, common::DaemonErrorCode>
+    FinalizeProviderManager(std::shared_ptr<ProviderManager> provider_manager,
+                            const config::ProviderConstructionPolicy& construction_policy);
 
     [[nodiscard]] static score::crypto::Expected<std::unique_ptr<IProviderFactory>, common::DaemonErrorCode>
     CreateScoreProviderFactory(config::Config& config);

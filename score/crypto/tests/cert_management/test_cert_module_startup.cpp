@@ -40,14 +40,14 @@ class CertModuleStartupTest : public ::testing::Test
   protected:
     static void SetUpTestSuite()
     {
-        configured_manager_ = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
+        configured_manager_ = std::make_shared<provider::ProviderManager>(config::ProviderRoutingPolicy{});
         auto configured_provider = std::make_shared<openssl::OpenSSL>();
         ASSERT_TRUE(configured_manager_->RegisterProvider(
             std::string{kConfiguredProviderName}, configured_provider, common::CryptoProviderType::SOFTWARE));
         ASSERT_TRUE(configured_manager_->Initialize());
         ASSERT_TRUE(configured_provider->IsInitialized());
 
-        differently_named_manager_ = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
+        differently_named_manager_ = std::make_shared<provider::ProviderManager>(config::ProviderRoutingPolicy{});
         auto differently_named_provider = std::make_shared<openssl::OpenSSL>();
         ASSERT_TRUE(differently_named_manager_->RegisterProvider(
             "ALT_PROVIDER", differently_named_provider, common::CryptoProviderType::SOFTWARE));

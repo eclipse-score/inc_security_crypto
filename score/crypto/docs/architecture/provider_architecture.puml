@@ -25,8 +25,23 @@ title Daemon Provider Architecture
 ' ====================================================================
 package "Configuration (config/)" <<Rectangle>> #FFF8DC {
     class Config {
+        +GetProviderConstructionPolicy() : ProviderConstructionPolicy&
+        +GetProviderRoutingPolicy() : ProviderRoutingPolicy&
         +GetScoreProviderConfig() : ScoreProviderConfig&
         +GetPkcs11Config() : Pkcs11Config&
+    }
+
+    class ProviderConstructionPolicy {
+        +providers : vector<ProviderConstructionEntry>
+        +IsProviderEnabled(name) : bool
+        +Validate() : bool
+    }
+
+    class ProviderRoutingPolicy {
+        +typeToProviderName : map
+        +defaultProviderPreference : vector<CryptoProviderType>
+        +capabilityRouting : map
+        +Validate(constructionPolicy) : bool
     }
 
     class ScoreProviderConfig {
@@ -39,6 +54,8 @@ package "Configuration (config/)" <<Rectangle>> #FFF8DC {
         +GetConfig() : const Pkcs11ProviderFactoryConfig&
     }
 
+    Config *-- ProviderConstructionPolicy
+    Config *-- ProviderRoutingPolicy
     Config *-- ScoreProviderConfig
     Config *-- Pkcs11Config
 }
@@ -48,15 +65,21 @@ package "Configuration (config/)" <<Rectangle>> #FFF8DC {
 ' ====================================================================
 package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
 
+    class ProviderManagerFactory {
+        +Create(config) : Expected<ProviderManager::Sptr, DaemonErrorCode>
+    }
+
     interface IProviderFactory {
         +CreateAndRegister(manager : ProviderManager&) : ProviderFactoryResult
     }
 
     class ProviderManager {
+        +ProviderManager(routingPolicy)
         +Initialize() : bool
         +RegisterProvider(name, provider, type) : bool
         +IsProviderRegistered(name) : bool
         +GetProvider(id) : IProvider::Sptr
+        +GetProviderForCapability(capability) : IProvider::Sptr
     }
 
     interface IProvider {
@@ -68,6 +91,10 @@ package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
 
     ProviderManager *-- IProvider : 1..n
     IProviderFactory ..> ProviderManager : registers into
+    ProviderManagerFactory ..> IProviderFactory : creates and invokes
+    ProviderManagerFactory ..> ProviderManager : creates and initializes
+    ProviderConstructionPolicy ..> ProviderManagerFactory : filters and requires providers
+    ProviderRoutingPolicy ..> ProviderManager : configures runtime selection
 
     ' ====================================================================
     ' HANDLER SHARED INFRASTRUCTURE

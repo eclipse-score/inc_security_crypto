@@ -141,7 +141,7 @@ class TrustStoreManagerTest : public ::testing::Test
   protected:
     static void SetUpTestSuite()
     {
-        s_provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
+        s_provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderRoutingPolicy{});
         s_parser = std::make_shared<openssl_ns::OpenSslCertParser>(common::ProviderId{0U});
         auto openssl_provider = std::make_shared<OpenSslParserProvider>(s_parser);
         ASSERT_TRUE(

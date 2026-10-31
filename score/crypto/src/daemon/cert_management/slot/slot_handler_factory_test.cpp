@@ -158,7 +158,7 @@ class FakeProvider final : public provider::IProvider
 
 provider::ProviderManager::Sptr MakeProviderManager()
 {
-    return std::make_shared<provider::ProviderManager>(score::crypto::daemon::config::ProviderInitConfig{});
+    return std::make_shared<provider::ProviderManager>(score::crypto::daemon::config::ProviderRoutingPolicy{});
 }
 
 TEST(SlotHandlerFactoryTest, NullProviderManager_DefaultBackend_ReturnsParserError)

@@ -421,7 +421,7 @@ class BuildCertSlotInfoResponseTest : public ::testing::Test
         slot_handle_ = registry->RegisterSlot(cfg);
 
         stub_ = std::make_shared<SlotHandlerStub>();
-        auto provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
+        auto provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderRoutingPolicy{});
         auto test_provider = std::make_shared<QueryTestProvider>(std::make_shared<QueryTestParser>(), stub_);
         ASSERT_TRUE(provider_manager->RegisterProvider(
             "QUERY_TEST_PROVIDER", test_provider, common::CryptoProviderType::SOFTWARE));

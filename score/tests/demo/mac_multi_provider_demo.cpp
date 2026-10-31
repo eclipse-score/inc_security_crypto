@@ -332,7 +332,7 @@ TEST_F(MacDemoTest, Demo4_ProviderDirectCapabilityPattern)
     std::cout << "\n=== Demo 4: Direct IProvider Capability Pattern (MISRA-safe) ===\n";
 
     // Simulate the ProviderManager lookup used in the real daemon.
-    ProviderManager mgr(m_config.GetProviderInitConfig());
+    ProviderManager mgr(m_config.GetProviderRoutingPolicy());
     mgr.RegisterProvider("OPENSSL", m_provider, common::CryptoProviderType::SOFTWARE);
 
     // Retrieve the provider via ProviderManager.

@@ -28,6 +28,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -70,9 +71,10 @@ const std::array<std::string_view, 1> DEFAULT_CONFIG_PATHS = {
 //  construction.
 //  TODO: To use the function later. Only a place holder now. Rationale is to protect against resource exchaustion by
 //  any application
-/// @brief Resource quota policy — daemon-wide or provider-scoped limits on key creation per connection.
+/// @brief Daemon-wide limits on key creation and key material per client connection.
 ///
-/// Owned by daemon configuration, not by individual key slots.
+/// Provider operational limits belong to the respective provider implementation;
+/// caller authorization belongs to the daemon access-control component.
 struct ResourceQuotaPolicy
 {
     /// Maximum ephemeral keys allowed per client connection.
@@ -140,75 +142,218 @@ class IPCConfig
 };
 
 /**
- * @brief Provider configuration - contains metadata for adding a new provider
+ * @brief Construction policy for a single provider.
  *
- * This structure holds the necessary information to create and initialize a
- * provider. Providers are identified by their ProviderName and can be categorized
- * by CryptoProviderType. The actual provider instance creation is handled by
- * the factory implementation, which can be easily extended to support new
- * provider types.
+ * Provider construction policy is intentionally independent from runtime
+ * routing. It only controls whether a named provider may be constructed and
+ * registered, and whether its registration is mandatory for daemon startup.
  */
-struct ProviderConfig
+struct ProviderConstructionEntry
 {
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
-    common::ProviderName providerName;        ///< Human-readable provider identifier
-    common::CryptoProviderType cryptoType{};  ///< Functional category
-    bool enabled{true};                       ///< Whether this provider should be used
-    bool required{false};                     ///< Whether startup must provide this provider
-    ResourceQuotaPolicy quota_policy{};       ///< Per-provider quota policy override
+    common::ProviderName providerName;  ///< Stable provider identifier.
+    bool enabled{true};                 ///< Whether construction and registration are allowed.
+    bool required{false};               ///< Whether startup requires successful registration.
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 
-    ProviderConfig() = default;
+    ProviderConstructionEntry() = default;
 
-    /// @brief Construct provider metadata with explicit identity and state.
+    /// @brief Construct provider construction policy with explicit identity and state.
     /// @param name Human-readable provider identifier.
-    /// @param cryptoType Functional provider category.
-    /// @param enabled Whether the provider is enabled for initialization.
-    /// @param required Whether startup fails if the provider is unavailable.
-    ProviderConfig(const common::ProviderName& name,
-                   common::CryptoProviderType cryptoType,
-                   bool enabled = true,
-                   bool required = false)
-        : providerName(name), cryptoType(cryptoType), enabled(enabled), required(required)
+    /// @param is_enabled Whether provider construction is enabled.
+    /// @param is_required Whether startup requires provider registration.
+    ProviderConstructionEntry(const common::ProviderName& name, bool is_enabled = true, bool is_required = false)
+        : providerName{name}, enabled{is_enabled}, required{is_required}
     {
     }
 };
 
 /**
- * @brief Provider initialization configuration
+ * @brief Provider construction and registration policy.
  *
- * This structure defines the complete provider setup for the factory,
- * allowing daemon to configure which providers to initialize and set defaults
- * before calling Initialize().
+ * An empty policy permits all providers discovered by compiled-in backend
+ * factories. Once at least one entry is present, only explicitly enabled
+ * providers are permitted.
  */
-struct ProviderInitConfig
+struct ProviderConstructionPolicy
 {
     // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
-    std::vector<ProviderConfig> providers;  ///< List of providers to initialize
-    std::unordered_map<common::CryptoProviderType, common::ProviderName>
-        typeToProviderName;  ///< Mapping of provider types to their default
-                             ///< provider name
+    std::vector<ProviderConstructionEntry> providers;  ///< Provider construction entries.
     // NOLINTEND(misc-non-private-member-variables-in-classes)
 
-    ProviderInitConfig() = default;
+    ProviderConstructionPolicy() = default;
 
     /**
-     * @brief Add a provider configuration
-     * @param config Provider configuration to add
+     * @brief Add a provider construction entry.
+     * @param entry Provider construction entry to add.
      */
-    void AddProviderConfig(const ProviderConfig& config)
+    void AddProvider(const ProviderConstructionEntry& entry)
     {
-        providers.push_back(config);
+        providers.push_back(entry);
     }
 
     /**
-     * @brief Set the default provider for a specific crypto provider type
-     * @param cryptoType The functional category
-     * @param providerName The provider name to use for this type
+     * @brief Check whether a provider may be constructed and registered.
+     * @param provider_name Stable provider name.
+     * @return true when the policy permits the provider.
      */
-    void SetDefaultProviderForType(common::CryptoProviderType cryptoType, const common::ProviderName& providerName)
+    [[nodiscard]] bool IsProviderEnabled(const common::ProviderName& provider_name) const noexcept
     {
-        typeToProviderName[cryptoType] = providerName;
+        if (providers.empty())
+        {
+            return true;
+        }
+        for (const auto& provider : providers)
+        {
+            if (provider.providerName == provider_name)
+            {
+                return provider.enabled;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @brief Validate construction policy structure.
+     * @return true when names are non-empty and unique, and required providers are enabled.
+     */
+    [[nodiscard]] bool Validate() const
+    {
+        std::unordered_set<common::ProviderName> names;
+        for (const auto& provider : providers)
+        {
+            if (provider.providerName.empty() || (provider.required && !provider.enabled) ||
+                !names.insert(provider.providerName).second)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+};
+
+/**
+ * @brief Runtime routing rule for one provider capability.
+ */
+struct CapabilityRoutingRule
+{
+    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
+    std::vector<common::CryptoProviderType> preferenceOrder;  ///< Preferred provider categories in priority order.
+    bool allowFallback{true};  ///< Whether another capable category may be used when no preference matches.
+    // NOLINTEND(misc-non-private-member-variables-in-classes)
+};
+
+/**
+ * @brief Runtime provider selection policy.
+ *
+ * This policy is consumed by ProviderManager after factories have registered
+ * providers. It does not control provider construction.
+ */
+struct ProviderRoutingPolicy
+{
+    // NOLINTBEGIN(misc-non-private-member-variables-in-classes)
+    std::unordered_map<common::CryptoProviderType, common::ProviderName>
+        typeToProviderName;  ///< Explicit default provider names by category.
+    std::vector<common::CryptoProviderType> defaultProviderPreference{common::CryptoProviderType::HARDWARE,
+                                                                      common::CryptoProviderType::SOFTWARE};
+    std::unordered_map<common::ProviderCapability, CapabilityRoutingRule> capabilityRouting{
+        {common::ProviderCapability::kCrypto,
+         CapabilityRoutingRule{{common::CryptoProviderType::HARDWARE, common::CryptoProviderType::SOFTWARE}, true}},
+        {common::ProviderCapability::kKeyManagement,
+         CapabilityRoutingRule{{common::CryptoProviderType::HARDWARE, common::CryptoProviderType::SOFTWARE}, true}},
+        {common::ProviderCapability::kCertManagement,
+         CapabilityRoutingRule{{common::CryptoProviderType::SOFTWARE, common::CryptoProviderType::HARDWARE}, true}},
+    };
+    // NOLINTEND(misc-non-private-member-variables-in-classes)
+
+    ProviderRoutingPolicy() = default;
+
+    /**
+     * @brief Set the default provider for a provider category.
+     * @param crypto_type Provider category.
+     * @param provider_name Stable provider name.
+     *
+     * A mapping for DEFAULT may reference any provider category. Mappings for
+     * HARDWARE, SOFTWARE, and SPECIALIZED must reference a provider registered
+     * with the same category; ProviderManager validates that runtime property.
+     */
+    void SetDefaultProviderForType(common::CryptoProviderType crypto_type, const common::ProviderName& provider_name)
+    {
+        typeToProviderName[crypto_type] = provider_name;
+    }
+
+    /**
+     * @brief Set runtime routing for a provider capability.
+     * @param capability Capability to route.
+     * @param rule Preference and fallback policy.
+     */
+    void SetCapabilityRouting(common::ProviderCapability capability, CapabilityRoutingRule rule)
+    {
+        capabilityRouting[capability] = std::move(rule);
+    }
+
+    /**
+     * @brief Validate routing policy structure and construction-policy references.
+     * @param construction_policy Provider construction policy used at startup.
+     * @return true when routing rules are structurally valid and reference enabled providers.
+     */
+    [[nodiscard]] bool Validate(const ProviderConstructionPolicy& construction_policy) const
+    {
+        const auto is_known_provider_type = [](const common::CryptoProviderType provider_type) {
+            return (provider_type == common::CryptoProviderType::DEFAULT) ||
+                   (provider_type == common::CryptoProviderType::HARDWARE) ||
+                   (provider_type == common::CryptoProviderType::SOFTWARE) ||
+                   (provider_type == common::CryptoProviderType::SPECIALIZED);
+        };
+        const auto is_valid_preference = [](const std::vector<common::CryptoProviderType>& preference_order) {
+            std::unordered_set<common::CryptoProviderType> types;
+            for (const auto type : preference_order)
+            {
+                if ((type != common::CryptoProviderType::HARDWARE) && (type != common::CryptoProviderType::SOFTWARE) &&
+                    (type != common::CryptoProviderType::SPECIALIZED))
+                {
+                    return false;
+                }
+                if (!types.insert(type).second)
+                {
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        if (!is_valid_preference(defaultProviderPreference))
+        {
+            return false;
+        }
+
+        for (const auto& [provider_type, provider_name] : typeToProviderName)
+        {
+            if (!is_known_provider_type(provider_type) || provider_name.empty() ||
+                !construction_policy.IsProviderEnabled(provider_name))
+            {
+                return false;
+            }
+        }
+
+        constexpr std::uint8_t kKnownCapabilityBits =
+            static_cast<std::uint8_t>(common::ProviderCapability::kCrypto) |
+            static_cast<std::uint8_t>(common::ProviderCapability::kKeyManagement) |
+            static_cast<std::uint8_t>(common::ProviderCapability::kCertManagement);
+        for (const auto& [capability, rule] : capabilityRouting)
+        {
+            const auto capability_bits = static_cast<std::uint8_t>(capability);
+            const auto unknown_capability_bits = capability_bits & static_cast<std::uint8_t>(~kKnownCapabilityBits);
+            if ((capability_bits == 0U) || (unknown_capability_bits != 0U))
+            {
+                return false;
+            }
+            if (!is_valid_preference(rule.preferenceOrder) || (rule.preferenceOrder.empty() && !rule.allowFallback))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 };
 
@@ -670,8 +815,13 @@ class Config
     bool ParseConfig();
 
     /**
-     * @brief Validate all configuration sections
-     * @return true if all sections are valid; false if any section is invalid
+     * @brief Validate configuration sections that currently define validation rules.
+     *
+     * Provider construction and routing policies are validated here. Other
+     * sections remain responsible for validating their parsed input until they
+     * expose equivalent validation rules.
+     *
+     * @return true if every supported validation rule passes; false otherwise
      */
     bool Validate() const;
 
@@ -682,17 +832,17 @@ class Config
     {
         return m_ipc;
     }
-    /// @brief Return the provider configuration (read-only).
-    /// @return The provider configuration section.
-    const ProviderConfig& GetProviderConfig() const noexcept
+    /// @brief Return the provider construction policy (read-only).
+    /// @return The provider construction policy.
+    const ProviderConstructionPolicy& GetProviderConstructionPolicy() const noexcept
     {
-        return m_provider;
+        return m_provider_construction;
     }
-    /// @brief Return the provider initialization configuration (read-only).
-    /// @return The provider initialization section.
-    const ProviderInitConfig& GetProviderInitConfig() const noexcept
+    /// @brief Return the provider routing policy (read-only).
+    /// @return The provider routing policy.
+    const ProviderRoutingPolicy& GetProviderRoutingPolicy() const noexcept
     {
-        return m_provider_init;
+        return m_provider_routing;
     }
     /// @brief Return the general daemon configuration (read-only).
     /// @return The general configuration section.
@@ -750,11 +900,17 @@ class Config
     {
         return m_ipc;
     }
-    /// @brief Return mutable access to the provider configuration.
-    /// @return The provider configuration section.
-    ProviderConfig& GetProviderConfig()
+    /// @brief Return mutable access to the provider construction policy.
+    /// @return The provider construction policy.
+    ProviderConstructionPolicy& GetProviderConstructionPolicy()
     {
-        return m_provider;
+        return m_provider_construction;
+    }
+    /// @brief Return mutable access to the provider routing policy.
+    /// @return The provider routing policy.
+    ProviderRoutingPolicy& GetProviderRoutingPolicy()
+    {
+        return m_provider_routing;
     }
     /// @brief Return mutable access to the general daemon configuration.
     /// @return The general configuration section.
@@ -795,8 +951,8 @@ class Config
 
   private:
     IPCConfig m_ipc;
-    ProviderConfig m_provider;
-    ProviderInitConfig m_provider_init;
+    ProviderConstructionPolicy m_provider_construction;
+    ProviderRoutingPolicy m_provider_routing;
     GeneralConfig m_general;
     KeyConfig m_key;
     CertificateConfig m_certificate;

@@ -164,7 +164,7 @@ class CertificateManagementIntegrationTest : public ::testing::Test
         m_config.AddAppTrustStoreMapping({0U, "tls_roots", "tls-roots"});
 
         m_parser = std::make_shared<openssl::OpenSslCertParser>(common::ProviderId{0U});
-        m_provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
+        m_provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderRoutingPolicy{});
         auto parser_provider = std::make_shared<TestParserProvider>(m_parser);
         ASSERT_TRUE(
             m_provider_manager->RegisterProvider("OPENSSL", parser_provider, common::CryptoProviderType::SOFTWARE));
