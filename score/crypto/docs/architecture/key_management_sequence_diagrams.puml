@@ -35,9 +35,11 @@ participant "MediatorImpl" as Med
 Main -> DM ** : make_shared<DataManager>()
 Main -> PMF : Create(config)
 activate PMF
-PMF -> PM ** : make_shared<ProviderManager>(config.GetProviderInitConfig())
+PMF -> PM ** : make_shared<ProviderManager>(config.GetProviderRoutingPolicy())
+PMF -> PMF : filter provider entries with ProviderConstructionPolicy
 PMF -> PM : ScoreProviderFactory→CreateAndRegister(*pm)
 PMF -> PM : Pkcs11ProviderFactory→CreateAndRegister(*pm)
+PMF -> PMF : verify required providers are registered
 PMF -> PM : Initialize()
 PMF --> Main : Expected<ProviderManager::Sptr>
 deactivate PMF

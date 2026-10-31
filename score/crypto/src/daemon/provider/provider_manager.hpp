@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PROVIDER_MANAGER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PROVIDER_MANAGER_HPP
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -78,10 +79,9 @@ struct ProviderEntry
  *
  * Usage Pattern:
  * In daemon main:
- *   ProviderManager manager;
- *   ProviderInitConfig config;
- *   config.SetDefaultProviderForType(CryptoProviderType::SOFTWARE, "OPENSSL");
- *   ProviderManager manager(config);
+ *   ProviderRoutingPolicy policy;
+ *   policy.SetDefaultProviderForType(CryptoProviderType::SOFTWARE, "OPENSSL");
+ *   ProviderManager manager(policy);
  *   manager.Initialize();
  *   auto provider = manager.GetProvider("OPENSSL");
  */
@@ -92,7 +92,7 @@ class ProviderManager
     /**
      * @brief Constructor
      */
-    explicit ProviderManager(config::ProviderInitConfig provider_config);
+    explicit ProviderManager(config::ProviderRoutingPolicy routing_policy = {});
 
     /**
      * @brief Destructor - cleans up all registered providers
@@ -111,14 +111,14 @@ class ProviderManager
      * @brief Make the initial initialization attempt and build type mappings
      *
      * Individual provider failures are retained and can be retried when a
-     * provider lookup occurs. If the provider policy is empty, registered
-     * providers are eligible and defaults are selected by preference.
+     * provider lookup occurs. Defaults are selected from ProviderRoutingPolicy.
      *
      * This is the only method the daemon needs to call during startup.
      * Provider instantiation logic is in the implementation file.
      *
-     * @return true if registration and type mapping setup succeeded, false if
-     * the manager cannot provide a usable registry or a required mapping failed
+     * @return true if registration and routing mapping setup succeeded, false if
+     * no provider is registered, an explicit routing mapping failed, or the
+     * manager was already shut down. Provider initialization may still be deferred.
      */
     bool Initialize();
 
@@ -163,14 +163,13 @@ class ProviderManager
     /**
      * @brief Select the preferred initialized provider that offers a capability.
      *
-     * Filters registered providers to those that are initialized and advertise
-     * @p capability (via IProvider::GetProviderCapabilities()), then chooses
-     * among them using the per-capability default preference order defined in
-     * ProviderManager. Falls back to the lowest-id capable provider when no
-     * preferred-category provider is found.
-     *
-     * Per-capability defaults: kCertManagement → SOFTWARE first (parsing/verification
-     * are inherently software); kKeyManagement and kCrypto → HARDWARE first.
+     * Filters registered providers to those that advertise @p capability (via
+     * IProvider::GetProviderCapabilities()), initializes candidates as needed,
+     * then chooses among them using the per-capability rule from
+     * ProviderRoutingPolicy.
+     * Within a preferred category, its configured default is tried first and
+     * remaining providers follow registration order. Depending on the rule,
+     * selection may then fall back to another capable category.
      *
      * @param capability  The functional capability the provider must offer.
      * @return The selected provider, or nullptr if none offers the capability.
@@ -195,8 +194,8 @@ class ProviderManager
     /**
      * @brief Set a provider as default for a specific crypto provider type
      *
-     * This allows configuring the same provider to serve as the default
-     * for different CryptoProviderType categories.
+     * DEFAULT may reference any initialized provider. Category-specific
+     * mappings must match the category used when the provider was registered.
      *
      * @param cryptoType The functional category
      * @param providerId The numeric provider ID to set as default for this type
@@ -236,6 +235,15 @@ class ProviderManager
     [[nodiscard]] bool IsProviderRegistered(const common::ProviderName& provider_name) const;
 
     /**
+     * @brief Check whether at least one provider is registered.
+     * @return true when the registry is non-empty.
+     */
+    [[nodiscard]] bool HasRegisteredProviders() const noexcept
+    {
+        return !m_providers.empty();
+    }
+
+    /**
      * @brief Invoke a callback for each registered provider.
      *
      * @param fn  Callable taking a const common::ProviderName& and a shared_ptr<IProvider>.
@@ -265,8 +273,9 @@ class ProviderManager
      *   DEFAULT   — matches any provider.
      *   HARDWARE  — matches only HARDWARE providers.
      *   SOFTWARE  — matches only SOFTWARE providers.
+     *   SPECIALIZED — matches only SPECIALIZED providers.
      *
-     * @param provider_name  Registered provider name to check.
+     * @param provider_id Registered provider ID to check.
      * @param requested_type The caller's type preference.
      * @return true if the provider satisfies the type constraint, false otherwise.
      */
@@ -276,21 +285,25 @@ class ProviderManager
   private:
     [[nodiscard]] bool EnsureProviderInitialized(ProviderEntry& entry) const;
 
+    [[nodiscard]] std::shared_ptr<IProvider> SelectProviderForCapability(
+        common::ProviderCapability capability,
+        const std::vector<common::CryptoProviderType>& preference_order,
+        bool allow_fallback) const;
+
     /**
      * @brief Resolve the name of the default provider by preference order.
      *
-     * Scans registered providers and returns the name of the first one whose
-     * cryptoType matches an entry in preferenceOrder. Falls back to the first
-     * registered provider if no preferred type is found. Returns an empty
+     * Uses the already resolved category mappings in preference order. Within
+     * each preferred category, it first selects the initialized category
+     * default and then another initialized provider in registration order. It
+     * finally falls back to any initialized provider or to a registered
+     * category default suitable for deferred initialization. Returns an empty
      * string when no providers are registered.
      *
-     * @param preferenceOrder Priority order for selecting default provider.
-     *        Defaults to HARDWARE → SOFTWARE fallback.
+     * @param preference_order Priority order for selecting default provider.
      * @return Name of the selected default provider, or empty if none available.
      */
-    common::ProviderName ResolveDefaultProviderName(const std::vector<common::CryptoProviderType>& preferenceOrder = {
-                                                        common::CryptoProviderType::HARDWARE,
-                                                        common::CryptoProviderType::SOFTWARE});
+    common::ProviderName ResolveDefaultProviderName(const std::vector<common::CryptoProviderType>& preference_order);
 
     /**
      * @brief Build m_typeToProviderId from configured type-to-name mappings.
@@ -308,8 +321,8 @@ class ProviderManager
      * @brief Initialize all registered providers with ProviderInitContext.
      *
      * Passes each provider a ProviderInitContext containing its assigned
-     * numeric ID and name. Failed providers remain registered but are hidden
-     * from lookups because GetProvider() queries provider->IsInitialized().
+     * numeric ID and name. Failed providers remain registered so later
+     * lookups can retry deferred initialization with the same provider identity.
      *
      * @return true if at least one provider initialized, false if all current
      * initialization attempts failed
@@ -337,17 +350,17 @@ class ProviderManager
     /// Mapping of provider type to numeric provider ID for type-based lookups
     std::unordered_map<common::CryptoProviderType, common::ProviderId> m_typeToProviderId;
 
-    /// Provider activation and default-mapping policy snapshot.
-    config::ProviderInitConfig m_providerConfig;
+    /// Runtime provider selection policy snapshot.
+    config::ProviderRoutingPolicy m_routingPolicy;
 
-    /// Failures encountered while selecting, creating, registering, or initializing providers.
+    /// Failures retained for startup diagnostics. The factory owns construction-policy decisions.
     mutable std::vector<ProviderFailure> m_initializationFailures;
 
     /// Serializes provider initialization and availability checks.
     mutable std::mutex m_providerMutex;
 
-    /// Whether a required provider or explicit default mapping could not be satisfied.
-    bool m_hasFatalInitializationFailure{false};
+    /// Prevents duplicate shutdown calls when explicit startup cleanup is followed by destruction.
+    std::atomic_bool m_isShutdown{false};
 };
 
 }  // namespace provider

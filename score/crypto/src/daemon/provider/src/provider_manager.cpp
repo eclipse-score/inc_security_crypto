@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include <algorithm>
+#include <string_view>
 #include <utility>
 
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
@@ -23,9 +24,31 @@ namespace daemon
 {
 namespace provider
 {
+namespace
+{
+std::string_view ProviderFailureReasonName(const ProviderFailureReason reason) noexcept
+{
+    switch (reason)
+    {
+        case ProviderFailureReason::kFactoryCreationFailed:
+            return "factory creation failed";
+        case ProviderFailureReason::kProviderUnavailable:
+            return "provider unavailable";
+        case ProviderFailureReason::kProviderRegistrationFailed:
+            return "provider registration failed";
+        case ProviderFailureReason::kProviderInitializationFailed:
+            return "provider initialization failed";
+        case ProviderFailureReason::kRequiredProviderUnavailable:
+            return "required provider unavailable";
+        case ProviderFailureReason::kDefaultProviderUnavailable:
+            return "default provider unavailable";
+    }
+    return "unknown provider failure";
+}
+}  // namespace
 
-ProviderManager::ProviderManager(config::ProviderInitConfig provider_config)
-    : m_providerConfig(std::move(provider_config))
+ProviderManager::ProviderManager(config::ProviderRoutingPolicy routing_policy)
+    : m_routingPolicy(std::move(routing_policy))
 {
 }
 
@@ -38,26 +61,30 @@ ProviderManager::~ProviderManager()
 
 bool ProviderManager::Initialize()
 {
+    if (m_isShutdown.load())
+    {
+        return false;
+    }
+
     // Make an initial attempt for every registered provider before building
     // mappings. Individual failures are tolerated and retried on lookup.
     (void)InitializeAll();
 
-    config::ProviderInitConfig activeConfig = m_providerConfig;
+    // Build category mappings first so an implicit DEFAULT can honor explicit
+    // SOFTWARE/HARDWARE/SPECIALIZED defaults from the routing policy.
+    const bool mappings_ok = BuildTypeMappings(m_routingPolicy.typeToProviderName);
 
-    if (activeConfig.typeToProviderName.find(common::CryptoProviderType::DEFAULT) ==
-        activeConfig.typeToProviderName.end())
+    if (mappings_ok && (m_routingPolicy.typeToProviderName.find(common::CryptoProviderType::DEFAULT) ==
+                        m_routingPolicy.typeToProviderName.end()))
     {
-        const auto defaultName = ResolveDefaultProviderName();
+        const auto defaultName = ResolveDefaultProviderName(m_routingPolicy.defaultProviderPreference);
         if (!defaultName.empty())
         {
-            activeConfig.typeToProviderName[common::CryptoProviderType::DEFAULT] = defaultName;
+            m_typeToProviderId[common::CryptoProviderType::DEFAULT] = m_providers.at(defaultName).numeric_id;
         }
     }
 
-    // Build type-to-provider mappings, resolving configured names to runtime IDs.
-    const bool mappings_ok = BuildTypeMappings(activeConfig.typeToProviderName);
-
-    return mappings_ok && !m_providers.empty() && !m_hasFatalInitializationFailure;
+    return mappings_ok && !m_providers.empty() && !m_isShutdown.load();
 }
 
 void ProviderManager::RecordFactoryResult(const std::string& factoryName, ProviderFactoryResult result)
@@ -68,11 +95,10 @@ void ProviderManager::RecordFactoryResult(const std::string& factoryName, Provid
         {
             failure.factoryName = factoryName;
         }
-        if (failure.reason == ProviderFailureReason::kRequiredProviderUnavailable ||
-            failure.reason == ProviderFailureReason::kDefaultProviderUnavailable)
-        {
-            m_hasFatalInitializationFailure = true;
-        }
+        score::mw::log::LogWarn() << "[ProviderManager] Provider startup failure: factory=" << failure.factoryName
+                                  << ", provider=" << failure.providerName
+                                  << ", reason=" << ProviderFailureReasonName(failure.reason)
+                                  << ", error=" << static_cast<std::uint32_t>(failure.error);
         m_initializationFailures.push_back(std::move(failure));
     }
 }
@@ -80,18 +106,42 @@ void ProviderManager::RecordFactoryResult(const std::string& factoryName, Provid
 common::ProviderName ProviderManager::ResolveDefaultProviderName(
     const std::vector<common::CryptoProviderType>& preferenceOrder)
 {
-    // Prefer providers that initialized successfully so the default maps to a
-    // usable provider whenever one exists — InitializeAll() has already run by
-    // the time Initialize() calls this. Registered-but-failed providers are kept
-    // as a fallback only: if none initialized yet (e.g. all temporarily
-    // unavailable at startup), the default still resolves to a registered name
-    // so it can be retried on a later lookup via EnsureProviderInitialized().
-    std::unordered_map<common::CryptoProviderType, common::ProviderName> initializedByType;
-    std::unordered_map<common::CryptoProviderType, common::ProviderName> registeredByType;
+    // Category mappings have already been built. Within each preferred
+    // category, try its configured default first and then the remaining
+    // providers in registration order. This preserves category preference when
+    // a category default is temporarily unavailable.
+    for (const auto preferred : preferenceOrder)
+    {
+        const auto mapped = m_typeToProviderId.find(preferred);
+        if (mapped != m_typeToProviderId.end())
+        {
+            const auto& entry = m_providers.at(m_name_by_id[mapped->second]);
+            if (entry.instance && entry.instance->IsInitialized())
+            {
+                return entry.name;
+            }
+        }
+
+        for (common::ProviderId id = 0; id < m_provider_by_id.size(); ++id)
+        {
+            if ((mapped != m_typeToProviderId.end()) && (id == mapped->second))
+            {
+                continue;
+            }
+            const auto& entry = m_providers.at(m_name_by_id[id]);
+            if ((entry.cryptoType == preferred) && entry.instance && entry.instance->IsInitialized())
+            {
+                return entry.name;
+            }
+        }
+    }
+
+    // If no preferred category default is currently available, use any
+    // initialized provider before falling back to a registered provider that
+    // may support deferred initialization.
     common::ProviderName initializedFallback;
     common::ProviderName registeredFallback;
 
-    // Iterate in numeric-id (registration) order for deterministic selection.
     for (common::ProviderId id = 0; id < m_provider_by_id.size(); ++id)
     {
         const auto& entry = m_providers.at(m_name_by_id[id]);
@@ -99,14 +149,12 @@ common::ProviderName ProviderManager::ResolveDefaultProviderName(
         {
             continue;
         }
-        registeredByType.emplace(entry.cryptoType, entry.name);
         if (registeredFallback.empty())
         {
             registeredFallback = entry.name;
         }
         if (entry.instance->IsInitialized())
         {
-            initializedByType.emplace(entry.cryptoType, entry.name);
             if (initializedFallback.empty())
             {
                 initializedFallback = entry.name;
@@ -114,28 +162,17 @@ common::ProviderName ProviderManager::ResolveDefaultProviderName(
         }
     }
 
-    // First choice: preferred type among successfully-initialized providers.
-    for (const auto& preferred : preferenceOrder)
-    {
-        const auto it = initializedByType.find(preferred);
-        if (it != initializedByType.end())
-        {
-            return it->second;
-        }
-    }
     if (!initializedFallback.empty())
     {
         return initializedFallback;
     }
 
-    // Fallback: nothing initialized yet — resolve to a registered provider so a
-    // temporarily-unavailable provider can still be retried on later lookups.
-    for (const auto& preferred : preferenceOrder)
+    for (const auto preferred : preferenceOrder)
     {
-        const auto it = registeredByType.find(preferred);
-        if (it != registeredByType.end())
+        const auto mapped = m_typeToProviderId.find(preferred);
+        if (mapped != m_typeToProviderId.end())
         {
-            return it->second;
+            return m_name_by_id[mapped->second];
         }
     }
     return registeredFallback;
@@ -150,12 +187,13 @@ bool ProviderManager::BuildTypeMappings(
     // HARDWARE provider via CryptoProviderType::HARDWARE even when the daemon
     // config does not supply explicit type mappings.
     m_typeToProviderId.clear();
-    for (const auto& entry : m_providers)
+    for (common::ProviderId id = 0; id < m_name_by_id.size(); ++id)
     {
-        const auto& crypto_type = entry.second.cryptoType;
+        const auto& entry = m_providers.at(m_name_by_id[id]);
+        const auto crypto_type = entry.cryptoType;
         if (m_typeToProviderId.find(crypto_type) == m_typeToProviderId.end())
         {
-            m_typeToProviderId[crypto_type] = entry.second.numeric_id;
+            m_typeToProviderId[crypto_type] = entry.numeric_id;
         }
     }
 
@@ -175,6 +213,17 @@ bool ProviderManager::BuildTypeMappings(
             mappings_ok = false;
             continue;
         }
+        if ((crypto_type != common::CryptoProviderType::DEFAULT) && (it->second.cryptoType != crypto_type))
+        {
+            score::mw::log::LogWarn() << "[ProviderManager] Type mapping for " << provider_name
+                                      << " does not match the provider's registered category";
+            m_initializationFailures.push_back(ProviderFailure{"",
+                                                               provider_name,
+                                                               ProviderFailureReason::kDefaultProviderUnavailable,
+                                                               common::DaemonErrorCode::kInvalidArgument});
+            mappings_ok = false;
+            continue;
+        }
         m_typeToProviderId[crypto_type] = it->second.numeric_id;
     }
     return mappings_ok;
@@ -184,6 +233,13 @@ bool ProviderManager::RegisterProvider(const common::ProviderName& providerName,
                                        std::shared_ptr<IProvider> provider,
                                        common::CryptoProviderType cryptoType)
 {
+    std::lock_guard<std::mutex> lock(m_providerMutex);
+    if (m_isShutdown.load())
+    {
+        score::mw::log::LogError() << "[ProviderManager] Cannot register a provider after shutdown";
+        return false;
+    }
+
     // Check if provider name already exists
     if (m_providers.find(providerName) != m_providers.end())
     {
@@ -272,56 +328,102 @@ std::shared_ptr<IProvider> ProviderManager::GetProvider(common::CryptoProviderTy
 
 std::shared_ptr<IProvider> ProviderManager::GetProviderForCapability(common::ProviderCapability capability) const
 {
-    using Cap = common::ProviderCapability;
-    using PType = common::CryptoProviderType;
-    // Per-capability defaults: cert operations are software-first; everything else hardware-first.
-    static const std::unordered_map<Cap, std::vector<PType>> kDefaultPref{
-        {Cap::kCertManagement, {PType::SOFTWARE, PType::HARDWARE}},
-        {Cap::kKeyManagement, {PType::HARDWARE, PType::SOFTWARE}},
-        {Cap::kCrypto, {PType::HARDWARE, PType::SOFTWARE}},
-    };
-    static const std::vector<PType> kFallback{PType::HARDWARE, PType::SOFTWARE};
-    const auto it = kDefaultPref.find(capability);
-    return GetProviderForCapability(capability, it != kDefaultPref.end() ? it->second : kFallback);
+    const auto it = m_routingPolicy.capabilityRouting.find(capability);
+    if (it != m_routingPolicy.capabilityRouting.end())
+    {
+        return SelectProviderForCapability(capability, it->second.preferenceOrder, it->second.allowFallback);
+    }
+    return SelectProviderForCapability(capability, m_routingPolicy.defaultProviderPreference, true);
 }
 
 std::shared_ptr<IProvider> ProviderManager::GetProviderForCapability(
     common::ProviderCapability capability,
     const std::vector<common::CryptoProviderType>& preferenceOrder) const
 {
-    std::unordered_map<common::CryptoProviderType, std::shared_ptr<IProvider>> byType;
-    std::shared_ptr<IProvider> fallback;
+    return SelectProviderForCapability(capability, preferenceOrder, true);
+}
 
-    // Iterate in numeric-id order so the fallback selection is deterministic.
+std::shared_ptr<IProvider> ProviderManager::SelectProviderForCapability(
+    common::ProviderCapability capability,
+    const std::vector<common::CryptoProviderType>& preference_order,
+    bool allow_fallback) const
+{
+    if (capability == common::ProviderCapability::kNone)
+    {
+        return nullptr;
+    }
+
+    const auto try_type = [this, capability](const common::CryptoProviderType provider_type) {
+        const auto try_id = [this, capability, provider_type](const common::ProviderId id) {
+            auto& entry = const_cast<ProviderEntry&>(m_providers.at(m_name_by_id[id]));
+            if ((entry.cryptoType == provider_type) && entry.instance &&
+                common::HasCapability(entry.instance->GetProviderCapabilities(), capability) &&
+                EnsureProviderInitialized(entry))
+            {
+                return entry.instance;
+            }
+            return std::shared_ptr<IProvider>{};
+        };
+
+        // The configured category default is the first candidate within that
+        // category. If it cannot serve the capability, try the remaining
+        // providers in deterministic registration order.
+        const auto mapped = m_typeToProviderId.find(provider_type);
+        if (mapped != m_typeToProviderId.end())
+        {
+            auto provider = try_id(mapped->second);
+            if (provider)
+            {
+                return provider;
+            }
+        }
+        for (common::ProviderId id = 0; id < m_provider_by_id.size(); ++id)
+        {
+            if ((mapped != m_typeToProviderId.end()) && (id == mapped->second))
+            {
+                continue;
+            }
+            auto provider = try_id(id);
+            if (provider)
+            {
+                return provider;
+            }
+        }
+        return std::shared_ptr<IProvider>{};
+    };
+
+    // Resolve preferred categories in policy order. Providers in lower-priority
+    // or excluded categories are not initialized unless fallback is enabled.
+    for (const auto preferred : preference_order)
+    {
+        auto provider = try_type(preferred);
+        if (provider)
+        {
+            return provider;
+        }
+    }
+
+    if (!allow_fallback)
+    {
+        return nullptr;
+    }
+
+    // Fallback considers only categories outside the explicit preference list,
+    // preserving registration order for deterministic selection.
     for (common::ProviderId id = 0; id < m_provider_by_id.size(); ++id)
     {
         auto& entry = const_cast<ProviderEntry&>(m_providers.at(m_name_by_id[id]));
-        if (!entry.instance || !common::HasCapability(entry.instance->GetProviderCapabilities(), capability))
+        if (std::find(preference_order.begin(), preference_order.end(), entry.cryptoType) != preference_order.end())
         {
             continue;
         }
-
-        if (!EnsureProviderInitialized(entry))
+        if (entry.instance && common::HasCapability(entry.instance->GetProviderCapabilities(), capability) &&
+            EnsureProviderInitialized(entry))
         {
-            continue;
-        }
-        // First capable provider of each category wins; earlier ids take priority.
-        byType.emplace(entry.cryptoType, entry.instance);
-        if (!fallback)
-        {
-            fallback = entry.instance;
+            return entry.instance;
         }
     }
-
-    for (const auto& preferred : preferenceOrder)
-    {
-        const auto it = byType.find(preferred);
-        if (it != byType.end())
-        {
-            return it->second;
-        }
-    }
-    return fallback;
+    return nullptr;
 }
 
 bool ProviderManager::SetDefaultProviderForType(common::CryptoProviderType cryptoType, common::ProviderId providerId)
@@ -332,7 +434,14 @@ bool ProviderManager::SetDefaultProviderForType(common::CryptoProviderType crypt
         return false;
     }
 
-    // Update the mapping - same provider can be default for multiple types
+    const auto& entry = m_providers.at(m_name_by_id[providerId]);
+    if ((cryptoType != common::CryptoProviderType::DEFAULT) && (entry.cryptoType != cryptoType))
+    {
+        return false;
+    }
+
+    // DEFAULT can point to any provider. Category-specific mappings require an
+    // exact category match to preserve the routing contract.
     m_typeToProviderId[cryptoType] = providerId;
     return true;
 }
@@ -340,9 +449,10 @@ bool ProviderManager::SetDefaultProviderForType(common::CryptoProviderType crypt
 bool ProviderManager::InitializeAll()
 {
     bool any_ok = false;
-    for (auto& entry : m_providers)
+    for (common::ProviderId id = 0; id < m_name_by_id.size(); ++id)
     {
-        if (EnsureProviderInitialized(entry.second))
+        auto& entry = m_providers.at(m_name_by_id[id]);
+        if (EnsureProviderInitialized(entry))
         {
             any_ok = true;
         }
@@ -358,6 +468,10 @@ bool ProviderManager::EnsureProviderInitialized(ProviderEntry& entry) const
     }
 
     std::lock_guard<std::mutex> lock(m_providerMutex);
+    if (m_isShutdown.load())
+    {
+        return false;
+    }
     if (entry.instance->IsInitialized())
     {
         return true;
@@ -389,7 +503,7 @@ bool ProviderManager::EnsureProviderInitialized(ProviderEntry& entry) const
 
 bool ProviderManager::IsProviderInitialized(common::ProviderId provider_id) const
 {
-    if (provider_id >= m_provider_by_id.size())
+    if (m_isShutdown.load() || (provider_id >= m_provider_by_id.size()))
     {
         return false;
     }
@@ -399,11 +513,25 @@ bool ProviderManager::IsProviderInitialized(common::ProviderId provider_id) cons
 
 void ProviderManager::Shutdown()
 {
-    for (auto& pair : m_providers)
+    std::vector<std::shared_ptr<IProvider>> providers;
     {
-        if (pair.second.instance)
+        // Wait for an in-flight initialization attempt, then prevent any new
+        // provider operation from starting before releasing the lock.
+        std::lock_guard<std::mutex> lock(m_providerMutex);
+        if (m_isShutdown.exchange(true))
         {
-            pair.second.instance->Shutdown();
+            return;
+        }
+        providers = m_provider_by_id;
+    }
+
+    // Provider callbacks are external code. Invoke them outside the manager
+    // mutex to avoid lock inversion or re-entrant deadlocks during shutdown.
+    for (const auto& provider : providers)
+    {
+        if (provider)
+        {
+            provider->Shutdown();
         }
     }
 }
@@ -430,15 +558,7 @@ bool ProviderManager::IsProviderCompatibleWithType(const common::ProviderId prov
     {
         return true;
     }
-    // Look up provider type by iterating through entries to find matching numeric_id
-    for (const auto& entry : m_providers)
-    {
-        if (entry.second.numeric_id == provider_id)
-        {
-            return entry.second.cryptoType == requested_type;
-        }
-    }
-    return false;
+    return m_providers.at(m_name_by_id[provider_id]).cryptoType == requested_type;
 }
 
 }  // namespace provider
