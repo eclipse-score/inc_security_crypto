@@ -1,0 +1,11 @@
+{
+  "tokens": [
+    {
+      "token_label": "SoftHSM",
+      "user_pin": "1234",
+      "provider_name": "PKCS11_CONFIGURED_ENGINE",
+      "provider_type": "HARDWARE",
+      "cleanup_strategy": "HARD"
+    }
+  ]
+}

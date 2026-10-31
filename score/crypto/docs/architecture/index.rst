@@ -140,8 +140,10 @@ through two complementary abstractions:
 
    ``CreateAndRegister`` creates a single shared ``Pkcs11Module`` (so
    ``C_Initialize`` is invoked exactly once regardless of token count),
-   then constructs and registers one ``Pkcs11Provider`` per entry as
-   ``CryptoProviderType::HARDWARE``.
+   then constructs and registers one ``Pkcs11Provider`` per entry using the
+   configured provider type (``HARDWARE``, ``SOFTWARE``, or ``SPECIALIZED``).
+   Registration failures are reported per provider while registration of the
+   remaining entries continues.
 
    The factory performs the ``Pkcs11TokenEntry`` to
    ``Pkcs11ProviderConfig`` conversion internally (filling labels, PIN, and

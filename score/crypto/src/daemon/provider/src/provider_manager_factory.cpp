@@ -153,7 +153,8 @@ ProviderManagerFactory::CreatePkcs11ProviderFactory(config::Config& config)
 #if SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
     // Parse PKCS#11 configuration
     auto& pkcs11_config = config.GetPkcs11Config();
-    auto parse_result = pkcs11_config.ParseConfig(config);
+    auto parse_result =
+        pkcs11_config.ParseConfig(config.GetBackendConfigCatalog().FindConfigPath(pkcs11::kBackendConfigId));
     if (!parse_result.has_value())
     {
         return score::crypto::make_unexpected(parse_result.error());

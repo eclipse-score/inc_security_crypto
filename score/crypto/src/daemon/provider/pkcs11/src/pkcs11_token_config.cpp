@@ -16,11 +16,6 @@
 namespace score::crypto::daemon::provider::pkcs11
 {
 
-void Pkcs11Config::AddTokenEntry(Pkcs11TokenEntry entry)
-{
-    m_config.tokens.push_back(std::move(entry));
-}
-
 const Pkcs11ProviderFactoryConfig& Pkcs11Config::GetConfig() const
 {
     return m_config;

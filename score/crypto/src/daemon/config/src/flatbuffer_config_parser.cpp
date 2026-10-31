@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -378,6 +379,53 @@ Expected<bool, common::DaemonErrorCode> FlatBufferConfigParser::ParseCertManagem
         return make_unexpected(cert_res.error());
     }
     out_config = std::move(parsed);
+    return true;
+}
+
+Expected<bool, common::DaemonErrorCode> FlatBufferConfigParser::ParseBackendConfigReferences(
+    const ConfigFile& file,
+    BackendConfigCatalog& out_config)
+{
+    const auto* root = flatbuffers::GetRoot<CryptoConfig>(file.data());
+    if (!root)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "Failed to get CryptoConfig root";
+        return make_unexpected(common::DaemonErrorCode::kInternalError);
+    }
+
+    const auto* backend_config = root->backend_config();
+    if (!backend_config)
+    {
+        return false;
+    }
+
+    std::vector<BackendConfigReference> parsed;
+    std::unordered_set<std::string> backend_ids;
+    const auto* entries = backend_config->entries();
+    if (entries)
+    {
+        parsed.reserve(entries->size());
+        for (const auto* entry : *entries)
+        {
+            if (!entry || !HasText(entry->backend_id()) || !HasText(entry->config_path()))
+            {
+                score::mw::log::LogError() << LOG_PREFIX << "Invalid backend configuration reference";
+                return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+            }
+
+            std::string backend_id{entry->backend_id()->str()};
+            if (!backend_ids.insert(backend_id).second)
+            {
+                score::mw::log::LogError() << LOG_PREFIX << "Duplicate backend configuration reference: " << backend_id;
+                return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+            }
+            parsed.push_back(BackendConfigReference{std::move(backend_id), entry->config_path()->str()});
+        }
+    }
+
+    BackendConfigCatalog catalog;
+    catalog.SetReferences(std::move(parsed));
+    out_config = std::move(catalog);
     return true;
 }
 
