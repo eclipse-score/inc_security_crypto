@@ -102,6 +102,50 @@ bazel build //score/crypto/src/daemon:crypto_daemon \
 Config parsing (`Pkcs11Config::ParseConfig`) lives in `backend/pkcs11/` and is
 independent of the selected library.
 
+## Runtime Backend Configuration
+
+The common binary Crypto configuration contains only references to
+backend-owned configuration files. For example, its JSON source can contain:
+
+```json
+"backend_config": {
+  "entries": [
+    {
+      "backend_id": "pkcs11",
+      "config_path": "pkcs11_config.bin"
+    }
+  ]
+}
+```
+
+An absolute path is normalized and used directly. A relative path is resolved
+from the directory of the common Crypto configuration file and then normalized.
+A backend that is not compiled into the daemon does not parse its entry or add
+its schema to the binary.
+
+Each backend owns its schema, file identifier, version policy, and semantic
+validation. The PKCS#11 backend schema is `backend/pkcs11/pkcs11_config.fbs`,
+uses the standard SCORE `BufferVersion` envelope with the `P11C` file
+identifier, and currently accepts schema version `0.1`. Its configuration must
+contain at least one token and describes token label/model matching, login PIN,
+registered provider name/type, and session cleanup strategy. If no `pkcs11`
+reference is present, the existing build-selected test defaults are used. If a
+reference is present but the file is missing or invalid, parsing fails without
+falling back to those defaults.
+
+Backend configuration is read once during daemon startup; live reload is not
+supported. Configuration files containing credentials such as a PKCS#11 PIN
+must be protected using deployment-appropriate file permissions.
+
+Generate the host-side JSON schema with:
+
+```bash
+bazel build //score/crypto/src/backend/pkcs11:pkcs11_config_json_schema
+```
+
+The generated schema is available as
+`bazel-bin/score/crypto/src/backend/pkcs11/pkcs11_config.schema.json`.
+
 ## Requirements for the PKCS#11 Library
 
 The selected PKCS#11 library must successfully initialize when `C_Initialize`
