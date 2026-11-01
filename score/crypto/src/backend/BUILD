@@ -125,6 +125,15 @@ cc_library(
 #       --//score/crypto/src/backend:pkcs11_backend=//external/vendor_hsm:backend
 label_flag(
     name = "pkcs11_backend",
+    build_setting_default = "//third_party/soft_hsm:soft_hsm",
+    visibility = ["//visibility:public"],
+)
+
+# Label flag allowing command-line override of the shared PKCS#11 implementation
+# when dynamic linking is enabled (--@score_openssl//:use_dynamic_openssl=true).
+# Default is SoftHSM's shared library target.
+label_flag(
+    name = "pkcs11_shared_backend",
     build_setting_default = "//third_party/soft_hsm:softhsm_shared",
     visibility = ["//visibility:public"],
 )
