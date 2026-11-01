@@ -444,7 +444,7 @@ Algorithm Catalog Alongside ``AlgorithmId``
    :version: 1
    :status: proposed
    :context: doc__crypto_architecture
-   :decision: ``AlgorithmId`` stays the string on the wire and in the configs. A constexpr catalog (``score/crypto/src/api/types/algorithm.hpp``) maps every known name, by exact match, to an ``Algorithm`` enumerator and an ``AlgorithmDescriptor`` holding category, key type, key length, hash, curve, mode and fixed output size. Code that needs a property of an algorithm reads it from the catalog instead of searching the name for fragments.
+   :decision: ``AlgorithmId`` stays the string on the wire, in the configs and in stored key metadata. A constexpr catalog (``score/crypto/src/api/types/algorithm.hpp``) maps every known name, by exact match, to an ``Algorithm`` enumerator and an ``AlgorithmDescriptor`` holding category, key type, key length, hash, curve, mode and fixed output size. The daemon resolves each name to its catalog row once, where the request enters it, and refuses a name the catalog does not know; providers receive the row, never the name, and decide support from its typed fields.
 
    .. :affects: comp__crypto
 
@@ -466,33 +466,47 @@ before binding them, so a P-256 key could be bound to an ECDSA-P384 context.
 Decision
 --------
 
-The open set stays: ``AlgorithmId`` remains ``FixedCapacityString<64>``
-(see the previous record), and a name the catalog does not know is passed to
-the providers unchanged. On top of it:
+``AlgorithmId`` remains ``FixedCapacityString<64>`` (see the previous record)
+and the IPC protocol is unchanged. On top of it:
 
 * ``FromAlgorithmName()`` / ``ToAlgorithmName()`` convert between the string and
-  the ``Algorithm`` enumerator by exact, case-sensitive match.
-* ``GetAlgorithmDescriptor()`` and ``GetAlgorithmCategory()`` expose the
-  properties of a known algorithm.
-* The hash, MAC, key, cipher and curve helpers in
-  ``daemon/common/algorithm_info.hpp`` resolve through the catalog; the daemon
-  keeps no hash or MAC table of its own. ECDSA identifiers are split into exact
-  ``ECDSA-<curve>[-<hash>]`` tokens, where the hash token must name a hash row,
-  so any curve/hash pairing such as ``"ECDSA-P256-SHA384"`` is an ECDSA name
-  without a row of its own. The RSA-PSS and Ed25519 helpers read modulus
-  length, digest and key type from the catalog row.
-* Providers map the catalog's ``HashFunction`` to their own digest type
-  (``EVP_MD``, ``CKM_SHA*``) in a ``switch`` without a default case, so a hash
-  added to the catalog does not compile without an explicit support decision
-  in every provider. MD5 and SHA-1 have catalog rows and are refused there;
-  the OpenSSL provider serves ECDSA for every pairing whose hash it maps.
-* Ed25519 has no parameters, so ``"Ed25519"`` is a single row of category
-  signature with key type ``kEd25519``, and names both the key and the scheme.
-* The catalog holds properties; each provider keeps its own list of the names
-  it serves. ``AllInCatalog()`` checks such a list at compile time, so an entry
-  that is misspelt or not in the catalog under the expected category fails the
-  build instead of leaving the algorithm silently unserved. ECDSA pairings
-  without a catalog row have no ``Algorithm`` enumerator.
+  the ``Algorithm`` enumerator by exact, case-sensitive match;
+  ``GetAlgorithmDescriptor()`` and ``GetAlgorithmCategory()`` expose the
+  properties of a known algorithm. The client library uses the same catalog.
+* Every algorithm the daemon accepts is a catalog row. ECDSA has one row per
+  curve (P-256, P-384, P-521) and SHA-2 digest (SHA-224 to SHA-512), twelve in
+  all, whose key length, digest and IEEE P1363 signature size (64, 96, 132
+  bytes) follow from the curve and hash; there is no ECDSA row for MD5 or
+  SHA-1. The bare key rows ``"ECDSA-P256"``, ``"ECDSA-P384"`` and
+  ``"ECDSA-P521"`` name keys only. Ed25519 has no parameters, so ``"Ed25519"``
+  is a single row of category signature with key type ``kEd25519`` and names
+  both the key and the scheme. Nothing in the daemon parses a name.
+* The mediator resolves the algorithm of ``CTX_CREATE`` once, before any
+  provider is asked; a name without a row is refused with
+  ``kUnsupportedAlgorithm``. A ``RANDOM`` context without an algorithm selects
+  the ``"CTR-DRBG"`` row. A ``KEY_MANAGEMENT`` context is bound to no
+  algorithm and is created through the separate factory entry point
+  ``ICryptoHandlerFactory::CreateKeyManagementHandler()``; all other contexts
+  go through ``CreateHandler(handler_id, const AlgorithmDescriptor&)``.
+* Every handler's ``IsAlgorithmSupported()`` takes the descriptor and every
+  handler stores it. Providers decide support in ``switch`` statements over the
+  typed fields (hash, curve, key type, cipher mode) without a default case, so
+  a value added to a catalog enumeration does not compile until each provider
+  decides whether it serves it. The OpenSSL provider maps hash to ``EVP_MD``
+  (SHA-2 only), curve to its group name, cipher mode and key length to an
+  ``EVP_CIPHER`` (AES-CBC) and signatures by key type (ECDSA on every row,
+  RSA-PSS on 2048/3072/4096-bit keys, Ed25519). The PKCS#11 provider maps hash
+  rows to ``CKM_SHA*``, HMAC rows to ``CKM_SHA*_HMAC`` and keys by key type and
+  length. MD5 and SHA-1 have catalog rows and are refused by both.
+* Key management works on descriptors as well: key generation and import
+  requests carry the resolved row, the request parser refuses an unknown name
+  with ``kUnsupportedAlgorithm``, and the key factories switch on its key type.
+  Slot configuration and stored key metadata keep the algorithm name; it is
+  resolved when loaded. A configured slot whose name the catalog does not know
+  is not registered (an error is logged), and a key whose stored name is
+  unknown is refused with ``kUnsupportedAlgorithm`` when loaded or peeked.
+  ``LookupKeySize()`` in ``daemon/common/algorithm_info.hpp`` keeps answering
+  which rows can label a key and the key length, now from the descriptor.
 
 Consequences
 ------------
@@ -500,13 +514,18 @@ Consequences
 **Positive:**
 
 * One table holds the properties of every known algorithm, available to client and daemon.
-* No identifier is accepted because it contains another identifier.
+* No identifier is accepted because it contains another identifier, and an
+  unknown identifier fails at context creation rather than inside a provider.
+* Providers keep no lists of names; a new value of a catalog enumeration forces
+  an explicit support decision in every provider.
 * Key and operation algorithms can be compared on key type, length and curve.
 
 **Negative:**
 
-* A new algorithm needs a catalog row in addition to provider support; a
-  provider list entry without one does not compile.
+* A new algorithm needs a catalog row before any provider can serve it, and
+  a new enumerator value needs a case in every provider switch.
+* A configured or stored name that a later catalog no longer knows makes the
+  slot or key unusable until the configuration is migrated.
 
 ---
 

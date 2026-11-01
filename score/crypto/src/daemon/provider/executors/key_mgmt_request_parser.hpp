@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_REQUEST_PARSER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_REQUEST_PARSER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
@@ -98,7 +99,7 @@ namespace key_mgmt_request_parser
 /// Build a KeyGenerationRequest from the packed request parameters.
 ///
 /// Expected layout:
-///   request[0] = algorithm              (string_view, required)
+///   request[0] = algorithm              (string_view, required; must name a catalog row)
 ///   request[1] = permissions            (uint32_t,    optional)
 ///   request[2] = public_key_permissions (uint32_t,    optional, asymmetric only)
 [[nodiscard]] inline Expected<key_management::KeyGenerationRequest, score::crypto::daemon::common::DaemonErrorCode>
@@ -110,8 +111,15 @@ BuildGenerationRequest(const common::RequestParameters& request)
         return score::crypto::make_unexpected(algo.error());
     }
 
+    // Resolved once here: providers only ever see catalog rows.
+    const auto descriptor = ::score::crypto::GetAlgorithmDescriptor(algo.value());
+    if (!descriptor.has_value())
+    {
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+
     key_management::KeyGenerationRequest req{};
-    req.algorithm = std::string(algo.value());
+    req.algorithm = descriptor.value();
 
     const auto perm = ExtractOptionalPermissions(request, 1U);
     if (perm.has_value())

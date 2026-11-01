@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_entry.hpp"
 #include "score/crypto/src/daemon/key_management/nodes/key_data_node.hpp"
@@ -356,13 +357,21 @@ Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> KeyM
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
         const auto* slot_config = slot_config_res.value();
+        const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(slot_config->algorithm);
+        if (!algorithm.has_value())
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: slot algorithm '" << slot_config->algorithm
+                                       << "' is not in the catalog (key_node_id=" << key_node_id << ")";
+            return score::crypto::make_unexpected(
+                score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+        }
 
         // A slot grants one permission set for whatever key it holds; it is not
         // split into halves, so it governs every operation on the key.
         ProviderKeyHandle handle{};
         handle.provider_id = slot_config->GetPrimaryProviderId();
         handle.permissions = slot_config->allowed_operations;
-        handle.algorithm = slot_config->algorithm;
+        handle.algorithm = algorithm.value();
         return handle;
     }
 

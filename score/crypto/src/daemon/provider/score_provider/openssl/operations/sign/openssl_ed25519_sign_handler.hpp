@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_SIGN_OPENSSL_ED25519_SIGN_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_SIGN_OPENSSL_ED25519_SIGN_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/score_sign_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/sign_executor.hpp"
@@ -36,7 +37,7 @@ class OpenSslEd25519SignHandler final : public operations::sign::ScoreSignHandle
 {
   public:
     explicit OpenSslEd25519SignHandler(std::unique_ptr<operations::sign::SignExecutor> executor,
-                                       const common::AlgorithmId& algorithm);
+                                       const AlgorithmDescriptor& algorithm);
     ~OpenSslEd25519SignHandler() override;
     OpenSslEd25519SignHandler(const OpenSslEd25519SignHandler&) = delete;
     OpenSslEd25519SignHandler& operator=(const OpenSslEd25519SignHandler&) = delete;
@@ -60,7 +61,7 @@ class OpenSslEd25519SignHandler final : public operations::sign::ScoreSignHandle
     /// @return Number of bytes written, or an error if signing cannot be completed.
     Expected<std::size_t, common::DaemonErrorCode> SingleShotSign(score::cpp::span<const std::uint8_t> data,
                                                                   score::cpp::span<std::uint8_t> signature) override;
-    static bool IsAlgorithmSupported(const common::AlgorithmId&) noexcept;
+    static bool IsAlgorithmSupported(const AlgorithmDescriptor&) noexcept;
 
   private:
     signature::Stream m_stream;

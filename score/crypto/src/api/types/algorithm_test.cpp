@@ -15,6 +15,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <set>
 #include <string>
 #include <string_view>
@@ -65,9 +67,75 @@ TEST(AlgorithmCatalogTest, MatchIsExactAndCaseSensitive)
     EXPECT_FALSE(score::crypto::FromAlgorithmName("SHA-256").has_value());
     EXPECT_FALSE(score::crypto::FromAlgorithmName("HMAC-SHA256-X").has_value());
     EXPECT_FALSE(score::crypto::FromAlgorithmName("XECDSA-P256").has_value());
-    // A signature scheme whose curve and digest are known individually is still
-    // unknown as a whole unless the pairing has its own row.
-    EXPECT_FALSE(score::crypto::FromAlgorithmName("ECDSA-P256-SHA384").has_value());
+    EXPECT_FALSE(score::crypto::FromAlgorithmName("ECDSA-P2561-SHA256").has_value());
+    EXPECT_FALSE(score::crypto::FromAlgorithmName("ECDSA-P256-SHA2561").has_value());
+    // ECDSA pairs only with SHA-2 digests; there are no MD5 or SHA-1 rows.
+    EXPECT_FALSE(score::crypto::FromAlgorithmName("ECDSA-P256-SHA1").has_value());
+    EXPECT_FALSE(score::crypto::FromAlgorithmName("ECDSA-P256-MD5").has_value());
+}
+
+TEST(AlgorithmCatalogTest, EcdsaHasOneRowPerCurveAndSha2Digest)
+{
+    struct Curve
+    {
+        std::string_view token;
+        EccCurve curve;
+        std::uint16_t key_bits;
+        std::uint16_t signature_size;
+    };
+    struct Digest
+    {
+        std::string_view token;
+        HashFunction hash;
+    };
+    constexpr Curve kCurves[] = {
+        {"P256", EccCurve::kP256, 256U, 64U},
+        {"P384", EccCurve::kP384, 384U, 96U},
+        {"P521", EccCurve::kP521, 521U, 132U},
+    };
+    constexpr Digest kDigests[] = {
+        {"SHA224", HashFunction::kSha224},
+        {"SHA256", HashFunction::kSha256},
+        {"SHA384", HashFunction::kSha384},
+        {"SHA512", HashFunction::kSha512},
+    };
+
+    std::size_t ecdsa_rows{0U};
+    for (const auto& row : score::crypto::kAlgorithmCatalog)
+    {
+        if ((row.category == AlgorithmCategory::kSignature) && (row.key_type == KeyType::kEcc))
+        {
+            ++ecdsa_rows;
+        }
+    }
+    EXPECT_EQ(ecdsa_rows, 12U);
+
+    for (const auto& curve : kCurves)
+    {
+        for (const auto& digest : kDigests)
+        {
+            const std::string name = std::string{"ECDSA-"} + std::string{curve.token} + "-" + std::string{digest.token};
+            const auto row = score::crypto::GetAlgorithmDescriptor(name);
+            ASSERT_TRUE(row.has_value()) << name;
+            EXPECT_EQ(row->category, AlgorithmCategory::kSignature) << name;
+            EXPECT_EQ(row->key_type, KeyType::kEcc) << name;
+            EXPECT_EQ(row->curve, curve.curve) << name;
+            EXPECT_EQ(row->hash, digest.hash) << name;
+            EXPECT_EQ(row->key_bits, curve.key_bits) << name;
+            EXPECT_EQ(row->output_size, curve.signature_size) << name;
+        }
+    }
+}
+
+TEST(AlgorithmCatalogTest, EnumeratorValuesAreStable)
+{
+    EXPECT_EQ(static_cast<std::uint16_t>(Algorithm::kEcdsaP256Sha256), 18U);
+    EXPECT_EQ(static_cast<std::uint16_t>(Algorithm::kEcdsaP384Sha384), 19U);
+    EXPECT_EQ(static_cast<std::uint16_t>(Algorithm::kEcdsaP521Sha512), 20U);
+    EXPECT_EQ(static_cast<std::uint16_t>(Algorithm::kCtrDrbg), 40U);
+    EXPECT_EQ(static_cast<std::uint16_t>(Algorithm::kEcdsaP256Sha224), 41U);
+    EXPECT_EQ(static_cast<std::uint16_t>(Algorithm::kEcdsaP521Sha384), 49U);
+    EXPECT_EQ(score::crypto::FromAlgorithmName("ECDSA-P256-SHA384"), Algorithm::kEcdsaP256Sha384);
 }
 
 TEST(AlgorithmCatalogTest, UnknownAlgorithmHasNoProperties)
