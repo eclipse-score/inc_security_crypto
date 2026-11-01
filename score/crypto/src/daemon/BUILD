@@ -28,6 +28,13 @@ cc_binary(
             "-O1",
         ],
     }),
+    dynamic_deps = select({
+        "@score_openssl//:dynamic_openssl_enabled": [
+            "@score_openssl//:openssl_shared",
+            "//score/crypto/src/backend:pkcs11_shared_backend",
+        ],
+        "//conditions:default": [],
+    }),
     includes = ["IPC"],
     linkopts = select({
         "//conditions:default": [],
