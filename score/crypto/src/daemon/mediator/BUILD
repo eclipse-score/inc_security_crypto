@@ -78,6 +78,7 @@ cc_library(
         ":mediator_operations",
         "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:key_compatibility",
         "//score/crypto/src/daemon/common:operation_names",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",

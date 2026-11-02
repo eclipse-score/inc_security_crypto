@@ -387,6 +387,29 @@ daemon returns ``CryptoErrorCode::kKeyOperationNotPermitted`` and the
 context is not created. This is a fail-fast check — no resources are
 allocated on permission violation.
 
+**Key/algorithm fit:**
+
+After the permission check, the daemon compares the key's algorithm with
+the context algorithm, using the algorithm catalog
+(``score/crypto/src/daemon/common/algorithm_catalog.hpp``):
+
+.. code-block:: none
+
+   ECDSA-<curve>-<hash>     → EC key on the same curve (any hash)
+   RSA-PSS-<bits>-<hash>    → RSA key with a <bits> modulus (RSA-<bits>)
+   Ed25519                  → Ed25519 key
+   AES-<n>-CBC / -GCM       → AES key of n bits
+   AES-<n>-CMAC             → AES key of n bits
+   HMAC-<hash>              → any symmetric key (AES or generic secret)
+
+Both algorithms are catalog rows (``IsKeyCompatible()`` in
+``daemon/common/key_compatibility.hpp``); hash, random and key rows name no
+keyed operation, so no key fits them. A key that does not fit returns
+``CryptoErrorCode::kIncompatibleKeyType`` and the context is not created. A
+context algorithm that the catalog does not know never gets this far: it is
+refused with ``CryptoErrorCode::kUnsupportedAlgorithm`` (see
+`Algorithm Selection`_).
+
 **Querying permissions:**
 
 Permissions can be queried at runtime via:
