@@ -103,6 +103,16 @@
         "deployment_format" : "kv"
       },
       {
+        "slot_name": "AES256_Labelled_AES128_Material_OpenSSL",
+        "algorithm": "AES-256",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "ENCRYPT|DECRYPT",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_aes128_cbc.kv",
+        "deployment_format" : "kv"
+      },
+      {
         "slot_name": "ECDSA_P256_IntegrationTestKey_OpenSSL",
         "algorithm": "ECDSA-P256",
         "provider_names": ["OPENSSL"],
@@ -291,6 +301,11 @@
       },
       {
         "uid": 0,
+        "app_resource_id": "AES256_Labelled_AES128_Material_OpenSSL",
+        "slot_name": "AES256_Labelled_AES128_Material_OpenSSL"
+      },
+      {
+        "uid": 0,
         "app_resource_id": "ECDSA_P256_IntegrationTestKey_OpenSSL",
         "slot_name": "ECDSA_P256_IntegrationTestKey_OpenSSL"
       },
@@ -333,6 +348,11 @@
         "uid": 1000,
         "app_resource_id": "AES256_CBC_IntegrationTestKey_OpenSSL",
         "slot_name": "AES256_CBC_IntegrationTestKey_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "AES256_Labelled_AES128_Material_OpenSSL",
+        "slot_name": "AES256_Labelled_AES128_Material_OpenSSL"
       },
       {
         "uid": 1000,

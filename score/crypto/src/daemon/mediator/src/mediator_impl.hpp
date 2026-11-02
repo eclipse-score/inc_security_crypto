@@ -122,6 +122,7 @@ class MediatorImpl : public IMediator
         std::uint64_t& key_node_id,
         const common::ProviderId& provider_id,
         std::string_view context_type,
+        const std::optional<AlgorithmDescriptor>& algorithm,
         const common::RequestParameters& params);
 
     // Private helpers
