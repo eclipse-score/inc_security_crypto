@@ -11,21 +11,25 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/ecdsa_common.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
 #include <openssl/bn.h>
+#include <openssl/core_names.h>
 #include <openssl/ec.h>
 #include <openssl/ecdsa.h>
+#include <openssl/rsa.h>
 
 #include "score/mw/log/logging.h"
 
+#include <optional>
+#include <string>
 #include <string_view>
 
-namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 {
 
 using ::score::crypto::daemon::common::DaemonErrorCode;
@@ -36,13 +40,33 @@ namespace
 constexpr std::string_view kLogPrefix = "[OPENSSL_ECDSA]";
 }  // namespace
 
-bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+// ---------------------------------------------------------------------------
+// RSA-PSS configuration
+// ---------------------------------------------------------------------------
+
+bool ConfigureRsaPssPkeyContext(EVP_PKEY_CTX* pkey_context, const EVP_MD* digest, int salt_length) noexcept
 {
-    // The provider list is the gate; the common table must also resolve the
-    // curve and digest because the handlers read field size and digest there.
-    const std::string_view algo{algorithm.data(), algorithm.size()};
-    return ::score::crypto::daemon::provider::openssl::detail::IsSignatureAlgorithmSupported(algo) &&
-           algo_info::IsEcdsaAlgorithm(algo) && algo_info::LookupSignatureDigest(algo).has_value();
+    return pkey_context != nullptr && digest != nullptr &&
+           EVP_PKEY_CTX_set_rsa_padding(pkey_context, RSA_PKCS1_PSS_PADDING) == 1 &&
+           EVP_PKEY_CTX_set_rsa_pss_saltlen(pkey_context, salt_length) == 1 &&
+           EVP_PKEY_CTX_set_rsa_mgf1_md(pkey_context, digest) == 1;
+}
+
+Expected<std::monostate, DaemonErrorCode> ConfigureRsaPssContext(EVP_MD_CTX* context,
+                                                                 std::string_view algorithm,
+                                                                 int salt_length) noexcept
+{
+    EVP_PKEY_CTX* pkey_context = context == nullptr ? nullptr : EVP_MD_CTX_get_pkey_ctx(context);
+    const auto digest_name = algo_info::LookupSignatureDigest(algorithm);
+    const EVP_MD* digest =
+        digest_name.has_value()
+            ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
+            : nullptr;
+    if (!ConfigureRsaPssPkeyContext(pkey_context, digest, salt_length))
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
+    }
+    return std::monostate{};
 }
 
 // ---------------------------------------------------------------------------
@@ -77,13 +101,9 @@ EVP_PKEY* Stream::Key() const noexcept
 
 Expected<std::monostate, DaemonErrorCode> Stream::Bind(
     const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
-    const common::AlgorithmId& algorithm)
+    const common::AlgorithmId& algorithm_id)
 {
-    if (!IsAlgorithmSupported(algorithm))
-    {
-        score::mw::log::LogError() << kLogPrefix << "Unsupported algorithm:" << algorithm;
-        return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
-    }
+    const std::string_view algorithm{algorithm_id.data(), algorithm_id.size()};
 
     Free();
 
@@ -107,14 +127,48 @@ Expected<std::monostate, DaemonErrorCode> Stream::Bind(
     EVP_PKEY* pkey = Key();
     if (pkey == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << "Bind: bound key holds no EC key pair";
+        score::mw::log::LogError() << kLogPrefix << "Bind: bound key holds no key pair";
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }
 
-    if (EVP_PKEY_get_base_id(pkey) != EVP_PKEY_EC)
+    const int key_type = EVP_PKEY_get_base_id(pkey);
+
+    bool key_matches_algorithm = false;
+    if (algo_info::IsEcdsaAlgorithm(algorithm))
     {
-        score::mw::log::LogError() << kLogPrefix << "Bind: bound key is not an EC key";
+        const auto curve = algo_info::LookupEcCurveOfAlgorithm(algorithm);
+        const auto openssl_group_name =
+            curve.has_value() ? ::score::crypto::daemon::provider::openssl::detail::LookupOpenSslGroupName(curve->name)
+                              : std::nullopt;
+        if (openssl_group_name.has_value())
+        {
+            std::string group_name(openssl_group_name->size() + 1U, '\0');
+            std::size_t group_name_size = 0U;
+            const bool read =
+                EVP_PKEY_get_utf8_string_param(
+                    pkey, OSSL_PKEY_PARAM_GROUP_NAME, group_name.data(), group_name.size(), &group_name_size) == 1;
+            const bool trailing_nul = group_name_size > 0U && group_name[group_name_size - 1U] == '\0';
+            const std::size_t actual_size = group_name_size - (trailing_nul ? 1U : 0U);
+            key_matches_algorithm = key_type == EVP_PKEY_EC && read &&
+                                    std::string_view{group_name.data(), actual_size} == openssl_group_name.value();
+        }
+    }
+    else if (algo_info::IsRsaPssAlgorithm(algorithm))
+    {
+        const auto rsa = algo_info::LookupRsaKeyInfoForSignatureAlgorithm(algorithm);
+        key_matches_algorithm =
+            rsa.has_value() && key_type == EVP_PKEY_RSA && EVP_PKEY_get_bits(pkey) == static_cast<int>(rsa->key_bits);
+    }
+    else if (algo_info::IsEd25519Algorithm(algorithm))
+    {
+        key_matches_algorithm = key_type == EVP_PKEY_ED25519;
+    }
+
+    if (!key_matches_algorithm)
+    {
+        score::mw::log::LogError() << kLogPrefix << "Bind"
+                                   << ": bound key type, size, or curve is incompatible with " << algorithm;
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }
@@ -122,7 +176,7 @@ Expected<std::monostate, DaemonErrorCode> Stream::Bind(
     m_md_ctx = EVP_MD_CTX_new();
     if (m_md_ctx == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << "EVP_MD_CTX_new failed";
+        score::mw::log::LogError() << kLogPrefix << "Bind: EVP_MD_CTX_new failed";
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kAllocationFailed);
     }
@@ -226,4 +280,4 @@ Expected<common::OwnedBuffer, DaemonErrorCode> P1363ToDer(const std::uint8_t* ra
     return out;
 }
 
-}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature

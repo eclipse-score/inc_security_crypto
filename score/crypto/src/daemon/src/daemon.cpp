@@ -59,10 +59,12 @@ int main(int argc, char** argv)
     // Create and configure the daemon
     score::crypto::daemon::config::Config config;
 
-    // Parse configuration from multiple sources (priority: file < env < cmdline)
+    // Parse configuration from multiple sources (priority: file < env < cmdline).
+    // A missing config file leaves every section absent; a present but invalid one stops startup.
     if (!config.ParseConfig())
     {
-        score::mw::log::LogError() << "Warning: Could not parse config file (may not exist)";
+        score::mw::log::LogError() << "Failed to load crypto stack configuration; refusing to start";
+        return 1;
     }
 
     // Create and initialize the provider manager via factory.
@@ -78,7 +80,8 @@ int main(int argc, char** argv)
     // Create data manager
     auto data_manager = std::make_shared<score::crypto::daemon::data_manager::DataManager>();
 
-    // Initialize key management subsystem
+    // Initialize key management subsystem. An absent key section yields an empty
+    // config; the module decides what that means for its operations.
     auto key_mgmt_module = score::crypto::daemon::key_management::KeyManagementModule::Create(
         data_manager, provider_manager, config.GetKeyConfig());
 

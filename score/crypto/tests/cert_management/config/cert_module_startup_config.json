@@ -1,0 +1,5 @@
+{
+  "cert_slot_config": {
+    "parser_provider_name": "OPENSSL"
+  }
+}
