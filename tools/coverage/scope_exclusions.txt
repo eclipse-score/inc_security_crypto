@@ -16,7 +16,7 @@
 # //tools/coverage:coverage_scope or be listed here.
 
 # --- test scaffolding (non-testonly, but test infrastructure only) ---
-//score/crypto/tests/softhsm:softhsm_test_fixture  # SoftHSM fixture for backend tests
+//score/crypto/tests/pkcs11:pkcs11_test_fixture  # PKCS#11 fixture for backend tests
 //score/tests/utility:utility  # shared helpers for demo/integration tests
 
 # --- POCs for the selection of IPC mechanism ---

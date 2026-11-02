@@ -11,9 +11,9 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-/// @file test_pkcs11_key_handler.cpp
+/// @file pkcs11_key_management_handler_test.cpp
 /// @brief Integration tests for Pkcs11KeyManagementHandler and Pkcs11KeySlotHandler
-///        using a live SoftHSM2 token.
+///        using a live PKCS#11 token.
 ///
 /// ### Test coverage
 ///  1. GenerateKey_AES256_ReturnsHandle          — KEY_GENERATE via Execute()
@@ -21,10 +21,10 @@
 ///  3. LoadKey_ByLabel_ReturnsHandle             — KEY_LOAD via Execute()
 ///  4. LoadKey_ExtractableKey_ReturnsNativeHandle — token object load
 ///
-/// All tests share the SofthsmTestFixture (SetUp / TearDown initialises a fresh
-/// in-memory SoftHSM2 token per test).
+/// All tests share the Pkcs11TestFixture (SetUp / TearDown initialises a fresh
+/// in-memory PKCS#11 token per test).
 
-#include "score/crypto/tests/softhsm/softhsm_test_fixture.hpp"
+#include "score/crypto/tests/pkcs11/pkcs11_test_fixture.hpp"
 
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"
@@ -67,16 +67,16 @@ static std::shared_ptr<pkcs11_ns::Pkcs11Provider> MakeProvider(const std::string
     pkcs11_ns::Pkcs11ProviderConfig cfg{};
     cfg.tokenLabel = label;
     cfg.userPin = pin;
-    cfg.providerName = "SOFTHSM_TEST";
+    cfg.providerName = "PKCS11_TEST";
 
     auto provider = std::make_shared<pkcs11_ns::Pkcs11Provider>(std::move(cfg));
     return provider;
 }
 
 // ===========================================================================
-// Test fixture: extends SofthsmTestFixture, adds a Pkcs11Provider + executor
+// Test fixture: extends Pkcs11TestFixture, adds a Pkcs11Provider + executor
 // ===========================================================================
-class Pkcs11KeyHandlerTest : public tests::softhsm::SofthsmTestFixture
+class Pkcs11KeyHandlerTest : public tests::pkcs11::Pkcs11TestFixture
 {
   protected:
     std::shared_ptr<pkcs11_ns::Pkcs11Provider> m_provider;
@@ -90,14 +90,14 @@ class Pkcs11KeyHandlerTest : public tests::softhsm::SofthsmTestFixture
 
     void SetUp() override
     {
-        SofthsmTestFixture::SetUp();
+        Pkcs11TestFixture::SetUp();
         if (HasFatalFailure())
         {
             return;
         }
 
-        m_provider = MakeProvider("Test Token", "1234");
-        ASSERT_TRUE(m_provider->Initialize(provider::ProviderInitContext{1, "SOFTHSM_TEST"}))
+        m_provider = MakeProvider("TestToken", "1234");
+        ASSERT_TRUE(m_provider->Initialize(provider::ProviderInitContext{1, "PKCS11_TEST"}))
             << "Pkcs11Provider::Initialize() failed";
 
         m_data_manager = std::make_shared<dm::DataManager>();
@@ -144,7 +144,7 @@ class Pkcs11KeyHandlerTest : public tests::softhsm::SofthsmTestFixture
             m_provider->Shutdown();
             m_provider.reset();
         }
-        SofthsmTestFixture::TearDown();
+        Pkcs11TestFixture::TearDown();
     }
 
     /// Build parameters for the operation. Context (client_id, context_node_id) comes from InitializeContext().
@@ -238,8 +238,8 @@ TEST_F(Pkcs11KeyHandlerTest, LoadKey_ByLabel_ReturnsHandle)
     slot.slot_name = "test/hmac_slot";
     slot.algorithm = "HMAC-SHA256";
     // Config-time: populate provider names; runtime would populate provider_ids via ResolveProviderIds
-    slot.provider_names = {"SOFTHSM_TEST"};
-    slot.provider_ids = {1};  // 1 = SoftHSM (assuming default registration order)
+    slot.provider_names = {"PKCS11_TEST"};
+    slot.provider_ids = {1};  // 1 = Active PKCS#11 provider (assuming default registration order)
     slot.allowed_operations = score::crypto::KeyOperationPermission::kMac;
     slot.access_policy.allowed_uids.push_back(static_cast<uint32_t>(kClient & 0xFFFFFFFFU));
     // Write a temporary deployment descriptor containing the PKCS#11 label.
@@ -286,8 +286,8 @@ TEST_F(Pkcs11KeyHandlerTest, LoadKey_ExtractableKey_ReturnsNativeHandle)
     slot.slot_name = "test/hmac_extract_slot";
     slot.algorithm = "HMAC-SHA256";
     // Config-time: populate provider names; runtime would populate provider_ids via ResolveProviderIds
-    slot.provider_names = {"SOFTHSM_TEST"};
-    slot.provider_ids = {1};  // 1 = SoftHSM (assuming default registration order)
+    slot.provider_names = {"PKCS11_TEST"};
+    slot.provider_ids = {1};  // 1 = Active PKCS#11 provider (assuming default registration order)
     slot.allowed_operations = score::crypto::KeyOperationPermission::kMac;
     slot.access_policy.allowed_uids.push_back(static_cast<uint32_t>(kClient & 0xFFFFFFFFU));
     // Write a temporary deployment descriptor containing the PKCS#11 label.
