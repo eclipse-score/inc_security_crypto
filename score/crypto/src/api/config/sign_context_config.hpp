@@ -25,12 +25,12 @@ namespace crypto
 /// @brief Configuration for signature generation context creation.
 ///
 /// Requires an algorithm and a private key. Supports classical
-/// algorithms (RSA-PSS, ECDSA) and PQC algorithms (ML-DSA-65, SLH-DSA-SHA2-128s).
+/// algorithms (RSA-PSS, ECDSA, Ed25519), e.g. "ECDSA-P256-SHA256".
 ///
 /// @par Example
 /// @code
 ///   SignContextConfig config;
-///   config.SetAlgorithm("ML-DSA-65").SetKey(signing_key);
+///   config.SetAlgorithm("ECDSA-P256-SHA256").SetKey(signing_key);
 ///   auto ctx = crypto_context->CreateSignContext(config);
 /// @endcode
 struct SignContextConfig : public BaseContextConfig
@@ -45,6 +45,16 @@ struct SignContextConfig : public BaseContextConfig
     // -- Fluent builder --
 
     SignContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
+    {
+        BaseContextConfig::SetAlgorithm(alg);
+        return *this;
+    }
+
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    SignContextConfig& SetAlgorithm(const Algorithm alg) noexcept
     {
         BaseContextConfig::SetAlgorithm(alg);
         return *this;

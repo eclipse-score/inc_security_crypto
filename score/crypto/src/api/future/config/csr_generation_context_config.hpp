@@ -47,6 +47,16 @@ struct CsrGenerationContextConfig : public BaseContextConfig
         return *this;
     }
 
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    CsrGenerationContextConfig& SetAlgorithm(const Algorithm alg) noexcept
+    {
+        BaseContextConfig::SetAlgorithm(alg);
+        return *this;
+    }
+
     CsrGenerationContextConfig& SetProvider(const CryptoResourceId& prov) noexcept
     {
         BaseContextConfig::SetProvider(prov);

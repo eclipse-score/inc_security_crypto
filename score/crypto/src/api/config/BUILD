@@ -11,11 +11,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
     name = "context_configs",
     hdrs = [
+        "algorithm_selection.hpp",
         "base_context_config.hpp",
         "cipher_context_config.hpp",
         "hash_context_config.hpp",
@@ -46,5 +47,14 @@ cc_library(
         ":context_configs",
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/types:types",
+    ],
+)
+
+cc_test(
+    name = "algorithm_selection_test",
+    srcs = ["algorithm_selection_test.cpp"],
+    deps = [
+        ":context_configs",
+        "@googletest//:gtest_main",
     ],
 )

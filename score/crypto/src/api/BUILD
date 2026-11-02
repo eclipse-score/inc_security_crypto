@@ -39,6 +39,7 @@ cc_test(
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/config:context_configs",
         "//score/crypto/src/api/contexts:context_bases",
+        "//score/crypto/src/api/contexts:crypto_contexts_impl",
         "//score/crypto/src/api/control_plane",
         "//score/crypto/src/api/types:common_types",
         "//score/crypto/src/daemon/mediator:mediator_operations",
@@ -65,6 +66,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api:operations",
+        "//score/crypto/src/api/common:algorithm_check",
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/config:cert_context_configs",
         "//score/crypto/src/api/config:context_configs",

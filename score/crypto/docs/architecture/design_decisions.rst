@@ -507,6 +507,18 @@ and the IPC protocol is unchanged. On top of it:
   unknown is refused with ``kUnsupportedAlgorithm`` when loaded or peeked.
   ``LookupKeySize()`` in ``daemon/common/algorithm_info.hpp`` keeps answering
   which rows can label a key and the key length, now from the descriptor.
+* The client applies the same rule before any IPC, in
+  ``score/crypto/src/api/common/src/algorithm_check.hpp``:
+  ``CheckContextAlgorithm()`` runs at the start of every ``Create*Context()``
+  and reuses the mediator's ``ContextTakesAlgorithm()`` /
+  ``ResolveContextAlgorithm()``, so ``KEY_MANAGEMENT`` is not checked and an
+  empty ``RANDOM`` algorithm is accepted; ``CheckAlgorithmName()`` runs in
+  ``GenerateKey()`` and ``ImportKey()``. A name without a row fails with
+  ``kUnsupportedAlgorithm`` and no request is sent.
+* Configs and key parameters offer ``SetAlgorithm(Algorithm)`` next to
+  ``SetAlgorithm(const AlgorithmId&)``. It stores the catalog name, so the
+  wire format is still the name; an enumerator without a row stores the
+  placeholder ``"UNKNOWN"``, which the client check refuses.
 
 Consequences
 ------------
@@ -515,7 +527,9 @@ Consequences
 
 * One table holds the properties of every known algorithm, available to client and daemon.
 * No identifier is accepted because it contains another identifier, and an
-  unknown identifier fails at context creation rather than inside a provider.
+  unknown identifier fails at context creation rather than inside a provider;
+  the client library refuses it before sending a request.
+* Applications can select an algorithm by enumerator and avoid misspelled names.
 * Providers keep no lists of names; a new value of a catalog enumeration forces
   an explicit support decision in every provider.
 * Key and operation algorithms can be compared on key type, length and curve.

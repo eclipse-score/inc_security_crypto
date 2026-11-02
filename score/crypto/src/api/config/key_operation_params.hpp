@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_API_CONFIG_KEY_OPERATION_PARAMS_HPP
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/config/algorithm_selection.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
 #include "score/span.hpp"
@@ -205,6 +206,16 @@ struct GenerateKeyParams
     GenerateKeyParams& SetAlgorithm(const AlgorithmId& alg) noexcept
     {
         algorithm = alg;
+        return *this;
+    }
+
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    GenerateKeyParams& SetAlgorithm(const Algorithm alg) noexcept
+    {
+        algorithm = config_detail::ToAlgorithmId(alg);
         return *this;
     }
 
@@ -570,6 +581,16 @@ struct ImportKeyParams
     ImportKeyParams& SetAlgorithm(const AlgorithmId& alg) noexcept
     {
         algorithm = alg;
+        return *this;
+    }
+
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    ImportKeyParams& SetAlgorithm(const Algorithm alg) noexcept
+    {
+        algorithm = config_detail::ToAlgorithmId(alg);
         return *this;
     }
 

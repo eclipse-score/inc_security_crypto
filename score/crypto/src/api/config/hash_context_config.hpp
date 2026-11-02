@@ -31,13 +31,23 @@ namespace crypto
 /// @par Example
 /// @code
 ///   HashContextConfig config;
-///   config.SetAlgorithm("SHA256");
+///   config.SetAlgorithm(Algorithm::kSha256);  // same as SetAlgorithm("SHA256")
 ///   auto ctx = crypto_context->CreateHashContext(config);
 /// @endcode
 struct HashContextConfig : public BaseContextConfig
 {
 
     HashContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
+    {
+        BaseContextConfig::SetAlgorithm(alg);
+        return *this;
+    }
+
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    HashContextConfig& SetAlgorithm(const Algorithm alg) noexcept
     {
         BaseContextConfig::SetAlgorithm(alg);
         return *this;

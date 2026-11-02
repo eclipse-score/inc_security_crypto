@@ -44,6 +44,16 @@ struct RandomContextConfig : public BaseContextConfig
         return *this;
     }
 
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    RandomContextConfig& SetAlgorithm(const Algorithm alg) noexcept
+    {
+        BaseContextConfig::SetAlgorithm(alg);
+        return *this;
+    }
+
     RandomContextConfig& SetProvider(const CryptoResourceId& prov) noexcept
     {
         BaseContextConfig::SetProvider(prov);

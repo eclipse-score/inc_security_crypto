@@ -100,6 +100,7 @@ cc_library(
     deps = [
         ":crypto_contexts",
         "//score/crypto/src/api:operations",
+        "//score/crypto/src/api/common:algorithm_check",
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/common:release_callback_iface",
         "//score/crypto/src/api/types:types",

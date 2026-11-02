@@ -53,6 +53,16 @@ struct AeadContextConfig : public BaseContextConfig
         return *this;
     }
 
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    AeadContextConfig& SetAlgorithm(const Algorithm alg) noexcept
+    {
+        BaseContextConfig::SetAlgorithm(alg);
+        return *this;
+    }
+
     AeadContextConfig& SetKey(const CryptoResourceId& k) noexcept
     {
         key = k;

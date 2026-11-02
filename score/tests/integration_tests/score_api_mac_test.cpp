@@ -600,6 +600,75 @@ INSTANTIATE_TEST_SUITE_P(SelectionOfProviderType,
                          });
 
 // =========================================================================
+// Test Suite: algorithms selected by enumerator, unknown names refused
+// =========================================================================
+
+/// Key generation and MAC context selected with SetAlgorithm(Algorithm), which
+/// sends the catalog name on the wire like the string overload.
+TEST(TypedAlgorithmMacTest, GeneratesKeyAndComputesMacWithEnumerators)
+{
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value());
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value());
+    auto& ctx = ctx_result.value();
+
+    auto key_mgmt_result = ctx->CreateKeyManagementContext(KeyManagementContextConfig{});
+    ASSERT_TRUE(key_mgmt_result.has_value());
+    auto key_result = key_mgmt_result.value()->GenerateKey(
+        GenerateKeyParams{}.SetAlgorithm(Algorithm::kHmacSha256).SetPermissions(KeyOperationPermission::kMac));
+    ASSERT_TRUE(key_result.has_value()) << "GenerateKey(Algorithm::kHmacSha256) failed";
+    auto key = std::move(key_result.value());
+
+    MacContextConfig mac_config;
+    mac_config.SetAlgorithm(Algorithm::kHmacSha256).SetKey(key);
+    auto mac_result = ctx->CreateMacContext(mac_config);
+    ASSERT_TRUE(mac_result.has_value()) << "CreateMacContext(Algorithm::kHmacSha256) failed";
+
+    const std::vector<uint8_t> input{'t', 'y', 'p', 'e', 'd'};
+    std::vector<uint8_t> computed_mac;
+    ASSERT_NO_FATAL_FAILURE(ComputeStreamingMac(*mac_result.value(), input, 32U, computed_mac));
+    ASSERT_NO_FATAL_FAILURE(ResetAndVerifyMac(*mac_result.value(), input, computed_mac));
+}
+
+TEST(TypedAlgorithmMacTest, RefusesUnknownKeyAndMacAlgorithms)
+{
+    constexpr auto kUnsupportedAlgorithm =
+        static_cast<score::result::ErrorCode>(CryptoErrorCode::kUnsupportedAlgorithm);
+
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value());
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value());
+    auto& ctx = ctx_result.value();
+
+    auto key_mgmt_result = ctx->CreateKeyManagementContext(KeyManagementContextConfig{});
+    ASSERT_TRUE(key_mgmt_result.has_value());
+    auto& key_mgmt = key_mgmt_result.value();
+
+    const auto unknown_key = key_mgmt->GenerateKey(GenerateKeyParams{}.SetAlgorithm("HMAC-SHA-256"));
+    ASSERT_FALSE(unknown_key.has_value());
+    EXPECT_EQ(*unknown_key.error(), kUnsupportedAlgorithm);
+
+    const auto no_row_key = key_mgmt->GenerateKey(GenerateKeyParams{}.SetAlgorithm(Algorithm::kUnknown));
+    ASSERT_FALSE(no_row_key.has_value());
+    EXPECT_EQ(*no_row_key.error(), kUnsupportedAlgorithm);
+
+    auto key_result = key_mgmt->GenerateKey(
+        GenerateKeyParams{}.SetAlgorithm(Algorithm::kHmacSha256).SetPermissions(KeyOperationPermission::kMac));
+    ASSERT_TRUE(key_result.has_value());
+    MacContextConfig mac_config;
+    mac_config.SetAlgorithm("HMAC-SHA-256").SetKey(key_result.value());
+    const auto mac_result = ctx->CreateMacContext(mac_config);
+    ASSERT_FALSE(mac_result.has_value());
+    EXPECT_EQ(*mac_result.error(), kUnsupportedAlgorithm);
+}
+
+// =========================================================================
 // Test Suite: Key Slot MAC (fixed vector verification)
 // =========================================================================
 

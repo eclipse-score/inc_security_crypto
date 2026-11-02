@@ -54,3 +54,20 @@ cc_library(
         "@score_baselibs//score/result",
     ],
 )
+
+# Internal: client-side algorithm name check shared by the context factories
+# and the key management context. Application code must not depend on it.
+cc_library(
+    name = "algorithm_check",
+    hdrs = ["src/algorithm_check.hpp"],
+    visibility = [
+        "//score/crypto:__subpackages__",
+    ],
+    deps = [
+        ":crypto_common",
+        "//score/crypto/src/api/types:algorithm_types",
+        "//score/crypto/src/daemon/mediator:mediator_operations",
+        "@score_baselibs//score/mw/log",
+        "@score_baselibs//score/result",
+    ],
+)

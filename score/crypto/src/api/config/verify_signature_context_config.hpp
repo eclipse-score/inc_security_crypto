@@ -25,12 +25,12 @@ namespace crypto
 /// @brief Configuration for signature verification context creation.
 ///
 /// Requires an algorithm and a public key. Supports classical
-/// algorithms (RSA-PSS, ECDSA) and PQC algorithms (ML-DSA-65, SLH-DSA-SHA2-128s).
+/// algorithms (RSA-PSS, ECDSA, Ed25519), e.g. "ECDSA-P256-SHA256".
 ///
 /// @par Example
 /// @code
 ///   VerifySignatureContextConfig config;
-///   config.SetAlgorithm("ML-DSA-65").SetKey(public_key);
+///   config.SetAlgorithm("ECDSA-P256-SHA256").SetKey(public_key);
 ///   auto ctx = crypto_context->CreateVerifySignatureContext(config);
 /// @endcode
 struct VerifySignatureContextConfig : public BaseContextConfig
@@ -45,6 +45,16 @@ struct VerifySignatureContextConfig : public BaseContextConfig
     // -- Fluent builder --
 
     VerifySignatureContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
+    {
+        BaseContextConfig::SetAlgorithm(alg);
+        return *this;
+    }
+
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    VerifySignatureContextConfig& SetAlgorithm(const Algorithm alg) noexcept
     {
         BaseContextConfig::SetAlgorithm(alg);
         return *this;

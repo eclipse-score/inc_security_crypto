@@ -72,6 +72,16 @@ struct CipherContextConfig : public BaseContextConfig
         return *this;
     }
 
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    CipherContextConfig& SetAlgorithm(const Algorithm alg) noexcept
+    {
+        BaseContextConfig::SetAlgorithm(alg);
+        return *this;
+    }
+
     CipherContextConfig& SetKey(const CryptoResourceId& k) noexcept
     {
         key = k;

@@ -25,12 +25,12 @@ namespace crypto
 /// @brief Configuration for MAC context creation.
 ///
 /// Requires an algorithm and a key. Typical algorithms include
-/// HMAC-SHA-256, HMAC-SHA-384, CMAC-AES-128, CMAC-AES-256.
+/// HMAC-SHA256, HMAC-SHA384, AES-128-CMAC, AES-256-CMAC.
 ///
 /// @par Example
 /// @code
 ///   MacContextConfig config;
-///   config.SetAlgorithm("HMAC-SHA-256").SetKey(mac_key);
+///   config.SetAlgorithm(Algorithm::kHmacSha256).SetKey(mac_key);  // or "HMAC-SHA256"
 ///   auto ctx = crypto_context->CreateMacContext(config);
 /// @endcode
 struct MacContextConfig : public BaseContextConfig
@@ -42,6 +42,16 @@ struct MacContextConfig : public BaseContextConfig
     // -- Fluent builder --
 
     MacContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
+    {
+        BaseContextConfig::SetAlgorithm(alg);
+        return *this;
+    }
+
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    MacContextConfig& SetAlgorithm(const Algorithm alg) noexcept
     {
         BaseContextConfig::SetAlgorithm(alg);
         return *this;

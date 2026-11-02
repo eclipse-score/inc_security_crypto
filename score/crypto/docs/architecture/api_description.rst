@@ -441,6 +441,35 @@ context configs) follow the same backward-compatible extensibility pattern:
   (source-compatible). Existing code continues to compile and behave
   identically.
 
+Algorithm Selection
+-------------------
+
+Every config that takes an algorithm (hash, MAC, cipher, sign, verify,
+random, and ``GenerateKeyParams`` / ``ImportKeyParams``) has two setters:
+
+- ``SetAlgorithm(const AlgorithmId&)`` takes the catalog name, e.g.
+  ``"SHA256"`` or ``"ECDSA-P256-SHA256"``.
+- ``SetAlgorithm(Algorithm)`` takes the catalog enumerator from
+  ``score/crypto/src/api/types/algorithm.hpp`` and stores its name
+  (``ToAlgorithmName()``). An enumerator without a catalog row, such as
+  ``Algorithm::kUnknown``, stores the placeholder ``"UNKNOWN"``, which no row
+  carries. ``Algorithm`` is an enum class, so string literals and
+  ``std::string`` still select the name overload.
+
+.. code-block:: cpp
+
+   HashContextConfig hash_cfg;
+   hash_cfg.SetAlgorithm(Algorithm::kSha256);  // sends "SHA256"
+
+The name is what goes on the wire; the IPC protocol is unchanged. Before any
+IPC the client applies the daemon's rule (see
+``dec_rec__crypto__alg_catalog``): ``ICryptoContext::Create*Context()``
+and ``IKeyManagementContext::GenerateKey()`` / ``ImportKey()`` return
+``kUnsupportedAlgorithm`` for a name without a catalog row. A ``RANDOM``
+context with an empty algorithm is accepted (the daemon selects
+``"CTR-DRBG"``), and a key management context, which carries no algorithm, is
+not checked.
+
 Provider Auto-Resolution
 -------------------------
 

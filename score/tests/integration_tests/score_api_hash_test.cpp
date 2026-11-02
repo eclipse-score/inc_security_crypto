@@ -291,6 +291,51 @@ TEST_F(HashExampleTest, ReportsUnsupportedHashAlgorithmAtContextCreation)
     EXPECT_EQ(*hash_result.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kUnsupportedAlgorithm));
 }
 
+TEST_F(HashExampleTest, RefusesAlgorithmEnumeratorWithoutCatalogRow)
+{
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value());
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value());
+
+    HashContextConfig hash_config;
+    hash_config.SetAlgorithm(Algorithm::kUnknown);
+    const auto hash_result = ctx_result.value()->CreateHashContext(hash_config);
+    ASSERT_FALSE(hash_result.has_value());
+    EXPECT_EQ(*hash_result.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kUnsupportedAlgorithm));
+}
+
+TEST_F(HashExampleTest, ComputesDigestWithAlgorithmEnumerator)
+{
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value());
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value());
+
+    HashContextConfig hash_config;
+    hash_config.SetAlgorithm(Algorithm::kSha256);
+    auto hash_result = ctx_result.value()->CreateHashContext(hash_config);
+    ASSERT_TRUE(hash_result.has_value()) << "CreateHashContext(Algorithm::kSha256) failed";
+
+    // FIPS 180-2 example: SHA-256("abc").
+    const std::array<uint8_t, 3U> input{'a', 'b', 'c'};
+    const std::array<uint8_t, 32U> expected{
+        0xbaU, 0x78U, 0x16U, 0xbfU, 0x8fU, 0x01U, 0xcfU, 0xeaU, 0x41U, 0x41U, 0x40U, 0xdeU, 0x5dU, 0xaeU, 0x22U, 0x23U,
+        0xb0U, 0x03U, 0x61U, 0xa3U, 0x96U, 0x17U, 0x7aU, 0x9cU, 0xb4U, 0x10U, 0xffU, 0x61U, 0xf2U, 0x00U, 0x15U, 0xadU,
+    };
+    std::array<uint8_t, 32U> output{};
+    const auto result = hash_result.value()->SingleShot(input, output);
+    ASSERT_TRUE(result.has_value()) << "SingleShot failed";
+    EXPECT_EQ(result.value(), output.size());
+    EXPECT_EQ(output, expected);
+}
+
 TEST_F(HashExampleTest, ReportsStreamStateErrorsAndRecoversWithReset)
 {
     CryptoStackConfig stack_config;

@@ -14,6 +14,7 @@
 #include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/common/src/algorithm_check.hpp"
 #include "score/crypto/src/api/config/cipher_context_config.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
@@ -96,6 +97,9 @@ struct ContextCreationRequest
 
 /// @brief Sends CTX_CREATE to the daemon and returns the new context's node id.
 ///
+/// An algorithm name the catalog does not know is refused with
+/// kUnsupportedAlgorithm before anything is sent (see CheckContextAlgorithm()).
+///
 /// Centralises the request/validate/extract sequence that is identical for all
 /// context types, so each factory below only has to describe its parameters and
 /// wrap the resulting id in the right context implementation.
@@ -104,6 +108,16 @@ score::Result<std::uint64_t> CreateDaemonContext(
     const ContextCreationRequest& request)
 {
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
+
+    // Refuse a name the daemon would refuse, before the round trip.
+    const auto algorithm_check = api::detail::CheckContextAlgorithm(
+        request.context_type,
+        request.algorithm != nullptr ? std::string_view{*request.algorithm} : std::string_view{},
+        "[CryptoContextImpl]");
+    if (!algorithm_check.has_value())
+    {
+        return score::Result<std::uint64_t>{score::unexpect, algorithm_check.error()};
+    }
 
     auto builder =
         proto::ControlRequestBuilder()

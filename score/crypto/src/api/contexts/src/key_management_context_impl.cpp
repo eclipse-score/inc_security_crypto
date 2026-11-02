@@ -15,6 +15,7 @@
 
 #include "score/crypto/src/api/common/crypto_resource_guard.hpp"
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/common/src/algorithm_check.hpp"
 #include "score/crypto/src/api/common/src/crypto_resource_guard_factory.hpp"
 #include "score/crypto/src/api/common/src/i_release_callback.hpp"
 #include "score/crypto/src/api/config/key_operation_params.hpp"
@@ -178,6 +179,12 @@ KeyManagementContextImpl::~KeyManagementContextImpl() = default;
 
 score::Result<CryptoResourceGuard> KeyManagementContextImpl::GenerateKey(const GenerateKeyParams& params)
 {
+    const auto algorithm_check = api::detail::CheckAlgorithmName(params.algorithm, "[KeyMgmtContextImpl] GenerateKey");
+    if (!algorithm_check.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, algorithm_check.error()};
+    }
+
     auto request_builder = proto::ControlRequestBuilder()
                                .forDataNodeId(m_context_id)
                                .operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_GENERATE})
@@ -306,8 +313,13 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::LoadKey(const Crypt
 score::Result<std::monostate> KeyManagementContextImpl::GenerateKey(
     const CryptoResourceId& /*target_slot*/,
     const std::optional<CryptoResourceId>& /*public_slot*/,
-    const GenerateKeyParams& /*params*/)
+    const GenerateKeyParams& params)
 {
+    const auto algorithm_check = api::detail::CheckAlgorithmName(params.algorithm, "[KeyMgmtContextImpl] GenerateKey");
+    if (!algorithm_check.has_value())
+    {
+        return score::Result<std::monostate>{score::unexpect, algorithm_check.error()};
+    }
     score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: GenerateKey with target_slot not yet implemented";
     return score::Result<std::monostate>{
         score::unexpect,
@@ -367,16 +379,26 @@ score::Result<std::monostate> KeyManagementContextImpl::UnwrapKey(const CryptoRe
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "UnwrapKey not yet implemented")};
 }
 
-score::Result<CryptoResourceGuard> KeyManagementContextImpl::ImportKey(const ImportKeyParams& /*params*/)
+score::Result<CryptoResourceGuard> KeyManagementContextImpl::ImportKey(const ImportKeyParams& params)
 {
+    const auto algorithm_check = api::detail::CheckAlgorithmName(params.algorithm, "[KeyMgmtContextImpl] ImportKey");
+    if (!algorithm_check.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, algorithm_check.error()};
+    }
     score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: ImportKey not yet implemented";
     return score::Result<CryptoResourceGuard>{
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "ImportKey not yet implemented")};
 }
 
 score::Result<std::monostate> KeyManagementContextImpl::ImportKey(const CryptoResourceId& /*target_slot*/,
-                                                                  const ImportKeyParams& /*params*/)
+                                                                  const ImportKeyParams& params)
 {
+    const auto algorithm_check = api::detail::CheckAlgorithmName(params.algorithm, "[KeyMgmtContextImpl] ImportKey");
+    if (!algorithm_check.has_value())
+    {
+        return score::Result<std::monostate>{score::unexpect, algorithm_check.error()};
+    }
     score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: ImportKey not yet implemented";
     return score::Result<std::monostate>{
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "ImportKey not yet implemented")};

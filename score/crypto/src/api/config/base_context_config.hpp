@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_API_CONFIG_BASE_CONTEXT_CONFIG_HPP
 #define SCORE_CRYPTO_SRC_API_CONFIG_BASE_CONTEXT_CONFIG_HPP
 
+#include "score/crypto/src/api/config/algorithm_selection.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 
 #include <chrono>
@@ -36,7 +37,7 @@ namespace crypto
 /// of the key's primary.
 struct BaseContextConfig
 {
-    /// @brief Algorithm identifier (e.g., "AES-256-CBC", "SHA384", "ML-DSA-65").
+    /// @brief Algorithm identifier (e.g., "AES-256-CBC", "SHA384", "ECDSA-P256-SHA256").
     AlgorithmId algorithm{};
 
     /// @brief Optional resolved provider handle. When set, overrides
@@ -102,6 +103,16 @@ struct BaseContextConfig
     BaseContextConfig& SetAlgorithm(const AlgorithmId& alg) noexcept
     {
         algorithm = alg;
+        return *this;
+    }
+
+    /// @brief Select a catalog algorithm by enumerator; stores its catalog name.
+    ///
+    /// A value without a catalog row (e.g. Algorithm::kUnknown) stores a name
+    /// that is refused with CryptoErrorCode::kUnsupportedAlgorithm.
+    BaseContextConfig& SetAlgorithm(const Algorithm alg) noexcept
+    {
+        algorithm = config_detail::ToAlgorithmId(alg);
         return *this;
     }
 
