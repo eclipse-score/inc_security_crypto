@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <set>
 #include <string>
 #include <string_view>
@@ -34,6 +35,8 @@ static_assert(score::crypto::FromAlgorithmName("ECDSA-P384-SHA384") == Algorithm
 static_assert(score::crypto::ToAlgorithmName(Algorithm::kSha256) == "SHA256");
 static_assert(score::crypto::GetAlgorithmDescriptor(Algorithm::kEcdsaP384Sha384)->output_size == 96U);
 static_assert(score::crypto::GetAlgorithmCategory("AES-256-CBC") == AlgorithmCategory::kCipher);
+static_assert(score::crypto::GetFixedOutputSize(Algorithm::kEcdsaP384Sha384) == 96U);
+static_assert(score::crypto::GetMaximumOutputSize(Algorithm::kAes256Cbc, 32U) == 48U);
 
 TEST(AlgorithmCatalogTest, NamesAndIdentifiersAreUnique)
 {
@@ -189,6 +192,72 @@ TEST(AlgorithmCatalogTest, KeySizes)
     EXPECT_EQ(score::crypto::GetKeySizeBytes(Algorithm::kEcdsaP521), 66U);
     EXPECT_FALSE(score::crypto::GetKeySizeBytes(Algorithm::kSha256).has_value());
     EXPECT_FALSE(score::crypto::GetKeySizeBytes(Algorithm::kCtrDrbg).has_value());
+}
+
+TEST(AlgorithmCatalogTest, FixedOutputSizes)
+{
+    EXPECT_EQ(score::crypto::GetFixedOutputSize(Algorithm::kSha256), 32U);
+    EXPECT_EQ(score::crypto::GetFixedOutputSize(Algorithm::kSha512), 64U);
+    EXPECT_EQ(score::crypto::GetFixedOutputSize(Algorithm::kHmacSha384), 48U);
+    EXPECT_EQ(score::crypto::GetFixedOutputSize(Algorithm::kAes128Cmac), 16U);
+    EXPECT_EQ(score::crypto::GetFixedOutputSize(Algorithm::kEcdsaP256Sha256), 64U);
+    EXPECT_EQ(score::crypto::GetFixedOutputSize(Algorithm::kEcdsaP521Sha512), 132U);
+    for (const auto algorithm : {Algorithm::kUnknown, Algorithm::kAes256Cbc, Algorithm::kAes256, Algorithm::kCtrDrbg})
+    {
+        EXPECT_FALSE(score::crypto::GetFixedOutputSize(algorithm).has_value())
+            << score::crypto::ToAlgorithmName(algorithm);
+    }
+}
+
+// The signature size depends on the curve only, not on the digest.
+TEST(AlgorithmCatalogTest, EcdsaOutputSizeFollowsTheCurve)
+{
+    for (const auto algorithm : {Algorithm::kEcdsaP256Sha224, Algorithm::kEcdsaP256Sha384, Algorithm::kEcdsaP256Sha512})
+    {
+        EXPECT_EQ(score::crypto::GetFixedOutputSize(algorithm), 64U) << score::crypto::ToAlgorithmName(algorithm);
+        EXPECT_EQ(score::crypto::GetMaximumOutputSize(algorithm, 7U), 64U) << score::crypto::ToAlgorithmName(algorithm);
+    }
+    for (const auto algorithm : {Algorithm::kEcdsaP384Sha224, Algorithm::kEcdsaP384Sha256, Algorithm::kEcdsaP384Sha512})
+    {
+        EXPECT_EQ(score::crypto::GetFixedOutputSize(algorithm), 96U) << score::crypto::ToAlgorithmName(algorithm);
+    }
+    for (const auto algorithm : {Algorithm::kEcdsaP521Sha224, Algorithm::kEcdsaP521Sha256, Algorithm::kEcdsaP521Sha384})
+    {
+        EXPECT_EQ(score::crypto::GetFixedOutputSize(algorithm), 132U) << score::crypto::ToAlgorithmName(algorithm);
+    }
+    for (const auto algorithm : {Algorithm::kEcdsaP256, Algorithm::kEcdsaP384, Algorithm::kEcdsaP521})
+    {
+        EXPECT_FALSE(score::crypto::GetFixedOutputSize(algorithm).has_value())
+            << score::crypto::ToAlgorithmName(algorithm);
+    }
+}
+
+TEST(AlgorithmCatalogTest, MaximumOutputSizeOfFixedOutputIgnoresInput)
+{
+    EXPECT_EQ(score::crypto::GetMaximumOutputSize(Algorithm::kSha384, 0U), 48U);
+    EXPECT_EQ(score::crypto::GetMaximumOutputSize(Algorithm::kSha384, 1000U), 48U);
+    EXPECT_EQ(score::crypto::GetMaximumOutputSize(Algorithm::kEcdsaP384Sha384, 7U), 96U);
+    EXPECT_EQ(score::crypto::GetMaximumOutputSize(Algorithm::kRsaPss4096Sha256, 7U), 512U);
+    EXPECT_EQ(score::crypto::GetMaximumOutputSize(Algorithm::kEd25519, 7U), 64U);
+}
+
+TEST(AlgorithmCatalogTest, MaximumOutputSizeOfBlockCipherAddsOneBlock)
+{
+    EXPECT_EQ(score::crypto::GetMaximumOutputSize(Algorithm::kAes128Cbc, 0U), 16U);
+    EXPECT_EQ(score::crypto::GetMaximumOutputSize(Algorithm::kAes192Cbc, 5U), 21U);
+    EXPECT_EQ(score::crypto::GetMaximumOutputSize(Algorithm::kAes256Cbc, 16U), 32U);
+}
+
+TEST(AlgorithmCatalogTest, MaximumOutputSizeIsUndefinedWithoutABound)
+{
+    for (const auto algorithm :
+         {Algorithm::kUnknown, Algorithm::kAes256, Algorithm::kEcdsaP256, Algorithm::kCtrDrbg, Algorithm::kAes128Gcm})
+    {
+        EXPECT_FALSE(score::crypto::GetMaximumOutputSize(algorithm, 16U).has_value())
+            << score::crypto::ToAlgorithmName(algorithm);
+    }
+    EXPECT_FALSE(score::crypto::GetMaximumOutputSize(Algorithm::kAes256Cbc, std::numeric_limits<std::size_t>::max())
+                     .has_value());
 }
 
 TEST(AlgorithmCatalogTest, KeyRowsAreNotOperations)

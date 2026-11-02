@@ -473,6 +473,10 @@ and the IPC protocol is unchanged. On top of it:
   the ``Algorithm`` enumerator by exact, case-sensitive match;
   ``GetAlgorithmDescriptor()`` and ``GetAlgorithmCategory()`` expose the
   properties of a known algorithm. The client library uses the same catalog.
+* ``GetFixedOutputSize()`` and ``GetMaximumOutputSize()`` give buffer sizes at
+  compile time, using the same rules as the context-level size queries. They
+  read the row's ``output_size`` and ``block_size``, so every ECDSA row gives
+  the signature size of its curve (``"ECDSA-P256-SHA384"`` gives 64).
 * Every algorithm the daemon accepts is a catalog row. ECDSA has one row per
   curve (P-256, P-384, P-521) and SHA-2 digest (SHA-224 to SHA-512), twelve in
   all, whose key length, digest and IEEE P1363 signature size (64, 96, 132

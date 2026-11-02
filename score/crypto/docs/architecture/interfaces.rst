@@ -391,6 +391,8 @@ The public API surface is organized into the following interface groups:
    ``GetMaximumOutputSize(input_size)``.  The latter bounds the output of
    ``Update()`` and ``SingleShot()`` for that input length, and of
    ``Finalize()`` for an input length of 0.
+   For a catalog algorithm the same bound is available at compile time from
+   ``GetMaximumOutputSize(Algorithm, input_size)`` in ``api/types/algorithm.hpp``.
    ``Init()`` uses the base optional-IV signature (``span`` implicitly
    converts to ``optional<span>``); for IV-based modes (AES-CBC,
    AES-CTR) an IV must be provided, for ECB ``std::nullopt`` is valid.
