@@ -29,14 +29,13 @@ namespace score::crypto::daemon::cert_management
 
 /// Integrity enforcement policy for a certificate slot.
 ///
-/// kDisabled: no check is performed; descriptor hash fields are ignored even if present.
-/// kRequired: LoadCertificate fails if the KV descriptor [certificate] section has no
-///            cert_hash entry, or if the stored hash does not match the file content.
-///            This prevents a compromised descriptor from bypassing the check.
+/// kDisabled: no integrity check is applied to the stored content.
+/// kRequired: the stored content must pass the integrity check the deployment defines
+///            before it is used. The check is deployment-specific and may cover certificate
+///            content, CRL data, or other material.
 ///
-/// The policy is a static slot property set at startup by the integrator. The actual
-/// hash value and algorithm live in the KV descriptor [certificate] section and are
-/// updated atomically by the writer whenever a certificate is stored.
+/// The policy is a static slot property set at startup by the integrator, so a compromised
+/// descriptor cannot switch it off.
 enum class IntegrityPolicy : uint8_t
 {
     kDisabled = 0,

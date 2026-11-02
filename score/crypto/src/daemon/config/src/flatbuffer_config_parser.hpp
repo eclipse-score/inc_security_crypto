@@ -16,8 +16,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
@@ -25,118 +28,161 @@
 
 namespace score::crypto::daemon::config::keyslot
 {
-// Forward declarations for FlatBuffers-generated types
+// Forward declarations for FlatBuffers-generated types (key slot config)
 class CryptoConfig;
 class KeySlotConfig;
+// Forward declarations for FlatBuffers-generated types (cert config)
+class CertSlotConfig;
+class CertSlotEntry;
+class TrustStoreEntry;
+class AppCertSlotMapping;
+class AppTrustStoreMapping;
 }  // namespace score::crypto::daemon::config::keyslot
 
 namespace score::crypto::daemon::config
 {
 
+class FlatBufferConfigParser;
+
+/// @brief A configuration file read into memory and checked against the "CCFG" envelope.
+///
+/// Only FlatBufferConfigParser::LoadFile() creates one, so holding a ConfigFile means its
+/// bytes have passed validation. Load it once and pass it to each section parser.
+class ConfigFile
+{
+  public:
+    /// @brief Pointer to the validated file bytes. Valid for the lifetime of this object.
+    const uint8_t* data() const noexcept
+    {
+        return m_bytes.data();
+    }
+
+    /// @brief Number of validated bytes.
+    size_t size() const noexcept
+    {
+        return m_bytes.size();
+    }
+
+  private:
+    friend class FlatBufferConfigParser;
+
+    explicit ConfigFile(std::vector<uint8_t> bytes) : m_bytes{std::move(bytes)} {}
+
+    std::vector<uint8_t> m_bytes;
+};
+
 /// @brief Parser for FlatBuffers-based configuration files.
 ///
-/// Transforms serialized KeySlotConfigFB (from score::crypto::daemon::config::keyslot
-/// namespace via FlatBuffers) into KeyConfig objects that the rest of the daemon
-/// recognizes.
+/// Transforms serialized configuration (from score::crypto::daemon::config::keyslot
+/// namespace via FlatBuffers) into KeyConfig and CertificateConfig objects that
+/// the rest of the daemon recognises.
+///
+/// The file is read and validated once by LoadFile(). Each section parser then reads
+/// only its own section from the loaded file. An absent section is not an error; a
+/// present section that cannot be parsed is.
 class FlatBufferConfigParser
 {
   public:
     FlatBufferConfigParser() = default;
     ~FlatBufferConfigParser() = default;
 
-    // Delete copy/move — static utility interface only
     FlatBufferConfigParser(const FlatBufferConfigParser&) = delete;
     FlatBufferConfigParser& operator=(const FlatBufferConfigParser&) = delete;
     FlatBufferConfigParser(FlatBufferConfigParser&&) = delete;
     FlatBufferConfigParser& operator=(FlatBufferConfigParser&&) = delete;
 
-    /// @brief Parse FlatBuffers key slot configuration from a file.
+    // -----------------------------------------------------------------------
+    // File loading and section entry points
+    // -----------------------------------------------------------------------
+
+    /// @brief Read a binary config file and validate its envelope.
     ///
-    /// Reads the binary file, validates the FlatBuffers structure, and
-    /// populates the output KeyConfig with deserialized slot entries and
-    /// app resource mappings.
+    /// @param filepath Path to the generated binary config file (.bin)
+    /// @return The validated file, or DaemonErrorCode if it cannot be read or validated
+    static Expected<ConfigFile, common::DaemonErrorCode> LoadFile(std::string_view filepath);
+
+    /// @brief Parse the key management section (key_slot_config) from a loaded file.
     ///
-    /// @param filepath   Path to the .fbs binary config file
-    /// @param out_config Output KeyConfig object to populate
-    /// @return Success (monostate) on successful parsing, DaemonErrorCode on failure
-    /// @retval kInvalidArgument    File not found, file empty, or buffer too small
-    /// @retval kInternal           Invalid FlatBuffers structure or missing required fields
+    /// @param file       Validated file from LoadFile()
+    /// @param out_config Output KeyConfig; replaced only when the section parses fully, so it is
+    ///                   left unchanged when the section is absent or fails to parse
+    /// @return true if the section was present and parsed, false if the file has no
+    ///         key_slot_config, or DaemonErrorCode if the present section is malformed
+    static Expected<bool, common::DaemonErrorCode> ParseKeyManagementConfig(const ConfigFile& file,
+                                                                            KeyConfig& out_config);
+
+    /// @brief Parse the certificate management section (cert_slot_config) from a loaded file.
     ///
-    /// @note If parsing fails, out_config state is undefined; don't use it.
+    /// @param file       Validated file from LoadFile()
+    /// @param out_config Output CertificateConfig; replaced only when the section parses fully, so it is
+    ///                   left unchanged when the section is absent or fails to parse
+    /// @return true if the section was present and parsed, false if the file has no
+    ///         cert_slot_config, or DaemonErrorCode if the present section is malformed
+    static Expected<bool, common::DaemonErrorCode> ParseCertManagementConfig(const ConfigFile& file,
+                                                                             CertificateConfig& out_config);
+
+    // -----------------------------------------------------------------------
+    // Low-level helpers — key slot config (binary FlatBuffers)
+    // -----------------------------------------------------------------------
+
+    /// @brief Parse key slot configuration from a binary FlatBuffers file.
     static Expected<std::monostate, common::DaemonErrorCode> ParseFromFile(std::string_view filepath,
                                                                            KeyConfig& out_config);
 
-    /// @brief Parse FlatBuffers key slot configuration from a memory buffer.
-    ///
-    /// Validates the FlatBuffers structure in memory and populates the output
-    /// KeyConfig with deserialized entries.
-    ///
-    /// @param data       Pointer to buffer containing serialized FlatBuffers data
-    /// @param size       Size of data buffer in bytes
-    /// @param out_config Output KeyConfig object to populate
-    /// @return Success (monostate) on successful parsing, DaemonErrorCode on failure
-    /// @retval kInvalidArgument    Null pointer, zero size, or invalid FlatBuffers root
-    /// @retval kInternal           Missing required fields or invalid file identifier
-    ///
-    /// @note If parsing fails, out_config state is undefined; don't use it.
+    /// @brief Parse key slot configuration from a binary FlatBuffers memory buffer.
     static Expected<std::monostate, common::DaemonErrorCode> ParseFromBuffer(const uint8_t* data,
                                                                              size_t size,
                                                                              KeyConfig& out_config);
 
   private:
     static constexpr std::string_view LOG_PREFIX = "[FLATBUFFER_PARSER] ";
-    static constexpr size_t kMinBufferSize = 4;  // Minimum size to contain FlatBuffers file identifier
+    static constexpr size_t kMinBufferSize = 8U;
 
-    /// @brief Validate FlatBuffers root and file identifier.
-    ///
-    /// Ensures the buffer contains a valid KeySlotConfigFB root with
-    /// the expected file identifier "CCFG" (from score::crypto::daemon::config::keyslot).
-    ///
-    /// @param data       Pointer to buffer
-    /// @param size       Buffer size in bytes
-    /// @return Success (monostate) if valid, DaemonErrorCode on validation failure
-    /// @retval kInvalidArgument    Null pointer, buffer too small, or invalid identifier
-    /// @retval kInternal           Invalid FlatBuffers structure
+    // -----------------------------------------------------------------------
+    // Key slot config helpers
+    // -----------------------------------------------------------------------
+
+    /// @brief Check that a buffer is large enough and carries the "CCFG" file identifier.
+    /// @param data Start of the buffer.
+    /// @param size Length of the buffer in bytes.
+    /// @return Success, or kInvalidArgument when the buffer is null, too small, has an unexpected
+    ///         identifier, or fails FlatBuffers verification.
     static Expected<std::monostate, common::DaemonErrorCode> ValidateBuffer(const uint8_t* data, size_t size);
 
-    /// @brief Parse the key slot configuration from the FlatBuffers root object.
-    ///
-    /// Extracts the KeySlotConfig from the CryptoConfig root and delegates
-    /// parsing of slot entries and app resource entries to helper methods.
-    ///
-    /// @param root       Pointer to the CryptoConfig FlatBuffers root object
-    /// @param out_config Output KeyConfig object to populate
-    /// @return Success (monostate) on successful parsing, DaemonErrorCode on failure
-    /// @retval kInvalidArgument    Null root or missing key_slot_config
-    /// @retval kInternalError      Parsing of entries failed
     static Expected<std::monostate, common::DaemonErrorCode> ParseKeySlotConfig(const keyslot::CryptoConfig* root,
                                                                                 KeyConfig& out_config);
 
-    /// @brief Parse slot entries from key slot configuration.
-    ///
-    /// Iterates through slot entries in the KeySlotConfig and populates
-    /// KeyConfig with parsed KeySlotEntry objects.
-    ///
-    /// @param key_slot_config Pointer to the KeySlotConfig FlatBuffers object
-    /// @param out_config      Output KeyConfig object to populate
-    /// @return Success (monostate) on successful parsing, DaemonErrorCode on failure
-    /// @retval kInternalError  Invalid entry structure or missing required fields
     static Expected<std::monostate, common::DaemonErrorCode> ParseSlotEntries(
         const keyslot::KeySlotConfig* key_slot_config,
         KeyConfig& out_config);
 
-    /// @brief Parse app key slot entries from key slot configuration.
-    ///
-    /// Iterates through app key slot entries in the KeySlotConfig and populates
-    /// KeyConfig with parsed AppKeySlotEntry objects.
-    ///
-    /// @param key_slot_config Pointer to the KeySlotConfig FlatBuffers object
-    /// @param out_config      Output KeyConfig object to populate
-    /// @return Success (monostate) on successful parsing, DaemonErrorCode on failure
-    /// @retval kInternalError  Invalid entry structure or missing required fields
-    static Expected<std::monostate, common::DaemonErrorCode> ParseAppKeySlotEntries(
+    static Expected<std::monostate, common::DaemonErrorCode> ParseAppKeySlotMappings(
         const keyslot::KeySlotConfig* key_slot_config,
         KeyConfig& out_config);
+
+    // -----------------------------------------------------------------------
+    // Cert config helpers
+    // -----------------------------------------------------------------------
+
+    static Expected<std::monostate, common::DaemonErrorCode> ParseCertSlotConfig(
+        const keyslot::CertSlotConfig* cert_slot_config,
+        CertificateConfig& out_config);
+
+    static Expected<std::monostate, common::DaemonErrorCode> ParseCertSlotEntries(
+        const keyslot::CertSlotConfig* cert_slot_config,
+        CertificateConfig& out_config);
+
+    static Expected<std::monostate, common::DaemonErrorCode> ParseTrustStoreEntries(
+        const keyslot::CertSlotConfig* cert_slot_config,
+        CertificateConfig& out_config);
+
+    static Expected<std::monostate, common::DaemonErrorCode> ParseAppCertSlotMappings(
+        const keyslot::CertSlotConfig* cert_slot_config,
+        CertificateConfig& out_config);
+
+    static Expected<std::monostate, common::DaemonErrorCode> ParseAppTrustStoreMappings(
+        const keyslot::CertSlotConfig* cert_slot_config,
+        CertificateConfig& out_config);
 };
 
 }  // namespace score::crypto::daemon::config

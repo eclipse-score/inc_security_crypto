@@ -20,8 +20,43 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+
 namespace km = score::crypto::daemon::key_management;
 namespace config = score::crypto::daemon::config;
+
+TEST(FlatBufferConfigParserTest, ParseFromBufferRejectsHeaderShorterThanEightBytes)
+{
+    const std::array<uint8_t, 4U> buffer{};
+    config::KeyConfig parsed_config;
+
+    const auto result = config::FlatBufferConfigParser::ParseFromBuffer(buffer.data(), buffer.size(), parsed_config);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+}
+
+TEST(FlatBufferConfigParserTest, ParseFromBufferRejectsUnexpectedIdentifier)
+{
+    const std::array<uint8_t, 8U> buffer{0U, 0U, 0U, 0U, 'B', 'A', 'D', '!'};
+    config::KeyConfig parsed_config;
+
+    const auto result = config::FlatBufferConfigParser::ParseFromBuffer(buffer.data(), buffer.size(), parsed_config);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+}
+
+TEST(FlatBufferConfigParserTest, ParseFromBufferRejectsMalformedRootOffset)
+{
+    const std::array<uint8_t, 8U> buffer{0xFFU, 0xFFU, 0xFFU, 0x7FU, 'C', 'C', 'F', 'G'};
+    config::KeyConfig parsed_config;
+
+    const auto result = config::FlatBufferConfigParser::ParseFromBuffer(buffer.data(), buffer.size(), parsed_config);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+}
 
 class SlotRegistryTest : public ::testing::Test
 {

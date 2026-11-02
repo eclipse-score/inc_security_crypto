@@ -19,6 +19,7 @@
 #include <openssl/evp.h>
 
 #include <cstddef>
+#include <optional>
 #include <string_view>
 
 // The common algorithm tables in daemon/common/algorithm_info.hpp hold the
@@ -80,6 +81,26 @@ namespace score::crypto::daemon::provider::openssl::detail
     return nullptr;
 }
 
+/// @brief Look up the OpenSSL canonical group name for a provider-neutral EC curve.
+/// @return e.g. "prime256v1" for "P256", or nullopt if the curve is not supported.
+[[nodiscard]] inline constexpr std::optional<std::string_view> LookupOpenSslGroupName(
+    std::string_view curve_name) noexcept
+{
+    if (curve_name == "P256")
+    {
+        return "prime256v1";
+    }
+    if (curve_name == "P384")
+    {
+        return "secp384r1";
+    }
+    if (curve_name == "P521")
+    {
+        return "secp521r1";
+    }
+    return std::nullopt;
+}
+
 /// @brief Symmetric cipher identifiers the OpenSSL provider serves.
 inline constexpr std::string_view kSupportedCiphers[] = {
     "AES-128-CBC",
@@ -108,6 +129,16 @@ inline constexpr std::string_view kSupportedSignatureAlgorithms[] = {
     "ECDSA-P256-SHA256",
     "ECDSA-P384-SHA384",
     "ECDSA-P521-SHA512",
+    "RSA-PSS-2048-SHA256",
+    "RSA-PSS-2048-SHA384",
+    "RSA-PSS-2048-SHA512",
+    "RSA-PSS-3072-SHA256",
+    "RSA-PSS-3072-SHA384",
+    "RSA-PSS-3072-SHA512",
+    "RSA-PSS-4096-SHA256",
+    "RSA-PSS-4096-SHA384",
+    "RSA-PSS-4096-SHA512",
+    "Ed25519",
 };
 
 /// @brief Whether the OpenSSL provider serves @p algorithm for signing and verification.

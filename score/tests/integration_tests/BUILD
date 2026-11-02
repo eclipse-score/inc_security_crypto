@@ -108,6 +108,8 @@ cc_binary(
     srcs = ["score_api_random_test.cpp"],
     data = [
         "//score/tests/test_vectors/config:integration_test_config",
+        "//score/tests/test_vectors/ed25519:ed25519_test_vectors",
+        "//score/tests/test_vectors/rsa:rsa_pss_test_vectors",
     ],
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     target_compatible_with = select({
@@ -129,6 +131,25 @@ cc_binary(
         "//score/tests/test_vectors/ecdsa:ecdsa_test_vectors",
     ],
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "//score/tests/utility",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_binary(
+    name = "score_api_signature_test",
+    srcs = ["score_api_signature_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/config:integration_test_config",
+        "//score/tests/test_vectors/ed25519:ed25519_test_vectors",
+        "//score/tests/test_vectors/rsa:rsa_pss_test_vectors",
+    ],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -200,6 +221,7 @@ integration_test(
             ":score_api_cipher_test",
             ":score_api_random_test",
             ":score_api_ecdsa_test",
+            ":score_api_signature_test",
         ],
         "//conditions:default": [],
     }),
@@ -224,6 +246,8 @@ integration_test(
             "//score/tests/test_vectors/block_cipher/CBC-AES192:block_cipher_test_vectors_pkg",
             "//score/tests/test_vectors/block_cipher/CBC-AES256:block_cipher_test_vectors_pkg",
             "//score/tests/test_vectors/ecdsa:ecdsa_test_vectors_pkg",
+            "//score/tests/test_vectors/ed25519:ed25519_test_vectors_pkg",
+            "//score/tests/test_vectors/rsa:rsa_pss_test_vectors_pkg",
         ],
         "//conditions:default": [],
     }),

@@ -198,7 +198,10 @@ inline constexpr std::array<PqcAlgorithmInfo, 6UL> kPqcAlgorithms = {{
     return info.has_value() && info->kind == PqcAlgorithmKind::kKem;
 }
 
-inline constexpr std::array<KeyAlgorithmInfo, 14UL> kKeyAlgorithms = {{
+/// Ed25519 key size in bytes (RFC 8032).
+inline constexpr std::size_t kEd25519KeySize{32U};
+
+inline constexpr std::array<KeyAlgorithmInfo, 18UL> kKeyAlgorithms = {{
     {"HMAC-SHA256", 32U},
     {"HMAC-SHA384", 48U},
     {"HMAC-SHA512", 64U},
@@ -213,6 +216,10 @@ inline constexpr std::array<KeyAlgorithmInfo, 14UL> kKeyAlgorithms = {{
     {"ECDSA-P256", 32U},
     {"ECDSA-P384", 48U},
     {"ECDSA-P521", 66U},
+    {"RSA-2048", 256U},
+    {"RSA-3072", 384U},
+    {"RSA-4096", 512U},
+    {"Ed25519", kEd25519KeySize},
 }};
 
 /// @brief Look up default key size by algorithm name.
@@ -296,6 +303,71 @@ inline constexpr EcCurveInfo kEcCurves[] = {
     {"P521", "P-521", 66U, 132U, 521U},
 };
 
+/// @brief Properties of a supported RSA key size.
+struct RsaKeyInfo
+{
+    std::string_view name;
+    std::size_t modulus_size;
+    std::size_t key_bits;
+};
+
+/// Supported RSA key sizes.
+inline constexpr RsaKeyInfo kRsaKeys[] = {
+    {"RSA-2048", 256U, 2048U},
+    {"RSA-3072", 384U, 3072U},
+    {"RSA-4096", 512U, 4096U},
+};
+
+/// Offset of the digit run within an entry of kRsaKeys, e.g. "2048" in "RSA-2048".
+inline constexpr std::size_t kRsaKeySizeSubstringStart{4U};
+
+/// Prefix of RSA-PSS signature algorithm identifiers, e.g. "RSA-PSS-2048-SHA256".
+inline constexpr std::string_view kRsaPssAlgorithmPrefix{"RSA-PSS-"};
+
+/// @brief Look up RSA key properties from an RSA key algorithm identifier.
+/// @return the matching entry of kRsaKeys, or std::nullopt if the key size is unsupported.
+[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfo(std::string_view algorithm) noexcept
+{
+    for (const auto& entry : kRsaKeys)
+    {
+        if (algorithm == entry.name)
+        {
+            return entry;
+        }
+    }
+    return std::nullopt;
+}
+
+/// @brief Look up RSA key properties from an RSA-PSS signature algorithm.
+[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfoForSignatureAlgorithm(
+    std::string_view algorithm) noexcept
+{
+    if (algorithm.substr(0, kRsaPssAlgorithmPrefix.size()) != kRsaPssAlgorithmPrefix)
+    {
+        return std::nullopt;
+    }
+    const auto remainder = algorithm.substr(kRsaPssAlgorithmPrefix.size());
+    for (const auto& entry : kRsaKeys)
+    {
+        const auto key_size_substring = entry.name.substr(kRsaKeySizeSubstringStart);
+
+        if (remainder.substr(0, key_size_substring.size()) == key_size_substring)
+        {
+            return entry;
+        }
+    }
+    return std::nullopt;
+}
+
+/// Ed25519 signature size in bytes (RFC 8032).
+inline constexpr std::size_t kEd25519SignatureSize{64U};
+
+/// @brief True when the identifier names the Ed25519 key or signature algorithm.
+[[nodiscard]] inline constexpr bool IsEd25519Algorithm(std::string_view algorithm) noexcept
+{
+    return algorithm == "Ed25519";
+}
+
 /// @brief Extract the curve of an ECDSA signature algorithm identifier.
 ///
 /// Accepts signature algorithms like ECDSA-P256-SHA256 i.e.ECDSA-<NIST curve>-<Hash algo>.
@@ -325,6 +397,31 @@ inline constexpr EcCurveInfo kEcCurves[] = {
         }
     }
     return std::nullopt;
+}
+
+/// @brief Look up the digest size for a signature algorithm identifier.
+/// @return digest size in bytes, or std::nullopt if the digest is unknown.
+[[nodiscard]] inline constexpr std::optional<std::size_t> LookupSignatureDigestSize(std::string_view algorithm) noexcept
+{
+    for (const auto& entry : kHashAlgorithms)
+    {
+        if (algorithm.find(entry.name) != std::string_view::npos)
+        {
+            return entry.digest_size;
+        }
+    }
+    return std::nullopt;
+}
+
+/// @brief True when the identifier names a complete RSA-PSS signature scheme.
+///
+/// The identifier must carry a supported key size and a known digest,
+/// e.g. "RSA-PSS-2048-SHA256".
+[[nodiscard]] inline constexpr bool IsRsaPssAlgorithm(std::string_view algorithm) noexcept
+{
+    return algorithm.find("RSA-PSS-") == 0U && LookupSignatureDigest(algorithm).has_value() &&
+           (algorithm.find("RSA-PSS-2048-") == 0U || algorithm.find("RSA-PSS-3072-") == 0U ||
+            algorithm.find("RSA-PSS-4096-") == 0U);
 }
 
 /// @brief True when the identifier names an ECDSA key or signature algorithm.
