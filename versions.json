@@ -522,5 +522,9 @@
   {
     "version": "pr-367",
     "url": "https://eclipse-score.github.io/inc_security_crypto/pr-367/"
+  },
+  {
+    "version": "pr-366",
+    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-366/"
   }
 ]
