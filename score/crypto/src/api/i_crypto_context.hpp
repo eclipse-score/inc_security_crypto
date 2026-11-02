@@ -177,7 +177,7 @@ class ICryptoContext
     // ---- Queries ----
 
     /// @brief Queries algorithm capabilities and support.
-    /// @param algorithm Algorithm identifier to query
+    /// @param algorithm Algorithm identifier to query; empty queries the default random generator (CTR-DRBG)
     /// @return Capabilities including whether the algorithm is supported and available modes
     virtual score::Result<AlgorithmCapabilities> QueryCapabilities(const AlgorithmId& algorithm) = 0;
 

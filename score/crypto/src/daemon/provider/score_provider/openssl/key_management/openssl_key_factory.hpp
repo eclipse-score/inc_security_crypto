@@ -55,6 +55,8 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
+    [[nodiscard]] bool IsKeyGenerationSupported(const AlgorithmDescriptor& algorithm) const override;
+
     /// Import raw symmetric key material, a DER-encoded key pair or public key, or a raw EC public point.
     ///
     /// @param request Key material, its format, catalog row and permissions.
