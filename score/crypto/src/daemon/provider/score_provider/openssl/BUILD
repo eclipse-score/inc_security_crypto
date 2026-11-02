@@ -218,6 +218,7 @@ cc_test(
 cc_test(
     name = "openssl_key_handler_test",
     srcs = ["key_management/openssl_key_handler_test.cpp"],
+    data = ["//score/tests/test_vectors/ecdsa:ecdsa_test_vectors"],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -225,6 +226,7 @@ cc_test(
     deps = [
         ":provider_openssl_library",
         "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/tests/utility",
         "@googletest//:gtest_main",
     ],
 )

@@ -163,11 +163,13 @@ class KeyManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCallb
 
 KeyManagementContextImpl::KeyManagementContextImpl(
     std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-    uint64_t context_id)
+    uint64_t context_id,
+    std::shared_ptr<IBufferTranscoder> transcoder)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
       m_context_release_callback(std::make_shared<ContextReleaseCallbackImpl>(m_connection, m_context_id)),
-      m_release_callback(std::make_shared<ReleaseCallbackImpl>(m_connection, m_context_id, m_context_release_callback))
+      m_release_callback(std::make_shared<ReleaseCallbackImpl>(m_connection, m_context_id, m_context_release_callback)),
+      m_transcoder(std::move(transcoder))
 {
 }
 
@@ -377,24 +379,43 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::ImportKey(const Imp
             score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "ImportKey called with empty key_data")};
     }
 
-    auto control_req_result =
-        proto::ControlRequestBuilder()
-            .forDataNodeId(m_context_id)
-            .operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_IMPORT})
-            .with_in_string(params.algorithm)
-            .with_in_val_uint32(static_cast<std::uint32_t>(params.permissions))
-            .with_in_val_uint32(static_cast<std::uint32_t>(params.format))
-            .with_in_data_buffer(params.key_data)
-            .build();
+    if (m_transcoder == nullptr)
+    {
+        score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: ImportKey requires a buffer transcoder";
+        return score::Result<CryptoResourceGuard>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "ImportKey requires a buffer transcoder")};
+    }
 
-    if (!control_req_result.has_value())
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_IMPORT})
+        .with_in_string(params.algorithm)
+        .with_in_val_uint32(static_cast<std::uint32_t>(params.permissions))
+        .with_in_val_uint32(static_cast<std::uint32_t>(params.format));
+
+    // Route the key material through the data plane (shared memory) rather than an
+    // in-band control-plane buffer: acquire an input slot and attach it so the
+    // daemon reads the material directly from the caller's buffer. The input param
+    // is appended last so it lands at the key_data index the daemon parser expects.
+    auto tspan_result = m_transcoder->Acquire(params.key_data, /*is_output=*/false);
+    if (!tspan_result.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, tspan_result.error()};
+    }
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendInputBuffer(builder, tspan);
+
+    auto operation_req_result = builder.build();
+    if (!operation_req_result.has_value())
     {
         score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: Failed to build KEY_IMPORT request";
         return score::Result<CryptoResourceGuard>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build KEY_IMPORT request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    proto::ControlRequest control_req{};
+    control_req.operation = operation_req_result.value();
+    control_req.data_node_id = m_context_id;
+    auto control_response_res = m_connection->SendRequest(control_req);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_IMPORT}).expectSuccess();
@@ -469,21 +490,41 @@ score::Result<std::size_t> KeyManagementContextImpl::ExportKey(const CryptoResou
             MakeError(CryptoErrorCode::kInvalidArgument, "ExportKey called with invalid key resource type")};
     }
 
-    auto control_req_result = proto::ControlRequestBuilder()
-                                  .forDataNodeId(m_context_id)
-                                  .operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_EXPORT})
-                                  .with_in_val_uint64(key.id)
-                                  .with_in_val_uint32(static_cast<std::uint32_t>(format))
-                                  .build();
+    if (m_transcoder == nullptr)
+    {
+        score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: ExportKey requires a buffer transcoder";
+        return score::Result<std::size_t>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "ExportKey requires a buffer transcoder")};
+    }
 
-    if (!control_req_result.has_value())
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_EXPORT})
+        .with_in_val_uint64(key.id)
+        .with_in_val_uint32(static_cast<std::uint32_t>(format));
+
+    // Route the exported key material through the data plane (shared memory) rather
+    // than an in-band control-plane buffer: acquire an output slot and attach it so
+    // the daemon writes the result directly into the caller's buffer.
+    auto tspan_result = m_transcoder->Acquire(output, /*is_output=*/true);
+    if (!tspan_result.has_value())
+    {
+        return score::Result<std::size_t>{score::unexpect, tspan_result.error()};
+    }
+    TranscoderSpan tspan = std::move(tspan_result.value());
+    m_transcoder->AppendOutputBuffer(builder, tspan);
+
+    auto operation_req_result = builder.build();
+    if (!operation_req_result.has_value())
     {
         score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: Failed to build KEY_EXPORT request";
         return score::Result<std::size_t>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build KEY_EXPORT request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    proto::ControlRequest control_req{};
+    control_req.operation = operation_req_result.value();
+    control_req.data_node_id = m_context_id;
+    auto control_response_res = m_connection->SendRequest(control_req);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_EXPORT}).expectSuccess();
@@ -497,25 +538,7 @@ score::Result<std::size_t> KeyManagementContextImpl::ExportKey(const CryptoResou
                       "KEY_EXPORT daemon response invalid")};
     }
 
-    auto buffer_result = validator.getParameterAt<proto::DataBufferReturn>(0, 0);
-    if (!buffer_result.has_value())
-    {
-        score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: KEY_EXPORT response has invalid buffer type";
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "KEY_EXPORT response has invalid buffer type")};
-    }
-
-    const auto& exported = buffer_result.value();
-    if (output.size() < exported.size())
-    {
-        score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: ExportKey output buffer too small (need "
-                                   << exported.size() << ", have " << output.size() << ")";
-        return score::Result<std::size_t>{
-            score::unexpect, MakeError(CryptoErrorCode::kInsufficientBufferSize, "ExportKey output buffer too small")};
-    }
-
-    std::copy(exported.begin(), exported.end(), output.begin());
-    return exported.size();
+    return m_transcoder->ExtractOutputBuffer(tspan, validator);
 }
 
 score::Result<std::size_t> KeyManagementContextImpl::GetExportKeySize(const CryptoResourceId& key, FormatType format)

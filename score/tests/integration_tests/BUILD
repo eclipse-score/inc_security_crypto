@@ -174,6 +174,7 @@ cc_binary(
     }),
     deps = [
         "//score/crypto/src/api:crypto_stack",
+        "//score/tests/utility",
         "@googletest//:gtest",
     ],
 )

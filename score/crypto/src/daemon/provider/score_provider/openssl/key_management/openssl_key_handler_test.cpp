@@ -17,9 +17,11 @@
 #include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
+#include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>
 #include <cstring>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -192,19 +194,53 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_ZeroSize_ReturnsError)
 
 namespace
 {
+/// Root of the packaged ECDSA test vectors, supplied to this test through its
+/// Bazel @c data dependency and resolved relative to the runfiles root.
+constexpr std::string_view kVectorRoot = "score/tests/test_vectors/ecdsa";
+
+/// Reads a packaged test-vector file into a byte vector.
+std::vector<std::uint8_t> ReadVector(std::string_view relative_path)
+{
+    return tests::utility::read_bin(std::string{kVectorRoot} + std::string{relative_path});
+}
+
+/// Builds the SEC1 uncompressed point 0x04 || X || Y from a curve's published
+/// coordinate vectors.
+std::vector<std::uint8_t> ReadRawPoint(std::string_view ux_path, std::string_view uy_path)
+{
+    const auto x = ReadVector(ux_path);
+    const auto y = ReadVector(uy_path);
+    std::vector<std::uint8_t> point{0x04};
+    point.insert(point.end(), x.begin(), x.end());
+    point.insert(point.end(), y.begin(), y.end());
+    return point;
+}
+
+// NIST public points U = (Ux, Uy) from RFC 6979 Appendix A.2, stored as raw
+// big-endian coordinate vectors. The uncompressed form this feature imports and
+// exports is 0x04 || Ux || Uy (65 bytes for P-256, 97 for P-384).
+std::vector<std::uint8_t> ReadP256RawPoint()
+{
+    return ReadRawPoint("/P256/p256_ux.bin", "/P256/p256_uy.bin");
+}
+
+std::vector<std::uint8_t> ReadP384RawPoint()
+{
+    return ReadRawPoint("/P384/p384_ux.bin", "/P384/p384_uy.bin");
+}
+
 /// A P-256 public key as a SubjectPublicKeyInfo DER blob — the form a verify-only
 /// slot deploys when it holds no private half.
-constexpr std::uint8_t kP256SpkiDer[] = {
-    0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce,
-    0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00, 0x04, 0xc6, 0x6b, 0xdc, 0x53, 0xd6, 0xea, 0xc4, 0xe5, 0x2e, 0xce, 0xb1,
-    0xd5, 0x7d, 0x6d, 0x5d, 0x93, 0x91, 0xfc, 0x36, 0xac, 0x1e, 0xf3, 0xc3, 0x25, 0xc6, 0x89, 0x9f, 0x81, 0xb9, 0x11,
-    0xff, 0x3f, 0x02, 0x44, 0xf1, 0x37, 0x84, 0x52, 0x03, 0x0f, 0x28, 0x62, 0x0a, 0x4a, 0xd7, 0xbb, 0x13, 0x0f, 0x7c,
-    0xbe, 0x39, 0x23, 0x32, 0x6a, 0x61, 0xc9, 0x96, 0x5b, 0xc6, 0x34, 0x39, 0x98, 0xc6, 0x53};
+std::vector<std::uint8_t> ReadP256SpkiDer()
+{
+    return ReadVector("/P256-SHA256/siggen_public_key.der");
+}
 
 /// A P-384 public key as a SubjectPublicKeyInfo DER blob whose EC point is in
-/// *compressed* form (lead byte 0x03, 49-byte point). Decoding it yields a key
-/// whose point-conversion format is compressed, which is exactly the condition
-/// that used to make ExportKey emit a 49-byte point instead of the 97-byte
+/// *compressed* form (lead byte 0x03, 49-byte point). No published vector ships
+/// a compressed point, so this one stays inline: decoding it yields a key whose
+/// point-conversion format is compressed, which is exactly the condition that
+/// used to make ExportKey emit a 49-byte point instead of the 97-byte
 /// uncompressed point GetExportKeySize promises. Generated with:
 ///   openssl ecparam -name secp384r1 -genkey -noout | \
 ///   openssl ec -pubout -conv_form compressed -outform DER
@@ -213,55 +249,6 @@ constexpr std::uint8_t kP384CompressedSpkiDer[] = {
     0x00, 0x22, 0x03, 0x32, 0x00, 0x03, 0xf6, 0x8d, 0x07, 0x37, 0xb9, 0x3e, 0x0f, 0x47, 0xfc, 0xf7, 0xe3, 0xce,
     0x01, 0x37, 0x7b, 0x5f, 0xb0, 0x4c, 0x89, 0x96, 0xee, 0xa9, 0x4a, 0xb1, 0x05, 0x1b, 0x0c, 0xa7, 0x0e, 0xe5,
     0x26, 0x5c, 0x24, 0x59, 0x51, 0x18, 0x34, 0xd1, 0x6c, 0x03, 0xd9, 0x69, 0xb0, 0xcd, 0x0a, 0x76, 0x80, 0x45};
-
-/// Decode a hex string into bytes. Test vectors below are quoted verbatim from
-/// their source documents, so keeping them as hex keeps them auditable.
-std::vector<std::uint8_t> HexToBytes(std::string_view hex)
-{
-    const auto nibble = [](char c) -> std::uint8_t {
-        if ((c >= '0') && (c <= '9'))
-        {
-            return static_cast<std::uint8_t>(c - '0');
-        }
-        if ((c >= 'A') && (c <= 'F'))
-        {
-            return static_cast<std::uint8_t>(c - 'A' + 10);
-        }
-        if ((c >= 'a') && (c <= 'f'))
-        {
-            return static_cast<std::uint8_t>(c - 'a' + 10);
-        }
-        return 0U;
-    };
-
-    std::vector<std::uint8_t> out;
-    out.reserve(hex.size() / 2U);
-    for (std::size_t i = 0U; (i + 1U) < hex.size(); i += 2U)
-    {
-        out.push_back(static_cast<std::uint8_t>((nibble(hex[i]) << 4U) | nibble(hex[i + 1U])));
-    }
-    return out;
-}
-
-// RFC 6979 Appendix A.2.6 — the public key U = (Ux, Uy) for curve NIST P-384.
-// The raw form this feature imports/exports is the uncompressed SEC1 point
-// 0x04 || Ux || Uy (97 bytes).
-constexpr std::string_view kP384Ux = "EC3A4E415B4E19A4568618029F427FA5DA9A8BC4AE92E02E06AAE5286B300C64DEF8F0EA9055866064A254515480BC13";
-constexpr std::string_view kP384Uy = "8015D9B72D7D57244EA8EF9AC0C621896708A59367F9DFB9F54CA84B3F1C9DB1288B231C3AE0D4FE7344FD2533264720";
-
-// RFC 6979 Appendix A.2.5 — the public key U = (Ux, Uy) for curve NIST P-256.
-constexpr std::string_view kP256Ux = "60FED4BA255A9D31C961EB74C6356D68C049B8923B61FA6CE669622E60F29FB6";
-constexpr std::string_view kP256Uy = "7903FE1008B8BC99A41AE9E95628BC64F2F1B20C2D7E9F5177A3C294D4462299";
-
-std::vector<std::uint8_t> RawPoint(std::string_view x_hex, std::string_view y_hex)
-{
-    std::vector<std::uint8_t> point{0x04};
-    const auto x = HexToBytes(x_hex);
-    const auto y = HexToBytes(y_hex);
-    point.insert(point.end(), x.begin(), x.end());
-    point.insert(point.end(), y.begin(), y.end());
-    return point;
-}
 }  // namespace
 
 TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicOnlyEcKey_DropsPrivateHalfPermissions)
@@ -270,9 +257,10 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicOnlyEcKey_DropsPrivateHalfPermissi
     // blob carrying only the public half. The handle must not then claim kSign:
     // the mediator checks the handle, and a key with no private scalar would
     // pass that check and fail inside OpenSSL instead.
+    const auto spki = ReadP256SpkiDer();
     km::KeyImportRequest req{};
-    req.key_data = kP256SpkiDer;
-    req.key_data_size = sizeof(kP256SpkiDer);
+    req.key_data = spki.data();
+    req.key_data_size = spki.size();
     req.algorithm = Row("ECDSA-P256");
     req.format = score::crypto::FormatType::kDer;
     req.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kVerify;
@@ -300,9 +288,10 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyNonDer_IsRejected)
     // The control for the case above: the permission downgrade is reached only
     // after the blob parses, so a rejected format must fail earlier and for a
     // different reason.
+    const auto spki = ReadP256SpkiDer();
     km::KeyImportRequest req{};
-    req.key_data = kP256SpkiDer;
-    req.key_data_size = sizeof(kP256SpkiDer);
+    req.key_data = spki.data();
+    req.key_data_size = spki.size();
     req.algorithm = Row("ECDSA-P256");
     req.format = score::crypto::FormatType::kPem;
     req.permissions = score::crypto::KeyOperationPermission::kSign;
@@ -311,6 +300,26 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyNonDer_IsRejected)
 
     ASSERT_FALSE(result.has_value()) << "Only DER-encoded EC keys are accepted";
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyCurveMismatch_IsRejected)
+{
+    // Regression: the algorithm names the curve the size/export contract is sized
+    // against, but the DER blob carries its own curve. A P-384 key smuggled in as
+    // ECDSA-P256 must be rejected at import — otherwise GetExportKeySize would
+    // report the P-256 size (65 bytes) while ExportKey emits the P-384 point
+    // (97 bytes), handing the caller kInsufficientBufferSize at export time.
+    km::KeyImportRequest req{};
+    req.key_data = kP384CompressedSpkiDer;
+    req.key_data_size = sizeof(kP384CompressedSpkiDer);
+    req.algorithm = Row("ECDSA-P256");
+    req.format = score::crypto::FormatType::kDer;
+    req.permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto result = m_factory->ImportKey(req);
+
+    ASSERT_FALSE(result.has_value()) << "A P-384 key must not import under a P-256 algorithm";
+    EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
 }
 
 // ============================================================================
@@ -322,7 +331,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyNonDer_IsRejected)
 
 TEST_F(OpenSslKeyHandlerTest, ImportRawEcPublicKey_P384_IsVerifyOnly)
 {
-    const auto point = RawPoint(kP384Ux, kP384Uy);
+    const auto point = ReadP384RawPoint();
     ASSERT_EQ(point.size(), 97U) << "An uncompressed P-384 point is 1 + 2*48 bytes";
 
     km::KeyImportRequest req{};
@@ -349,7 +358,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportRawEcPublicKey_P384_IsVerifyOnly)
 
 TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_P384_ReproducesTheInputPoint)
 {
-    const auto point = RawPoint(kP384Ux, kP384Uy);
+    const auto point = ReadP384RawPoint();
 
     km::KeyImportRequest req{};
     req.key_data = point.data();
@@ -428,7 +437,7 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_CompressedDerImport_StillExpo
 
 TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_P256_ReproducesTheInputPoint)
 {
-    const auto point = RawPoint(kP256Ux, kP256Uy);
+    const auto point = ReadP256RawPoint();
     ASSERT_EQ(point.size(), 65U) << "An uncompressed P-256 point is 1 + 2*32 bytes";
 
     km::KeyImportRequest req{};
@@ -505,7 +514,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportRawEcPublicKey_WrongLength_IsRejected)
 {
     // A compressed point (0x02/0x03 || X) is 49 bytes for P-384; the length
     // check alone turns it away before any curve arithmetic.
-    auto point = RawPoint(kP384Ux, kP384Uy);
+    auto point = ReadP384RawPoint();
     point.resize(49U);
     point[0] = 0x03;
 
@@ -526,7 +535,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportRawEcPublicKey_NonUncompressedLeadByte_IsRej
 {
     // Correct length but a hybrid lead byte (0x06): a different encoding, so it
     // is rejected rather than silently reinterpreted.
-    auto point = RawPoint(kP384Ux, kP384Uy);
+    auto point = ReadP384RawPoint();
     point[0] = 0x06;
 
     km::KeyImportRequest req{};
@@ -546,7 +555,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportRawEcPublicKey_OffCurvePoint_IsRejected)
 {
     // Right length and lead byte, but a tampered coordinate no longer lies on
     // the curve — the explicit public-key check must catch the invalid point.
-    auto point = RawPoint(kP384Ux, kP384Uy);
+    auto point = ReadP384RawPoint();
     point.back() ^= 0x01U;
 
     km::KeyImportRequest req{};
@@ -564,7 +573,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportRawEcPublicKey_OffCurvePoint_IsRejected)
 
 TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_WithoutExportPermission_IsDenied)
 {
-    const auto point = RawPoint(kP384Ux, kP384Uy);
+    const auto point = ReadP384RawPoint();
 
     km::KeyImportRequest req{};
     req.key_data = point.data();

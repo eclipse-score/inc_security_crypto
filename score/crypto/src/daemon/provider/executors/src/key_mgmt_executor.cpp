@@ -21,7 +21,9 @@
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/mw/log/logging.h"
 
+#include <algorithm>
 #include <string_view>
+#include <variant>
 
 namespace score::crypto::daemon::provider::crypto_executor
 {
@@ -296,10 +298,35 @@ KeyManagementExecutor::HandleExport(const KeyMgmtExecutionContext& ctx, common::
         return score::crypto::make_unexpected(export_res.error());
     }
 
+    auto& exported = export_res.value().bytes;
+
+    // Data-plane path: when the client supplied an output shared-memory buffer
+    // (resolved to a writable span by the ShmRequestHandler), write the exported
+    // bytes directly into it and return only the written length. This keeps the
+    // key material out of the in-band control-plane response.
+    if (request.size() > 2U)
+    {
+        if (auto* out_span = std::get_if<score::cpp::span<uint8_t>>(&request[2U]))
+        {
+            if (out_span->size() < exported.size())
+            {
+                score::mw::log::LogError() << LOG_PREFIX << "HandleExport: output buffer too small";
+                return score::crypto::make_unexpected(
+                    score::crypto::daemon::common::DaemonErrorCode::kInsufficientBufferSize);
+            }
+            std::copy(exported.begin(), exported.end(), out_span->begin());
+
+            common::ResponseParameters output;
+            output.push_back(static_cast<std::uint64_t>(exported.size()));
+            return output;
+        }
+    }
+
+    // Control-plane fallback: return the exported bytes in-band.
     common::ResponseParameters output;
     // Move the bytes out of SecureKeyBytes; the moved-from vector empties, so
     // its zeroizing destructor has nothing left to scrub.
-    output.push_back(common::OwnedBuffer{std::move(export_res.value().bytes)});
+    output.push_back(common::OwnedBuffer{std::move(exported)});
     return output;
 }
 
