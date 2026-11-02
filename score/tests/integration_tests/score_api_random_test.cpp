@@ -49,8 +49,6 @@ using tests::utility::print_hex;
 namespace
 {
 
-constexpr auto kControlSocketEndpoint = "score://crypto_daemon.sock";
-
 struct RandomTestData
 {
     std::string test_case_name;
@@ -69,10 +67,7 @@ struct RandomFixture
 
 void MakeRandomFixture(const RandomTestData& data, RandomFixture& out)
 {
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     out.stack = std::move(stack_result.value());
 
@@ -235,10 +230,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST(RandomIndependenceTest, TwoContextsProduceDifferentData)
 {
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value());
     auto& stack = stack_result.value();
 

@@ -69,8 +69,6 @@ using namespace score::crypto;
 namespace
 {
 
-constexpr auto kControlSocketEndpoint = "score://crypto_daemon.sock";
-
 // =========================================================================
 // Constants
 // =========================================================================
@@ -138,10 +136,7 @@ class KeyPermissionTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        CryptoStackConfig stack_config;
-        stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-        auto stack_result = CreateCryptoStack(stack_config);
+        auto stack_result = CreateCryptoStack();
         ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
         m_stack = std::move(stack_result.value());
 

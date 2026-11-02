@@ -76,8 +76,6 @@ using tests::utility::read_bin;
 namespace
 {
 
-constexpr auto kControlSocketEndpoint = "score://crypto_daemon.sock";
-
 // =========================================================================
 // NIST FIPS 186-4 CAVP vectors
 // =========================================================================
@@ -287,10 +285,7 @@ TEST_P(EcdsaSignVerifyTest, GenerateSignAndVerify)
     // =========================================================================
     // 1. Create the crypto stack and a crypto context
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -491,10 +486,7 @@ TEST_P(KeySlotEcdsaTest, VerifiesNistVectors)
     // =========================================================================
     // 1. Create the crypto stack and a crypto context
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 

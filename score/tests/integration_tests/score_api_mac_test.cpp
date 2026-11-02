@@ -51,8 +51,6 @@ using tests::utility::print_hex;
 namespace
 {
 
-constexpr auto kControlSocketEndpoint = "score://crypto_daemon.sock";
-
 // =========================================================================
 // Parameterized Test Data
 // =========================================================================
@@ -262,10 +260,7 @@ TEST_P(GeneratedKeyMacTest, MacGenerationAndVerificationTest)
     // =========================================================================
     // 1. Create the crypto stack and connect to the daemon
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -422,10 +417,7 @@ TEST_P(KeySlotMacTest, MacWithKeySlotTest)
     // =========================================================================
     // 1. Create the crypto stack and connect to the daemon
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 

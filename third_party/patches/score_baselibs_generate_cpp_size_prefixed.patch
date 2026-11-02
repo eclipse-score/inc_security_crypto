@@ -1,0 +1,23 @@
+diff --git a/score/flatbuffers/bazel/codegen.bzl b/score/flatbuffers/bazel/codegen.bzl
+--- a/score/flatbuffers/bazel/codegen.bzl
++++ b/score/flatbuffers/bazel/codegen.bzl
+@@ -88,6 +88,8 @@ def _generate_cpp_impl(ctx):
+     args.add("--cpp")
+     args.add("--cpp-std", "c++11")
+     args.add("--scoped-enums")
++    if ctx.attr.size_prefixed:
++        args.add("--size-prefixed")
+     for inc_dir in include_dirs:
+         args.add("-I", inc_dir)
+     args.add("-o", generated_file.dirname)
+@@ -119,6 +121,10 @@ generate_cpp = rule(
+             mandatory = True,
+             doc = "The name of the generated C++ header file",
+         ),
++        "size_prefixed": attr.bool(
++            default = False,
++            doc = "Generate APIs for size-prefixed FlatBuffers.",
++        ),
+         "includes": attr.label_list(
+             allow_files = [".fbs"],
+             default = [],

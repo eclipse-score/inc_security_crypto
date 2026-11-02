@@ -151,6 +151,11 @@ score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
 
 }  // namespace
 
+score::Result<ICryptoStack::Uptr> CreateCryptoStack()
+{
+    return CreateCryptoStack(CryptoStackConfig{});
+}
+
 score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& config)
 {
     if (config.connection_endpoint.empty())

@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef CRYPTO_IPC_CONFIG_H
-#define CRYPTO_IPC_CONFIG_H
+#ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_IPC_CONFIG_H
+#define SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_IPC_CONFIG_H
 
 #include <chrono>
 #include <cstdint>
@@ -21,6 +21,9 @@
 
 namespace score::crypto::ipc
 {
+
+// Endpoint schema identifier prefix for score IPC connections using message passing transport
+constexpr std::string_view kScoreConnectionEndpointPrefix = "score://";
 
 // Shared control endpoint identifier. On Linux, the message-passing transport uses this as an
 // abstract Unix-domain socket name, so no filesystem socket is created. On QNX, the dispatch
@@ -91,4 +94,4 @@ static_assert(kCleanupQueueCapacity >= kMaxTotalConnections,
 
 }  // namespace score::crypto::ipc
 
-#endif  // CRYPTO_IPC_CONFIG_H
+#endif  // SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_IPC_CONFIG_H

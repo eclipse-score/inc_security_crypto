@@ -60,6 +60,7 @@ cc_library(
         "//score/crypto/src/api/control_plane:control_plane",
         "//score/crypto/src/api/data_plane:data_plane_client",
         "//score/crypto/src/api/objects:crypto_objects",
+        "//score/crypto/src/ipc/message_passing_adapter:ipc_config",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],

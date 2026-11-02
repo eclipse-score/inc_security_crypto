@@ -602,8 +602,7 @@ normal operation deadline.
 
    // Stack-wide 500 ms deadline
    CryptoStackConfig stack_config;
-   stack_config.SetConnectionEndpoint("score://crypto_daemon.sock")
-               .SetDefaultOperationTimeout(std::chrono::milliseconds{500});
+   stack_config.SetDefaultOperationTimeout(std::chrono::milliseconds{500});
 
    // Per-context override: 200 ms for hash, disabled for key gen
    HashContextConfig hash_cfg;

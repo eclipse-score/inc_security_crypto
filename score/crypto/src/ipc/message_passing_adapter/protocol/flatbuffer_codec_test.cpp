@@ -45,12 +45,13 @@ std::vector<std::uint8_t> BuildRequestWithMissingParameterVector()
     const auto operation = flatbuffer_protocol::CreateSingleOperationRequest(
         builder,
         flatbuffer_protocol::CreateOperationIdentifier(builder, 1U, 1U),
-        builder.CreateVector(std::vector<std::uint8_t>{flatbuffer_protocol::OperationParameter_NoParam}),
+        builder.CreateVector(
+            std::vector<flatbuffer_protocol::OperationParameter>{flatbuffer_protocol::OperationParameter::NoParam}),
         {});
     const auto batch = flatbuffer_protocol::CreateOperationRequestBatch(builder, builder.CreateVector({operation}));
     const auto policy = flatbuffer_protocol::CreateExecutionPolicy(builder);
     const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(
-        builder, 1U, 0U, 0U, flatbuffer_protocol::ControlRequestKind_Operation, 0U, policy);
+        builder, 1U, 0U, 0U, flatbuffer_protocol::ControlRequestKind::Operation, 0U, policy);
     builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlRequest(builder, meta_data, batch),
                                flatbuffer_protocol::ControlRequestIdentifier());
     return {builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
@@ -63,7 +64,8 @@ std::vector<std::uint8_t> BuildResponseWithMismatchedParameterVectors()
         builder,
         flatbuffer_protocol::CreateOperationIdentifier(builder, 1U, 1U),
         flatbuffer_protocol::CreateOperationResult(builder, 0U),
-        builder.CreateVector(std::vector<std::uint8_t>{flatbuffer_protocol::OperationParameter_NoParam}),
+        builder.CreateVector(
+            std::vector<flatbuffer_protocol::OperationParameter>{flatbuffer_protocol::OperationParameter::NoParam}),
         builder.CreateVector(std::vector<flatbuffers::Offset<void>>{}));
     const auto batch = flatbuffer_protocol::CreateOperationResponseBatch(builder, builder.CreateVector({operation}));
     builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlResponse(builder, 1U, batch),
@@ -76,7 +78,7 @@ std::vector<std::uint8_t> BuildCancelRequestWithTimeout(const std::uint32_t time
     flatbuffers::FlatBufferBuilder builder{128U};
     const auto policy = flatbuffer_protocol::CreateExecutionPolicy(builder);
     const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(
-        builder, 83U, 0U, 0U, flatbuffer_protocol::ControlRequestKind_Cancel, timeout_ms, policy);
+        builder, 83U, 0U, 0U, flatbuffer_protocol::ControlRequestKind::Cancel, timeout_ms, policy);
     builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlRequest(builder, meta_data, {}),
                                flatbuffer_protocol::ControlRequestIdentifier());
     return {builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
@@ -268,7 +270,7 @@ TEST(FlatBufferCodecTest, MetadataDefaultTimeoutIsZero)
     const std::vector<flatbuffers::Offset<flatbuffer_protocol::SingleOperationRequest>> no_operations{};
     const auto batch = flatbuffer_protocol::CreateOperationRequestBatch(builder, builder.CreateVector(no_operations));
     const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(
-        builder, 82U, 0U, 0U, flatbuffer_protocol::ControlRequestKind_Operation, 0U, policy);
+        builder, 82U, 0U, 0U, flatbuffer_protocol::ControlRequestKind::Operation, 0U, policy);
     builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlRequest(builder, meta_data, batch),
                                flatbuffer_protocol::ControlRequestIdentifier());
     const std::vector<std::uint8_t> bytes{builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};

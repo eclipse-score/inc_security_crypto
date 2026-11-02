@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_API_CRYPTO_STACK_FACTORY_HPP
 
 #include "score/crypto/src/api/i_crypto_stack.hpp"
+#include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 #include "score/result/result.h"
 
 #include <chrono>
@@ -31,10 +32,11 @@ namespace crypto
 /// @brief Configuration builder for creating a crypto stack instance.
 struct CryptoStackConfig
 {
-    // TODO: Will hide this information in this future, via mw::com
     /// @brief Daemon endpoint URI (required).
     /// Examples: "score://crypto_daemon.sock"
-    std::string connection_endpoint{};
+    /// Defaults to score endpoint
+    std::string connection_endpoint{std::string{score::crypto::ipc::kScoreConnectionEndpointPrefix} +
+                                    std::string{score::crypto::ipc::kControlServiceIdentifier}};
 
     /// @brief Default per-IPC-call timeout for all operations on this stack.
     ///
@@ -82,6 +84,13 @@ struct CryptoStackConfig
 /// @param config Stack configuration with at minimum a connection endpoint
 /// @return Unique pointer to the created stack, or error on connection failure
 score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& config);
+
+/// @brief Creates a new crypto stack with the default configuration.
+///
+/// See CreateCryptoStack(const CryptoStackConfig& config) for details.
+///
+/// @return Unique pointer to the created stack, or error on connection failure
+score::Result<ICryptoStack::Uptr> CreateCryptoStack();
 
 }  // namespace crypto
 

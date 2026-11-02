@@ -12,6 +12,7 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@score_baselibs//score/flatbuffers/bazel:codegen.bzl", "generate_cpp")
 
 # Export FlatBuffers schema for use by tests
 filegroup(
@@ -20,14 +21,10 @@ filegroup(
     visibility = ["//:__subpackages__"],
 )
 
-genrule(
+generate_cpp(
     name = "generated_crypto_config",
-    srcs = ["crypto_config_fbs_schema"],
-    outs = [
-        "crypto_config_generated.h",
-    ],
-    cmd = "$(location @flatbuffers//:flatc) --cpp -o $(@D) $(SRCS)",
-    tools = ["@flatbuffers//:flatc"],
+    schema = "crypto_config_fbs_schema",
+    output = "crypto_config_generated.h",
 )
 
 # Configuration types and structures (headers only)
@@ -70,8 +67,8 @@ cc_library(
         ":config_types",
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
-        "@flatbuffers",
         "@score_baselibs//score/mw/log",
+        "@score_baselibs//score/flatbuffers:flatbufferscpp",
     ],
 )
 

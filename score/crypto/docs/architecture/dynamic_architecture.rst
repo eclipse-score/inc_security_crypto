@@ -52,9 +52,7 @@ No ``LoadKey`` or guard needed; the context internally loads from the slot:
 .. code-block:: cpp
 
    // 1. Create stack and context
-   CryptoStackConfig stack_config;
-   stack_config.SetConnectionEndpoint("score://crypto_daemon.sock");
-   auto stack = CreateCryptoStack(stack_config).value();
+   auto stack = CreateCryptoStack().value();
    auto ctx = stack->CreateCryptoContext().value();
 
    // 2. Resolve the pre-deployed key slot (no LoadKey needed)
@@ -275,8 +273,7 @@ Bounding all IPC calls with a per-call deadline for safety analysis:
 
    // 1. Stack-wide default: 500 ms per IPC call
    CryptoStackConfig stack_config;
-   stack_config.SetConnectionEndpoint("score://crypto_daemon.sock")
-               .SetDefaultOperationTimeout(std::chrono::milliseconds{500});
+   stack_config.SetDefaultOperationTimeout(std::chrono::milliseconds{500});
    auto stack = CreateCryptoStack(stack_config).value();
    auto ctx = stack->CreateCryptoContext().value();
 

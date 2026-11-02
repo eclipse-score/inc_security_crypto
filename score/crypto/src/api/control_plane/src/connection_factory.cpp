@@ -17,6 +17,7 @@
 #include <string_view>
 
 #include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/control_plane/connection_factory.hpp"
@@ -32,12 +33,11 @@ namespace score::crypto::api::control_plane
 Expected<std::shared_ptr<IConnection>, score::crypto::CryptoErrorCode> ConnectionFactory::EstablishConnection(
     std::string_view endpoint)
 {
-    const std::string_view messagePassingProtocolPrefix = "score://";
+    const std::string_view messagePassingProtocolPrefix = score::crypto::ipc::kScoreConnectionEndpointPrefix;
     if (endpoint.rfind(messagePassingProtocolPrefix, 0) != 0)
     {
-        score::mw::log::LogError()
-            << "[CONNECTION_FACTORY] ERROR - Unsupported endpoint protocol. Only score:// protocol "
-               "is supported.";
+        score::mw::log::LogError() << "[CONNECTION_FACTORY] ERROR - Unsupported endpoint protocol. Only "
+                                   << messagePassingProtocolPrefix << " protocol is supported.";
         return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
     }
 

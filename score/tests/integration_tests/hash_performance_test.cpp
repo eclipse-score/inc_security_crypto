@@ -46,7 +46,6 @@ using tests::utility::print_hex;
 namespace
 {
 
-constexpr auto kDaemonEndpoint = "score://crypto_daemon.sock";
 constexpr std::size_t kSha512DigestSize = 64U;
 constexpr int kNumThreads = 16;
 constexpr std::chrono::milliseconds kOperationTimeout{2000};
@@ -74,7 +73,6 @@ struct ScalabilityTestParams
 score::Result<ICryptoStack::Uptr> MakeStack(std::optional<std::chrono::milliseconds> timeout = std::nullopt)
 {
     CryptoStackConfig cfg;
-    cfg.SetConnectionEndpoint(kDaemonEndpoint);
     if (timeout.has_value())
     {
         cfg.SetDefaultOperationTimeout(timeout.value());

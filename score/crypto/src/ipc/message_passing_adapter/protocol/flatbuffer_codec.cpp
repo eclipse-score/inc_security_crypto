@@ -35,61 +35,61 @@ namespace bl = score::crypto::daemon::control_plane::protocol;
 namespace common = score::crypto::daemon::common;
 namespace fb = score::crypto::ipc::control;
 
-bool HasValidParameterVectors(const flatbuffers::Vector<std::uint8_t>* types,
+bool HasValidParameterVectors(const flatbuffers::Vector<fb::OperationParameter>* types,
                               const flatbuffers::Vector<flatbuffers::Offset<void>>* values) noexcept
 {
     return (types != nullptr) && (values != nullptr) && (types->size() == values->size());
 }
 
-std::pair<std::vector<std::uint8_t>, std::vector<flatbuffers::Offset<void>>> BuildRequestParameters(
+std::pair<std::vector<fb::OperationParameter>, std::vector<flatbuffers::Offset<void>>> BuildRequestParameters(
     const common::RequestParameters& parameters,
     flatbuffers::FlatBufferBuilder& builder)
 {
-    std::vector<std::uint8_t> types;
+    std::vector<fb::OperationParameter> types;
     std::vector<flatbuffers::Offset<void>> values;
 
     for (const auto& parameter : parameters)
     {
         if (std::holds_alternative<common::NoParam>(parameter))
         {
-            types.push_back(fb::OperationParameter_NoParam);
+            types.push_back(fb::OperationParameter::NoParam);
             values.push_back(fb::CreateNoParam(builder).o);
         }
         else if (std::holds_alternative<bool>(parameter))
         {
-            types.push_back(fb::OperationParameter_ValueBool);
+            types.push_back(fb::OperationParameter::ValueBool);
             values.push_back(fb::CreateValueBool(builder, std::get<bool>(parameter)).o);
         }
         else if (std::holds_alternative<std::string_view>(parameter))
         {
-            types.push_back(fb::OperationParameter_String);
+            types.push_back(fb::OperationParameter::String);
             const auto string_offset = builder.CreateString(std::get<std::string_view>(parameter));
             values.push_back(fb::CreateString(builder, string_offset).o);
         }
         else if (std::holds_alternative<std::uint8_t>(parameter))
         {
-            types.push_back(fb::OperationParameter_ValueUint8);
+            types.push_back(fb::OperationParameter::ValueUint8);
             values.push_back(fb::CreateValueUint8(builder, std::get<std::uint8_t>(parameter)).o);
         }
         else if (std::holds_alternative<std::uint16_t>(parameter))
         {
-            types.push_back(fb::OperationParameter_ValueUint16);
+            types.push_back(fb::OperationParameter::ValueUint16);
             values.push_back(fb::CreateValueUint16(builder, std::get<std::uint16_t>(parameter)).o);
         }
         else if (std::holds_alternative<std::uint32_t>(parameter))
         {
-            types.push_back(fb::OperationParameter_ValueUint32);
+            types.push_back(fb::OperationParameter::ValueUint32);
             values.push_back(fb::CreateValueUint32(builder, std::get<std::uint32_t>(parameter)).o);
         }
         else if (std::holds_alternative<std::uint64_t>(parameter))
         {
-            types.push_back(fb::OperationParameter_ValueUint64);
+            types.push_back(fb::OperationParameter::ValueUint64);
             values.push_back(fb::CreateValueUint64(builder, std::get<std::uint64_t>(parameter)).o);
         }
         else if (std::holds_alternative<common::DataShm>(parameter))
         {
             const auto& shm = std::get<common::DataShm>(parameter);
-            types.push_back(fb::OperationParameter_DataShm);
+            types.push_back(fb::OperationParameter::DataShm);
             values.push_back(fb::CreateDataShm(builder,
                                                shm.node_id,
                                                static_cast<std::uint64_t>(shm.offset),
@@ -99,14 +99,14 @@ std::pair<std::vector<std::uint8_t>, std::vector<flatbuffers::Offset<void>>> Bui
         }
         else if (std::holds_alternative<score::cpp::span<const std::uint8_t>>(parameter))
         {
-            types.push_back(fb::OperationParameter_DataBufferInBand);
+            types.push_back(fb::OperationParameter::DataBufferInBand);
             const auto buffer = std::get<score::cpp::span<const std::uint8_t>>(parameter);
             const auto data_offset = builder.CreateVector(buffer.data(), buffer.size());
             values.push_back(fb::CreateDataBufferInBand(builder, data_offset).o);
         }
         else
         {
-            types.push_back(fb::OperationParameter_DataBufferInBand);
+            types.push_back(fb::OperationParameter::DataBufferInBand);
             const auto buffer = std::get<score::cpp::span<std::uint8_t>>(parameter);
             const auto data_offset = builder.CreateVector(buffer.data(), buffer.size());
             values.push_back(fb::CreateDataBufferInBand(builder, data_offset).o);
@@ -116,62 +116,62 @@ std::pair<std::vector<std::uint8_t>, std::vector<flatbuffers::Offset<void>>> Bui
     return {std::move(types), std::move(values)};
 }
 
-std::pair<std::vector<std::uint8_t>, std::vector<flatbuffers::Offset<void>>> BuildResponseParameters(
+std::pair<std::vector<fb::OperationParameter>, std::vector<flatbuffers::Offset<void>>> BuildResponseParameters(
     const common::ResponseParameters& parameters,
     flatbuffers::FlatBufferBuilder& builder)
 {
-    std::vector<std::uint8_t> types;
+    std::vector<fb::OperationParameter> types;
     std::vector<flatbuffers::Offset<void>> values;
 
     for (const auto& parameter : parameters)
     {
         if (std::holds_alternative<common::NoParam>(parameter))
         {
-            types.push_back(fb::OperationParameter_NoParam);
+            types.push_back(fb::OperationParameter::NoParam);
             values.push_back(fb::CreateNoParam(builder).o);
         }
         else if (std::holds_alternative<bool>(parameter))
         {
-            types.push_back(fb::OperationParameter_ValueBool);
+            types.push_back(fb::OperationParameter::ValueBool);
             values.push_back(fb::CreateValueBool(builder, std::get<bool>(parameter)).o);
         }
         else if (std::holds_alternative<std::uint8_t>(parameter))
         {
-            types.push_back(fb::OperationParameter_ValueUint8);
+            types.push_back(fb::OperationParameter::ValueUint8);
             values.push_back(fb::CreateValueUint8(builder, std::get<std::uint8_t>(parameter)).o);
         }
         else if (std::holds_alternative<std::uint16_t>(parameter))
         {
-            types.push_back(fb::OperationParameter_ValueUint16);
+            types.push_back(fb::OperationParameter::ValueUint16);
             values.push_back(fb::CreateValueUint16(builder, std::get<std::uint16_t>(parameter)).o);
         }
         else if (std::holds_alternative<std::uint32_t>(parameter))
         {
-            types.push_back(fb::OperationParameter_ValueUint32);
+            types.push_back(fb::OperationParameter::ValueUint32);
             values.push_back(fb::CreateValueUint32(builder, std::get<std::uint32_t>(parameter)).o);
         }
         else if (std::holds_alternative<std::uint64_t>(parameter))
         {
-            types.push_back(fb::OperationParameter_ValueUint64);
+            types.push_back(fb::OperationParameter::ValueUint64);
             values.push_back(fb::CreateValueUint64(builder, std::get<std::uint64_t>(parameter)).o);
         }
         else if (std::holds_alternative<common::OwnedString>(parameter))
         {
-            types.push_back(fb::OperationParameter_String);
+            types.push_back(fb::OperationParameter::String);
             const auto& string_value = std::get<common::OwnedString>(parameter);
             const auto string_offset = builder.CreateString(string_value);
             values.push_back(fb::CreateString(builder, string_offset).o);
         }
         else if (std::holds_alternative<common::OwnedBuffer>(parameter))
         {
-            types.push_back(fb::OperationParameter_DataBufferInBand);
+            types.push_back(fb::OperationParameter::DataBufferInBand);
             const auto& buffer = std::get<common::OwnedBuffer>(parameter);
             const auto data_offset = builder.CreateVector(buffer.data(), buffer.size());
             values.push_back(fb::CreateDataBufferInBand(builder, data_offset).o);
         }
         else
         {
-            types.push_back(fb::OperationParameter_DataBufferInBand);
+            types.push_back(fb::OperationParameter::DataBufferInBand);
             const auto buffer = std::get<score::cpp::span<const std::uint8_t>>(parameter);
             const auto data_offset = builder.CreateVector(buffer.data(), buffer.size());
             values.push_back(fb::CreateDataBufferInBand(builder, data_offset).o);
@@ -181,7 +181,7 @@ std::pair<std::vector<std::uint8_t>, std::vector<flatbuffers::Offset<void>>> Bui
     return {std::move(types), std::move(values)};
 }
 
-common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<std::uint8_t>* types,
+common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<fb::OperationParameter>* types,
                                                    const flatbuffers::Vector<flatbuffers::Offset<void>>* values)
 {
     common::RequestParameters parameters;
@@ -201,25 +201,25 @@ common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<std
 
         switch (type)
         {
-            case fb::OperationParameter_NoParam:
+            case fb::OperationParameter::NoParam:
                 parameters.emplace_back(common::NoParam{});
                 break;
-            case fb::OperationParameter_ValueBool:
+            case fb::OperationParameter::ValueBool:
                 parameters.emplace_back(static_cast<const fb::ValueBool*>(static_cast<const void*>(value))->val());
                 break;
-            case fb::OperationParameter_ValueUint8:
+            case fb::OperationParameter::ValueUint8:
                 parameters.emplace_back(static_cast<const fb::ValueUint8*>(static_cast<const void*>(value))->val());
                 break;
-            case fb::OperationParameter_ValueUint16:
+            case fb::OperationParameter::ValueUint16:
                 parameters.emplace_back(static_cast<const fb::ValueUint16*>(static_cast<const void*>(value))->val());
                 break;
-            case fb::OperationParameter_ValueUint32:
+            case fb::OperationParameter::ValueUint32:
                 parameters.emplace_back(static_cast<const fb::ValueUint32*>(static_cast<const void*>(value))->val());
                 break;
-            case fb::OperationParameter_ValueUint64:
+            case fb::OperationParameter::ValueUint64:
                 parameters.emplace_back(static_cast<const fb::ValueUint64*>(static_cast<const void*>(value))->val());
                 break;
-            case fb::OperationParameter_String:
+            case fb::OperationParameter::String:
             {
                 const auto* string_value = static_cast<const fb::String*>(static_cast<const void*>(value))->val();
                 if (string_value == nullptr)
@@ -229,7 +229,7 @@ common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<std
                 parameters.emplace_back(std::string_view{string_value->data(), string_value->size()});
                 break;
             }
-            case fb::OperationParameter_DataBufferInBand:
+            case fb::OperationParameter::DataBufferInBand:
             {
                 const auto* buffer = static_cast<const fb::DataBufferInBand*>(static_cast<const void*>(value))->val();
                 if (buffer == nullptr)
@@ -239,7 +239,7 @@ common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<std
                 parameters.emplace_back(score::cpp::span<const std::uint8_t>{buffer->Data(), buffer->size()});
                 break;
             }
-            case fb::OperationParameter_DataShm:
+            case fb::OperationParameter::DataShm:
             {
                 const auto* shm = static_cast<const fb::DataShm*>(static_cast<const void*>(value));
                 if (shm == nullptr)
@@ -252,8 +252,8 @@ common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<std
                                                         static_cast<common::ShmDirection>(shm->direction())});
                 break;
             }
-            case fb::OperationParameter_DataBufferDataPlane:
-            case fb::OperationParameter_NONE:
+            case fb::OperationParameter::DataBufferDataPlane:
+            case fb::OperationParameter::NONE:
             default:
                 return {};
         }
@@ -261,7 +261,7 @@ common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<std
     return parameters;
 }
 
-common::ResponseParameters ExtractResponseParameters(const flatbuffers::Vector<std::uint8_t>* types,
+common::ResponseParameters ExtractResponseParameters(const flatbuffers::Vector<fb::OperationParameter>* types,
                                                      const flatbuffers::Vector<flatbuffers::Offset<void>>* values)
 {
     common::ResponseParameters parameters;
@@ -280,25 +280,25 @@ common::ResponseParameters ExtractResponseParameters(const flatbuffers::Vector<s
         }
         switch (type)
         {
-            case fb::OperationParameter_NoParam:
+            case fb::OperationParameter::NoParam:
                 parameters.emplace_back(common::NoParam{});
                 break;
-            case fb::OperationParameter_ValueBool:
+            case fb::OperationParameter::ValueBool:
                 parameters.emplace_back(static_cast<const fb::ValueBool*>(static_cast<const void*>(value))->val());
                 break;
-            case fb::OperationParameter_ValueUint8:
+            case fb::OperationParameter::ValueUint8:
                 parameters.emplace_back(static_cast<const fb::ValueUint8*>(static_cast<const void*>(value))->val());
                 break;
-            case fb::OperationParameter_ValueUint16:
+            case fb::OperationParameter::ValueUint16:
                 parameters.emplace_back(static_cast<const fb::ValueUint16*>(static_cast<const void*>(value))->val());
                 break;
-            case fb::OperationParameter_ValueUint32:
+            case fb::OperationParameter::ValueUint32:
                 parameters.emplace_back(static_cast<const fb::ValueUint32*>(static_cast<const void*>(value))->val());
                 break;
-            case fb::OperationParameter_ValueUint64:
+            case fb::OperationParameter::ValueUint64:
                 parameters.emplace_back(static_cast<const fb::ValueUint64*>(static_cast<const void*>(value))->val());
                 break;
-            case fb::OperationParameter_String:
+            case fb::OperationParameter::String:
             {
                 const auto* string_value = static_cast<const fb::String*>(static_cast<const void*>(value))->val();
                 if (string_value == nullptr)
@@ -308,7 +308,7 @@ common::ResponseParameters ExtractResponseParameters(const flatbuffers::Vector<s
                 parameters.emplace_back(common::OwnedString{string_value->data(), string_value->size()});
                 break;
             }
-            case fb::OperationParameter_DataBufferInBand:
+            case fb::OperationParameter::DataBufferInBand:
             {
                 const auto* buffer = static_cast<const fb::DataBufferInBand*>(static_cast<const void*>(value))->val();
                 if (buffer == nullptr)
@@ -318,9 +318,9 @@ common::ResponseParameters ExtractResponseParameters(const flatbuffers::Vector<s
                 parameters.emplace_back(common::OwnedBuffer{buffer->begin(), buffer->end()});
                 break;
             }
-            case fb::OperationParameter_DataBufferDataPlane:
-            case fb::OperationParameter_DataShm:
-            case fb::OperationParameter_NONE:
+            case fb::OperationParameter::DataBufferDataPlane:
+            case fb::OperationParameter::DataShm:
+            case fb::OperationParameter::NONE:
             default:
                 return {};
         }
@@ -442,15 +442,15 @@ FlatBufferCodec::PeekRequestMetadata(const score::cpp::span<const std::uint8_t> 
     }
     const auto* meta_data = root->meta_data();
     const auto kind = meta_data->request_type();
-    if (kind > fb::ControlRequestKind_Cancel)
+    if (kind > fb::ControlRequestKind::Cancel)
     {
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
     }
-    if ((kind == fb::ControlRequestKind_Operation) && (root->operation_batch() == nullptr))
+    if ((kind == fb::ControlRequestKind::Operation) && (root->operation_batch() == nullptr))
     {
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
     }
-    if ((kind == fb::ControlRequestKind_Cancel) && (root->operation_batch() != nullptr))
+    if ((kind == fb::ControlRequestKind::Cancel) && (root->operation_batch() != nullptr))
     {
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
     }
@@ -482,12 +482,12 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBuff
         }
         const auto* meta_data = root->meta_data();
         const auto kind = meta_data->request_type();
-        if (kind > fb::ControlRequestKind_Cancel)
+        if (kind > fb::ControlRequestKind::Cancel)
         {
             return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
-        if (((kind == fb::ControlRequestKind_Operation) && (root->operation_batch() == nullptr)) ||
-            ((kind == fb::ControlRequestKind_Cancel) && (root->operation_batch() != nullptr)))
+        if (((kind == fb::ControlRequestKind::Operation) && (root->operation_batch() == nullptr)) ||
+            ((kind == fb::ControlRequestKind::Cancel) && (root->operation_batch() != nullptr)))
         {
             return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
@@ -498,7 +498,7 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBuff
         // TODO: Will be replaced with proper execution policy handling in the future.
         request.execution_policy = {};
         request.deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(meta_data->timeout_ms());
-        if (kind == fb::ControlRequestKind_Cancel)
+        if (kind == fb::ControlRequestKind::Cancel)
         {
             return {};
         }

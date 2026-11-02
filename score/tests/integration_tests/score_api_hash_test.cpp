@@ -41,7 +41,6 @@ using tests::utility::print_hex;
 namespace
 {
 
-constexpr auto kControlSocketEndpoint = "score://crypto_daemon.sock";
 constexpr std::chrono::milliseconds kDefaultOperationTimeout{500};
 constexpr std::size_t kInBandThreshold = 32U;
 
@@ -94,10 +93,7 @@ TEST_P(ParameterizedHashTest, HashingTest)
     ASSERT_EQ(expected_hash_alternative.size(), expected_out_data_size);
 
     // 1. Create the crypto stack and connect to the daemon
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -197,7 +193,7 @@ TEST_P(ParameterizedHashTest, HashingTest)
 TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
 {
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint).SetDefaultOperationTimeout(kDefaultOperationTimeout);
+    stack_config.SetDefaultOperationTimeout(kDefaultOperationTimeout);
 
     auto stack_result = CreateCryptoStack(stack_config);
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";

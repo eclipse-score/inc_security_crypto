@@ -209,12 +209,6 @@ use_repo(
 # ===============================================================================
 
 # *******************************************************************************
-# FlatBuffers
-# *******************************************************************************
-
-bazel_dep(name = "flatbuffers", version = "25.12.19")
-
-# *******************************************************************************
 # OpenSSL
 # *******************************************************************************
 
@@ -280,7 +274,13 @@ bazel_dep(name = "score_process_description", version = "2.1.1")
 bazel_dep(name = "score_platform", version = "0.7.2")
 
 # score baselibs
-bazel_dep(name = "score_baselibs", version = "0.2.14")
+bazel_dep(name = "score_baselibs", version = "0.2.16")
+single_version_override(
+    module_name = "score_baselibs",
+    patch_strip = 1,
+    patches = ["@@//third_party/patches:score_baselibs_generate_cpp_size_prefixed.patch"],
+    version = "0.2.16",
+)
 
 # score communication
 bazel_dep(name = "score_communication", version = "0.5.0")

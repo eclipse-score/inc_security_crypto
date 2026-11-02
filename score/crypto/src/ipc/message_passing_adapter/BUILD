@@ -13,15 +13,15 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("//score/tests/bazel:integration.bzl", "integration_test")
+load("@score_baselibs//score/flatbuffers/bazel:codegen.bzl", "generate_cpp")
 
 # FlatBuffers schema and codec shared by the message-passing client and server.
 
-genrule(
+generate_cpp(
     name = "generated_control",
-    srcs = ["protocol/control.fbs"],
-    outs = ["protocol/control_generated.h"],
-    cmd = "$(location @flatbuffers//:flatc) --cpp --size-prefixed -o $(@D) $(SRCS)",
-    tools = ["@flatbuffers//:flatc"],
+    schema = "protocol/control.fbs",
+    output = "protocol/control_generated.h",
+    size_prefixed = True,
 )
 
 cc_library(
@@ -44,7 +44,7 @@ cc_library(
     deps = [
         "//score/crypto/src/daemon/control_plane",
         ":ipc_config",
-        "@flatbuffers",
+        "@score_baselibs//score/flatbuffers:flatbufferscpp",
         "@score_baselibs//score/language/futurecpp",
     ],
 )
@@ -124,7 +124,7 @@ cc_library(
 )
 
 cc_library(
-    name = "message_passing_adapter_integration_test_process_separatio_common",
+    name = "message_passing_adapter_integration_test_process_separation_common",
     hdrs = ["tests/message_passing_adapter_integration_test_process_separation_common.h"],
     deps = ["//score/crypto/src/daemon/control_plane"],
 )
@@ -133,7 +133,7 @@ cc_binary(
     name = "message_passing_adapter_integration_test_process_separation_server",
     srcs = ["tests/message_passing_adapter_integration_test_process_separation_server.cpp"],
     deps = [
-        ":message_passing_adapter_integration_test_process_separatio_common",
+        ":message_passing_adapter_integration_test_process_separation_common",
         ":message_passing_server",
         "//score/crypto/src/daemon/control_plane",
         "@googletest//:gtest_main",
@@ -145,7 +145,7 @@ cc_binary(
     srcs = ["tests/message_passing_adapter_integration_test_process_separation_client.cpp"],
     deps = [
         ":message_passing_client",
-        ":message_passing_adapter_integration_test_process_separatio_common",
+        ":message_passing_adapter_integration_test_process_separation_common",
         ":ipc_config",
         "@googletest//:gtest_main",
     ],
