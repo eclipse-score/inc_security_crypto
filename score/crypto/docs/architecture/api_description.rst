@@ -442,6 +442,48 @@ context algorithm that the catalog does not know never gets this far: it is
 refused with ``CryptoErrorCode::kUnsupportedAlgorithm`` (see
 `Algorithm Selection`_).
 
+**Permitted algorithm:**
+
+A key that fits an algorithm usually fits several: an HMAC key fits every
+HMAC digest, and an AES-256 key fits AES-256-CBC and, when it also holds
+``kMac``, every HMAC. Using one key in two modes can leak what one mode
+relies on. For example, if the key material is also used for AES-256-GCM
+outside the daemon (no provider serves AES-GCM today), one AES-256-CBC
+block of zeros under a zero IV returns the GCM hash subkey. A key can
+therefore be pinned to one operation algorithm:
+
+- ``GenerateKeyParams::SetPermittedAlgorithm()`` for a generated key, by
+  name
+- ``"permitted_algorithm"`` on a key slot in the daemon configuration
+
+The pin is sent and configured as a name, like every algorithm, and must
+name a catalog row. The daemon resolves it to the row once, when the
+generation request is parsed or the slot is used, and a pinned key then
+serves only the context whose resolved row is that row. Any other context
+algorithm returns ``CryptoErrorCode::kIncompatibleKeyType``. An empty pin,
+the default, leaves the key usable for every algorithm it fits.
+
+A pin is checked when the key is created. A pin the catalog does not know
+fails key generation with ``CryptoErrorCode::kUnsupportedAlgorithm``. Key generation fails with
+``CryptoErrorCode::kIncompatibleKeyType`` when the key could never serve
+the pinned algorithm, or when the pin names a key, digest or random
+generator rather than a keyed operation (for example ``"AES-256"`` or
+``"SHA256"``). The daemon does not register a configured slot whose pin is
+unknown or does not fit its key, and logs an error.
+
+The pin is daemon policy: it is kept on the key's registry entry or slot
+configuration, not by the provider, so it applies the same to every
+provider.
+
+.. code-block:: json
+
+   {
+     "slot_name": "vehicle/aes-256-cbc",
+     "algorithm": "AES-256",
+     "allowed_operations": "ENCRYPT|DECRYPT",
+     "permitted_algorithm": "AES-256-CBC"
+   }
+
 **Querying permissions:**
 
 Permissions can be queried at runtime via:

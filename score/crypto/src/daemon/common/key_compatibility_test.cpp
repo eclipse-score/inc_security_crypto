@@ -133,5 +133,54 @@ TEST(KeyCompatibilityTest, KeyWithoutKeyTypeFitsNothing)
     EXPECT_FALSE(Fits("ECDSA-P256-SHA256", "SHA256", 0U));
 }
 
+constexpr bool Permits(const std::string_view operation, const std::string_view permitted)
+{
+    return IsPermittedAlgorithm(Row(operation), Row(permitted));
+}
+
+constexpr bool PinFits(const std::string_view permitted, const std::string_view key, const std::size_t key_size_bytes)
+{
+    return IsValidPermittedAlgorithm(Row(permitted), Row(key), key_size_bytes);
+}
+
+TEST(KeyCompatibilityTest, UnpinnedKeyServesAnyAlgorithm)
+{
+    EXPECT_TRUE(IsPermittedAlgorithm(Row("AES-256-CBC"), std::nullopt));
+    EXPECT_TRUE(IsPermittedAlgorithm(Row("HMAC-SHA512"), std::nullopt));
+}
+
+TEST(KeyCompatibilityTest, PinnedKeyServesOnlyItsAlgorithm)
+{
+    EXPECT_TRUE(Permits("AES-256-GCM", "AES-256-GCM"));
+    EXPECT_FALSE(Permits("AES-256-CBC", "AES-256-GCM"));
+    EXPECT_FALSE(Permits("ECDSA-P256-SHA384", "ECDSA-P256-SHA256"));
+    EXPECT_FALSE(Permits("HMAC-SHA256", "AES-256-CMAC"));
+    EXPECT_FALSE(Permits("HMAC-SHA384", "HMAC-SHA256"));
+}
+
+TEST(KeyCompatibilityTest, PinMustFitTheKey)
+{
+    EXPECT_TRUE(PinFits("AES-256-GCM", "AES-256", 32U));
+    EXPECT_TRUE(PinFits("HMAC-SHA256", "AES-256", 32U));
+    EXPECT_TRUE(PinFits("ECDSA-P256-SHA256", "ECDSA-P256", 32U));
+    EXPECT_TRUE(PinFits("ECDSA-P256-SHA384", "ECDSA-P256", 0U));
+
+    EXPECT_FALSE(PinFits("AES-256-GCM", "AES-128", 16U));
+    EXPECT_FALSE(PinFits("ECDSA-P384-SHA384", "ECDSA-P256", 32U));
+    EXPECT_FALSE(PinFits("HMAC-SHA256", "ECDSA-P256", 32U));
+    EXPECT_TRUE(PinFits("RSA-PSS-3072-SHA256", "RSA-3072", 0U));
+    EXPECT_FALSE(PinFits("RSA-PSS-4096-SHA256", "RSA-3072", 0U));
+    EXPECT_TRUE(PinFits("Ed25519", "Ed25519", 32U));
+}
+
+TEST(KeyCompatibilityTest, PinMustNameAKeyedOperation)
+{
+    EXPECT_FALSE(PinFits("AES-256", "AES-256", 32U));
+    EXPECT_FALSE(PinFits("ECDSA-P256", "ECDSA-P256", 32U));
+    EXPECT_FALSE(PinFits("RSA-2048", "RSA-2048", 0U));
+    EXPECT_FALSE(PinFits("SHA256", "AES-256", 32U));
+    EXPECT_FALSE(PinFits("CTR-DRBG", "AES-256", 32U));
+}
+
 }  // namespace
 }  // namespace score::crypto::daemon::common

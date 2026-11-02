@@ -14,6 +14,7 @@
 #include "score/crypto/src/daemon/key_management/slot/config_driven_slot_catalog.hpp"
 
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/key_compatibility.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
 #include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
 
@@ -100,11 +101,27 @@ void ConfigDrivenSlotCatalog::Load(SlotRegistry& registry)
     {
         // The configuration keeps algorithm names; a name the catalog does not
         // know could never be served, so the slot is not registered at all.
-        if (!::score::crypto::GetAlgorithmDescriptor(entry.algorithm).has_value())
+        const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(entry.algorithm);
+        if (!algorithm.has_value())
         {
             score::mw::log::LogError() << LOG_PREFIX << "Skipping slot '" << entry.slot_name << "': unknown algorithm '"
                                        << entry.algorithm << "'";
             continue;
+        }
+
+        // A slot pinned to an algorithm the catalog does not know, or one its key
+        // can never serve, would refuse every context, so it is a configuration
+        // error rather than a policy.
+        if (!entry.permitted_algorithm.empty())
+        {
+            const auto permitted = ::score::crypto::GetAlgorithmDescriptor(entry.permitted_algorithm);
+            if (!permitted.has_value() || !common::IsValidPermittedAlgorithm(permitted.value(), algorithm.value(), 0U))
+            {
+                score::mw::log::LogError() << LOG_PREFIX << "Skipping slot '" << entry.slot_name
+                                           << "': permitted_algorithm '" << entry.permitted_algorithm
+                                           << "' is unknown or does not fit key algorithm '" << entry.algorithm << "'";
+                continue;
+            }
         }
 
         KeySlotConfig config{};
@@ -113,6 +130,7 @@ void ConfigDrivenSlotCatalog::Load(SlotRegistry& registry)
         // Store provider names as-is from config (strings); numeric IDs will be resolved later
         config.provider_names = entry.provider_names;
         config.allowed_operations = ParseOperationPermission(entry.allowed_operations);
+        config.permitted_algorithm = entry.permitted_algorithm;
 
         // Access policy
         config.access_policy.allowed_uids = entry.allowed_uids;

@@ -193,6 +193,12 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::GenerateKey(const G
             request_builder.with_in_val_uint32(static_cast<std::uint32_t>(params.public_key_permissions.value()));
     }
 
+    // A string, so the daemon tells it apart from the optional uint32 before it.
+    if (!params.permitted_algorithm.empty())
+    {
+        request_builder = request_builder.with_in_string(params.permitted_algorithm);
+    }
+
     auto control_req_result = request_builder.build();
 
     if (!control_req_result.has_value())
