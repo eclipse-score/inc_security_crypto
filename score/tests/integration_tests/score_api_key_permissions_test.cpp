@@ -31,6 +31,8 @@
 ///   - Signing needs kSign on the private half
 ///   - Verification needs kVerify on the public half, which defaults to
 ///     unrestricted when the caller does not narrow it
+///   - A key pinned to a permitted algorithm serves that algorithm only,
+///     whether generated or loaded from a slot
 ///   - Keyless contexts (hash, random) are unaffected
 
 #include "score/crypto/src/api/common/error_domain.hpp"
@@ -599,6 +601,149 @@ INSTANTIATE_TEST_SUITE_P(PerProvider,
                          [](const testing::TestParamInfo<SlotPolicyTest::ParamType>& info) {
                              return info.param.test_case_name;
                          });
+
+// =========================================================================
+// Permitted algorithm — a pinned key serves one operation algorithm only
+// =========================================================================
+
+/// Asserts that a context creation failed because the key does not fit the
+/// algorithm, here because it is pinned to another one.
+template <typename ContextResult>
+void ExpectIncompatible(const ContextResult& result, const char* what)
+{
+    ASSERT_FALSE(result.has_value()) << what << " succeeded, but the key is pinned to another algorithm";
+    EXPECT_EQ(*result.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kIncompatibleKeyType))
+        << what << " failed with '" << result.error().Message() << "' instead of kIncompatibleKeyType";
+}
+
+/// An HMAC key serves its own digest only, so the only pin it accepts is that
+/// digest: a pin to another HMAC is refused when the key is generated.
+TEST_P(MacKeyPermissionTest, PinOnMacKeyMustBeItsOwnAlgorithm)
+{
+    const auto provider = GetParam();
+    auto key_mgmt = MakeKeyMgmtContext(provider);
+    ASSERT_NE(key_mgmt, nullptr);
+
+    GenerateKeyParams other;
+    other.SetAlgorithm(kMacAlgorithm).SetPermissions(KeyOperationPermission::kMac).SetPermittedAlgorithm("HMAC-SHA384");
+    EXPECT_FALSE(key_mgmt->GenerateKey(other).has_value())
+        << "GenerateKey accepted an HMAC-SHA256 key pinned to HMAC-SHA384";
+
+    GenerateKeyParams own;
+    own.SetAlgorithm(kMacAlgorithm).SetPermissions(KeyOperationPermission::kMac).SetPermittedAlgorithm(kMacAlgorithm);
+    auto key_result = key_mgmt->GenerateKey(own);
+    ASSERT_TRUE(key_result.has_value()) << "GenerateKey with the key's own algorithm as pin failed";
+    EXPECT_TRUE(MakeMacContext(*m_ctx, key_result.value(), provider).has_value());
+}
+
+#ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
+/// Key row the cipher tests generate: it fits every AES-256 mode until pinned.
+constexpr const char* kAesKeyAlgorithm = "AES-256";
+
+score::Result<CryptoResourceGuard> GenerateAesKey(IKeyManagementContext& key_mgmt, const char* pin)
+{
+    GenerateKeyParams params;
+    params.SetAlgorithm(kAesKeyAlgorithm)
+        .SetPermissions(KeyOperationPermission::kEncrypt | KeyOperationPermission::kDecrypt);
+    if (pin != nullptr)
+    {
+        params.SetPermittedAlgorithm(pin);
+    }
+    return key_mgmt.GenerateKey(params);
+}
+
+TEST_F(KeyPermissionTest, UnpinnedAesKeyServesEveryModeItFits)
+{
+    auto key_mgmt = MakeKeyMgmtContext(kSoftwareProvider);
+    ASSERT_NE(key_mgmt, nullptr);
+
+    auto key_result = GenerateAesKey(*key_mgmt, nullptr);
+    ASSERT_TRUE(key_result.has_value()) << "GenerateKey(AES-256) failed";
+
+    EXPECT_TRUE(MakeCipherContext(*m_ctx, key_result.value(), CipherDirection::kEncrypt).has_value())
+        << "An unpinned AES-256 key must serve AES-256-CBC";
+}
+
+/// The case the pin exists for: an AES-256 key meant for one mode must not be
+/// usable in another, where a single block can leak what the first relies on.
+TEST_F(KeyPermissionTest, PinnedCipherKeyIsRefusedForAnotherMode)
+{
+    auto key_mgmt = MakeKeyMgmtContext(kSoftwareProvider);
+    ASSERT_NE(key_mgmt, nullptr);
+
+    auto key_result = GenerateAesKey(*key_mgmt, "AES-256-GCM");
+    ASSERT_TRUE(key_result.has_value()) << "GenerateKey with a permitted algorithm failed";
+    auto& key = key_result.value();
+
+    ExpectIncompatible(MakeCipherContext(*m_ctx, key, CipherDirection::kEncrypt),
+                       "CreateCipherContext(AES-256-CBC) with a key pinned to AES-256-GCM");
+}
+
+TEST_F(KeyPermissionTest, PinnedCipherKeyServesItsMode)
+{
+    auto key_mgmt = MakeKeyMgmtContext(kSoftwareProvider);
+    ASSERT_NE(key_mgmt, nullptr);
+
+    auto key_result = GenerateAesKey(*key_mgmt, kCipherAlgorithm);
+    ASSERT_TRUE(key_result.has_value()) << "GenerateKey with a permitted algorithm failed";
+    auto& key = key_result.value();
+
+    EXPECT_TRUE(MakeCipherContext(*m_ctx, key, CipherDirection::kEncrypt).has_value());
+    EXPECT_TRUE(MakeCipherContext(*m_ctx, key, CipherDirection::kDecrypt).has_value());
+}
+
+TEST_F(KeyPermissionTest, PinTheKeyCannotServeIsRefusedAtGeneration)
+{
+    auto key_mgmt = MakeKeyMgmtContext(kSoftwareProvider);
+    ASSERT_NE(key_mgmt, nullptr);
+
+    // An AES key pinned to a signature algorithm, and a pin that names a key
+    // rather than an operation, would leave a key no context could ever use.
+    for (const char* pin : {kEcSignatureAlgorithm, kAesKeyAlgorithm})
+    {
+        auto refused = GenerateAesKey(*key_mgmt, pin);
+        EXPECT_FALSE(refused.has_value()) << "GenerateKey accepted the pin " << pin;
+    }
+}
+
+/// Two slots over the same AES-256 key material, pinned to different modes.
+class PinnedSlotTest : public KeyPermissionTest
+{
+  protected:
+    score::Result<CryptoResourceGuard> LoadSlotKey(IKeyManagementContext& key_mgmt, const char* slot_name)
+    {
+        auto slot = m_ctx->ResolveResource(slot_name, ResourceType::kKeySlot);
+        EXPECT_TRUE(slot.has_value()) << "Failed to resolve key slot: " << slot_name;
+        if (!slot.has_value())
+        {
+            return score::Result<CryptoResourceGuard>{score::unexpect, slot.error()};
+        }
+        return key_mgmt.LoadKey(slot.value());
+    }
+};
+
+TEST_F(PinnedSlotTest, SlotPermittedAlgorithmGovernsCipherContext)
+{
+    auto key_mgmt = MakeKeyMgmtContext(kSoftwareProvider);
+    ASSERT_NE(key_mgmt, nullptr);
+
+    // Control: the slot pinned to AES-256-CBC serves AES-256-CBC.
+    {
+        auto key_result = LoadSlotKey(*key_mgmt, "AES256_PinnedToCbcSlot_OpenSSL");
+        ASSERT_TRUE(key_result.has_value()) << "Failed to load key from the slot pinned to AES-256-CBC";
+        EXPECT_TRUE(MakeCipherContext(*m_ctx, key_result.value(), CipherDirection::kEncrypt).has_value())
+            << "A slot pinned to AES-256-CBC must produce an AES-256-CBC context";
+    }
+
+    // Same key material pinned to AES-256-GCM: loading succeeds, AES-256-CBC is refused.
+    {
+        auto key_result = LoadSlotKey(*key_mgmt, "AES256_PinnedToGcmSlot_OpenSSL");
+        ASSERT_TRUE(key_result.has_value()) << "Failed to load key from the slot pinned to AES-256-GCM";
+        ExpectIncompatible(MakeCipherContext(*m_ctx, key_result.value(), CipherDirection::kEncrypt),
+                           "CreateCipherContext(AES-256-CBC) with a key from a slot pinned to AES-256-GCM");
+    }
+}
+#endif  // SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
 
 // =========================================================================
 // Keyless contexts

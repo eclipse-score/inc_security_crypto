@@ -73,6 +73,28 @@
         "deployment_format" : "kv"
       },
       {
+        "slot_name": "AES256_PinnedToCbcSlot_OpenSSL",
+        "algorithm": "AES-256",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "ENCRYPT|DECRYPT",
+        "permitted_algorithm": "AES-256-CBC",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_aes256_cbc.kv",
+        "deployment_format" : "kv"
+      },
+      {
+        "slot_name": "AES256_PinnedToGcmSlot_OpenSSL",
+        "algorithm": "AES-256",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "ENCRYPT|DECRYPT",
+        "permitted_algorithm": "AES-256-GCM",
+        "allowed_uids": [0, 1000],
+        "allowed_write_uids": [0],
+        "deployment_path" : "/opt/crypto/etc/integration_openssl_aes256_cbc.kv",
+        "deployment_format" : "kv"
+      },
+      {
         "slot_name": "AES128_CBC_IntegrationTestKey_OpenSSL",
         "algorithm": "AES-128-CBC",
         "provider_names": ["OPENSSL"],
@@ -270,6 +292,16 @@
         "slot_name": "HMAC_SHA256_SignOnlySlot"
       },
       {
+        "uid": 0,
+        "app_resource_id": "AES256_PinnedToCbcSlot_OpenSSL",
+        "slot_name": "AES256_PinnedToCbcSlot_OpenSSL"
+      },
+      {
+        "uid": 0,
+        "app_resource_id": "AES256_PinnedToGcmSlot_OpenSSL",
+        "slot_name": "AES256_PinnedToGcmSlot_OpenSSL"
+      },
+      {
         "uid": 1000,
         "app_resource_id": "test/hmac",
         "slot_name": "test/hmac-sha256"
@@ -303,6 +335,16 @@
         "uid": 1000,
         "app_resource_id": "HMAC_SHA256_SignOnlySlot",
         "slot_name": "HMAC_SHA256_SignOnlySlot"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "AES256_PinnedToCbcSlot_OpenSSL",
+        "slot_name": "AES256_PinnedToCbcSlot_OpenSSL"
+      },
+      {
+        "uid": 1000,
+        "app_resource_id": "AES256_PinnedToGcmSlot_OpenSSL",
+        "slot_name": "AES256_PinnedToGcmSlot_OpenSSL"
       },
       {
         "uid": 0,

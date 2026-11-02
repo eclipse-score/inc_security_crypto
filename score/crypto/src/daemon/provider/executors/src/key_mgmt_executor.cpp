@@ -19,6 +19,7 @@
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_request_parser.hpp"
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/key_compatibility.hpp"
 #include "score/mw/log/logging.h"
 
 #include <algorithm>
@@ -107,6 +108,7 @@ Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorC
 //   request[0]       = algorithm  (string_view)
 //   request[1]       = permissions (uint32_t, optional)
 //   request[2]       = public_key_permissions (uint32_t, optional, asymmetric only)
+//   next             = permitted_algorithm (string_view, optional)
 // ---------------------------------------------------------------------------
 
 Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
@@ -117,6 +119,16 @@ KeyManagementExecutor::HandleGenerate(const KeyMgmtExecutionContext& ctx, common
     {
         score::mw::log::LogError() << LOG_PREFIX << "HandleGenerate: invalid request parameters";
         return score::crypto::make_unexpected(gen_req.error());
+    }
+
+    // Checked before any key material exists: a pin the key could never serve
+    // would make the key unusable, so it is refused as a caller error.
+    const auto& permitted = gen_req.value().permitted_algorithm;
+    if (permitted.has_value() && !common::IsValidPermittedAlgorithm(permitted.value(), gen_req.value().algorithm, 0U))
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGenerate: permitted algorithm '" << permitted->name
+                                   << "' does not fit key algorithm '" << gen_req.value().algorithm.name << "'";
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
     }
 
     // Provider-specific: generate the key. The returned IKeyHandler owns the material.
@@ -130,8 +142,9 @@ KeyManagementExecutor::HandleGenerate(const KeyMgmtExecutionContext& ctx, common
 
     // Orchestration: transfer handler ownership to the DataManager.
     // On failure the IKeyHandler destructor cleans up key material automatically.
-    auto node_id_result = m_service->RegisterKeyMaterial({ctx.client_id, ctx.context_node_id, ctx.provider_id},
-                                                         std::move(gen_result.value()));
+    key_management::KeyRegistrationParams registration{ctx.client_id, ctx.context_node_id, ctx.provider_id};
+    registration.permitted_algorithm = gen_req.value().permitted_algorithm;
+    auto node_id_result = m_service->RegisterKeyMaterial(registration, std::move(gen_result.value()));
     if (!node_id_result.has_value())
     {
         return score::crypto::make_unexpected(
