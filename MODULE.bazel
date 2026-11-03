@@ -356,14 +356,7 @@ bazel_dep(name = "bazel_skylib", version = "1.9.2")
 # Testing
 bazel_dep(name = "googletest", version = "1.18.0")
 
-bazel_dep(name = "score_qnx_unit_tests", version = "0.2.0", dev_dependency = True)
-
-# fix/qemu-cpu-and-output: vendor-aware CPU model + test output redirect
-git_override(
-    module_name = "score_qnx_unit_tests",
-    commit = "dda56e0a7c2893f7949ef5a3c704ef51e1008021",
-    remote = "https://github.com/etas-contrib/score_qnx_unit_tests.git",
-)
+bazel_dep(name = "score_qnx_unit_tests", version = "0.3.0", dev_dependency = True)
 
 bazel_dep(name = "score_itf", version = "0.6.0", dev_dependency = True)
 
