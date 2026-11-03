@@ -173,6 +173,13 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     CheckRawEcExport(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) const;
 
+    /// Duplicate the handle's live EVP_PKEY and pin its point-conversion format
+    /// to uncompressed, so both the export bytes and the export length are read
+    /// from the same live key rather than from algorithm metadata.
+    /// @return The prepared key on success, or the error that should be reported.
+    [[nodiscard]] ::score::crypto::Expected<EvpPkeyPtr, ::score::crypto::daemon::common::DaemonErrorCode>
+    PrepareUncompressedEcExport(const key_management::ProviderKeyHandle& handle) const;
+
     /// Symmetric key size in bytes of a catalog row; 0 when the row labels no key.
     [[nodiscard]] static std::size_t DetermineKeySize(const AlgorithmDescriptor& algorithm) noexcept;
 };

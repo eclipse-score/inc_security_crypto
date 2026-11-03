@@ -562,7 +562,7 @@ OpenSslKeyFactory::ImportRawEcPublicKey(const key_management::KeyImportRequest& 
     {
         score::mw::log::LogError() << kLogPrefix
                                    << "ImportRawEcPublicKey: point is not uncompressed (0x04); lead byte 0x"
-                                   << request.key_data[0];
+                                   << score::mw::log::LogHex8{request.key_data[0]};
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
     }
 
@@ -586,15 +586,9 @@ OpenSslKeyFactory::ImportRawEcPublicKey(const key_management::KeyImportRequest& 
     return std::make_shared<OpenSslKeyHandler>(std::move(owned_pkey), handle);
 }
 
-::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+::score::crypto::Expected<EvpPkeyPtr, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::PrepareUncompressedEcExport(const key_management::ProviderKeyHandle& handle) const
 {
-    const auto curve = CheckRawEcExport(handle, format);
-    if (!curve.has_value())
-    {
-        return ::score::crypto::make_unexpected(curve.error());
-    }
-
     EVP_PKEY* pkey = PkeyFromHandle(handle);
     if (pkey == nullptr)
     {
@@ -603,8 +597,8 @@ OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, sc
 
     // OSSL_PKEY_PARAM_PUB_KEY serialises the point in the key's own point-conversion
     // format. A key decoded from a compressed DER encoding keeps that compressed
-    // format, so reading it directly would yield e.g. a 49-byte P-384 point —
-    // disagreeing with GetExportKeySize (97) and the raw form this factory imports.
+    // format, so reading it directly would yield e.g. a 49-byte P-384 point instead
+    // of the 97-byte uncompressed form this factory imports and exports.
     // Duplicate the key and pin the export format to uncompressed before reading.
     EvpPkeyPtr export_pkey{EVP_PKEY_dup(pkey)};
     if (!export_pkey)
@@ -626,8 +620,27 @@ OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, sc
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
     }
 
-    // The export now yields the uncompressed point 0x04||X||Y, which is exactly
-    // the raw form this factory imports — so export round-trips import.
+    return export_pkey;
+}
+
+::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+{
+    const auto curve = CheckRawEcExport(handle, format);
+    if (!curve.has_value())
+    {
+        return ::score::crypto::make_unexpected(curve.error());
+    }
+
+    auto export_res = PrepareUncompressedEcExport(handle);
+    if (!export_res.has_value())
+    {
+        return ::score::crypto::make_unexpected(export_res.error());
+    }
+    EvpPkeyPtr export_pkey = std::move(export_res.value());
+
+    // The export yields the uncompressed point 0x04||X||Y, which is exactly the
+    // raw form this factory imports — so export round-trips import.
     std::size_t out_len = 0U;
     if (EVP_PKEY_get_octet_string_param(export_pkey.get(), OSSL_PKEY_PARAM_PUB_KEY, nullptr, 0U, &out_len) != 1)
     {
@@ -654,9 +667,22 @@ OpenSslKeyFactory::GetExportKeySize(const key_management::ProviderKeyHandle& han
         return ::score::crypto::make_unexpected(curve.error());
     }
 
-    // The uncompressed point length is fixed by the curve, so the size query is
-    // answered from metadata alone and matches what ExportKey will produce.
-    return 1U + (2U * ::score::crypto::daemon::common::EcFieldSize(curve.value()));
+    // Read the length from the same live, uncompressed-pinned key that ExportKey
+    // serialises, so the advertised size can never disagree with the exported
+    // bytes even if a key's stored encoding differs from its algorithm metadata.
+    auto export_res = PrepareUncompressedEcExport(handle);
+    if (!export_res.has_value())
+    {
+        return ::score::crypto::make_unexpected(export_res.error());
+    }
+
+    std::size_t out_len = 0U;
+    if (EVP_PKEY_get_octet_string_param(export_res.value().get(), OSSL_PKEY_PARAM_PUB_KEY, nullptr, 0U, &out_len) != 1)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+
+    return out_len;
 }
 
 ::score::crypto::Expected<::score::crypto::AlgorithmDescriptor, ::score::crypto::daemon::common::DaemonErrorCode>

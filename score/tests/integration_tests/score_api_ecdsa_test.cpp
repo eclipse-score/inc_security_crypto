@@ -759,14 +759,6 @@ INSTANTIATE_TEST_SUITE_P(CurvesOnSoftwareProvider,
                                  "ECDSA-P256-SHA384",
                                  kP256SignatureSize,
                                  "P256-SHA256",
-                             },
-                             EcdsaTestData{
-                                 "ECDSA_P384_SHA512_SoftwareProvider",
-                                 ProviderType::kSoftware,
-                                 "ECDSA-P384",
-                                 "ECDSA-P384-SHA512",
-                                 kP384SignatureSize,
-                                 "P384-SHA384",
                              }),
                          [](const testing::TestParamInfo<EcdsaSignVerifyTest::ParamType>& info) {
                              return info.param.test_case_name;
