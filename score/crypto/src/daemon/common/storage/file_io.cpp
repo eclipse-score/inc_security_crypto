@@ -16,9 +16,116 @@
 #include "score/filesystem/filestream/file_factory.h"
 #include "score/filesystem/filestream/file_stream.h"
 #include "score/filesystem/filesystem.h"
+#include "score/mw/log/logging.h"
+
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <array>
+#include <cerrno>
+#include <string_view>
 
 namespace score::crypto::daemon::common::storage
 {
+namespace
+{
+
+/// Closes a POSIX file descriptor when it goes out of scope.
+class FdGuard
+{
+  public:
+    explicit FdGuard(int fd) noexcept : m_fd{fd} {}
+    ~FdGuard()
+    {
+        if (m_fd >= 0)
+        {
+            static_cast<void>(::close(m_fd));
+        }
+    }
+
+    FdGuard(const FdGuard&) = delete;
+    FdGuard& operator=(const FdGuard&) = delete;
+    FdGuard(FdGuard&&) = delete;
+    FdGuard& operator=(FdGuard&&) = delete;
+
+    [[nodiscard]] int Get() const noexcept
+    {
+        return m_fd;
+    }
+
+    /// Close now and report whether the close succeeded.
+    [[nodiscard]] bool Close() noexcept
+    {
+        const int fd = m_fd;
+        m_fd = -1;
+        return ::close(fd) == 0;
+    }
+
+  private:
+    int m_fd;
+};
+
+/// Write zeros over the first @p size bytes of the open file @p fd.
+bool OverwriteWithZeros(int fd, off_t size) noexcept
+{
+    constexpr std::size_t kChunkSize = 4096U;
+    const std::array<std::uint8_t, kChunkSize> zeros{};
+
+    off_t offset = 0;
+    while (offset < size)
+    {
+        const auto remaining = static_cast<std::size_t>(size - offset);
+        const std::size_t chunk = remaining < kChunkSize ? remaining : kChunkSize;
+        const ssize_t written = ::pwrite(fd, zeros.data(), chunk, offset);
+        if (written < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            return false;
+        }
+        if (written == 0)
+        {
+            return false;
+        }
+        offset += static_cast<off_t>(written);
+    }
+    return true;
+}
+
+/// fsync the directory that holds @p path, so a change to its entries is durable.
+///
+/// A file system that cannot sync a directory (EINVAL) already makes the entry update
+/// durable by other means, so that counts as success.
+bool SyncParentDirectory(const std::string& path) noexcept
+{
+    const auto slash = path.find_last_of('/');
+    const std::string parent = (slash == std::string::npos) ? std::string{"."}
+                               : (slash == 0U)              ? std::string{"/"}
+                                                            : path.substr(0U, slash);
+    FdGuard dir{::open(parent.c_str(), O_RDONLY | O_CLOEXEC)};
+    if (dir.Get() < 0)
+    {
+        return false;
+    }
+    if ((::fsync(dir.Get()) != 0) && (errno != EINVAL))
+    {
+        return false;
+    }
+    return dir.Close();
+}
+
+/// Log a failed SecureEraseFile step together with the errno it left, and return @p code.
+score::crypto::Expected<std::monostate, DaemonErrorCode> EraseFailed(std::string_view step, DaemonErrorCode code)
+{
+    const int error_number = errno;
+    score::mw::log::LogError() << "[FILE_IO] SecureEraseFile: " << step << " failed (errno " << error_number << ")";
+    return score::crypto::make_unexpected(code);
+}
+
+}  // namespace
 
 score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> ReadFile(const std::string& path,
                                                                              std::size_t max_size)
@@ -122,6 +229,75 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> RemoveFile(const std::s
         if (result.error() == score::filesystem::ErrorCode::kFileOrDirectoryDoesNotExist)
             return std::monostate{};
         return score::crypto::make_unexpected(DaemonErrorCode::kPersistFailed);
+    }
+    return std::monostate{};
+}
+
+// SecureEraseFile uses POSIX calls directly: score::filesystem has no positional write
+// (pwrite) and no fsync, and both are needed to overwrite the existing blocks durably.
+score::crypto::Expected<std::monostate, DaemonErrorCode> SecureEraseFile(const std::string& path, std::size_t max_size)
+{
+    if (path.empty())
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
+
+    // O_NOFOLLOW: never overwrite the target of a symbolic link placed where the key file is expected.
+    // O_NONBLOCK: a named pipe at this path would otherwise block open() until a reader appears;
+    // it has no effect on writes to a regular file.
+    FdGuard fd{::open(path.c_str(), O_WRONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)};
+    if (fd.Get() < 0)
+    {
+        if (errno == ENOENT)
+        {
+            return std::monostate{};
+        }
+        if ((errno == ELOOP) || (errno == EISDIR) || (errno == ENXIO))
+        {
+            return EraseFailed("open (not a regular file)", DaemonErrorCode::kInvalidArgument);
+        }
+        return EraseFailed("open", DaemonErrorCode::kPersistFailed);
+    }
+
+    struct stat file_status{};
+    if (::fstat(fd.Get(), &file_status) != 0)
+    {
+        return EraseFailed("fstat", DaemonErrorCode::kPersistFailed);
+    }
+    if (!S_ISREG(file_status.st_mode))
+    {
+        return EraseFailed("type check (not a regular file)", DaemonErrorCode::kInvalidArgument);
+    }
+    if (static_cast<std::uintmax_t>(file_status.st_size) > max_size)
+    {
+        return EraseFailed("size check (file larger than allowed)", DaemonErrorCode::kInvalidArgument);
+    }
+
+    if (!OverwriteWithZeros(fd.Get(), file_status.st_size))
+    {
+        return EraseFailed("overwrite", DaemonErrorCode::kPersistFailed);
+    }
+    // Without fsync the zeros may still sit in the page cache when the file is unlinked,
+    // and the kernel is then free to drop them without ever writing them to the device.
+    if (::fsync(fd.Get()) != 0)
+    {
+        return EraseFailed("fsync", DaemonErrorCode::kPersistFailed);
+    }
+    if (!fd.Close())
+    {
+        return EraseFailed("close", DaemonErrorCode::kPersistFailed);
+    }
+
+    if (const auto removed = RemoveFile(path); !removed)
+    {
+        return EraseFailed("remove", removed.error());
+    }
+
+    // Make the unlink itself durable. Otherwise a power loss before the file system commits
+    // it brings the file back zero-filled, and the slot reads as occupied by an all-zero key.
+    if (!SyncParentDirectory(path))
+    {
+        return EraseFailed("directory fsync", DaemonErrorCode::kPersistFailed);
     }
     return std::monostate{};
 }

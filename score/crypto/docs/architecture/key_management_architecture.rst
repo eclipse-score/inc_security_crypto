@@ -373,6 +373,32 @@ Step 5 — Release resources
 
 The key material is now securely zeroized.
 
+Secure Key Deletion
+-------------------
+
+Key material is wiped, not just dropped, wherever the daemon lets go of it:
+
+- **Temporary keys**: ``IKeyHandler::Release()`` zeroizes the provider-held
+  material when the last reference is released (see Step 5 above).
+  ``SecureKeyBytes``, the buffer used for exported key bytes, zeroizes with
+  ``common::SecureZeroize`` on destruction and before move assignment
+  replaces its buffer, so the compiler cannot drop the wipe as a dead store.
+- **Key slots**: ``IKeySlotHandler::ClearSlot()`` erases a persistent slot.
+  ``FileBackedSlotHandler`` overwrites the key file with zeros in place,
+  flushes it with ``fsync``, only then removes it, and flushes the directory
+  so the removal survives a power loss (``common::storage::SecureEraseFile``).
+  The deployment descriptor is kept, so the slot keeps its location and
+  reports ``kEmpty``. Clearing an empty slot succeeds. The key path must be
+  absolute without ``..`` and name a regular file no larger than a key file;
+  a symbolic link, named pipe or device in its place is refused and logged.
+  Key material already loaded from the slot is wiped when its last reference
+  is released.
+
+An in-place overwrite reaches the blocks the file occupied. On storage that
+remaps writes (flash translation layers, copy-on-write or log-structured file
+systems) it cannot guarantee that every physical copy is gone; keys that need
+that guarantee belong in an HSM or TEE slot, or must be encrypted at rest.
+
 Thread Safety
 -------------
 
