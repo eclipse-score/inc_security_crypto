@@ -37,6 +37,23 @@ namespace detail = score::crypto::daemon::provider::openssl::detail;
 namespace algo_info = score::crypto::daemon::common;
 using score::crypto::daemon::provider::score_provider::openssl::handler::OpenSslCipherHandler;
 
+/// The provider serves SHA-2 only; MD5 and SHA-1 have catalog rows but are refused.
+TEST(OpenSslAlgorithmInfoTest, HashAndHmacMapping)
+{
+    EXPECT_EQ(detail::LookupHashEVPMD("SHA224"), EVP_sha224());
+    EXPECT_EQ(detail::LookupHashEVPMD("SHA256"), EVP_sha256());
+    EXPECT_EQ(detail::LookupHashEVPMD("SHA384"), EVP_sha384());
+    EXPECT_EQ(detail::LookupHashEVPMD("SHA512"), EVP_sha512());
+    EXPECT_EQ(detail::LookupHashEVPMD("SHA1"), nullptr);
+    EXPECT_EQ(detail::LookupHashEVPMD("MD5"), nullptr);
+    EXPECT_EQ(detail::LookupHashEVPMD("HMAC-SHA256"), nullptr);
+
+    EXPECT_EQ(detail::LookupHmacEVPMD("HMAC-SHA256"), EVP_sha256());
+    EXPECT_EQ(detail::LookupHmacEVPMD("HMAC-SHA512"), EVP_sha512());
+    EXPECT_EQ(detail::LookupHmacEVPMD("AES-128-CMAC"), nullptr);
+    EXPECT_EQ(detail::LookupHmacEVPMD("SHA256"), nullptr);
+}
+
 /// Every cipher the provider lists has properties in the common table.
 TEST(OpenSslAlgorithmInfoTest, EveryListedCipherHasCommonProperties)
 {
@@ -72,23 +89,34 @@ TEST(OpenSslAlgorithmInfoTest, EveryListedSignatureSchemeResolvesCurveAndDigest)
 /// The cipher handler accepts exactly the common-table rows the provider lists.
 TEST(OpenSslAlgorithmInfoTest, CipherHandlerAcceptsOnlyListedRows)
 {
-    for (const auto& row : algo_info::kCipherAlgorithms)
+    for (const auto& row : score::crypto::kAlgorithmCatalog)
     {
+        if (row.category != score::crypto::AlgorithmCategory::kCipher)
+        {
+            continue;
+        }
         const std::string name{row.name};
         EXPECT_EQ(OpenSslCipherHandler::IsAlgorithmSupported(name), detail::IsCipherSupported(row.name)) << name;
     }
 }
 
-/// A scheme the common table can resolve is still refused when the provider does not list it.
-TEST(OpenSslAlgorithmInfoTest, UnlistedButResolvableSchemeIsRefused)
+/// ECDSA is served on every curve with every hash the provider maps to an EVP_MD.
+TEST(OpenSslAlgorithmInfoTest, EcdsaServedForEverySupportedHash)
 {
-    // Curve and digest both resolve in the common table; the pairing is not one
-    // the provider serves.
-    const std::string unlisted{"ECDSA-P256-SHA384"};
-    ASSERT_TRUE(algo_info::IsEcdsaAlgorithm(unlisted));
-    ASSERT_TRUE(algo_info::LookupSignatureDigest(unlisted).has_value());
-
-    EXPECT_FALSE(detail::IsSignatureAlgorithmSupported(unlisted));
+    for (const auto curve : {"P256", "P384", "P521"})
+    {
+        for (const auto hash : {"SHA224", "SHA256", "SHA384", "SHA512"})
+        {
+            const std::string name = std::string{"ECDSA-"} + curve + "-" + hash;
+            EXPECT_TRUE(detail::IsSignatureAlgorithmSupported(name)) << name;
+        }
+        for (const auto hash : {"SHA1", "MD5"})
+        {
+            const std::string name = std::string{"ECDSA-"} + curve + "-" + hash;
+            EXPECT_TRUE(algo_info::IsEcdsaAlgorithm(name)) << name;
+            EXPECT_FALSE(detail::IsSignatureAlgorithmSupported(name)) << name;
+        }
+    }
 }
 
 /// The bare key form is a key algorithm, not a signature scheme.

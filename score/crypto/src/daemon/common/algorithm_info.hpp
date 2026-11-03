@@ -14,163 +14,142 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
+
 #include <cstddef>
 #include <optional>
 #include <string_view>
+
+// Provider-independent algorithm properties for the daemon. The hash and MAC
+// tables list what the daemon supports and take their names and sizes from
+// score::crypto::kAlgorithmCatalog; the key, cipher and curve lookups resolve
+// an identifier through the catalog directly. Every lookup matches exactly;
+// nothing searches an identifier for a fragment of another.
 
 namespace score::crypto::daemon::common
 {
 
 // ---------------------------------------------------------------------------
-// Hash algorithm properties (provider-independent)
+// Catalog membership of provider support lists
 // ---------------------------------------------------------------------------
 
-/// @brief Provider-neutral identifiers for supported hash algorithms.
-enum class HashAlgorithm
+/// @brief Whether every name in @p names is a catalog identifier.
+///
+/// Providers keep their own list of the identifiers they serve. Checking such a
+/// list with static_assert turns a misspelt or uncatalogued entry into a build
+/// error instead of an algorithm that is silently never served.
+template <typename Names>
+[[nodiscard]] constexpr bool AllInCatalog(const Names& names) noexcept
 {
-    kSha256,  ///< SHA-256.
-    kSha384,  ///< SHA-384.
-    kSha512,  ///< SHA-512.
-    kSha224,  ///< SHA-224.
-};
-
-/// @brief Provider-neutral metadata for a hash algorithm.
-struct HashAlgorithmInfo
-{
-    HashAlgorithm algorithm;  ///< Internal algorithm identifier.
-    std::string_view name;    ///< API algorithm identifier.
-    std::size_t digest_size;  ///< Output size in bytes.
-};
-
-inline constexpr HashAlgorithmInfo kHashAlgorithms[] = {
-    {HashAlgorithm::kSha256, "SHA256", 32U},
-    {HashAlgorithm::kSha384, "SHA384", 48U},
-    {HashAlgorithm::kSha512, "SHA512", 64U},
-    {HashAlgorithm::kSha224, "SHA224", 28U},
-};
-
-/// @brief Look up provider-independent hash algorithm metadata.
-/// @return algorithm metadata, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<HashAlgorithmInfo> LookupHashAlgorithmInfo(
-    std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kHashAlgorithms)
+    for (const auto& name : names)
     {
-        if (entry.name == algorithm)
+        if (!::score::crypto::FromAlgorithmName(std::string_view{name}).has_value())
         {
-            return entry;
+            return false;
         }
     }
-    return std::nullopt;
+    return true;
 }
 
-/// @brief Look up digest size by algorithm name.
-/// @return digest size in bytes, or std::nullopt if unknown.
+/// @brief Whether every name in @p names is a catalog identifier of @p category.
+template <typename Names>
+[[nodiscard]] constexpr bool AllInCatalog(const Names& names, ::score::crypto::AlgorithmCategory category) noexcept
+{
+    for (const auto& name : names)
+    {
+        if (::score::crypto::GetAlgorithmCategory(std::string_view{name}) != category)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Hash and MAC properties (provider-independent)
+// ---------------------------------------------------------------------------
+//
+// The catalog holds the properties; whether an algorithm is served is decided
+// per provider. A provider maps the catalog's HashFunction to its own type in
+// an exhaustive switch without a default case, so a hash added to the catalog
+// needs an explicit decision in every provider.
+
+/// @brief Look up digest size by hash algorithm name.
+/// @return digest size in bytes, or std::nullopt if @p algorithm is not a hash in the catalog.
 [[nodiscard]] inline constexpr std::optional<std::size_t> LookupDigestSize(std::string_view algorithm) noexcept
 {
-    const auto info = LookupHashAlgorithmInfo(algorithm);
-    return info.has_value() ? std::optional<std::size_t>{info->digest_size} : std::nullopt;
-}
-
-// ---------------------------------------------------------------------------
-// MAC algorithm properties (provider-independent)
-// ---------------------------------------------------------------------------
-
-/// @brief Provider-neutral identifiers for supported MAC algorithms.
-enum class MacAlgorithm
-{
-    kHmacSha256,  ///< HMAC with SHA-256.
-    kHmacSha384,  ///< HMAC with SHA-384.
-    kHmacSha512,  ///< HMAC with SHA-512.
-};
-
-/// @brief Provider-neutral metadata for a MAC algorithm.
-struct MacAlgorithmInfo
-{
-    MacAlgorithm algorithm;  ///< Internal algorithm identifier.
-    std::string_view name;   ///< API algorithm identifier.
-    std::size_t mac_size;    ///< Output tag size in bytes.
-};
-
-inline constexpr MacAlgorithmInfo kMacAlgorithms[] = {
-    {MacAlgorithm::kHmacSha256, "HMAC-SHA256", 32U},
-    {MacAlgorithm::kHmacSha384, "HMAC-SHA384", 48U},
-    {MacAlgorithm::kHmacSha512, "HMAC-SHA512", 64U},
-};
-
-/// @brief Look up provider-independent MAC algorithm metadata.
-/// @return algorithm metadata, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<MacAlgorithmInfo> LookupMacAlgorithmInfo(
-    std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kMacAlgorithms)
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value() || (row->category != ::score::crypto::AlgorithmCategory::kHash))
     {
-        if (entry.name == algorithm)
-        {
-            return entry;
-        }
+        return std::nullopt;
     }
-    return std::nullopt;
+    return row->output_size;
 }
 
 /// @brief Look up MAC output size by algorithm name.
-/// @return MAC size in bytes, or std::nullopt if unknown.
+/// @return tag size in bytes, or std::nullopt if @p algorithm is not a MAC in the catalog.
 [[nodiscard]] inline constexpr std::optional<std::size_t> LookupMacSize(std::string_view algorithm) noexcept
 {
-    const auto info = LookupMacAlgorithmInfo(algorithm);
-    return info.has_value() ? std::optional<std::size_t>{info->mac_size} : std::nullopt;
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value() || (row->category != ::score::crypto::AlgorithmCategory::kMac))
+    {
+        return std::nullopt;
+    }
+    return row->output_size;
+}
+
+/// @brief Hash function of a hash algorithm name, e.g. HashFunction::kSha256 for "SHA256".
+/// @return the hash function, or std::nullopt if @p algorithm is not a hash in the catalog.
+[[nodiscard]] inline constexpr std::optional<::score::crypto::HashFunction> LookupHashFunction(
+    std::string_view algorithm) noexcept
+{
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value() || (row->category != ::score::crypto::AlgorithmCategory::kHash))
+    {
+        return std::nullopt;
+    }
+    return row->hash;
+}
+
+/// @brief Underlying hash function of an HMAC name, e.g. HashFunction::kSha256 for "HMAC-SHA256".
+/// @return the hash function, or std::nullopt if @p algorithm is not an HMAC in the catalog.
+[[nodiscard]] inline constexpr std::optional<::score::crypto::HashFunction> LookupHmacHashFunction(
+    std::string_view algorithm) noexcept
+{
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value() || (row->category != ::score::crypto::AlgorithmCategory::kMac) ||
+        (row->hash == ::score::crypto::HashFunction::kNone))
+    {
+        return std::nullopt;
+    }
+    return row->hash;
 }
 
 // ---------------------------------------------------------------------------
-// Key algorithm properties (provider-independent)
+// Key algorithm properties
 // ---------------------------------------------------------------------------
-
-struct KeyAlgorithmInfo
-{
-    std::string_view name;
-    std::size_t key_size;  ///< Default key size in bytes
-};
-
-/// Ed25519 key size in bytes (RFC 8032).
-inline constexpr std::size_t kEd25519KeySize{32U};
-
-inline constexpr KeyAlgorithmInfo kKeyAlgorithms[] = {
-    {"HMAC-SHA256", 32U},
-    {"HMAC-SHA384", 48U},
-    {"HMAC-SHA512", 64U},
-    {"AES-128-CBC", 16U},
-    {"AES-192-CBC", 24U},
-    {"AES-256-CBC", 32U},
-    {"AES-128-GCM", 16U},
-    {"AES-192-GCM", 24U},
-    {"AES-256-GCM", 32U},
-    {"AES-128-CMAC", 16U},
-    {"AES-256-CMAC", 32U},
-    {"ECDSA-P256", 32U},
-    {"ECDSA-P384", 48U},
-    {"ECDSA-P521", 66U},
-    {"RSA-2048", 256U},
-    {"RSA-3072", 384U},
-    {"RSA-4096", 512U},
-    {"Ed25519", kEd25519KeySize},
-};
 
 /// @brief Look up default key size by algorithm name.
-/// @return key size in bytes, or std::nullopt if unknown.
+///
+/// Answers for names that can label a key: key rows, symmetric cipher, AEAD
+/// and MAC rows, and Ed25519. A signature scheme such as
+/// "RSA-PSS-2048-SHA256" names no key and yields std::nullopt, so it cannot be
+/// mistaken for a request for that many random bytes.
+/// For elliptic curves this is the byte length of one coordinate.
+/// @return key size in bytes, or std::nullopt if the name labels no key or is unknown.
 [[nodiscard]] inline constexpr std::optional<std::size_t> LookupKeySize(std::string_view algorithm) noexcept
 {
-    for (const auto& entry : kKeyAlgorithms)
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value() || ((row->category == ::score::crypto::AlgorithmCategory::kSignature) &&
+                             (row->key_type != ::score::crypto::KeyType::kEd25519)))
     {
-        if (entry.name == algorithm)
-        {
-            return entry.key_size;
-        }
+        return std::nullopt;
     }
-    return std::nullopt;
+    return ::score::crypto::GetKeySizeBytes(row->id);
 }
 
 // ---------------------------------------------------------------------------
-// Symmetric cipher properties (provider-independent)
+// Symmetric cipher properties
 // ---------------------------------------------------------------------------
 
 struct CipherAlgorithmInfo
@@ -181,136 +160,128 @@ struct CipherAlgorithmInfo
     std::size_t iv_size;     ///< Required IV / nonce length in bytes; 0 when none
 };
 
-// Currently only AES-CBC is supported by the daemon, but this table can be
-// extended to include other symmetric ciphers (AES-CTR, AES-ECB, etc.)
-inline constexpr CipherAlgorithmInfo kCipherAlgorithms[] = {
-    {"AES-128-CBC", 16U, 16U, 16U},
-    {"AES-192-CBC", 24U, 16U, 16U},
-    {"AES-256-CBC", 32U, 16U, 16U},
-};
-
-/// @brief Look up symmetric cipher properties by algorithm name.
-/// @return the entry, or std::nullopt if the algorithm is unknown.
+/// @brief Look up unauthenticated symmetric cipher properties by algorithm name.
+/// @return the properties, or std::nullopt if the name is not a cipher algorithm.
 [[nodiscard]] inline constexpr std::optional<CipherAlgorithmInfo> LookupCipher(std::string_view algorithm) noexcept
 {
-    for (const auto& entry : kCipherAlgorithms)
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value() || (row->category != ::score::crypto::AlgorithmCategory::kCipher))
     {
-        if (entry.name == algorithm)
-        {
-            return entry;
-        }
+        return std::nullopt;
     }
-    return std::nullopt;
+    return CipherAlgorithmInfo{
+        row->name, (static_cast<std::size_t>(row->key_bits) + 7U) / 8U, row->block_size, row->iv_size};
 }
 
 // ---------------------------------------------------------------------------
-// Elliptic-curve / ECDSA properties (provider-independent)
+// Elliptic-curve / ECDSA properties
 // ---------------------------------------------------------------------------
 
 /// @brief Properties of a NIST prime curve and the ECDSA variant built on it.
 ///
-/// @note @c signature_size is the IEEE P1363 fixed-length encoding r?s, which
+/// @note @c signature_size is the IEEE P1363 fixed-length encoding r||s, which
 ///       is the on-the-wire signature format of this stack.  It is twice the
 ///       byte length of the field order, so P-521 yields 2 * 66 = 132 bytes.
 struct EcCurveInfo
 {
-    std::string_view name;        ///< Curve identifier as used in AlgorithmId, e.g. "P256"
-    std::string_view group_name;  ///< Standard NIST designation of the curve, e.g. "P-256"
-    std::size_t field_size;       ///< Byte length of one coordinate / of r and s
-    std::size_t signature_size;   ///< P1363 signature length = 2 * field_size
-    std::size_t key_bits;         ///< Nominal key strength in bits
+    ::score::crypto::EccCurve curve;  ///< Structured curve identifier
+    std::string_view name;            ///< Curve token as used in AlgorithmId, e.g. "P256"
+    std::string_view group_name;      ///< Standard NIST designation of the curve, e.g. "P-256"
+    std::size_t field_size;           ///< Byte length of one coordinate / of r and s
+    std::size_t signature_size;       ///< P1363 signature length = 2 * field_size
+    std::size_t key_bits;             ///< Nominal key strength in bits
 };
 
-/// @note Curve names are spelled without an inner hyphen ("P256", not "P-256")
+/// @note Curve tokens are spelled without an inner hyphen ("P256", not "P-256")
 ///       so that the hyphen is unambiguously the separator in composite
-///       identifiers such as "ECDSA-P256-SHA256". This matches the AlgorithmId
-///       examples documented in score/crypto/src/api/common/types.hpp.
+///       identifiers such as "ECDSA-P256-SHA256".
 /// @note @c group_name carries the hyphen that @c name omits, and the two are not
-///       interchangeable where a provider selects a curve by name. The spelling
-///       of @c group_name does not follow from @c name in general, so each curve
-///       carries both.
+///       interchangeable where a provider selects a curve by name.
 inline constexpr EcCurveInfo kEcCurves[] = {
-    {"P256", "P-256", 32U, 64U, 256U},
-    {"P384", "P-384", 48U, 96U, 384U},
-    // NIST's largest prime curve is P-521 (not P-512); 521 bits is 66 bytes.
-    {"P521", "P-521", 66U, 132U, 521U},
+    {::score::crypto::EccCurve::kP256, "P256", "P-256", 32U, 64U, 256U},
+    {::score::crypto::EccCurve::kP384, "P384", "P-384", 48U, 96U, 384U},
+    {::score::crypto::EccCurve::kP521, "P521", "P-521", 66U, 132U, 521U},
 };
 
-/// @brief Properties of a supported RSA key size.
-struct RsaKeyInfo
-{
-    std::string_view name;
-    std::size_t modulus_size;
-    std::size_t key_bits;
-};
-
-/// Supported RSA key sizes.
-inline constexpr RsaKeyInfo kRsaKeys[] = {
-    {"RSA-2048", 256U, 2048U},
-    {"RSA-3072", 384U, 3072U},
-    {"RSA-4096", 512U, 4096U},
-};
-
-/// Offset of the digit run within an entry of kRsaKeys, e.g. "2048" in "RSA-2048".
-inline constexpr std::size_t kRsaKeySizeSubstringStart{4U};
-
-/// Prefix of RSA-PSS signature algorithm identifiers, e.g. "RSA-PSS-2048-SHA256".
-inline constexpr std::string_view kRsaPssAlgorithmPrefix{"RSA-PSS-"};
-
-/// @brief Look up RSA key properties from an RSA key algorithm identifier.
-/// @return the matching entry of kRsaKeys, or std::nullopt if the key size is unsupported.
-[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfo(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kRsaKeys)
-    {
-        if (algorithm == entry.name)
-        {
-            return entry;
-        }
-    }
-    return std::nullopt;
-}
-
-/// @brief Look up RSA key properties from an RSA-PSS signature algorithm.
-[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfoForSignatureAlgorithm(
-    std::string_view algorithm) noexcept
-{
-    if (algorithm.substr(0, kRsaPssAlgorithmPrefix.size()) != kRsaPssAlgorithmPrefix)
-    {
-        return std::nullopt;
-    }
-    const auto remainder = algorithm.substr(kRsaPssAlgorithmPrefix.size());
-    for (const auto& entry : kRsaKeys)
-    {
-        const auto key_size_substring = entry.name.substr(kRsaKeySizeSubstringStart);
-
-        if (remainder.substr(0, key_size_substring.size()) == key_size_substring)
-        {
-            return entry;
-        }
-    }
-    return std::nullopt;
-}
-
-/// Ed25519 signature size in bytes (RFC 8032).
-inline constexpr std::size_t kEd25519SignatureSize{64U};
-
-/// @brief True when the identifier names the Ed25519 key or signature algorithm.
-[[nodiscard]] inline constexpr bool IsEd25519Algorithm(std::string_view algorithm) noexcept
-{
-    return algorithm == "Ed25519";
-}
-
-/// @brief Extract the curve of an ECDSA signature algorithm identifier.
-///
-/// Accepts signature algorithms like ECDSA-P256-SHA256 i.e.ECDSA-<NIST curve>-<Hash algo>.
-[[nodiscard]] inline constexpr std::optional<EcCurveInfo> LookupEcCurveOfAlgorithm(std::string_view algorithm) noexcept
+/// @brief Look up a curve by its structured identifier.
+[[nodiscard]] inline constexpr std::optional<EcCurveInfo> LookupEcCurve(::score::crypto::EccCurve curve) noexcept
 {
     for (const auto& entry : kEcCurves)
     {
-        if (algorithm.find(entry.name) != std::string_view::npos)
+        if (entry.curve == curve)
         {
             return entry;
+        }
+    }
+    return std::nullopt;
+}
+
+/// @brief Components of an ECDSA identifier.
+struct EcdsaName
+{
+    EcCurveInfo curve;
+    std::optional<std::string_view> digest;  ///< Hash token; absent for the bare key form "ECDSA-<curve>"
+};
+
+/// @brief Split an ECDSA identifier into its curve and digest tokens.
+///
+/// Accepts exactly "ECDSA-<curve>" (a key algorithm) and "ECDSA-<curve>-<hash>"
+/// (a signature scheme), where the curve token must equal a curve of kEcCurves
+/// and the hash token the name of a hash row of the catalog. Any such pairing is
+/// an ECDSA name, e.g. "ECDSA-P256-SHA384", without a catalog row of its own;
+/// whether a provider serves the pairing, and with which hashes, is the
+/// provider's decision.
+[[nodiscard]] inline constexpr std::optional<EcdsaName> ParseEcdsaName(std::string_view algorithm) noexcept
+{
+    constexpr std::string_view kPrefix{"ECDSA-"};
+    if (algorithm.substr(0U, kPrefix.size()) != kPrefix)
+    {
+        return std::nullopt;
+    }
+    const std::string_view rest = algorithm.substr(kPrefix.size());
+    const std::size_t dash = rest.find('-');
+    const std::string_view curve_token = rest.substr(0U, dash);
+
+    for (const auto& entry : kEcCurves)
+    {
+        if (entry.name != curve_token)
+        {
+            continue;
+        }
+        if (dash == std::string_view::npos)
+        {
+            return EcdsaName{entry, std::nullopt};
+        }
+        const std::string_view digest_token = rest.substr(dash + 1U);
+        if (!LookupHashFunction(digest_token).has_value())
+        {
+            return std::nullopt;
+        }
+        return EcdsaName{entry, digest_token};
+    }
+    return std::nullopt;
+}
+
+/// @brief Extract the curve of an ECDSA key or signature algorithm identifier.
+[[nodiscard]] inline constexpr std::optional<EcCurveInfo> LookupEcCurveOfAlgorithm(std::string_view algorithm) noexcept
+{
+    const auto parsed = ParseEcdsaName(algorithm);
+    return parsed.has_value() ? std::optional<EcCurveInfo>{parsed->curve} : std::nullopt;
+}
+
+/// @brief Name of the hash row for a digest, e.g. "SHA256" for HashFunction::kSha256.
+[[nodiscard]] inline constexpr std::optional<std::string_view> LookupHashName(
+    ::score::crypto::HashFunction hash) noexcept
+{
+    if (hash == ::score::crypto::HashFunction::kNone)
+    {
+        return std::nullopt;
+    }
+    for (const auto& row : ::score::crypto::kAlgorithmCatalog)
+    {
+        if ((row.category == ::score::crypto::AlgorithmCategory::kHash) && (row.hash == hash))
+        {
+            return row.name;
         }
     }
     return std::nullopt;
@@ -318,49 +289,115 @@ inline constexpr std::size_t kEd25519SignatureSize{64U};
 
 /// @brief Extract the message-digest name of a signature algorithm identifier.
 ///
-/// "ECDSA-P256-SHA256" -> "SHA256".
+/// "ECDSA-P256-SHA256" -> "SHA256", "RSA-PSS-2048-SHA384" -> "SHA384".
+/// ECDSA names are split into tokens, so any curve/hash pairing resolves;
+/// other schemes resolve through their catalog row. Ed25519 has no separate
+/// digest and yields std::nullopt.
 [[nodiscard]] inline constexpr std::optional<std::string_view> LookupSignatureDigest(
     std::string_view algorithm) noexcept
 {
-    for (const auto& entry : kHashAlgorithms)
+    const auto parsed = ParseEcdsaName(algorithm);
+    if (parsed.has_value())
     {
-        if (algorithm.find(entry.name) != std::string_view::npos)
-        {
-            return entry.name;
-        }
+        return parsed->digest;
     }
-    return std::nullopt;
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value() || (row->category != ::score::crypto::AlgorithmCategory::kSignature))
+    {
+        return std::nullopt;
+    }
+    return LookupHashName(row->hash);
 }
 
 /// @brief Look up the digest size for a signature algorithm identifier.
-/// @return digest size in bytes, or std::nullopt if the digest is unknown.
+/// @return digest size in bytes, or std::nullopt if the scheme has no separate digest.
 [[nodiscard]] inline constexpr std::optional<std::size_t> LookupSignatureDigestSize(std::string_view algorithm) noexcept
 {
-    for (const auto& entry : kHashAlgorithms)
+    const auto digest = LookupSignatureDigest(algorithm);
+    return digest.has_value() ? LookupDigestSize(*digest) : std::nullopt;
+}
+
+// ---------------------------------------------------------------------------
+// RSA properties
+// ---------------------------------------------------------------------------
+
+/// @brief Properties of a supported RSA key size.
+struct RsaKeyInfo
+{
+    std::string_view name;     ///< Key algorithm identifier, e.g. "RSA-2048"
+    std::size_t modulus_size;  ///< Modulus length in bytes
+    std::size_t key_bits;      ///< Modulus length in bits
+};
+
+/// @brief Look up RSA key properties from an RSA key algorithm identifier ("RSA-2048").
+/// @return the properties, or std::nullopt if the name is not an RSA key row of the catalog.
+[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfo(std::string_view algorithm) noexcept
+{
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    if (!row.has_value() || (row->category != ::score::crypto::AlgorithmCategory::kKey) ||
+        (row->key_type != ::score::crypto::KeyType::kRsa))
     {
-        if (algorithm.find(entry.name) != std::string_view::npos)
+        return std::nullopt;
+    }
+    return RsaKeyInfo{row->name, (static_cast<std::size_t>(row->key_bits) + 7U) / 8U, row->key_bits};
+}
+
+/// @brief True when the identifier names a complete RSA-PSS signature scheme, e.g. "RSA-PSS-2048-SHA256".
+[[nodiscard]] inline constexpr bool IsRsaPssAlgorithm(std::string_view algorithm) noexcept
+{
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    return row.has_value() && (row->category == ::score::crypto::AlgorithmCategory::kSignature) &&
+           (row->key_type == ::score::crypto::KeyType::kRsa);
+}
+
+/// @brief Look up the RSA key properties an RSA-PSS signature scheme needs.
+/// @return the key row with the scheme's modulus length, or std::nullopt.
+[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfoForSignatureAlgorithm(
+    std::string_view algorithm) noexcept
+{
+    const auto scheme = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    if (!IsRsaPssAlgorithm(algorithm) || !scheme.has_value())
+    {
+        return std::nullopt;
+    }
+    for (const auto& row : ::score::crypto::kAlgorithmCatalog)
+    {
+        if ((row.category == ::score::crypto::AlgorithmCategory::kKey) &&
+            (row.key_type == ::score::crypto::KeyType::kRsa) && (row.key_bits == scheme->key_bits))
         {
-            return entry.digest_size;
+            return LookupRsaKeyInfo(row.name);
         }
     }
     return std::nullopt;
 }
 
-/// @brief True when the identifier names a complete RSA-PSS signature scheme.
-///
-/// The identifier must carry a supported key size and a known digest,
-/// e.g. "RSA-PSS-2048-SHA256".
-[[nodiscard]] inline constexpr bool IsRsaPssAlgorithm(std::string_view algorithm) noexcept
+// ---------------------------------------------------------------------------
+// Ed25519 properties
+// ---------------------------------------------------------------------------
+
+/// Ed25519 key size in bytes (RFC 8032).
+inline constexpr std::size_t kEd25519KeySize{
+    ::score::crypto::GetKeySizeBytes(::score::crypto::Algorithm::kEd25519).value_or(0U)};
+
+/// Ed25519 signature size in bytes (RFC 8032).
+inline constexpr std::size_t kEd25519SignatureSize{
+    ::score::crypto::GetAlgorithmDescriptor(::score::crypto::Algorithm::kEd25519).has_value()
+        ? ::score::crypto::GetAlgorithmDescriptor(::score::crypto::Algorithm::kEd25519)->output_size
+        : 0U};
+
+static_assert((kEd25519KeySize == 32U) && (kEd25519SignatureSize == 64U), "Ed25519 sizes are fixed by RFC 8032");
+
+/// @brief True when the identifier names the Ed25519 key or signature algorithm.
+[[nodiscard]] inline constexpr bool IsEd25519Algorithm(std::string_view algorithm) noexcept
 {
-    return algorithm.find("RSA-PSS-") == 0U && LookupSignatureDigest(algorithm).has_value() &&
-           (algorithm.find("RSA-PSS-2048-") == 0U || algorithm.find("RSA-PSS-3072-") == 0U ||
-            algorithm.find("RSA-PSS-4096-") == 0U);
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    return row.has_value() && (row->key_type == ::score::crypto::KeyType::kEd25519);
 }
 
 /// @brief True when the identifier names an ECDSA key or signature algorithm.
 [[nodiscard]] inline constexpr bool IsEcdsaAlgorithm(std::string_view algorithm) noexcept
 {
-    return (algorithm.find("ECDSA") != std::string_view::npos) && LookupEcCurveOfAlgorithm(algorithm).has_value();
+    return ParseEcdsaName(algorithm).has_value();
 }
 
 }  // namespace score::crypto::daemon::common

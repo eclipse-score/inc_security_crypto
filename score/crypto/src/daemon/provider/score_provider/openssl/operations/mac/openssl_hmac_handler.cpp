@@ -42,6 +42,8 @@ static constexpr const char* kSupportedAlgorithms[] = {
     "HMAC-SHA384",
     "HMAC-SHA512",
 };
+static_assert(common::AllInCatalog(kSupportedAlgorithms, ::score::crypto::AlgorithmCategory::kMac),
+              "every OpenSSL MAC must be a MAC in score::crypto::kAlgorithmCatalog");
 
 // ---------------------------------------------------------------------------
 // Construction / destruction

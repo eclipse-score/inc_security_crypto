@@ -58,6 +58,8 @@ static constexpr std::array<const char*, 3> kSupportedAlgorithms = {
     "HMAC-SHA384",
     "HMAC-SHA512",
 };
+static_assert(common::AllInCatalog(kSupportedAlgorithms, ::score::crypto::AlgorithmCategory::kMac),
+              "every PKCS#11 MAC must be a MAC in score::crypto::kAlgorithmCatalog");
 
 // ---------------------------------------------------------------------------
 // Algorithm mapping

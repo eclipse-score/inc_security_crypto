@@ -11,13 +11,19 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
     name = "common_types",
     hdrs = ["common.hpp"],
     visibility = ["//visibility:public"],
     deps = ["//score/crypto/src/api/common:crypto_common_base"],
+)
+
+cc_library(
+    name = "algorithm_types",
+    hdrs = ["algorithm.hpp"],
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -36,7 +42,16 @@ cc_library(
 
 cc_library(
     name = "types",
-    hdrs = ["common.hpp", "certificate.hpp", "key.hpp"],
+    hdrs = ["algorithm.hpp", "common.hpp", "certificate.hpp", "key.hpp"],
     visibility = ["//visibility:public"],
-    deps = [":certificate_types", ":key_types"],
+    deps = [":algorithm_types", ":certificate_types", ":key_types"],
+)
+
+cc_test(
+    name = "algorithm_test",
+    srcs = ["algorithm_test.cpp"],
+    deps = [
+        ":algorithm_types",
+        "@googletest//:gtest_main",
+    ],
 )
