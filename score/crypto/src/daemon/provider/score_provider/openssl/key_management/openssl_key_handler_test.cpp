@@ -421,8 +421,7 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_CompressedDerImport_StillExpo
     reimp.key_data_size = exported.value().bytes.size();
     reimp.algorithm = Row("ECDSA-P384-SHA512");
     reimp.format = score::crypto::FormatType::kRaw;
-    reimp.permissions =
-        score::crypto::KeyOperationPermission::kVerify | score::crypto::KeyOperationPermission::kExport;
+    reimp.permissions = score::crypto::KeyOperationPermission::kVerify | score::crypto::KeyOperationPermission::kExport;
 
     auto reimported = m_factory->ImportKey(reimp);
     ASSERT_TRUE(reimported.has_value()) << "The forced-uncompressed export must satisfy the raw import contract";
@@ -597,7 +596,6 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_WithoutExportPermission_IsDen
     EXPECT_TRUE(imported.value()->Release().has_value());
 }
 
-
 TEST_F(OpenSslKeyHandlerTest, ReleaseKey_ZeroOpaque_Idempotent)
 {
     // Create a handler via GenerateKey and test that Release is idempotent
@@ -660,4 +658,37 @@ TEST_F(OpenSslKeyHandlerTest, GetRawKeyBytes_ReleasedHandler_ReturnsNull)
     ptr = openssl_handler->GetRawKeyBytes(out_size);
     EXPECT_EQ(ptr, nullptr);
     EXPECT_EQ(out_size, 0U);
+}
+
+// Releasing a temporary key must wipe its material, not just drop the reference.
+// Release() clears the buffer but keeps its capacity, so the storage is still owned
+// by the handler and can be inspected after the release. That read is past size(), so a
+// build with container-overflow checks (_GLIBCXX_SANITIZE_VECTOR under ASan, or libc++'s
+// annotations) would report it; such a build has to exclude this test.
+TEST_F(OpenSslKeyHandlerTest, Release_SymmetricKey_ZeroizesKeyBuffer)
+{
+    std::uint8_t raw_key[32];
+    std::memset(raw_key, 0x5A, sizeof(raw_key));
+    km::KeyImportRequest req{};
+    req.key_data = raw_key;
+    req.key_data_size = sizeof(raw_key);
+    req.algorithm = Row("HMAC-SHA256");
+    req.permissions = score::crypto::KeyOperationPermission::kMac;
+
+    auto result = m_factory->ImportKey(req);
+    ASSERT_TRUE(result.has_value());
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
+    const auto* openssl_handler =
+        static_cast<const score::crypto::daemon::provider::openssl::OpenSslKeyHandler*>(result.value().get());
+    std::size_t out_size = 0;
+    const auto* storage = openssl_handler->GetRawKeyBytes(out_size);
+    ASSERT_NE(storage, nullptr);
+    ASSERT_EQ(std::memcmp(storage, raw_key, sizeof(raw_key)), 0);
+
+    ASSERT_TRUE(result.value()->Release().has_value());
+
+    for (std::size_t i = 0U; i < sizeof(raw_key); ++i)
+    {
+        EXPECT_EQ(storage[i], 0U) << "byte " << i << " still holds key material after Release";
+    }
 }

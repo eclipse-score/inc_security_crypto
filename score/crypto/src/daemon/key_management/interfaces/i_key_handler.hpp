@@ -77,6 +77,21 @@ class IKeyHandler
     /// Returns kNotPermitted for non-exportable keys or after Release() was called.
     [[nodiscard]] virtual score::crypto::Expected<SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode>
     Export() const = 0;
+
+    /// Serialize the key for a file-backed key slot, in the encoding the issuing provider's
+    /// ImportKey reads back: raw bytes for a symmetric key, DER for an asymmetric one.
+    ///
+    /// Daemon-internal: used only by IKeySlotHandler::StoreKey to persist the key in its slot,
+    /// never returned to a client, so it does not require the kExport permission. A provider
+    /// whose keys never leave it (an HSM, a TEE) keeps this default.
+    ///
+    /// @return the serialized key; kKeyNotExportable if the provider cannot serialize its keys;
+    ///         kInternalError after Release().
+    [[nodiscard]] virtual score::crypto::Expected<SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode>
+    SerializeForStorage() const
+    {
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
 };
 
 }  // namespace score::crypto::daemon::key_management

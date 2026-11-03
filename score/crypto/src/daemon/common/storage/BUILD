@@ -40,6 +40,7 @@ cc_library(
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
         "@score_baselibs//score/filesystem",
+        "@score_baselibs//score/mw/log",
     ],
 )
 

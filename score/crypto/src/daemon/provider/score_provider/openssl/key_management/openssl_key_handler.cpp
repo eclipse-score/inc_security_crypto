@@ -14,7 +14,9 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
 #include <openssl/crypto.h>  // OPENSSL_cleanse
+#include <openssl/err.h>     // ERR_clear_error
 #include <openssl/evp.h>     // EVP_PKEY_free
+#include <openssl/x509.h>    // i2d_PrivateKey / i2d_PUBKEY
 #include <algorithm>
 #include <utility>
 
@@ -122,6 +124,51 @@ OpenSslKeyHandler::Export() const
 
     key_management::SecureKeyBytes out;
     out.bytes.assign(m_key_bytes.begin(), m_key_bytes.end());
+    return out;
+}
+
+::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyHandler::SerializeForStorage() const
+{
+    if (m_released)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInternalError);
+    }
+
+    key_management::SecureKeyBytes out;
+    if (!m_pkey)
+    {
+        if (m_key_bytes.empty())
+        {
+            return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInternalError);
+        }
+        out.bytes.assign(m_key_bytes.begin(), m_key_bytes.end());
+        return out;
+    }
+
+    // DER as OpenSslKeyFactory::ImportKey reads it back: the private key when there is one
+    // (d2i_AutoPrivateKey), otherwise the SubjectPublicKeyInfo of a public-only key (d2i_PUBKEY).
+    bool is_private = true;
+    int length = i2d_PrivateKey(m_pkey.get(), nullptr);
+    if (length <= 0)
+    {
+        // A public-only key has no private encoding; drop the error that attempt queued.
+        ERR_clear_error();
+        is_private = false;
+        length = i2d_PUBKEY(m_pkey.get(), nullptr);
+    }
+    if (length <= 0)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInternalError);
+    }
+
+    out.bytes.resize(static_cast<std::size_t>(length));
+    unsigned char* cursor = out.bytes.data();
+    const int written = is_private ? i2d_PrivateKey(m_pkey.get(), &cursor) : i2d_PUBKEY(m_pkey.get(), &cursor);
+    if (written != length)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInternalError);
+    }
     return out;
 }
 
