@@ -1,0 +1,136 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml cert_management_composition
+top to bottom direction
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+package "cert_management" {
+
+  package "core" {
+    [CertManagementModule] as Module #DCEFE2
+    [CertManagementService\n<size:9>public values: api/types</size>] as Service #DCEFE2
+    [CertRegistry] as Registry
+    [CertEntry] as Entry
+  }
+
+  package "nodes" {
+    [CertSlotDataNode] as SlotNode
+    [CertDataNode] as CertNode
+    [TrustStoreDataNode] as TsNode
+  }
+
+  package "slot" {
+    [CertSlotManager\n<size:9>access checks via policy/</size>] as SlotMgr #DCEFE2
+    [CertSlotRegistry] as SlotReg
+    [ConfigDrivenSlotCatalog] as SlotCatalog
+    [SlotHandlerFactory] as Factory
+    [FileBackedSlotHandler\n<size:9>providers implement the same interface</size>] as FileHandler
+    [FileBackedCrlStorage\n<size:9>persists via deployment storage</size>] as Crl #FCE4D6
+  }
+
+  package "truststore" {
+    [TrustStoreManager\n<size:9>access checks via policy/</size>] as TsMgr #DCEFE2
+    [TrustStoreHandler\n<size:9>depends on slot manager, not the reverse</size>] as TsHandler
+    [ConfigDrivenTrustStoreCatalog] as TsCatalog
+  }
+
+  package "query" {
+    [CertObjectResponseBuilder] as Builder
+  }
+
+  package "interfaces" {
+    interface ICertSlotHandler #DCEBFA
+    interface ITrustStoreHandler
+    [Provider-neutral values\n(CertObject, CertSlotConfig,\nAccessPolicy, CrlData)] as Values #FFF0CC
+  }
+}
+
+package "daemon/config" {
+  [CertificateConfig] as Config
+}
+
+package "daemon/common" {
+  [DataManager] as DataMgr
+}
+
+package "daemon/provider" {
+  [ProviderManager] as Providers
+  interface ICertParser #DCEBFA
+}
+
+' Composition and lifecycle
+Module --> Service : creates and publishes
+Module --> SlotCatalog : creates
+Module --> TsCatalog : creates
+Module --> Factory : creates and configures
+
+Service --> Registry
+Service --> SlotMgr
+Service --> SlotReg
+Service --> TsMgr
+Service --> DataMgr
+Service ..> SlotNode : creates
+Service ..> CertNode : creates
+Service ..> TsNode : creates
+
+Registry --> Entry : indexes
+CertNode --> Entry : wraps
+
+' Slot storage
+SlotMgr --> ICertSlotHandler
+SlotMgr --> SlotReg
+SlotMgr ..> Factory : creates handler per slot;\nmanager caches successful creation
+
+SlotCatalog --> Config
+SlotCatalog ..> SlotReg : populates
+
+Factory --> Providers : selects parser and backend
+Factory ..> ICertParser : obtains parser
+Factory ..> ICertSlotHandler : creates backend handler
+
+FileHandler ..|> ICertSlotHandler
+FileHandler --> Crl
+FileHandler --> ICertParser
+
+' Trust stores
+TsCatalog --> Config
+TsCatalog ..> TsMgr : populates
+
+TsMgr --> SlotReg
+TsMgr --> TsHandler
+
+TsHandler ..|> ITrustStoreHandler
+TsHandler --> SlotReg
+TsHandler --> SlotMgr : slot backends and cached content
+
+' Query
+Builder --> Service
+Builder --> SlotMgr
+Builder --> TsMgr
+
+Providers ..> ICertParser : provides
+
+legend bottom
+  |= Fill |= Boundary role |
+  |<#DCEFE2> | Component composition and lifecycle coordination |
+  |<#DCEBFA> | Provider contracts required by the component |
+  |<#FFF0CC> | Provider-neutral values and configuration types |
+  |<#FCE4D6> | Slot-storage helper |
+  |<#FFFFFF> | Component implementation detail |
+  Colors distinguish component, provider-contract, value, and helper roles;
+  they do not indicate call-site usage or Bazel visibility.
+endlegend
+
+@enduml

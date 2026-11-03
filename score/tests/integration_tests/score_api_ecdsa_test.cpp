@@ -43,17 +43,19 @@
 /// @note NIST's largest prime curve is P-521 (not P-512), so that is the curve
 ///       used for the highest-strength cases here.
 
-#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
 #include "score/crypto/src/api/config/key_operation_params.hpp"
 #include "score/crypto/src/api/config/sign_context_config.hpp"
 #include "score/crypto/src/api/config/verify_signature_context_config.hpp"
+#include "score/crypto/src/api/contexts/i_hash_context.hpp"
 #include "score/crypto/src/api/contexts/i_key_management_context.hpp"
 #include "score/crypto/src/api/contexts/i_sign_context.hpp"
 #include "score/crypto/src/api/contexts/i_verify_signature_context.hpp"
 #include "score/crypto/src/api/crypto_stack_factory.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
 #include "score/crypto/src/api/i_crypto_stack.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/result/result.h"
 #include "score/tests/utility/test_utility.hpp"
 
@@ -156,6 +158,16 @@ struct KeySlotEcdsaTestData
     std::string vector_dir;
     std::string key_slot_name;         ///< slot holding the SigGen key pair
     std::string public_key_slot_name;  ///< VERIFY-only slot holding the SigVer failure key
+};
+
+struct PrehashedEcdsaTestData
+{
+    std::string test_case_name;
+    std::string hash_algorithm;
+    std::string signature_algorithm;
+    std::size_t signature_size;
+    std::string vector_dir;
+    std::string key_slot_name;
 };
 
 // =========================================================================
@@ -628,6 +640,66 @@ TEST_P(KeySlotEcdsaTest, VerifiesNistVectors)
 }
 
 // =========================================================================
+// Test 3: ECDSA prehashed input derived from NIST SigGen messages
+// =========================================================================
+
+class EcdsaPrehashedTest : public ::testing::TestWithParam<PrehashedEcdsaTestData>
+{
+};
+
+TEST_P(EcdsaPrehashedTest, UsesProvisionedNistVectorDigest)
+{
+    const auto test_data = GetParam();
+    const auto vector_path = GetTestVectorPath("/ecdsa/") + test_data.vector_dir + "/";
+    const auto message = read_bin(vector_path + "siggen_message.bin");
+    const auto nist_signature = read_bin(vector_path + "siggen_signature.bin");
+    ASSERT_FALSE(message.empty());
+    ASSERT_EQ(nist_signature.size(), test_data.signature_size);
+
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value());
+    auto context_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(context_result.has_value());
+    auto& context = context_result.value();
+
+    KeyManagementContextConfig key_config;
+    key_config.SetProviderType(ProviderType::kSoftware);
+    auto key_context_result = context->CreateKeyManagementContext(key_config);
+    ASSERT_TRUE(key_context_result.has_value());
+
+    auto key_result = LoadKeyFromSlot(*context, *key_context_result.value(), test_data.key_slot_name);
+    ASSERT_TRUE(key_result.has_value());
+    auto key = std::move(key_result.value());
+
+    HashContextConfig hash_config;
+    hash_config.SetAlgorithm(test_data.hash_algorithm).SetProviderType(ProviderType::kSoftware);
+    auto hash_result = context->CreateHashContext(hash_config);
+    ASSERT_TRUE(hash_result.has_value());
+    auto hash = std::move(hash_result.value());
+    std::vector<std::uint8_t> digest(hash->GetDigestSize());
+    auto digest_result = hash->SingleShot({message.data(), message.size()}, {digest.data(), digest.size()});
+    ASSERT_TRUE(digest_result.has_value());
+    ASSERT_EQ(digest_result.value(), digest.size());
+
+    VerifySignatureContextConfig verify_config;
+    verify_config.SetAlgorithm(test_data.signature_algorithm)
+        .SetKey(key)
+        .SetInputMode(SignatureInputMode::kPrehashed)
+        .SetProviderType(ProviderType::kSoftware);
+    auto verify_result = context->CreateVerifySignatureContext(verify_config);
+    ASSERT_TRUE(verify_result.has_value());
+    auto verify = std::move(verify_result.value());
+
+    ASSERT_TRUE(verify->Init());
+    ASSERT_TRUE(verify->Update({digest.data(), digest.size()}));
+    auto verified = verify->VerifyFinalize({nist_signature.data(), nist_signature.size()});
+    ASSERT_TRUE(verified.has_value());
+    EXPECT_TRUE(verified.value());
+}
+
+// =========================================================================
 // Test Vector Constants
 // =========================================================================
 
@@ -706,6 +778,30 @@ INSTANTIATE_TEST_SUITE_P(NistVectorsOnSoftwareProvider,
                                  "ECDSA_P521_PublicKeySlot_OpenSSL",
                              }),
                          [](const testing::TestParamInfo<KeySlotEcdsaTest::ParamType>& info) {
+                             return info.param.test_case_name;
+                         });
+
+INSTANTIATE_TEST_SUITE_P(PrehashedOnSoftwareProvider,
+                         EcdsaPrehashedTest,
+                         ::testing::Values(PrehashedEcdsaTestData{"ECDSA_P256_SHA256_Prehashed",
+                                                                  "SHA256",
+                                                                  "ECDSA-P256-SHA256",
+                                                                  kP256SignatureSize,
+                                                                  "P256-SHA256",
+                                                                  "ECDSA_P256_IntegrationTestKey_OpenSSL"},
+                                           PrehashedEcdsaTestData{"ECDSA_P384_SHA384_Prehashed",
+                                                                  "SHA384",
+                                                                  "ECDSA-P384-SHA384",
+                                                                  kP384SignatureSize,
+                                                                  "P384-SHA384",
+                                                                  "ECDSA_P384_IntegrationTestKey_OpenSSL"},
+                                           PrehashedEcdsaTestData{"ECDSA_P521_SHA512_Prehashed",
+                                                                  "SHA512",
+                                                                  "ECDSA-P521-SHA512",
+                                                                  kP521SignatureSize,
+                                                                  "P521-SHA512",
+                                                                  "ECDSA_P521_IntegrationTestKey_OpenSSL"}),
+                         [](const testing::TestParamInfo<EcdsaPrehashedTest::ParamType>& info) {
                              return info.param.test_case_name;
                          });
 

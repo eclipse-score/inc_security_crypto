@@ -114,6 +114,13 @@ enum class OperationMode : uint8_t
     kVerify     ///< Verify supplied signature, MAC, or other operation result.
 };
 
+/// @brief Describes whether signature input is a message or an already computed digest.
+enum class SignatureInputMode : uint8_t
+{
+    kMessage,   ///< Hash the supplied message as part of the signature operation.
+    kPrehashed  ///< Treat the supplied bytes as the algorithm's digest.
+};
+
 /// @brief Memory compatibility requested for an allocation.
 enum class MemoryType : uint8_t
 {

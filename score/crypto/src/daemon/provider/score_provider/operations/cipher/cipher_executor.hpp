@@ -40,6 +40,10 @@ class CipherExecutor
         common::RequestParameters& request);
 
   private:
+    [[nodiscard]] Expected<common::ResponseParameters, common::DaemonErrorCode> ExecuteGetMaxOutputSize(
+        ScoreCipherHandler& handler,
+        common::RequestParameters& request);
+
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> ExecuteInit(ScoreCipherHandler& handler,
                                                                                 common::RequestParameters& request);
 

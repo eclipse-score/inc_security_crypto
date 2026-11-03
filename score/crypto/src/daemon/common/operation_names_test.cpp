@@ -74,7 +74,7 @@ TEST(OperationNamesTest, EveryActionOfTheNewActorsIsNamed)
                               cipher_ops::CIPHER_UPDATE,
                               cipher_ops::CIPHER_FINALIZE,
                               cipher_ops::CIPHER_SS,
-                              cipher_ops::CIPHER_GET_OUTPUT_SIZE,
+                              cipher_ops::CIPHER_GET_MAX_OUTPUT_SIZE,
                               cipher_ops::CIPHER_RESET,
                               cipher_ops::CIPHER_GET_IV_SIZE})
     {

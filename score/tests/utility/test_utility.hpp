@@ -17,8 +17,11 @@
 #include <array>
 #include <condition_variable>
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace tests
@@ -153,6 +156,47 @@ class Barrier
     int count_;
     int generation_;
 };
+
+// =========================================================================
+// Test Environment
+// =========================================================================
+
+/**
+ * @brief Directory for test output: TEST_TMPDIR when set, otherwise /tmp
+ * @param name Subdirectory name appended to the base directory
+ */
+inline std::filesystem::path TempDirectory(std::string_view name)
+{
+    const char* test_tmpdir = std::getenv("TEST_TMPDIR");
+    const auto base = (test_tmpdir != nullptr && *test_tmpdir != '\0') ? std::filesystem::path{test_tmpdir}
+                                                                       : std::filesystem::path{"/tmp"};
+    return base / name;
+}
+
+/**
+ * @brief Resolve a path relative to the workspace root, using the Bazel runfiles layout when available
+ * @param relative_path Path relative to the workspace root
+ */
+inline std::filesystem::path TestVectorPath(std::string_view relative_path)
+{
+    const char* test_srcdir = std::getenv("TEST_SRCDIR");
+    if (test_srcdir != nullptr && *test_srcdir != '\0')
+    {
+        const char* test_workspace = std::getenv("TEST_WORKSPACE");
+        const auto workspace = (test_workspace != nullptr && *test_workspace != '\0') ? test_workspace : "_main";
+        return std::filesystem::path{test_srcdir} / workspace / relative_path;
+    }
+    return std::filesystem::path{relative_path};
+}
+
+/**
+ * @brief Point the logging framework at the shared test logging configuration
+ */
+inline void ConfigureTestLogging()
+{
+    const auto config = TestVectorPath("score/tests/config/logging.json");
+    static_cast<void>(setenv("MW_LOG_CONFIG_FILE", config.c_str(), 1));
+}
 
 }  // namespace utility
 }  // namespace tests

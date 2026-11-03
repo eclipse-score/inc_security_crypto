@@ -332,34 +332,38 @@ score::Result<std::monostate> CipherContextImpl::Reset()
     return std::monostate{};
 }
 
-std::size_t CipherContextImpl::GetOutputSize() const noexcept
+score::Result<std::size_t> CipherContextImpl::GetMaximumOutputSize(std::size_t input_size) const
 {
     auto control_req_result = proto::ControlRequestBuilder()
                                   .forDataNodeId(m_context_id)
-                                  .operation({actors::OP_ACTOR_CIPHER_HANDLER, cipher_ops::CIPHER_GET_OUTPUT_SIZE})
+                                  .operation({actors::OP_ACTOR_CIPHER_HANDLER, cipher_ops::CIPHER_GET_MAX_OUTPUT_SIZE})
+                                  .with_in_val_uint64(static_cast<std::uint64_t>(input_size))
                                   .build();
     if (!control_req_result.has_value())
     {
-        score::mw::log::LogError() << kLogPrefix << "Failed to build CIPHER_GET_OUTPUT_SIZE request";
-        return 0U;
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CIPHER_GET_MAX_OUTPUT_SIZE request")};
     }
 
     auto control_response_res = m_connection->SendRequest(control_req_result.value());
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
-    validator.expectOperation({actors::OP_ACTOR_CIPHER_HANDLER, cipher_ops::CIPHER_GET_OUTPUT_SIZE}).expectSuccess();
+    validator.expectOperation({actors::OP_ACTOR_CIPHER_HANDLER, cipher_ops::CIPHER_GET_MAX_OUTPUT_SIZE})
+        .expectSuccess();
 
     if (!validator.isValid())
     {
-        score::mw::log::LogError() << kLogPrefix << validator.getError();
-        return 0U;
+        return score::Result<std::size_t>{score::unexpect,
+                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
     }
 
     auto size_result = validator.getParameterAt<std::uint64_t>(0, 0);
     if (!size_result.has_value())
     {
-        score::mw::log::LogError() << kLogPrefix << "CIPHER_GET_OUTPUT_SIZE response has invalid parameter type";
-        return 0U;
+        return score::Result<std::size_t>{score::unexpect,
+                                          MakeError(CryptoErrorCode::kOperationFailed,
+                                                    "CIPHER_GET_MAX_OUTPUT_SIZE response has invalid parameter type")};
     }
 
     return static_cast<std::size_t>(size_result.value());

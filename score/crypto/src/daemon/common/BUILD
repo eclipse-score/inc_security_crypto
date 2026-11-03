@@ -30,6 +30,7 @@ cc_library(
     deps = [
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/types:types",
+        "//score/crypto/src/common:common_types",
         "@score_baselibs//score/result",
     ],
 )
@@ -39,6 +40,15 @@ cc_library(
     name = "algorithm_info",
     hdrs = ["algorithm_info.hpp"],
     visibility = ["//:__subpackages__"],
+)
+
+cc_test(
+    name = "algorithm_info_test",
+    srcs = ["algorithm_info_test.cpp"],
+    deps = [
+        ":algorithm_info",
+        "@googletest//:gtest_main",
+    ],
 )
 
 # Header-only utility: human-readable names for OperationActor / OperationAction values.

@@ -164,6 +164,16 @@ impl StreamHasher for OpenSslStreamHasher {
 pub struct OpenSslEngine;
 
 impl CryptoProvider for OpenSslEngine {
+    // ── Slot / capability discovery ───────────────────────────────────────────
+
+    fn slot_count(&self) -> usize {
+        std::env::var("CRYPTOKI_NUM_SLOTS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(1)
+            .max(1)
+    }
+
     // ── Key generation ────────────────────────────────────────────────────────
 
     fn generate_rsa_key_pair(&self, bits: u32) -> Result<RsaKeyPair, CryptoError> {

@@ -28,8 +28,7 @@ namespace crypto
 ///
 /// Provides the common Uptr typedef and virtual destructor. All concrete
 /// operation contexts (hash, encrypt, sign, etc.) ultimately derive from
-/// this interface, either directly or via IStreamingContext /
-/// IStreamingOutputContext.
+/// this interface, either directly or via IStreamingContext.
 class IContext
 {
   public:

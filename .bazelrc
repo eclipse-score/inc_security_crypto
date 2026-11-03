@@ -24,6 +24,9 @@ build --@rules_rust//rust/settings:extra_rustc_flag=-Ddeprecated
 # Suppress deprecated warnings for grpc_adapter implementation. grpc_adapter will be removed in future
 build --per_file_copt=score/crypto/src/ipc/grpc_adapter/.*@-Wno-error=deprecated-declarations
 
+# TODO: Temporarily disable deprecation warnings for com
+build --per_file_copt=external/score_communication\\+/.*@-Wno-error=deprecated-declarations
+
 # Only contact license server every 59 secs per tool and not for every tool invocation to avoid flooding the license server
 common --action_env=QNX_LICENSE_EXTSERVER_DELAY=59
 

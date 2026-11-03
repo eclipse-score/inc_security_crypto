@@ -266,11 +266,6 @@ score::Result<std::monostate> MacContextImpl::Reset()
 
 std::size_t MacContextImpl::GetMacSize() const noexcept
 {
-    return GetOutputSize();
-}
-
-std::size_t MacContextImpl::GetOutputSize() const noexcept
-{
     auto control_req_result = proto::ControlRequestBuilder()
                                   .forDataNodeId(m_context_id)
                                   .operation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_GET_SIZE})

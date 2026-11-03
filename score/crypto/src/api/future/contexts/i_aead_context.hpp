@@ -39,10 +39,6 @@ namespace crypto
 ///
 /// Compatible with AES-GCM, AES-CCM, ChaCha20-Poly1305, and future
 /// PQC-hybrid AEAD constructions.
-///
-/// @note Derives from IStreamingContext (not IStreamingOutputContext) because
-///       AEAD has dual finalization paths (Finalize for encrypt, VerifyAndFinalize
-///       for decrypt) with different semantics.
 class IAeadContext : public IStreamingContext
 {
   public:

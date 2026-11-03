@@ -1,0 +1,95 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml cert_management_overview
+title Certificate Management: Component Boundary and Collaborators
+top to bottom direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor #46535E
+skinparam package {
+  BackgroundColor #F4F7F9
+  BorderColor #596B78
+  FontColor #20313D
+}
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #596B78
+  FontColor #20313D
+}
+
+package "Callers (outside the component)" {
+  component "Certificate-management context handlers\nslot lifecycle and CRLs" as MgmtCtx
+  component "Trust-store context handlers\nmembership" as TrustCtx
+  component "Verification context handlers\ntrust binding" as VerifyCtx
+  component "Typed-object queries\ncertificate, slot, trust-store member" as Queries
+}
+
+package "cert_management" {
+  component "CertManagementService\nclient-scoped resources and\nslot-change coordination" as Service
+  component "CertSlotRegistry\nslot identity and configuration" as Registry
+  component "CertSlotManager\naccess policy, slot handlers,\ncertificate and CRL caches" as SlotManager
+  component "TrustStoreManager\nstore registry, client references,\nslot-to-store index" as TrustManager
+  component "TrustStoreHandler\nmembers, anchors, CRLs\n(one per store)" as StoreHandler
+  component "CertRegistry\nCertEntry (per client)" as CertRegistry
+  component "ICertSlotHandler\nfile-backed by default" as SlotHandler
+}
+
+package "Collaborators (outside the component)" {
+  component "DataManager\nclient-scoped nodes" as DataManager
+  component "ICertParser\ncanonical parser" as Parser
+  component "Deployment storage\ndescriptors, certificate and CRL files" as DeployStorage
+  component "Path validation\n(provider)" as Validate
+}
+
+MgmtCtx --> Service
+TrustCtx --> Service
+TrustCtx --> TrustManager : membership mutations
+VerifyCtx --> Service : resolve certificates\nand trust stores
+VerifyCtx --> StoreHandler : anchors and CRLs
+VerifyCtx --> Validate : path validation
+Queries --> Service
+
+Service --> DataManager : client-owned resource nodes
+Service --> Registry : resolve slot resources
+Service --> CertRegistry : per-client certificate entries
+Service --> SlotManager : slot and CRL operations
+Service --> TrustManager : trust-store resources,\nslot-change notifications
+TrustManager --> StoreHandler : one per store
+StoreHandler --> SlotManager : member certificates and CRLs
+SlotManager --> Registry : slot configuration
+SlotManager --> SlotHandler : created lazily, one per slot
+SlotHandler --> Parser : parse loaded bytes
+SlotHandler --> DeployStorage : read and write
+StoreHandler --> DeployStorage : member state
+
+note bottom of Service
+  Owns resource resolution, access policy, persistence
+  coordination, cache invalidation, and trust-store lifecycle.
+  It holds no private keys and no provider cryptographic objects.
+end note
+
+note bottom of Parser
+  One canonical parser serves the whole component, so a
+  certificate's derived identity (fingerprint, SKID, AKID) does not
+  vary with the caller that loaded it.
+end note
+
+note bottom of VerifyCtx
+  Resolving certificates and trust stores and counting references is
+  certificate-management state. Path validation is a provider
+  capability.
+end note
+@enduml

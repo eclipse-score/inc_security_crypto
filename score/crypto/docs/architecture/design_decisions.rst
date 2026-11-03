@@ -391,7 +391,7 @@ Context
 -------
 
 Algorithm identifiers must accommodate current algorithms (e.g., ``"AES-256-GCM"``,
-``"SHA-256"``, ``"SLH-DSA-SHA2-128s"``), future PQC schemes, and provider-specific
+``"SHA256"``, ``"SLH-DSA-SHA2-128s"``), future PQC schemes, and provider-specific
 extensions — an open set that cannot be enumerated at compile time.
 
 Decision

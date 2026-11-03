@@ -25,6 +25,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -81,7 +82,6 @@ class Pkcs11HashHandler final : public handler::Handler
 
     [[nodiscard]] Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Reset() override;
 
-    /// @brief Returns a static handler configuration for PKCS#11 hash.
     /// @brief Check if the given algorithm is supported by this handler.
     [[nodiscard]] static bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
 
@@ -90,7 +90,7 @@ class Pkcs11HashHandler final : public handler::Handler
     [[nodiscard]] static CK_MECHANISM_TYPE MapAlgorithm(std::string_view algorithm) noexcept;
 
     /// @brief Return the digest output size for the current algorithm.
-    [[nodiscard]] std::uint64_t GetDigestSize() const noexcept;
+    [[nodiscard]] std::optional<std::uint64_t> GetDigestSize() const noexcept;
 
     std::unique_ptr<Pkcs11HashExecutor> m_executor;
     Pkcs11HashExecutionContext m_ctx;  ///< stable per-context parameters for executor
