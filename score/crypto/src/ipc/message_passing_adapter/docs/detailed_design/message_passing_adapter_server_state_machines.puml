@@ -1,0 +1,207 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml message_passing_adapter_state_machines
+!theme plain
+skinparam shadowing false
+skinparam state {
+  BackgroundColor White
+  BorderColor Black
+}
+skinparam state<<root>> {
+  BackgroundColor LightYellow
+  BorderColor DarkGoldenRod
+}
+skinparam ArrowFontSize 11
+skinparam ranksep 40
+skinparam nodesep 30
+
+title Server-side State Machines and Their Interaction
+
+state "ServerLifecycle\n(one per server)" as SL {
+  state "kNotStarted" as SL_NotStarted
+  state "kRunning" as SL_Running
+  state "kStopping" as SL_Stopping
+  state "kStopped" as SL_Stopped
+
+  [*] --> SL_NotStarted
+  SL_NotStarted -[#blue]-> SL_Running : Start() succeeded\n[MarkStarted]
+  SL_Stopped -[#blue]-> SL_Running : Start() succeeded\n[MarkStarted]
+  SL_Running -[#orange]-> SL_Stopping : Stop()\n[BeginStopping]
+  SL_Stopping -[#orange]-> SL_Stopped : WaitForTermination()\n[MarkStopped]
+
+  SL_NotStarted : do / **S1** Start(handler_factory) [Executor]
+  SL_NotStarted : do / **S2** EnableAdmissions() [SessionRegistry]
+  SL_Stopping : entry / **S3** DisableAdmissions(), DrainConnections() [SessionRegistry]
+  SL_Stopping : entry / **S4** Disconnect() for each detached [Session]
+  SL_Stopping : do / **S5** WaitForAllConnectionsClosed() [SessionRegistry]
+  SL_Stopping : exit / **S6** Shutdown() + Join() [Executor]
+}
+
+state "FixedWorkerWorkItemExecutor\nimplements IWorkItemSubmitter:\nTrySubmitWorkItem() / TrySubmitCleanup()\n(implicit state: started_ / stopping_)" as EX {
+  state "Not started" as EX_Idle
+  state "Running" as EX_Running
+  state "Stopping" as EX_Stopping
+
+  [*] --> EX_Idle
+  EX_Idle -[#blue]-> EX_Running : Start(handler_factory)\n[all workers initialized]
+  EX_Running -[#orange]-> EX_Stopping : Shutdown()\n[stopping_ = true]
+  EX_Stopping -[#orange]-> EX_Idle : Join()\n[all workers exited]
+  EX_Idle -[#blue]-> EX_Idle : Start() failed\n[internal Shutdown + Join]
+
+  EX_Running : do / **R4** PrepareForExecution(), processRequest() [WorkItem]
+  EX_Running : do / **D6** RunCleanup() [Session]
+}
+
+state "SessionRegistry\nClientLifecycleState\n(one per client_id)" as RC {
+  state "kConnectionActive" as RC_Active
+  state "kCleanupPending" as RC_Pending
+  state "kConnectionQuarantined" as RC_Quar
+  state "entry removed\n(UID slot released)" as RC_Removed
+
+  [*] -[#purple]-> RC_Active : TryRegisterAuthorizedConnection()\n[admissions enabled, capacity ok]
+  RC_Active -[#red]-> RC_Pending : DetachConnection()
+  RC_Pending -[#red]-> RC_Removed : OnCleanupFinished(client_id, true)
+  RC_Pending -[#red]-> RC_Quar : OnCleanupFinished(client_id, false)\nor UID reservation missing
+
+  RC_Active : entry / **C2** SessionFactory creates [Session]
+  RC_Pending : entry / **D2** Disconnect() [Session]
+}
+
+state "Session\n(one per connection)" as SE {
+  state "kActive" as SE_Active
+  state "kDrainingWork" as SE_Draining
+  state "kReadyForCleanup" as SE_Ready
+  state "kCleanupRunning" as SE_Running
+  state "kCleanupFinished" as SE_Finished
+  state "kCleanupFailed" as SE_Failed
+
+  [*] -[#purple]-> SE_Active : SessionFactory (on connect)
+  SE_Active -[#red]-> SE_Draining : Disconnect()
+  SE_Draining -[#red]-> SE_Ready : ClaimCleanupIfReady()\n[work_items_ empty]\nfrom Disconnect() or OnWorkItemCompleted()
+  SE_Ready -[#red]-> SE_Running : RunCleanup()\n[BeginCleanup, on worker]
+  SE_Ready -[#red]-> SE_Finished : ScheduleCleanupJob()\n[no cleanup_callback]
+  SE_Ready -[#red]-> SE_Failed : TrySubmitCleanup() failed\nor threw
+  SE_Running -[#red]-> SE_Finished : cleanup_callback OK
+  SE_Running -[#red]-> SE_Failed : cleanup_callback failed\nor threw
+
+  SE_Active : do / **R5** connection.Notify(response bytes) [IServerConnection]
+  SE_Draining : entry / **D3** TryRequestCancellation() for every pending [WorkItem]
+  SE_Ready : entry / **D5** TrySubmitCleanup(RunCleanup) [Executor]
+  SE_Finished : entry / **D7** OnCleanupFinished(client_id, true) [SessionRegistry]
+  SE_Failed : entry / **D7** OnCleanupFinished(client_id, false) [SessionRegistry]
+}
+
+state "WorkItem\n(one per request)" as WI {
+  state "kQueued" as WI_Queued
+  state "kRunning" as WI_Running
+  state "kCancellationRequested" as WI_CancelReq
+  state "kCancelled" as WI_Cancelled
+  state "kDeadlineExpired" as WI_Expired
+  state "kCompleted" as WI_Completed
+
+  [*] -[#green]-> WI_Queued : WorkItem::Create()\n[OnRequest]
+  WI_Queued -[#green]-> WI_Running : PrepareForExecution()\n[deadline not reached]
+  WI_Queued -[#green]-> WI_Expired : PrepareForExecution()\n[deadline reached]
+  WI_Queued -[#red]-> WI_CancelReq : TryRequestCancellation()
+  WI_Queued -[#green]-> WI_Completed : Complete()\n[admission / submit /\ndeserialize failed]
+  WI_Running -[#red]-> WI_CancelReq : TryRequestCancellation()
+  WI_Running -[#green]-> WI_Completed : Complete()\n[handler done, response sent attempted]
+  WI_CancelReq -[#green]-> WI_Cancelled : PrepareForExecution()\n[cancellation requested while still queued]
+  WI_CancelReq -[#green]-> WI_Completed : Complete()
+  WI_Cancelled -[#green]-> WI_Completed : Complete()\n[kOperationCancelled response]
+  WI_Expired -[#green]-> WI_Completed : Complete()\n[kOperationTimedOut response]
+  WI_Completed -[#red]-> [*] : erased from Session::work_items_
+
+  WI_Completed : entry / **R7** / **D4** OnWorkItemCompleted() [Session]
+}
+
+note right of RC
+  admissions_enabled_ flag (not a client state):
+  EnableAdmissions() / DisableAdmissions()
+  gate TryRegisterAuthorizedConnection()
+  (kConnectionFailed while disabled).
+end note
+
+note right of EX
+  Rejections: kInvalidState unless Running.
+  Work: kProviderBusy if no idle worker.
+  Cleanup: queued if no idle worker,
+  kResourceBusy if queue is full.
+end note
+
+' ---- Independent roots: callbacks registered on the SCORE message-passing server ----
+state "SCORE Message Passing\nIServerConnection\n(callbacks of MessagePassingControlServer)" as TP {
+  state "OnConnect(connection)\n[SessionManager]" as ROOT_C <<root>>
+  state "OnRequest(connection, message)\n[WorkItemDispatcher]" as ROOT_R <<root>>
+  state "OnDisconnect(connection)\n[SessionManager]" as ROOT_D <<root>>
+
+  ROOT_C : do / **C1** TryRegisterAuthorizedConnection() [SessionRegistry]
+  ROOT_R : do / **R1** WorkItem::Create() [WorkItem]
+  ROOT_R : do / **R2** TryAdmitWorkItem() [Session]
+  ROOT_R : do / **R3** TrySubmitWorkItem() [Executor]
+  ROOT_R : do / **R5** Respond() [Session]
+  ROOT_R : do / **R6** Complete() [WorkItem]
+  ROOT_D : do / **D1** DetachConnection() [SessionRegistry]
+}
+
+' ---- Cross-machine interactions (dashed, numbered per flow) ----
+
+' Flow C (purple): connection establishment
+ROOT_C -[dashed,#purple]-> RC : **C1** TryRegisterAuthorizedConnection()\n[authorized, admissions enabled, capacity ok]
+RC -[dashed,#purple]-> SE : **C2** SessionFactory creates Session
+
+' Flow R (green): request handling
+ROOT_R -[dashed,#green]-> WI : **R1** WorkItem::Create() [Session must be kActive]\n**R6** Complete() [after Respond(), also on error]
+ROOT_R -[dashed,#green]-> SE : **R2** TryAdmitWorkItem() [only while kActive]\nor RequestCancellationByRequestId() for kCancel\n**R5** Respond(response bytes) [only while kActive]\n[worker thread after R4, or directly on R2 / R3 error]
+ROOT_R -[dashed,#green]-> EX : **R3** TrySubmitWorkItem(session, item, processor)
+EX -[dashed,#green]-> WI : **R4** worker runs processor:\nPrepareForExecution(), processRequest()
+SE -[dashed,#green]-> TP : **R5** connection.Notify(response bytes)
+
+' Flow D (red): disconnect and cleanup
+ROOT_D -[dashed,#red]-> RC : **D1** DetachConnection()
+RC -[dashed,#red]-> SE : **D2** Session::Disconnect()
+SE -[dashed,#red]-> WI : **D3** CancelAllPendingWorkItems()\ncalls TryRequestCancellation()
+WI -[dashed,#red]-> SE : **R7** / **D4** Complete() calls OnWorkItemCompleted()\n[Session draining and last item: kReadyForCleanup]
+SE -[dashed,#red]-> EX : **D5** TrySubmitCleanup(RunCleanup)
+EX -[dashed,#red]-> SE : **D6** worker runs RunCleanup()
+SE -[dashed,#red]-> RC : **D7** FinishCleanup() calls\nOnCleanupFinished()
+
+' Flow S (blue): server start / stop
+SL -[dashed,#blue]-> EX : **S1** Start(): executor Start(handler_factory)
+SL -[dashed,#blue]-> RC : **S2** Start(): EnableAdmissions()
+SL -[dashed,#orange]-> RC : **S3** Stop(): DisableAdmissions(), then DrainConnections()\ncalls DetachAllConnections() [every client: kCleanupPending, like D1]\n**S5** WaitForTermination(): WaitForAllConnectionsClosed()\n[blocks until D7 completed for all clients]
+SL -[dashed,#orange]-> SE : **S4** DrainConnections() calls Session::Disconnect()\nfor every detached Session, continues as D3 to D7
+SL -[dashed,#orange]-> EX : **S6** WaitForTermination(): Shutdown() + Join()\n[only after S5, so cleanup jobs (D5) can still be submitted]
+
+legend right
+  Solid arrows: state transitions (label = trigger [action / guard]),
+  drawn in the colour of the flow whose call triggers them.
+  TryRequestCancellation() is red (D3 / S4); a kCancel request (R2)
+  can trigger it too. Black: no cross-machine trigger (initial state).
+  Yellow boxes: independent roots (callbacks of the SCORE message-passing
+  server), not state machines.
+  Dashed arrows: cross-machine interactions, one arrow per source,
+  target and colour; the numbers in its label give the order.
+  State activities (entry / do / exit) name the call made into another
+  state machine while in that state, with the same flow number; the
+  target machine is given in square brackets.
+    C1-C2 (purple): OnConnect, connection establishment.
+    R1-R7 (green): OnRequest, admission, submission, execution, response.
+    D1-D7 (red): OnDisconnect, draining and cleanup.
+    S1-S2 (blue): ServerLifecycle Start() from kNotStarted / kStopped.
+    S3-S6 (orange): ServerLifecycle Stop() / WaitForTermination() from kStopping.
+  Session::Respond() is only allowed while the Session is kActive.
+endlegend
+
+@enduml

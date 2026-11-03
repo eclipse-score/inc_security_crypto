@@ -22,8 +22,9 @@ actor Application
 participant "Client connection" as ClientConnection
 participant "SCORE message-passing IPC" as Transport
 participant "MessagePassingControlServer" as Server
-participant "SessionManager" as SessionManager
 participant "IServerConnection (IPC)" as ServerConnection
+participant "SessionManager" as SessionManager
+participant "SessionRegistry" as Registry
 
 Application -> ClientConnection: Connect(service_identifier)
 ClientConnection -> Transport: Connect
@@ -31,16 +32,23 @@ Transport -> Server: **OnConnect(connection)** callback
 Server -> SessionManager: OnConnect(connection)
 SessionManager -> ServerConnection: **GetClientIdentity()**
 ServerConnection --> SessionManager: uid, gid, pid
+
+SessionManager -> SessionManager : IsAuthorizedToConnect(uid, gid)
 note right of SessionManager
-  Admission decision uses AuthorizationCallback,
-  admission state, total capacity, and per-UID capacity.
+  Admission decision based on AuthorizationCallback
+end note
+
+SessionManager -> Registry : TryRegisterAuthorizedConnection(connection, uid)
+Registry --> SessionManager: Admission result
+note right of Registry
+  Admission decision based on active connections and total and per-UID capacity limits.
 end note
 
 alt admitted
     SessionManager --> Server: OnConnect succeeds
     Server -> Transport: Accept connection
     Transport --> ClientConnection: Ready
-else any check denies admission
+else any check denied admission
     SessionManager -> Server: **OnConnect denied**
     Server -> Transport: Reject connection
     Transport --> ClientConnection: Denied

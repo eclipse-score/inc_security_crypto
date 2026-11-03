@@ -12,13 +12,13 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _crypto_message_passing_adapter_detailed_design:
+.. _crypto_message_passing_adapter_dd_overview:
 
-Message-Passing Adapter Detailed Design
-=======================================
+Message-Passing Adapter Overview
+================================
 
-.. document:: Message-Passing Adapter Detailed Design
-   :id: doc__crypto_msg_pass_detail
+.. document:: Message-Passing Adapter Overview
+   :id: doc__crypto_msg_pass_dd_overview
    :version: 1
    :status: draft
    :safety: ASIL_B
@@ -30,7 +30,7 @@ These sequence diagrams describe connection admission, client and server request
 Connection Establishment and Admission
 ---------------------------------------
 
-.. uml:: message_passing_adapter_connection_flow.puml
+.. uml:: message_passing_adapter_overview_connection_flow.puml
    :align: center
    :caption: Connection establishment, authorization, and admission
    :alt: Sequence diagram showing IPC peer identity retrieval, authorization, admission checks, and one unified denied path.
@@ -41,7 +41,7 @@ Normal Request and Response
 Client Side
 ~~~~~~~~~~~
 
-.. uml:: message_passing_adapter_request_flow.puml
+.. uml:: message_passing_adapter_overview_request_flow.puml
    :align: center
    :caption: Client-side request send and response correlation
    :alt: Sequence diagram showing client readiness, pending-call registration, request serialization and send, response callback, and request-ID correlation.
@@ -49,7 +49,7 @@ Client Side
 Server Side
 ~~~~~~~~~~~
 
-.. uml:: message_passing_adapter_server_request_flow.puml
+.. uml:: message_passing_adapter_overview_server_request_flow.puml
    :align: center
    :caption: Server-side request dispatch and response delivery
    :alt: Sequence diagram showing the OnRequest callback, session lookup and admission, worker execution, handler call, response serialization, and Notify.
@@ -57,7 +57,7 @@ Server Side
 Client-Side Timeout
 -------------------
 
-.. uml:: message_passing_adapter_timeout_flow.puml
+.. uml:: message_passing_adapter_overview_timeout_flow.puml
    :align: center
    :caption: Client-side request timeout
    :alt: Sequence diagram showing pending-call registration, request send, condition_variable wait_until timeout, and timeout return to the caller.
@@ -65,7 +65,7 @@ Client-Side Timeout
 Disconnect and Cleanup
 ----------------------
 
-.. uml:: message_passing_adapter_disconnect_flow.puml
+.. uml:: message_passing_adapter_overview_disconnect_flow.puml
    :align: center
    :caption: Disconnect and session cleanup flow
    :alt: Sequence diagram showing the OnDisconnect callback, session work draining, disconnect cleanup, and capacity release.

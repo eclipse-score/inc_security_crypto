@@ -18,4 +18,5 @@ Message-Passing Adapter Detailed Design
 .. toctree::
    :maxdepth: 1
 
-   message_passing_adapter_detailed_design
+   message_passing_adapter_overview
+   message_passing_adapter_server
