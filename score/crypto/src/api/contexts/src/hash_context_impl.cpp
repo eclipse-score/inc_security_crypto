@@ -45,6 +45,17 @@ namespace proto = ::score::crypto::daemon::control_plane::protocol;
 namespace actors = ::score::crypto::daemon::common::actors;
 namespace hash_ops = ::score::crypto::daemon::provider::handler::hash_handler_operations;
 
+namespace
+{
+
+CryptoErrorCode GetResponseError(const proto::ControlResponseValidator& validator,
+                                 const CryptoErrorCode fallback) noexcept
+{
+    return validator.getOperationError().value_or(fallback);
+}
+
+}  // namespace
+
 HashContextImpl::HashContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                  uint64_t context_id,
                                  AlgorithmId algorithm,
@@ -157,7 +168,7 @@ score::Result<std::monostate> HashContextImpl::Init(std::optional<score::cpp::sp
     {
         return score::Result<std::monostate>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(GetResponseError(validator, CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
@@ -196,7 +207,7 @@ score::Result<std::monostate> HashContextImpl::Update(score::cpp::span<const uin
     {
         return score::Result<std::monostate>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(GetResponseError(validator, CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
@@ -235,7 +246,7 @@ score::Result<std::size_t> HashContextImpl::Finalize(score::cpp::span<uint8_t> o
     {
         return score::Result<std::size_t>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(GetResponseError(validator, CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(tspan, validator);
@@ -283,7 +294,7 @@ score::Result<std::size_t> HashContextImpl::SingleShot(score::cpp::span<const ui
     {
         return score::Result<std::size_t>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(GetResponseError(validator, CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(output_tspan, validator);
@@ -312,19 +323,13 @@ score::Result<std::monostate> HashContextImpl::Reset()
     {
         return score::Result<std::monostate>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(GetResponseError(validator, CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
 }
 
 std::size_t HashContextImpl::GetDigestSize() const noexcept
-{
-    // For hash contexts, digest size and output size are the same.
-    return GetOutputSize();
-}
-
-std::size_t HashContextImpl::GetOutputSize() const noexcept
 {
     auto control_req_result = proto::ControlRequestBuilder()
                                   .forDataNodeId(m_context_id)

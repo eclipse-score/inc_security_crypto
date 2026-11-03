@@ -30,6 +30,73 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "openssl_cert_management_headers",
+    hdrs = ["cert_management/openssl_cert_parser.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+    ],
+)
+
+# OpenSSL certificate and CRL primitives shared by the certificate provider components.
+cc_library(
+    name = "openssl_cert_utils",
+    srcs = ["detail/openssl_cert_utils.cpp"],
+    hdrs = ["detail/openssl_cert_utils.hpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//score/crypto/src/daemon/provider:__subpackages__"],
+    deps = [
+        "//score/crypto/src/api/types:certificate_types",
+        "//third_party/openssl:openssl_shared",
+    ],
+)
+
+cc_library(
+    name = "openssl_cert_parser_library",
+    srcs = ["cert_management/openssl_cert_parser.cpp"],
+    implementation_deps = [
+        ":openssl_cert_utils",
+        "//third_party/openssl:openssl_shared",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":openssl_cert_management_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+    ],
+)
+
+cc_test(
+    name = "openssl_cert_parser_test",
+    srcs = ["cert_management/openssl_cert_parser_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/certificate:certificate_test_vectors",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":openssl_cert_management_headers",
+        ":openssl_cert_parser_library",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//third_party/openssl:openssl_shared",
+        "@googletest//:gtest_main",
+    ],
+)
+
 # Header-only library for OpenSSL algorithm detail headers.
 cc_library(
     name = "openssl_detail_headers",
@@ -40,12 +107,13 @@ cc_library(
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     visibility = ["//:__subpackages__"],
+    deps = ["//score/crypto/src/daemon/common:algorithm_info"],
 )
 
 cc_library(
     name = "provider_openssl_headers",
     hdrs = [
-        "detail/ecdsa_common.hpp",
+        "detail/signature_common.hpp",
         "operations/cipher/openssl_cipher_handler.hpp",
         "operations/factory/openssl_handler_factory.hpp",
         "operations/hash/openssl_hash_handler.hpp",
@@ -53,7 +121,11 @@ cc_library(
         "operations/mac/openssl_hmac_handler.hpp",
         "operations/random/openssl_random_handler.hpp",
         "operations/sign/openssl_ecdsa_sign_handler.hpp",
+        "operations/sign/openssl_ed25519_sign_handler.hpp",
+        "operations/sign/openssl_rsa_pss_sign_handler.hpp",
         "operations/verify/openssl_ecdsa_verify_handler.hpp",
+        "operations/verify/openssl_ed25519_verify_handler.hpp",
+        "operations/verify/openssl_rsa_pss_verify_handler.hpp",
         "provider_openssl.hpp",
     ],
     includes = ["."],
@@ -63,6 +135,7 @@ cc_library(
     }),
     visibility = ["//:__subpackages__"],
     deps = [
+        ":openssl_cert_management_headers",
         ":openssl_key_management_headers",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
@@ -81,7 +154,7 @@ cc_library(
 cc_library(
     name = "provider_openssl_library",
     srcs = [
-        "detail/ecdsa_common.cpp",
+        "detail/signature_common.cpp",
         "detail/openssl_algorithm_info.hpp",
         "key_management/openssl_key_factory.cpp",
         "key_management/openssl_key_handler.cpp",
@@ -92,7 +165,11 @@ cc_library(
         "operations/mac/openssl_hmac_handler.cpp",
         "operations/random/openssl_random_handler.cpp",
         "operations/sign/openssl_ecdsa_sign_handler.cpp",
+        "operations/sign/openssl_ed25519_sign_handler.cpp",
+        "operations/sign/openssl_rsa_pss_sign_handler.cpp",
         "operations/verify/openssl_ecdsa_verify_handler.cpp",
+        "operations/verify/openssl_ed25519_verify_handler.cpp",
+        "operations/verify/openssl_rsa_pss_verify_handler.cpp",
         "provider_openssl.cpp",
     ],
     implementation_deps = [
@@ -106,9 +183,11 @@ cc_library(
     }),
     visibility = ["//:__subpackages__"],
     deps = [
+        ":openssl_cert_parser_library",
         ":openssl_detail_headers",
         ":openssl_key_management_headers",
         ":provider_openssl_headers",
+        "//score/crypto/src/daemon/cert_management",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/data_manager",
@@ -163,7 +242,7 @@ cc_test(
     deps = [
         ":provider_openssl_library",
         "//score/crypto/src/api/common:crypto_common",
-        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/data_manager",

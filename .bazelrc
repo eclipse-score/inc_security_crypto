@@ -21,6 +21,9 @@ build --tool_java_runtime_version=remotejdk_17
 build --cxxopt=-Werror=deprecated-declarations
 build --@rules_rust//rust/settings:extra_rustc_flag=-Ddeprecated
 
+# TODO: Temporarily disable deprecation warnings for com
+build --per_file_copt=external/score_communication\\+/.*@-Wno-error=deprecated-declarations
+
 # Only contact license server every 59 secs per tool and not for every tool invocation to avoid flooding the license server
 common --action_env=QNX_LICENSE_EXTSERVER_DELAY=59
 

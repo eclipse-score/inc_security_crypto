@@ -18,6 +18,7 @@
 #include "score/crypto/src/daemon/common/context_mode.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/cipher_executor.hpp"
 
+#include <limits>
 #include <string_view>
 #include <variant>
 
@@ -95,6 +96,20 @@ std::size_t ScoreCipherHandler::GetIvSize() const noexcept
     const auto info =
         ::score::crypto::daemon::common::LookupCipher(std::string_view{m_algorithm.data(), m_algorithm.size()});
     return info.has_value() ? info->iv_size : 0U;
+}
+
+Expected<std::size_t, DaemonErrorCode> ScoreCipherHandler::GetMaxOutputSize(std::size_t input_size) const noexcept
+{
+    const std::size_t block_size = GetBlockSize();
+    if (block_size == 0U)
+    {
+        return make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+    if (input_size > (std::numeric_limits<std::size_t>::max() - block_size))
+    {
+        return make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
+    return input_size + block_size;
 }
 
 Expected<std::monostate, DaemonErrorCode> ScoreCipherHandler::InitCipher(

@@ -54,9 +54,9 @@ inline constexpr OperationAction CIPHER_INIT = 1;
 // Request:  data_node_id = context_id,
 //           param[0]: DataBuffer — input chunk (plaintext when encrypting,
 //                     ciphertext when decrypting)
-//           param[1]: DataShm(InOut) — caller's output buffer. Must hold the
-//                     input length plus one block: EVP emits a buffered partial
-//                     block ahead of the current chunk.
+//           param[1]: DataShm(InOut) — caller's output buffer, at least
+//                     CIPHER_GET_MAX_OUTPUT_SIZE(input length) bytes: EVP emits
+//                     a buffered partial block ahead of the current chunk.
 // Response: status_code (SUCCESS/error)
 //           param[0]: uint64_t — bytes written. May be shorter than the input
 //                     (block buffering) or zero.
@@ -67,7 +67,8 @@ inline constexpr OperationAction CIPHER_UPDATE = 2;
 // Request:  data_node_id = context_id,
 //           param[0]: DataShm(InOut) — caller's output buffer for the trailing
 //                     bytes (final padded block for CBC-with-padding, nothing
-//                     for stream modes)
+//                     for stream modes). CIPHER_GET_MAX_OUTPUT_SIZE(0) bytes
+//                     always suffice.
 // Response: status_code (SUCCESS/error)
 //           param[0]: uint64_t — bytes written
 // Effect:   Calls FinalizeCipher(), clears stream context, transitions state → IDLE
@@ -77,24 +78,24 @@ inline constexpr OperationAction CIPHER_FINALIZE = 3;
 // Request:  data_node_id = context_id,
 //           param[0]: DataBuffer — initialization vector (may be empty for ECB)
 //           param[1]: DataBuffer — full input
-//           param[2]: DataShm(InOut) — caller's output buffer, sized for the
-//                     input length plus one block
+//           param[2]: DataShm(InOut) — caller's output buffer, at least
+//                     CIPHER_GET_MAX_OUTPUT_SIZE(input length) bytes
 // Response: status_code (SUCCESS/error)
 //           param[0]: uint64_t — bytes written
 // Effect:   Requires IDLE state; performs init + update + finalize in one call
 inline constexpr OperationAction CIPHER_SS = 4;
 
-// CIPHER_GET_OUTPUT_SIZE
+// CIPHER_GET_MAX_OUTPUT_SIZE
 // Request:  data_node_id = context_id,
-//           no operation parameters
+//           param[0]: uint64_t — input length of the call being sized
+//                     (0 for CIPHER_FINALIZE)
 // Response: status_code (SUCCESS/error)
-//           param[0]: uint64_t — cipher block size in bytes (16 for AES,
-//                     1 for stream modes such as CTR). This is the sizing unit
-//                     for output buffers, not the size of any one result:
-//                     Update and single-shot need input length plus one block,
-//                     Finalize at most one block.
+//           param[0]: uint64_t — upper bound on the bytes CIPHER_UPDATE or
+//                     CIPHER_SS writes for that input, or CIPHER_FINALIZE for
+//                     an input length of 0: the input length plus one cipher
+//                     block (16 for AES, 1 for stream modes such as CTR)
 // Effect:   Stateless query; does not affect the stream state
-inline constexpr OperationAction CIPHER_GET_OUTPUT_SIZE = 5;
+inline constexpr OperationAction CIPHER_GET_MAX_OUTPUT_SIZE = 5;
 
 // CIPHER_RESET
 // Request:  data_node_id = context_id,

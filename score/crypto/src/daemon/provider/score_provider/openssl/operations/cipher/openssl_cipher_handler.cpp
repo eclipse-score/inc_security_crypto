@@ -22,6 +22,7 @@
 
 #include <array>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
@@ -246,12 +247,23 @@ bool OpenSslCipherHandler::GetBoundKeyMaterial(const std::uint8_t*& key_bytes, s
 
     // EVP may emit up to one extra block beyond the input length when it flushes
     // a previously buffered partial block, so the caller has to leave room for it.
-    const std::size_t block_size = GetBlockSize();
-    if (output.size() < input.size() + block_size)
+    const auto required = GetMaxOutputSize(input.size());
+    if (!required.has_value())
+    {
+        return ::score::crypto::make_unexpected(required.error());
+    }
+    if (output.size() < required.value())
     {
         score::mw::log::LogError() << LOG_PREFIX << "UpdateCipher: output buffer holds" << output.size()
-                                   << "bytes, needs" << (input.size() + block_size);
+                                   << "bytes, needs" << required.value();
         return ::score::crypto::make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
+    }
+    // EVP takes the input length as int and computes up to input length plus one block internally.
+    if (required.value() > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "UpdateCipher: input of" << input.size()
+                                   << "bytes exceeds the EVP length limit";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
     }
 
     int out_len = 0;

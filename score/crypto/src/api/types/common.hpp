@@ -166,6 +166,13 @@ enum class OperationMode : uint8_t
     kVerify     ///< Verify supplied signature, MAC, or other operation result.
 };
 
+/// @brief Describes whether signature input is a message or an already computed digest.
+enum class SignatureInputMode : uint8_t
+{
+    kMessage,   ///< Hash the supplied message as part of the signature operation.
+    kPrehashed  ///< Treat the supplied bytes as the algorithm's digest.
+};
+
 /// @brief Memory compatibility requested for an allocation.
 enum class MemoryType : uint8_t
 {
@@ -189,8 +196,8 @@ struct ProviderCompatibilityInfo
     {
     }
 
-    CryptoResourceId resource;  ///< Resource whose provider compatibility is reported.
-    uint16_t primary_provider;  ///< Provider that owns the resource.
+    CryptoResourceId resource;      ///< Resource whose provider compatibility is reported.
+    uint16_t primary_provider{0U};  ///< Provider that owns the resource.
     static constexpr std::size_t kMaxSecondaryProviders = 8U;
     std::array<uint16_t, kMaxSecondaryProviders> secondary_providers{};  ///< Providers that can also use it.
     std::size_t secondary_provider_count{0U};  ///< Number of valid entries in secondary_providers.

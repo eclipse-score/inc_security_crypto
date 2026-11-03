@@ -28,15 +28,12 @@ namespace crypto
 
 /// @brief Interface for digital signature verification.
 ///
-/// Exposes Init(), Update(), and Reset() from base classes for streaming
-/// message feeding. Adds VerifyFinalize() for signature checking and
-/// SingleShot() for convenience.
+/// Exposes Init() and Reset() from the base class. Adds Update() for streaming
+/// message feeding, VerifyFinalize() for signature checking and SingleShot()
+/// for convenience.
 ///
 /// Compatible with classical (ECDSA, RSA-PSS, EdDSA) and PQC verification
 /// algorithms (ML-DSA, SLH-DSA, XMSS, LMS).
-///
-/// @note Does NOT inherit from IStreamingOutputContext since verification
-///       produces a boolean result, not output bytes.
 class IVerifySignatureContext : public IStreamingContext
 {
   public:
@@ -49,10 +46,14 @@ class IVerifySignatureContext : public IStreamingContext
     IVerifySignatureContext(IVerifySignatureContext&&) = default;
     IVerifySignatureContext& operator=(IVerifySignatureContext&&) = default;
 
-    // -- Streaming API (from base classes) --
+    // -- Streaming API (from base class) --
     using IStreamingContext::Init;
     using IStreamingContext::Reset;
-    using IStreamingContext::Update;
+
+    /// @brief Feeds a chunk of input data into the operation.
+    /// @return std::monostate on success, error on failure
+    /// @note Can be called multiple times after Init().
+    virtual score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) = 0;
 
     /// @brief Finalizes verification and checks the signature.
     /// @param signature The signature to verify against the accumulated data

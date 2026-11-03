@@ -11,7 +11,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@score_baselibs//score/flatbuffers/bazel:codegen.bzl", "generate_cpp")
 load("@score_baselibs//score/flatbuffers/bazel:tools.bzl", "serialize_buffer")
 
 serialize_buffer(

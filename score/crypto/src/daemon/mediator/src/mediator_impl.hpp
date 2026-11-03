@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -64,10 +65,33 @@ class MediatorImpl : public IMediator
         score::crypto::daemon::control_plane::ControlRequest& request) override;
 
   private:
+    struct ProviderHandlerSelection
+    {
+        std::shared_ptr<provider::IProvider> provider;
+        provider::handler::Handler::Sptr handler;
+        bool used_fallback{false};
+    };
+
     bool HandleContextCreationOperation(
         const score::crypto::daemon::control_plane::ControlRequest& request,
         const control_plane::SingleOperationRequest& operation,
         score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
+
+    /// @brief Resolve a provider and create a compatible handler.
+    ///
+    /// Preferred-provider fallback is attempted only when the primary provider
+    /// is unavailable or rejects the requested context/algorithm. Exact provider
+    /// requests never fall back. Initialization is deliberately performed after
+    /// selection and is not retried because binding and provider initialization
+    /// can have side effects that must not be duplicated across providers.
+    score::crypto::Expected<ProviderHandlerSelection, score::crypto::CryptoErrorCode> ResolveProviderAndCreateHandler(
+        std::uint64_t client_id,
+        const std::optional<data_manager::DataNodeId>& key_node_id,
+        std::string_view context_type,
+        std::string_view algorithm,
+        common::CryptoProviderType primary_provider_type,
+        const std::optional<common::CryptoProviderType>& fallback_provider_type,
+        common::ProviderCapability required_capability);
 
     /// @brief Resolves a client-supplied key reference and authorizes it for the context.
     ///

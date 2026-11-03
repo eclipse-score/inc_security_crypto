@@ -18,7 +18,7 @@ load("@score_baselibs//score/flatbuffers/bazel:codegen.bzl", "generate_cpp")
 filegroup(
     name = "crypto_config_fbs_schema",
     srcs = ["crypto_config.fbs"],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//visibility:public"],
 )
 
 generate_cpp(

@@ -12,15 +12,36 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _message_passing_adapter_docs:
+.. _ipc_message_passing_adapter:
 
-Message-Passing Adapter
-#######################
+IPC Message Passing Adapter
+###########################
 
-Documentation for the message-passing IPC adapter.
+.. document:: IPC Message Passing Adapter
+   :id: doc__crypto_ipc_message_passing_adapter
+   :version: 1
+   :status: draft
+   :safety: ASIL_B
+   :security: YES
+   :realizes: wp__cmpt_request
+   :tags: ipc
+
+Overview
+========
+
+The IPC Message Passing Adapter provides the control-plane communication
+boundary between Crypto client processes and the score-crypto daemon. It
+allows clients to request cryptographic operations without coupling the
+application-facing IPC interface to operating-system transport details.
+
+The selected target uses the ``score::message_passing`` API (LoLa Message
+Passing) with FlatBuffers payloads. The framework supplies the operating-
+system-specific transport backend. Bulk data transfer remains outside this
+control-plane component.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
+   requirements/index
    architecture/index
    detailed_design/index

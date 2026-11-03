@@ -27,18 +27,13 @@ using common::ResponseParameters;
 using common::StreamOperationState;
 using score::crypto::daemon::common::DaemonErrorCode;
 using ::score::crypto::daemon::provider::handler::handler_utils::CheckAndGetSpan;
+using ::score::crypto::daemon::provider::handler::handler_utils::ValidateParameterCount;
 
-Pkcs11HashExecutor::Pkcs11HashExecutor(const Pkcs11Module& module) noexcept
-    : m_module{module},
-      m_functionList{module.GetFunctionList()},
-      m_supportsMessageDigest{module.GetCapabilities().supportsMessageDigest}
+Pkcs11HashExecutor::Pkcs11HashExecutor(const Pkcs11Module& module) noexcept : m_functionList{module.GetFunctionList()}
 {
 }
 
-bool Pkcs11HashExecutor::SupportsMessageDigest() const noexcept
-{
-    return m_supportsMessageDigest;
-}
+Pkcs11HashExecutor::Pkcs11HashExecutor(CK_FUNCTION_LIST& function_list) noexcept : m_functionList{&function_list} {}
 
 // static
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11HashExecutor::ValidateStreamTransition(
@@ -49,9 +44,10 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
     const auto op = handler::hash_handler_operations::ToStreamOperation(action);
     if (!op.has_value())
     {
-        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
+        return make_unexpected(DaemonErrorCode::kInvalidOperation);
     }
-    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());
+    const auto result = handler::handler_utils::ValidateStreamOperationSequence(
+        currentState, op.value(), true, DaemonErrorCode::kStreamNotInitialized);
     if (!result.has_value())
     {
         return make_unexpected(result.error());
@@ -68,6 +64,7 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     StreamOperationState& nextState) noexcept
 {
     namespace ops = handler::hash_handler_operations;
+    nextState = currentState;
 
     // --- Single-shot: no stream state transition needed ---
     if (operationAction == ops::HASH_SS)
@@ -83,9 +80,18 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
     // Reset operation: HASH_RESET
     if (operationAction == ops::HASH_RESET)
     {
-        // TODO: Is this correct for the reset?
-        Abort(ctx.session);
-        // Reset();
+        const auto countResult = ValidateParameterCount(request, 0U);
+        if (!countResult.has_value())
+        {
+            return make_unexpected(countResult.error());
+        }
+        const auto abortResult = Abort(ctx.session);
+        if (!abortResult.has_value())
+        {
+            nextState = currentState;
+            return make_unexpected(abortResult.error());
+        }
+        nextState = StreamOperationState::IDLE;
         return {};
     }
 
@@ -97,6 +103,15 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
 
+    if (operationAction == ops::HASH_INIT)
+    {
+        const auto countResult = ValidateParameterCount(request, 0U);
+        if (!countResult.has_value())
+        {
+            return make_unexpected(countResult.error());
+        }
+    }
+
     // --- Streaming operations: validate state transition ---
     const auto sequenceResult = ValidateStreamTransition(operationAction, currentState, nextState);
     if (!sequenceResult.has_value())
@@ -104,29 +119,104 @@ Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkc
         return make_unexpected(sequenceResult.error());
     }
 
+    // PKCS#11 does not permit C_DigestInit while another digest operation is
+    // active. Implement the public Init()-restarts-stream contract explicitly.
+    const bool restartingStream = (operationAction == ops::HASH_INIT) && (currentState != StreamOperationState::IDLE);
+    if (restartingStream)
+    {
+        const auto abortResult = Abort(ctx.session);
+        if (!abortResult.has_value())
+        {
+            nextState = currentState;
+            return make_unexpected(abortResult.error());
+        }
+    }
+
     // --- Dispatch to PKCS#11 call ---
     if (operationAction == ops::HASH_FINALIZE)
     {
-        auto result = ExecuteDigestFinal(ctx.session, request);
-        if (!result.has_value())
+        const auto countResult = ValidateParameterCount(request, 1U);
+        if (!countResult.has_value())
         {
             nextState = currentState;
+            return make_unexpected(countResult.error());
+        }
+
+        const auto outputSpan = CheckAndGetSpan<uint8_t>(request[0]);
+        if (!outputSpan.has_value())
+        {
+            nextState = currentState;
+            return make_unexpected(outputSpan.error());
+        }
+
+        auto result = ExecuteDigestFinal(ctx.session, outputSpan.value());
+        if (!result.has_value())
+        {
+            // PKCS#11 explicitly preserves an active digest operation after
+            // CKR_BUFFER_TOO_SMALL, allowing Finalize to be retried. Other
+            // provider errors leave the operation state unsuitable for reuse.
+            const auto error = result.error();
+            if (error == DaemonErrorCode::kInsufficientBufferSize)
+            {
+                nextState = currentState;
+            }
+            else
+            {
+                // PKCS#11 does not guarantee that a digest operation remains active
+                // after other errors. Normalize the token state before allowing reuse.
+                const auto abortResult = Abort(ctx.session);
+                nextState = abortResult.has_value() ? StreamOperationState::IDLE : currentState;
+            }
         }
         return result;
     }
 
-    const auto result = [&]() -> Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> {
-        if (operationAction == ops::HASH_INIT)
-            return ExecuteDigestInit(ctx.session, ctx.mechanism);
-        if (operationAction == ops::HASH_UPDATE)
-            return ExecuteDigestUpdate(ctx.session, request);
-        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
-    }();
+    Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> result{std::monostate{}};
+    if (operationAction == ops::HASH_INIT)
+    {
+        result = ExecuteDigestInit(ctx.session, ctx.mechanism);
+    }
+    else if (operationAction == ops::HASH_UPDATE)
+    {
+        const auto countResult = ValidateParameterCount(request, 1U);
+        if (!countResult.has_value())
+        {
+            nextState = currentState;
+            return make_unexpected(countResult.error());
+        }
+
+        const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0], true);
+        if (!inputSpan.has_value())
+        {
+            nextState = currentState;
+            return make_unexpected(inputSpan.error());
+        }
+        result = ExecuteDigestUpdate(ctx.session, inputSpan.value());
+    }
+    else
+    {
+        result = make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidOperation);
+    }
 
     // Revert state on failure (caller should not advance)
     if (!result.has_value())
     {
-        nextState = currentState;
+        if (operationAction == ops::HASH_UPDATE)
+        {
+            const auto abortResult = Abort(ctx.session);
+            nextState = abortResult.has_value() ? StreamOperationState::IDLE : currentState;
+        }
+        else if (restartingStream)
+        {
+            // The previous stream was successfully aborted, but the new
+            // C_DigestInit failed. The session is therefore idle.
+            nextState = StreamOperationState::IDLE;
+        }
+        else
+        {
+            nextState = currentState;
+        }
+        return make_unexpected(result.error());
     }
 
     return {};
@@ -150,23 +240,13 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
 
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11HashExecutor::ExecuteDigestUpdate(
     const CK_SESSION_HANDLE session,
-    RequestParameters& request) noexcept
+    const score::cpp::span<const std::uint8_t> input) noexcept
 {
-    if (request.empty())
-    {
-        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
-    }
-
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
-    if (!inputSpan.has_value())
-    {
-        return make_unexpected(inputSpan.error());
-    }
-
+    CK_BYTE emptyInput{0U};
     // MISRA C++:2023 Rule 8.2.3 deviation — PKCS#11 C API (C_DigestUpdate) requires non-const pPart.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    auto* data = const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(inputSpan.value().data()));
-    const CK_RV rv = m_functionList->C_DigestUpdate(session, data, static_cast<CK_ULONG>(inputSpan.value().size()));
+    auto* data = input.empty() ? &emptyInput : const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(input.data()));
+    const CK_RV rv = m_functionList->C_DigestUpdate(session, data, static_cast<CK_ULONG>(input.size()));
     if (rv != CKR_OK)
     {
         return make_unexpected(Pkcs11Module::MapErrorReturn(rv));
@@ -176,26 +256,10 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11H
 
 Expected<ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Pkcs11HashExecutor::ExecuteDigestFinal(
     const CK_SESSION_HANDLE session,
-    RequestParameters& request) noexcept
+    const score::cpp::span<std::uint8_t> output) noexcept
 {
-    // For PKCS11, the output buffer comes from the handler's internal buffer
-    // passed via parameters
-    if (request.empty())
-    {
-        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
-    }
-
-    const auto outputSpan = CheckAndGetSpan<uint8_t>(request[0]);
-    if (!outputSpan.has_value())
-    {
-        return make_unexpected(outputSpan.error());
-    }
-
-    // TODO: The OpenSSL HashHandler as well as the general HashHandler operation does support an additional
-    // final data chunk. Not sure if this shall / can be supported for PKCS#11
-
-    auto digestLen = static_cast<CK_ULONG>(outputSpan.value().size());
-    const CK_RV rv = m_functionList->C_DigestFinal(session, outputSpan.value().data(), &digestLen);
+    auto digestLen = static_cast<CK_ULONG>(output.size());
+    const CK_RV rv = m_functionList->C_DigestFinal(session, output.data(), &digestLen);
     if (rv != CKR_OK)
     {
         return make_unexpected(Pkcs11Module::MapErrorReturn(rv));
@@ -211,13 +275,14 @@ Pkcs11HashExecutor::ExecuteDigestSingleShot(const CK_SESSION_HANDLE session,
                                             CK_MECHANISM& mechanism,
                                             RequestParameters& request) noexcept
 {
-    if (request.size() < 2U)
+    const auto countResult = ValidateParameterCount(request, 2U);
+    if (!countResult.has_value())
     {
-        return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
+        return make_unexpected(countResult.error());
     }
 
     // Extract input buffer
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0], true);
     if (!inputSpan.has_value())
     {
         return make_unexpected(inputSpan.error());
@@ -230,18 +295,15 @@ Pkcs11HashExecutor::ExecuteDigestSingleShot(const CK_SESSION_HANDLE session,
         return make_unexpected(outputSpan.error());
     }
 
-    // For PKCS#11 v2.40: C_DigestInit + C_Digest (two-step single-shot)
-    // For PKCS#11 v3.0+: C_MessageDigestInit + C_MessageDigest could be used
-    //   when m_supportsMessageDigest is true, avoiding the active-operation
-    //   slot on the session. Currently not dispatched because SoftHSM is v2.40.
-    //   When a v3.0 token is available, add:
-    //     if (m_supportsMessageDigest) { return ExecuteMessageDigest(session, mechanism, config); }
-
     // Defensively abort any leftover operation to ensure session is clean
     // (in case a previous operation on this session was not properly finalised).
     // Dispatch through the function list — not via direct C-linkage — so that
     // the call correctly targets the library that owns this session.
-    Abort(session);
+    const auto initialCleanupResult = Abort(session);
+    if (!initialCleanupResult.has_value())
+    {
+        return make_unexpected(initialCleanupResult.error());
+    }
 
     const CK_RV initRv = m_functionList->C_DigestInit(session, &mechanism);
     if (initRv != CKR_OK)
@@ -250,13 +312,24 @@ Pkcs11HashExecutor::ExecuteDigestSingleShot(const CK_SESSION_HANDLE session,
     }
 
     auto digestLen = static_cast<CK_ULONG>(outputSpan.value().size());
+    CK_BYTE emptyInput{0U};
     // MISRA C++:2023 Rule 8.2.3 deviation — PKCS#11 C API (C_Digest) requires non-const pData.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    auto* inputData = const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(inputSpan.value().data()));
+    auto* inputData = inputSpan.value().empty()
+                          ? &emptyInput
+                          : const_cast<CK_BYTE_PTR>(static_cast<const CK_BYTE*>(inputSpan.value().data()));
     const CK_RV digestRv = m_functionList->C_Digest(
         session, inputData, static_cast<CK_ULONG>(inputSpan.value().size()), outputSpan.value().data(), &digestLen);
     if (digestRv != CKR_OK)
     {
+        // C_Digest may leave the operation active after a retryable error such
+        // as CKR_BUFFER_TOO_SMALL. Single-shot is externally stateless, so
+        // always restore the session to an idle state before returning.
+        const auto cleanupResult = Abort(session);
+        if (!cleanupResult.has_value())
+        {
+            return make_unexpected(cleanupResult.error());
+        }
         return make_unexpected(Pkcs11Module::MapErrorReturn(digestRv));
     }
 
@@ -265,17 +338,23 @@ Pkcs11HashExecutor::ExecuteDigestSingleShot(const CK_SESSION_HANDLE session,
     return response;
 }
 
-void Pkcs11HashExecutor::Abort(const CK_SESSION_HANDLE session) noexcept
+Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11HashExecutor::Abort(
+    const CK_SESSION_HANDLE session) noexcept
 {
     // Call C_DigestFinal with a dummy buffer to abort any active digest operation
-    // and return the session to IDLE state.  Errors are intentionally ignored:
-    // if no operation is active, C_DigestFinal returns CKR_OPERATION_NOT_INITIALIZED
-    // which is harmless here.
+    // and return the session to IDLE state. If no operation is active,
+    // C_DigestFinal returns CKR_OPERATION_NOT_INITIALIZED, which is also success
+    // from the cleanup caller's perspective.
     // Dispatch through the stored function list — never through a direct C-linkage
     // symbol — so that the call correctly targets the library that owns this session.
     std::uint8_t dummyBuf[64U]{0U};  // NOLINT(cppcoreguidelines-pro-bounds-array-init)
     CK_ULONG dummyLen = sizeof(dummyBuf);
-    static_cast<void>(m_functionList->C_DigestFinal(session, dummyBuf, &dummyLen));
+    const CK_RV rv = m_functionList->C_DigestFinal(session, dummyBuf, &dummyLen);
+    if ((rv == CKR_OK) || (rv == CKR_OPERATION_NOT_INITIALIZED))
+    {
+        return std::monostate{};
+    }
+    return make_unexpected(Pkcs11Module::MapErrorReturn(rv));
 }
 
 }  // namespace score::crypto::daemon::provider::pkcs11

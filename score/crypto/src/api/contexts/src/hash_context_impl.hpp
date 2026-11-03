@@ -43,7 +43,7 @@ class HashContextImpl final : public IHashContext
     /// @brief Constructs a hash context bound to an existing daemon-side context.
     /// @param connection Shared connection for IPC communication (contains DataNodeId)
     /// @param context_id Daemon-assigned context identifier (from CTX_CREATE response)
-    /// @param algorithm Algorithm name (e.g., "SHA-256") for digest size queries
+    /// @param algorithm Algorithm identifier (e.g., "SHA256") for digest size queries
     /// @param transcoder Stack-shared buffer-routing abstraction (pool/bulk/in-band).
     ///                   Shared with all other contexts in the same CryptoStack.
     ///                   When non-null, handles transparent copying via pool SHM.
@@ -64,14 +64,11 @@ class HashContextImpl final : public IHashContext
 
     // -- IStreamingContext --
     score::Result<std::monostate> Init(std::optional<score::cpp::span<const uint8_t>> iv) override;
-    score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) override;
     score::Result<std::monostate> Reset() override;
 
-    // -- IStreamingOutputContext --
-    score::Result<std::size_t> Finalize(score::cpp::span<uint8_t> output) override;
-    std::size_t GetOutputSize() const noexcept override;
-
     // -- IHashContext --
+    score::Result<std::monostate> Update(score::cpp::span<const uint8_t> data) override;
+    score::Result<std::size_t> Finalize(score::cpp::span<uint8_t> output) override;
     score::Result<std::size_t> SingleShot(score::cpp::span<const uint8_t> input,
                                           score::cpp::span<uint8_t> output) override;
     std::size_t GetDigestSize() const noexcept override;

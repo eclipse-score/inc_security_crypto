@@ -12,10 +12,15 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-Message-Passing Adapter Architecture
-====================================
+.. _ipc_message_passing_adapter_architecture_index:
+
+IPC Message Passing Adapter Architecture
+========================================
 
 .. toctree::
    :maxdepth: 1
 
+   component_architecture
+   design_decisions
+   ipc_comparison
    message_passing_adapter

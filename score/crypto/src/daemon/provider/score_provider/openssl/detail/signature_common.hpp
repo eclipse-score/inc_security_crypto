@@ -11,10 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_ECDSA_COMMON_HPP
-#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_ECDSA_COMMON_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP
 
 #include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/context_mode.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
@@ -23,19 +24,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
-namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 {
 
-/// @brief Whether @p algorithm names a complete ECDSA signature scheme.
-///
-/// A signature algorithm must name the digest as well as the curve: there is no
-/// implied default pairing. Requiring it here means the bare key form
-/// ("ECDSA-P256") is rejected at CTX_CREATE rather than surviving until the
-/// first Init(), where the failure would be much harder to attribute.
-[[nodiscard]] bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
-
-/// @brief Owns the digest context and bound key of one ECDSA context.
+/// @brief Owns the digest context and bound key of one signature context (ECDSA, RSA-PSS or Ed25519).
 ///
 /// Signing and verification differ only in which EVP_Digest* family they call,
 /// so the setup and teardown either direction needs live here and each handler
@@ -51,12 +45,14 @@ class Stream final
     Stream(Stream&&) = delete;
     Stream& operator=(Stream&&) = delete;
 
-    /// @brief Validates the bound key and allocates a digest context.
+    /// @brief Validates the bound key against @p algorithm and allocates a digest context.
+    ///
+    /// @note The algorithm itself is assumed already validated by the caller's
+    ///       own IsAlgorithmSupported() (checked at handler construction time);
+    ///       this only checks that the bound key matches it.
     ///
     /// @param init_params Context initialization parameters; retained so that
     ///        Reset() can rebuild the context from them.
-    /// @param algorithm The context's algorithm, checked against
-    ///        IsAlgorithmSupported().
     [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> Bind(
         const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
         const common::AlgorithmId& algorithm);
@@ -100,6 +96,24 @@ DerToP1363(const std::uint8_t* der, std::size_t der_len, std::size_t field_size)
 [[nodiscard]] Expected<common::OwnedBuffer, ::score::crypto::daemon::common::DaemonErrorCode>
 P1363ToDer(const std::uint8_t* raw, std::size_t raw_len, std::size_t field_size);
 
-}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::ecdsa
+/// @brief Configure RSA-PSS padding, salt length and MGF1 digest on a raw EVP_PKEY_CTX.
+/// @param pkey_context The initialized sign/verify EVP_PKEY_CTX to configure.
+/// @param digest The digest used for the MGF1 mask generation function.
+/// @param salt_length RSA_PSS_SALTLEN_DIGEST, RSA_PSS_SALTLEN_AUTO or an explicit salt length in bytes.
+/// @return false if the context, digest, or any RSA-PSS parameter could not be set.
+[[nodiscard]] bool ConfigureRsaPssPkeyContext(EVP_PKEY_CTX* pkey_context,
+                                              const EVP_MD* digest,
+                                              int salt_length) noexcept;
 
-#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_ECDSA_COMMON_HPP
+/// @brief Configure an initialized OpenSSL digest-sign/verify context for RSA-PSS.
+/// @param context The initialized digest-sign/verify context to configure.
+/// @param algorithm The RSA-PSS signature algorithm identifier, used to look up the digest.
+/// @param salt_length RSA_PSS_SALTLEN_DIGEST for signing (fixed per RFC 8017 §9.1); RSA_PSS_SALTLEN_AUTO
+///        for verification, so signatures using any legal salt length are accepted.
+/// @return an initialization error if the context or any RSA-PSS parameter could not be configured.
+[[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
+ConfigureRsaPssContext(EVP_MD_CTX* context, std::string_view algorithm, int salt_length) noexcept;
+
+}  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
+
+#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP

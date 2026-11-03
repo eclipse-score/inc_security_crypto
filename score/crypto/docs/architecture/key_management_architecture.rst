@@ -12,10 +12,18 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _crypto_key_management_details:
+.. _crypto_key_management_architecture:
 
 Key Management Architecture
 ===========================
+
+.. comp:: Key Management
+  :id: comp__crypto_key_management
+  :version: 1
+  :status: valid
+  :safety: QM
+  :security: YES
+  :belongs_to: feat__security_crypto
 
 This document explains the key management subsystem of ``score::crypto``
 in detail: how keys come into being, how they are stored, how their lifetime
