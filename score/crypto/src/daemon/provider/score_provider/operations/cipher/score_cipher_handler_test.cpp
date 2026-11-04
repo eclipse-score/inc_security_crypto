@@ -13,7 +13,7 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/score_cipher_handler.hpp"
 
-#include "score/crypto/src/api/types/algorithm.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"

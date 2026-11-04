@@ -21,7 +21,6 @@
 #include <optional>
 #include <string_view>
 
-#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -62,37 +61,33 @@ struct ContextScopeCapability final
 
 /// @brief Scope prefixes recognized by CTX_CREATE for capability-based provider routing.
 ///
-/// The scope is the case-sensitive substring before the first ':' in the context type.
-/// Context types without a recognized scope add no capability constraint.
+/// The scope is the case-sensitive substring before the first ':' in the context type
+/// (common::context_types::ScopeOf). Context types without a recognized scope add no
+/// capability constraint.
 inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities{{
-    {"CERT", common::ProviderCapability::kCertManagement},
-    {"KEY", common::ProviderCapability::kKeyManagement},
+    {common::context_types::kCertScope, common::ProviderCapability::kCertManagement},
+    {common::context_types::kKeyScope, common::ProviderCapability::kKeyManagement},
 }};
 
-/// @brief Whether a CTX_CREATE context of @p context_type is bound to an algorithm.
-///
-/// A KEY_MANAGEMENT context names no algorithm; each of its requests carries
-/// and resolves its own.
-[[nodiscard]] inline constexpr bool ContextTakesAlgorithm(const std::string_view context_type) noexcept
+/// @brief The provider capability a CTX_CREATE of @p context_type requires.
+/// @return the capability mapped to the type's scope, or kNone if the type is
+///         unscoped or its scope is not in kContextScopeCapabilities.
+[[nodiscard]] inline constexpr common::ProviderCapability RequiredProviderCapability(
+    const std::string_view context_type) noexcept
 {
-    return context_type != common::context_types::kKeyManagement;
-}
-
-/// @brief Resolve the algorithm name of a CTX_CREATE request to its catalog row.
-///
-/// The name is resolved once, here; providers receive the row and never see
-/// the name. A RANDOM context without an algorithm asks for the default
-/// generator, CTR-DRBG.
-/// @return the catalog row, or std::nullopt if the catalog does not know the name.
-[[nodiscard]] inline constexpr std::optional<::score::crypto::AlgorithmDescriptor> ResolveContextAlgorithm(
-    const std::string_view context_type,
-    const std::string_view algorithm) noexcept
-{
-    if ((context_type == common::context_types::kRandom) && algorithm.empty())
+    const auto scope = common::context_types::ScopeOf(context_type);
+    if (scope.empty())
     {
-        return ::score::crypto::GetAlgorithmDescriptor(::score::crypto::Algorithm::kCtrDrbg);
+        return common::ProviderCapability::kNone;
     }
-    return ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    for (const auto& scope_capability : kContextScopeCapabilities)
+    {
+        if (scope == scope_capability.scope)
+        {
+            return scope_capability.capability;
+        }
+    }
+    return common::ProviderCapability::kNone;
 }
 
 /// @brief Daemon-side interpretation of a public ProviderType wire value.
@@ -240,6 +235,61 @@ inline control_plane::protocol::OperationIdentifier DestroyShmObject()
 {
     return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
                                                         .operationAction = operations::SHM_DESTROY_OBJECT};
+}
+
+// PROVIDER_INFO
+// Request:  uint64 — provider id
+// Response: status_code (SUCCESS / kInvalidArgument for an unknown id)
+//           param[0]: uint16     — provider id
+//           param[1]: uint8      — wire ProviderType (0 = default, 1 = hardware, 2 = software)
+//           param[2]: DataBuffer — provider name (UTF-8, not NUL-terminated)
+inline constexpr OperationAction PROVIDER_INFO = 6;
+
+// QUERY_CAPABILITIES
+// Request:  string — algorithm name, as in the algorithm catalog
+// Response: status_code (SUCCESS)
+//           param[0]: uint8 — CapabilityFlags of the operations at least one
+//                             provider accepts for this name; 0 if none
+inline constexpr OperationAction QUERY_CAPABILITIES = 7;
+
+// SYSTEM_CAPABILITIES
+// Request:  no parameters
+// Response: status_code (SUCCESS)
+//           param[0]: uint16 — provider count P
+//           P times:  uint16 provider id, uint8 wire ProviderType, DataBuffer name
+//           then:     uint16 — algorithm count A
+//           A times:  DataBuffer algorithm name (UTF-8, not NUL-terminated),
+//                     uint8 CapabilityFlags (never 0)
+// Effect:   Lists the providers and every catalog algorithm at least one of
+//           them accepts, in catalog order.
+inline constexpr OperationAction SYSTEM_CAPABILITIES = 8;
+
+/// Operation bits reported by QUERY_CAPABILITIES and SYSTEM_CAPABILITIES.
+namespace capability_flags
+{
+inline constexpr std::uint8_t kHash = 1U << 0U;
+inline constexpr std::uint8_t kMac = 1U << 1U;
+inline constexpr std::uint8_t kCipher = 1U << 2U;
+inline constexpr std::uint8_t kSign = 1U << 3U;
+inline constexpr std::uint8_t kVerify = 1U << 4U;
+inline constexpr std::uint8_t kRandom = 1U << 5U;
+inline constexpr std::uint8_t kGenerateKey = 1U << 6U;
+}  // namespace capability_flags
+
+inline control_plane::protocol::OperationIdentifier GetProviderInfo()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::PROVIDER_INFO};
+}
+inline control_plane::protocol::OperationIdentifier QueryCapabilities()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::QUERY_CAPABILITIES};
+}
+inline control_plane::protocol::OperationIdentifier QuerySystemCapabilities()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::SYSTEM_CAPABILITIES};
 }
 
 // Starting point for custom OPs

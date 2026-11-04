@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
+#include "score/crypto/src/daemon/mediator/context_algorithm.hpp"
 
 #include <gtest/gtest.h>
 

@@ -25,12 +25,12 @@ namespace crypto
 /// @brief Configuration for MAC context creation.
 ///
 /// Requires an algorithm and a key. Typical algorithms include
-/// HMAC-SHA-256, HMAC-SHA-384, CMAC-AES-128, CMAC-AES-256.
+/// HMAC-SHA256, HMAC-SHA384, AES-128-CMAC, AES-256-CMAC.
 ///
 /// @par Example
 /// @code
 ///   MacContextConfig config;
-///   config.SetAlgorithm("HMAC-SHA-256").SetKey(mac_key);
+///   config.SetAlgorithm("HMAC-SHA256").SetKey(mac_key);
 ///   auto ctx = crypto_context->CreateMacContext(config);
 /// @endcode
 struct MacContextConfig : public BaseContextConfig

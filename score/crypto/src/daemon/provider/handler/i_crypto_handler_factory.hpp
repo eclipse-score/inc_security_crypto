@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_I_CRYPTO_HANDLER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_I_CRYPTO_HANDLER_FACTORY_HPP
 #include "i_handler.hpp"
-#include "score/crypto/src/api/types/algorithm.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/result/result.h"
 #include <memory>
@@ -61,13 +61,27 @@ class ICryptoHandlerFactory
     /**
      * @brief Create the provider's key management handler.
      *
-     * A KEY_MANAGEMENT context names no algorithm; each key request carries
+     * A KEY:MANAGEMENT context names no algorithm; each key request carries
      * its own, resolved where the request is decoded.
      *
      * @return The created Handler on success, or an error if the provider has
      *         no key management.
      */
     virtual ::score::Result<Handler::Sptr> CreateKeyManagementHandler() = 0;
+
+    /**
+     * @brief Tell whether CreateHandler() would accept this handler type and algorithm.
+     *
+     * Answers from the same gates CreateHandler() applies, without creating a
+     * handler or touching provider resources. Used for capability queries.
+     *
+     * @return false by default, for factories that do not report capabilities.
+     */
+    [[nodiscard]] virtual bool IsAlgorithmSupported(const common::HandlerId& /*handlerId*/,
+                                                    const ::score::crypto::AlgorithmDescriptor& /*algorithm*/) const
+    {
+        return false;
+    }
 
   protected:
     ICryptoHandlerFactory() = default;

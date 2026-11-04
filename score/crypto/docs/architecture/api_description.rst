@@ -166,6 +166,38 @@ to detect that the resource is still referenced by an active context — call
        // e.g. resource still used by an active context — destroy it first
    }
 
+Provider and Capability Discovery
+---------------------------------
+
+``ICryptoContext`` answers which providers exist and what they can do:
+
+- ``ResolveResource(name, ResourceType::kProvider)`` turns a configured
+  provider name into a ``CryptoResourceId`` whose ``id`` and
+  ``primary_provider`` are the provider id. Unknown names fail.
+- ``GetProviderInfo(provider_id)`` returns id, ``ProviderType``
+  (``kHardware`` or ``kSoftware`` as configured) and name.
+  ``GetProviderInfo(resource)`` does the same for the resource's
+  ``primary_provider``. Unknown ids return ``kInvalidArgument``.
+- ``QueryCapabilities(algorithm)`` reports the operations that at least one
+  provider accepts for that name, as entries in ``modes``:
+  ``HASH``, ``MAC``, ``CIPHER``, ``SIGN``, ``VERIFY``, ``RANDOM`` and
+  ``GENERATE_KEY``. ``supported`` is false and ``modes`` empty when no
+  provider accepts it, including for names outside the algorithm catalog.
+  An empty name reports the default random generator, CTR-DRBG, the same
+  generator a random context created without an algorithm uses.
+- ``QueryCapabilities()`` lists the providers and every catalog algorithm
+  with at least one operation, in catalog order. Each ECDSA curve/hash
+  pairing is a row of its own and is listed separately.
+
+The daemon resolves the name to its catalog row and asks each provider's
+``IsAlgorithmSupported()`` and ``IsKeyGenerationSupported()`` with that
+descriptor. These are the same checks that context creation and key
+generation apply, so a reported operation is one that
+``Create[Op]Context()`` or ``GenerateKey()`` would accept for that algorithm
+on at least one provider. It does not check key slots, permissions or
+memory. The answer is the union over providers; to target one provider, set
+``ProviderType`` on the context config.
+
 Memory and Data Plane Model
 ---------------------------
 
@@ -386,6 +418,29 @@ If the key's permissions do not include the required operation, the
 daemon returns ``CryptoErrorCode::kKeyOperationNotPermitted`` and the
 context is not created. This is a fail-fast check — no resources are
 allocated on permission violation.
+
+**Key/algorithm fit:**
+
+After the permission check, the daemon compares the key's algorithm with
+the context algorithm, using the algorithm catalog
+(``score/crypto/src/daemon/common/algorithm_catalog.hpp``):
+
+.. code-block:: none
+
+   ECDSA-<curve>-<hash>     → EC key on the same curve (any hash)
+   RSA-PSS-<bits>-<hash>    → RSA key with a <bits> modulus (RSA-<bits>)
+   Ed25519                  → Ed25519 key
+   AES-<n>-CBC / -GCM       → AES key of n bits
+   AES-<n>-CMAC             → AES key of n bits
+   HMAC-<hash>              → any symmetric key (AES or generic secret)
+
+Both algorithms are catalog rows (``IsKeyCompatible()`` in
+``daemon/common/key_compatibility.hpp``); hash, random and key rows name no
+keyed operation, so no key fits them. A key that does not fit returns
+``CryptoErrorCode::kIncompatibleKeyType`` and the context is not created. A
+context algorithm that the catalog does not know never gets this far: it is
+refused with ``CryptoErrorCode::kUnsupportedAlgorithm`` (see
+`Algorithm Selection`_).
 
 **Querying permissions:**
 

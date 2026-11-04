@@ -84,7 +84,7 @@ class IKeySlotObject;
 /// @code
 ///   auto slot = ctx->ResolveResource("MyMacKey", ResourceType::kKeySlot);
 ///   MacContextConfig config;
-///   config.SetAlgorithm("HMAC-SHA-256");
+///   config.SetAlgorithm("HMAC-SHA256");
 ///   config.SetKeySlot(slot.value());
 ///   auto mac_ctx = ctx->CreateMacContext(config);
 ///   // Context internally loads key material from the key slot; releases on destruction.
@@ -177,7 +177,7 @@ class ICryptoContext
     // ---- Queries ----
 
     /// @brief Queries algorithm capabilities and support.
-    /// @param algorithm Algorithm identifier to query
+    /// @param algorithm Algorithm identifier to query; empty queries the default random generator (CTR-DRBG)
     /// @return Capabilities including whether the algorithm is supported and available modes
     virtual score::Result<AlgorithmCapabilities> QueryCapabilities(const AlgorithmId& algorithm) = 0;
 
