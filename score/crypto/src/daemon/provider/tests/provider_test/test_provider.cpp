@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include <gtest/gtest.h>
+#include <string_view>
 
 #include <algorithm>
 #include <cstddef>
@@ -21,6 +22,7 @@
 #include <variant>
 #include <vector>
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
@@ -36,6 +38,14 @@ namespace ops = score::crypto::daemon::provider::handler::hash_handler_operation
 
 namespace
 {
+
+/// Catalog row of @p name; the daemon resolves names before a provider sees them.
+score::crypto::AlgorithmDescriptor Row(std::string_view name)
+{
+    const auto row = score::crypto::GetAlgorithmDescriptor(name);
+    EXPECT_TRUE(row.has_value()) << "not in the catalog: " << name;
+    return row.value_or(score::crypto::AlgorithmDescriptor{});
+}
 
 struct HashAlgorithmTestData
 {
@@ -126,7 +136,7 @@ TEST_P(ProviderHashAlgorithmTest, SupportsSingleShotStreamingResetAndDigestSize)
     auto factory = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(factory, nullptr);
 
-    auto handlerResult = factory->CreateHandler("HASH", testData.algorithm);
+    auto handlerResult = factory->CreateHandler("HASH", Row(testData.algorithm));
     ASSERT_TRUE(handlerResult.has_value()) << "Failed to create HASH/" << testData.algorithm;
     auto hashHandler = handlerResult.value();
     ASSERT_NE(hashHandler, nullptr);
@@ -275,12 +285,12 @@ TEST_F(ProviderHashTest, SupportsSha224AndRejectsUnsupportedRequests)
     auto factory = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(factory, nullptr);
 
-    EXPECT_TRUE(factory->CreateHandler("HASH", "SHA224").has_value());
-    EXPECT_FALSE(factory->CreateHandler("UNSUPPORTED_HANDLER", "SHA256").has_value());
+    EXPECT_TRUE(factory->CreateHandler("HASH", Row("SHA224")).has_value());
+    EXPECT_FALSE(factory->CreateHandler("UNSUPPORTED_HANDLER", Row("SHA256")).has_value());
 
-    for (const char* algorithm : {"SHA1", "MD5", "UNSUPPORTED_ALGORITHM"})
+    for (const char* algorithm : {"SHA1", "MD5"})
     {
-        const auto result = factory->CreateHandler("HASH", algorithm);
+        const auto result = factory->CreateHandler("HASH", Row(algorithm));
         ASSERT_FALSE(result.has_value()) << "Unexpectedly accepted unsupported hash algorithm: " << algorithm;
         EXPECT_EQ(*result.error(),
                   static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm));
@@ -291,7 +301,7 @@ TEST_F(ProviderHashTest, ReportsHashStreamStateViolations)
 {
     auto factory = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(factory, nullptr);
-    auto handlerResult = factory->CreateHandler("HASH", "SHA256");
+    auto handlerResult = factory->CreateHandler("HASH", Row("SHA256"));
     ASSERT_TRUE(handlerResult.has_value());
     auto hashHandler = handlerResult.value();
     ASSERT_TRUE(hashHandler->InitializeContext(handler::InitializationParams{}).has_value());
@@ -322,7 +332,7 @@ TEST_F(ProviderHashTest, RejectsMalformedRequestsBeforeProviderExecutionAndPrese
 {
     auto factory = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(factory, nullptr);
-    auto handlerResult = factory->CreateHandler("HASH", "SHA256");
+    auto handlerResult = factory->CreateHandler("HASH", Row("SHA256"));
     ASSERT_TRUE(handlerResult.has_value());
     auto hashHandler = handlerResult.value();
     ASSERT_TRUE(hashHandler->InitializeContext(handler::InitializationParams{}).has_value());
@@ -391,8 +401,8 @@ TEST_F(ProviderHashTest, SupportsIndependentInterleavedHashContexts)
     auto factory = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(factory, nullptr);
 
-    auto sha256Result = factory->CreateHandler("HASH", "SHA256");
-    auto sha384Result = factory->CreateHandler("HASH", "SHA384");
+    auto sha256Result = factory->CreateHandler("HASH", Row("SHA256"));
+    auto sha384Result = factory->CreateHandler("HASH", Row("SHA384"));
     ASSERT_TRUE(sha256Result.has_value());
     ASSERT_TRUE(sha384Result.has_value());
     auto sha256 = sha256Result.value();
@@ -441,7 +451,7 @@ TEST(OpenSslHashHandlerErrorTest, DigestUpdateFailureAbortsStreamAndAllowsReuse)
     using HashExecutor = provider::score_provider::operations::hash::HashExecutor;
     using OpenSslHashHandler = provider::score_provider::openssl::handler::OpenSslHashHandler;
 
-    OpenSslHashHandler hashHandler{std::make_unique<HashExecutor>(), "SHA256", &FailingDigestUpdate};
+    OpenSslHashHandler hashHandler{std::make_unique<HashExecutor>(), Row("SHA256"), &FailingDigestUpdate};
     ASSERT_TRUE(hashHandler.InitializeContext(handler::InitializationParams{}).has_value());
 
     const std::array<std::uint8_t, 1U> input{0x42U};

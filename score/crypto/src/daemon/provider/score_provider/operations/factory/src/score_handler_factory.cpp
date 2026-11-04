@@ -28,7 +28,7 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
 }
 
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateHandler(const common::HandlerId& handlerId,
-                                                                           const common::AlgorithmId& algorithm)
+                                                                           const AlgorithmDescriptor& algorithm)
 {
     if (handlerId == common::context_types::kHash)
     {
@@ -37,10 +37,6 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
     if (handlerId == common::context_types::kMac)
     {
         return CreateMacHandler(algorithm);
-    }
-    if (handlerId == common::context_types::kKeyManagement)
-    {
-        return CreateKeyManagementHandler();
     }
     if (handlerId == common::context_types::kCipher)
     {
@@ -70,7 +66,7 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
 // Default provider hooks — return kUnsupportedOperation when not overridden.
 // ---------------------------------------------------------------------------
 
-::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateHashHandler(const common::AlgorithmId& /*algorithm*/)
+::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateHashHandler(const AlgorithmDescriptor& /*algorithm*/)
 {
     ::score::result::Error error(
         static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
@@ -79,7 +75,7 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
 
-::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateMacHandler(const common::AlgorithmId& /*algorithm*/)
+::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateMacHandler(const AlgorithmDescriptor& /*algorithm*/)
 {
     ::score::result::Error error(
         static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
@@ -97,8 +93,8 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
 
-    ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateCipherHandler(
-    const common::AlgorithmId& /*algorithm*/)
+::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateCipherHandler(
+    const AlgorithmDescriptor& /*algorithm*/)
 {
     ::score::result::Error error(
         static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
@@ -107,7 +103,7 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
     return ::score::Result<handler::Handler::Sptr>(::score::unexpect, error);
 }
 
-::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateSignHandler(const common::AlgorithmId& /*algorithm*/)
+::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateSignHandler(const AlgorithmDescriptor& /*algorithm*/)
 {
     ::score::result::Error error(
         static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
@@ -117,7 +113,7 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
 }
 
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateVerifyHandler(
-    const common::AlgorithmId& /*algorithm*/)
+    const AlgorithmDescriptor& /*algorithm*/)
 {
     ::score::result::Error error(
         static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),
@@ -127,7 +123,7 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
 }
 
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateRandomHandler(
-    const common::AlgorithmId& /*algorithm*/)
+    const AlgorithmDescriptor& /*algorithm*/)
 {
     ::score::result::Error error(
         static_cast<::score::result::ErrorCode>(::score::crypto::CryptoErrorCode::kUnsupportedOperation),

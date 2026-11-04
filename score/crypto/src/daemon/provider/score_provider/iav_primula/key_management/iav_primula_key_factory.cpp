@@ -28,45 +28,36 @@ namespace
 ///
 /// @return The corresponding IAV-Primula algorithm, or
 ///         kUnsupportedAlgorithm if the identifier is unknown.
-Expected<iav_algorithm, common::DaemonErrorCode> Algorithm(common::AlgorithmId algorithmId)
+Expected<iav_algorithm, common::DaemonErrorCode> Algorithm(const AlgorithmDescriptor& algorithm)
 {
-    const std::string_view algorithmDescription{algorithmId.data(), algorithmId.size()};
-    if (algorithmDescription == common::kMlDsa44Name)
+    switch (algorithm.id)
     {
-        return IavAlgorithmMlDsa44;
+        case ::score::crypto::Algorithm::kMlDsa44:
+            return IavAlgorithmMlDsa44;
+        case ::score::crypto::Algorithm::kMlDsa65:
+            return IavAlgorithmMlDsa65;
+        case ::score::crypto::Algorithm::kMlDsa87:
+            return IavAlgorithmMlDsa87;
+        case ::score::crypto::Algorithm::kMlKem512:
+            return IavAlgorithmMlKem512;
+        case ::score::crypto::Algorithm::kMlKem768:
+            return IavAlgorithmMlKem768;
+        case ::score::crypto::Algorithm::kMlKem1024:
+            return IavAlgorithmMlKem1024;
+        default:
+            return make_unexpected(common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
-    if (algorithmDescription == common::kMlDsa65Name)
-    {
-        return IavAlgorithmMlDsa65;
-    }
-    if (algorithmDescription == common::kMlDsa87Name)
-    {
-        return IavAlgorithmMlDsa87;
-    }
-    if (algorithmDescription == common::kMlKem512Name)
-    {
-        return IavAlgorithmMlKem512;
-    }
-    if (algorithmDescription == common::kMlKem768Name)
-    {
-        return IavAlgorithmMlKem768;
-    }
-    if (algorithmDescription == common::kMlKem1024Name)
-    {
-        return IavAlgorithmMlKem1024;
-    }
-    return make_unexpected(common::DaemonErrorCode::kUnsupportedAlgorithm);
 }
 
 Expected<const IavPrimulaKeyHandler*, common::DaemonErrorCode> ValidateKemKey(
     const key_management::IKeyHandler& handler,
     common::ProviderId provider_id,
-    const common::AlgorithmId& algorithm,
+    const AlgorithmDescriptor& algorithm,
     key_management::KeyMaterialKind kind)
 {
     const auto* key = dynamic_cast<const IavPrimulaKeyHandler*>(&handler);
     if (key == nullptr || provider_id == common::kInvalidProviderId || handler.GetProviderId() != provider_id ||
-        handler.GetHandle().provider_id != provider_id || handler.GetHandle().algorithm != algorithm ||
+        handler.GetHandle().provider_id != provider_id || handler.GetHandle().algorithm.id != algorithm.id ||
         handler.GetHandle().material_kind != kind)
     {
         return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -111,7 +102,7 @@ Expected<std::size_t, common::DaemonErrorCode> GetKemCiphertextSize(
 Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaKeyFactory::GenerateKey(
     const key_management::KeyGenerationRequest& r)
 {
-    auto info = common::LookupPqcAlgorithm(std::string_view{r.algorithm.data(), r.algorithm.size()});
+    auto info = common::LookupPqcAlgorithm(r.algorithm);
     if (!info ||
         ((info->kind != common::PqcAlgorithmKind::kSignature) && (info->kind != common::PqcAlgorithmKind::kKem)))
     {
@@ -168,7 +159,7 @@ Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaK
 Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaKeyFactory::ImportKey(
     const key_management::KeyImportRequest& r)
 {
-    auto info = common::LookupPqcAlgorithm(std::string_view{r.algorithm.data(), r.algorithm.size()});
+    auto info = common::LookupPqcAlgorithm(r.algorithm);
     if (r.format != score::crypto::FormatType::kRaw || !info ||
         ((info->kind != common::PqcAlgorithmKind::kSignature) && (info->kind != common::PqcAlgorithmKind::kKem)) ||
         !r.key_data || (r.key_data_size != info->public_key_size))

@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_KEY_MANAGEMENT_OPENSSL_KEY_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_KEY_MANAGEMENT_OPENSSL_KEY_FACTORY_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
@@ -57,7 +58,7 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
 
     /// Generate a symmetric key using OpenSSL RAND_bytes, or an asymmetric key pair.
     ///
-    /// Symmetric key size is derived from request.algorithm:
+    /// Symmetric key size is derived from the request.algorithm row:
     ///   HMAC-SHA256 → 32 B  |  HMAC-SHA384 → 48 B  |  HMAC-SHA512 → 64 B
     ///   AES-128-*   → 16 B  |  AES-192-*   → 24 B  |  AES-256-*   → 32 B
     ///
@@ -68,7 +69,7 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
     /// Import raw key material by copying into a new heap buffer, or parse a
-    /// DER-encoded asymmetric key when request.algorithm names one.
+    /// DER-encoded asymmetric key when the request.algorithm row is one.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const key_management::KeyImportRequest& request) override;
@@ -96,7 +97,7 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                 ParsedDerKey parsed,
                                 std::size_t key_size);
 
-    /// Generate an EC key pair on the curve named by request.algorithm.
+    /// Generate an EC key pair on the curve of the request.algorithm row.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateEcKey(const key_management::KeyGenerationRequest& request);
@@ -107,7 +108,7 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportEcKey(const key_management::KeyImportRequest& request);
 
-    /// Generate an RSA key pair of the size named by request.algorithm (2048, 3072 or 4096 bits).
+    /// Generate an RSA key pair of the size of the request.algorithm row (2048, 3072 or 4096 bits).
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateRsaKey(const key_management::KeyGenerationRequest& request);
@@ -147,9 +148,8 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
             return true;
         });
 
-    /// Map well-known algorithm names to symmetric key sizes in bytes.
-    /// Returns 0 for unknown algorithms.
-    [[nodiscard]] static std::size_t DetermineKeySize(const common::AlgorithmId& algorithm) noexcept;
+    /// Symmetric key size in bytes of a catalog row; 0 when the row labels no key.
+    [[nodiscard]] static std::size_t DetermineKeySize(const AlgorithmDescriptor& algorithm) noexcept;
 };
 
 }  // namespace score::crypto::daemon::provider::openssl

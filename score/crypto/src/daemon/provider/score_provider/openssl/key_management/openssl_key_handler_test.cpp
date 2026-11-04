@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
@@ -19,9 +20,21 @@
 
 #include <gtest/gtest.h>
 #include <cstring>
+#include <string_view>
 
 namespace km = score::crypto::daemon::key_management;
 namespace common = score::crypto::daemon::common;
+
+namespace
+{
+/// Catalog row of @p name; requests reach the factory already resolved.
+score::crypto::AlgorithmDescriptor Row(std::string_view name)
+{
+    const auto row = score::crypto::GetAlgorithmDescriptor(name);
+    EXPECT_TRUE(row.has_value()) << "not in the catalog: " << name;
+    return row.value_or(score::crypto::AlgorithmDescriptor{});
+}
+}  // namespace
 
 class OpenSslKeyHandlerTest : public ::testing::Test
 {
@@ -42,7 +55,7 @@ class OpenSslKeyHandlerTest : public ::testing::Test
 TEST_F(OpenSslKeyHandlerTest, GenerateKey_HmacSha256_Returns32ByteKey)
 {
     km::KeyGenerationRequest req{};
-    req.algorithm = "HMAC-SHA256";
+    req.algorithm = Row("HMAC-SHA256");
     req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->GenerateKey(req);
@@ -52,7 +65,7 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_HmacSha256_Returns32ByteKey)
     auto& handle = handler->GetHandle();
     EXPECT_NE(handle.opaque_id, 0U);
     EXPECT_EQ(handle.key_size, 32U);
-    EXPECT_EQ(handle.algorithm, "HMAC-SHA256");
+    EXPECT_EQ(handle.algorithm.name, "HMAC-SHA256");
     EXPECT_FALSE(handle.is_asymmetric);
     EXPECT_FALSE(score::crypto::HasPermission(handle.permissions, score::crypto::KeyOperationPermission::kExport));
 
@@ -64,7 +77,7 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_HmacSha256_Returns32ByteKey)
 TEST_F(OpenSslKeyHandlerTest, GenerateKey_HmacSha512_Returns64ByteKey)
 {
     km::KeyGenerationRequest req{};
-    req.algorithm = "HMAC-SHA512";
+    req.algorithm = Row("HMAC-SHA512");
     req.permissions = score::crypto::KeyOperationPermission::kMac | score::crypto::KeyOperationPermission::kExport;
 
     auto result = m_factory->GenerateKey(req);
@@ -82,7 +95,7 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_HmacSha512_Returns64ByteKey)
 TEST_F(OpenSslKeyHandlerTest, GenerateKey_Aes256_Returns32ByteKey)
 {
     km::KeyGenerationRequest req{};
-    req.algorithm = "AES-256-CBC";
+    req.algorithm = Row("AES-256-CBC");
     req.permissions = score::crypto::KeyOperationPermission::kEncrypt;
 
     auto result = m_factory->GenerateKey(req);
@@ -94,10 +107,10 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_Aes256_Returns32ByteKey)
     EXPECT_TRUE(release.has_value());
 }
 
-TEST_F(OpenSslKeyHandlerTest, GenerateKey_UnknownAlgorithm_ReturnsError)
+TEST_F(OpenSslKeyHandlerTest, GenerateKey_RowWithoutKey_ReturnsError)
 {
     km::KeyGenerationRequest req{};
-    req.algorithm = "UNKNOWN-ALGO";
+    req.algorithm = Row("SHA256");
     req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->GenerateKey(req);
@@ -119,7 +132,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_ValidKey_Succeeds)
     km::KeyImportRequest req{};
     req.key_data = raw_key;
     req.key_data_size = sizeof(raw_key);
-    req.algorithm = "HMAC-SHA256";
+    req.algorithm = Row("HMAC-SHA256");
     req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->ImportKey(req);
@@ -149,7 +162,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_NullPointer_ReturnsError)
     km::KeyImportRequest req{};
     req.key_data = nullptr;
     req.key_data_size = 32;
-    req.algorithm = "HMAC-SHA256";
+    req.algorithm = Row("HMAC-SHA256");
     req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->ImportKey(req);
@@ -164,7 +177,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_ZeroSize_ReturnsError)
     km::KeyImportRequest req{};
     req.key_data = &dummy;
     req.key_data_size = 0;
-    req.algorithm = "HMAC-SHA256";
+    req.algorithm = Row("HMAC-SHA256");
     req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->ImportKey(req);
@@ -197,7 +210,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicOnlyEcKey_DropsPrivateHalfPermissi
     km::KeyImportRequest req{};
     req.key_data = kP256SpkiDer;
     req.key_data_size = sizeof(kP256SpkiDer);
-    req.algorithm = "ECDSA-P256";
+    req.algorithm = Row("ECDSA-P256");
     req.format = score::crypto::FormatType::kDer;
     req.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kVerify;
 
@@ -227,7 +240,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyNonDer_IsRejected)
     km::KeyImportRequest req{};
     req.key_data = kP256SpkiDer;
     req.key_data_size = sizeof(kP256SpkiDer);
-    req.algorithm = "ECDSA-P256";
+    req.algorithm = Row("ECDSA-P256");
     req.format = score::crypto::FormatType::kPem;
     req.permissions = score::crypto::KeyOperationPermission::kSign;
 
@@ -245,7 +258,7 @@ TEST_F(OpenSslKeyHandlerTest, ReleaseKey_ZeroOpaque_Idempotent)
 {
     // Create a handler via GenerateKey and test that Release is idempotent
     km::KeyGenerationRequest req{};
-    req.algorithm = "HMAC-SHA256";
+    req.algorithm = Row("HMAC-SHA256");
     req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto gen_result = m_factory->GenerateKey(req);
@@ -263,7 +276,7 @@ TEST_F(OpenSslKeyHandlerTest, ReleaseKey_ZeroOpaque_Idempotent)
 TEST_F(OpenSslKeyHandlerTest, GenerateAndRelease_FullLifecycle)
 {
     km::KeyGenerationRequest req{};
-    req.algorithm = "HMAC-SHA256";
+    req.algorithm = Row("HMAC-SHA256");
     req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto gen_result = m_factory->GenerateKey(req);
@@ -280,7 +293,7 @@ TEST_F(OpenSslKeyHandlerTest, GenerateAndRelease_FullLifecycle)
 TEST_F(OpenSslKeyHandlerTest, GetRawKeyBytes_ReleasedHandler_ReturnsNull)
 {
     km::KeyGenerationRequest req{};
-    req.algorithm = "HMAC-SHA256";
+    req.algorithm = Row("HMAC-SHA256");
     req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto gen_result = m_factory->GenerateKey(req);

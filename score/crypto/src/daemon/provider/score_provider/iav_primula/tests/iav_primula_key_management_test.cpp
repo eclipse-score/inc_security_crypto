@@ -44,7 +44,7 @@ key_management::ProviderKeyHandle KemHandle(key_management::KeyMaterialKind kind
 {
     key_management::ProviderKeyHandle handle{};
     handle.provider_id = common::ProviderId{7U};
-    handle.algorithm = "ML-KEM-768";
+    handle.algorithm = *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768");
     handle.is_asymmetric = true;
     handle.material_kind = kind;
     if (kind == key_management::KeyMaterialKind::kPublicKey)
@@ -69,7 +69,7 @@ TEST(IavPrimulaKeyManagementTest, RejectsInvalidAlgorithmsAndKeys)
     request.format = score::crypto::FormatType::kRaw;
 
     // KEM public-key import validates the same public-key size as ML-DSA.
-    request.algorithm = "ML-KEM-768";
+    request.algorithm = *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768");
     std::vector<std::uint8_t> kem_key(1184U);
     request.key_data = kem_key.data();
     request.key_data_size = kem_key.size() - 1U;
@@ -79,7 +79,7 @@ TEST(IavPrimulaKeyManagementTest, RejectsInvalidAlgorithmsAndKeys)
 
     // ML-DSA-44 public keys contain 1312 bytes; import one byte less
     // deliberately to verify key-size validation.
-    request.algorithm = "ML-DSA-44";
+    request.algorithm = *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44");
     std::vector<std::uint8_t> key(1312U);
     request.key_data = key.data();
     request.key_data_size = key.size() - 1U;
@@ -123,7 +123,7 @@ score::crypto::Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCo
     score::crypto::KeyOperationPermission permissions)
 {
     key_management::KeyImportRequest request{};
-    request.algorithm = "ML-DSA-44";
+    request.algorithm = *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44");
     request.key_data = public_key.data();
     request.key_data_size = public_key.size();
     request.format = score::crypto::FormatType::kRaw;
@@ -495,7 +495,7 @@ TEST(IavPrimulaKeyManagementTest, RoutesKemKeyGenerationToKemBackendPath)
 {
     IavPrimulaKeyFactory factory{common::ProviderId{7U}};
     key_management::KeyGenerationRequest request{};
-    request.algorithm = "ML-KEM-768";
+    request.algorithm = *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768");
 
     // The current Rust FFI is a deliberate placeholder and therefore returns
     // unsupported algorithm. The call still exercises the KEM-specific branch
@@ -515,7 +515,7 @@ TEST(IavPrimulaKeyManagementTest, KemOperationsRequireManagedPublicKeyRole)
     IavPrimulaKeyFactory factory{common::ProviderId{7U}};
     IavPrimulaKeyHandler private_key{nullptr, {}, KemHandle(key_management::KeyMaterialKind::kPrivateKey)};
 
-    auto result = factory.GetEncapsulationCiphertextSize({private_key, "ML-KEM-768"});
+    auto result = factory.GetEncapsulationCiphertextSize({private_key, *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768")});
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidArgument);
@@ -531,18 +531,18 @@ TEST(IavPrimulaKeyManagementTest, KemPublicKeyRequiresAgreeAndMatchingAlgorithm)
     IavPrimulaKeyHandler public_key{
         nullptr, std::vector<std::uint8_t>(1184U), KemHandle(key_management::KeyMaterialKind::kPublicKey)};
 
-    auto size = factory.GetEncapsulationCiphertextSize({public_key, "ML-KEM-768"});
+    auto size = factory.GetEncapsulationCiphertextSize({public_key, *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768")});
     ASSERT_TRUE(size.has_value());
     EXPECT_GT(size.value(), 0U);
 
-    auto wrong_algorithm = factory.GetEncapsulationCiphertextSize({public_key, "ML-KEM-512"});
+    auto wrong_algorithm = factory.GetEncapsulationCiphertextSize({public_key, *::score::crypto::GetAlgorithmDescriptor("ML-KEM-512")});
     ASSERT_FALSE(wrong_algorithm.has_value());
     EXPECT_EQ(wrong_algorithm.error(), common::DaemonErrorCode::kInvalidArgument);
 
     auto no_agree_handle = KemHandle(key_management::KeyMaterialKind::kPublicKey);
     no_agree_handle.public_key_permissions = score::crypto::KeyOperationPermission::kExport;
     IavPrimulaKeyHandler no_agree_key{nullptr, std::vector<std::uint8_t>(1184U), no_agree_handle};
-    auto no_agree = factory.GetEncapsulationCiphertextSize({no_agree_key, "ML-KEM-768"});
+    auto no_agree = factory.GetEncapsulationCiphertextSize({no_agree_key, *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768")});
     ASSERT_FALSE(no_agree.has_value());
     EXPECT_EQ(no_agree.error(), common::DaemonErrorCode::kKeyOperationNotPermitted);
 }
@@ -553,7 +553,7 @@ TEST(IavPrimulaKeyManagementTest, ImportedKemPublicKeyUsesItsPublicAgreePermissi
     IavPrimulaKeyFactory factory{common::ProviderId{7U}};
     const std::vector<std::uint8_t> public_key(1184U);
     key_management::KeyImportRequest request{};
-    request.algorithm = "ML-KEM-768";
+    request.algorithm = *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768");
     request.key_data = public_key.data();
     request.key_data_size = public_key.size();
     request.format = score::crypto::FormatType::kRaw;
@@ -566,7 +566,7 @@ TEST(IavPrimulaKeyManagementTest, ImportedKemPublicKeyUsesItsPublicAgreePermissi
         EXPECT_EQ(imported.value()->GetHandle().permissions, Permission::kNone);
         EXPECT_EQ(imported.value()->GetHandle().public_key_permissions.value(), permissions);
 
-        auto size = factory.GetEncapsulationCiphertextSize({*imported.value(), "ML-KEM-768"});
+        auto size = factory.GetEncapsulationCiphertextSize({*imported.value(), *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768")});
         if (permissions == Permission::kAgree)
         {
             ASSERT_TRUE(size.has_value());
@@ -587,7 +587,7 @@ TEST(IavPrimulaKeyManagementTest, UnspecifiedPublicPermissionsRemainUnrestricted
     IavPrimulaKeyHandler public_key{nullptr, std::vector<std::uint8_t>(1184U), handle};
     IavPrimulaKeyFactory factory{common::ProviderId{7U}};
 
-    auto size = factory.GetEncapsulationCiphertextSize({public_key, "ML-KEM-768"});
+    auto size = factory.GetEncapsulationCiphertextSize({public_key, *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768")});
 
     ASSERT_TRUE(size.has_value());
     EXPECT_EQ(size.value(), 1088U);
@@ -604,7 +604,7 @@ TEST(IavPrimulaKeyManagementTest, DecapsulationCannotUsePublicAgreePermission)
     const std::vector<std::uint8_t> ciphertext(1088U);
 
     auto result = factory.DecapsulateKey(
-        {private_key, "ML-KEM-768", {ciphertext.data(), ciphertext.size()}});
+        {private_key, *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768"), {ciphertext.data(), ciphertext.size()}});
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), common::DaemonErrorCode::kKeyOperationNotPermitted);
@@ -621,7 +621,7 @@ TEST(IavPrimulaKeyManagementTest, DecapsulationRejectsInvalidCiphertextBeforeCal
     const std::vector<std::uint8_t> invalid_ciphertext(1U);
 
     auto result = factory.DecapsulateKey(
-        {private_key, "ML-KEM-768", {invalid_ciphertext.data(), invalid_ciphertext.size()}});
+        {private_key, *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768"), {invalid_ciphertext.data(), invalid_ciphertext.size()}});
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidArgument);

@@ -20,7 +20,7 @@ namespace score::crypto::daemon::provider::score_provider::operations::random
 using common::DaemonErrorCode;
 using common::ResponseParameters;
 
-ScoreRandomHandler::ScoreRandomHandler(std::unique_ptr<RandomExecutor> executor, const common::AlgorithmId& algorithm)
+ScoreRandomHandler::ScoreRandomHandler(std::unique_ptr<RandomExecutor> executor, const AlgorithmDescriptor& algorithm)
     : m_algorithm{algorithm}, m_executor{std::move(executor)}
 {
 }

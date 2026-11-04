@@ -15,7 +15,6 @@
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
-#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
@@ -51,18 +50,9 @@ using common::ResponseParameters;
 using common::StreamOperationState;
 
 // ---------------------------------------------------------------------------
-// Supported algorithms
-// ---------------------------------------------------------------------------
-static constexpr std::array<const char*, 3> kSupportedAlgorithms = {
-    "HMAC-SHA256",
-    "HMAC-SHA384",
-    "HMAC-SHA512",
-};
-
-// ---------------------------------------------------------------------------
 // Algorithm mapping
 // ---------------------------------------------------------------------------
-CK_MECHANISM_TYPE Pkcs11MacHandler::MapAlgorithm(const std::string_view algorithm) noexcept
+CK_MECHANISM_TYPE Pkcs11MacHandler::MapAlgorithm(const AlgorithmDescriptor& algorithm) noexcept
 {
     return detail::LookupMacMechanism(algorithm);
 }
@@ -73,7 +63,7 @@ CK_MECHANISM_TYPE Pkcs11MacHandler::MapAlgorithm(const std::string_view algorith
 Pkcs11MacHandler::Pkcs11MacHandler(std::unique_ptr<Pkcs11MacExecutor> executor,
                                    const Pkcs11Module& module,
                                    CK_SESSION_HANDLE session,
-                                   const common::AlgorithmId& algorithm,
+                                   const AlgorithmDescriptor& algorithm,
                                    Pkcs11Provider* provider)
     : Handler{},
       m_executor{std::move(executor)},
@@ -103,16 +93,14 @@ Pkcs11MacHandler::~Pkcs11MacHandler()
 // ---------------------------------------------------------------------------
 // Static helpers
 // ---------------------------------------------------------------------------
-bool Pkcs11MacHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool Pkcs11MacHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    return std::find(std::begin(kSupportedAlgorithms), std::end(kSupportedAlgorithms), algorithm) !=
-           std::end(kSupportedAlgorithms);
+    return MapAlgorithm(algorithm) != CK_UNAVAILABLE_INFORMATION;
 }
 
 std::size_t Pkcs11MacHandler::GetMacSize() const noexcept
 {
-    return score::crypto::daemon::common::LookupMacSize(std::string_view{m_algorithm.data(), m_algorithm.size()})
-        .value_or(0U);
+    return IsAlgorithmSupported(m_algorithm) ? static_cast<std::size_t>(m_algorithm.output_size) : 0U;
 }
 
 // ---------------------------------------------------------------------------
@@ -121,18 +109,9 @@ std::size_t Pkcs11MacHandler::GetMacSize() const noexcept
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 Pkcs11MacHandler::InitializeContext(const handler::InitializationParams& init_params)
 {
-    bool found{false};
-    for (const char* algo : kSupportedAlgorithms)
+    if (!IsAlgorithmSupported(m_algorithm))
     {
-        if (m_algorithm == algo)
-        {
-            found = true;
-            break;
-        }
-    }
-    if (!found)
-    {
-        score::mw::log::LogError() << LOG_PREFIX << "Unsupported algorithm:" << m_algorithm;
+        score::mw::log::LogError() << LOG_PREFIX << "Unsupported algorithm:" << m_algorithm.name;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
 

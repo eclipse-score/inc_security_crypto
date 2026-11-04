@@ -103,7 +103,7 @@ key_management::IKeyHandler::Sptr MakeKey(key_management::KeyMaterialKind kind,
 {
     key_management::ProviderKeyHandle handle{};
     handle.provider_id = kProviderId;
-    handle.algorithm = std::string{algorithm};
+    handle.algorithm = *::score::crypto::GetAlgorithmDescriptor(algorithm);
     if (kind == key_management::KeyMaterialKind::kPublicKey)
     {
         handle.public_key_permissions = permissions;
@@ -128,19 +128,19 @@ class KemTestFactory final : public key_management::IKeyFactory
     score::crypto::Expected<key_management::IKeyHandler::Sptr, Error> ImportKey(
         const key_management::KeyImportRequest& request) override
     {
-        if (!IsSupportedKemAlgorithm(request.algorithm) || request.key_data == nullptr ||
+        if (!IsSupportedKemAlgorithm(request.algorithm.name) || request.key_data == nullptr ||
             request.key_data_size == 0U || request.format != score::crypto::FormatType::kRaw)
         {
             return score::crypto::make_unexpected(Error::kInvalidArgument);
         }
-        return MakeKey(key_management::KeyMaterialKind::kPublicKey, request.permissions, request.algorithm);
+        return MakeKey(key_management::KeyMaterialKind::kPublicKey, request.permissions, request.algorithm.name);
     }
 
     score::crypto::Expected<std::size_t, Error> GetEncapsulationCiphertextSize(
         const key_management::KeyEncapsulationRequest& request) const override
     {
         ++const_cast<KemTestFactory*>(this)->get_size_calls;
-        if (!IsSupportedKemAlgorithm(request.algorithm) ||
+        if (!IsSupportedKemAlgorithm(request.algorithm.name) ||
             request.public_key.GetHandle().material_kind != key_management::KeyMaterialKind::kPublicKey)
         {
             return score::crypto::make_unexpected(Error::kInvalidArgument);
@@ -152,27 +152,27 @@ class KemTestFactory final : public key_management::IKeyFactory
         const key_management::KeyEncapsulationRequest& request) override
     {
         ++encapsulate_calls;
-        if (!IsSupportedKemAlgorithm(request.algorithm) ||
+        if (!IsSupportedKemAlgorithm(request.algorithm.name) ||
             request.public_key.GetHandle().material_kind != key_management::KeyMaterialKind::kPublicKey)
         {
             return score::crypto::make_unexpected(Error::kInvalidArgument);
         }
         return key_management::ProviderEncapsulationResult{
             std::vector<std::uint8_t>{kCiphertext.begin(), kCiphertext.end()},
-            MakeKey(key_management::KeyMaterialKind::kSharedSecret, Permission::kDerive, request.algorithm)};
+            MakeKey(key_management::KeyMaterialKind::kSharedSecret, Permission::kDerive, request.algorithm.name)};
     }
 
     score::crypto::Expected<key_management::IKeyHandler::Sptr, Error> DecapsulateKey(
         const key_management::KeyDecapsulationRequest& request) override
     {
         ++decapsulate_calls;
-        if (!IsSupportedKemAlgorithm(request.algorithm) ||
+        if (!IsSupportedKemAlgorithm(request.algorithm.name) ||
             request.private_key.GetHandle().material_kind != key_management::KeyMaterialKind::kPrivateKey ||
             request.ciphertext.empty())
         {
             return score::crypto::make_unexpected(Error::kInvalidArgument);
         }
-        return MakeKey(key_management::KeyMaterialKind::kSharedSecret, Permission::kDerive, request.algorithm);
+        return MakeKey(key_management::KeyMaterialKind::kSharedSecret, Permission::kDerive, request.algorithm.name);
     }
 
     static constexpr std::array<std::uint8_t, 4U> kCiphertext{{0x01U, 0x02U, 0x03U, 0x04U}};
@@ -300,7 +300,7 @@ TEST_F(KeyManagementExecutorKemTest, PrivateKeyCannotUsePublicAgreePermission)
 {
     key_management::ProviderKeyHandle handle{};
     handle.provider_id = kProviderId;
-    handle.algorithm = std::string{kAlgorithm};
+    handle.algorithm = *::score::crypto::GetAlgorithmDescriptor(kAlgorithm);
     handle.material_kind = key_management::KeyMaterialKind::kPrivateKey;
     handle.is_asymmetric = true;
     handle.permissions = Permission::kNone;
@@ -381,7 +381,7 @@ TEST_P(KeyManagementExecutorKemVariantTest, RoutesAllStandardKemParameterSets)
     auto encapsulated_secret =
         service->AcquireKeyForOperation(kClientId, encapsulated_secret_id, kProviderId, Permission::kDerive);
     ASSERT_TRUE(encapsulated_secret.has_value());
-    EXPECT_EQ(encapsulated_secret.value().Handler().GetHandle().algorithm, algorithm);
+    EXPECT_EQ(encapsulated_secret.value().Handler().GetHandle().algorithm.name, algorithm);
 
     const auto private_key = RegisterSource(key_management::KeyMaterialKind::kPrivateKey, Permission::kAgree, algorithm);
     const auto ciphertext = KemTestFactory::kCiphertext;
@@ -398,7 +398,7 @@ TEST_P(KeyManagementExecutorKemVariantTest, RoutesAllStandardKemParameterSets)
     auto decapsulated_secret =
         service->AcquireKeyForOperation(kClientId, decapsulated_secret_id, kProviderId, Permission::kDerive);
     ASSERT_TRUE(decapsulated_secret.has_value());
-    EXPECT_EQ(decapsulated_secret.value().Handler().GetHandle().algorithm, algorithm);
+    EXPECT_EQ(decapsulated_secret.value().Handler().GetHandle().algorithm.name, algorithm);
     EXPECT_EQ(factory->get_size_calls, 2U);
     EXPECT_EQ(factory->encapsulate_calls, 1U);
     EXPECT_EQ(factory->decapsulate_calls, 1U);
@@ -471,7 +471,7 @@ TEST_F(KeyManagementExecutorKemTest, UnspecifiedPublicKeyPermissionsRemainUnrest
 {
     key_management::ProviderKeyHandle handle{};
     handle.provider_id = kProviderId;
-    handle.algorithm = std::string{kAlgorithm};
+    handle.algorithm = *::score::crypto::GetAlgorithmDescriptor(kAlgorithm);
     handle.material_kind = key_management::KeyMaterialKind::kPublicKey;
     handle.is_asymmetric = true;
     handle.key_size = 32U;
@@ -493,7 +493,7 @@ TEST_F(KeyManagementExecutorKemTest, AsymmetricHandlesKeepPublicAndPrivateOperat
 {
     key_management::ProviderKeyHandle handle{};
     handle.provider_id = kProviderId;
-    handle.algorithm = std::string{kAlgorithm};
+    handle.algorithm = *::score::crypto::GetAlgorithmDescriptor(kAlgorithm);
     handle.material_kind = key_management::KeyMaterialKind::kPrivateKey;
     handle.is_asymmetric = true;
     handle.key_size = 32U;
@@ -528,7 +528,7 @@ TEST_F(KeyManagementExecutorKemTest, SymmetricKeysAndSharedSecretsUseTheirOwnPer
     {
         key_management::ProviderKeyHandle handle{};
         handle.provider_id = kProviderId;
-        handle.algorithm = std::string{kAlgorithm};
+        handle.algorithm = *::score::crypto::GetAlgorithmDescriptor(kAlgorithm);
         handle.material_kind = kind;
         handle.key_size = 32U;
         handle.permissions = Permission::kDerive;
@@ -588,10 +588,10 @@ TEST(KeyManagementFactoryKemTest, DefaultKemHooksReturnUnsupported)
     const auto private_key = MakeKey(key_management::KeyMaterialKind::kPrivateKey, Permission::kAgree);
     const std::array<std::uint8_t, 1U> ciphertext{{0x01U}};
 
-    auto size = factory.GetEncapsulationCiphertextSize({*public_key, std::string{kAlgorithm}});
-    auto encapsulate = factory.EncapsulateKey({*public_key, std::string{kAlgorithm}});
+    auto size = factory.GetEncapsulationCiphertextSize({*public_key, *::score::crypto::GetAlgorithmDescriptor(kAlgorithm)});
+    auto encapsulate = factory.EncapsulateKey({*public_key, *::score::crypto::GetAlgorithmDescriptor(kAlgorithm)});
     auto decapsulate = factory.DecapsulateKey(
-        {*private_key, std::string{kAlgorithm}, score::cpp::span<const std::uint8_t>{ciphertext.data(), ciphertext.size()}});
+        {*private_key, *::score::crypto::GetAlgorithmDescriptor(kAlgorithm), score::cpp::span<const std::uint8_t>{ciphertext.data(), ciphertext.size()}});
 
     ASSERT_FALSE(size.has_value());
     ASSERT_FALSE(encapsulate.has_value());

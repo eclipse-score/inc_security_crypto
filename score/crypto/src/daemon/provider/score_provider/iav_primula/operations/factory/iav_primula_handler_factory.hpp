@@ -59,14 +59,14 @@ class IavPrimulaHandlerFactory final
     /// @return A signature handler, or kUnsupportedAlgorithm if the algorithm
     ///         is not an ML-DSA signature algorithm.
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateSignHandler(
-        const common::AlgorithmId& algorithm) override;
+        const AlgorithmDescriptor& algorithm) override;
 
     /// @brief Create a handler for a supported ML-DSA verification algorithm.
     ///
     /// @return A verification handler, or kUnsupportedAlgorithm if the
     ///         algorithm is not an ML-DSA signature algorithm.
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateVerifyHandler(
-        const common::AlgorithmId& algorithm) override;
+        const AlgorithmDescriptor& algorithm) override;
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::iav_primula

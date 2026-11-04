@@ -20,7 +20,10 @@ IavPrimulaSharedSecretHandler::IavPrimulaSharedSecretHandler(key_management::Sec
     : m_secret{std::move(secret)}
 {
     m_handle.provider_id = provider_id;
-    m_handle.algorithm = "KEM-SHARED-SECRET";
+    m_handle.algorithm.name = "KEM-SHARED-SECRET";
+    m_handle.algorithm.category = AlgorithmCategory::kKey;
+    m_handle.algorithm.key_type = KeyType::kSecret;
+    m_handle.algorithm.key_bits = static_cast<std::uint16_t>(m_secret.bytes.size() * 8U);
     m_handle.key_size = m_secret.bytes.size();
     m_handle.material_kind = key_management::KeyMaterialKind::kSharedSecret;
     m_handle.permissions = score::crypto::KeyOperationPermission::kDerive;

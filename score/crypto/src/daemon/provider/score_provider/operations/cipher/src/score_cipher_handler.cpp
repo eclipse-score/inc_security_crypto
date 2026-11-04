@@ -13,7 +13,6 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/score_cipher_handler.hpp"
 
-#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/cipher_padding.hpp"
 #include "score/crypto/src/daemon/common/context_mode.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/cipher_executor.hpp"
@@ -29,7 +28,7 @@ using common::DaemonErrorCode;
 using common::ResponseParameters;
 using common::StreamOperationState;
 
-ScoreCipherHandler::ScoreCipherHandler(std::unique_ptr<CipherExecutor> executor, const common::AlgorithmId& algorithm)
+ScoreCipherHandler::ScoreCipherHandler(std::unique_ptr<CipherExecutor> executor, const AlgorithmDescriptor& algorithm)
     : m_algorithm{algorithm}, m_state{StreamOperationState::IDLE}, m_executor{std::move(executor)}
 {
 }
@@ -86,16 +85,12 @@ Expected<std::monostate, DaemonErrorCode> ScoreCipherHandler::Reset()
 
 std::size_t ScoreCipherHandler::GetBlockSize() const noexcept
 {
-    const auto info =
-        ::score::crypto::daemon::common::LookupCipher(std::string_view{m_algorithm.data(), m_algorithm.size()});
-    return info.has_value() ? info->block_size : 0U;
+    return (m_algorithm.category == AlgorithmCategory::kCipher) ? m_algorithm.block_size : 0U;
 }
 
 std::size_t ScoreCipherHandler::GetIvSize() const noexcept
 {
-    const auto info =
-        ::score::crypto::daemon::common::LookupCipher(std::string_view{m_algorithm.data(), m_algorithm.size()});
-    return info.has_value() ? info->iv_size : 0U;
+    return (m_algorithm.category == AlgorithmCategory::kCipher) ? m_algorithm.iv_size : 0U;
 }
 
 Expected<std::size_t, DaemonErrorCode> ScoreCipherHandler::GetMaxOutputSize(std::size_t input_size) const noexcept

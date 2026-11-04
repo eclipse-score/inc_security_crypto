@@ -37,9 +37,9 @@ class IavPrimulaVerifyHandler final : public operations::verify::ScoreVerifyHand
     /// algorithm.
     ///
     /// @param executor Provider-neutral executor for verification operations.
-    /// @param algorithm ML-DSA algorithm identifier.
+    /// @param algorithm Resolved ML-DSA algorithm descriptor.
     IavPrimulaVerifyHandler(std::unique_ptr<operations::verify::VerifyExecutor> executor,
-                            common::AlgorithmId algorithm);
+                            const AlgorithmDescriptor& algorithm);
     ~IavPrimulaVerifyHandler() override = default;
 
     IavPrimulaVerifyHandler(const IavPrimulaVerifyHandler&) = delete;

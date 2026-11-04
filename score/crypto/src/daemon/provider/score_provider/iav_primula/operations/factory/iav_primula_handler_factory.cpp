@@ -57,24 +57,24 @@ IavPrimulaHandlerFactory::IavPrimulaHandlerFactory(std::shared_ptr<key_managemen
 }
 
 ::score::Result<handler::Handler::Sptr> IavPrimulaHandlerFactory::CreateSignHandler(
-    const common::AlgorithmId& algorithm)
+    const AlgorithmDescriptor& algorithm)
 {
     if (!common::IsPqcSignatureAlgorithm(algorithm))
     {
         return MakeUnsupportedAlgorithmError("Algorithm is not a supported iavPrimula signature algorithm: " +
-                                             algorithm);
+                                             std::string{algorithm.name});
     }
 
     return std::make_shared<IavPrimulaSignHandler>(std::make_unique<operations::sign::SignExecutor>(), algorithm);
 }
 
 ::score::Result<handler::Handler::Sptr> IavPrimulaHandlerFactory::CreateVerifyHandler(
-    const common::AlgorithmId& algorithm)
+    const AlgorithmDescriptor& algorithm)
 {
     if (!common::IsPqcSignatureAlgorithm(algorithm))
     {
         return MakeUnsupportedAlgorithmError("Algorithm is not a supported iavPrimula verification algorithm: " +
-                                             algorithm);
+                                             std::string{algorithm.name});
     }
 
     return std::make_shared<IavPrimulaVerifyHandler>(std::make_unique<operations::verify::VerifyExecutor>(), algorithm);

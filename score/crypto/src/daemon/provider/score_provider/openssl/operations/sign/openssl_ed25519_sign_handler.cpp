@@ -35,18 +35,17 @@ using ::score::crypto::daemon::common::DaemonErrorCode;
 using ::score::crypto::daemon::common::StreamOperationState;
 
 OpenSslEd25519SignHandler::OpenSslEd25519SignHandler(std::unique_ptr<operations::sign::SignExecutor> executor,
-                                                     const common::AlgorithmId& algorithm)
+                                                     const AlgorithmDescriptor& algorithm)
     : ScoreSignHandler{std::move(executor), algorithm}
 {
 }
 
 OpenSslEd25519SignHandler::~OpenSslEd25519SignHandler() = default;
 
-bool OpenSslEd25519SignHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool OpenSslEd25519SignHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    const std::string_view value{algorithm.data(), algorithm.size()};
-    return ::score::crypto::daemon::provider::openssl::detail::IsSignatureAlgorithmSupported(value) &&
-           algo::IsEd25519Algorithm(value);
+    return (algorithm.key_type == ::score::crypto::KeyType::kEd25519) &&
+           ::score::crypto::daemon::provider::openssl::detail::IsSignatureSupported(algorithm);
 }
 
 Expected<std::monostate, DaemonErrorCode> OpenSslEd25519SignHandler::InitializeContext(
