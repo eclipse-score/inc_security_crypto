@@ -592,7 +592,7 @@ configuration, verifies access control, and returns a <code class="docutils lite
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">CryptoResourceId</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kt">uint64_t</span><span class="w"> </span><span class="n">id</span><span class="p">;</span><span class="w">                   </span><span class="c1">// daemon-assigned, unique per session</span>
 <span class="w">    </span><span class="n">ResourceType</span><span class="w"> </span><span class="n">type</span><span class="p">;</span><span class="w">             </span><span class="c1">// kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,</span>
-<span class="w">                                   </span><span class="c1">// kKey, kCertificate, kSecureObject, kDataObject</span>
+<span class="w">                                   </span><span class="c1">// kKey, kCertificate, kSecureObject, kDataObject, kSharedSecret</span>
 <span class="w">    </span><span class="n">ResourcePersistence</span><span class="w"> </span><span class="n">persistence</span><span class="p">;</span><span class="w"> </span><span class="c1">// kPersistent or kEphemeral</span>
 <span class="w">    </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">primary_provider</span><span class="p">;</span><span class="w">     </span><span class="c1">// owning device/provider index (0 = unbound)</span>
 <span class="p">};</span>
@@ -603,11 +603,14 @@ configuration, verifies access control, and returns a <code class="docutils lite
 in unordered containers.</p>
 <p><code class="docutils literal notranslate"><span class="pre">CryptoResourceId</span></code> unifies persistent and ephemeral resources via the
 <code class="docutils literal notranslate"><span class="pre">ResourcePersistence</span></code> field. Keys are ephemeral by default when
-generated, derived, agreed, encapsulated, decapsulated, imported, or unwrapped — they receive a
+generated, derived, imported, unwrapped, or agreed with a KDF — they receive a
 <code class="docutils literal notranslate"><span class="pre">CryptoResourceId</span></code> with <code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">==</span> <span class="pre">kKey</span></code> and
 <code class="docutils literal notranslate"><span class="pre">persistence</span> <span class="pre">==</span> <span class="pre">kEphemeral</span></code>. Use
 <code class="docutils literal notranslate"><span class="pre">IKeyManagementContext::PersistKey()</span></code> to promote an ephemeral key
 to a persistent slot.</p>
+<p>Shared secrets are represented by <code class="docutils literal notranslate"><span class="pre">CryptoResourceId</span></code> with
+<code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">==</span> <span class="pre">kSharedSecret</span></code> and <code class="docutils literal notranslate"><span class="pre">persistence</span> <span class="pre">==</span> <span class="pre">kEphemeral</span></code>, rather than
+as <code class="docutils literal notranslate"><span class="pre">kKey</span></code> resources.</p>
 <p>Key slots (<code class="docutils literal notranslate"><span class="pre">kKeySlot</span></code>) represent only logical persistent storage locations.
 Ephemeral keys exist in transient memory and have no slot; some providers
 may internally use RAM slots, but this is an implementation detail not
@@ -620,8 +623,8 @@ certificate subject), typed object interfaces can be obtained from
 </section>
 <section id="resource-lifecycle-and-cryptoresourceguard">
 <h2>Resource Lifecycle and CryptoResourceGuard<a class="headerlink" href="#resource-lifecycle-and-cryptoresourceguard" title="Link to this heading">#</a></h2>
-<p>Transient resources (ephemeral keys, loaded key material, extracted
-certificate public keys) must be deterministically released to prevent
+<p>Transient resources (ephemeral keys, shared secrets, loaded key material,
+extracted certificate public keys) must be deterministically released to prevent
 sensitive key material from lingering in daemon memory.</p>
 <p>All resource-producing methods return a <code class="docutils literal notranslate"><span class="pre">CryptoResourceGuard</span></code> — a move-only
 RAII wrapper — either directly or, for <code class="docutils literal notranslate"><span class="pre">EncapsulateKey()</span></code>, as the
@@ -710,17 +713,9 @@ to detect that the resource is still referenced by an active context — call
 </section>
 <section id="key-encapsulation-mechanism">
 <h2>Key Encapsulation Mechanism<a class="headerlink" href="#key-encapsulation-mechanism" title="Link to this heading">#</a></h2>
-<p>ML-KEM is a Key Management operation. <code class="docutils literal notranslate"><span class="pre">GetEncapsulationCiphertextSize()</span></code>
-queries the required ciphertext capacity for a managed public key.
-<code class="docutils literal notranslate"><span class="pre">EncapsulateKey()</span></code> uses that public key and writes public ciphertext to a
-caller-owned buffer; it returns an <code class="docutils literal notranslate"><span class="pre">EncapsulationResult</span></code> containing the
-ciphertext length and a guard for the provider-held shared secret.
-<code class="docutils literal notranslate"><span class="pre">DecapsulateKey()</span></code> takes a managed private key and ciphertext, and returns
-only the shared-secret guard.</p>
-<p>The shared secret is an ephemeral, derive-only, non-exportable key registered
-through the normal Key Management lifecycle. Its bytes never appear in an IPC
-response. KEM therefore has no separate operation context, daemon actor, or
-handler family.</p>
+<p>ML-KEM encapsulation and decapsulation are provided through the Key Management
+API. See <a class="reference internal" href="key_management_architecture.html#crypto-key-management-kem-operations"><span class="std std-ref">KEM operations</span></a> for API behavior and
+shared-secret lifecycle details.</p>
 </section>
 <section id="memory-and-data-plane-model">
 <h2>Memory and Data Plane Model<a class="headerlink" href="#memory-and-data-plane-model" title="Link to this heading">#</a></h2>
