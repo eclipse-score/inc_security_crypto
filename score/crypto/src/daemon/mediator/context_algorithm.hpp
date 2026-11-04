@@ -25,7 +25,7 @@ namespace score::crypto::daemon::mediator::operations
 
 /// @brief Whether a CTX_CREATE context of @p context_type is bound to an algorithm.
 ///
-/// A KEY_MANAGEMENT context names no algorithm; each of its requests carries
+/// A KEY:MANAGEMENT context names no algorithm; each of its requests carries
 /// and resolves its own.
 [[nodiscard]] inline constexpr bool ContextTakesAlgorithm(const std::string_view context_type) noexcept
 {

@@ -45,6 +45,15 @@ cc_test(
 )
 
 cc_test(
+    name = "required_provider_capability_test",
+    srcs = ["required_provider_capability_test.cpp"],
+    deps = [
+        ":mediator_operations",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "context_algorithm_test",
     srcs = ["context_algorithm_test.cpp"],
     deps = [

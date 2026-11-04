@@ -85,7 +85,7 @@ struct ContextCreationRequest
 {
     std::string_view context_type{};
     /// Null for a context type that names no algorithm, which the daemon reads
-    /// as the empty string in slot [1]. KEY_MANAGEMENT is the only such type.
+    /// as the empty string in slot [1]. KEY:MANAGEMENT is the only such type.
     const AlgorithmId* algorithm{nullptr};
     std::optional<ProviderType> provider_type{std::nullopt};
     std::optional<std::uint64_t> key_node_id{std::nullopt};
