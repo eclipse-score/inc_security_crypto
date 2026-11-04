@@ -487,7 +487,7 @@ and the IPC protocol is unchanged. On top of it:
 * The mediator resolves the algorithm of ``CTX_CREATE`` once, before any
   provider is asked; a name without a row is refused with
   ``kUnsupportedAlgorithm``. A ``RANDOM`` context without an algorithm selects
-  the ``"CTR-DRBG"`` row. A ``KEY_MANAGEMENT`` context is bound to no
+  the ``"CTR-DRBG"`` row. A ``KEY:MANAGEMENT`` context is bound to no
   algorithm and is created through the separate factory entry point
   ``ICryptoHandlerFactory::CreateKeyManagementHandler()``; all other contexts
   go through ``CreateHandler(handler_id, const AlgorithmDescriptor&)``.

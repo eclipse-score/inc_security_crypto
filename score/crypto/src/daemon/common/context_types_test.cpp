@@ -49,6 +49,7 @@ constexpr std::string_view kAllContextTypes[] = {
     ctx::kVerify,
     ctx::kRandom,
     ctx::kKeyManagement,
+    ctx::kCertManagement,
 };
 
 /// Context types that bind no key at CTX_CREATE.
@@ -56,6 +57,7 @@ constexpr std::string_view kKeylessContextTypes[] = {
     ctx::kHash,
     ctx::kRandom,
     ctx::kKeyManagement,
+    ctx::kCertManagement,
 };
 
 TEST(ContextTypesTest, ExactlyTheKeyedTypesCarryAPermission)

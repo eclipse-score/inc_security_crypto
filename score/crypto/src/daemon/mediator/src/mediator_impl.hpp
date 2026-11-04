@@ -82,7 +82,7 @@ class MediatorImpl : public IMediator
     /// @brief Resolve a provider and create a compatible handler.
     ///
     /// @p algorithm is the resolved catalog row of the requested algorithm, or
-    /// std::nullopt for a KEY_MANAGEMENT context, which names no algorithm.
+    /// std::nullopt for a KEY:MANAGEMENT context, which names no algorithm.
     ///
     /// Preferred-provider fallback is attempted only when the primary provider
     /// is unavailable or rejects the requested context/algorithm. Exact provider
