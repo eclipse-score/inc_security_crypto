@@ -95,7 +95,6 @@ bool ComputeSha512WithNewStack(const std::vector<uint8_t>& input, std::vector<ui
 
     HashContextConfig cfg;
     cfg.SetAlgorithm("SHA512");
-    cfg.SetProviderType(ProviderType::kSoftware);
     auto hash_result = ctx_result.value()->CreateHashContext(cfg);
     if (!hash_result.has_value())
     {

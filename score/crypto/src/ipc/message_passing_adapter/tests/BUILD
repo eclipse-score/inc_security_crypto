@@ -18,6 +18,7 @@ cc_library(
     name = "message_passing_adapter_integration_test_process_separatio_common",
     hdrs = ["message_passing_adapter_integration_test_process_separation_common.h"],
     deps = ["//score/crypto/src/daemon/control_plane"],
+    testonly = True,
 )
 
 cc_binary(
@@ -29,6 +30,7 @@ cc_binary(
         "//score/crypto/src/daemon/control_plane",
         "@googletest//:gtest_main",
     ],
+    testonly = True,
 )
 
 cc_binary(
@@ -40,6 +42,7 @@ cc_binary(
         "//score/crypto/src/ipc/message_passing_adapter:ipc_config",
         "@googletest//:gtest_main",
     ],
+    testonly = True,
 )
 
 cc_test(

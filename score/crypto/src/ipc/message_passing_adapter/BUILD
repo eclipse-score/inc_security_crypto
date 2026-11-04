@@ -54,6 +54,7 @@ cc_test(
         ":message_passing_protocol",
         "@googletest//:gtest_main",
     ],
+    testonly = True,
 )
 
 cc_library(
