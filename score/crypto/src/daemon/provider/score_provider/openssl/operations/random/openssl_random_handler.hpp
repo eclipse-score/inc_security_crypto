@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_RANDOM_OPENSSL_RANDOM_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_RANDOM_OPENSSL_RANDOM_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -47,7 +48,7 @@ class OpenSslRandomHandler final
     using Sptr = std::shared_ptr<OpenSslRandomHandler>;
 
     explicit OpenSslRandomHandler(std::unique_ptr<operations::random::RandomExecutor> executor,
-                                  const common::AlgorithmId& algorithm);
+                                  const AlgorithmDescriptor& algorithm);
     ~OpenSslRandomHandler() override = default;
 
     OpenSslRandomHandler(const OpenSslRandomHandler&) = delete;
@@ -66,7 +67,7 @@ class OpenSslRandomHandler final
     SeedRandom(score::cpp::span<const std::uint8_t> seed) override;
 
     /// @brief Check if the given RNG algorithm identifier is supported.
-    [[nodiscard]] static bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
+    [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
 
   private:
     static constexpr std::string_view LOG_PREFIX = "[OPENSSL_RANDOM_HANDLER]";

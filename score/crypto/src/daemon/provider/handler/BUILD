@@ -35,6 +35,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":handler_headers",
+        "//score/crypto/src/api/types:algorithm_types",
         ":handler_utils_hdr",
         "//score/crypto/src/daemon/common",
         "@score_baselibs//score/result",

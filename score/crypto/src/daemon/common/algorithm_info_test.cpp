@@ -12,43 +12,79 @@
  ********************************************************************************/
 
 /// @file algorithm_info_test.cpp
-/// @brief Verifies provider-neutral hash and MAC metadata lookup.
+/// @brief Verifies provider-neutral algorithm metadata lookup.
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 
 #include <gtest/gtest.h>
+
+#include <optional>
+#include <string_view>
 
 namespace score::crypto::daemon::common
 {
 namespace
 {
 
-TEST(AlgorithmInfoTest, HashAlgorithmMetadata)
+::score::crypto::AlgorithmDescriptor Row(std::string_view name)
 {
-    const auto sha256_info = LookupHashAlgorithmInfo("SHA256");
-    ASSERT_TRUE(sha256_info.has_value());
-    EXPECT_EQ(sha256_info->algorithm, HashAlgorithm::kSha256);
-    EXPECT_EQ(sha256_info->digest_size, 32U);
-
-    const auto sha224_info = LookupHashAlgorithmInfo("SHA224");
-    ASSERT_TRUE(sha224_info.has_value());
-    EXPECT_EQ(sha224_info->algorithm, HashAlgorithm::kSha224);
-    EXPECT_EQ(sha224_info->digest_size, 28U);
-
-    EXPECT_FALSE(LookupHashAlgorithmInfo("SHA1").has_value());
-    EXPECT_FALSE(LookupHashAlgorithmInfo("MD5").has_value());
-    EXPECT_FALSE(LookupDigestSize("UNSUPPORTED_ALGORITHM").has_value());
+    const auto row = ::score::crypto::GetAlgorithmDescriptor(name);
+    EXPECT_TRUE(row.has_value()) << name;
+    return row.value_or(::score::crypto::AlgorithmDescriptor{});
 }
 
-TEST(AlgorithmInfoTest, MacAlgorithmMetadata)
+TEST(AlgorithmInfoTest, DigestSizeComesFromTheHashRow)
 {
-    const auto hmac_sha256_info = LookupMacAlgorithmInfo("HMAC-SHA256");
-    ASSERT_TRUE(hmac_sha256_info.has_value());
-    EXPECT_EQ(hmac_sha256_info->algorithm, MacAlgorithm::kHmacSha256);
-    EXPECT_EQ(hmac_sha256_info->mac_size, 32U);
+    EXPECT_EQ(LookupDigestSize(::score::crypto::HashFunction::kSha224), 28U);
+    EXPECT_EQ(LookupDigestSize(::score::crypto::HashFunction::kSha256), 32U);
+    EXPECT_EQ(LookupDigestSize(::score::crypto::HashFunction::kSha384), 48U);
+    EXPECT_EQ(LookupDigestSize(::score::crypto::HashFunction::kSha512), 64U);
+    EXPECT_EQ(LookupDigestSize(::score::crypto::HashFunction::kSha1), 20U);
+    EXPECT_FALSE(LookupDigestSize(::score::crypto::HashFunction::kNone).has_value());
+}
 
-    EXPECT_FALSE(LookupMacAlgorithmInfo("HMAC-SHA1").has_value());
-    EXPECT_FALSE(LookupMacSize("UNSUPPORTED_ALGORITHM").has_value());
+TEST(AlgorithmInfoTest, KeySizeCoversRowsThatLabelAKey)
+{
+    EXPECT_EQ(LookupKeySize(Row("AES-256")), 32U);
+    EXPECT_EQ(LookupKeySize(Row("AES-128-CBC")), 16U);
+    EXPECT_EQ(LookupKeySize(Row("AES-192-GCM")), 24U);
+    EXPECT_EQ(LookupKeySize(Row("AES-256-CMAC")), 32U);
+    EXPECT_EQ(LookupKeySize(Row("HMAC-SHA512")), 64U);
+    EXPECT_EQ(LookupKeySize(Row("ECDSA-P521")), 66U);
+    EXPECT_EQ(LookupKeySize(Row("RSA-3072")), 384U);
+    EXPECT_EQ(LookupKeySize(Row("Ed25519")), kEd25519KeySize);
+}
+
+TEST(AlgorithmInfoTest, KeySizeRefusesRowsThatLabelNoKey)
+{
+    EXPECT_FALSE(LookupKeySize(Row("SHA256")).has_value());
+    EXPECT_FALSE(LookupKeySize(Row("CTR-DRBG")).has_value());
+    EXPECT_FALSE(LookupKeySize(Row("RSA-PSS-2048-SHA256")).has_value());
+    EXPECT_FALSE(LookupKeySize(Row("ECDSA-P256-SHA256")).has_value());
+    EXPECT_FALSE(LookupKeySize(Row("ECDSA-P384-SHA224")).has_value());
+    EXPECT_FALSE(LookupKeySize(::score::crypto::AlgorithmDescriptor{}).has_value());
+}
+
+TEST(AlgorithmInfoTest, EcFieldSizeFollowsTheCurve)
+{
+    EXPECT_EQ(EcFieldSize(Row("ECDSA-P256")), 32U);
+    EXPECT_EQ(EcFieldSize(Row("ECDSA-P384-SHA512")), 48U);
+    EXPECT_EQ(EcFieldSize(Row("ECDSA-P521-SHA224")), 66U);
+    EXPECT_EQ(EcFieldSize(Row("Ed25519")), 0U);
+    for (const auto& row : ::score::crypto::kAlgorithmCatalog)
+    {
+        if ((row.key_type == ::score::crypto::KeyType::kEcc) &&
+            (row.category == ::score::crypto::AlgorithmCategory::kSignature))
+        {
+            EXPECT_EQ(row.output_size, 2U * EcFieldSize(row)) << row.name;
+        }
+    }
+}
+
+TEST(AlgorithmInfoTest, Ed25519SizesAreFixed)
+{
+    EXPECT_EQ(kEd25519KeySize, 32U);
+    EXPECT_EQ(kEd25519SignatureSize, 64U);
 }
 
 }  // namespace

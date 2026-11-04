@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_HASH_OPENSSL_HASH_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_HASH_OPENSSL_HASH_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -37,7 +38,7 @@ class OpenSslHashHandler final
 
     explicit OpenSslHashHandler(
         std::unique_ptr<::score::crypto::daemon::provider::score_provider::operations::hash::HashExecutor> executor,
-        common::AlgorithmId algorithm,
+        const AlgorithmDescriptor& algorithm,
         DigestUpdateFunction digestUpdate = &EVP_DigestUpdate);
     ~OpenSslHashHandler() override;
 
@@ -57,7 +58,7 @@ class OpenSslHashHandler final
         score::cpp::span<std::uint8_t> outputHash) override;
 
     /// @brief Check if the given algorithm is supported by this handler.
-    [[nodiscard]] static bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
+    [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
 
   private:
     // OpenSSL-specific stream context management
@@ -65,8 +66,8 @@ class OpenSslHashHandler final
     DigestUpdateFunction mDigestUpdate;
 
     // Helper methods (OpenSSL provider-specific)
-    const EVP_MD* GetEVPMD(const std::string& algorithm) const;
-    Expected<std::monostate, common::DaemonErrorCode> ValidateAlgorithm(const std::string& algorithm) const;
+    const EVP_MD* GetEVPMD(const AlgorithmDescriptor& algorithm) const;
+    Expected<std::monostate, common::DaemonErrorCode> ValidateAlgorithm(const AlgorithmDescriptor& algorithm) const;
     void CleanupStreamContext();
 };
 

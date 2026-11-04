@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_HASH_PKCS11_HASH_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_HASH_PKCS11_HASH_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
@@ -61,7 +62,7 @@ class Pkcs11HashHandler final : public handler::Handler
     /// @param provider  Non-owning pointer to the parent provider for session release on destruction.
     explicit Pkcs11HashHandler(std::unique_ptr<Pkcs11HashExecutor> executor,
                                CK_SESSION_HANDLE session,
-                               const common::AlgorithmId& algorithm,
+                               const AlgorithmDescriptor& algorithm,
                                Pkcs11Provider* provider);
 
     /// @brief Destructor: returns the dedicated session to the provider pool.
@@ -83,11 +84,11 @@ class Pkcs11HashHandler final : public handler::Handler
     [[nodiscard]] Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Reset() override;
 
     /// @brief Check if the given algorithm is supported by this handler.
-    [[nodiscard]] static bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
+    [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
 
   private:
     /// @brief Map algorithm ID string to CK_MECHANISM_TYPE.
-    [[nodiscard]] static CK_MECHANISM_TYPE MapAlgorithm(std::string_view algorithm) noexcept;
+    [[nodiscard]] static CK_MECHANISM_TYPE MapAlgorithm(const AlgorithmDescriptor& algorithm) noexcept;
 
     /// @brief Return the digest output size for the current algorithm.
     [[nodiscard]] std::optional<std::uint64_t> GetDigestSize() const noexcept;
@@ -95,7 +96,7 @@ class Pkcs11HashHandler final : public handler::Handler
     std::unique_ptr<Pkcs11HashExecutor> m_executor;
     Pkcs11HashExecutionContext m_ctx;  ///< stable per-context parameters for executor
     Pkcs11Provider* m_provider;        ///< Non-owning; used for ReleaseSession on destruction
-    common::AlgorithmId m_algorithm;
+    AlgorithmDescriptor m_algorithm;
     common::StreamOperationState m_state;
 };
 

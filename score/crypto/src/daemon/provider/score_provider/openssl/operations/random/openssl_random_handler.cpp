@@ -14,6 +14,7 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/random/openssl_random_handler.hpp"
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 
 #include <openssl/crypto.h>  // OPENSSL_cleanse
 #include <openssl/rand.h>
@@ -28,24 +29,15 @@ namespace score::crypto::daemon::provider::score_provider::openssl::handler
 
 using ::score::crypto::daemon::common::DaemonErrorCode;
 
-namespace
-{
-/// OpenSSL's public RNG is a CTR-DRBG; the empty identifier means
-/// "whatever the provider considers its default".
-constexpr std::string_view kDefaultAlgorithm{};
-constexpr std::string_view kCtrDrbgAlgorithm{"CTR-DRBG"};
-}  // namespace
-
 OpenSslRandomHandler::OpenSslRandomHandler(std::unique_ptr<operations::random::RandomExecutor> executor,
-                                           const common::AlgorithmId& algorithm)
+                                           const AlgorithmDescriptor& algorithm)
     : ScoreRandomHandler{std::move(executor), algorithm}
 {
 }
 
-bool OpenSslRandomHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool OpenSslRandomHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    const std::string_view name{algorithm.data(), algorithm.size()};
-    return (name == kDefaultAlgorithm) || (name == kCtrDrbgAlgorithm);
+    return ::score::crypto::daemon::provider::openssl::detail::IsRandomSupported(algorithm);
 }
 
 ::score::crypto::Expected<std::size_t, DaemonErrorCode> OpenSslRandomHandler::GenerateRandom(

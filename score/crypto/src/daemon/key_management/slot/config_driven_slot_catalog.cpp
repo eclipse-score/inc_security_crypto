@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/key_management/slot/config_driven_slot_catalog.hpp"
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
 #include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
 
@@ -97,6 +98,15 @@ void ConfigDrivenSlotCatalog::Load(SlotRegistry& registry)
 
     for (const auto& entry : entries)
     {
+        // The configuration keeps algorithm names; a name the catalog does not
+        // know could never be served, so the slot is not registered at all.
+        if (!::score::crypto::GetAlgorithmDescriptor(entry.algorithm).has_value())
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "Skipping slot '" << entry.slot_name << "': unknown algorithm '"
+                                       << entry.algorithm << "'";
+            continue;
+        }
+
         KeySlotConfig config{};
         config.slot_name = entry.slot_name;
         config.algorithm = entry.algorithm;
