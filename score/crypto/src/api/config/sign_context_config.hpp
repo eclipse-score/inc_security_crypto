@@ -25,12 +25,12 @@ namespace crypto
 /// @brief Configuration for signature generation context creation.
 ///
 /// Requires an algorithm and a private key. Supports classical
-/// algorithms (RSA-PSS, ECDSA) and PQC algorithms (ML-DSA-65, SLH-DSA-SHA2-128s).
+/// algorithms (RSA-PSS, ECDSA, Ed25519), e.g. "ECDSA-P256-SHA256".
 ///
 /// @par Example
 /// @code
 ///   SignContextConfig config;
-///   config.SetAlgorithm("ML-DSA-65").SetKey(signing_key);
+///   config.SetAlgorithm("ECDSA-P256-SHA256").SetKey(signing_key);
 ///   auto ctx = crypto_context->CreateSignContext(config);
 /// @endcode
 struct SignContextConfig : public BaseContextConfig

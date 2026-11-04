@@ -21,7 +21,6 @@
 #include <optional>
 #include <string_view>
 
-#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -68,32 +67,6 @@ inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities
     {"CERT", common::ProviderCapability::kCertManagement},
     {"KEY", common::ProviderCapability::kKeyManagement},
 }};
-
-/// @brief Whether a CTX_CREATE context of @p context_type is bound to an algorithm.
-///
-/// A KEY_MANAGEMENT context names no algorithm; each of its requests carries
-/// and resolves its own.
-[[nodiscard]] inline constexpr bool ContextTakesAlgorithm(const std::string_view context_type) noexcept
-{
-    return context_type != common::context_types::kKeyManagement;
-}
-
-/// @brief Resolve the algorithm name of a CTX_CREATE request to its catalog row.
-///
-/// The name is resolved once, here; providers receive the row and never see
-/// the name. A RANDOM context without an algorithm asks for the default
-/// generator, CTR-DRBG.
-/// @return the catalog row, or std::nullopt if the catalog does not know the name.
-[[nodiscard]] inline constexpr std::optional<::score::crypto::AlgorithmDescriptor> ResolveContextAlgorithm(
-    const std::string_view context_type,
-    const std::string_view algorithm) noexcept
-{
-    if ((context_type == common::context_types::kRandom) && algorithm.empty())
-    {
-        return ::score::crypto::GetAlgorithmDescriptor(::score::crypto::Algorithm::kCtrDrbg);
-    }
-    return ::score::crypto::GetAlgorithmDescriptor(algorithm);
-}
 
 /// @brief Daemon-side interpretation of a public ProviderType wire value.
 struct ProviderTypePreference final
