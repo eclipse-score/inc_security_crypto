@@ -579,7 +579,7 @@
 <span id="crypto-design-decisions"></span><h1>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h1>
 <section id="abi-compatibility-for-ipc-layer-deferred-post-stabilisation">
 <h2>ABI Compatibility for IPC Layer (Deferred Post-Stabilisation)<a class="headerlink" href="#abi-compatibility-for-ipc-layer-deferred-post-stabilisation" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-7933e8c1">
+<div class="need_container docutils container" id="SNCB-33d30f76">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__no_abi_compatibility_ipc">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -705,7 +705,7 @@ efficiently once the stack stabilises.</p>
 </section>
 <section id="cryptoresourceguard-lifetime-via-daemon-side-reference-counting">
 <h2>CryptoResourceGuard Lifetime via Daemon-Side Reference Counting<a class="headerlink" href="#cryptoresourceguard-lifetime-via-daemon-side-reference-counting" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-0ce691fd">
+<div class="need_container docutils container" id="SNCB-447dc48b">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__cry_res_grd_lifetime">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -888,7 +888,7 @@ Memory cost is bounded by max concurrent keys (deployment-time constant).</p></l
 </section>
 <section id="shared-connection-anchor-for-persistent-resource-id-stability">
 <h2>Shared-Connection Anchor for Persistent Resource ID Stability<a class="headerlink" href="#shared-connection-anchor-for-persistent-resource-id-stability" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-530dcf7a">
+<div class="need_container docutils container" id="SNCB-7019bc73">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__conn_anchor_persistent_ids">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1022,7 +1022,7 @@ the entire application lifetime even if the IDs are no longer used.</p></li>
 </section>
 <section id="algorithmid-as-fixedcapacitystring-64">
 <h2><code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code> as <code class="docutils literal notranslate"><span class="pre">FixedCapacityString&lt;64&gt;</span></code><a class="headerlink" href="#algorithmid-as-fixedcapacitystring-64" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-83487025">
+<div class="need_container docutils container" id="SNCB-663703be">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__alg_id_fixed_cap_str">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1116,7 +1116,7 @@ from untrusted input.</p></li>
 </section>
 <section id="algorithm-catalog-alongside-algorithmid">
 <h2>Algorithm Catalog Alongside <code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code><a class="headerlink" href="#algorithm-catalog-alongside-algorithmid" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-c215a0f7">
+<div class="need_container docutils container" id="SNCB-98c01a76">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__alg_catalog">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1136,7 +1136,7 @@ from untrusted input.</p></li>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
 <div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
-<div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">``AlgorithmId`` stays the string on the wire and in the configs. A constexpr catalog (``score/crypto/src/api/types/algorithm.hpp``) maps every known name, by exact match, to an ``Algorithm`` enumerator and an ``AlgorithmDescriptor`` holding category, key type, key length, hash, curve, mode and fixed output size. Code that needs a property of an algorithm reads it from the catalog instead of searching the name for fragments.</span></span></div>
+<div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">``AlgorithmId`` stays the string on the wire, in the configs and in stored key metadata. A constexpr catalog (``score/crypto/src/api/types/algorithm.hpp``) maps every known name, by exact match, to an ``Algorithm`` enumerator and an ``AlgorithmDescriptor`` holding category, key type, key length, hash, curve, mode and fixed output size. The daemon resolves each name to its catalog row once, where the request enters it, and refuses a name the catalog does not know; providers receive the row, never the name, and decide support from its typed fields.</span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
 <div class="line"><span></span></div>
@@ -1176,33 +1176,47 @@ before binding them, so a P-256 key could be bound to an ECDSA-P384 context.</p>
 </section>
 <section id="id11">
 <h3>Decision<a class="headerlink" href="#id11" title="Link to this heading">#</a></h3>
-<p>The open set stays: <code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code> remains <code class="docutils literal notranslate"><span class="pre">FixedCapacityString&lt;64&gt;</span></code>
-(see the previous record), and a name the catalog does not know is passed to
-the providers unchanged. On top of it:</p>
+<p><code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code> remains <code class="docutils literal notranslate"><span class="pre">FixedCapacityString&lt;64&gt;</span></code> (see the previous record)
+and the IPC protocol is unchanged. On top of it:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">FromAlgorithmName()</span></code> / <code class="docutils literal notranslate"><span class="pre">ToAlgorithmName()</span></code> convert between the string and
-the <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> enumerator by exact, case-sensitive match.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">GetAlgorithmDescriptor()</span></code> and <code class="docutils literal notranslate"><span class="pre">GetAlgorithmCategory()</span></code> expose the
-properties of a known algorithm.</p></li>
-<li><p>The hash, MAC, key, cipher and curve helpers in
-<code class="docutils literal notranslate"><span class="pre">daemon/common/algorithm_info.hpp</span></code> resolve through the catalog; the daemon
-keeps no hash or MAC table of its own. ECDSA identifiers are split into exact
-<code class="docutils literal notranslate"><span class="pre">ECDSA-&lt;curve&gt;[-&lt;hash&gt;]</span></code> tokens, where the hash token must name a hash row,
-so any curve/hash pairing such as <code class="docutils literal notranslate"><span class="pre">&quot;ECDSA-P256-SHA384&quot;</span></code> is an ECDSA name
-without a row of its own. The RSA-PSS and Ed25519 helpers read modulus
-length, digest and key type from the catalog row.</p></li>
-<li><p>Providers map the catalog’s <code class="docutils literal notranslate"><span class="pre">HashFunction</span></code> to their own digest type
-(<code class="docutils literal notranslate"><span class="pre">EVP_MD</span></code>, <code class="docutils literal notranslate"><span class="pre">CKM_SHA*</span></code>) in a <code class="docutils literal notranslate"><span class="pre">switch</span></code> without a default case, so a hash
-added to the catalog does not compile without an explicit support decision
-in every provider. MD5 and SHA-1 have catalog rows and are refused there;
-the OpenSSL provider serves ECDSA for every pairing whose hash it maps.</p></li>
-<li><p>Ed25519 has no parameters, so <code class="docutils literal notranslate"><span class="pre">&quot;Ed25519&quot;</span></code> is a single row of category
-signature with key type <code class="docutils literal notranslate"><span class="pre">kEd25519</span></code>, and names both the key and the scheme.</p></li>
-<li><p>The catalog holds properties; each provider keeps its own list of the names
-it serves. <code class="docutils literal notranslate"><span class="pre">AllInCatalog()</span></code> checks such a list at compile time, so an entry
-that is misspelt or not in the catalog under the expected category fails the
-build instead of leaving the algorithm silently unserved. ECDSA pairings
-without a catalog row have no <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> enumerator.</p></li>
+the <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> enumerator by exact, case-sensitive match;
+<code class="docutils literal notranslate"><span class="pre">GetAlgorithmDescriptor()</span></code> and <code class="docutils literal notranslate"><span class="pre">GetAlgorithmCategory()</span></code> expose the
+properties of a known algorithm. The client library uses the same catalog.</p></li>
+<li><p>Every algorithm the daemon accepts is a catalog row. ECDSA has one row per
+curve (P-256, P-384, P-521) and SHA-2 digest (SHA-224 to SHA-512), twelve in
+all, whose key length, digest and IEEE P1363 signature size (64, 96, 132
+bytes) follow from the curve and hash; there is no ECDSA row for MD5 or
+SHA-1. The bare key rows <code class="docutils literal notranslate"><span class="pre">&quot;ECDSA-P256&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;ECDSA-P384&quot;</span></code> and
+<code class="docutils literal notranslate"><span class="pre">&quot;ECDSA-P521&quot;</span></code> name keys only. Ed25519 has no parameters, so <code class="docutils literal notranslate"><span class="pre">&quot;Ed25519&quot;</span></code>
+is a single row of category signature with key type <code class="docutils literal notranslate"><span class="pre">kEd25519</span></code> and names
+both the key and the scheme. Nothing in the daemon parses a name.</p></li>
+<li><p>The mediator resolves the algorithm of <code class="docutils literal notranslate"><span class="pre">CTX_CREATE</span></code> once, before any
+provider is asked; a name without a row is refused with
+<code class="docutils literal notranslate"><span class="pre">kUnsupportedAlgorithm</span></code>. A <code class="docutils literal notranslate"><span class="pre">RANDOM</span></code> context without an algorithm selects
+the <code class="docutils literal notranslate"><span class="pre">&quot;CTR-DRBG&quot;</span></code> row. A <code class="docutils literal notranslate"><span class="pre">KEY_MANAGEMENT</span></code> context is bound to no
+algorithm and is created through the separate factory entry point
+<code class="docutils literal notranslate"><span class="pre">ICryptoHandlerFactory::CreateKeyManagementHandler()</span></code>; all other contexts
+go through <code class="docutils literal notranslate"><span class="pre">CreateHandler(handler_id,</span> <span class="pre">const</span> <span class="pre">AlgorithmDescriptor&amp;)</span></code>.</p></li>
+<li><p>Every handler’s <code class="docutils literal notranslate"><span class="pre">IsAlgorithmSupported()</span></code> takes the descriptor and every
+handler stores it. Providers decide support in <code class="docutils literal notranslate"><span class="pre">switch</span></code> statements over the
+typed fields (hash, curve, key type, cipher mode) without a default case, so
+a value added to a catalog enumeration does not compile until each provider
+decides whether it serves it. The OpenSSL provider maps hash to <code class="docutils literal notranslate"><span class="pre">EVP_MD</span></code>
+(SHA-2 only), curve to its group name, cipher mode and key length to an
+<code class="docutils literal notranslate"><span class="pre">EVP_CIPHER</span></code> (AES-CBC) and signatures by key type (ECDSA on every row,
+RSA-PSS on 2048/3072/4096-bit keys, Ed25519). The PKCS#11 provider maps hash
+rows to <code class="docutils literal notranslate"><span class="pre">CKM_SHA*</span></code>, HMAC rows to <code class="docutils literal notranslate"><span class="pre">CKM_SHA*_HMAC</span></code> and keys by key type and
+length. MD5 and SHA-1 have catalog rows and are refused by both.</p></li>
+<li><p>Key management works on descriptors as well: key generation and import
+requests carry the resolved row, the request parser refuses an unknown name
+with <code class="docutils literal notranslate"><span class="pre">kUnsupportedAlgorithm</span></code>, and the key factories switch on its key type.
+Slot configuration and stored key metadata keep the algorithm name; it is
+resolved when loaded. A configured slot whose name the catalog does not know
+is not registered (an error is logged), and a key whose stored name is
+unknown is refused with <code class="docutils literal notranslate"><span class="pre">kUnsupportedAlgorithm</span></code> when loaded or peeked.
+<code class="docutils literal notranslate"><span class="pre">LookupKeySize()</span></code> in <code class="docutils literal notranslate"><span class="pre">daemon/common/algorithm_info.hpp</span></code> keeps answering
+which rows can label a key and the key length, now from the descriptor.</p></li>
 </ul>
 </section>
 <section id="id12">
@@ -1210,20 +1224,25 @@ without a catalog row have no <code class="docutils literal notranslate"><span c
 <p><strong>Positive:</strong></p>
 <ul class="simple">
 <li><p>One table holds the properties of every known algorithm, available to client and daemon.</p></li>
-<li><p>No identifier is accepted because it contains another identifier.</p></li>
+<li><p>No identifier is accepted because it contains another identifier, and an
+unknown identifier fails at context creation rather than inside a provider.</p></li>
+<li><p>Providers keep no lists of names; a new value of a catalog enumeration forces
+an explicit support decision in every provider.</p></li>
 <li><p>Key and operation algorithms can be compared on key type, length and curve.</p></li>
 </ul>
 <p><strong>Negative:</strong></p>
 <ul class="simple">
-<li><p>A new algorithm needs a catalog row in addition to provider support; a
-provider list entry without one does not compile.</p></li>
+<li><p>A new algorithm needs a catalog row before any provider can serve it, and
+a new enumerator value needs a case in every provider switch.</p></li>
+<li><p>A configured or stored name that a later catalog no longer knows makes the
+slot or key unusable until the configuration is migrated.</p></li>
 </ul>
 <p>—</p>
 </section>
 </section>
 <section id="synchronous-only-ipc-model">
 <h2>Synchronous-Only IPC Model<a class="headerlink" href="#synchronous-only-ipc-model" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-7d94d098">
+<div class="need_container docutils container" id="SNCB-0edff913">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__synchronous_ipc">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1316,7 +1335,7 @@ key to the context when the async result is consumed.</p></li>
 </section>
 <section id="context-reset-for-streaming-context-reuse">
 <h2>Context <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> for Streaming Context Reuse<a class="headerlink" href="#context-reset-for-streaming-context-reuse" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-f696c90d">
+<div class="need_container docutils container" id="SNCB-41f0eecc">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__context_reset_reuse">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1407,7 +1426,7 @@ re-create continue to work unchanged.</p></li>
 </section>
 <section id="two-layer-per-call-timeout-with-daemon-side-enforcement">
 <h2>Two-Layer Per-Call Timeout with Daemon-Side Enforcement<a class="headerlink" href="#two-layer-per-call-timeout-with-daemon-side-enforcement" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-d4be6a20">
+<div class="need_container docutils container" id="SNCB-bf83aacb">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__two_layer_timeout">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1508,7 +1527,7 @@ must be justified in the application’s safety case.</p></li>
 </section>
 <section id="keyoperationpermission-as-a-capability-bitmask">
 <h2><code class="docutils literal notranslate"><span class="pre">KeyOperationPermission</span></code> as a Capability Bitmask<a class="headerlink" href="#keyoperationpermission-as-a-capability-bitmask" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-1344b54a">
+<div class="need_container docutils container" id="SNCB-09f1b996">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__key_op_permission_bitmask">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1601,7 +1620,7 @@ callers can accidentally construct invalid combinations.</p></li>
 </section>
 <section id="unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split">
 <h2>Unified Cipher Context (No Encrypt/Decrypt or Symmetric/Asymmetric Split)<a class="headerlink" href="#unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-f1096873">
+<div class="need_container docutils container" id="SNCB-c8f065fa">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__unified_enc_dec_contexts">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1700,7 +1719,7 @@ to non-AEAD operations — <code class="docutils literal notranslate"><span clas
 </section>
 <section id="imemoryallocator-separated-from-icryptostack">
 <h2><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator</span></code> Separated from <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code><a class="headerlink" href="#imemoryallocator-separated-from-icryptostack" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-9d4a9550">
+<div class="need_container docutils container" id="SNCB-9eb7b68d">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__memory_allocator_separation">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1797,7 +1816,7 @@ where a monolithic interface would require only one.</p></li>
 </section>
 <section id="control-plane-ipc-boundary-copy-with-daemon-internal-zero-copy-references">
 <h2>Control Plane IPC Boundary Copy with Daemon-Internal Zero-Copy References<a class="headerlink" href="#control-plane-ipc-boundary-copy-with-daemon-internal-zero-copy-references" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-e841f299">
+<div class="need_container docutils container" id="SNCB-f8ea256f">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__ipc_boundary_copy">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1913,7 +1932,7 @@ operations — zero-copy is safe there by design.</p>
 </section>
 <section id="per-operation-parameter-structs-with-dual-overloads">
 <h2>Per-Operation Parameter Structs with Dual Overloads<a class="headerlink" href="#per-operation-parameter-structs-with-dual-overloads" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-dc3f968d">
+<div class="need_container docutils container" id="SNCB-14d213eb">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__per_op_params">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -2048,7 +2067,7 @@ must outlive the struct. This is documented but not enforced at compile time.</p
 </ul>
 <section id="return-type-of-imemoryallocator-allocate">
 <h4>Return Type of IMemoryAllocator::Allocate()<a class="headerlink" href="#return-type-of-imemoryallocator-allocate" title="Link to this heading">#</a></h4>
-<div class="need_container docutils container" id="SNCB-e5c1552b">
+<div class="need_container docutils container" id="SNCB-084c52b0">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__allocate_return_type">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
