@@ -18,6 +18,7 @@
 #include "score/crypto/src/api/common/src/i_release_callback.hpp"
 #include "score/crypto/src/api/config/key_operation_params.hpp"
 #include "score/crypto/src/api/contexts/i_key_management_context.hpp"
+#include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
 
@@ -56,8 +57,12 @@ class KeyManagementContextImpl final : public IKeyManagementContext
     /// @brief Constructs a key management context bound to an existing daemon-side context.
     /// @param connection Shared connection for IPC communication
     /// @param context_id Daemon-assigned context identifier (from CTX_CREATE response)
+    /// @param transcoder Stack-shared buffer-routing abstraction (pool/bulk/in-band).
+    ///                   Shared with all other contexts in the same CryptoStack and used
+    ///                   to route ExportKey output through the data plane (shared memory).
     KeyManagementContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-                             uint64_t context_id);
+                             uint64_t context_id,
+                             std::shared_ptr<IBufferTranscoder> transcoder = nullptr);
 
     ~KeyManagementContextImpl() override;
 
@@ -133,6 +138,10 @@ class KeyManagementContextImpl final : public IKeyManagementContext
     /// ContextReleaseCallbackImpl to keep the key management context alive.
     class ReleaseCallbackImpl;
     std::shared_ptr<IReleaseCallback> m_release_callback;
+
+    /// @brief Stack-shared buffer-routing abstraction used to export key material
+    /// through the data plane (shared memory) instead of in-band control-plane buffers.
+    std::shared_ptr<IBufferTranscoder> m_transcoder;
 };
 
 }  // namespace crypto

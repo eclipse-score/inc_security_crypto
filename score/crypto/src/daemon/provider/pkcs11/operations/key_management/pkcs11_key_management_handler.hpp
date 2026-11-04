@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_KEY_MANAGEMENT_PKCS11_KEY_MANAGEMENT_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_KEY_MANAGEMENT_PKCS11_KEY_MANAGEMENT_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
@@ -84,7 +85,7 @@ class Pkcs11KeyManagementHandler final : public handler::Handler
     [[nodiscard]] Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Reset() override;
 
     /// @brief Check if the given algorithm is supported by this handler.
-    [[nodiscard]] static bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
+    [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
 
   private:
     std::shared_ptr<Pkcs11Provider> m_provider;
