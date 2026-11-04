@@ -459,7 +459,7 @@ TEST_P(IavPrimulaSlotOperationsTest, RejectsValidSlotRequestWithoutSlotHandler)
     primula.SetKeyManagementService(service);
     auto factory = primula.GetCryptoHandlerFactory();
     ASSERT_NE(factory, nullptr);
-    auto handler = factory->CreateHandler(common::HandlerId{common::context_types::kKeyManagement}, {});
+    auto handler = factory->CreateKeyManagementHandler();
     ASSERT_TRUE(handler.has_value());
     // 5. Bind the handler to the client, parent context node and provider ID,
     // as the daemon does when initializing a key-management context.
