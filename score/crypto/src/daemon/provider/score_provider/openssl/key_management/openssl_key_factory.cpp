@@ -203,6 +203,23 @@ OpenSslKeyFactory::CreateImportedAsymmetricKey(const key_management::KeyImportRe
     return std::make_shared<OpenSslKeyHandler>(std::move(owned_pkey), handle);
 }
 
+// Same decisions as GenerateKey() and its helpers, without generating a key.
+bool OpenSslKeyFactory::IsKeyGenerationSupported(const AlgorithmDescriptor& algorithm) const
+{
+    switch (ShapeOf(algorithm))
+    {
+        case KeyShape::kEc:
+            return ::score::crypto::daemon::provider::openssl::detail::ToOpenSslGroupName(algorithm.curve) != nullptr;
+        case KeyShape::kRsa:
+            return ::score::crypto::daemon::provider::openssl::detail::IsRsaModulusSupported(algorithm.key_bits);
+        case KeyShape::kEd25519:
+            return true;
+        case KeyShape::kSymmetric:
+            break;
+    }
+    return DetermineKeySize(algorithm) != 0U;
+}
+
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::GenerateKey(const key_management::KeyGenerationRequest& request)
 {

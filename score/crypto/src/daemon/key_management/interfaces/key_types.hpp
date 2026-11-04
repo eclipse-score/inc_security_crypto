@@ -15,9 +15,9 @@
 #define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_INTERFACES_KEY_TYPES_HPP
 
 #include "score/crypto/src/api/config/key_operation_params.hpp"
-#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 
 #include <cstddef>
@@ -63,6 +63,14 @@ struct ProviderKeyHandle
     /// Catalog row the key was created or loaded for.
     ::score::crypto::AlgorithmDescriptor algorithm{};
     std::size_t key_size{0U};
+
+    /// Catalog row of the only operation this key may serve, e.g. AES-256-CBC.
+    /// std::nullopt means any algorithm the key fits.
+    ///
+    /// Policy owned by the daemon, not by the provider: providers leave it
+    /// empty and KeyManagementService::PeekKeyHandle() fills it in from the
+    /// key's registry entry or slot configuration.
+    std::optional<::score::crypto::AlgorithmDescriptor> permitted_algorithm{};
 };
 
 /// @brief The permission set that governs @p required for this key.
@@ -114,6 +122,9 @@ struct KeyGenerationRequest
     /// @brief Operations the public key is permitted to perform (asymmetric only).
     /// Use kExport bit to control public key exportability.
     std::optional<score::crypto::KeyOperationPermission> public_key_permissions{std::nullopt};
+    /// @brief Catalog row of the only operation the key may serve; std::nullopt means any.
+    /// Enforced by the daemon, so providers may ignore it.
+    std::optional<::score::crypto::AlgorithmDescriptor> permitted_algorithm{};
     score::crypto::ExtendedParameters provider_properties{};
 };
 

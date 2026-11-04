@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_REQUEST_PARSER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_REQUEST_PARSER_HPP
 
-#include "score/crypto/src/api/types/algorithm.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
@@ -102,6 +102,12 @@ namespace key_mgmt_request_parser
 ///   request[0] = algorithm              (string_view, required; must name a catalog row)
 ///   request[1] = permissions            (uint32_t,    optional)
 ///   request[2] = public_key_permissions (uint32_t,    optional, asymmetric only)
+///   next       = permitted_algorithm    (string_view, optional; must name a catalog row)
+///
+/// Both trailing parameters are optional, so the permitted algorithm sits at
+/// index 2 or 3. It is told apart from public_key_permissions by its type.
+/// A permitted algorithm the catalog does not know is refused with
+/// kUnsupportedAlgorithm, like the key algorithm.
 [[nodiscard]] inline Expected<key_management::KeyGenerationRequest, score::crypto::daemon::common::DaemonErrorCode>
 BuildGenerationRequest(const common::RequestParameters& request)
 {
@@ -132,6 +138,23 @@ BuildGenerationRequest(const common::RequestParameters& request)
     // half of a key pair is public information, so withholding kVerify/kEncrypt
     // by default would cost compatibility without buying confidentiality.
     req.public_key_permissions = ExtractOptionalPermissions(request, 2U);
+
+    const std::size_t pin_index = req.public_key_permissions.has_value() ? 3U : 2U;
+    if (request.size() > pin_index)
+    {
+        const auto* pin = std::get_if<std::string_view>(&request[pin_index]);
+        if (pin == nullptr)
+        {
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+        }
+        const auto permitted = ::score::crypto::GetAlgorithmDescriptor(*pin);
+        if (!permitted.has_value())
+        {
+            return score::crypto::make_unexpected(
+                score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+        }
+        req.permitted_algorithm = permitted;
+    }
 
     return req;
 }

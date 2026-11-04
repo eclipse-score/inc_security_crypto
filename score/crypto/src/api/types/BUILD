@@ -21,12 +21,6 @@ cc_library(
 )
 
 cc_library(
-    name = "algorithm_types",
-    hdrs = ["algorithm.hpp"],
-    visibility = ["//visibility:public"],
-)
-
-cc_library(
     name = "certificate_types",
     hdrs = ["certificate.hpp"],
     visibility = ["//visibility:public"],
@@ -42,16 +36,7 @@ cc_library(
 
 cc_library(
     name = "types",
-    hdrs = ["algorithm.hpp", "common.hpp", "certificate.hpp", "key.hpp"],
+    hdrs = ["common.hpp", "certificate.hpp", "key.hpp"],
     visibility = ["//visibility:public"],
-    deps = [":algorithm_types", ":certificate_types", ":key_types"],
-)
-
-cc_test(
-    name = "algorithm_test",
-    srcs = ["algorithm_test.cpp"],
-    deps = [
-        ":algorithm_types",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":certificate_types", ":key_types"],
 )

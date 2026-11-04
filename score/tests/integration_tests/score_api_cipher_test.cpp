@@ -743,6 +743,40 @@ INSTANTIATE_TEST_SUITE_P(NistVectorsOnSoftwareProvider,
                              return info.param.test_case_name;
                          });
 
+/// A cipher context bound straight to a key slot, without LoadKey, is checked
+/// against the key the slot holds. The slot below is labelled AES-256 but holds
+/// a 16-byte key: AES-128-CBC must be accepted, AES-256-CBC refused.
+TEST(KeySlotBindingTest, SlotKeyLengthComesFromTheLoadedMaterial)
+{
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    auto& ctx = ctx_result.value();
+
+    auto slot = ctx->ResolveResource("AES256_Labelled_AES128_Material_OpenSSL", ResourceType::kKeySlot);
+    ASSERT_TRUE(slot.has_value()) << "Failed to resolve key slot";
+
+    CipherContextConfig fits;
+    fits.SetAlgorithm("AES-128-CBC")
+        .SetKey(slot.value())
+        .SetDirection(CipherDirection::kEncrypt)
+        .SetProviderType(ProviderType::kSoftware);
+    EXPECT_TRUE(ctx->CreateCipherContext(fits).has_value()) << "A 16-byte slot key must serve AES-128-CBC";
+
+    CipherContextConfig too_long;
+    too_long.SetAlgorithm("AES-256-CBC")
+        .SetKey(slot.value())
+        .SetDirection(CipherDirection::kEncrypt)
+        .SetProviderType(ProviderType::kSoftware);
+    const auto refused = ctx->CreateCipherContext(too_long);
+    ASSERT_FALSE(refused.has_value()) << "A 16-byte slot key must not serve AES-256-CBC";
+    EXPECT_EQ(*refused.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kIncompatibleKeyType))
+        << refused.error().Message();
+}
+
 }  // namespace
 
 int main(int argc, char** argv)

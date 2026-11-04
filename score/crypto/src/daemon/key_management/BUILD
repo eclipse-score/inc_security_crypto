@@ -37,6 +37,7 @@ cc_library(
         "//score/crypto/src/api/config:context_configs",
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
     ],
 )
 
@@ -113,8 +114,10 @@ cc_library(
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/types:types",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:key_compatibility",
         "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",

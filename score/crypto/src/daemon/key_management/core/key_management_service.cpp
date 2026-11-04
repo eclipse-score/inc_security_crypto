@@ -13,7 +13,7 @@
 
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 
-#include "score/crypto/src/api/types/algorithm.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_entry.hpp"
 #include "score/crypto/src/daemon/key_management/nodes/key_data_node.hpp"
@@ -21,6 +21,7 @@
 
 #include "score/mw/log/logging.h"
 
+#include <optional>
 #include <string_view>
 
 namespace score::crypto::daemon::key_management
@@ -28,6 +29,28 @@ namespace score::crypto::daemon::key_management
 namespace
 {
 constexpr std::string_view LOG_PREFIX = "[KM_SERVICE] ";
+
+/// Resolves the permitted algorithm configured on a slot; an empty name means no pin.
+///
+/// ConfigDrivenSlotCatalog::Load() does not register a slot whose pin the
+/// catalog does not know, so the error only guards slots registered otherwise.
+/// It fails closed: an unresolvable pin refuses the key instead of lifting it.
+Expected<std::optional<::score::crypto::AlgorithmDescriptor>, score::crypto::daemon::common::DaemonErrorCode>
+ResolveSlotPin(const KeySlotConfig& slot_config)
+{
+    if (slot_config.permitted_algorithm.empty())
+    {
+        return std::optional<::score::crypto::AlgorithmDescriptor>{};
+    }
+    const auto permitted = ::score::crypto::GetAlgorithmDescriptor(slot_config.permitted_algorithm);
+    if (!permitted.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "slot permitted_algorithm '" << slot_config.permitted_algorithm
+                                   << "' is not in the catalog";
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+    return std::optional<::score::crypto::AlgorithmDescriptor>{permitted};
+}
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -61,7 +84,8 @@ Expected<KeyDataNodeResult, score::crypto::daemon::common::DaemonErrorCode> KeyM
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
-    auto key_node = std::make_shared<KeyEntry>(std::move(handler), params.provider_id, params.slot_handle);
+    auto key_node = std::make_shared<KeyEntry>(
+        std::move(handler), params.provider_id, params.slot_handle, params.permitted_algorithm);
 
     auto& registry = GetProviderRegistry(params.provider_id);
 
@@ -141,7 +165,16 @@ Expected<KeyDataNodeResult, score::crypto::daemon::common::DaemonErrorCode> KeyM
         return score::crypto::make_unexpected(load_result.error());
     }
 
-    return RegisterKeyMaterial(params, std::move(load_result.value()));
+    // The slot's pin travels with the loaded key, so a KeyDataNode is held to
+    // it exactly as the KeySlotDataNode is.
+    const auto permitted = ResolveSlotPin(slot_config);
+    if (!permitted.has_value())
+    {
+        return score::crypto::make_unexpected(permitted.error());
+    }
+    KeyRegistrationParams slot_params{params};
+    slot_params.permitted_algorithm = permitted.value();
+    return RegisterKeyMaterial(slot_params, std::move(load_result.value()));
 }
 
 // ---------------------------------------------------------------------------
@@ -366,12 +399,19 @@ Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> KeyM
                 score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
         }
 
+        const auto permitted = ResolveSlotPin(*slot_config);
+        if (!permitted.has_value())
+        {
+            return score::crypto::make_unexpected(permitted.error());
+        }
+
         // A slot grants one permission set for whatever key it holds; it is not
         // split into halves, so it governs every operation on the key.
         ProviderKeyHandle handle{};
         handle.provider_id = slot_config->GetPrimaryProviderId();
         handle.permissions = slot_config->allowed_operations;
         handle.algorithm = algorithm.value();
+        handle.permitted_algorithm = permitted.value();
         return handle;
     }
 
@@ -389,7 +429,10 @@ Expected<ProviderKeyHandle, score::crypto::daemon::common::DaemonErrorCode> KeyM
             score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: KeyDataNode has no backing KeyEntry";
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
         }
-        return key_entry->GetHandle();
+        // The pin is daemon policy kept on the entry, not in the provider's handle.
+        ProviderKeyHandle handle = key_entry->GetHandle();
+        handle.permitted_algorithm = key_entry->GetPermittedAlgorithm();
+        return handle;
     }
 
     score::mw::log::LogError() << LOG_PREFIX << "PeekKeyHandle: key_node_id=" << key_node_id

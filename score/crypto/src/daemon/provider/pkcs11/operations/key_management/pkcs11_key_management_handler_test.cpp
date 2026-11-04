@@ -117,7 +117,7 @@ class Pkcs11KeyHandlerTest : public tests::softhsm::SofthsmTestFixture
         auto factory = m_provider->GetCryptoHandlerFactory();
         ASSERT_NE(factory, nullptr);
 
-        // KEY_MANAGEMENT handlers are bound to no algorithm.
+        // KEY:MANAGEMENT handlers are bound to no algorithm.
         auto handler_result = factory->CreateKeyManagementHandler();
         ASSERT_TRUE(handler_result.has_value()) << "CreateHandler failed for key management";
         auto handler = handler_result.value();
