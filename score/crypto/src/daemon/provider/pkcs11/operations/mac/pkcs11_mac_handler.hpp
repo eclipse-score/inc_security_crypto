@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_MAC_PKCS11_MAC_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_MAC_PKCS11_MAC_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -72,7 +73,7 @@ class Pkcs11MacHandler final : public handler::Handler
     explicit Pkcs11MacHandler(std::unique_ptr<Pkcs11MacExecutor> executor,
                               const Pkcs11Module& module,
                               CK_SESSION_HANDLE session,
-                              const common::AlgorithmId& algorithm,
+                              const AlgorithmDescriptor& algorithm,
                               Pkcs11Provider* provider);
 
     ~Pkcs11MacHandler() override;
@@ -97,11 +98,11 @@ class Pkcs11MacHandler final : public handler::Handler
 
     /// @brief Returns static handler configuration for registration in the factory.
     /// @brief Check if the given algorithm is supported by this handler.
-    [[nodiscard]] static bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
+    [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
 
   private:
     /// @brief Map algorithm ID → CK_MECHANISM_TYPE for HMAC.
-    [[nodiscard]] static CK_MECHANISM_TYPE MapAlgorithm(std::string_view algorithm) noexcept;
+    [[nodiscard]] static CK_MECHANISM_TYPE MapAlgorithm(const AlgorithmDescriptor& algorithm) noexcept;
 
     /// @brief MAC output size for the active algorithm (used internally).
     [[nodiscard]] std::size_t GetMacSize() const noexcept;
@@ -117,7 +118,7 @@ class Pkcs11MacHandler final : public handler::Handler
     /// Holds the session-object in-use flag while a key is bound; null for token keys.
     /// Automatically released (flag cleared) when the handler is destroyed or Reset().
     ResolvedKey m_resolved_key;
-    common::AlgorithmId m_algorithm;
+    AlgorithmDescriptor m_algorithm;
     common::StreamOperationState m_state{common::StreamOperationState::IDLE};
     handler::InitializationParams m_init_params;  ///< saved for Reset()
 

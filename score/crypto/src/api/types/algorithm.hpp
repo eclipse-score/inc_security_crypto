@@ -137,8 +137,25 @@ enum class Algorithm : std::uint16_t
     kRsa4096,
 
     // Random
-    kCtrDrbg
+    kCtrDrbg,
+
+    // Signature: ECDSA curve/digest pairings added after the first release of
+    // this enum. Appended so the values above keep their numbers.
+    kEcdsaP256Sha224,
+    kEcdsaP256Sha384,
+    kEcdsaP256Sha512,
+    kEcdsaP384Sha224,
+    kEcdsaP384Sha256,
+    kEcdsaP384Sha512,
+    kEcdsaP521Sha224,
+    kEcdsaP521Sha256,
+    kEcdsaP521Sha384
 };
+
+static_assert((static_cast<std::uint16_t>(Algorithm::kEcdsaP256Sha256) == 18U) &&
+                  (static_cast<std::uint16_t>(Algorithm::kCtrDrbg) == 40U) &&
+                  (static_cast<std::uint16_t>(Algorithm::kEcdsaP521Sha384) == 49U),
+              "Algorithm values are stable; append new enumerators at the end");
 
 /// @brief Provider-independent properties of one algorithm.
 ///
@@ -251,22 +268,56 @@ namespace algorithm_catalog_detail
             12U};
 }
 
+/// Byte length of one coordinate of @p curve, which is also the length of r and s.
+[[nodiscard]] constexpr std::uint16_t EccFieldSize(EccCurve curve) noexcept
+{
+    switch (curve)
+    {
+        case EccCurve::kP256:
+            return 32U;
+        case EccCurve::kP384:
+            return 48U;
+        case EccCurve::kP521:
+            return 66U;
+        case EccCurve::kNone:
+            return 0U;
+    }
+    return 0U;
+}
+
+/// Nominal key length in bits of @p curve.
+[[nodiscard]] constexpr std::uint16_t EccKeyBits(EccCurve curve) noexcept
+{
+    switch (curve)
+    {
+        case EccCurve::kP256:
+            return 256U;
+        case EccCurve::kP384:
+            return 384U;
+        case EccCurve::kP521:
+            return 521U;
+        case EccCurve::kNone:
+            return 0U;
+    }
+    return 0U;
+}
+
+/// ECDSA on @p curve over @p hash. Key length and the IEEE P1363 signature
+/// length (2 * field size) follow from the curve.
 [[nodiscard]] constexpr AlgorithmDescriptor Ecdsa(Algorithm id,
                                                   std::string_view name,
                                                   EccCurve curve,
-                                                  std::uint16_t key_bits,
-                                                  HashFunction hash,
-                                                  std::uint16_t signature_size) noexcept
+                                                  HashFunction hash) noexcept
 {
     return {id,
             name,
             AlgorithmCategory::kSignature,
             KeyType::kEcc,
-            key_bits,
+            EccKeyBits(curve),
             hash,
             curve,
             CipherMode::kNone,
-            signature_size,
+            static_cast<std::uint16_t>(2U * EccFieldSize(curve)),
             0U,
             0U};
 }
@@ -400,25 +451,56 @@ inline constexpr AlgorithmDescriptor kAlgorithmCatalog[] = {
     algorithm_catalog_detail::AesGcm(Algorithm::kAes192Gcm, "AES-192-GCM", 192U),
     algorithm_catalog_detail::AesGcm(Algorithm::kAes256Gcm, "AES-256-GCM", 256U),
 
-    // NIST's largest prime curve is P-521 (not P-512); its coordinates are 66 bytes.
+    // ECDSA on each NIST prime curve with each SHA-2 digest. NIST's largest
+    // prime curve is P-521 (not P-512); its coordinates are 66 bytes.
+    algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP256Sha224,
+                                    "ECDSA-P256-SHA224",
+                                    EccCurve::kP256,
+                                    HashFunction::kSha224),
     algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP256Sha256,
                                     "ECDSA-P256-SHA256",
                                     EccCurve::kP256,
-                                    256U,
-                                    HashFunction::kSha256,
-                                    64U),
+                                    HashFunction::kSha256),
+    algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP256Sha384,
+                                    "ECDSA-P256-SHA384",
+                                    EccCurve::kP256,
+                                    HashFunction::kSha384),
+    algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP256Sha512,
+                                    "ECDSA-P256-SHA512",
+                                    EccCurve::kP256,
+                                    HashFunction::kSha512),
+    algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP384Sha224,
+                                    "ECDSA-P384-SHA224",
+                                    EccCurve::kP384,
+                                    HashFunction::kSha224),
+    algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP384Sha256,
+                                    "ECDSA-P384-SHA256",
+                                    EccCurve::kP384,
+                                    HashFunction::kSha256),
     algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP384Sha384,
                                     "ECDSA-P384-SHA384",
                                     EccCurve::kP384,
-                                    384U,
-                                    HashFunction::kSha384,
-                                    96U),
+                                    HashFunction::kSha384),
+    algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP384Sha512,
+                                    "ECDSA-P384-SHA512",
+                                    EccCurve::kP384,
+                                    HashFunction::kSha512),
+    algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP521Sha224,
+                                    "ECDSA-P521-SHA224",
+                                    EccCurve::kP521,
+                                    HashFunction::kSha224),
+    algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP521Sha256,
+                                    "ECDSA-P521-SHA256",
+                                    EccCurve::kP521,
+                                    HashFunction::kSha256),
+    algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP521Sha384,
+                                    "ECDSA-P521-SHA384",
+                                    EccCurve::kP521,
+                                    HashFunction::kSha384),
     algorithm_catalog_detail::Ecdsa(Algorithm::kEcdsaP521Sha512,
                                     "ECDSA-P521-SHA512",
                                     EccCurve::kP521,
-                                    521U,
-                                    HashFunction::kSha512,
-                                    132U),
+                                    HashFunction::kSha512),
     algorithm_catalog_detail::RsaPss(Algorithm::kRsaPss2048Sha256, "RSA-PSS-2048-SHA256", 2048U, HashFunction::kSha256),
     algorithm_catalog_detail::RsaPss(Algorithm::kRsaPss2048Sha384, "RSA-PSS-2048-SHA384", 2048U, HashFunction::kSha384),
     algorithm_catalog_detail::RsaPss(Algorithm::kRsaPss2048Sha512, "RSA-PSS-2048-SHA512", 2048U, HashFunction::kSha512),

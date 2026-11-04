@@ -15,8 +15,6 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_DETAIL_PKCS11_ALGORITHM_INFO_HPP
 
 #include "score/crypto/src/api/types/algorithm.hpp"
-#include "score/crypto/src/daemon/common/algorithm_info.hpp"
-#include "score/crypto/src/daemon/common/types.hpp"
 
 #include <pkcs11.h>
 
@@ -24,11 +22,16 @@
 #include <cstdint>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 namespace score::crypto::daemon::provider::pkcs11::detail
 {
 
-/// @brief PKCS#11 algorithm parameters derived from a daemon algorithm identifier.
+// Support decisions below are exhaustive switches on the typed catalog fields
+// without a default case, so a value added to the catalog enums does not
+// compile until this provider decides whether it serves it.
+
+/// @brief PKCS#11 algorithm parameters derived from a catalog row.
 struct Pkcs11AlgoInfo
 {
     CK_KEY_TYPE ck_key_type{CKK_GENERIC_SECRET};                  ///< CKA_KEY_TYPE attribute value
@@ -36,22 +39,18 @@ struct Pkcs11AlgoInfo
     CK_ULONG value_len{0U};                                       ///< CKA_VALUE_LEN in bytes
 };
 
-/// @brief Map a key or operation algorithm to the PKCS#11 key it needs.
+/// @brief Map a key or operation row to the PKCS#11 key it needs.
 ///
-/// The key type and length come from score::crypto::kAlgorithmCatalog by exact
-/// name, so "AES-256", "AES-256-CBC" and "AES-256-CMAC" all resolve to a
-/// 32-byte CKK_AES key and "HMAC-SHA256" to a 32-byte generic secret.
-/// @return the key attributes, or std::nullopt for unknown names and for key
-///         types this provider does not generate (elliptic-curve keys).
-[[nodiscard]] inline std::optional<Pkcs11AlgoInfo> LookupAlgorithm(const common::AlgorithmId& algo) noexcept
+/// Decided by the row's key type and length, so "AES-256", "AES-256-CBC" and
+/// "AES-256-CMAC" all map to a 32-byte CKK_AES key and "HMAC-SHA256" to a
+/// 32-byte generic secret.
+/// @return the key attributes, or std::nullopt for key types this provider
+///         does not generate (asymmetric keys and rows without a key).
+[[nodiscard]] inline std::optional<Pkcs11AlgoInfo> LookupAlgorithm(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
-    const auto row = ::score::crypto::GetAlgorithmDescriptor(std::string_view{algo.data(), algo.size()});
-    if (!row.has_value())
-    {
-        return std::nullopt;
-    }
-    const auto value_len = static_cast<CK_ULONG>((static_cast<std::size_t>(row->key_bits) + 7U) / 8U);
-    switch (row->key_type)
+    const auto value_len = static_cast<CK_ULONG>((static_cast<std::size_t>(algorithm.key_bits) + 7U) / 8U);
+    switch (algorithm.key_type)
     {
         case ::score::crypto::KeyType::kSecret:
             return Pkcs11AlgoInfo{CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, value_len};
@@ -59,27 +58,26 @@ struct Pkcs11AlgoInfo
             return Pkcs11AlgoInfo{CKK_AES, CKM_AES_KEY_GEN, value_len};
         case ::score::crypto::KeyType::kNone:
         case ::score::crypto::KeyType::kEcc:
-        default:
+        case ::score::crypto::KeyType::kRsa:
+        case ::score::crypto::KeyType::kEd25519:
             return std::nullopt;
     }
+    return std::nullopt;
 }
 
 // ---------------------------------------------------------------------------
-// Hash / HMAC algorithm → CK_MECHANISM_TYPE
+// Hash / HMAC row → CK_MECHANISM_TYPE
 // ---------------------------------------------------------------------------
 
-/// @brief Look up the PKCS#11 mechanism type for a hash algorithm.
-[[nodiscard]] inline CK_MECHANISM_TYPE LookupHashMechanism(std::string_view algorithm) noexcept
+/// @brief PKCS#11 digest mechanism of a hash row, or CK_UNAVAILABLE_INFORMATION.
+[[nodiscard]] inline CK_MECHANISM_TYPE LookupHashMechanism(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
-    const auto hash = common::LookupHashFunction(algorithm);
-    if (!hash.has_value())
+    if (algorithm.category != ::score::crypto::AlgorithmCategory::kHash)
     {
         return CK_UNAVAILABLE_INFORMATION;
     }
-
-    // Keep this switch exhaustive and without a default case so a hash function
-    // added to the catalog requires an explicit PKCS#11 support decision.
-    switch (*hash)
+    switch (algorithm.hash)
     {
         case ::score::crypto::HashFunction::kSha224:
             return CKM_SHA224;
@@ -97,18 +95,28 @@ struct Pkcs11AlgoInfo
     return CK_UNAVAILABLE_INFORMATION;
 }
 
-/// @brief Look up the PKCS#11 mechanism type for a MAC algorithm.
-[[nodiscard]] inline CK_MECHANISM_TYPE LookupMacMechanism(std::string_view algorithm) noexcept
+/// @brief PKCS#11 MAC mechanism of a MAC row, or CK_UNAVAILABLE_INFORMATION.
+///
+/// Only HMAC (a MAC keyed by a generic secret) over SHA-256/384/512 is served.
+[[nodiscard]] inline CK_MECHANISM_TYPE LookupMacMechanism(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
-    const auto hash = common::LookupHmacHashFunction(algorithm);
-    if (!hash.has_value())
+    if (algorithm.category != ::score::crypto::AlgorithmCategory::kMac)
     {
         return CK_UNAVAILABLE_INFORMATION;
     }
-
-    // Keep this switch exhaustive and without a default case so a hash function
-    // added to the catalog requires an explicit PKCS#11 support decision.
-    switch (*hash)
+    switch (algorithm.key_type)
+    {
+        case ::score::crypto::KeyType::kSecret:
+            break;
+        case ::score::crypto::KeyType::kNone:
+        case ::score::crypto::KeyType::kAes:
+        case ::score::crypto::KeyType::kEcc:
+        case ::score::crypto::KeyType::kRsa:
+        case ::score::crypto::KeyType::kEd25519:
+            return CK_UNAVAILABLE_INFORMATION;
+    }
+    switch (algorithm.hash)
     {
         case ::score::crypto::HashFunction::kSha256:
             return CKM_SHA256_HMAC;

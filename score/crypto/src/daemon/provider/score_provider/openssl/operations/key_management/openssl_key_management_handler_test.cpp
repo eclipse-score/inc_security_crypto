@@ -283,6 +283,54 @@ TEST_F(KeyManagementHandlerTest, GenerateKey_UnknownAlgorithm_ReturnsError)
     auto result = m_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, params);
     ASSERT_FALSE(result.has_value());
+    // The request parser resolves the name; the catalog does not know it.
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kUnsupportedAlgorithm);
+}
+
+TEST_F(KeyManagementHandlerTest, GenerateKey_EcdsaSignatureRow_ReturnsNodeId)
+{
+    // A signature row labels its key: the row's curve selects the key.
+    common::RequestParameters params;
+    SetStandardParams(params);
+    const std::string algo = "ECDSA-P384-SHA256";
+    params.push_back(std::string_view(algo));
+    params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kSign));
+
+    auto result = m_handler->Execute(
+        {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, params);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_FALSE(result.value().empty());
+    EXPECT_NE(std::get<std::uint64_t>(result.value()[0]), 0U);
+}
+
+// ============================================================================
+// Configured slots: names are resolved when the configuration is loaded
+// ============================================================================
+
+TEST(ConfigDrivenSlotCatalogTest, Load_UnknownAlgorithm_SkipsOnlyThatSlot)
+{
+    config::KeyConfig key_config{};
+    config::KeyConfig::KeySlotEntry known{};
+    known.slot_name = "test/known";
+    known.algorithm = "HMAC-SHA256";
+    known.provider_names = {"OPENSSL"};
+    known.allowed_operations = "MAC";
+    known.allowed_uids = {1000U};
+    key_config.AddSlotEntry(known);
+
+    config::KeyConfig::KeySlotEntry unknown = known;
+    unknown.slot_name = "test/unknown";
+    unknown.algorithm = "HMAC-SHA-256";
+    key_config.AddSlotEntry(unknown);
+
+    km::SlotRegistry registry{};
+    km::ConfigDrivenSlotCatalog catalog{key_config};
+    catalog.Load(registry);
+
+    EXPECT_EQ(registry.GetSlotCount(), 1U);
+    constexpr dm::ClientId kClient = (1000ULL << 32) | 42ULL;
+    EXPECT_TRUE(registry.ResolveSlot("test/known", kClient).has_value());
+    EXPECT_FALSE(registry.ResolveSlot("test/unknown", kClient).has_value());
 }
 
 // ============================================================================

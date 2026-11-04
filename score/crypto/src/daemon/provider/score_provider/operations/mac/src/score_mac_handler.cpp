@@ -21,7 +21,7 @@ using common::DaemonErrorCode;
 using common::ResponseParameters;
 using common::StreamOperationState;
 
-ScoreMacHandler::ScoreMacHandler(std::unique_ptr<MacExecutor> executor, const common::AlgorithmId& algorithm)
+ScoreMacHandler::ScoreMacHandler(std::unique_ptr<MacExecutor> executor, const AlgorithmDescriptor& algorithm)
     : m_algorithm{algorithm}, m_state{StreamOperationState::IDLE}, m_executor{std::move(executor)}
 {
 }
