@@ -41,7 +41,7 @@ The API uses a two-phase resource identification model:
    struct CryptoResourceId {
        uint64_t id;                   // daemon-assigned, unique per session
        ResourceType type;             // kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,
-                                      // kKey, kCertificate, kSecureObject, kDataObject
+                                      // kKey, kCertificate, kSecureObject, kDataObject, kSharedSecret
        ResourcePersistence persistence; // kPersistent or kEphemeral
        uint16_t primary_provider;     // owning device/provider index (0 = unbound)
    };
@@ -52,11 +52,15 @@ in unordered containers.
 
 ``CryptoResourceId`` unifies persistent and ephemeral resources via the
 ``ResourcePersistence`` field. Keys are ephemeral by default when
-generated, derived, agreed, encapsulated, decapsulated, imported, or unwrapped — they receive a
+generated, derived, imported, unwrapped, or agreed with a KDF — they receive a
 ``CryptoResourceId`` with ``type == kKey`` and
 ``persistence == kEphemeral``. Use
 ``IKeyManagementContext::PersistKey()`` to promote an ephemeral key
 to a persistent slot.
+
+Shared secrets are represented by ``CryptoResourceId`` with
+``type == kSharedSecret`` and ``persistence == kEphemeral``, rather than
+as ``kKey`` resources.
 
 Key slots (``kKeySlot``) represent only logical persistent storage locations.
 Ephemeral keys exist in transient memory and have no slot; some providers
@@ -72,8 +76,8 @@ certificate subject), typed object interfaces can be obtained from
 Resource Lifecycle and CryptoResourceGuard
 ------------------------------------------
 
-Transient resources (ephemeral keys, loaded key material, extracted
-certificate public keys) must be deterministically released to prevent
+Transient resources (ephemeral keys, shared secrets, loaded key material,
+extracted certificate public keys) must be deterministically released to prevent
 sensitive key material from lingering in daemon memory.
 
 All resource-producing methods return a ``CryptoResourceGuard`` — a move-only
@@ -172,18 +176,9 @@ to detect that the resource is still referenced by an active context — call
 Key Encapsulation Mechanism
 ---------------------------
 
-ML-KEM is a Key Management operation. ``GetEncapsulationCiphertextSize()``
-queries the required ciphertext capacity for a managed public key.
-``EncapsulateKey()`` uses that public key and writes public ciphertext to a
-caller-owned buffer; it returns an ``EncapsulationResult`` containing the
-ciphertext length and a guard for the provider-held shared secret.
-``DecapsulateKey()`` takes a managed private key and ciphertext, and returns
-only the shared-secret guard.
-
-The shared secret is an ephemeral, derive-only, non-exportable key registered
-through the normal Key Management lifecycle. Its bytes never appear in an IPC
-response. KEM therefore has no separate operation context, daemon actor, or
-handler family.
+ML-KEM encapsulation and decapsulation are provided through the Key Management
+API. See :ref:`crypto_key_management_kem_operations` for API behavior and
+shared-secret lifecycle details.
 
 Memory and Data Plane Model
 ---------------------------

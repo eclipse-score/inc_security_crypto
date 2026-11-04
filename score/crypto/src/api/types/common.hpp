@@ -39,7 +39,8 @@ enum class ResourceType : uint8_t
     kKey,                    ///< Key resource.
     kCertificate,            ///< Parsed or loaded certificate resource.
     kSecureObject,           ///< Provider-backed secure object.
-    kDataObject              ///< Provider-backed data object.
+    kDataObject,             ///< Provider-backed data object.
+    kSharedSecret            ///< Provider-held, non-exportable material used only for key derivation.
 };
 
 /// @brief Indicates whether a resource is persistent or scoped to a session.
@@ -49,13 +50,16 @@ enum class ResourcePersistence : uint8_t
     kEphemeral    ///< Lifetime is controlled by a session/resource guard.
 };
 
+/// @brief Sentinel indicating that no crypto resource has been assigned.
+inline constexpr std::uint64_t kInvalidCryptoResourceId{0U};
+
 /// @brief Typed handle to a daemon-managed crypto resource.
 ///
 /// The id is interpreted together with its resource type, persistence, and
 /// primary provider. Handles are resolved and authorized by the daemon.
 struct CryptoResourceId
 {
-    uint64_t id{0U};                                                   ///< Daemon-assigned resource identifier.
+    uint64_t id{kInvalidCryptoResourceId};                            ///< Daemon-assigned resource identifier.
     ResourceType type{ResourceType::kKeySlot};                         ///< Kind of resource referenced by id.
     ResourcePersistence persistence{ResourcePersistence::kEphemeral};  ///< Resource lifetime category.
     uint16_t primary_provider{0U};                                     ///< Owning provider id, or zero when unbound.

@@ -124,18 +124,18 @@ inline constexpr std::array<MacAlgorithmInfo, 3UL> kMacAlgorithms = {{
 }
 
 // ---------------------------------------------------------------------------
-// Key algorithm properties (provider-independent)
-// ---------------------------------------------------------------------------
-
-struct KeyAlgorithmInfo
-{
-    std::string_view name;
-    std::size_t key_size;  ///< Default key size in bytes
-};
-
-// ---------------------------------------------------------------------------
 // Post-quantum algorithm properties
 // ---------------------------------------------------------------------------
+
+/// Standardized ML-DSA algorithm identifiers (FIPS 204).
+inline constexpr std::string_view kMlDsa44Name{"ML-DSA-44"};
+inline constexpr std::string_view kMlDsa65Name{"ML-DSA-65"};
+inline constexpr std::string_view kMlDsa87Name{"ML-DSA-87"};
+
+/// Standardized ML-KEM algorithm identifiers (FIPS 203).
+inline constexpr std::string_view kMlKem512Name{"ML-KEM-512"};
+inline constexpr std::string_view kMlKem768Name{"ML-KEM-768"};
+inline constexpr std::string_view kMlKem1024Name{"ML-KEM-1024"};
 
 /// @brief Identifies the operation family implemented by a PQC algorithm.
 enum class PqcAlgorithmKind : std::uint8_t
@@ -160,15 +160,15 @@ struct PqcAlgorithmInfo
 
 inline constexpr std::array<PqcAlgorithmInfo, 6UL> kPqcAlgorithms = {{
     // ML-DSA: public key, private key, and signature sizes from FIPS 204.
-    {"ML-DSA-44", PqcAlgorithmKind::kSignature, 1312U, 2560U, 2420U, 0U},
-    {"ML-DSA-65", PqcAlgorithmKind::kSignature, 1952U, 4032U, 3309U, 0U},
-    {"ML-DSA-87", PqcAlgorithmKind::kSignature, 2592U, 4896U, 4627U, 0U},
+    {kMlDsa44Name, PqcAlgorithmKind::kSignature, 1312U, 2560U, 2420U, 0U},
+    {kMlDsa65Name, PqcAlgorithmKind::kSignature, 1952U, 4032U, 3309U, 0U},
+    {kMlDsa87Name, PqcAlgorithmKind::kSignature, 2592U, 4896U, 4627U, 0U},
 
     // ML-KEM: public key, private key, ciphertext, and shared-secret sizes
     // from FIPS 203.
-    {"ML-KEM-512", PqcAlgorithmKind::kKem, 800U, 1632U, 768U, 32U},
-    {"ML-KEM-768", PqcAlgorithmKind::kKem, 1184U, 2400U, 1088U, 32U},
-    {"ML-KEM-1024", PqcAlgorithmKind::kKem, 1568U, 3168U, 1568U, 32U},
+    {kMlKem512Name, PqcAlgorithmKind::kKem, 800U, 1632U, 768U, 32U},
+    {kMlKem768Name, PqcAlgorithmKind::kKem, 1184U, 2400U, 1088U, 32U},
+    {kMlKem1024Name, PqcAlgorithmKind::kKem, 1568U, 3168U, 1568U, 32U},
 }};
 
 /// @brief Look up a standardized PQC algorithm by its textual identifier.
@@ -198,10 +198,20 @@ inline constexpr std::array<PqcAlgorithmInfo, 6UL> kPqcAlgorithms = {{
     return info.has_value() && info->kind == PqcAlgorithmKind::kKem;
 }
 
+// ---------------------------------------------------------------------------
+// Key algorithm properties (provider-independent)
+// ---------------------------------------------------------------------------
+
+struct KeyAlgorithmInfo
+{
+    std::string_view name;
+    std::size_t key_size;  ///< Default key size in bytes; PQC uses the private-key byte representation.
+};
+
 /// Ed25519 key size in bytes (RFC 8032).
 inline constexpr std::size_t kEd25519KeySize{32U};
 
-inline constexpr std::array<KeyAlgorithmInfo, 18UL> kKeyAlgorithms = {{
+inline constexpr std::array<KeyAlgorithmInfo, 24UL> kKeyAlgorithms = {{
     {"HMAC-SHA256", 32U},
     {"HMAC-SHA384", 48U},
     {"HMAC-SHA512", 64U},
@@ -220,9 +230,16 @@ inline constexpr std::array<KeyAlgorithmInfo, 18UL> kKeyAlgorithms = {{
     {"RSA-3072", 384U},
     {"RSA-4096", 512U},
     {"Ed25519", kEd25519KeySize},
+    {kMlDsa44Name, LookupPqcAlgorithm(kMlDsa44Name).value().private_key_size},
+    {kMlDsa65Name, LookupPqcAlgorithm(kMlDsa65Name).value().private_key_size},
+    {kMlDsa87Name, LookupPqcAlgorithm(kMlDsa87Name).value().private_key_size},
+    {kMlKem512Name, LookupPqcAlgorithm(kMlKem512Name).value().private_key_size},
+    {kMlKem768Name, LookupPqcAlgorithm(kMlKem768Name).value().private_key_size},
+    {kMlKem1024Name, LookupPqcAlgorithm(kMlKem1024Name).value().private_key_size},
 }};
 
 /// @brief Look up default key size by algorithm name.
+/// @note PQC algorithms use the private-key byte size from kPqcAlgorithms.
 /// @return key size in bytes, or std::nullopt if unknown.
 [[nodiscard]] inline constexpr std::optional<std::size_t> LookupKeySize(std::string_view algorithm) noexcept
 {

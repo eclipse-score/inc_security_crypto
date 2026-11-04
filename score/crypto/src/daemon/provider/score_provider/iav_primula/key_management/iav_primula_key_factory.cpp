@@ -30,28 +30,28 @@ namespace
 ///         kUnsupportedAlgorithm if the identifier is unknown.
 Expected<iav_algorithm, common::DaemonErrorCode> Algorithm(common::AlgorithmId algorithmId)
 {
-    auto algorithmDescription = std::string_view{algorithmId.data(), algorithmId.size()};
-    if (algorithmDescription == "ML-DSA-44")
+    const std::string_view algorithmDescription{algorithmId.data(), algorithmId.size()};
+    if (algorithmDescription == common::kMlDsa44Name)
     {
         return IavAlgorithmMlDsa44;
     }
-    if (algorithmDescription == "ML-DSA-65")
+    if (algorithmDescription == common::kMlDsa65Name)
     {
         return IavAlgorithmMlDsa65;
     }
-    if (algorithmDescription == "ML-DSA-87")
+    if (algorithmDescription == common::kMlDsa87Name)
     {
         return IavAlgorithmMlDsa87;
     }
-    if (algorithmDescription == "ML-KEM-512")
+    if (algorithmDescription == common::kMlKem512Name)
     {
         return IavAlgorithmMlKem512;
     }
-    if (algorithmDescription == "ML-KEM-768")
+    if (algorithmDescription == common::kMlKem768Name)
     {
         return IavAlgorithmMlKem768;
     }
-    if (algorithmDescription == "ML-KEM-1024")
+    if (algorithmDescription == common::kMlKem1024Name)
     {
         return IavAlgorithmMlKem1024;
     }

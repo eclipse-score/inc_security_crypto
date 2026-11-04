@@ -236,6 +236,8 @@ class KeyManagementService final
 
     /// Resolve a client-owned key, pin its entry, and serialize provider use.
     /// Both registry and handler provider identities must match the context.
+    /// Checks the requested permission using GrantedPermissionsFor().
+    /// The caller validates the algorithm and key material for its operation.
     [[nodiscard]] Expected<KeyOperationLease, common::DaemonErrorCode> AcquireKeyForOperation(
         data_manager::ClientId client_id,
         data_manager::DataNodeId key_node_id,

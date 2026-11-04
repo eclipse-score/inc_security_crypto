@@ -11,16 +11,21 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
+#include "score/crypto/src/daemon/provider/score_provider/iav_primula/iav_primula_provider.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_key_factory.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_key_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_shared_secret_handler.hpp"
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
+#include "score/crypto/src/daemon/key_management/nodes/key_slot_data_node.hpp"
+#include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
+#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
 
 #include <gtest/gtest.h>
 
@@ -240,6 +245,10 @@ class IavPrimulaKeyExportTest : public ::testing::Test
     {
         common::RequestParameters request{
             static_cast<std::uint64_t>(key_id), static_cast<std::uint8_t>(score::crypto::FormatType::kRaw)};
+        if (action == key_management::operations::KEY_EXPORT)
+        {
+            request.emplace_back(score::cpp::span<std::uint8_t>{export_output.data(), export_output.size()});
+        }
         return key_executor->Execute(context, {common::actors::OP_ACTOR_KEY_MANAGEMENT, action}, request);
     }
 
@@ -256,6 +265,7 @@ class IavPrimulaKeyExportTest : public ::testing::Test
     provider::crypto_executor::KeyMgmtExecutionContext context{};
     std::shared_ptr<key_management::KeyManagementService> service;
     std::unique_ptr<provider::crypto_executor::KeyManagementExecutor> key_executor;
+    std::vector<std::uint8_t> export_output = std::vector<std::uint8_t>(1312U);
 };
 
 TEST_F(IavPrimulaKeyExportTest, ImportedPublicPermissionsGovernExportAndExportSize)
@@ -280,6 +290,7 @@ TEST_F(IavPrimulaKeyExportTest, ImportedPublicPermissionsGovernExportAndExportSi
             EXPECT_EQ(handler.value()->GetHandle().public_key_permissions.value(), permissions);
 
             auto size = ExecuteExport(key_management::operations::KEY_GET_EXPORT_SIZE, key_id);
+            export_output.assign(public_key.size(), 0U);
             auto exported = ExecuteExport(key_management::operations::KEY_EXPORT, key_id);
             if (score::crypto::HasPermission(permissions, Permission::kExport))
             {
@@ -288,7 +299,8 @@ TEST_F(IavPrimulaKeyExportTest, ImportedPublicPermissionsGovernExportAndExportSi
                 EXPECT_EQ(std::get<std::uint64_t>(size.value()[0]), public_key.size());
                 ASSERT_TRUE(exported.has_value());
                 ASSERT_EQ(exported.value().size(), 1U);
-                EXPECT_EQ(std::get<common::OwnedBuffer>(exported.value()[0]), public_key);
+                EXPECT_EQ(std::get<std::uint64_t>(exported.value()[0]), public_key.size());
+                EXPECT_EQ(export_output, public_key);
             }
             else
             {
@@ -333,10 +345,12 @@ TEST_F(IavPrimulaKeyExportTest, UnspecifiedPublicPermissionsAllowExportAndExport
     ASSERT_TRUE(size.has_value());
     ASSERT_EQ(size.value().size(), 1U);
     EXPECT_EQ(std::get<std::uint64_t>(size.value()[0]), public_key.size());
+    export_output.assign(public_key.size(), 0U);
     auto exported = ExecuteExport(key_management::operations::KEY_EXPORT, key_id);
     ASSERT_TRUE(exported.has_value());
     ASSERT_EQ(exported.value().size(), 1U);
-    EXPECT_EQ(std::get<common::OwnedBuffer>(exported.value()[0]), public_key);
+    EXPECT_EQ(std::get<std::uint64_t>(exported.value()[0]), public_key.size());
+    EXPECT_EQ(export_output, public_key);
 }
 
 TEST_F(IavPrimulaKeyExportTest, NonPublicKeyRolesCannotUsePublicExportPermissions)
@@ -398,6 +412,79 @@ TEST_F(IavPrimulaKeyExportTest, PrimulaSharedSecretRemainsNonExportable)
         EXPECT_EQ(result.error(), Error::kKeyOperationNotPermitted);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Unsupported slot operations through the provider's handler factory
+// Regression: a valid slot request previously reached a null slot handler
+// in the executor and crashed instead of returning kUnsupportedOperation.
+// ---------------------------------------------------------------------------
+
+class IavPrimulaSlotOperationsTest : public ::testing::TestWithParam<common::OperationAction>
+{
+};
+
+TEST_P(IavPrimulaSlotOperationsTest, RejectsValidSlotRequestWithoutSlotHandler)
+{
+    // 1. Create the in-memory service dependencies and a client identity with
+    // UID 1000 in the upper 32 bits and PID 42 in the lower 32 bits.
+    constexpr data_manager::ClientId kClientId = (1000ULL << 32) | 42ULL;
+    constexpr common::ProviderId kProviderId{7U};
+    auto data_manager = std::make_shared<data_manager::DataManager>();
+    auto registry = std::make_shared<key_management::SlotRegistry>();
+    auto service = std::make_shared<key_management::KeyManagementService>(data_manager, nullptr, registry);
+
+    // 2. Register a public-key slot assigned to Primula and allow this client's
+    // UID to resolve it. No key file is needed: storage must never be accessed.
+    key_management::KeySlotConfig config{};
+    config.slot_name = "test/primula-public-key";
+    config.algorithm = "ML-DSA-44";
+    config.provider_ids = {kProviderId};
+    config.access_policy.allowed_uids = {1000U};
+    registry->RegisterSlot(std::move(config));
+    auto slot_handle = registry->ResolveSlot("test/primula-public-key", kClientId);
+    ASSERT_TRUE(slot_handle.has_value());
+    // 3. Expose the resolved slot as a client-owned data node and verify that
+    // the service can resolve it. An invalid slot could mask the null-handler bug.
+    auto slot_node = data_manager->addNode(
+        kClientId, std::make_shared<key_management::KeySlotDataNode>(slot_handle.value(), registry));
+    ASSERT_TRUE(slot_node.has_value());
+    ASSERT_TRUE(service->ResolveSlotForOperation(kClientId, slot_node.value()).has_value());
+    auto parent = data_manager->addNode(kClientId, std::make_shared<data_manager::DataNode>(false));
+    ASSERT_TRUE(parent.has_value());
+
+    // 4. Create the key-management handler through the real Primula provider
+    // factory, which currently injects nullptr as its slot handler.
+    IavPrimulaProvider primula;
+    ASSERT_TRUE(primula.Initialize({kProviderId, "iavPrimula"}));
+    primula.SetKeyManagementService(service);
+    auto factory = primula.GetCryptoHandlerFactory();
+    ASSERT_NE(factory, nullptr);
+    auto handler = factory->CreateHandler(common::HandlerId{common::context_types::kKeyManagement}, {});
+    ASSERT_TRUE(handler.has_value());
+    // 5. Bind the handler to the client, parent context node and provider ID,
+    // as the daemon does when initializing a key-management context.
+    provider::handler::InitializationParams init{};
+    init.client_id = kClientId;
+    init.context_node_id = parent.value();
+    init.provider_id = kProviderId;
+    ASSERT_TRUE(handler.value()->InitializeContext(init).has_value());
+
+    // 6. Request the parameterized operation (KEY_LOAD or KEY_SLOT_INFO) using
+    // the valid slot node ID. Both operations require a slot handler.
+    common::RequestParameters request{static_cast<std::uint64_t>(slot_node.value())};
+    auto result = handler.value()->Execute({common::actors::OP_ACTOR_KEY_MANAGEMENT, GetParam()}, request);
+
+    // 7. Verify that the executor reports the missing capability before it
+    // dereferences the null slot handler or accesses slot storage.
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kUnsupportedOperation);
+}
+
+// Run the same regression scenario separately for loading and querying a slot.
+INSTANTIATE_TEST_SUITE_P(LoadAndSlotInfo,
+                         IavPrimulaSlotOperationsTest,
+                         ::testing::Values(key_management::operations::KEY_LOAD,
+                                           key_management::operations::KEY_SLOT_INFO));
 
 // ---------------------------------------------------------------------------
 // Key-generation dispatch

@@ -198,7 +198,7 @@ score::Result<std::uint64_t> CreateDaemonContext(
 /// @brief Rejects a key handle that cannot drive a keyed operation context.
 score::Result<std::monostate> ValidateOperationKey(const CryptoResourceId& key, std::string_view context_type)
 {
-    if (key.id == 0U)
+    if (key.id == kInvalidCryptoResourceId)
     {
         score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: " << context_type << " invalid / missing key id";
         return score::Result<std::monostate>{
@@ -371,7 +371,7 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
         return score::Result<std::unique_ptr<IKeyManagementContext>>{score::unexpect, context_id.error()};
     }
 
-    return std::make_unique<KeyManagementContextImpl>(m_connection, context_id.value());
+    return std::make_unique<KeyManagementContextImpl>(m_connection, context_id.value(), m_transcoder);
 }
 
 // ---------------------------------------------------------------------------

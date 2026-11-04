@@ -38,7 +38,6 @@ inline constexpr std::string_view kCipher = "CIPHER";
 inline constexpr std::string_view kSign = "SIGN";
 inline constexpr std::string_view kVerify = "VERIFY";
 inline constexpr std::string_view kRandom = "RANDOM";
-inline constexpr std::string_view kKem = "KEM";
 inline constexpr std::string_view kKeyManagement = "KEY_MANAGEMENT";
 }  // namespace context_types
 
@@ -55,8 +54,6 @@ inline constexpr std::string_view kKeyManagement = "KEY_MANAGEMENT";
 /// @return The required permission, or std::nullopt when the context type
 ///         consumes no key permission:
 ///           - HASH and RANDOM bind no key at all.
-///           - KEM uses the key-agreement permission for encapsulation and
-///             decapsulation.
 ///           - KEY_MANAGEMENT binds no key at CTX_CREATE; its operations carry
 ///             their own key references and are checked individually (kDerive
 ///             for DeriveKey, kWrap for WrapKey, kExport for ExportKey).
@@ -82,10 +79,6 @@ inline constexpr std::string_view kKeyManagement = "KEY_MANAGEMENT";
     if (context_type == context_types::kVerify)
     {
         return Permission::kVerify;
-    }
-    if (context_type == context_types::kKem)
-    {
-        return Permission::kAgree;
     }
     if (context_type == context_types::kCipher)
     {

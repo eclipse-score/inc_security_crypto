@@ -68,7 +68,7 @@ void IavPrimulaProvider::SetKeyManagementService(std::shared_ptr<key_management:
 std::shared_ptr<handler::ICryptoHandlerFactory> IavPrimulaProvider::CreateHandlerFactory()
 {
     return std::make_shared<IavPrimulaHandlerFactory>(m_factory,
-                                                      nullptr,  // TODO This needs to be a key slot handler for primula
+                                                      nullptr,  // Primula slot operations are currently unsupported.
                                                       m_keyManagementService);
 }
 

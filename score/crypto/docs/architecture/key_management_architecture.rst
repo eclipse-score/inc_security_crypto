@@ -195,19 +195,37 @@ Client crash:
    calls ``Release(client_id)`` on every ``KeyEntry`` that still references
    that client.
 
+.. _crypto_key_management_kem_operations:
+
 KEM operations
 --------------
 
-ML-KEM encapsulation and decapsulation are key-management operations. The
-client supplies managed public or private key resources; the provider returns a
-new ephemeral shared-secret key which is registered through the normal
-``KeyRegistry`` and returned as a ``CryptoResourceGuard``. Ciphertext is public
-operation output, while shared-secret bytes never appear in IPC responses.
+ML-KEM encapsulation and decapsulation are key-management operations. The client
+supplies managed public or private key resources:
+
+- ``GetEncapsulationCiphertextSize()`` queries the required ciphertext capacity
+  for a managed public key.
+- ``EncapsulateKey()`` uses that public key and writes public ciphertext to a
+  caller-owned buffer. It returns an ``EncapsulationResult`` containing the
+  ciphertext length and a ``CryptoResourceGuard`` for the provider-held shared
+  secret.
+- ``DecapsulateKey()`` takes a managed private key and ciphertext, and returns
+  only the shared-secret guard.
 
 The source key is retained and locked for the full provider call. The resulting
-secret is derive-only, non-exportable, and released through the same
-``KeyDataNode`` lifecycle as every other ephemeral key. KEM therefore has no
-separate daemon actor, handler, or operation context.
+shared secret is a new ephemeral ``ResourceType::kSharedSecret`` resource,
+distinct from a usable ``kKey``. It permits only ``kDerive`` and is
+non-exportable. ``DeriveKeyParams::source_key`` accepts this resource as KDF
+input; the derived output is a ``kKey``.
+
+Internally, the material remains registered through the normal ``KeyRegistry``
+with ``KeyMaterialKind::kSharedSecret`` and is released via ``KEY_RELEASE``
+through the same ``KeyDataNode`` lifecycle as ephemeral keys. This preserves
+the existing provider, permission, and zeroization handling without treating
+the shared secret as a directly usable key in the client API. Ciphertext is
+public operation output, while shared-secret bytes never appear in IPC
+responses. KEM therefore has no separate daemon actor, handler family, or
+operation context.
 
 MAC Operation Example
 ---------------------

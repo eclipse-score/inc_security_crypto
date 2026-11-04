@@ -48,7 +48,6 @@ constexpr std::string_view kAllContextTypes[] = {
     ctx::kSign,
     ctx::kVerify,
     ctx::kRandom,
-    ctx::kKem,
     ctx::kKeyManagement,
 };
 
@@ -90,7 +89,6 @@ TEST(ContextTypesTest, KeyedTypesDemandTheOperationTheyPerform)
     EXPECT_EQ(common::RequiredKeyPermission(ctx::kMac, std::nullopt), KeyOperationPermission::kMac);
     EXPECT_EQ(common::RequiredKeyPermission(ctx::kSign, std::nullopt), KeyOperationPermission::kSign);
     EXPECT_EQ(common::RequiredKeyPermission(ctx::kVerify, std::nullopt), KeyOperationPermission::kVerify);
-    EXPECT_EQ(common::RequiredKeyPermission(ctx::kKem, std::nullopt), KeyOperationPermission::kAgree);
 }
 
 TEST(ContextTypesTest, CipherPermissionFollowsTheRequestedDirection)

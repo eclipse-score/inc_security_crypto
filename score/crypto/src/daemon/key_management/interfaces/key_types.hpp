@@ -19,15 +19,19 @@
 #include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/span.hpp"
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
 
 namespace score::crypto::daemon::key_management
 {
+
+class IKeyHandler;
 
 // ---------------------------------------------------------------------------
 // ProviderKeyHandle — opaque per-key runtime reference
@@ -76,15 +80,15 @@ struct ProviderKeyHandle
 
 /// @brief The permission set that governs @p required for this key.
 ///
-/// An asymmetric key carries two permission sets because its halves are used
-/// by different operations: the private half signs, decrypts, agrees and
-/// derives; the public half verifies, encrypts and wraps. Checking a verify
-/// request against the private half's permissions would deny a correctly
-/// provisioned sign-only key its legitimate public use, so the caller's
-/// intended operation selects which set applies.
+/// Material explicitly identified as a public key uses public_key_permissions
+/// for every requested operation, including KEM encapsulation and export.
+/// An unset public_key_permissions grants all permissions.
 ///
-/// A symmetric key has one half and one permission set, so `permissions`
-/// always applies.
+/// For other asymmetric handles, the requested operation selects the half:
+/// verify, encrypt and wrap use public_key_permissions; other operations use
+/// permissions. Symmetric keys and shared secrets use permissions.
+/// The caller separately checks whether the algorithm and key material
+/// support the requested operation.
 ///
 /// @param handle   The key whose permissions are being consulted.
 /// @param required The single permission bit the caller intends to exercise.
@@ -93,6 +97,11 @@ struct ProviderKeyHandle
     score::crypto::KeyOperationPermission required) noexcept
 {
     using Permission = score::crypto::KeyOperationPermission;
+
+    if (handle.material_kind == KeyMaterialKind::kPublicKey)
+    {
+        return handle.public_key_permissions.value_or(Permission::kAll);
+    }
 
     /// Operations that consume the public half of a key pair.
     constexpr Permission kPublicHalfOperations = Permission::kVerify | Permission::kEncrypt | Permission::kWrap;
@@ -166,6 +175,31 @@ struct KeyAgreeRequest
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
     /// Optional KDF for combined agree-then-derive (e.g., ECIES, TLS key exchange).
     std::optional<score::crypto::KdfParameters> kdf{std::nullopt};
+};
+
+// ---------------------------------------------------------------------------
+// KEM request and result types
+// ---------------------------------------------------------------------------
+
+struct KeyEncapsulationRequest
+{
+    const IKeyHandler& public_key;
+    common::AlgorithmId algorithm;
+};
+
+struct KeyDecapsulationRequest
+{
+    const IKeyHandler& private_key;
+    common::AlgorithmId algorithm;
+    score::cpp::span<const std::uint8_t> ciphertext;
+};
+
+/// Internal provider result. Only ciphertext can be serialized; shared_secret
+/// must first be registered with KeyManagementService.
+struct ProviderEncapsulationResult
+{
+    std::vector<std::uint8_t> ciphertext;
+    std::shared_ptr<IKeyHandler> shared_secret;
 };
 
 // ---------------------------------------------------------------------------

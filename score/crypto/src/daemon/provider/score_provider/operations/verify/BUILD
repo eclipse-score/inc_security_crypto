@@ -38,7 +38,7 @@ cc_library(
 
 cc_test(
     name = "verify_executor_test",
-    srcs = ["test/verify_executor_test.cpp"],
+    srcs = ["src/verify_executor_test.cpp"],
     deps = [
         ":score_verify_handler",
         "//score/crypto/src/daemon/common",

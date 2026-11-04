@@ -36,6 +36,7 @@ namespace crypto
 /// in the provider and is accessible only through authorized key derivation.
 struct EncapsulationResult
 {
+    /// @brief Ephemeral kSharedSecret resource; non-exportable and permitted only for derivation.
     CryptoResourceGuard shared_secret;
     std::size_t ciphertext_size;
 };
@@ -141,7 +142,7 @@ class IKeyManagementContext : public IContext
     /// @brief Produce ciphertext and a non-exportable, derive-only secret guard.
     /// @param params Imported public-key resource and its KEM algorithm; requires kAgree.
     /// @param ciphertext_out Caller-owned output; query capacity first with GetEncapsulationCiphertextSize().
-    /// @return Ciphertext length and a guard for provider-owned secret storage.
+    /// @return Ciphertext length and a guard for an ephemeral ResourceType::kSharedSecret.
     /// No secret bytes are returned. Ignore ciphertext_out on failure.
     virtual score::Result<EncapsulationResult> EncapsulateKey(const EncapsulateKeyParams& params,
                                                               score::cpp::span<uint8_t> ciphertext_out) = 0;
@@ -149,6 +150,7 @@ class IKeyManagementContext : public IContext
     /// @brief Recover a shared secret into provider storage; returns only its guard.
     /// The private-key resource must belong to this context's provider and permit kAgree.
     /// Use DeriveKey() with the returned guard, then release the guard after derivation.
+    /// @return Guard for an ephemeral, non-exportable, derive-only ResourceType::kSharedSecret.
     virtual score::Result<CryptoResourceGuard> DecapsulateKey(const DecapsulateKeyParams& params) = 0;
 
     // =========================================================================
@@ -156,7 +158,7 @@ class IKeyManagementContext : public IContext
     // =========================================================================
 
     /// @brief Derives a new ephemeral key using structured KDF parameters.
-    /// @param params Derivation parameters (source key, algorithm, KDF config, permissions).
+    /// @param params Derivation parameters (kKey or kSharedSecret source, algorithm, KDF config, permissions).
     ///              Implementations shall call params.Validate() before IPC dispatch to catch
     ///              KDF truncation errors.
     /// @return CryptoResourceGuard wrapping the ephemeral derived key.
@@ -184,7 +186,7 @@ class IKeyManagementContext : public IContext
     ///        agreement algorithm, optional KDF for combined agree+derive).
     ///        Implementations shall call params.Validate() before IPC dispatch to catch
     ///        KDF truncation errors.
-    /// @return CryptoResourceGuard wrapping the agreed/derived key.
+    /// @return Guard for kSharedSecret without KDF, or kKey with KDF.
     virtual score::Result<CryptoResourceGuard> AgreeKey(const AgreeKeyParams& params) = 0;
 
     /// @brief Performs key agreement directly into a persistent key slot.

@@ -74,9 +74,9 @@ inline constexpr OperationAction KEY_GET_ENCAPSULATION_SIZE = 0x32;
 // Request:  data_node_id = context_id,
 //           param[0]: string — KEM algorithm
 //           param[1]: uint64 — peer public-key resource id
-//           param[2]: uint64 — caller ciphertext capacity
+//           param[2]: data_shm (InOut) — ciphertext output buffer
 // Response: status_code (SUCCESS/error)
-//           param[0]: buffer — ciphertext
+//           param[0]: uint64 — ciphertext bytes written
 //           param[1]: uint64 — daemon-assigned shared-secret resource id
 //           param[2]: uint16 — primary provider id
 // Effect:   Creates an ephemeral, non-exportable, derive-only shared secret.
@@ -86,7 +86,7 @@ inline constexpr OperationAction KEY_ENCAPSULATE = 0x33;
 // Request:  data_node_id = context_id,
 //           param[0]: string — KEM algorithm
 //           param[1]: uint64 — private-key resource id
-//           param[2]: buffer — ciphertext
+//           param[2]: buffer or data_shm (In) — ciphertext
 // Response: status_code (SUCCESS/error)
 //           param[0]: uint64 — daemon-assigned shared-secret resource id
 //           param[1]: uint16 — primary provider id
@@ -101,7 +101,7 @@ inline constexpr OperationAction KEY_UNWRAP_TO_SLOT = 0x51;
 // KEY_IMPORT
 // Request:  data_node_id = context_id,
 //           param[0]: string — key algorithm
-//           param[1]: buffer — encoded key material
+//           param[1]: buffer or data_shm (In) — encoded key material
 //           param[2]: uint8 — key format (FormatType)
 //           param[3]: uint32 — permissions bitmask (KeyOperationPermission)
 // Response: status_code (SUCCESS/error)

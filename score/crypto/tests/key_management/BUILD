@@ -43,6 +43,7 @@ cc_test(
     srcs = ["test_key_management_kem_operations.cpp"],
     deps = [
         "//score/crypto/src/api/contexts:crypto_contexts_impl",
+        "//score/crypto/src/api/data_plane:data_plane_client",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/key_management",

@@ -22,6 +22,7 @@
 #include "score/crypto/src/api/types/key.hpp"
 
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
+#include "score/crypto/src/api/data_plane/i_buffer_transcoder.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 #include "score/result/result.h"
@@ -38,29 +39,24 @@ namespace score
 
 namespace crypto
 {
-/// @brief Concrete IKeyManagementContext implementation that delegates to the crypto daemon via IPC.
+/// @brief Concrete IKeyManagementContext implementation for communication with the crypto daemon.
 ///
-/// Each instance is bound to a daemon-side key management context (identified by
-/// context_id) created during construction. Key-producing operations (GenerateKey,
-/// etc.) return CryptoResourceGuard instances that auto-release through an
-/// IReleaseCallback bound to the daemon connection.
+/// Each instance is bound to a daemon-side key management context identified
+/// by the context_id supplied to the constructor.
+/// Returned CryptoResourceGuard instances manage resource lifetime through
+/// an IReleaseCallback bound to the daemon connection.
 ///
-/// Currently implements:
-///   - GenerateKey, ImportKey, ExportKey (ephemeral overloads)
-///   - GetEncapsulationCiphertextSize, EncapsulateKey, DecapsulateKey
-///   - LoadKey
-///   - Key release via CryptoResourceGuard RAII / explicit Release()
-///
-/// Provider support is required for each operation; the IAV KEM backend is
-/// still incomplete. Slot-writing operations, DeriveKey, and AgreeKey are stubs.
+/// Operation support depends on the selected provider's capabilities.
 class KeyManagementContextImpl final : public IKeyManagementContext
 {
   public:
     /// @brief Constructs a key management context bound to an existing daemon-side context.
     /// @param connection Shared connection for IPC communication
     /// @param context_id Daemon-assigned context identifier (from CTX_CREATE response)
+    /// @param transcoder Stack-shared buffer-routing abstraction for binary data.
     KeyManagementContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-                             uint64_t context_id);
+                             uint64_t context_id,
+                             std::shared_ptr<IBufferTranscoder> transcoder = nullptr);
 
     ~KeyManagementContextImpl() override;
 
@@ -82,25 +78,25 @@ class KeyManagementContextImpl final : public IKeyManagementContext
                                                       score::cpp::span<uint8_t> ciphertext_out) override;
     score::Result<CryptoResourceGuard> DecapsulateKey(const DecapsulateKeyParams& params) override;
 
-    // -- Key Derivation (stubs) --
+    // -- Key Derivation --
     score::Result<CryptoResourceGuard> DeriveKey(const DeriveKeyParams& params) override;
     score::Result<std::monostate> DeriveKey(const CryptoResourceId& target_slot,
                                             const DeriveKeyParams& params) override;
 
-    // -- Key Agreement (stubs) --
+    // -- Key Agreement --
     score::Result<CryptoResourceGuard> AgreeKey(const AgreeKeyParams& params) override;
     score::Result<std::monostate> AgreeKey(const CryptoResourceId& target_slot, const AgreeKeyParams& params) override;
 
-    // -- Persistence (stub) --
+    // -- Persistence --
     score::Result<std::monostate> PersistKey(const CryptoResourceId& target_slot,
                                              const CryptoResourceId& ephemeral_key) override;
 
-    // -- Key Unwrapping (stubs) --
+    // -- Key Unwrapping --
     score::Result<CryptoResourceGuard> UnwrapKey(const UnwrapKeyParams& params) override;
     score::Result<std::monostate> UnwrapKey(const CryptoResourceId& target_slot,
                                             const UnwrapKeyParams& params) override;
 
-    // -- Key Import (ephemeral implemented; slot overload is a stub) --
+    // -- Key Import --
     score::Result<CryptoResourceGuard> ImportKey(const ImportKeyParams& params) override;
     score::Result<std::monostate> ImportKey(const CryptoResourceId& target_slot,
                                             const ImportKeyParams& params) override;
@@ -108,7 +104,7 @@ class KeyManagementContextImpl final : public IKeyManagementContext
     // -- Key Loading --
     score::Result<CryptoResourceGuard> LoadKey(const CryptoResourceId& slot) override;
 
-    // -- Key Wrapping (stubs) --
+    // -- Key Wrapping --
     score::Result<std::size_t> WrapKey(const WrapKeyParams& params, score::cpp::span<uint8_t> output) override;
     score::Result<std::size_t> GetWrapKeySize(const WrapKeyParams& params) override;
 
@@ -118,20 +114,39 @@ class KeyManagementContextImpl final : public IKeyManagementContext
                                          FormatType format) override;
     score::Result<std::size_t> GetExportKeySize(const CryptoResourceId& key, FormatType format) override;
 
-    // -- Key Clearing (stub) --
+    // -- Key Clearing --
     score::Result<std::monostate> ClearKey(const CryptoResourceId& key) override;
 
-    // -- Slot Queries (stub) --
+    // -- Slot Queries --
     score::Result<KeySlotInfo> GetKeySlotInfo(const CryptoResourceId& slot) override;
 
   private:
-    score::Result<daemon::control_plane::protocol::SingleOperationResponse> ExchangeKeyOperation(
+    /// @brief Sends a key-management request and returns the unvalidated daemon response.
+    /// @param request Built request, or the error encountered during request construction.
+    /// @return Daemon response, or a request-construction, connection, or transport error.
+    /// The caller validates its operation-specific response and maps errors as required.
+    score::Result<daemon::control_plane::protocol::ControlResponse> SendKeyManagementRequest(
+        const Expected<daemon::control_plane::protocol::ControlRequest, CryptoErrorCode>& request);
+
+    /// @brief Sends a key-management request and validates its single-operation response.
+    /// @param request Built request, or the error encountered during request construction.
+    /// @param response_parameter_count Exact number of parameters required in the response.
+    /// @return Successful response with matching actor, action, and parameter count, or an error.
+    score::Result<daemon::control_plane::protocol::SingleOperationResponse> ExecuteKeyManagementRequest(
         const Expected<daemon::control_plane::protocol::ControlRequest, CryptoErrorCode>& request,
         std::size_t response_parameter_count);
-    score::Result<CryptoResourceGuard> MakeKeyGuard(const daemon::common::ResponseParameters& parameters,
-                                                    std::size_t offset);
+
+    /// @brief Creates an ephemeral guard for returned key-management material.
+    /// @param parameters Daemon response containing the resource id and provider id.
+    /// @param offset Index of the resource id; the provider id follows immediately.
+    /// @param type kKey for keys, or kSharedSecret for KEM output.
+    /// @return Guard that releases the resource through KEY_RELEASE, or a response error.
+    score::Result<CryptoResourceGuard> MakeResourceGuard(const daemon::common::ResponseParameters& parameters,
+                                                       std::size_t offset,
+                                                       ResourceType type);
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     score::crypto::daemon::control_plane::protocol::DataNodeId m_context_id;
+    std::shared_ptr<IBufferTranscoder> m_transcoder;
 
     /// @brief IReleaseCallback whose destructor sends CTX_CLOSE to the daemon.
     /// Held by the context *and* transitively by every CryptoResourceGuard (via

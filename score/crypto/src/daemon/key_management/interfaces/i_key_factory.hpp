@@ -29,27 +29,6 @@ namespace score::crypto::daemon::key_management
 
 class IKeySlotHandler;
 
-struct KeyEncapsulationRequest
-{
-    const IKeyHandler& public_key;
-    common::AlgorithmId algorithm;
-};
-
-struct KeyDecapsulationRequest
-{
-    const IKeyHandler& private_key;
-    common::AlgorithmId algorithm;
-    score::cpp::span<const std::uint8_t> ciphertext;
-};
-
-/// Internal provider result. Only ciphertext can be serialized; shared_secret
-/// must first be registered with KeyManagementService.
-struct ProviderEncapsulationResult
-{
-    std::vector<std::uint8_t> ciphertext;
-    IKeyHandler::Sptr shared_secret;
-};
-
 /// Provider-side factory for creating and importing key material.
 ///
 /// Each provider backend (OpenSSL, PKCS#11, TEE) implements this interface.
