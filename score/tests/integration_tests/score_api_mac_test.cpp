@@ -51,12 +51,6 @@ using tests::utility::print_hex;
 namespace
 {
 
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
-
 // =========================================================================
 // Parameterized Test Data
 // =========================================================================
@@ -266,10 +260,7 @@ TEST_P(GeneratedKeyMacTest, MacGenerationAndVerificationTest)
     // =========================================================================
     // 1. Create the crypto stack and connect to the daemon
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -426,10 +417,7 @@ TEST_P(KeySlotMacTest, MacWithKeySlotTest)
     // =========================================================================
     // 1. Create the crypto stack and connect to the daemon
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 

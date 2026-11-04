@@ -649,10 +649,10 @@ Consequences
 
 ---
 
-Two-Layer Per-Call Timeout with Daemon-Side Enforcement
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Per-Call Timeout with Client-Side Response Bound
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. dec_rec:: Two-Layer Per-Call Timeout with Daemon-Side Enforcement
+.. dec_rec:: Per-Call Timeout with Client-Side Response Bound
    :id: dec_rec__crypto__two_layer_timeout
    :version: 1
    :status: accepted
@@ -661,20 +661,28 @@ Two-Layer Per-Call Timeout with Daemon-Side Enforcement
 
    .. :affects: comp__crypto
 
-Operation timeouts are enforced at two layers — a stack-wide default in
-``CryptoStackConfig`` and a per-context override in ``BaseContextConfig`` with an
-explicit ``DisableTimeout()`` escape — with the daemon as the enforcement point.
-Client threads unblock on timeout; timed-out contexts transition to ``kError``.
+Operation timeouts have two parts: the requested per-call deadline is forwarded
+to the daemon/provider, which is expected to honor it, and the library independently
+bounds its response wait. The requested duration comes from a stack-wide default
+in ``CryptoStackConfig`` or a per-context override in ``BaseContextConfig``.
+``DisableTimeout()`` selects the maximum request duration. The active
+message-passing transport caps that duration at ``kMaximumRequestTimeout`` minutes and gives
+the daemon a additional response grace period (``kTimeoutGracePeriod``) before the library
+unblocks. The grace is a transport compile-time setting, not a public runtime option. Other IPC
+adapters must provide their own bounded client-side wait; their grace behavior
+may differ.
 
 Context
 -------
 
-Without timeouts, a hung HSM or stalled IPC channel blocks the calling thread
-indefinitely — a safety violation for ISO 26262 ASIL functions. A single global
-timeout is insufficient because some legitimate operations (e.g., RSA-4096 key
-generation on software providers) require more time than typical operations.
-Client-side-only timeouts fail to release daemon-held resources when the deadline
-expires.
+Without a library-side bound, a hung HSM or stalled IPC channel could block the
+calling thread indefinitely — a safety violation for ISO 26262 ASIL functions.
+A single global timeout is insufficient because some legitimate operations
+(e.g., RSA-4096 key generation on software providers) require more time than
+typical operations. In an ASIL-B library / QM-only daemon deployment, the library
+must unblock even if the daemon/provider does not honor the requested timeout.
+That client-side bound cannot by itself prove that daemon-held resources were
+released.
 
 Decision
 --------
@@ -685,38 +693,49 @@ Three timeout models were evaluated:
    deadline, but the daemon continues executing the stalled operation, holding
    the resource. Does not provide bounded daemon resource usage.
 
-2. **Daemon-side only (watchdog thread per context)** — daemon kills stalled
-   operations after timeout and notifies client via error response. Provides
-   bounded resource usage but requires the daemon to maintain one watchdog
-   timer per in-flight context.
+2. **Daemon/provider-side only** — daemon/provider observes the requested
+   timeout and reports the result. This relies on every daemon/provider
+   implementation honoring the request and cannot bound the library's wait if
+   the response is lost or the implementation is QM-only/non-compliant.
 
-3. **Two-layer: client deadline + daemon enforcement** — client passes
-   timeout value on each IPC call; daemon enforces the deadline server-side.
-   If deadline expires, daemon transitions context to error, releases provider
-   resources, and returns ``kOperationTimedOut`` to client. ``DisableTimeout()``
-   is available for legitimately long operations (e.g., RSA-4096 key generation
-   on software providers).
+3. **Propagated request timeout + library response bound** — the library sends
+   the requested timeout to the daemon, and the daemon/provider are advised to
+   respect it. The library allows a configured response grace after the
+   requested timeout so a terminal operation status can arrive. If a terminal
+   response arrives, the library returns that status (including
+   ``kOperationTimedOut``). If none arrives by timeout plus grace, the library
+   unblocks with ``kOperationResponseTimedOut``; daemon operation status is unknown.
+   ``DisableTimeout()`` requests the maximum supported
+   duration for legitimately long operations.
 
-Model 3 was selected for bounded behaviour at both layers.
+Model 3 was selected to combine daemon/provider cooperation with a guaranteed
+library-side response bound, without assuming the daemon has the same safety
+integrity level as the library.
 
 Consequences
 ------------
 
 **Positive:**
 
-* Guaranteed bounded execution — no call blocks indefinitely.
-* Daemon-side enforcement means provider resources are released on timeout,
-  not just the client thread.
+* The library's response wait is bounded by the requested timeout plus grace,
+  with the request duration capped at at a compile-time constant (``kMaximumRequestTimeout``).
+* A daemon/provider that respects the requested timeout can stop work and report
+  status by the deadline, allowing timely resource cleanup and an informative result.
 * Per-context override allows fine-grained tuning without changing global config.
-* ``DisableTimeout()`` supports legitimate long-running operations without
-  disabling safety globally.
+* ``DisableTimeout()`` supports legitimate long-running operations by selecting
+  the maximum request duration without changing the stack-wide default.
 * Satisfies ISO 26262 Part 6 Table 1 (bounded execution time for safety functions).
 
 **Negative:**
 
-* Daemon must maintain a per-context deadline and cancel infrastructure.
-* ``DisableTimeout()`` is a safety escape hatch; misuse (e.g., in Safety paths)
-  must be justified in the application's safety case.
+* Daemon/provider deadline handling is cooperative: the requested timeout is
+  forwarded and they are advised to honor it, but the library-side bound does
+  not guarantee remote cancellation or cleanup.
+* If the daemon/provider ignores the requested timeout, the library still unblocks
+  but cannot guarantee the remote operation stopped.
+* ``DisableTimeout()`` selects a long 10-minute request duration plus the
+  message-passing grace; its use (e.g., in Safety paths) must be justified in
+  the application's safety case.
 * Two-layer design adds complexity compared to a single global timeout.
 
 ---

@@ -14,6 +14,7 @@
 #include "score/crypto/src/api/crypto_stack_factory.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/config/base_context_config.hpp"
 #include "score/crypto/src/api/data_plane/i_read_write_memory_factory.hpp"
 #include "score/crypto/src/api/data_plane/shm_memory_factory.hpp"
 #include "score/crypto/src/api/data_plane/src/pool_allocator.hpp"
@@ -55,7 +56,8 @@ namespace
 /// Sends SHM_SETUP(is_pool=1), receives response, validates pool geometry, and returns
 /// the extracted parameters as a ShmSetupResponse for use by CreateCryptoStack.
 score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
-    std::shared_ptr<score::crypto::api::control_plane::IConnection> connection)
+    std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
+    const std::chrono::milliseconds operation_timeout)
 {
     auto req = proto::OperationRequestBuilder()
                    .operation({actors::OP_ACTOR_MEDIATOR, med_ops::SHM_SETUP})
@@ -74,14 +76,15 @@ score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
     ctrl_req.operation = req.value();
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
     ctrl_req.data_node_id = connection->GetConnectionNodeId();
-    auto res = connection->SendRequest(ctrl_req);
+    auto res = connection->SendRequest(ctrl_req, operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(res);
     validator.expectOperation(med_ops::CreateShmObject()).expectSuccess();
     if (!validator.isValid())
     {
         return score::Result<ShmSetupResponse>{
-            score::unexpect, MakeError(CryptoErrorCode::kAllocationFailed, "SHM_SETUP daemon response invalid")};
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     // Extract and validate all required parameters.
@@ -97,7 +100,7 @@ score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
     {
         return score::Result<ShmSetupResponse>{
             score::unexpect,
-            MakeError(CryptoErrorCode::kAllocationFailed, "SHM_SETUP response missing required parameters")};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     // Extract pool geometry parameter values for validation.
@@ -146,48 +149,12 @@ score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
     return ShmSetupResponse{.region = region, .pool = pool_geom};
 }
 
-/// @brief Send CONNECTION_OPEN, validate response, extract and set connection DataNodeId.
-///
-/// @param connection  Active IConnection instance.
-/// @return OK on success; error if request build, send, validation, or parameter extraction fails.
-score::crypto::Expected<void, CryptoErrorCode> OpenConnection(
-    score::crypto::api::control_plane::IConnection& connection)
-{
-    namespace ctrl = ::score::crypto::daemon::control_plane;
-
-    auto request_res = proto::ControlRequestBuilder()
-                           .forDataNodeId(0)  // No connection ID yet during initial open
-                           .operation(ctrl::operations::OpenConnection())
-                           .build();
-
-    if (!request_res.has_value())
-    {
-        return score::crypto::make_unexpected(CryptoErrorCode::kConnectionFailed);
-    }
-
-    auto response_res = connection.SendRequest(request_res.value());
-
-    // Validate response and extract DataNodeId
-    auto validator = proto::ControlResponseValidator::FromResult(response_res);
-    validator.expectOperation(ctrl::operations::OpenConnection()).expectSuccess();
-
-    if (!validator.isValid())
-    {
-        return score::crypto::make_unexpected(CryptoErrorCode::kConnectionFailed);
-    }
-
-    // Extract connection DataNodeId from response parameter at index 0
-    auto connection_node_id_result = validator.getParameterAt<uint64_t>(0, 0);
-    if (!connection_node_id_result.has_value())
-    {
-        return score::crypto::make_unexpected(CryptoErrorCode::kConnectionFailed);
-    }
-
-    connection.SetConnectionNodeId(connection_node_id_result.value());
-    return {};
-}
-
 }  // namespace
+
+score::Result<ICryptoStack::Uptr> CreateCryptoStack()
+{
+    return CreateCryptoStack(CryptoStackConfig{});
+}
 
 score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& config)
 {
@@ -198,7 +165,7 @@ score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& con
     }
 
     score::crypto::api::control_plane::ConnectionFactory factory;
-    auto connection_result = factory.CreateConnection(config.connection_endpoint);
+    auto connection_result = factory.EstablishConnection(config.connection_endpoint);
     if (!connection_result.has_value())
     {
         return score::Result<ICryptoStack::Uptr>{
@@ -208,16 +175,9 @@ score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& con
     auto connection =
         std::shared_ptr<score::crypto::api::control_plane::IConnection>(std::move(connection_result.value()));
 
-    // Open connection and extract DataNodeId
-    auto open_res = OpenConnection(*connection);
-    if (!open_res.has_value())
-    {
-        return score::Result<ICryptoStack::Uptr>{
-            score::unexpect, MakeError(CryptoErrorCode::kConnectionFailed, "Failed to open connection")};
-    }
-
     // Setup data plane and extract pool geometry.
-    auto setup_result = SetupDataPlane(connection);
+    const auto operation_timeout = ResolveOperationTimeout(true, std::nullopt, config.default_operation_timeout);
+    auto setup_result = SetupDataPlane(connection, operation_timeout);
     if (!setup_result.has_value())
     {
         return score::Result<ICryptoStack::Uptr>{score::unexpect, setup_result.error()};
@@ -231,7 +191,7 @@ score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& con
 
     // Create data plane components.
     auto registry = std::make_shared<ShmRegionRegistry>(pool_geom.total_quota);
-    auto shm_factory = std::make_shared<ShmMemoryFactory>(registry, connection);
+    auto shm_factory = std::make_shared<ShmMemoryFactory>(registry, connection, operation_timeout);
 
     // Create and map the pool SHM region (pass only region params, not pool geometry).
     auto pool_create = shm_factory->Create(shm_setup.region);

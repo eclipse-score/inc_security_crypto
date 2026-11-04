@@ -21,9 +21,6 @@ build --tool_java_runtime_version=remotejdk_17
 build --cxxopt=-Werror=deprecated-declarations
 build --@rules_rust//rust/settings:extra_rustc_flag=-Ddeprecated
 
-# Suppress deprecated warnings for grpc_adapter implementation. grpc_adapter will be removed in future
-build --per_file_copt=score/crypto/src/ipc/grpc_adapter/.*@-Wno-error=deprecated-declarations
-
 # TODO: Temporarily disable deprecation warnings for com
 build --per_file_copt=external/score_communication\\+/.*@-Wno-error=deprecated-declarations
 
@@ -50,16 +47,6 @@ build:shared --@score_communication//score/memory/shared/flags:use_typedshmd=Fal
 
 # Shared qnx configuration
 build:shared_qnx --config=shared
-build:shared_qnx --copt=-D_QNX_SOURCE
-build:shared_qnx --copt=-DGRPC_POSIX_SOCKET
-build:shared_qnx --copt=-DGRPC_POSIX_SOCKETUTILS
-build:shared_qnx --copt=-DGRPC_POSIX_WAKEUP_FD
-build:shared_qnx --copt=-DIP_PKTINFO=0
-build:shared_qnx --cxxopt=-D_QNX_SOURCE
-build:shared_qnx --cxxopt=-DGRPC_POSIX_SOCKET
-build:shared_qnx --cxxopt=-DGRPC_POSIX_SOCKETUTILS
-build:shared_qnx --cxxopt=-DGRPC_POSIX_WAKEUP_FD
-build:shared_qnx --cxxopt=-DIP_PKTINFO=0
 build:shared_qnx --@score_communication//score/memory/shared/flags:use_typedshmd=false
 
 # -------------------------------------------------------------------------------

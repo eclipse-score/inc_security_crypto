@@ -46,7 +46,7 @@ repos:
         args: ["-i", "--style=file"]
         files: \.(c|cpp|h|hpp)$
       - id: clang-tidy
-        args: ["--config-file=.clang-tidy", "-p=$(pwd)", "--warnings-as-errors=*"]
+        args: ["--config-file=.clang-tidy", "-p=.", "--warnings-as-errors=*"]
         exclude: '(_test\.cpp|test_.*\.cpp)$'
   # Ensure every file has a copyright header as per the Eclipse Foundation's requirements
   # CR_CHECKER

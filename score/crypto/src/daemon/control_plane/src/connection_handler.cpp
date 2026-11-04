@@ -39,7 +39,7 @@ ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
 {
     score::mw::log::LogDebug() << "[CONTROL_HANDLER] Received request - Request ID:" << request.request_id
                                << ", Client Id ID:" << request.client_id << ", UID:" << request.uid
-                               << ", PID:" << request.pid << ", Data Node Id:" << request.data_node_id
+                               << ", Data Node Id:" << request.data_node_id
                                << ", Data Node Value:" << request.node_id_value
                                << ", Data Node Tag:" << request.node_tag_value;
     std::ostringstream tid;

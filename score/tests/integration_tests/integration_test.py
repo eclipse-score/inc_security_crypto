@@ -119,23 +119,63 @@ class TestCryptoDaemon:
 
     def test_daemon_control_socket_creation(self, target: Target, target_os: str):
         """Test that crypto_daemon creates socket and handles SIGTERM."""
-        tmp_dir = "/opt" if target_os == "QNX" else "/tmp"
-        socket_path = f"{tmp_dir}/crypto_daemon.sock"
+        if target_os == "QNX":
+            self._check_daemon_control_channel_qnx(target)
+        else:
+            self._check_daemon_control_socket_linux(target)
+
+    def _check_daemon_control_socket_linux(self, target: Target):
+        socket_name = "@crypto_daemon.sock"
         max_wait = 5
         socket_found = False
 
         for i in range(max_wait * 10):  # Check every 100ms
-            exit_code, _output = target.execute(f"test -S {socket_path}")
-            if exit_code == 0:
+            exit_code, output = target.execute("cat /proc/net/unix")
+            output_text = output.decode(errors="replace")
+            logger.info(output_text)
+            if exit_code == 0 and socket_name in output_text:
                 socket_found = True
                 logger.info(
-                    f"Unix domain socket {socket_path} created within {i * 0.1:.1f}s"
+                    f"Abstract Unix domain socket {socket_name} created within {i * 0.1:.1f}s"
                 )
                 break
+            else:
+                logger.info(
+                    f"Abstract Unix domain socket {socket_name} not found yet (iteration {i})"
+                )
             time.sleep(0.1)
 
         assert socket_found, (
-            f"Unix domain socket {socket_path} was not created within {max_wait} seconds"
+            f"Abstract Unix domain socket {socket_name} was not created within "
+            f"{max_wait} seconds"
+        )
+
+    def _check_daemon_control_channel_qnx(self, target: Target):
+        channel_path = "/mw_com/message_passing/crypto_daemon.sock"
+        max_wait = 5
+        channel_found = False
+
+        for i in range(max_wait * 10):  # Check every 100ms
+            exit_code, output = target.execute(f"test -e {channel_path}")
+            output_text = output.decode(errors="replace")
+            logger.info(output_text)
+            if exit_code == 0:
+                channel_found = True
+                logger.info(
+                    f"Message passing channel {channel_path} created within "
+                    f"{i * 0.1:.1f}s"
+                )
+                break
+            else:
+                logger.info(
+                    f"Message passing channel {channel_path} not found yet "
+                    f"(iteration {i})"
+                )
+            time.sleep(0.1)
+
+        assert channel_found, (
+            f"Message passing channel {channel_path} was not created within "
+            f"{max_wait} seconds"
         )
 
     def test_score_api_hash(self, target: Target, target_os: str, install_dir: str):

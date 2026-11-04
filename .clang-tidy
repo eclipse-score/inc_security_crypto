@@ -1,6 +1,12 @@
 # NOTE: the set of enabled checks is yet subject to be tailored for the S-CORE project
+
+# clang-tidy llvm runs into recursion while checking noexcept-destructor
+# This seems to be an issue with llvm and not the changes
+# Disabling these for now.
+# -cppcoreguidelines-noexcept-destructor,-performance-noexcept-destructor
+
 Checks: >
-  -*, clang-analyzer-*, cert-*, cppcoreguidelines-*, bugprone-*, misc-*, performance-*, readability-*
+  -*, clang-analyzer-*, cert-*, cppcoreguidelines-*, bugprone-*, misc-*, performance-*, readability-*,-cppcoreguidelines-noexcept-destructor,-performance-noexcept-destructor
 # Only treat critical checks as errors, others are warnings
 # NOTE: the `WarningsAsErrors` property is yet subject to be tailored for the enabled checks
 WarningsAsErrors: >

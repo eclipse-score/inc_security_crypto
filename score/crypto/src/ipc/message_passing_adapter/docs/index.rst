@@ -42,5 +42,6 @@ control-plane component.
 .. toctree::
    :maxdepth: 1
 
-   architecture/index
    requirements/index
+   architecture/index
+   detailed_design/index

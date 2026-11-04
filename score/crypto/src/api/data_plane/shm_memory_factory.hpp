@@ -18,6 +18,7 @@
 #include "score/crypto/src/api/data_plane/i_read_write_memory_factory.hpp"
 #include "score/crypto/src/api/data_plane/i_shm_region_registry.hpp"
 
+#include <chrono>
 #include <memory>
 
 namespace score
@@ -31,7 +32,8 @@ class ShmMemoryFactory final : public IReadWriteMemoryFactory
 {
   public:
     explicit ShmMemoryFactory(std::shared_ptr<IShmRegionRegistry> registry,
-                              std::shared_ptr<score::crypto::api::control_plane::IConnection> connection);
+                              std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
+                              std::chrono::milliseconds operation_timeout = std::chrono::milliseconds::max());
 
     ~ShmMemoryFactory() override = default;
 
@@ -45,6 +47,7 @@ class ShmMemoryFactory final : public IReadWriteMemoryFactory
   private:
     std::shared_ptr<IShmRegionRegistry> m_registry;
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
+    std::chrono::milliseconds m_operation_timeout;
 };
 
 }  // namespace crypto

@@ -52,11 +52,13 @@ constexpr std::string_view kLogPrefix = "[API][SignContextImpl] ERROR: ";
 SignContextImpl::SignContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                  uint64_t context_id,
                                  AlgorithmId algorithm,
-                                 std::shared_ptr<IBufferTranscoder> transcoder)
+                                 std::shared_ptr<IBufferTranscoder> transcoder,
+                                 std::chrono::milliseconds operation_timeout)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
       m_algorithm(std::move(algorithm)),
-      m_transcoder(std::move(transcoder))
+      m_transcoder(std::move(transcoder)),
+      m_operation_timeout(operation_timeout)
 {
 }
 
@@ -64,7 +66,8 @@ SignContextImpl::SignContextImpl(SignContextImpl&& other) noexcept
     : m_connection(std::move(other.m_connection)),
       m_context_id(std::exchange(other.m_context_id, 0)),
       m_algorithm(std::move(other.m_algorithm)),
-      m_transcoder(std::move(other.m_transcoder))
+      m_transcoder(std::move(other.m_transcoder)),
+      m_operation_timeout(other.m_operation_timeout)
 {
 }
 
@@ -77,6 +80,7 @@ SignContextImpl& SignContextImpl::operator=(SignContextImpl&& other) noexcept
         m_context_id = std::exchange(other.m_context_id, 0);
         m_algorithm = std::move(other.m_algorithm);
         m_transcoder = std::move(other.m_transcoder);
+        m_operation_timeout = other.m_operation_timeout;
     }
     return *this;
 }
@@ -110,7 +114,7 @@ void SignContextImpl::CloseContext() noexcept
         return;
     }
 
-    auto response_res = m_connection->SendRequest(context_close_res.value());
+    auto response_res = m_connection->SendRequest(context_close_res.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(response_res);
     validator.expectOperation(score::crypto::daemon::mediator::operations::CloseContext()).expectSuccess();
@@ -141,7 +145,7 @@ score::Result<std::monostate> SignContextImpl::Init(std::optional<score::cpp::sp
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build SIGN_INIT request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_INIT}).expectSuccess();
@@ -179,15 +183,16 @@ score::Result<std::monostate> SignContextImpl::Update(score::cpp::span<const uin
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_UPDATE}).expectSuccess();
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return std::monostate{};
@@ -216,15 +221,16 @@ score::Result<std::size_t> SignContextImpl::SignFinalize(score::cpp::span<uint8_
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_FINALIZE}).expectSuccess();
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(tspan, validator);
@@ -262,15 +268,16 @@ score::Result<std::size_t> SignContextImpl::SingleShot(score::cpp::span<const ui
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_SS}).expectSuccess();
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(sig_tspan, validator);
@@ -289,7 +296,7 @@ score::Result<std::monostate> SignContextImpl::Reset()
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build SIGN_RESET request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_RESET}).expectSuccess();
@@ -298,7 +305,8 @@ score::Result<std::monostate> SignContextImpl::Reset()
     {
         score::mw::log::LogError() << kLogPrefix << validator.getError();
         return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "SIGN_RESET daemon response invalid")};
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return std::monostate{};
@@ -316,7 +324,7 @@ std::size_t SignContextImpl::GetSignatureSize() const noexcept
         return 0U;
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_SIGN_HANDLER, sign_ops::SIGN_GET_SIZE}).expectSuccess();

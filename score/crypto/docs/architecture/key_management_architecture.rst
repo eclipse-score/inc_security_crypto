@@ -458,7 +458,7 @@ Session Pools
 
 Each ``Pkcs11Provider`` maintains two pools of PKCS#11 sessions — one for
 Read-Only (RO) and one for Read-Write (RW) operations.  The pools are
-protected by ``m_poolMutex`` so that the gRPC thread pool can acquire and
+protected by ``m_poolMutex`` so that the RPC thread pool can acquire and
 release sessions concurrently.
 
 Session acquisition:
@@ -509,7 +509,7 @@ Thread-safe login state
 - ``OnUserHandlerReleased``: decrements the counter; calls ``C_Logout``
   when it reaches zero.  Protected by ``m_mutex``.
 
-The mutex is essential because the gRPC daemon's thread pool can dispatch
+The mutex is essential because the daemon's thread pool can dispatch
 concurrent crypto operations that each require a logged-in session.
 
 Session validation

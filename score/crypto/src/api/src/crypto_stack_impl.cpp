@@ -15,6 +15,7 @@
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/common/i_memory_allocator.hpp"
+#include "score/crypto/src/api/config/base_context_config.hpp"
 #include "score/crypto/src/api/crypto_stack_factory.hpp"
 #include "score/crypto/src/api/data_plane/i_pool_allocator.hpp"
 #include "score/crypto/src/api/data_plane/i_read_write_memory_factory.hpp"
@@ -65,7 +66,7 @@ score::Result<ICryptoContext::Uptr> CryptoStackImpl::CreateCryptoContext()
             score::unexpect, MakeError(CryptoErrorCode::kConnectionFailed, "Connection is not initialized")};
     }
 
-    auto ctx = std::make_unique<CryptoContextImpl>(m_connection, m_transcoder);
+    auto ctx = std::make_unique<CryptoContextImpl>(m_connection, m_transcoder, m_config.default_operation_timeout);
     return ctx;
 }
 
@@ -77,7 +78,8 @@ score::Result<IMemoryAllocator::Uptr> CryptoStackImpl::GetMemoryAllocator()
             score::unexpect, MakeError(CryptoErrorCode::kConnectionFailed, "Connection is not initialized")};
     }
 
-    auto allocator_result = ShmMemoryAllocator::Create(m_connection, m_shm_factory, m_shm_registry);
+    const auto operation_timeout = ResolveOperationTimeout(true, std::nullopt, m_config.default_operation_timeout);
+    auto allocator_result = ShmMemoryAllocator::Create(m_connection, m_shm_factory, m_shm_registry, operation_timeout);
     if (!allocator_result.has_value())
     {
         return score::Result<IMemoryAllocator::Uptr>{score::unexpect, allocator_result.error()};

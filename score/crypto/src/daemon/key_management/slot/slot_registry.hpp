@@ -135,7 +135,7 @@ class SlotRegistry : public std::enable_shared_from_this<SlotRegistry>
     ///
     /// Resolution steps:
     ///   1. Look up slot_name in m_name_index.
-    ///   2. Extract UID from client_id.
+    ///   2. Extract UID from the upper component of client_id.
     ///   3. Check access_policy.allowed_uids contains UID.
     ///   4. Return SlotHandle on success.
     ///
@@ -175,7 +175,7 @@ class SlotRegistry : public std::enable_shared_from_this<SlotRegistry>
     /// resolves the resulting slot name with access-policy checks.
     ///
     /// @param app_resource_id  Application-local resource name.
-    /// @param client_id        Composite PID|UID of the requesting connection.
+    /// @param client_id        UID plus an opaque server-side identifier of the requesting connection.
     /// @return SlotHandle on success, or kInvalidResourceId if no mapping exists.
     score::crypto::Expected<SlotHandle, score::crypto::daemon::common::DaemonErrorCode> ResolveAppResource(
         const std::string& app_resource_id,

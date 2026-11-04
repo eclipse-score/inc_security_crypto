@@ -34,21 +34,31 @@ The API uses a two-phase resource identification model:
 2. **Operation phase**: All operation contexts, configs, and queries accept only
    ``CryptoResourceId`` — no strings cross into operation contexts.
 
-``CryptoResourceId`` is a compact ~16-byte struct:
+``CryptoResourceId`` carries the daemon-assigned identity and a shared
+reference to the connection that owns its ID mapping:
 
 .. code-block:: cpp
 
-   struct CryptoResourceId {
-       uint64_t id;                   // daemon-assigned, unique per session
-       ResourceType type;             // kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,
-                                      // kKey, kCertificate, kSecureObject, kDataObject
-       ResourcePersistence persistence; // kPersistent or kEphemeral
-       uint16_t primary_provider;     // owning device/provider index (0 = unbound)
+      struct CryptoResourceId {
+         static std::optional<CryptoResourceId> Create(
+            std::shared_ptr<api::control_plane::IConnection> connection,
+            uint64_t id, ResourceType type,
+            ResourcePersistence persistence,
+            uint16_t primary_provider);
+      uint64_t id;
+      ResourceType type;
+      ResourcePersistence persistence;
+      uint16_t primary_provider;
+   private:
+      std::shared_ptr<api::control_plane::IConnection> connection_;
    };
 
-The struct is fully numeric, cheap to copy and hash, and includes
-``operator==``, ``operator!=``, and ``std::hash`` specialization for use
-in unordered containers.
+There is no public constructor or default constructor. ``Create`` returns an
+empty optional for a null connection, so an ID cannot exist without its
+connection anchor. Copies retain the connection and its daemon-side ID mapping.
+Equality and ``std::hash`` include connection identity, in addition to the
+numeric resource fields. API operations reject a resource ID when it belongs
+to a different connection from the context or allocator receiving it.
 
 ``CryptoResourceId`` unifies persistent and ephemeral resources via the
 ``ResourcePersistence`` field. Keys are ephemeral by default when
@@ -504,9 +514,10 @@ the IPC layer will be addressed separately.
 Operation Timeout and Deadline
 ------------------------------
 
-Every IPC call to the daemon is bounded by a configurable per-call
-deadline to ensure deterministic behavior (ISO 26262 SA2) and graceful
-degradation (SA5).
+Every IPC call has a configurable requested timeout. The library forwards
+that timeout to the daemon as IPC metadata, and independently bounds how long
+it waits for the daemon's response. This provides a library-side liveness bound
+even when the daemon runs at a lower safety integrity level.
 
 **Two-layer timeout model:**
 
@@ -515,87 +526,59 @@ degradation (SA5).
    Applies to *all* IPC calls on this stack — ``ResolveResource()``,
    ``Create[Op]Context()``, ``Init()``, ``Update()``, ``Finalize()``,
    ``QueryCapabilities()``, etc. When ``std::nullopt`` (default), the
-   daemon applies its own built-in default (implementation-defined,
-   typically 5000 ms).
+   transport default applies. The message-passing transport currently caps
+   every request timeout at ``kMaximumRequestTimeout``, including larger explicit values.
 
 2. **Per-context override** via ``BaseContextConfig``:
    ``SetOperationTimeout(ms)`` overrides the stack default for a
-   specific context. ``DisableTimeout()`` removes the deadline entirely
-   (the context waits indefinitely). ``EnableTimeout()`` re-enables it.
+   specific context. ``DisableTimeout()`` bypasses shorter configured
+   deadlines and selects the maximum supported transport timeout (``kMaximumRequestTimeout``).
+   ``EnableTimeout()`` re-enables the context/stack timeout resolution.
 
 **Effective timeout resolution:**
 
 .. code-block:: none
 
    if (config.timeout_enabled == false)
-       → no deadline (infinite wait)
+         → maximum transport timeout (``kMaximumRequestTimeout``)
    else if (config.operation_timeout.has_value())
        → config.operation_timeout
    else if (stack_config.default_operation_timeout.has_value())
        → stack_config.default_operation_timeout
    else
-       → daemon built-in default
+      → transport default (``kMaximumRequestTimeout``)
+
+   Any explicit timeout greater than the transport maximum is capped at ``kMaximumRequestTimeout``.
 
 **Timeout semantics:**
 
 - The timeout applies **per-IPC-call**, not per streaming sequence.
   Each ``Init()``, ``Update()``, ``Finalize()`` has its own deadline.
   For ``SingleShot()``, the timeout covers the single IPC call.
-- On timeout, the operation returns
-  ``CryptoErrorCode::kOperationTimedOut`` and the context transitions
-  to an error state. Subsequent calls return ``kInvalidOperation``.
-  The context must be destroyed and recreated.
+- The resolved requested timeout is transmitted to the daemon as per-request
+  IPC metadata. The daemon and selected provider are expected to respect it,
+  stop work by the requested deadline, and return the operation status.
+- Independently, the library transport bounds its response wait. The active
+  message-passing transport waits until the requested timeout expires plus a
+  response grace period. This gives a daemon/provider that honored the request
+  time to return its terminal status, including ``kOperationTimedOut``.
+- If no response arrives by the end of the grace period, the library still
+  unblocks and returns ``CryptoErrorCode::kOperationResponseTimedOut``. The
+  final daemon operation status is unknown, and the library cannot guarantee
+  that a daemon/provider that ignored the requested timeout stopped its work
+  before completion. This independent client-side bound is important
+  when an ASIL-B library communicates with a QM-only daemon.
+- The message-passing transport's configured grace is currently
+  ``kTimeoutGracePeriod``, a transport-level compile-time setting rather
+  than a public ``CryptoStackConfig`` option. Its effective request timeout is
+  effective request timeout plus the grace period. Other IPC adapters must
+  provide their own bounded client-side wait; their grace behavior may differ.
+  The effective request timeout is therefore capped at ``kMaximumRequestTimeout``.
+  provide their own bounded client-side wait; their grace behavior may differ.
 - Implementation must use ``std::chrono::steady_clock`` (monotonic) to
-  be immune to NTP and wall-clock adjustments.
-
-**Daemon-side enforcement (architectural constraint):**
-
-The deadline is **enforced by the daemon**, not by the client library.
-This is an architectural requirement — not merely an implementation
-detail — because only the daemon owns the resources that need cleanup
-on timeout:
-
-1. **Deadline propagation**: The client library propagates the
-   resolved deadline to the daemon as IPC-level metadata (e.g., gRPC
-   deadline). The daemon receives and enforces it.
-
-2. **Daemon-side checks**: The daemon checks the deadline at key
-   decision points during operation processing:
-
-   - Before dispatching to a crypto provider
-   - Between provider calls for multi-step operations
-   - Before allocating or modifying resources
-
-   If the deadline has expired, the daemon aborts immediately without
-   performing the operation.
-
-3. **Resource cleanup on timeout**: When the daemon aborts due to
-   deadline expiration, it is responsible for:
-
-   - Zeroing and releasing any intermediate key material
-   - Releasing provider handles and locks
-   - Reclaiming any allocated shared memory
-   - Transitioning the server-side context state to ``kError``
-
-   This is the same cleanup path as context destruction, ensuring no
-   resources are orphaned.
-
-4. **Client-side role**: The client library's only responsibility is
-   to propagate the deadline and interpret the daemon's timeout
-   response (``kOperationTimedOut``). The client does **not** perform
-   independent timer-based cancellation — the daemon is the single
-   source of truth.
-
-5. **IPC backend contract**: Any IPC transport used by this
-   architecture (gRPC, shared-memory IPC, SOME/IP) must support
-   deadline propagation from client to daemon. This is an
-   architectural constraint on the IPC layer.
-
-This daemon-side enforcement model provides a stronger safety guarantee
-than client-side timeout alone: it ensures that even if the client
-process crashes or is preempted after sending a request, the daemon will
-still abort the operation after the deadline expires and clean up all
-associated resources.
+  be immune to NTP and wall-clock adjustments. Additionally the timeout is transferred
+  as a duration instead of an absolute time point, since we cannot rely that the same
+  source / epochs are used across process boundaries.
 
 **Disabling timeout:**
 
@@ -608,15 +591,15 @@ interrupted:
 
 For these, use ``config.DisableTimeout()`` on the relevant context
 config. Document the rationale in the safety case when using
-``DisableTimeout()`` in safety-relevant applications, as it removes
-the WCET bound.
+``DisableTimeout()`` in safety-relevant applications, as it selects a long
+configured maximum requested timeout (plus the response grace period) rather than the
+normal operation deadline.
 
 .. code-block:: cpp
 
    // Stack-wide 500 ms deadline
    CryptoStackConfig stack_config;
-   stack_config.SetConnectionEndpoint("unix:///var/run/crypto-daemon.sock")
-               .SetDefaultOperationTimeout(std::chrono::milliseconds{500});
+   stack_config.SetDefaultOperationTimeout(std::chrono::milliseconds{500});
 
    // Per-context override: 200 ms for hash, disabled for key gen
    HashContextConfig hash_cfg;

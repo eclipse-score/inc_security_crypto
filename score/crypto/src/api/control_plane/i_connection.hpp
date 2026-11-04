@@ -18,9 +18,15 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
+#include <chrono>
+
 namespace score::crypto::api::control_plane
 {
 
+/// The connection may process requests for independent contexts concurrently.
+/// Callers must serialize requests that use the same stateful context. Access to
+/// the connection lifecycle, including GetConnectionNodeId()
+/// and destruction, must also be externally serialized.
 class IConnection
 {
   protected:
@@ -32,21 +38,21 @@ class IConnection
     IConnection& operator=(IConnection&&) = default;
 
   public:
+    /// Destruction releases this wrapper. Implementations may share the
+    /// daemon-side connection, so wrapper destruction does not imply that the
+    /// daemon-side connection is closed.
     virtual ~IConnection() = default;
 
     virtual Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
-        const daemon::control_plane::protocol::ControlRequest& request) = 0;
+        daemon::control_plane::protocol::ControlRequest& request) = 0;
+
+    virtual Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
+        daemon::control_plane::protocol::ControlRequest& request,
+        std::chrono::milliseconds timeout) = 0;
 
     /// @brief Returns the connection node ID assigned by the daemon during CONNECTION_OPEN.
-    /// @return DataNodeId that identifies this connection on the daemon side, or 0 if not yet established.
+    /// @return DataNodeId that identifies the shared connection on the daemon side, or 0 if not yet established.
     virtual daemon::control_plane::protocol::DataNodeId GetConnectionNodeId() const = 0;
-
-    /// @brief Sets the connection node ID (called after successful CONNECTION_OPEN).
-    /// @param id The DataNodeId assigned by the daemon
-    virtual void SetConnectionNodeId(daemon::control_plane::protocol::DataNodeId id)
-    {
-        // Default no-op implementation for implementations that don't store the ID
-    }
 };
 
 }  // namespace score::crypto::api::control_plane

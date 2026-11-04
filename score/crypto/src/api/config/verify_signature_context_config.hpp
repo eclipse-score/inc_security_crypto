@@ -16,6 +16,8 @@
 
 #include "score/crypto/src/api/config/base_context_config.hpp"
 
+#include <optional>
+
 namespace score
 {
 
@@ -37,7 +39,7 @@ struct VerifySignatureContextConfig : public BaseContextConfig
 {
     /// @brief Handle to the public verification key (required).
     /// Must be a CryptoResourceId with type == kKey.
-    CryptoResourceId key{};
+    std::optional<CryptoResourceId> key{};
 
     /// @brief Whether the input is a message or an already computed digest.
     SignatureInputMode input_mode{SignatureInputMode::kMessage};

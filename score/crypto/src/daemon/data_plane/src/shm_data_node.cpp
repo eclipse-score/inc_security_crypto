@@ -29,11 +29,10 @@ namespace score::crypto::daemon::data_plane
 
 score::crypto::FixedCapacityString<64> ShmDataNode::GetShmName(std::uint32_t uid)
 {
-    const auto epoch_ns =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch())
-            .count();
+    static std::atomic<std::uint64_t> counter{0};
+    const auto rolling_counter = counter.fetch_add(1, std::memory_order_relaxed);
     return score::crypto::FixedCapacityString<64>{std::string("/score_crypto_") + std::to_string(uid) + "_" +
-                                                  std::to_string(epoch_ns)};
+                                                  std::to_string(rolling_counter)};
 }
 
 Expected<std::shared_ptr<ShmDataNode>, common::DaemonErrorCode> ShmDataNode::Create(

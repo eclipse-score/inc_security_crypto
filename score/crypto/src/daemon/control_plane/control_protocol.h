@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_DAEMON_CONTROL_PLANE_CONTROL_PROTOCOL_H
 
 #include "score/mw/log/logging.h"
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -31,8 +32,6 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/data_manager/data_node.hpp"
-#include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 
 namespace score::crypto::daemon::control_plane::protocol
 {
@@ -48,13 +47,37 @@ namespace score::crypto::daemon::control_plane::protocol
 using OperationResult = std::underlying_type<score::crypto::CryptoErrorCode>::type;
 static constexpr OperationResult OPERATION_RESULT_SUCCESS = 0;
 
+/// @brief Opaque 64-bit identifier assigned to every DataNode by the DataManager.
+using DataNodeId = std::uint64_t;
+
+/// @brief Opaque 64-bit identifier that represents the owning client of a node.
+using ClientId = std::uint64_t;
+
+inline constexpr std::size_t DATA_NODE_ID_RESERVED_BITS{8U};
+inline constexpr std::size_t DATA_NODE_ID_VALUE_BITS{56U};
+
+using RequestId = std::uint64_t;
+
+enum class ControlRequestKind : std::uint8_t
+{
+    kOperation = 0U,
+    kCancel = 1U,
+};
+
 // ============================================================================
 // Convenience type aliased to bring them to into the namespace
 // ============================================================================
 
 using OperationIdentifier = common::OperationIdentifier;
+inline constexpr OperationIdentifier kEnvelopeErrorOperationIdentifier{0U, 0U};
+
+inline constexpr bool IsEnvelopeErrorOperation(const OperationIdentifier& operation_id) noexcept
+{
+    return (operation_id.operationActor == kEnvelopeErrorOperationIdentifier.operationActor) &&
+           (operation_id.operationAction == kEnvelopeErrorOperationIdentifier.operationAction);
+}
+
 using NoParam = daemon::common::NoParam;
-using DataNodeId = daemon::data_manager::DataNodeId;
 using OwnedString = common::OwnedString;
 using OwnedBuffer = common::OwnedBuffer;
 using DataBufferReturn = common::OwnedBuffer;
@@ -126,7 +149,9 @@ struct OperationResponse
 // ControlRequest & ControlResponse
 // ============================================================================
 
-using RequestId = std::uint64_t;
+struct ExecutionPolicy
+{
+};
 
 /// Request for control operation
 struct ControlRequest
@@ -138,35 +163,37 @@ struct ControlRequest
     // There are currently THREE copies either change none or all
     union
     {
-        data_manager::ClientId client_id;
+        ClientId client_id;
         struct
         {
-            uint32_t pid;
+            uint32_t opaque_id;
             uint32_t uid;
         };
     };
     union
     {
-        data_manager::DataNodeId data_node_id;
+        DataNodeId data_node_id;
         // TODO: Unclear if this depends on endianess or other factors
         // Is there a clear statemenet about the order of these elements in the C / C++ spec?
         // It may be better to define a named struct within data_manager
         struct
         {
-            uint64_t node_id_value : data_manager::DATA_NODE_ID_VALUE_BITS;
-            uint64_t node_tag_value : data_manager::DATA_NODE_ID_RESERVED_BITS;
+            uint64_t node_id_value : DATA_NODE_ID_VALUE_BITS;
+            uint64_t node_tag_value : DATA_NODE_ID_RESERVED_BITS;
         };
     };
+    ExecutionPolicy execution_policy;
+    std::chrono::steady_clock::time_point deadline{};
+    ControlRequestKind kind{ControlRequestKind::kOperation};
     protocol::OperationRequest operation;
 };
 
-static_assert(sizeof(pid_t) == sizeof(decltype(ControlRequest::pid)),
-              "Error: The size of pid_t is not the expected size.");
+static_assert(sizeof(uint32_t) == sizeof(decltype(ControlRequest::opaque_id)),
+              "Error: The size of opaque_id is not the expected size.");
 static_assert(sizeof(uid_t) == sizeof(decltype(ControlRequest::uid)),
-              "Error: The size of uid_t is not the expected size.");
-static_assert(sizeof(data_manager::ClientId) ==
-                  sizeof(decltype(ControlRequest::pid)) + sizeof(decltype(ControlRequest::uid)),
-              "Error: The size of data_manager::ClientId and its components do not match.");
+              "Error: The size of uid is not the expected size.");
+static_assert(sizeof(ClientId) == sizeof(decltype(ControlRequest::opaque_id)) + sizeof(decltype(ControlRequest::uid)),
+              "Error: The size of ClientId and its components do not match.");
 
 /// Response from control operation
 struct ControlResponse
@@ -175,27 +202,14 @@ struct ControlResponse
     protocol::OperationResponse operation;
 };
 
-/// Extract the process ID (pid) from a ClientId
-inline uint32_t GetPidFromClientId(data_manager::ClientId client_id)
+inline bool IsEnvelopeErrorResponse(const ControlResponse& response) noexcept
 {
-    // TODO: This is not really nice, since we duplicate the union definition
-    // But we avoid confusion about the order / portability
-    // BUT, we should get rid of this in general
-    // There are currently THREE copies either change none or all
-    union
-    {
-        data_manager::ClientId id;
-        struct
-        {
-            uint32_t pid;
-            uint32_t uid;
-        };
-    } decomposed{client_id};
-    return decomposed.pid;
+    return (response.operation.operations.size() == 1U) &&
+           IsEnvelopeErrorOperation(response.operation.operations.front().operationId);
 }
 
 /// Extract the user ID (uid) from a ClientId
-inline uint32_t GetUidFromClientId(data_manager::ClientId client_id)
+inline uint32_t GetUidFromClientId(ClientId client_id)
 {
     // TODO: This is not really nice, since we duplicate the union definition
     // But we avoid confusion about the order / portability
@@ -203,10 +217,10 @@ inline uint32_t GetUidFromClientId(data_manager::ClientId client_id)
     // There are currently THREE copies either change none or all
     union
     {
-        data_manager::ClientId id;
+        ClientId id;
         struct
         {
-            uint32_t pid;
+            uint32_t opaque_id;
             uint32_t uid;
         };
     } decomposed{client_id};
@@ -522,8 +536,26 @@ class ControlResponseValidator
             return validator;
         }
 
-        // Extract .operation from ControlResponse
-        ControlResponseValidator validator(result.value().operation, logErrors);
+        const auto& response = result.value();
+        ControlResponseValidator validator(response.operation, logErrors);
+        if (IsEnvelopeErrorResponse(response))
+        {
+            const auto operation_result = response.operation.operations.front().result;
+            if (operation_result == OPERATION_RESULT_SUCCESS)
+            {
+                validator.m_isValid = false;
+                validator.m_errorMsg = "Request error envelope contains a success result";
+                validator.m_operationError = score::crypto::CryptoErrorCode::kInternalError;
+            }
+            else
+            {
+                const auto error = static_cast<score::crypto::CryptoErrorCode>(operation_result);
+                validator.m_isValid = false;
+                validator.m_errorMsg = "Request failed: " + std::string(score::crypto::kCryptoErrorDomain.MessageFor(
+                                                                static_cast<score::result::ErrorCode>(error)));
+                validator.m_operationError = static_cast<score::crypto::CryptoErrorCode>(operation_result);
+            }
+        }
         return validator;
     }
 
@@ -741,7 +773,7 @@ class ControlRequestBuilder
     {
         // Filled in by the IPC during transmission
         m_request.request_id = 0;
-        m_request.pid = 0;
+        m_request.opaque_id = 0;
         m_request.uid = 0;
 
         // Default value, in case not provided
@@ -754,7 +786,7 @@ class ControlRequestBuilder
      * @param data_node_id The data node ID to associate with this request.
      * @return Reference to this builder for method chaining.
      */
-    ControlRequestBuilder& forDataNodeId(daemon::data_manager::DataNodeId data_node_id)
+    ControlRequestBuilder& forDataNodeId(DataNodeId data_node_id)
     {
         m_request.data_node_id = data_node_id;
         return *this;
@@ -886,7 +918,7 @@ class ControlRequestBuilder
             return make_unexpected(op_result.error());
         }
 
-        m_request.operation = op_result.value();
+        m_request.operation = std::move(op_result).value();
         return m_request;
     }
 

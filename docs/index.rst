@@ -43,8 +43,8 @@ architecture:
   bitmask), and drives the underlying provider (OpenSSL, SoftHSM / PKCS#11,
   or future HSM/TEE backends).
 
-- **IPC transport** — gRPC over a Unix domain socket (Temporary solution).
-  ABI compatibility between library and daemon shall be guarenteed.
+- **IPC transport** — Score Message Passing.
+  ABI compatibility between library and daemon shall be guaranteed.
 
 Requirements
 ------------

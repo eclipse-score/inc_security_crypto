@@ -48,11 +48,13 @@ namespace mac_ops = ::score::crypto::daemon::provider::handler::mac_handler_oper
 MacContextImpl::MacContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                uint64_t context_id,
                                AlgorithmId algorithm,
-                               std::shared_ptr<IBufferTranscoder> transcoder)
+                               std::shared_ptr<IBufferTranscoder> transcoder,
+                               std::chrono::milliseconds operation_timeout)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
       m_algorithm(algorithm),
-      m_transcoder(std::move(transcoder))
+      m_transcoder(std::move(transcoder)),
+      m_operation_timeout(operation_timeout)
 {
 }
 
@@ -60,7 +62,8 @@ MacContextImpl::MacContextImpl(MacContextImpl&& other) noexcept
     : m_connection(std::move(other.m_connection)),
       m_context_id(std::exchange(other.m_context_id, 0)),
       m_algorithm(other.m_algorithm),
-      m_transcoder(std::move(other.m_transcoder))
+      m_transcoder(std::move(other.m_transcoder)),
+      m_operation_timeout(other.m_operation_timeout)
 {
 }
 
@@ -73,6 +76,7 @@ MacContextImpl& MacContextImpl::operator=(MacContextImpl&& other) noexcept
         m_context_id = std::exchange(other.m_context_id, 0);
         m_algorithm = other.m_algorithm;
         m_transcoder = std::move(other.m_transcoder);
+        m_operation_timeout = other.m_operation_timeout;
     }
     return *this;
 }
@@ -107,7 +111,7 @@ void MacContextImpl::CloseContext() noexcept
         return;
     }
 
-    auto response_res = m_connection->SendRequest(context_close_res.value());
+    auto response_res = m_connection->SendRequest(context_close_res.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(response_res);
     validator.expectOperation(score::crypto::daemon::mediator::operations::CloseContext()).expectSuccess();
@@ -143,15 +147,16 @@ score::Result<std::monostate> MacContextImpl::Update(score::cpp::span<const uint
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_UPDATE}).expectSuccess();
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return std::monostate{};
@@ -180,15 +185,16 @@ score::Result<std::size_t> MacContextImpl::Finalize(score::cpp::span<uint8_t> ou
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_FINALIZE}).expectSuccess();
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(tspan, validator);
@@ -217,14 +223,16 @@ score::Result<bool> MacContextImpl::Verify(score::cpp::span<const uint8_t> mac)
     proto::ControlRequest control_req{};
     control_req.operation = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_VERIFY}).expectSuccess();
 
     if (!validator.isValid())
     {
-        return score::Result<bool>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<bool>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     auto verify_result = validator.getParameterAt<bool>(0, 0);
@@ -232,7 +240,7 @@ score::Result<bool> MacContextImpl::Verify(score::cpp::span<const uint8_t> mac)
     {
         return score::Result<bool>{
             score::unexpect,
-            MakeError(CryptoErrorCode::kOperationFailed, "MAC_VERIFY response has invalid parameter type")};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return verify_result.value();
@@ -250,15 +258,16 @@ score::Result<std::monostate> MacContextImpl::Reset()
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_RESET request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_RESET}).expectSuccess();
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return std::monostate{};
@@ -276,7 +285,12 @@ std::size_t MacContextImpl::GetMacSize() const noexcept
         return 0;
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
+    if (!control_response_res.has_value())
+    {
+        score::mw::log::LogError() << "[API][MacContextImpl] ERROR: MAC_GET_SIZE request failed or timed out";
+        return 0;
+    }
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_GET_SIZE}).expectSuccess();
@@ -315,7 +329,7 @@ score::Result<std::monostate> MacContextImpl::Init(std::optional<score::cpp::spa
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build MAC_INIT request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_MAC_HANDLER, mac_ops::MAC_INIT}).expectSuccess();
@@ -324,7 +338,8 @@ score::Result<std::monostate> MacContextImpl::Init(std::optional<score::cpp::spa
     {
         score::mw::log::LogError() << "[API][MacContextImpl] ERROR:" << validator.getError();
         return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "MAC_INIT daemon response invalid")};
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     return std::monostate{};

@@ -43,6 +43,10 @@ std::string_view CryptoErrorDomain::MessageFor(const score::result::ErrorCode& c
             return "Operation failed";
         case CryptoErrorCode::kOperationTimedOut:
             return "Operation exceeded configured timeout deadline";
+        case CryptoErrorCode::kOperationCancelled:
+            return "Operation cancelled";
+        case CryptoErrorCode::kOperationResponseTimedOut:
+            return "No operation response received before cancellation grace expired";
 
         // Parameter / validation
         case CryptoErrorCode::kInvalidArgument:

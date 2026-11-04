@@ -1,0 +1,57 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml message_passing_adapter_connection_flow
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam shadowing false
+
+title Connection Establishment and Admission
+
+actor Application
+participant "Client connection" as ClientConnection
+participant "SCORE message-passing IPC" as Transport
+participant "MessagePassingControlServer" as Server
+participant "IServerConnection (IPC)" as ServerConnection
+participant "SessionManager" as SessionManager
+participant "SessionRegistry" as Registry
+
+Application -> ClientConnection: Connect(service_identifier)
+ClientConnection -> Transport: Connect
+Transport -> Server: **OnConnect(connection)** callback
+Server -> SessionManager: OnConnect(connection)
+SessionManager -> ServerConnection: **GetClientIdentity()**
+ServerConnection --> SessionManager: uid, gid, pid
+
+SessionManager -> SessionManager : IsAuthorizedToConnect(uid, gid)
+note right of SessionManager
+  Admission decision based on AuthorizationCallback
+end note
+
+SessionManager -> Registry : TryRegisterAuthorizedConnection(connection, uid)
+Registry --> SessionManager: Admission result
+note right of Registry
+  Admission decision based on active connections and total and per-UID capacity limits.
+end note
+
+alt admitted
+    SessionManager --> Server: OnConnect succeeds
+    Server -> Transport: Accept connection
+    Transport --> ClientConnection: Ready
+else any check denied admission
+    SessionManager -> Server: **OnConnect denied**
+    Server -> Transport: Reject connection
+    Transport --> ClientConnection: Denied
+end
+
+@enduml

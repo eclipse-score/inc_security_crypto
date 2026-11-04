@@ -42,10 +42,16 @@ constexpr proto::OperationIdentifier kGetMaxOutputSize{actors::OP_ACTOR_CIPHER_H
 class FakeConnection final : public api::control_plane::IConnection
 {
   public:
-    Expected<proto::ControlResponse, CryptoErrorCode> SendRequest(const proto::ControlRequest& request) override
+    Expected<proto::ControlResponse, CryptoErrorCode> SendRequest(proto::ControlRequest& request) override
     {
         requests.push_back(request);
         return response;
+    }
+
+    Expected<proto::ControlResponse, CryptoErrorCode> SendRequest(proto::ControlRequest& request,
+                                                                  std::chrono::milliseconds timeout) override
+    {
+        return SendRequest(request);
     }
 
     proto::DataNodeId GetConnectionNodeId() const override

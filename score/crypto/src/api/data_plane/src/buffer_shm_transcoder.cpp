@@ -204,7 +204,8 @@ score::Result<std::size_t> BufferShmTranscoder::ExtractOutputBuffer(TranscoderSp
             {
                 return score::Result<std::size_t>{
                     score::unexpect,
-                    MakeError(CryptoErrorCode::kOperationFailed, "response has invalid parameter type")};
+                    MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError),
+                              validator.getError())};
             }
             const std::size_t actual_size = static_cast<std::size_t>(result.value());
             if (actual_size > tspan.caller_span().size())
@@ -223,7 +224,8 @@ score::Result<std::size_t> BufferShmTranscoder::ExtractOutputBuffer(TranscoderSp
             {
                 return score::Result<std::size_t>{
                     score::unexpect,
-                    MakeError(CryptoErrorCode::kOperationFailed, "response has invalid parameter type")};
+                    MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError),
+                              validator.getError())};
             }
             const std::size_t actual_size = static_cast<std::size_t>(result.value());
             if (actual_size > tspan.caller_span().size())
@@ -242,7 +244,8 @@ score::Result<std::size_t> BufferShmTranscoder::ExtractOutputBuffer(TranscoderSp
             {
                 return score::Result<std::size_t>{
                     score::unexpect,
-                    MakeError(CryptoErrorCode::kOperationFailed, "response has invalid parameter type")};
+                    MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError),
+                              validator.getError())};
             }
             const auto& data = result.value();
             if (data.size() > tspan.caller_span().size())

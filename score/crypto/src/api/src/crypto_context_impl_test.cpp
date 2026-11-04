@@ -39,14 +39,19 @@ class ErrorConnection final : public api::control_plane::IConnection
   public:
     explicit ErrorConnection(const CryptoErrorCode error_code) : m_error_code{error_code} {}
 
-    Expected<protocol::ControlResponse, CryptoErrorCode> SendRequest(
-        const protocol::ControlRequest& /*request*/) override
+    Expected<protocol::ControlResponse, CryptoErrorCode> SendRequest(protocol::ControlRequest& /*request*/) override
     {
         ++m_request_count;
         protocol::ControlResponse response{};
         response.operation.operations.push_back(protocol::SingleOperationResponse{
             daemon::mediator::operations::CreateContext(), static_cast<protocol::OperationResult>(m_error_code), {}});
         return response;
+    }
+
+    Expected<protocol::ControlResponse, CryptoErrorCode> SendRequest(protocol::ControlRequest& request,
+                                                                     std::chrono::milliseconds timeout) override
+    {
+        return SendRequest(request);
     }
 
     protocol::DataNodeId GetConnectionNodeId() const override
@@ -82,12 +87,12 @@ TEST(CryptoContextImplTest, RejectsExplicitHashProviderInsteadOfIgnoringIt)
     auto connection = std::make_shared<ErrorConnection>(CryptoErrorCode::kInternalError);
     CryptoContextImpl context{connection, nullptr};
 
-    CryptoResourceId provider{};
-    provider.id = 42U;
-    provider.type = ResourceType::kProvider;
+    const auto provider =
+        CryptoResourceId::Create(connection, 42U, ResourceType::kProvider, ResourcePersistence::kEphemeral, 0U);
+    ASSERT_TRUE(provider.has_value());
 
     HashContextConfig config;
-    config.SetAlgorithm("SHA256").SetProvider(provider);
+    config.SetAlgorithm("SHA256").SetProvider(provider.value());
     const auto result = context.CreateHashContext(config);
 
     ASSERT_FALSE(result.has_value());

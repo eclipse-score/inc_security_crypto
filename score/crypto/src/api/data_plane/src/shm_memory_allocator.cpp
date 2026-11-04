@@ -38,7 +38,8 @@ namespace crypto
 score::Result<std::unique_ptr<ShmMemoryAllocator>> ShmMemoryAllocator::Create(
     std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
     IReadWriteMemoryFactory::Sptr factory,
-    std::shared_ptr<IShmRegionRegistry> registry)
+    std::shared_ptr<IShmRegionRegistry> registry,
+    std::chrono::milliseconds operation_timeout)
 {
     if (!connection)
     {
@@ -59,14 +60,18 @@ score::Result<std::unique_ptr<ShmMemoryAllocator>> ShmMemoryAllocator::Create(
     }
 
     return std::make_unique<ShmMemoryAllocator>(
-        ConstructorTag{}, std::move(connection), std::move(factory), std::move(registry));
+        ConstructorTag{}, std::move(connection), std::move(factory), std::move(registry), operation_timeout);
 }
 
 ShmMemoryAllocator::ShmMemoryAllocator(ConstructorTag /* tag */,
                                        std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                        IReadWriteMemoryFactory::Sptr factory,
-                                       std::shared_ptr<IShmRegionRegistry> registry)
-    : m_connection_ptr(std::move(connection)), m_factory_ptr(std::move(factory)), m_registry_ptr(std::move(registry))
+                                       std::shared_ptr<IShmRegionRegistry> registry,
+                                       std::chrono::milliseconds operation_timeout)
+    : m_connection_ptr(std::move(connection)),
+      m_factory_ptr(std::move(factory)),
+      m_registry_ptr(std::move(registry)),
+      m_operation_timeout(operation_timeout)
 {
     // All pointers validated by Create()
 }
@@ -84,6 +89,13 @@ score::Result<IReadWriteMemory::Uptr> ShmMemoryAllocator::Allocate(std::size_t s
 
 score::Result<IReadWriteMemory::Uptr> ShmMemoryAllocator::Allocate(std::size_t size, const CryptoResourceId& provider)
 {
+    if (provider.GetConnection() != m_connection_ptr)
+    {
+        return score::Result<IReadWriteMemory::Uptr>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kInvalidResourceId, "Provider belongs to a different connection")};
+    }
+
     const std::optional<std::uint16_t> provider_id =
         (provider.primary_provider != med_ops::SHM_WIRE_PROVIDER_ID_UNBOUND)
             ? std::optional<std::uint16_t>{provider.primary_provider}
@@ -138,10 +150,10 @@ score::crypto::Expected<IReadWriteMemory::Uptr, CryptoErrorCode> ShmMemoryAlloca
     protocol::ControlRequest ctrl_req{};
     ctrl_req.operation = request.value();
     ctrl_req.data_node_id = m_connection_ptr->GetConnectionNodeId();
-    auto send_res = m_connection_ptr->SendRequest(ctrl_req);
+    auto send_res = m_connection_ptr->SendRequest(ctrl_req, m_operation_timeout);
     if (!send_res.has_value())
     {
-        return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
+        return score::crypto::make_unexpected(send_res.error());
     }
     auto response = send_res.value().operation;
     if (response.operations.empty())

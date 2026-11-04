@@ -14,6 +14,12 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
 
+_QNX_SDP_ENV_FIXUP = select({
+    "//platforms:is_qnx": "export QNX_HOST=\"$$(cd $$EXT_BUILD_ROOT && realpath -ms -- \"$${QNX_HOST#/proc/self/cwd/}\")\";" +
+                          " export QNX_TARGET=\"$$(cd $$EXT_BUILD_ROOT && realpath -ms -- \"$${QNX_TARGET#/proc/self/cwd/}\")\";",
+    "//conditions:default": "",
+})
+
 # SoftHSM build using rules_foreign_cc cmake
 # CMake build options reference for SoftHSM 2.7.0:
 # https://github.com/softhsm/SoftHSMv2/blob/2.7.0/CMakeLists.txt
@@ -53,19 +59,7 @@ cmake(
         # Ignore deprecation warnings for SoftHSM source code
         "CMAKE_CXX_FLAGS": "-Wno-error=deprecated-declarations",
     },
-    env = select({
-        "//platforms:is_qnx_aarch64": {
-            # EXT_BUILD_ROOT is captured at the start of the build script (before any cd),
-            # so it reliably points to the execroot regardless of working directory changes.
-            "QNX_HOST": "$${EXT_BUILD_ROOT}/external/score_bazel_cpp_toolchains++gcc+score_qcc_aarch64_toolchain_pkg/host/linux/x86_64",
-            "QNX_TARGET": "$${EXT_BUILD_ROOT}/external/score_bazel_cpp_toolchains++gcc+score_qcc_aarch64_toolchain_pkg/target/qnx",
-        },
-        "//platforms:is_qnx_x86_64": {
-            "QNX_HOST": "$${EXT_BUILD_ROOT}/external/score_bazel_cpp_toolchains++gcc+score_qcc_x86_64_toolchain_pkg/host/linux/x86_64",
-            "QNX_TARGET": "$${EXT_BUILD_ROOT}/external/score_bazel_cpp_toolchains++gcc+score_qcc_x86_64_toolchain_pkg/target/qnx",
-        },
-        "//conditions:default": {},
-    }),
+    tool_prefix = _QNX_SDP_ENV_FIXUP,
     lib_source = "@softhsm_source//:all",
     out_lib_dir = "lib/softhsm",
     out_shared_libs = [
@@ -119,8 +113,7 @@ genrule(
 
 # Data dependency for targets that need libsofthsm2.so as a plain file in
 # runfiles (e.g. py_itf_test copying it into a Docker container).
-# This mirrors the cc_shared_library pattern used by grpc/openssl: the .so
-# appears as a default output and is therefore visible in Bazel runfiles.
+# The .so appears as a default output and is therefore visible in Bazel runfiles.
 filegroup(
     name = "softhsm_so",
     srcs = [":softhsm_so_extract"],

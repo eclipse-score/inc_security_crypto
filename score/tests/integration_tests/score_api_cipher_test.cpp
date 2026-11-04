@@ -68,12 +68,6 @@ using tests::utility::read_bin;
 namespace
 {
 
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
-
 // =========================================================================
 // NIST CAVP AES-CBC vectors
 // =========================================================================
@@ -300,10 +294,7 @@ TEST_P(CipherRoundTripTest, EncryptDecryptRoundTrip)
     // =========================================================================
     // 1. Create the crypto stack and a crypto context
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -500,10 +491,7 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
     // =========================================================================
     // 1. Create the crypto stack and a crypto context
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
