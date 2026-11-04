@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/ipc/message_passing_adapter/protocol/flatbuffer_codec.h"
 #include "score/crypto/src/ipc/message_passing_adapter/protocol/control_generated.h"
+#include "score/crypto/src/ipc/message_passing_adapter/protocol/protocol_config.h"
 
 #include <gtest/gtest.h>
 
@@ -48,11 +49,11 @@ std::vector<std::uint8_t> BuildRequestWithMissingParameterVector()
         builder.CreateVector(
             std::vector<flatbuffer_protocol::OperationParameter>{flatbuffer_protocol::OperationParameter::NoParam}),
         {});
-    const auto batch = flatbuffer_protocol::CreateOperationRequestBatch(builder, builder.CreateVector({operation}));
+    const auto operations = builder.CreateVector({operation});
     const auto policy = flatbuffer_protocol::CreateExecutionPolicy(builder);
     const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(
         builder, 1U, 0U, 0U, flatbuffer_protocol::ControlRequestKind::Operation, 0U, policy);
-    builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlRequest(builder, meta_data, batch),
+    builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlRequest(builder, meta_data, operations),
                                flatbuffer_protocol::ControlRequestIdentifier());
     return {builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
 }
@@ -67,8 +68,8 @@ std::vector<std::uint8_t> BuildResponseWithMismatchedParameterVectors()
         builder.CreateVector(
             std::vector<flatbuffer_protocol::OperationParameter>{flatbuffer_protocol::OperationParameter::NoParam}),
         builder.CreateVector(std::vector<flatbuffers::Offset<void>>{}));
-    const auto batch = flatbuffer_protocol::CreateOperationResponseBatch(builder, builder.CreateVector({operation}));
-    builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlResponse(builder, 1U, batch),
+    const auto operations = builder.CreateVector({operation});
+    builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlResponse(builder, 1U, operations),
                                flatbuffer_protocol::ControlRequestIdentifier());
     return {builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
 }
@@ -137,7 +138,7 @@ TEST(FlatBufferCodecTest, RejectsUnknownRequestKind)
     EXPECT_FALSE(codec.SerializeRequest(request).has_value());
 }
 
-TEST(FlatBufferCodecTest, AllowsEmptyOperationBatch)
+TEST(FlatBufferCodecTest, AllowsEmptyOperationVector)
 {
     protocol::ControlRequest request{};
     SetFutureDeadline(request);
@@ -182,6 +183,18 @@ TEST(FlatBufferCodecTest, ZeroResponseIdPassesThroughCodec)
     ASSERT_TRUE(codec.DeserializeResponse(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()}, decoded)
                     .has_value());
     EXPECT_EQ(decoded.request_id, 0U);
+}
+
+TEST(FlatBufferCodecTest, RejectsOversizedResponseDuringSerialization)
+{
+    protocol::ControlResponse response{};
+    protocol::OwnedBuffer oversized_value(protocol_config::kMaxSerializedBytes + 1U, 0U);
+    response.operation.operations.push_back(protocol::SingleOperationResponse{
+        protocol::OperationIdentifier{1U, 2U}, protocol::OPERATION_RESULT_SUCCESS, {std::move(oversized_value)}});
+
+    const auto serialized = codec.SerializeResponse(response);
+    ASSERT_FALSE(serialized.has_value());
+    EXPECT_EQ(serialized.error(), score::crypto::CryptoErrorCode::kInsufficientBufferSize);
 }
 
 TEST(FlatBufferCodecTest, EnvelopeOperationIdentifierInRequestPassesThroughCodec)
@@ -263,15 +276,28 @@ TEST(FlatBufferCodecTest, ExpiredDeadlineIsRejectedDuringSerialization)
     EXPECT_EQ(serialized.error(), score::crypto::CryptoErrorCode::kInvalidArgument);
 }
 
+TEST(FlatBufferCodecTest, RejectsOversizedRequestDuringSerialization)
+{
+    protocol::ControlRequest request{};
+    SetFutureDeadline(request);
+    std::array<char, protocol_config::kMaxSerializedBytes + 1U> oversized_value{};
+    request.operation.operations.push_back(protocol::SingleOperationRequest{
+        protocol::OperationIdentifier{1U, 2U}, {std::string_view{oversized_value.data(), oversized_value.size()}}});
+
+    const auto serialized = codec.SerializeRequest(request);
+    ASSERT_FALSE(serialized.has_value());
+    EXPECT_EQ(serialized.error(), score::crypto::CryptoErrorCode::kInsufficientBufferSize);
+}
+
 TEST(FlatBufferCodecTest, MetadataDefaultTimeoutIsZero)
 {
     flatbuffers::FlatBufferBuilder builder{128U};
     const auto policy = flatbuffer_protocol::CreateExecutionPolicy(builder);
     const std::vector<flatbuffers::Offset<flatbuffer_protocol::SingleOperationRequest>> no_operations{};
-    const auto batch = flatbuffer_protocol::CreateOperationRequestBatch(builder, builder.CreateVector(no_operations));
+    const auto operations = builder.CreateVector(no_operations);
     const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(
         builder, 82U, 0U, 0U, flatbuffer_protocol::ControlRequestKind::Operation, 0U, policy);
-    builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlRequest(builder, meta_data, batch),
+    builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlRequest(builder, meta_data, operations),
                                flatbuffer_protocol::ControlRequestIdentifier());
     const std::vector<std::uint8_t> bytes{builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
 
@@ -309,7 +335,7 @@ TEST(FlatBufferCodecTest, CancelWithNonzeroTimeoutIsAcceptedByDecoder)
     EXPECT_EQ(metadata->timeout_ms, 250U);
 }
 
-TEST(FlatBufferCodecTest, RejectsCancellationWithOperationBatch)
+TEST(FlatBufferCodecTest, RejectsCancellationWithOperations)
 {
     protocol::ControlRequest request{};
     SetFutureDeadline(request);

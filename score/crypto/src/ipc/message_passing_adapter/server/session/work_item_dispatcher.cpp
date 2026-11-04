@@ -267,11 +267,6 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Res
         item->Complete();
         return score::crypto::make_unexpected(MapCodecError(response_bytes.error()));
     }
-    if (response_bytes->size() > ipc::kMaxPayloadBytes)
-    {
-        item->Complete();
-        return score::crypto::make_unexpected(DaemonErrorCode::kInvalidFormat);
-    }
 
     const auto respond_result =
         session->Respond(score::cpp::span<const std::uint8_t>{response_bytes->data(), response_bytes->size()});

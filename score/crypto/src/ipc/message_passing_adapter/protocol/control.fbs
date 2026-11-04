@@ -40,7 +40,6 @@ union OperationParameter {
   ValueUint32,
   ValueUint64,
   DataBufferInBand,
-  DataBufferDataPlane,
   String,
   DataShm,
 }
@@ -74,15 +73,6 @@ table ValueUint32 { val: uint32; }
 table ValueUint64 { val: uint64; }
 table String { val: string; }
 table DataBufferInBand { val: [uint8]; }
-table DataBufferDataPlane {}
-
-table OperationRequestBatch {
-  operations: [SingleOperationRequest];
-}
-
-table OperationResponseBatch {
-  operations: [SingleOperationResponse];
-}
 
 table ExecutionPolicy {
 }
@@ -103,12 +93,12 @@ table ControlRequestMetaData {
 
 table ControlRequest {
   meta_data: ControlRequestMetaData;
-  operation_batch: OperationRequestBatch;
+  operations: [SingleOperationRequest];
 }
 
 table ControlResponse {
   request_id: uint64;
-  operation_batch: OperationResponseBatch (required);
+  operations: [SingleOperationResponse];
 }
 
 root_type ControlRequest;

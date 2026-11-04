@@ -14,6 +14,8 @@
 #ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_IPC_CONFIG_H
 #define SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_IPC_CONFIG_H
 
+#include "score/crypto/src/ipc/message_passing_adapter/protocol/protocol_config.h"
+
 #include <chrono>
 #include <cstdint>
 #include <string_view>
@@ -63,9 +65,17 @@ static_assert(kServerNotificationCapacityPerConnection == kMaxOutstandingOperati
 static_assert(kMaxOutstandingOperationsPerConnection <= kServerNotificationCapacityPerConnection,
               "The per-connection operation limit must leave notification capacity available");
 
+// Define the maximum payload size for IPC communication (in serialized bytes)
+inline constexpr std::uint16_t kMaxPayloadBytes = message_passing::protocol_config::kMaxSerializedBytes;
+
+// IPC should be able to transfer the full protocol buffer
+static_assert(kMaxPayloadBytes >= message_passing::protocol_config::kMaxSerializedBytes,
+              "IPC must be able to transfer the full protocol buffer");
+
 // score communication message passing under QNX currently has a limit of 2088 Bytes
 // See: https://github.com/eclipse-score/communication/issues/848
-inline constexpr std::uint16_t kMaxPayloadBytes = 2U * 1024U;
+static_assert(kMaxPayloadBytes <= 2088U, "Payload size exceeds QNX message passing limit");
+
 static_assert(std::is_same_v<decltype(kMaxPayloadBytes), const std::uint16_t>, "MW COM uses uint16_t for payload size");
 
 // The requested timeout is used and sent to the daemon, however the client does also enforce

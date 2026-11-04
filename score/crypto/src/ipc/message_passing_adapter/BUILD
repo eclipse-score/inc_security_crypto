@@ -23,10 +23,18 @@ generate_cpp(
 )
 
 cc_library(
+    name = "protocol_config",
+    hdrs = ["protocol/protocol_config.h"],
+    linkstatic = True,
+    visibility = ["//:__subpackages__"],
+)
+
+cc_library(
     name = "ipc_config",
     hdrs = ["ipc_config.h"],
     linkstatic = True,
     visibility = ["//:__subpackages__"],
+    deps = [":protocol_config"],
 )
 
 cc_library(
@@ -41,7 +49,7 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/control_plane",
-        ":ipc_config",
+        ":protocol_config",
         "@score_baselibs//score/flatbuffers:flatbufferscpp",
         "@score_baselibs//score/language/futurecpp",
     ],
@@ -52,6 +60,7 @@ cc_test(
     srcs = ["protocol/flatbuffer_codec_test.cpp"],
     deps = [
         ":message_passing_protocol",
+        ":protocol_config",
         "@googletest//:gtest_main",
     ],
     testonly = True,

@@ -14,6 +14,7 @@
 #include "score/crypto/src/ipc/message_passing_adapter/protocol/flatbuffer_codec.h"
 
 #include "score/crypto/src/ipc/message_passing_adapter/protocol/control_generated.h"
+#include "score/crypto/src/ipc/message_passing_adapter/protocol/protocol_config.h"
 
 #include <flatbuffers/flatbuffers.h>
 
@@ -35,13 +36,15 @@ namespace bl = score::crypto::daemon::control_plane::protocol;
 namespace common = score::crypto::daemon::common;
 namespace fb = score::crypto::ipc::control;
 
+using EncodedParameterVectors = std::pair<std::vector<fb::OperationParameter>, std::vector<flatbuffers::Offset<void>>>;
+
 bool HasValidParameterVectors(const flatbuffers::Vector<fb::OperationParameter>* types,
                               const flatbuffers::Vector<flatbuffers::Offset<void>>* values) noexcept
 {
     return (types != nullptr) && (values != nullptr) && (types->size() == values->size());
 }
 
-std::pair<std::vector<fb::OperationParameter>, std::vector<flatbuffers::Offset<void>>> BuildRequestParameters(
+score::crypto::Expected<EncodedParameterVectors, score::crypto::CryptoErrorCode> BuildRequestParameters(
     const common::RequestParameters& parameters,
     flatbuffers::FlatBufferBuilder& builder)
 {
@@ -104,19 +107,23 @@ std::pair<std::vector<fb::OperationParameter>, std::vector<flatbuffers::Offset<v
             const auto data_offset = builder.CreateVector(buffer.data(), buffer.size());
             values.push_back(fb::CreateDataBufferInBand(builder, data_offset).o);
         }
-        else
+        else if (std::holds_alternative<score::cpp::span<std::uint8_t>>(parameter))
         {
             types.push_back(fb::OperationParameter::DataBufferInBand);
             const auto buffer = std::get<score::cpp::span<std::uint8_t>>(parameter);
             const auto data_offset = builder.CreateVector(buffer.data(), buffer.size());
             values.push_back(fb::CreateDataBufferInBand(builder, data_offset).o);
         }
+        else
+        {
+            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
+        }
     }
 
-    return {std::move(types), std::move(values)};
+    return EncodedParameterVectors{std::move(types), std::move(values)};
 }
 
-std::pair<std::vector<fb::OperationParameter>, std::vector<flatbuffers::Offset<void>>> BuildResponseParameters(
+score::crypto::Expected<EncodedParameterVectors, score::crypto::CryptoErrorCode> BuildResponseParameters(
     const common::ResponseParameters& parameters,
     flatbuffers::FlatBufferBuilder& builder)
 {
@@ -169,25 +176,30 @@ std::pair<std::vector<fb::OperationParameter>, std::vector<flatbuffers::Offset<v
             const auto data_offset = builder.CreateVector(buffer.data(), buffer.size());
             values.push_back(fb::CreateDataBufferInBand(builder, data_offset).o);
         }
-        else
+        else if (std::holds_alternative<score::cpp::span<const std::uint8_t>>(parameter))
         {
             types.push_back(fb::OperationParameter::DataBufferInBand);
             const auto buffer = std::get<score::cpp::span<const std::uint8_t>>(parameter);
             const auto data_offset = builder.CreateVector(buffer.data(), buffer.size());
             values.push_back(fb::CreateDataBufferInBand(builder, data_offset).o);
         }
+        else
+        {
+            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
+        }
     }
 
-    return {std::move(types), std::move(values)};
+    return EncodedParameterVectors{std::move(types), std::move(values)};
 }
 
-common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<fb::OperationParameter>* types,
-                                                   const flatbuffers::Vector<flatbuffers::Offset<void>>* values)
+score::crypto::Expected<common::RequestParameters, score::crypto::CryptoErrorCode> ExtractRequestParameters(
+    const flatbuffers::Vector<fb::OperationParameter>* types,
+    const flatbuffers::Vector<flatbuffers::Offset<void>>* values)
 {
     common::RequestParameters parameters;
     if ((types == nullptr) || (values == nullptr) || (types->size() != values->size()))
     {
-        return parameters;
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
     }
 
     for (flatbuffers::uoffset_t index = 0U; index < types->size(); ++index)
@@ -196,7 +208,7 @@ common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<fb:
         const auto* value = values->Get(index);
         if (value == nullptr)
         {
-            return {};
+            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
 
         switch (type)
@@ -224,7 +236,7 @@ common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<fb:
                 const auto* string_value = static_cast<const fb::String*>(static_cast<const void*>(value))->val();
                 if (string_value == nullptr)
                 {
-                    return {};
+                    return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
                 }
                 parameters.emplace_back(std::string_view{string_value->data(), string_value->size()});
                 break;
@@ -234,7 +246,7 @@ common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<fb:
                 const auto* buffer = static_cast<const fb::DataBufferInBand*>(static_cast<const void*>(value))->val();
                 if (buffer == nullptr)
                 {
-                    return {};
+                    return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
                 }
                 parameters.emplace_back(score::cpp::span<const std::uint8_t>{buffer->Data(), buffer->size()});
                 break;
@@ -244,7 +256,7 @@ common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<fb:
                 const auto* shm = static_cast<const fb::DataShm*>(static_cast<const void*>(value));
                 if (shm == nullptr)
                 {
-                    return {};
+                    return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
                 }
                 parameters.emplace_back(common::DataShm{shm->node_id(),
                                                         static_cast<std::size_t>(shm->offset()),
@@ -252,22 +264,22 @@ common::RequestParameters ExtractRequestParameters(const flatbuffers::Vector<fb:
                                                         static_cast<common::ShmDirection>(shm->direction())});
                 break;
             }
-            case fb::OperationParameter::DataBufferDataPlane:
             case fb::OperationParameter::NONE:
             default:
-                return {};
+                return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
     }
     return parameters;
 }
 
-common::ResponseParameters ExtractResponseParameters(const flatbuffers::Vector<fb::OperationParameter>* types,
-                                                     const flatbuffers::Vector<flatbuffers::Offset<void>>* values)
+score::crypto::Expected<common::ResponseParameters, score::crypto::CryptoErrorCode> ExtractResponseParameters(
+    const flatbuffers::Vector<fb::OperationParameter>* types,
+    const flatbuffers::Vector<flatbuffers::Offset<void>>* values)
 {
     common::ResponseParameters parameters;
     if ((types == nullptr) || (values == nullptr) || (types->size() != values->size()))
     {
-        return parameters;
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
     }
 
     for (flatbuffers::uoffset_t index = 0U; index < types->size(); ++index)
@@ -276,7 +288,7 @@ common::ResponseParameters ExtractResponseParameters(const flatbuffers::Vector<f
         const auto* value = values->Get(index);
         if (value == nullptr)
         {
-            return {};
+            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
         switch (type)
         {
@@ -303,7 +315,7 @@ common::ResponseParameters ExtractResponseParameters(const flatbuffers::Vector<f
                 const auto* string_value = static_cast<const fb::String*>(static_cast<const void*>(value))->val();
                 if (string_value == nullptr)
                 {
-                    return {};
+                    return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
                 }
                 parameters.emplace_back(common::OwnedString{string_value->data(), string_value->size()});
                 break;
@@ -313,19 +325,39 @@ common::ResponseParameters ExtractResponseParameters(const flatbuffers::Vector<f
                 const auto* buffer = static_cast<const fb::DataBufferInBand*>(static_cast<const void*>(value))->val();
                 if (buffer == nullptr)
                 {
-                    return {};
+                    return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
                 }
                 parameters.emplace_back(common::OwnedBuffer{buffer->begin(), buffer->end()});
                 break;
             }
-            case fb::OperationParameter::DataBufferDataPlane:
+            // DataShm will not be part of Response.
             case fb::OperationParameter::DataShm:
             case fb::OperationParameter::NONE:
             default:
-                return {};
+                return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
     }
     return parameters;
+}
+
+// The codec may be used in the context of cross machine / VM use-cases.
+// In such cases, we cannot rely on transferring as absolute time points without requiring synchronized clocks.
+// Thus we convert deadlines to relative timeouts, and transfer them.
+score::crypto::Expected<std::uint32_t, score::crypto::CryptoErrorCode> DeadlineToTimeoutMs(
+    const std::chrono::steady_clock::time_point deadline) noexcept
+{
+    const auto now = std::chrono::steady_clock::now();
+    if (deadline <= now)
+    {
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
+    }
+    const auto remaining_ms = std::chrono::ceil<std::chrono::milliseconds>(deadline - now);
+    return static_cast<std::uint32_t>(remaining_ms.count());
+}
+
+std::chrono::steady_clock::time_point TimeoutMsToDeadline(const std::uint32_t timeout_ms) noexcept
+{
+    return std::chrono::steady_clock::now() + std::chrono::milliseconds{timeout_ms};
 }
 
 }  // namespace
@@ -336,20 +368,14 @@ score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::CryptoErrorCod
     // FlatBuffers and protocol vectors allocate while encoding; convert failures to the codec error.
     try
     {
-        std::uint32_t timeout_ms{0U};
-        const auto now = std::chrono::steady_clock::now();
-        if (request.deadline > now)
+        const auto timeout_ms_result = DeadlineToTimeoutMs(request.deadline);
+        if (!timeout_ms_result.has_value())
         {
-            const auto remaining_ms = std::chrono::ceil<std::chrono::milliseconds>(request.deadline - now);
-            timeout_ms = static_cast<std::uint32_t>(remaining_ms.count());
+            return score::crypto::make_unexpected(timeout_ms_result.error());
         }
-        else
-        {
-            // The request deadline has already passed, so we cannot proceed.
-            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
-        }
+        const auto timeout_ms = timeout_ms_result.value();
         flatbuffers::FlatBufferBuilder builder;
-        flatbuffers::Offset<fb::OperationRequestBatch> operation_batch{};
+        flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::SingleOperationRequest>>> operations{};
         if (((request.kind != bl::ControlRequestKind::kOperation) &&
              (request.kind != bl::ControlRequestKind::kCancel)) ||
             ((request.kind == bl::ControlRequestKind::kCancel) && !request.operation.operations.empty()))
@@ -358,18 +384,23 @@ score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::CryptoErrorCod
         }
         if (request.kind == bl::ControlRequestKind::kOperation)
         {
-            std::vector<flatbuffers::Offset<fb::SingleOperationRequest>> operations;
+            std::vector<flatbuffers::Offset<fb::SingleOperationRequest>> operation_offsets;
             for (const auto& operation : request.operation.operations)
             {
                 const auto operation_id = fb::CreateOperationIdentifier(
                     builder, operation.operationId.operationActor, operation.operationId.operationAction);
                 auto parameters = BuildRequestParameters(operation.parameters, builder);
-                const auto parameter_types = builder.CreateVector(parameters.first);
-                const auto parameter_values = builder.CreateVector(parameters.second);
-                operations.push_back(
+                if (!parameters.has_value())
+                {
+                    return score::crypto::make_unexpected(parameters.error());
+                }
+                const auto& parameter_vectors = parameters.value();
+                const auto parameter_types = builder.CreateVector(parameter_vectors.first);
+                const auto parameter_values = builder.CreateVector(parameter_vectors.second);
+                operation_offsets.push_back(
                     fb::CreateSingleOperationRequest(builder, operation_id, parameter_types, parameter_values));
             }
-            operation_batch = fb::CreateOperationRequestBatch(builder, builder.CreateVector(operations));
+            operations = builder.CreateVector(operation_offsets);
         }
         const auto execution_policy = fb::CreateExecutionPolicy(builder);
         const auto meta_data = fb::CreateControlRequestMetaData(builder,
@@ -379,8 +410,12 @@ score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::CryptoErrorCod
                                                                 static_cast<fb::ControlRequestKind>(request.kind),
                                                                 timeout_ms,
                                                                 execution_policy);
-        const auto root = fb::CreateControlRequest(builder, meta_data, operation_batch);
+        const auto root = fb::CreateControlRequest(builder, meta_data, operations);
         builder.FinishSizePrefixed(root, fb::ControlRequestIdentifier());
+        if (builder.GetSize() > protocol_config::kMaxSerializedBytes)
+        {
+            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInsufficientBufferSize);
+        }
         return std::vector<std::uint8_t>{builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
     }
     catch (const std::bad_alloc&)
@@ -407,14 +442,23 @@ score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::CryptoErrorCod
                 builder, operation.operationId.operationActor, operation.operationId.operationAction);
             const auto result = fb::CreateOperationResult(builder, static_cast<std::uint32_t>(operation.result));
             auto parameters = BuildResponseParameters(operation.parameters, builder);
-            const auto parameter_types = builder.CreateVector(parameters.first);
-            const auto parameter_values = builder.CreateVector(parameters.second);
+            if (!parameters.has_value())
+            {
+                return score::crypto::make_unexpected(parameters.error());
+            }
+            const auto& parameter_vectors = parameters.value();
+            const auto parameter_types = builder.CreateVector(parameter_vectors.first);
+            const auto parameter_values = builder.CreateVector(parameter_vectors.second);
             operations.push_back(
                 fb::CreateSingleOperationResponse(builder, operation_id, result, parameter_types, parameter_values));
         }
-        const auto operation_batch = fb::CreateOperationResponseBatch(builder, builder.CreateVector(operations));
-        const auto root = fb::CreateControlResponse(builder, response.request_id, operation_batch);
+        const auto operations_vector = builder.CreateVector(operations);
+        const auto root = fb::CreateControlResponse(builder, response.request_id, operations_vector);
         builder.FinishSizePrefixed(root, fb::ControlRequestIdentifier());
+        if (builder.GetSize() > protocol_config::kMaxSerializedBytes)
+        {
+            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInsufficientBufferSize);
+        }
         return std::vector<std::uint8_t>{builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
     }
     catch (const std::bad_alloc&)
@@ -446,11 +490,11 @@ FlatBufferCodec::PeekRequestMetadata(const score::cpp::span<const std::uint8_t> 
     {
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
     }
-    if ((kind == fb::ControlRequestKind::Operation) && (root->operation_batch() == nullptr))
+    if ((kind == fb::ControlRequestKind::Operation) && (root->operations() == nullptr))
     {
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
     }
-    if ((kind == fb::ControlRequestKind::Cancel) && (root->operation_batch() != nullptr))
+    if ((kind == fb::ControlRequestKind::Cancel) && (root->operations() != nullptr))
     {
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
     }
@@ -486,8 +530,8 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBuff
         {
             return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
-        if (((kind == fb::ControlRequestKind::Operation) && (root->operation_batch() == nullptr)) ||
-            ((kind == fb::ControlRequestKind::Cancel) && (root->operation_batch() != nullptr)))
+        if (((kind == fb::ControlRequestKind::Operation) && (root->operations() == nullptr)) ||
+            ((kind == fb::ControlRequestKind::Cancel) && (root->operations() != nullptr)))
         {
             return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
@@ -497,12 +541,12 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBuff
         request.data_node_id = meta_data->data_node_id();
         // TODO: Will be replaced with proper execution policy handling in the future.
         request.execution_policy = {};
-        request.deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(meta_data->timeout_ms());
+        request.deadline = TimeoutMsToDeadline(meta_data->timeout_ms());
         if (kind == fb::ControlRequestKind::Cancel)
         {
             return {};
         }
-        const auto* operations = root->operation_batch()->operations();
+        const auto* operations = root->operations();
         if (operations == nullptr)
         {
             return {};
@@ -520,11 +564,12 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBuff
             {
                 return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
             }
-            decoded.parameters = ExtractRequestParameters(operation->parameter_type(), operation->parameter());
-            if (decoded.parameters.size() != operation->parameter_type()->size())
+            auto parameters = ExtractRequestParameters(operation->parameter_type(), operation->parameter());
+            if (!parameters.has_value())
             {
-                return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
+                return score::crypto::make_unexpected(parameters.error());
             }
+            decoded.parameters = std::move(parameters.value());
             request.operation.operations.push_back(std::move(decoded));
         }
         return {};
@@ -555,12 +600,12 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBuff
             return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
         const auto* root = flatbuffers::GetSizePrefixedRoot<fb::ControlResponse>(bytes.data());
-        if ((root == nullptr) || (root->operation_batch() == nullptr))
+        if (root == nullptr)
         {
             return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
         response.request_id = root->request_id();
-        const auto* operations = root->operation_batch()->operations();
+        const auto* operations = root->operations();
         if (operations == nullptr)
         {
             return {};
@@ -579,11 +624,12 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBuff
             {
                 return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
             }
-            decoded.parameters = ExtractResponseParameters(operation->parameter_type(), operation->parameter());
-            if (decoded.parameters.size() != operation->parameter_type()->size())
+            auto parameters = ExtractResponseParameters(operation->parameter_type(), operation->parameter());
+            if (!parameters.has_value())
             {
-                return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
+                return score::crypto::make_unexpected(parameters.error());
             }
+            decoded.parameters = std::move(parameters.value());
             response.operation.operations.push_back(std::move(decoded));
         }
         return {};

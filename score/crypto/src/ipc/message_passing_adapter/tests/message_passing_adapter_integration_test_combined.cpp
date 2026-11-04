@@ -763,7 +763,7 @@ TEST(MessagePassingAdapterIntegrationTest, OversizedRequestIsRejectedAndConnecti
 
     const auto oversized_result = client->SendRequest(oversized_request, std::chrono::milliseconds{1000});
     ASSERT_FALSE(oversized_result.has_value());
-    EXPECT_EQ(oversized_result.error(), score::crypto::CryptoErrorCode::kInvalidArgument);
+    EXPECT_EQ(oversized_result.error(), score::crypto::CryptoErrorCode::kInsufficientBufferSize);
     EXPECT_EQ(server.handler_invocation_count(), 0U);
 
     auto valid_request = MakeEchoRequest(kPayload);
