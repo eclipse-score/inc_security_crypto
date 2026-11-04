@@ -80,7 +80,8 @@ package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
         }
 
         interface ICryptoHandlerFactory {
-            +CreateHandler(config) : unique_ptr<IHandler>
+            +CreateHandler(handler_id, const AlgorithmDescriptor&) : Result<Handler::Sptr>
+            +CreateKeyManagementHandler() : Result<Handler::Sptr>
         }
 
         package "operations/" <<Rectangle>> #E8E8E8 {

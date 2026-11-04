@@ -82,7 +82,8 @@ Pkcs11KeyFactory::GenerateKey(const key_management::KeyGenerationRequest& reques
     const auto algo_info = detail::LookupAlgorithm(request.algorithm);
     if (!algo_info.has_value())
     {
-        score::mw::log::LogError() << LOG_PREFIX << "GenerateKey: unsupported algorithm '" << request.algorithm << "'";
+        score::mw::log::LogError() << LOG_PREFIX << "GenerateKey: unsupported algorithm '" << request.algorithm.name
+                                   << "'";
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 

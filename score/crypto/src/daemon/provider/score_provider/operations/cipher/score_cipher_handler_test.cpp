@@ -13,6 +13,8 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/score_cipher_handler.hpp"
 
+#include "score/crypto/src/api/types/algorithm.hpp"
+
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -25,6 +27,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <string_view>
 #include <variant>
 
 namespace score::crypto::daemon::provider::score_provider::operations::cipher
@@ -45,9 +48,11 @@ constexpr std::uint64_t kAesBlockSize = 16U;
 class ScoreCipherHandlerMaxOutputSizeTest : public ::testing::Test
 {
   protected:
-    static ScoreCipherHandler MakeHandler(const common::AlgorithmId& algorithm)
+    static ScoreCipherHandler MakeHandler(std::string_view algorithm)
     {
-        return ScoreCipherHandler{std::make_unique<CipherExecutor>(), algorithm};
+        const auto descriptor = GetAlgorithmDescriptor(algorithm);
+        EXPECT_TRUE(descriptor.has_value()) << algorithm;
+        return ScoreCipherHandler{std::make_unique<CipherExecutor>(), descriptor.value_or(AlgorithmDescriptor{})};
     }
 
     static Expected<std::uint64_t, DaemonErrorCode> Query(ScoreCipherHandler& handler, RequestParameters request)
@@ -104,9 +109,9 @@ TEST_F(ScoreCipherHandlerMaxOutputSizeTest, NonIntegerInputLengthIsRejected)
     EXPECT_EQ(size.error(), DaemonErrorCode::kInvalidDataType);
 }
 
-TEST_F(ScoreCipherHandlerMaxOutputSizeTest, UnknownAlgorithmIsRejected)
+TEST_F(ScoreCipherHandlerMaxOutputSizeTest, NonCipherAlgorithmIsRejected)
 {
-    auto handler = MakeHandler("BOGUS");
+    auto handler = MakeHandler("SHA256");
     const auto size = Query(handler, {std::uint64_t{0U}});
     ASSERT_FALSE(size.has_value());
     EXPECT_EQ(size.error(), DaemonErrorCode::kUnsupportedAlgorithm);
