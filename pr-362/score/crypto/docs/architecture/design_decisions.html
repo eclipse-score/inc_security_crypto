@@ -579,7 +579,7 @@
 <span id="crypto-design-decisions"></span><h1>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h1>
 <section id="abi-compatibility-for-ipc-layer-deferred-post-stabilisation">
 <h2>ABI Compatibility for IPC Layer (Deferred Post-Stabilisation)<a class="headerlink" href="#abi-compatibility-for-ipc-layer-deferred-post-stabilisation" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-3fa59795">
+<div class="need_container docutils container" id="SNCB-39ab9278">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__no_abi_compatibility_ipc">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -705,7 +705,7 @@ efficiently once the stack stabilises.</p>
 </section>
 <section id="cryptoresourceguard-lifetime-via-daemon-side-reference-counting">
 <h2>CryptoResourceGuard Lifetime via Daemon-Side Reference Counting<a class="headerlink" href="#cryptoresourceguard-lifetime-via-daemon-side-reference-counting" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-93dd1504">
+<div class="need_container docutils container" id="SNCB-5bfa4b9b">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__cry_res_grd_lifetime">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -888,7 +888,7 @@ Memory cost is bounded by max concurrent keys (deployment-time constant).</p></l
 </section>
 <section id="shared-connection-anchor-for-persistent-resource-id-stability">
 <h2>Shared-Connection Anchor for Persistent Resource ID Stability<a class="headerlink" href="#shared-connection-anchor-for-persistent-resource-id-stability" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-209e0dd3">
+<div class="need_container docutils container" id="SNCB-631201b3">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__conn_anchor_persistent_ids">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1022,7 +1022,7 @@ the entire application lifetime even if the IDs are no longer used.</p></li>
 </section>
 <section id="algorithmid-as-fixedcapacitystring-64">
 <h2><code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code> as <code class="docutils literal notranslate"><span class="pre">FixedCapacityString&lt;64&gt;</span></code><a class="headerlink" href="#algorithmid-as-fixedcapacitystring-64" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-4da5948a">
+<div class="need_container docutils container" id="SNCB-b25d45f0">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__alg_id_fixed_cap_str">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1114,9 +1114,135 @@ from untrusted input.</p></li>
 <p>—</p>
 </section>
 </section>
+<section id="algorithm-catalog-alongside-algorithmid">
+<h2>Algorithm Catalog Alongside <code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code><a class="headerlink" href="#algorithm-catalog-alongside-algorithmid" title="Link to this heading">#</a></h2>
+<div class="need_container docutils container" id="SNCB-6708daf6">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__alg_catalog">
+<tbody>
+<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
+<div class="line"><span><span class="needs_title"><span class="needs_data">Structured Algorithm Catalog Alongside String AlgorithmId</span></span></span></div>
+</div>
+</td>
+<td class="head_center" colspan="2"><div class="needs_head line-block">
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">proposed</span></span></span></div>
+<div class="line"><span></span></div>
+<div class="line"><span></span></div>
+</div>
+</td>
+<td class="head_right" colspan="2"><div class="needs_head_right line-block">
+<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
+</div>
+</td>
+</tr>
+<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
+<div class="line"><span><span><div class="line"><span class="needs_context"><span class="needs_label">context: </span><span class="needs_data">doc__crypto_architecture</span></span></div>
+<div class="line"><span class="needs_decision"><span class="needs_label">decision: </span><span class="needs_data">``AlgorithmId`` stays the string on the wire, in the configs and in stored key metadata. A constexpr catalog (``score/crypto/src/api/types/algorithm.hpp``) maps every known name, by exact match, to an ``Algorithm`` enumerator and an ``AlgorithmDescriptor`` holding category, key type, key length, hash, curve, mode and fixed output size. The daemon resolves each name to its catalog row once, where the request enters it, and refuses a name the catalog does not know; providers receive the row, never the name, and decide support from its typed fields.</span></span></div>
+<div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
+</span></span></div>
+<div class="line"><span></span></div>
+</div>
+</td>
+<td class="meta" colspan="3"></td>
+</tr>
+<tr class="content row-odd"><td class="content" colspan="6"></td>
+</tr>
+<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#dec_rec__crypto__alg_catalog" title="dec_rec__crypto__alg_catalog">dec_rec__crypto__alg_catalog</a></span></span></div>
+</div>
+</td>
+<td class="footer" colspan="2"><div class="needs_footer line-block">
+<div class="line"><span><span class="needs_type_name"><span class="needs_data">Decision Record</span></span></span></div>
+</div>
+</td>
+<td class="footer_right" colspan="2"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<section id="id10">
+<h3>Context<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
+<p>The daemon derived algorithm properties by searching identifiers for
+fragments: <code class="docutils literal notranslate"><span class="pre">&quot;P256&quot;</span></code> anywhere in a name selected the P-256 curve, <code class="docutils literal notranslate"><span class="pre">&quot;SHA256&quot;</span></code>
+anywhere selected SHA-256, and <code class="docutils literal notranslate"><span class="pre">&quot;ECDSA&quot;</span></code> plus a curve anywhere made a name an
+ECDSA algorithm, so <code class="docutils literal notranslate"><span class="pre">&quot;XECDSA-P256&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;ECDSA-P2561-SHA256&quot;</span></code> were accepted.
+RSA-PSS names were parsed by prefix and their digest found by searching for a
+hash name, so <code class="docutils literal notranslate"><span class="pre">&quot;RSA-PSS-20481-SHA256&quot;</span></code> resolved to a 2048-bit key.
+The PKCS#11 provider took the key type and length from the first entry of its
+table found anywhere in the name (<code class="docutils literal notranslate"><span class="pre">&quot;AES-128&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;HMAC-SHA256&quot;</span></code>, …). Each
+table repeated its own list of names, none recorded the key type an operation
+algorithm needs, and nothing compared a key’s algorithm with the operation’s
+before binding them, so a P-256 key could be bound to an ECDSA-P384 context.</p>
+</section>
+<section id="id11">
+<h3>Decision<a class="headerlink" href="#id11" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code> remains <code class="docutils literal notranslate"><span class="pre">FixedCapacityString&lt;64&gt;</span></code> (see the previous record)
+and the IPC protocol is unchanged. On top of it:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">FromAlgorithmName()</span></code> / <code class="docutils literal notranslate"><span class="pre">ToAlgorithmName()</span></code> convert between the string and
+the <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> enumerator by exact, case-sensitive match;
+<code class="docutils literal notranslate"><span class="pre">GetAlgorithmDescriptor()</span></code> and <code class="docutils literal notranslate"><span class="pre">GetAlgorithmCategory()</span></code> expose the
+properties of a known algorithm. The client library uses the same catalog.</p></li>
+<li><p>Every algorithm the daemon accepts is a catalog row. ECDSA has one row per
+curve (P-256, P-384, P-521) and SHA-2 digest (SHA-224 to SHA-512), twelve in
+all, whose key length, digest and IEEE P1363 signature size (64, 96, 132
+bytes) follow from the curve and hash; there is no ECDSA row for MD5 or
+SHA-1. The bare key rows <code class="docutils literal notranslate"><span class="pre">&quot;ECDSA-P256&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;ECDSA-P384&quot;</span></code> and
+<code class="docutils literal notranslate"><span class="pre">&quot;ECDSA-P521&quot;</span></code> name keys only. Ed25519 has no parameters, so <code class="docutils literal notranslate"><span class="pre">&quot;Ed25519&quot;</span></code>
+is a single row of category signature with key type <code class="docutils literal notranslate"><span class="pre">kEd25519</span></code> and names
+both the key and the scheme. Nothing in the daemon parses a name.</p></li>
+<li><p>The mediator resolves the algorithm of <code class="docutils literal notranslate"><span class="pre">CTX_CREATE</span></code> once, before any
+provider is asked; a name without a row is refused with
+<code class="docutils literal notranslate"><span class="pre">kUnsupportedAlgorithm</span></code>. A <code class="docutils literal notranslate"><span class="pre">RANDOM</span></code> context without an algorithm selects
+the <code class="docutils literal notranslate"><span class="pre">&quot;CTR-DRBG&quot;</span></code> row. A <code class="docutils literal notranslate"><span class="pre">KEY_MANAGEMENT</span></code> context is bound to no
+algorithm and is created through the separate factory entry point
+<code class="docutils literal notranslate"><span class="pre">ICryptoHandlerFactory::CreateKeyManagementHandler()</span></code>; all other contexts
+go through <code class="docutils literal notranslate"><span class="pre">CreateHandler(handler_id,</span> <span class="pre">const</span> <span class="pre">AlgorithmDescriptor&amp;)</span></code>.</p></li>
+<li><p>Every handler’s <code class="docutils literal notranslate"><span class="pre">IsAlgorithmSupported()</span></code> takes the descriptor and every
+handler stores it. Providers decide support in <code class="docutils literal notranslate"><span class="pre">switch</span></code> statements over the
+typed fields (hash, curve, key type, cipher mode) without a default case, so
+a value added to a catalog enumeration does not compile until each provider
+decides whether it serves it. The OpenSSL provider maps hash to <code class="docutils literal notranslate"><span class="pre">EVP_MD</span></code>
+(SHA-2 only), curve to its group name, cipher mode and key length to an
+<code class="docutils literal notranslate"><span class="pre">EVP_CIPHER</span></code> (AES-CBC) and signatures by key type (ECDSA on every row,
+RSA-PSS on 2048/3072/4096-bit keys, Ed25519). The PKCS#11 provider maps hash
+rows to <code class="docutils literal notranslate"><span class="pre">CKM_SHA*</span></code>, HMAC rows to <code class="docutils literal notranslate"><span class="pre">CKM_SHA*_HMAC</span></code> and keys by key type and
+length. MD5 and SHA-1 have catalog rows and are refused by both.</p></li>
+<li><p>Key management works on descriptors as well: key generation and import
+requests carry the resolved row, the request parser refuses an unknown name
+with <code class="docutils literal notranslate"><span class="pre">kUnsupportedAlgorithm</span></code>, and the key factories switch on its key type.
+Slot configuration and stored key metadata keep the algorithm name; it is
+resolved when loaded. A configured slot whose name the catalog does not know
+is not registered (an error is logged), and a key whose stored name is
+unknown is refused with <code class="docutils literal notranslate"><span class="pre">kUnsupportedAlgorithm</span></code> when loaded or peeked.
+<code class="docutils literal notranslate"><span class="pre">LookupKeySize()</span></code> in <code class="docutils literal notranslate"><span class="pre">daemon/common/algorithm_info.hpp</span></code> keeps answering
+which rows can label a key and the key length, now from the descriptor.</p></li>
+</ul>
+</section>
+<section id="id12">
+<h3>Consequences<a class="headerlink" href="#id12" title="Link to this heading">#</a></h3>
+<p><strong>Positive:</strong></p>
+<ul class="simple">
+<li><p>One table holds the properties of every known algorithm, available to client and daemon.</p></li>
+<li><p>No identifier is accepted because it contains another identifier, and an
+unknown identifier fails at context creation rather than inside a provider.</p></li>
+<li><p>Providers keep no lists of names; a new value of a catalog enumeration forces
+an explicit support decision in every provider.</p></li>
+<li><p>Key and operation algorithms can be compared on key type, length and curve.</p></li>
+</ul>
+<p><strong>Negative:</strong></p>
+<ul class="simple">
+<li><p>A new algorithm needs a catalog row before any provider can serve it, and
+a new enumerator value needs a case in every provider switch.</p></li>
+<li><p>A configured or stored name that a later catalog no longer knows makes the
+slot or key unusable until the configuration is migrated.</p></li>
+</ul>
+<p>—</p>
+</section>
+</section>
 <section id="synchronous-only-ipc-model">
 <h2>Synchronous-Only IPC Model<a class="headerlink" href="#synchronous-only-ipc-model" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-b562cba3">
+<div class="need_container docutils container" id="SNCB-a93101cd">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__synchronous_ipc">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1163,15 +1289,15 @@ from untrusted input.</p></li>
 <p>All IPC calls between the client library and the crypto daemon are synchronous
 (blocking). No callback, future, or async-notify pattern is exposed in the V1
 public API.</p>
-<section id="id10">
-<h3>Context<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
+<section id="id13">
+<h3>Context<a class="headerlink" href="#id13" title="Link to this heading">#</a></h3>
 <p>A synchronous model blocks the calling thread for the full IPC round-trip plus
 provider execution. The alternatives introduce heap usage, threading complexity,
 or event-loop coupling that are incompatible with MISRA and automotive middleware
 requirements.</p>
 </section>
-<section id="id11">
-<h3>Decision<a class="headerlink" href="#id11" title="Link to this heading">#</a></h3>
+<section id="id14">
+<h3>Decision<a class="headerlink" href="#id14" title="Link to this heading">#</a></h3>
 <p>All IPC calls are synchronous (blocking). Asynchronous alternatives were evaluated
 and rejected:</p>
 <ul class="simple">
@@ -1184,8 +1310,8 @@ delegate types possible but add significant complexity.</p></li>
 to the application event loop; not idiomatic for automotive middleware.</p></li>
 </ul>
 </section>
-<section id="id12">
-<h3>Consequences<a class="headerlink" href="#id12" title="Link to this heading">#</a></h3>
+<section id="id15">
+<h3>Consequences<a class="headerlink" href="#id15" title="Link to this heading">#</a></h3>
 <p><strong>Positive:</strong></p>
 <ul class="simple">
 <li><p>Simple, predictable call semantics — no threading model imposed on callers.</p></li>
@@ -1209,7 +1335,7 @@ key to the context when the async result is consumed.</p></li>
 </section>
 <section id="context-reset-for-streaming-context-reuse">
 <h2>Context <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> for Streaming Context Reuse<a class="headerlink" href="#context-reset-for-streaming-context-reuse" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-11463b8e">
+<div class="need_container docutils container" id="SNCB-2a85ef0f">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__context_reset_reuse">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1257,16 +1383,16 @@ key to the context when the async result is consumed.</p></li>
 post-construction state after <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code>, preserving key, algorithm, and config
 bindings. This avoids repeated factory + IPC overhead for same-configuration
 repeated operations.</p>
-<section id="id13">
-<h3>Context<a class="headerlink" href="#id13" title="Link to this heading">#</a></h3>
+<section id="id16">
+<h3>Context<a class="headerlink" href="#id16" title="Link to this heading">#</a></h3>
 <p>Streaming contexts (hash, sign, verify, encrypt, decrypt, MAC, AEAD) follow the
 <code class="docutils literal notranslate"><span class="pre">Init()</span></code> → <code class="docutils literal notranslate"><span class="pre">Update()</span></code> * → <code class="docutils literal notranslate"><span class="pre">Finalize()</span></code> state machine. Without reuse, each
 new operation requires: (1) <code class="docutils literal notranslate"><span class="pre">ICryptoContext::Create*Context()</span></code> IPC call,
 (2) <code class="docutils literal notranslate"><span class="pre">Init()</span></code> IPC call. For high-frequency operations (e.g., per-frame hashing,
 per-message MAC), this doubles the IPC overhead.</p>
 </section>
-<section id="id14">
-<h3>Decision<a class="headerlink" href="#id14" title="Link to this heading">#</a></h3>
+<section id="id17">
+<h3>Decision<a class="headerlink" href="#id17" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">Reset()</span></code> is added to <code class="docutils literal notranslate"><span class="pre">IStreamingContext</span></code>. Alternatives evaluated:</p>
 <ul class="simple">
 <li><p><strong>Destroy and re-create</strong> — simplest, but doubles IPC cost per operation.</p></li>
@@ -1279,8 +1405,8 @@ callers. Adds ~200 LOC of pool management, thread-safety concerns, and a fixed
 pool bound that may be too large or too small for different deployments.</p></li>
 </ul>
 </section>
-<section id="id15">
-<h3>Consequences<a class="headerlink" href="#id15" title="Link to this heading">#</a></h3>
+<section id="id18">
+<h3>Consequences<a class="headerlink" href="#id18" title="Link to this heading">#</a></h3>
 <p><strong>Positive:</strong></p>
 <ul class="simple">
 <li><p>Halves IPC round-trips for high-frequency same-configuration operations.</p></li>
@@ -1300,7 +1426,7 @@ re-create continue to work unchanged.</p></li>
 </section>
 <section id="two-layer-per-call-timeout-with-daemon-side-enforcement">
 <h2>Two-Layer Per-Call Timeout with Daemon-Side Enforcement<a class="headerlink" href="#two-layer-per-call-timeout-with-daemon-side-enforcement" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-df885ce8">
+<div class="need_container docutils container" id="SNCB-99353cfc">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__two_layer_timeout">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1348,8 +1474,8 @@ re-create continue to work unchanged.</p></li>
 <code class="docutils literal notranslate"><span class="pre">CryptoStackConfig</span></code> and a per-context override in <code class="docutils literal notranslate"><span class="pre">BaseContextConfig</span></code> with an
 explicit <code class="docutils literal notranslate"><span class="pre">DisableTimeout()</span></code> escape — with the daemon as the enforcement point.
 Client threads unblock on timeout; timed-out contexts transition to <code class="docutils literal notranslate"><span class="pre">kError</span></code>.</p>
-<section id="id16">
-<h3>Context<a class="headerlink" href="#id16" title="Link to this heading">#</a></h3>
+<section id="id19">
+<h3>Context<a class="headerlink" href="#id19" title="Link to this heading">#</a></h3>
 <p>Without timeouts, a hung HSM or stalled IPC channel blocks the calling thread
 indefinitely — a safety violation for ISO 26262 ASIL functions. A single global
 timeout is insufficient because some legitimate operations (e.g., RSA-4096 key
@@ -1357,8 +1483,8 @@ generation on software providers) require more time than typical operations.
 Client-side-only timeouts fail to release daemon-held resources when the deadline
 expires.</p>
 </section>
-<section id="id17">
-<h3>Decision<a class="headerlink" href="#id17" title="Link to this heading">#</a></h3>
+<section id="id20">
+<h3>Decision<a class="headerlink" href="#id20" title="Link to this heading">#</a></h3>
 <p>Three timeout models were evaluated:</p>
 <ol class="arabic simple">
 <li><p><strong>Client-side only (``std::future::wait_for``)</strong> — client unblocks after
@@ -1377,8 +1503,8 @@ on software providers).</p></li>
 </ol>
 <p>Model 3 was selected for bounded behaviour at both layers.</p>
 </section>
-<section id="id18">
-<h3>Consequences<a class="headerlink" href="#id18" title="Link to this heading">#</a></h3>
+<section id="id21">
+<h3>Consequences<a class="headerlink" href="#id21" title="Link to this heading">#</a></h3>
 <p><strong>Positive:</strong></p>
 <ul class="simple">
 <li><p>Guaranteed bounded execution — no call blocks indefinitely.</p></li>
@@ -1401,7 +1527,7 @@ must be justified in the application’s safety case.</p></li>
 </section>
 <section id="keyoperationpermission-as-a-capability-bitmask">
 <h2><code class="docutils literal notranslate"><span class="pre">KeyOperationPermission</span></code> as a Capability Bitmask<a class="headerlink" href="#keyoperationpermission-as-a-capability-bitmask" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-514d8be2">
+<div class="need_container docutils container" id="SNCB-188e92aa">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__key_op_permission_bitmask">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1450,15 +1576,15 @@ must be justified in the application’s safety case.</p></li>
 <code class="docutils literal notranslate"><span class="pre">kDerive</span></code>, <code class="docutils literal notranslate"><span class="pre">kWrap</span></code>, <code class="docutils literal notranslate"><span class="pre">kExport</span></code>, <code class="docutils literal notranslate"><span class="pre">kGenerate</span></code>). The daemon enforces the bitmask
 at context creation time; operations not permitted by the key’s bitmask return
 <code class="docutils literal notranslate"><span class="pre">kKeyOperationNotPermitted</span></code>.</p>
-<section id="id19">
-<h3>Context<a class="headerlink" href="#id19" title="Link to this heading">#</a></h3>
+<section id="id22">
+<h3>Context<a class="headerlink" href="#id22" title="Link to this heading">#</a></h3>
 <p>A key provisioned for signing must not be usable for encryption or export.
 Enforcing usage restrictions at the API level prevents misuse even if the caller
 has a valid resource handle. The representation must be heap-free and extensible
 to support future operations without breaking existing code.</p>
 </section>
-<section id="id20">
-<h3>Decision<a class="headerlink" href="#id20" title="Link to this heading">#</a></h3>
+<section id="id23">
+<h3>Decision<a class="headerlink" href="#id23" title="Link to this heading">#</a></h3>
 <p>Three designs were evaluated:</p>
 <ol class="arabic simple">
 <li><p><strong>``std::unordered_set&lt;KeyOperation&gt;``</strong> — flexible but heap-allocating.
@@ -1472,8 +1598,8 @@ existing code). Standard pattern in OS capability models (POSIX, seL4).</p></li>
 </ol>
 <p>The bitmask (option 3) was selected for compactness and extensibility.</p>
 </section>
-<section id="id21">
-<h3>Consequences<a class="headerlink" href="#id21" title="Link to this heading">#</a></h3>
+<section id="id24">
+<h3>Consequences<a class="headerlink" href="#id24" title="Link to this heading">#</a></h3>
 <p><strong>Positive:</strong></p>
 <ul class="simple">
 <li><p>Compact representation — one <code class="docutils literal notranslate"><span class="pre">uint32_t</span></code> field in key metadata.</p></li>
@@ -1494,7 +1620,7 @@ callers can accidentally construct invalid combinations.</p></li>
 </section>
 <section id="unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split">
 <h2>Unified Cipher Context (No Encrypt/Decrypt or Symmetric/Asymmetric Split)<a class="headerlink" href="#unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-d543eae8">
+<div class="need_container docutils container" id="SNCB-d20fd6cb">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__unified_enc_dec_contexts">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1544,15 +1670,15 @@ type under the <code class="docutils literal notranslate"><span class="pre">IStr
 type determine whether the operation is symmetric or asymmetric at runtime.
 Separate <code class="docutils literal notranslate"><span class="pre">SymmetricEncryptContext</span></code> / <code class="docutils literal notranslate"><span class="pre">AsymmetricEncryptContext</span></code> types were
 rejected.</p>
-<section id="id22">
-<h3>Context<a class="headerlink" href="#id22" title="Link to this heading">#</a></h3>
+<section id="id25">
+<h3>Context<a class="headerlink" href="#id25" title="Link to this heading">#</a></h3>
 <p>A split design creates a separate class per algorithm family. Adding PQC KEM
 support requires a new class even if the streaming interface is identical. This
 increases include weight and virtual dispatch hierarchy depth without benefit,
 and makes the API surface grow with the algorithm set.</p>
 </section>
-<section id="id23">
-<h3>Decision<a class="headerlink" href="#id23" title="Link to this heading">#</a></h3>
+<section id="id26">
+<h3>Decision<a class="headerlink" href="#id26" title="Link to this heading">#</a></h3>
 <p>Three designs were evaluated:</p>
 <ol class="arabic simple">
 <li><p><strong>Symmetric/Asymmetric split</strong> — mirrors algorithm families at the type level.
@@ -1569,8 +1695,8 @@ context configured for encryption). Rejected for API clarity reasons.</p></li>
 </ol>
 <p>Design 2 was selected for the balance of clarity and extensibility.</p>
 </section>
-<section id="id24">
-<h3>Consequences<a class="headerlink" href="#id24" title="Link to this heading">#</a></h3>
+<section id="id27">
+<h3>Consequences<a class="headerlink" href="#id27" title="Link to this heading">#</a></h3>
 <p><strong>Positive:</strong></p>
 <ul class="simple">
 <li><p>Flat, stable hierarchy — five concrete context types regardless of algorithm count.</p></li>
@@ -1593,7 +1719,7 @@ to non-AEAD operations — <code class="docutils literal notranslate"><span clas
 </section>
 <section id="imemoryallocator-separated-from-icryptostack">
 <h2><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator</span></code> Separated from <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code><a class="headerlink" href="#imemoryallocator-separated-from-icryptostack" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-aee69cae">
+<div class="need_container docutils container" id="SNCB-fffebf9c">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__memory_allocator_separation">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1641,8 +1767,8 @@ to non-AEAD operations — <code class="docutils literal notranslate"><span clas
 It represents the data plane, can be injected into components that need only
 memory management, and enables isolated unit testing — none of which are possible
 if it is coupled to the control-plane <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code>.</p>
-<section id="id25">
-<h3>Context<a class="headerlink" href="#id25" title="Link to this heading">#</a></h3>
+<section id="id28">
+<h3>Context<a class="headerlink" href="#id28" title="Link to this heading">#</a></h3>
 <p>The crypto module uses shared memory as the zero-copy data plane between the
 application and the crypto daemon. A naive design would expose memory allocation
 directly through <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code>, coupling the data plane to the control-plane
@@ -1662,15 +1788,15 @@ individual components can be tested with a mock or stub allocator without
 standing up an <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code> or a daemon connection.</p></li>
 </ol>
 </section>
-<section id="id26">
-<h3>Decision<a class="headerlink" href="#id26" title="Link to this heading">#</a></h3>
+<section id="id29">
+<h3>Decision<a class="headerlink" href="#id29" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator</span></code> is defined as a standalone interface independent of
 <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code>. Applications obtain both objects separately; the memory allocator
 is the data plane and the crypto stack is the control plane. Cross-application
 connection sharing is not supported; each application has its own allocator instance.</p>
 </section>
-<section id="id27">
-<h3>Consequences<a class="headerlink" href="#id27" title="Link to this heading">#</a></h3>
+<section id="id30">
+<h3>Consequences<a class="headerlink" href="#id30" title="Link to this heading">#</a></h3>
 <p><strong>Positive:</strong></p>
 <ul class="simple">
 <li><p>Data-plane and control-plane concerns are visibly separated in the API.</p></li>
@@ -1690,7 +1816,7 @@ where a monolithic interface would require only one.</p></li>
 </section>
 <section id="control-plane-ipc-boundary-copy-with-daemon-internal-zero-copy-references">
 <h2>Control Plane IPC Boundary Copy with Daemon-Internal Zero-Copy References<a class="headerlink" href="#control-plane-ipc-boundary-copy-with-daemon-internal-zero-copy-references" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-0396c28d">
+<div class="need_container docutils container" id="SNCB-28645538">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__ipc_boundary_copy">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1740,8 +1866,8 @@ daemon-internal processing shall operate on non-owning references into that sing
 owned copy. This prevents time-of-check-time-of-use (TOCTOU) attacks on control
 information while minimising memory copies within the daemon. The data plane is
 explicitly excluded — it carries only opaque data payloads and may use zero-copy transfer.</p>
-<section id="id28">
-<h3>Context<a class="headerlink" href="#id28" title="Link to this heading">#</a></h3>
+<section id="id31">
+<h3>Context<a class="headerlink" href="#id31" title="Link to this heading">#</a></h3>
 <p>This decision applies to the <strong>control plane</strong> only — the channel carrying
 operation requests, responses, and their parameters (key identifiers, algorithm
 names, operation codes, session IDs, in-band data).</p>
@@ -1754,8 +1880,8 @@ equivalent to the client submitting bad data in the first place.</p>
 <p>Control plane requests carry parameters from an untrusted client. The daemon
 must decide whether to work directly from the transport buffer or copy first.</p>
 </section>
-<section id="id29">
-<h3>Consequences<a class="headerlink" href="#id29" title="Link to this heading">#</a></h3>
+<section id="id32">
+<h3>Consequences<a class="headerlink" href="#id32" title="Link to this heading">#</a></h3>
 <p><strong>Positive:</strong></p>
 <ul class="simple">
 <li><p>Eliminates TOCTOU on control information.</p></li>
@@ -1772,8 +1898,8 @@ the control plane carries only metadata and small in-band buffers).</p></li>
 boundary, non-owning views internally.</p></li>
 </ul>
 </section>
-<section id="id30">
-<h3>Alternatives Considered<a class="headerlink" href="#id30" title="Link to this heading">#</a></h3>
+<section id="id33">
+<h3>Alternatives Considered<a class="headerlink" href="#id33" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p><strong>Zero-copy end-to-end</strong> — read directly from the transport buffer. Vulnerable
 to TOCTOU: a client could swap a key ID or algorithm name between validation
@@ -1786,8 +1912,8 @@ Downstream layers receive const references and use non-owning views.</p></li>
 </ol>
 <p>Strategy 3 was selected.</p>
 </section>
-<section id="id31">
-<h3>Justification for the Decision<a class="headerlink" href="#id31" title="Link to this heading">#</a></h3>
+<section id="id34">
+<h3>Justification for the Decision<a class="headerlink" href="#id34" title="Link to this heading">#</a></h3>
 <p>Control information determines <em>which</em> operation runs, <em>with which key</em>, <em>using
 which algorithm</em>. If the daemon reads this from a buffer still writable by the
 client, the client can mutate it between validation and use (TOCTOU). A single
@@ -1806,7 +1932,7 @@ operations — zero-copy is safe there by design.</p>
 </section>
 <section id="per-operation-parameter-structs-with-dual-overloads">
 <h2>Per-Operation Parameter Structs with Dual Overloads<a class="headerlink" href="#per-operation-parameter-structs-with-dual-overloads" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-192afc53">
+<div class="need_container docutils container" id="SNCB-6cdc12d1">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__per_op_params">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1856,16 +1982,16 @@ struct (<code class="docutils literal notranslate"><span class="pre">GenerateKey
 support both ephemeral and persistent slot targets. KDF configuration is
 expressed as a structured <code class="docutils literal notranslate"><span class="pre">KdfParameters</span></code> type containing typed fields for
 all supported KDFs.</p>
-<section id="id32">
-<h3>Context<a class="headerlink" href="#id32" title="Link to this heading">#</a></h3>
+<section id="id35">
+<h3>Context<a class="headerlink" href="#id35" title="Link to this heading">#</a></h3>
 <p>Key operations have complex parameter needs: algorithm selection, permission
 bitmasks, exportability flags, KDF configuration, IV, AAD, wrapping algorithm,
 peer public key data, and format specifiers. These parameters must be passed
 safely and extensibly to support both ephemeral keys (returned to the caller)
 and direct-to-slot writes (persisted in the daemon).</p>
 </section>
-<section id="id33">
-<h3>Decision<a class="headerlink" href="#id33" title="Link to this heading">#</a></h3>
+<section id="id36">
+<h3>Decision<a class="headerlink" href="#id36" title="Link to this heading">#</a></h3>
 <p>Six dedicated parameter structs are provided:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">GenerateKeyParams</span></code> — algorithm, permissions, slot size</p></li>
@@ -1889,8 +2015,8 @@ containing typed fields (salt, label, iteration count, output length) for
 all supported KDFs: HKDF, TLS 1.2 PRF, TLS 1.3 HKDF, PBKDF2, SP800-108.
 Opaque byte spans are no longer used for KDF parameters.</p>
 </section>
-<section id="id34">
-<h3>Alternatives Considered<a class="headerlink" href="#id34" title="Link to this heading">#</a></h3>
+<section id="id37">
+<h3>Alternatives Considered<a class="headerlink" href="#id37" title="Link to this heading">#</a></h3>
 <section id="single-fat-config-struct">
 <h4>Single Fat Config Struct<a class="headerlink" href="#single-fat-config-struct" title="Link to this heading">#</a></h4>
 <p>One <code class="docutils literal notranslate"><span class="pre">KeyOperationConfig</span></code> for all operations, with optional fields for each
@@ -1913,8 +2039,8 @@ A params-struct approach catches missing required fields at compile time via
 member initialization (the daemon performs final validation).</p>
 </section>
 </section>
-<section id="id35">
-<h3>Consequences<a class="headerlink" href="#id35" title="Link to this heading">#</a></h3>
+<section id="id38">
+<h3>Consequences<a class="headerlink" href="#id38" title="Link to this heading">#</a></h3>
 <p><strong>Positive:</strong></p>
 <ul class="simple">
 <li><p>Named fields and fluent builders eliminate parameter-order confusion and
@@ -1941,7 +2067,7 @@ must outlive the struct. This is documented but not enforced at compile time.</p
 </ul>
 <section id="return-type-of-imemoryallocator-allocate">
 <h4>Return Type of IMemoryAllocator::Allocate()<a class="headerlink" href="#return-type-of-imemoryallocator-allocate" title="Link to this heading">#</a></h4>
-<div class="need_container docutils container" id="SNCB-623d6b73">
+<div class="need_container docutils container" id="SNCB-51a8c1ed">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__allocate_return_type">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -2083,59 +2209,65 @@ accessible via <code class="docutils literal notranslate"><span class="pre">IRea
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Consequences</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronous-only-ipc-model">Synchronous-Only IPC Model</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#algorithm-catalog-alongside-algorithmid">Algorithm Catalog Alongside <code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id10">Context</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id11">Decision</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id12">Consequences</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#context-reset-for-streaming-context-reuse">Context <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> for Streaming Context Reuse</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronous-only-ipc-model">Synchronous-Only IPC Model</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id13">Context</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id14">Decision</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id15">Consequences</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#two-layer-per-call-timeout-with-daemon-side-enforcement">Two-Layer Per-Call Timeout with Daemon-Side Enforcement</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#context-reset-for-streaming-context-reuse">Context <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> for Streaming Context Reuse</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id16">Context</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id17">Decision</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id18">Consequences</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#keyoperationpermission-as-a-capability-bitmask"><code class="docutils literal notranslate"><span class="pre">KeyOperationPermission</span></code> as a Capability Bitmask</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#two-layer-per-call-timeout-with-daemon-side-enforcement">Two-Layer Per-Call Timeout with Daemon-Side Enforcement</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id19">Context</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id20">Decision</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id21">Consequences</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split">Unified Cipher Context (No Encrypt/Decrypt or Symmetric/Asymmetric Split)</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#keyoperationpermission-as-a-capability-bitmask"><code class="docutils literal notranslate"><span class="pre">KeyOperationPermission</span></code> as a Capability Bitmask</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id22">Context</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id23">Decision</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id24">Consequences</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#imemoryallocator-separated-from-icryptostack"><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator</span></code> Separated from <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split">Unified Cipher Context (No Encrypt/Decrypt or Symmetric/Asymmetric Split)</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id25">Context</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id26">Decision</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id27">Consequences</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#control-plane-ipc-boundary-copy-with-daemon-internal-zero-copy-references">Control Plane IPC Boundary Copy with Daemon-Internal Zero-Copy References</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#imemoryallocator-separated-from-icryptostack"><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator</span></code> Separated from <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id28">Context</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id29">Consequences</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id30">Alternatives Considered</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id31">Justification for the Decision</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id29">Decision</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id30">Consequences</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#control-plane-ipc-boundary-copy-with-daemon-internal-zero-copy-references">Control Plane IPC Boundary Copy with Daemon-Internal Zero-Copy References</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id31">Context</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id32">Consequences</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id33">Alternatives Considered</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id34">Justification for the Decision</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-operation-parameter-structs-with-dual-overloads">Per-Operation Parameter Structs with Dual Overloads</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id32">Context</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id33">Decision</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id34">Alternatives Considered</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id35">Context</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id36">Decision</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id37">Alternatives Considered</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#single-fat-config-struct">Single Fat Config Struct</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#separate-named-methods">Separate Named Methods</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#builder-pattern-on-context">Builder Pattern on Context</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id35">Consequences</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id38">Consequences</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#return-type-of-imemoryallocator-allocate">Return Type of IMemoryAllocator::Allocate()</a></li>
 </ul>
 </li>
