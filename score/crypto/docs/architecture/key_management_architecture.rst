@@ -298,9 +298,11 @@ provider=SOFTWARE, key_node_id=key_ref_node_id)``:
    ``provider_id`` (``"openssl"``). Since the key lives in OpenSSL and the
    requested type is ``SOFTWARE``, the resolved provider is ``"openssl"``.
 
-2. **Handler creation**: ``ProviderManager::GetProvider("openssl")`` →
-   ``ICryptoHandlerFactory::CreateHandler("MAC", "HMAC-SHA256")`` → ``new
-   MacHandler(MacExecutor, "HMAC-SHA256")``.
+2. **Handler creation**: the mediator resolves ``"HMAC-SHA256"`` to its
+   catalog row once (an unknown name is refused with
+   ``kUnsupportedAlgorithm``), then ``ProviderManager::GetProvider("openssl")``
+   → ``ICryptoHandlerFactory::CreateHandler("MAC", <HMAC-SHA256 row>)`` →
+   ``new OpenSslHmacHandler(MacExecutor, <HMAC-SHA256 row>)``.
 
 3. **Context node**: ``DataManager::addChildNode`` creates a ``ContextDataNode``
    wrapping the ``MacHandlerImpl``; the ``DataNodeId`` becomes
@@ -332,7 +334,7 @@ provider=SOFTWARE, key_node_id=key_ref_node_id)``:
 
 6. **Handler initialization** (``OpenSslHmacHandler::InitializeContext``):
 
-   - Validates ``m_algorithm == "HMAC-SHA256"``.
+   - Validates that the row ``m_algorithm`` is an HMAC the provider serves.
    - Calls ``EVP_MAC_fetch(NULL, "HMAC", NULL)`` to obtain an ``EVP_MAC*``
      object, then ``EVP_MAC_CTX_new(m_mac)`` to allocate the ``EVP_MAC_CTX``.
    - Checks ``params.bound_key_handler != nullptr``.

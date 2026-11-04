@@ -13,7 +13,6 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 
-#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
@@ -33,11 +32,29 @@ namespace score::crypto::daemon::provider::score_provider::openssl::handler::sig
 {
 
 using ::score::crypto::daemon::common::DaemonErrorCode;
-namespace algo_info = ::score::crypto::daemon::common;
 
 namespace
 {
 constexpr std::string_view kLogPrefix = "[OPENSSL_ECDSA]";
+
+/// Whether @p pkey is a key on the OpenSSL group of @p curve.
+bool KeyIsOnGroup(EVP_PKEY* pkey, ::score::crypto::EccCurve curve) noexcept
+{
+    const char* const expected = ::score::crypto::daemon::provider::openssl::detail::ToOpenSslGroupName(curve);
+    if (expected == nullptr)
+    {
+        return false;
+    }
+    const std::string_view expected_name{expected};
+    std::string group_name(expected_name.size() + 1U, '\0');
+    std::size_t group_name_size = 0U;
+    const bool read =
+        EVP_PKEY_get_utf8_string_param(
+            pkey, OSSL_PKEY_PARAM_GROUP_NAME, group_name.data(), group_name.size(), &group_name_size) == 1;
+    const bool trailing_nul = group_name_size > 0U && group_name[group_name_size - 1U] == '\0';
+    const std::size_t actual_size = group_name_size - (trailing_nul ? 1U : 0U);
+    return read && (std::string_view{group_name.data(), actual_size} == expected_name);
+}
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -53,15 +70,11 @@ bool ConfigureRsaPssPkeyContext(EVP_PKEY_CTX* pkey_context, const EVP_MD* digest
 }
 
 Expected<std::monostate, DaemonErrorCode> ConfigureRsaPssContext(EVP_MD_CTX* context,
-                                                                 std::string_view algorithm,
+                                                                 const AlgorithmDescriptor& algorithm,
                                                                  int salt_length) noexcept
 {
     EVP_PKEY_CTX* pkey_context = context == nullptr ? nullptr : EVP_MD_CTX_get_pkey_ctx(context);
-    const auto digest_name = algo_info::LookupSignatureDigest(algorithm);
-    const EVP_MD* digest =
-        digest_name.has_value()
-            ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
-            : nullptr;
+    const EVP_MD* digest = ::score::crypto::daemon::provider::openssl::detail::ToEvpMd(algorithm.hash);
     if (!ConfigureRsaPssPkeyContext(pkey_context, digest, salt_length))
     {
         return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
@@ -101,10 +114,8 @@ EVP_PKEY* Stream::Key() const noexcept
 
 Expected<std::monostate, DaemonErrorCode> Stream::Bind(
     const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
-    const common::AlgorithmId& algorithm_id)
+    const AlgorithmDescriptor& algorithm)
 {
-    const std::string_view algorithm{algorithm_id.data(), algorithm_id.size()};
-
     Free();
 
     if (init_params.bound_key_handler == nullptr)
@@ -135,40 +146,30 @@ Expected<std::monostate, DaemonErrorCode> Stream::Bind(
     const int key_type = EVP_PKEY_get_base_id(pkey);
 
     bool key_matches_algorithm = false;
-    if (algo_info::IsEcdsaAlgorithm(algorithm))
+    switch (algorithm.key_type)
     {
-        const auto curve = algo_info::LookupEcCurveOfAlgorithm(algorithm);
-        const auto openssl_group_name =
-            curve.has_value() ? ::score::crypto::daemon::provider::openssl::detail::LookupOpenSslGroupName(curve->name)
-                              : std::nullopt;
-        if (openssl_group_name.has_value())
-        {
-            std::string group_name(openssl_group_name->size() + 1U, '\0');
-            std::size_t group_name_size = 0U;
-            const bool read =
-                EVP_PKEY_get_utf8_string_param(
-                    pkey, OSSL_PKEY_PARAM_GROUP_NAME, group_name.data(), group_name.size(), &group_name_size) == 1;
-            const bool trailing_nul = group_name_size > 0U && group_name[group_name_size - 1U] == '\0';
-            const std::size_t actual_size = group_name_size - (trailing_nul ? 1U : 0U);
-            key_matches_algorithm = key_type == EVP_PKEY_EC && read &&
-                                    std::string_view{group_name.data(), actual_size} == openssl_group_name.value();
-        }
+        case ::score::crypto::KeyType::kEcc:
+            key_matches_algorithm = (key_type == EVP_PKEY_EC) && KeyIsOnGroup(pkey, algorithm.curve);
+            break;
+        case ::score::crypto::KeyType::kRsa:
+            key_matches_algorithm =
+                (key_type == EVP_PKEY_RSA) && (EVP_PKEY_get_bits(pkey) == static_cast<int>(algorithm.key_bits));
+            break;
+        case ::score::crypto::KeyType::kEd25519:
+            key_matches_algorithm = key_type == EVP_PKEY_ED25519;
+            break;
+        case ::score::crypto::KeyType::kMlDsa:
+        case ::score::crypto::KeyType::kMlKem:
+        case ::score::crypto::KeyType::kNone:
+        case ::score::crypto::KeyType::kSecret:
+        case ::score::crypto::KeyType::kAes:
+            key_matches_algorithm = false;
+            break;
     }
-    else if (algo_info::IsRsaPssAlgorithm(algorithm))
-    {
-        const auto rsa = algo_info::LookupRsaKeyInfoForSignatureAlgorithm(algorithm);
-        key_matches_algorithm =
-            rsa.has_value() && key_type == EVP_PKEY_RSA && EVP_PKEY_get_bits(pkey) == static_cast<int>(rsa->key_bits);
-    }
-    else if (algo_info::IsEd25519Algorithm(algorithm))
-    {
-        key_matches_algorithm = key_type == EVP_PKEY_ED25519;
-    }
-
     if (!key_matches_algorithm)
     {
         score::mw::log::LogError() << kLogPrefix << "Bind"
-                                   << ": bound key type, size, or curve is incompatible with " << algorithm;
+                                   << ": bound key type, size, or curve is incompatible with " << algorithm.name;
         m_init_params = {};
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }

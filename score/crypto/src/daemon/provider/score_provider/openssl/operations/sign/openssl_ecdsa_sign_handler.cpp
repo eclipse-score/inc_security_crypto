@@ -34,18 +34,17 @@ namespace algo_info = ::score::crypto::daemon::common;
 
 OpenSslEcdsaSignHandler::OpenSslEcdsaSignHandler(
     std::unique_ptr<::score::crypto::daemon::provider::score_provider::operations::sign::SignExecutor> executor,
-    const common::AlgorithmId& algorithm)
+    const AlgorithmDescriptor& algorithm)
     : ScoreSignHandler{std::move(executor), algorithm}
 {
 }
 
 OpenSslEcdsaSignHandler::~OpenSslEcdsaSignHandler() = default;
 
-bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    const std::string_view algo{algorithm.data(), algorithm.size()};
-    return ::score::crypto::daemon::provider::openssl::detail::IsSignatureAlgorithmSupported(algo) &&
-           algo_info::IsEcdsaAlgorithm(algo) && algo_info::LookupSignatureDigest(algo).has_value();
+    return (algorithm.key_type == ::score::crypto::KeyType::kEcc) &&
+           ::score::crypto::daemon::provider::openssl::detail::IsSignatureSupported(algorithm);
 }
 
 // ---------------------------------------------------------------------------
@@ -98,10 +97,11 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& al
         return ::score::crypto::make_unexpected(DaemonErrorCode::kStreamNotInitialized);
     }
 
-    const auto digest_name = algo_info::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
-    if (!digest_name.has_value())
+    const char* const digest_name =
+        ::score::crypto::daemon::provider::openssl::detail::ToOpenSslDigestName(m_algorithm.hash);
+    if (digest_name == nullptr)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "InitSign: no digest for algorithm" << m_algorithm;
+        score::mw::log::LogError() << LOG_PREFIX << "InitSign: no digest for algorithm" << m_algorithm.name;
         return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
@@ -117,7 +117,7 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& al
         return std::monostate{};
     }
 
-    const std::string digest{digest_name.value()};
+    const std::string digest{digest_name};
     if (EVP_DigestSignInit_ex(m_stream.Context(), nullptr, digest.c_str(), nullptr, nullptr, pkey, nullptr) != 1)
     {
         score::mw::log::LogError() << LOG_PREFIX << "InitSign: EVP_DigestSignInit failed";
@@ -137,8 +137,7 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const common::AlgorithmId& al
 
     if (m_prehashed)
     {
-        const auto expected_digest_size =
-            algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        const auto expected_digest_size = ::score::crypto::daemon::common::LookupDigestSize(m_algorithm.hash);
         if (!expected_digest_size.has_value() || m_prehashed_data.size() > expected_digest_size.value() ||
             data.size() > expected_digest_size.value() - m_prehashed_data.size())
         {
@@ -192,22 +191,16 @@ namespace
 
     if (m_prehashed)
     {
-        const auto expected_digest_size =
-            algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        const auto expected_digest_size = ::score::crypto::daemon::common::LookupDigestSize(m_algorithm.hash);
         if (!expected_digest_size.has_value() || m_prehashed_data.size() != expected_digest_size.value())
         {
             score::mw::log::LogError() << LOG_PREFIX << "FinalizeSign: prehashed input size " << m_prehashed_data.size()
-                                       << " does not match expected digest size for " << m_algorithm;
+                                       << " does not match expected digest size for " << m_algorithm.name;
             m_state = StreamOperationState::IDLE;
             m_prehashed_data.clear();
             return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
-        const auto digest_name =
-            algo_info::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
-        const EVP_MD* digest =
-            digest_name.has_value()
-                ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
-                : nullptr;
+        const EVP_MD* digest = ::score::crypto::daemon::provider::openssl::detail::ToEvpMd(m_algorithm.hash);
         EVP_PKEY_CTX* pctx = digest == nullptr ? nullptr : EVP_PKEY_CTX_new(m_stream.Key(), nullptr);
         if (pctx == nullptr || EVP_PKEY_sign_init(pctx) != 1 || EVP_PKEY_CTX_set_signature_md(pctx, digest) != 1)
         {
@@ -286,12 +279,11 @@ namespace
 
     if (m_prehashed)
     {
-        const auto expected_digest_size =
-            algo_info::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        const auto expected_digest_size = ::score::crypto::daemon::common::LookupDigestSize(m_algorithm.hash);
         if (!expected_digest_size.has_value() || data.size() != expected_digest_size.value())
         {
             score::mw::log::LogError() << LOG_PREFIX << "SingleShotSign: prehashed input size " << data.size()
-                                       << " does not match expected digest size for " << m_algorithm;
+                                       << " does not match expected digest size for " << m_algorithm.name;
             m_state = StreamOperationState::IDLE;
             return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
@@ -325,14 +317,14 @@ namespace
 ::score::crypto::Expected<OpenSslEcdsaSignHandler::SignatureTarget, DaemonErrorCode>
 OpenSslEcdsaSignHandler::ResolveSignatureBuffer(score::cpp::span<std::uint8_t> signature) const
 {
-    const auto curve = algo_info::LookupEcCurveOfAlgorithm(std::string_view{m_algorithm.data(), m_algorithm.size()});
-    if (!curve.has_value())
+    const std::size_t field_size = algo_info::EcFieldSize(m_algorithm);
+    if (field_size == 0U)
     {
         return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
     // P1363 is r‖s, two field-sized integers, so the length is known before signing.
-    const std::size_t p1363_len = 2U * curve->field_size;
+    const std::size_t p1363_len = 2U * field_size;
     if (signature.size() < p1363_len)
     {
         score::mw::log::LogError() << LOG_PREFIX << "signature buffer holds" << signature.size() << "bytes, needs"
@@ -340,7 +332,7 @@ OpenSslEcdsaSignHandler::ResolveSignatureBuffer(score::cpp::span<std::uint8_t> s
         return ::score::crypto::make_unexpected(DaemonErrorCode::kInsufficientBufferSize);
     }
 
-    return SignatureTarget{signature, curve->field_size};
+    return SignatureTarget{signature, field_size};
 }
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

@@ -37,13 +37,13 @@ constexpr common::ProviderId kProviderId{7U};
 TEST(IavPrimulaVerificationTest, RejectsUnsupportedAndMissingKeys)
 {
     // ML-KEM-768 is not a supported signature-verification algorithm.
-    IavPrimulaVerifyHandler unsupported_handler{std::make_unique<Executor>(), "ML-KEM-768"};
+    IavPrimulaVerifyHandler unsupported_handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768")};
     auto unsupported_result = unsupported_handler.InitializeContext({});
     ASSERT_FALSE(unsupported_result.has_value());
     EXPECT_EQ(unsupported_result.error(), common::DaemonErrorCode::kUnsupportedAlgorithm);
 
     // ML-DSA-44 requires a bound verification key during initialization.
-    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44")};
     ::score::crypto::daemon::provider::handler::InitializationParams params{};
     params.provider_id = kProviderId;
     auto result = handler.InitializeContext(params);
@@ -53,7 +53,7 @@ TEST(IavPrimulaVerificationTest, RejectsUnsupportedAndMissingKeys)
 
 TEST(IavPrimulaVerificationTest, RejectsUnassignedProviderId)
 {
-    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44")};
     // Both IDs default to invalid; matching invalid IDs must not authorize a cast.
     IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, {}};
     ::score::crypto::daemon::provider::handler::InitializationParams params{};
@@ -66,7 +66,7 @@ TEST(IavPrimulaVerificationTest, RejectsUnassignedProviderId)
 
 TEST(IavPrimulaVerificationTest, RejectsKeyFromAnotherProvider)
 {
-    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44")};
     key_management::ProviderKeyHandle handle{};
     handle.provider_id = kProviderId;
     IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, handle};
@@ -85,7 +85,7 @@ TEST(IavPrimulaVerificationTest, RejectsKeyFromAnotherProvider)
 
 TEST(IavPrimulaVerificationTest, ValidatesKeyTypeAndSignatureSize)
 {
-    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44")};
     key_management::ProviderKeyHandle handle{};
     handle.provider_id = kProviderId;
     // A public-only key has no native handle and cannot be used for this
@@ -114,7 +114,7 @@ TEST(IavPrimulaVerificationTest, ValidatesKeyTypeAndSignatureSize)
 
 TEST(IavPrimulaVerificationTest, RejectsSingleShotRequestWithoutSignature)
 {
-    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44")};
     key_management::ProviderKeyHandle handle{};
     handle.provider_id = kProviderId;
     IavPrimulaKeyHandler key{reinterpret_cast<iav_primula_key_handle*>(0x1), {}, handle};
@@ -144,7 +144,7 @@ TEST(IavPrimulaVerificationTest, ReportsPqcSizesAndResetsUsingUpstreamActions)
         {"ML-DSA-44", 2420U}, {"ML-DSA-65", 3309U}, {"ML-DSA-87", 4627U}};
     for (const auto& test_case : cases)
     {
-        IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), test_case.first};
+        IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor(test_case.first)};
         EXPECT_EQ(handler.GetSignatureSize(), test_case.second);
         handler.SetOperationState(common::StreamOperationState::STREAM_ACTIVE);
         common::RequestParameters request;
@@ -158,14 +158,14 @@ TEST(IavPrimulaVerificationTest, ReportsPqcSizesAndResetsUsingUpstreamActions)
         EXPECT_TRUE(reset->empty());
         EXPECT_EQ(handler.GetOperationState(), common::StreamOperationState::IDLE);
     }
-    IavPrimulaVerifyHandler unsupported{std::make_unique<Executor>(), "ML-KEM-768"};
+    IavPrimulaVerifyHandler unsupported{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768")};
     EXPECT_EQ(unsupported.GetSignatureSize(), 0U);
 }
 
 TEST(IavPrimulaVerificationTest, PropagatesBackendFailureAndRejectsWrongActor)
 {
     namespace ops = provider::handler::verify_handler_operations;
-    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    IavPrimulaVerifyHandler handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44")};
     // The current FFI is a placeholder and never dereferences this sentinel.
     key_management::ProviderKeyHandle key_handle{};
     key_handle.provider_id = kProviderId;

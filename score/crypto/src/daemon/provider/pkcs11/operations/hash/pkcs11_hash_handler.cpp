@@ -14,7 +14,6 @@
 // Full Pkcs11Provider definition required for ReleaseSession call in destructor.
 #include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_handler.hpp"
 #include "score/crypto/src/common/types.hpp"
-#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/detail/pkcs11_algorithm_info.hpp"
@@ -33,23 +32,25 @@ using score::crypto::daemon::common::DaemonErrorCode;
 
 // --- Algorithm → CKM_* mapping ---
 
-CK_MECHANISM_TYPE Pkcs11HashHandler::MapAlgorithm(const std::string_view algorithm) noexcept
+CK_MECHANISM_TYPE Pkcs11HashHandler::MapAlgorithm(const AlgorithmDescriptor& algorithm) noexcept
 {
     return detail::LookupHashMechanism(algorithm);
 }
 
 std::optional<std::uint64_t> Pkcs11HashHandler::GetDigestSize() const noexcept
 {
-    const auto size =
-        score::crypto::daemon::common::LookupDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
-    return size.has_value() ? std::optional<std::uint64_t>{static_cast<std::uint64_t>(size.value())} : std::nullopt;
+    if (m_algorithm.category != ::score::crypto::AlgorithmCategory::kHash)
+    {
+        return std::nullopt;
+    }
+    return static_cast<std::uint64_t>(m_algorithm.output_size);
 }
 
 // --- Construction / destruction ---
 
 Pkcs11HashHandler::Pkcs11HashHandler(std::unique_ptr<Pkcs11HashExecutor> executor,
                                      const CK_SESSION_HANDLE session,
-                                     const common::AlgorithmId& algorithm,
+                                     const AlgorithmDescriptor& algorithm,
                                      Pkcs11Provider* provider)
     : m_executor{std::move(executor)},
       m_ctx{},
@@ -93,11 +94,9 @@ Pkcs11HashHandler::~Pkcs11HashHandler()
 
 // --- Static algorithm check ---
 
-bool Pkcs11HashHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool Pkcs11HashHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    const std::string_view algorithmView{algorithm.data(), algorithm.size()};
-    return score::crypto::daemon::common::LookupDigestSize(algorithmView).has_value() &&
-           (MapAlgorithm(algorithmView) != CK_UNAVAILABLE_INFORMATION);
+    return MapAlgorithm(algorithm) != CK_UNAVAILABLE_INFORMATION;
 }
 
 // --- Handler interface: InitializeContext ---

@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_VERIFY_OPENSSL_ECDSA_VERIFY_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_VERIFY_OPENSSL_ECDSA_VERIFY_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/score_verify_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/verify_executor.hpp"
@@ -44,7 +45,7 @@ class OpenSslEcdsaVerifyHandler final
 
     explicit OpenSslEcdsaVerifyHandler(
         std::unique_ptr<::score::crypto::daemon::provider::score_provider::operations::verify::VerifyExecutor> executor,
-        const common::AlgorithmId& algorithm);
+        const AlgorithmDescriptor& algorithm);
     ~OpenSslEcdsaVerifyHandler() override;
 
     OpenSslEcdsaVerifyHandler(const OpenSslEcdsaVerifyHandler&) = delete;
@@ -82,7 +83,7 @@ class OpenSslEcdsaVerifyHandler final
         score::cpp::span<const std::uint8_t> signature) override;
 
     /// @brief Check if the given algorithm is supported by this handler.
-    [[nodiscard]] static bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
+    [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
 
   private:
     /// @brief Resolves the caller's signature and converts it to DER.

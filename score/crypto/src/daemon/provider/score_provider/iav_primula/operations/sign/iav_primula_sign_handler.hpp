@@ -37,8 +37,8 @@ class IavPrimulaSignHandler final : public operations::sign::ScoreSignHandler
     /// algorithm.
     ///
     /// @param executor Provider-neutral executor for signature operations.
-    /// @param algorithm ML-DSA algorithm identifier.
-    IavPrimulaSignHandler(std::unique_ptr<operations::sign::SignExecutor> executor, common::AlgorithmId algorithm);
+    /// @param algorithm Resolved ML-DSA algorithm descriptor.
+    IavPrimulaSignHandler(std::unique_ptr<operations::sign::SignExecutor> executor, const AlgorithmDescriptor& algorithm);
 
     ~IavPrimulaSignHandler() override = default;
 

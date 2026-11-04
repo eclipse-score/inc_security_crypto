@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_HASH_SCORE_HASH_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_HASH_SCORE_HASH_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
@@ -48,7 +49,7 @@ class ScoreHashHandler : public handler::Handler
 
     /// @param executor   Hash executor injected by the handler factory.
     /// @param algorithm  Algorithm identifier (e.g. "SHA256").
-    explicit ScoreHashHandler(std::unique_ptr<HashExecutor> executor, const common::AlgorithmId& algorithm);
+    explicit ScoreHashHandler(std::unique_ptr<HashExecutor> executor, const AlgorithmDescriptor& algorithm);
 
     ~ScoreHashHandler() override = default;
 
@@ -82,7 +83,7 @@ class ScoreHashHandler : public handler::Handler
         m_state = state;
     }
 
-    [[nodiscard]] const common::AlgorithmId& GetAlgorithm() const noexcept
+    [[nodiscard]] const AlgorithmDescriptor& GetAlgorithm() const noexcept
     {
         return m_algorithm;
     }
@@ -111,7 +112,7 @@ class ScoreHashHandler : public handler::Handler
     [[nodiscard]] virtual Expected<common::ResponseParameters, common::DaemonErrorCode> GetDigestSize() const;
 
   protected:
-    common::AlgorithmId m_algorithm;
+    AlgorithmDescriptor m_algorithm;
     common::StreamOperationState m_state{common::StreamOperationState::IDLE};
 
   private:

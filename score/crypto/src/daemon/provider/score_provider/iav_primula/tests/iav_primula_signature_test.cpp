@@ -43,7 +43,7 @@ TEST(IavPrimulaSignatureTest, ReportsSupportedSizesAndRejectsKem)
         {"ML-DSA-87", 4627U}};
     for (const auto& test_case : cases)
     {
-        IavPrimulaSignHandler handler{std::make_unique<Executor>(), test_case.first};
+        IavPrimulaSignHandler handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor(test_case.first)};
         EXPECT_EQ(handler.GetSignatureSize(), test_case.second);
         common::RequestParameters request;
         auto result = handler.Execute(
@@ -55,7 +55,7 @@ TEST(IavPrimulaSignatureTest, ReportsSupportedSizesAndRejectsKem)
     }
 
     // A KEM algorithm is not a supported signature algorithm.
-    IavPrimulaSignHandler unsupported_handler{std::make_unique<Executor>(), "ML-KEM-768"};
+    IavPrimulaSignHandler unsupported_handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-KEM-768")};
     EXPECT_EQ(unsupported_handler.GetSignatureSize(), 0U);
     auto result = unsupported_handler.InitializeContext({});
     ASSERT_FALSE(result.has_value());
@@ -68,7 +68,7 @@ TEST(IavPrimulaSignatureTest, ReportsSupportedSizesAndRejectsKem)
 
 TEST(IavPrimulaSignatureTest, ValidatesOutputBuffer)
 {
-    IavPrimulaSignHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    IavPrimulaSignHandler handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44")};
     // Use a non-null sentinel to simulate a bound native key handle without
     // creating a real backend key.
     key_management::ProviderKeyHandle key_handle{};
@@ -91,7 +91,7 @@ TEST(IavPrimulaSignatureTest, ValidatesOutputBuffer)
 TEST(IavPrimulaSignatureTest, ValidatesSingleShotRequestAndPropagatesBackendFailure)
 {
     namespace ops = provider::handler::sign_handler_operations;
-    IavPrimulaSignHandler handler{std::make_unique<Executor>(), "ML-DSA-44"};
+    IavPrimulaSignHandler handler{std::make_unique<Executor>(), *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44")};
     // The current FFI is a placeholder and never dereferences this sentinel.
     key_management::ProviderKeyHandle key_handle{};
     key_handle.provider_id = kProviderId;

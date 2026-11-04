@@ -30,7 +30,7 @@ using common::DaemonErrorCode;
 ///
 /// @return Signature size in bytes, or zero if the algorithm is not a
 ///         supported signature algorithm.
-std::size_t SignatureSizeForAlgorithm(const common::AlgorithmId& algorithm)
+std::size_t SignatureSizeForAlgorithm(const AlgorithmDescriptor& algorithm)
 {
     const auto info = common::LookupPqcAlgorithm(algorithm);
     if (info.has_value() && (info->kind == common::PqcAlgorithmKind::kSignature))
@@ -41,8 +41,8 @@ std::size_t SignatureSizeForAlgorithm(const common::AlgorithmId& algorithm)
 }
 
 IavPrimulaSignHandler::IavPrimulaSignHandler(std::unique_ptr<operations::sign::SignExecutor> executor,
-                                             common::AlgorithmId algorithm)
-    : ScoreSignHandler{std::move(executor), std::move(algorithm)}
+                                             const AlgorithmDescriptor& algorithm)
+    : ScoreSignHandler{std::move(executor), algorithm}
 {
 }
 
@@ -64,7 +64,7 @@ Expected<std::monostate, DaemonErrorCode> IavPrimulaSignHandler::InitializeConte
     const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
 {
     score::mw::log::LogDebug() << "DEBUG: IavPrimulaSignHandler::InitializeContext called with algorithm:"
-                               << m_algorithm;
+                               << m_algorithm.name;
 
     // Validate the algorithm and bind the non-owning native key handle required
     // for signing.

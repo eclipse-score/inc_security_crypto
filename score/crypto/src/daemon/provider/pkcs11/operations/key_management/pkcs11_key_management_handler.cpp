@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/provider/pkcs11/operations/key_management/pkcs11_key_management_handler.hpp"
 
+#include "score/crypto/src/daemon/provider/pkcs11/detail/pkcs11_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 
 #include "score/mw/log/logging.h"
@@ -55,17 +56,24 @@ Pkcs11KeyManagementHandler::Execute(const common::OperationIdentifier& operation
     return m_executor->Execute(m_ctx, operationId, request);
 }
 
-static constexpr const char* kSupportedAlgorithms[] =
-    {"HMAC-SHA256", "HMAC-SHA384", "HMAC-SHA512", "AES-128", "AES-192", "AES-256"};
-
-bool Pkcs11KeyManagementHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool Pkcs11KeyManagementHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    for (const char* supported : kSupportedAlgorithms)
+    switch (algorithm.key_type)
     {
-        if (algorithm == supported)
-        {
-            return true;
-        }
+        case ::score::crypto::KeyType::kSecret:
+            // HMAC keys: the MACs this provider computes.
+            return detail::LookupMacMechanism(algorithm) != CK_UNAVAILABLE_INFORMATION;
+        case ::score::crypto::KeyType::kAes:
+            // AES key rows only.
+            return (algorithm.category == ::score::crypto::AlgorithmCategory::kKey) &&
+                   ((algorithm.key_bits == 128U) || (algorithm.key_bits == 192U) || (algorithm.key_bits == 256U));
+        case ::score::crypto::KeyType::kMlDsa:
+        case ::score::crypto::KeyType::kMlKem:
+        case ::score::crypto::KeyType::kNone:
+        case ::score::crypto::KeyType::kEcc:
+        case ::score::crypto::KeyType::kRsa:
+        case ::score::crypto::KeyType::kEd25519:
+            return false;
     }
     return false;
 }

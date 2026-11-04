@@ -41,7 +41,7 @@ constexpr std::string_view kLogPrefix = "[OPENSSL_KEY_FACTORY] ";
 
 /// Builds the key handle metadata shared by every key this factory produces.
 key_management::ProviderKeyHandle MakeHandle(common::ProviderId provider_id,
-                                             const common::AlgorithmId& algorithm,
+                                             const AlgorithmDescriptor& algorithm,
                                              score::crypto::KeyOperationPermission permissions,
                                              std::size_t key_size,
                                              bool is_asymmetric) noexcept
@@ -53,6 +53,41 @@ key_management::ProviderKeyHandle MakeHandle(common::ProviderId provider_id,
     handle.algorithm = algorithm;
     handle.key_size = key_size;
     return handle;
+}
+
+/// How this factory creates or imports a key of a catalog row.
+enum class KeyShape : std::uint8_t
+{
+    kEc,
+    kRsa,
+    kEd25519,
+    kSymmetric,
+    kUnsupported,
+};
+
+/// Decided by key type; every KeyType needs a case so a new one forces a choice here.
+KeyShape ShapeOf(const AlgorithmDescriptor& algorithm) noexcept
+{
+    switch (algorithm.key_type)
+    {
+        case ::score::crypto::KeyType::kEcc:
+            return KeyShape::kEc;
+        case ::score::crypto::KeyType::kRsa:
+            // Only RSA key rows ("RSA-2048") create key pairs; an RSA-PSS
+            // signature row takes the symmetric path, which refuses it.
+            return (algorithm.category == ::score::crypto::AlgorithmCategory::kKey) ? KeyShape::kRsa
+                                                                                    : KeyShape::kSymmetric;
+        case ::score::crypto::KeyType::kEd25519:
+            return KeyShape::kEd25519;
+        case ::score::crypto::KeyType::kMlDsa:
+        case ::score::crypto::KeyType::kMlKem:
+            return KeyShape::kUnsupported;
+        case ::score::crypto::KeyType::kNone:
+        case ::score::crypto::KeyType::kSecret:
+        case ::score::crypto::KeyType::kAes:
+            return KeyShape::kSymmetric;
+    }
+    return KeyShape::kSymmetric;
 }
 
 }  // namespace
@@ -175,20 +210,19 @@ OpenSslKeyFactory::CreateImportedAsymmetricKey(const key_management::KeyImportRe
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::GenerateKey(const key_management::KeyGenerationRequest& request)
 {
-    if (::score::crypto::daemon::common::IsEcdsaAlgorithm(
-            std::string_view{request.algorithm.data(), request.algorithm.size()}))
+    switch (ShapeOf(request.algorithm))
     {
-        return GenerateEcKey(request);
-    }
-
-    const auto algorithm = std::string_view{request.algorithm.data(), request.algorithm.size()};
-    if (::score::crypto::daemon::common::LookupRsaKeyInfo(algorithm).has_value())
-    {
-        return GenerateRsaKey(request);
-    }
-    if (::score::crypto::daemon::common::IsEd25519Algorithm(algorithm))
-    {
-        return GenerateEd25519Key(request);
+        case KeyShape::kEc:
+            return GenerateEcKey(request);
+        case KeyShape::kRsa:
+            return GenerateRsaKey(request);
+        case KeyShape::kEd25519:
+            return GenerateEd25519Key(request);
+        case KeyShape::kUnsupported:
+            return ::score::crypto::make_unexpected(
+                ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+        case KeyShape::kSymmetric:
+            break;
     }
 
     const std::size_t key_size = DetermineKeySize(request.algorithm);
@@ -215,39 +249,30 @@ OpenSslKeyFactory::GenerateKey(const key_management::KeyGenerationRequest& reque
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::GenerateEcKey(const key_management::KeyGenerationRequest& request)
 {
-    const auto curve = ::score::crypto::daemon::common::LookupEcCurveOfAlgorithm(
-        std::string_view{request.algorithm.data(), request.algorithm.size()});
-    if (!curve.has_value())
+    const char* const group =
+        ::score::crypto::daemon::provider::openssl::detail::ToOpenSslGroupName(request.algorithm.curve);
+    if (group == nullptr)
     {
-        score::mw::log::LogError() << kLogPrefix << "GenerateEcKey: unsupported curve in algorithm '"
-                                   << request.algorithm << "'";
+        score::mw::log::LogError() << kLogPrefix << "GenerateEcKey: no OpenSSL group for algorithm '"
+                                   << request.algorithm.name << "'";
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
+    const std::string_view openssl_group_name{group};
 
-    const auto openssl_group_name =
-        ::score::crypto::daemon::provider::openssl::detail::LookupOpenSslGroupName(curve->name);
-    if (!openssl_group_name.has_value())
-    {
-        score::mw::log::LogError() << kLogPrefix << "GenerateEcKey: no OpenSSL group name for curve '"
-                                   << std::string{curve->name} << "'";
-        return ::score::crypto::make_unexpected(
-            ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
-    }
-
-    const KeygenSpec spec{"EC", curve->field_size, "GenerateEcKey"};
+    const KeygenSpec spec{"EC", ::score::crypto::daemon::common::EcFieldSize(request.algorithm), "GenerateEcKey"};
     return GenerateAsymmetricKey(request, spec, [&](EVP_PKEY_CTX* ctx) {
         // OSSL_PARAM takes a non-const char*, but only reads the group name.
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-        char* group_name = const_cast<char*>(openssl_group_name->data());
+        char* group_name = const_cast<char*>(openssl_group_name.data());
         OSSL_PARAM params[] = {
-            OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, group_name, openssl_group_name->size()),
+            OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, group_name, openssl_group_name.size()),
             OSSL_PARAM_construct_end(),
         };
         if (EVP_PKEY_CTX_set_params(ctx, params) != 1)
         {
             score::mw::log::LogError() << kLogPrefix << "GenerateEcKey: failed to select group "
-                                       << std::string{*openssl_group_name};
+                                       << std::string{openssl_group_name};
             return false;
         }
         return true;
@@ -262,20 +287,19 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
-    const auto algorithm = std::string_view{request.algorithm.data(), request.algorithm.size()};
-
-    if (::score::crypto::daemon::common::IsEcdsaAlgorithm(algorithm))
+    switch (ShapeOf(request.algorithm))
     {
-        return ImportEcKey(request);
-    }
-
-    if (::score::crypto::daemon::common::LookupRsaKeyInfo(algorithm).has_value())
-    {
-        return ImportRsaKey(request);
-    }
-    if (::score::crypto::daemon::common::IsEd25519Algorithm(algorithm))
-    {
-        return ImportEd25519Key(request);
+        case KeyShape::kEc:
+            return ImportEcKey(request);
+        case KeyShape::kRsa:
+            return ImportRsaKey(request);
+        case KeyShape::kEd25519:
+            return ImportEd25519Key(request);
+        case KeyShape::kUnsupported:
+            return ::score::crypto::make_unexpected(
+                ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
+        case KeyShape::kSymmetric:
+            break;
     }
 
     std::vector<std::uint8_t> key_bytes(request.key_data, request.key_data + request.key_data_size);
@@ -290,16 +314,16 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::GenerateRsaKey(const key_management::KeyGenerationRequest& request)
 {
-    const auto info = ::score::crypto::daemon::common::LookupRsaKeyInfo(
-        std::string_view{request.algorithm.data(), request.algorithm.size()});
-    if (!info.has_value())
+    if (!::score::crypto::daemon::provider::openssl::detail::IsRsaModulusSupported(request.algorithm.key_bits))
     {
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
+    const std::size_t key_bits = request.algorithm.key_bits;
+    const std::size_t modulus_size = (key_bits + 7U) / 8U;
 
-    const KeygenSpec spec{"RSA", info->modulus_size, "GenerateRsaKey"};
-    return GenerateAsymmetricKey(request, spec, [bits = info->key_bits](EVP_PKEY_CTX* ctx) {
+    const KeygenSpec spec{"RSA", modulus_size, "GenerateRsaKey"};
+    return GenerateAsymmetricKey(request, spec, [bits = key_bits](EVP_PKEY_CTX* ctx) {
         if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, static_cast<int>(bits)) != 1)
         {
             score::mw::log::LogError() << kLogPrefix << "GenerateRsaKey: failed to set key size to " << bits;
@@ -319,13 +343,13 @@ OpenSslKeyFactory::GenerateEd25519Key(const key_management::KeyGenerationRequest
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::ImportRsaKey(const key_management::KeyImportRequest& request)
 {
-    const auto info = ::score::crypto::daemon::common::LookupRsaKeyInfo(
-        std::string_view{request.algorithm.data(), request.algorithm.size()});
-    if (!info.has_value())
+    if (!::score::crypto::daemon::provider::openssl::detail::IsRsaModulusSupported(request.algorithm.key_bits))
     {
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
+    const std::size_t key_bits = request.algorithm.key_bits;
+    const std::size_t modulus_size = (key_bits + 7U) / 8U;
 
     auto parsed = ParseDerKey(request);
     if (!parsed.has_value())
@@ -345,13 +369,13 @@ OpenSslKeyFactory::ImportRsaKey(const key_management::KeyImportRequest& request)
         score::mw::log::LogError() << kLogPrefix << "ImportRsaKey: parsed key is not an RSA key";
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
     }
-    if (EVP_PKEY_get_bits(parsed.value().pkey.get()) != static_cast<int>(info->key_bits))
+    if (EVP_PKEY_get_bits(parsed.value().pkey.get()) != static_cast<int>(key_bits))
     {
         score::mw::log::LogError() << kLogPrefix << "ImportRsaKey: RSA modulus size is incompatible";
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
     }
 
-    return CreateImportedAsymmetricKey(request, std::move(parsed.value()), info->modulus_size);
+    return CreateImportedAsymmetricKey(request, std::move(parsed.value()), modulus_size);
 }
 
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
@@ -383,13 +407,16 @@ OpenSslKeyFactory::ImportEd25519Key(const key_management::KeyImportRequest& requ
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::ImportEcKey(const key_management::KeyImportRequest& request)
 {
-    const auto curve = ::score::crypto::daemon::common::LookupEcCurveOfAlgorithm(
-        std::string_view{request.algorithm.data(), request.algorithm.size()});
-    if (!curve.has_value())
+    const char* const group =
+        ::score::crypto::daemon::provider::openssl::detail::ToOpenSslGroupName(request.algorithm.curve);
+    if (group == nullptr)
     {
+        score::mw::log::LogError() << kLogPrefix << "ImportEcKey: no OpenSSL group for algorithm '"
+                                   << request.algorithm.name << "'";
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
+    const std::string_view openssl_group_name{group};
 
     auto parsed = ParseDerKey(request);
     if (!parsed.has_value())
@@ -404,17 +431,7 @@ OpenSslKeyFactory::ImportEcKey(const key_management::KeyImportRequest& request)
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
     }
 
-    const auto openssl_group_name =
-        ::score::crypto::daemon::provider::openssl::detail::LookupOpenSslGroupName(curve->name);
-    if (!openssl_group_name.has_value())
-    {
-        score::mw::log::LogError() << kLogPrefix << "ImportEcKey: no OpenSSL group name for curve '"
-                                   << std::string{curve->name} << "'";
-        return ::score::crypto::make_unexpected(
-            ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
-    }
-
-    std::string imported_group(openssl_group_name->size() + 1U, '\0');
+    std::string imported_group(openssl_group_name.size() + 1U, '\0');
     std::size_t imported_group_size = 0U;
     const bool group_name_read = EVP_PKEY_get_utf8_string_param(parsed.value().pkey.get(),
                                                                 OSSL_PKEY_PARAM_GROUP_NAME,
@@ -423,20 +440,20 @@ OpenSslKeyFactory::ImportEcKey(const key_management::KeyImportRequest& request)
                                                                 &imported_group_size) == 1;
     const bool has_trailing_nul = imported_group_size > 0U && imported_group[imported_group_size - 1U] == '\0';
     const std::size_t group_name_size = imported_group_size - (has_trailing_nul ? 1U : 0U);
-    if (!group_name_read || std::string_view{imported_group.data(), group_name_size} != openssl_group_name.value())
+    if (!group_name_read || std::string_view{imported_group.data(), group_name_size} != openssl_group_name)
     {
         score::mw::log::LogError() << kLogPrefix << "ImportEcKey: parsed key is on an incompatible curve";
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
     }
 
-    return CreateImportedAsymmetricKey(request, std::move(parsed.value()), curve->field_size);
+    return CreateImportedAsymmetricKey(
+        request, std::move(parsed.value()), ::score::crypto::daemon::common::EcFieldSize(request.algorithm));
 }
 
 // static
-std::size_t OpenSslKeyFactory::DetermineKeySize(const common::AlgorithmId& algorithm) noexcept
+std::size_t OpenSslKeyFactory::DetermineKeySize(const AlgorithmDescriptor& algorithm) noexcept
 {
-    return ::score::crypto::daemon::common::LookupKeySize(std::string_view{algorithm.data(), algorithm.size()})
-        .value_or(0U);
+    return ::score::crypto::daemon::common::LookupKeySize(algorithm).value_or(0U);
 }
 
 }  // namespace score::crypto::daemon::provider::openssl

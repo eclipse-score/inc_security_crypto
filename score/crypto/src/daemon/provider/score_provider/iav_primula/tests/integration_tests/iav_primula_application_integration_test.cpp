@@ -42,13 +42,13 @@ TEST(IavPrimulaApplicationIntegrationTest, CreatesSignHandlerFromProviderToAlgor
     // Create the provider-neutral factory and request an ML-DSA SIGN handler.
     auto factory = provider.GetCryptoHandlerFactory();
     ASSERT_NE(factory, nullptr);
-    auto created = factory->CreateHandler("SIGN", "ML-DSA-44");
+    auto created = factory->CreateHandler("SIGN", *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44"));
     ASSERT_TRUE(created.has_value());
     auto handler = created.value();
     ASSERT_NE(handler, nullptr);
     auto* primula_handler = dynamic_cast<IavPrimulaSignHandler*>(handler.get());
     ASSERT_NE(primula_handler, nullptr);
-    EXPECT_EQ(primula_handler->GetAlgorithm(), "ML-DSA-44");
+    EXPECT_EQ(primula_handler->GetAlgorithm().name, "ML-DSA-44");
 
     // Use a non-null sentinel to simulate a bound native key handle without
     // creating a real backend key.
@@ -79,13 +79,13 @@ TEST(IavPrimulaApplicationIntegrationTest, CreatesVerifyHandlerAndReachesAlgorit
     ASSERT_TRUE(provider.Initialize(ProviderInitContext{common::ProviderId{7U}, "iavPrimula"}));
 
     // Create a VERIFY handler for the ML-DSA-44 algorithm.
-    auto created = provider.GetCryptoHandlerFactory()->CreateHandler("VERIFY", "ML-DSA-44");
+    auto created = provider.GetCryptoHandlerFactory()->CreateHandler("VERIFY", *::score::crypto::GetAlgorithmDescriptor("ML-DSA-44"));
     ASSERT_TRUE(created.has_value());
     auto handler = created.value();
     ASSERT_NE(handler, nullptr);
     auto* primula_handler = dynamic_cast<IavPrimulaVerifyHandler*>(handler.get());
     ASSERT_NE(primula_handler, nullptr);
-    EXPECT_EQ(primula_handler->GetAlgorithm(), "ML-DSA-44");
+    EXPECT_EQ(primula_handler->GetAlgorithm().name, "ML-DSA-44");
 
     // A non-null sentinel represents a bound native key handle for initialization.
     key_management::ProviderKeyHandle key_handle{};

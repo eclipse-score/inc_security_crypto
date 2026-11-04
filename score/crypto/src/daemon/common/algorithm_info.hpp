@@ -14,128 +14,29 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_INFO_HPP
 
-#include <array>
+#include "score/crypto/src/api/types/algorithm.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string_view>
 
+// Daemon helpers over score::crypto::kAlgorithmCatalog. The daemon resolves an
+// algorithm name to its catalog row once, where a request or a slot enters it
+// (CTX_CREATE in the mediator, the key management request parser, slot load);
+// providers and handlers receive that AlgorithmDescriptor and read its fields.
+// The helpers here answer the questions a row does not answer by itself.
+
 namespace score::crypto::daemon::common
 {
 
-// ---------------------------------------------------------------------------
-// Hash algorithm properties (provider-independent)
-// ---------------------------------------------------------------------------
-
-/// @brief Provider-neutral identifiers for supported hash algorithms.
-enum class HashAlgorithm
-{
-    kSha256,  ///< SHA-256.
-    kSha384,  ///< SHA-384.
-    kSha512,  ///< SHA-512.
-    kSha224,  ///< SHA-224.
-};
-
-/// @brief Provider-neutral metadata for a hash algorithm.
-struct HashAlgorithmInfo
-{
-    HashAlgorithm algorithm;  ///< Internal algorithm identifier.
-    std::string_view name;    ///< API algorithm identifier.
-    std::size_t digest_size;  ///< Output size in bytes.
-};
-
-inline constexpr std::array<HashAlgorithmInfo, 4UL> kHashAlgorithms{{
-    {HashAlgorithm::kSha256, "SHA256", 32U},
-    {HashAlgorithm::kSha384, "SHA384", 48U},
-    {HashAlgorithm::kSha512, "SHA512", 64U},
-    {HashAlgorithm::kSha224, "SHA224", 28U},
-}};
-
-/// @brief Look up provider-independent hash algorithm metadata.
-/// @return algorithm metadata, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<HashAlgorithmInfo> LookupHashAlgorithmInfo(
-    std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kHashAlgorithms)
-    {
-        if (entry.name == algorithm)
-        {
-            return entry;
-        }
-    }
-    return std::nullopt;
-}
-
-/// @brief Look up digest size by algorithm name.
-/// @return digest size in bytes, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<std::size_t> LookupDigestSize(std::string_view algorithm) noexcept
-{
-    const auto info = LookupHashAlgorithmInfo(algorithm);
-    return info.has_value() ? std::optional<std::size_t>{info->digest_size} : std::nullopt;
-}
-
-// ---------------------------------------------------------------------------
-// MAC algorithm properties (provider-independent)
-// ---------------------------------------------------------------------------
-
-/// @brief Provider-neutral identifiers for supported MAC algorithms.
-enum class MacAlgorithm
-{
-    kHmacSha256,  ///< HMAC with SHA-256.
-    kHmacSha384,  ///< HMAC with SHA-384.
-    kHmacSha512,  ///< HMAC with SHA-512.
-};
-
-/// @brief Provider-neutral metadata for a MAC algorithm.
-struct MacAlgorithmInfo
-{
-    MacAlgorithm algorithm;  ///< Internal algorithm identifier.
-    std::string_view name;   ///< API algorithm identifier.
-    std::size_t mac_size;    ///< Output tag size in bytes.
-};
-
-inline constexpr std::array<MacAlgorithmInfo, 3UL> kMacAlgorithms = {{
-    {MacAlgorithm::kHmacSha256, "HMAC-SHA256", 32U},
-    {MacAlgorithm::kHmacSha384, "HMAC-SHA384", 48U},
-    {MacAlgorithm::kHmacSha512, "HMAC-SHA512", 64U},
-}};
-
-/// @brief Look up provider-independent MAC algorithm metadata.
-/// @return algorithm metadata, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<MacAlgorithmInfo> LookupMacAlgorithmInfo(
-    std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kMacAlgorithms)
-    {
-        if (entry.name == algorithm)
-        {
-            return entry;
-        }
-    }
-    return std::nullopt;
-}
-
-/// @brief Look up MAC output size by algorithm name.
-/// @return MAC size in bytes, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<std::size_t> LookupMacSize(std::string_view algorithm) noexcept
-{
-    const auto info = LookupMacAlgorithmInfo(algorithm);
-    return info.has_value() ? std::optional<std::size_t>{info->mac_size} : std::nullopt;
-}
-
-// ---------------------------------------------------------------------------
-// Post-quantum algorithm properties
-// ---------------------------------------------------------------------------
-
-/// Standardized ML-DSA algorithm identifiers (FIPS 204).
-inline constexpr std::string_view kMlDsa44Name{"ML-DSA-44"};
-inline constexpr std::string_view kMlDsa65Name{"ML-DSA-65"};
-inline constexpr std::string_view kMlDsa87Name{"ML-DSA-87"};
-
-/// Standardized ML-KEM algorithm identifiers (FIPS 203).
-inline constexpr std::string_view kMlKem512Name{"ML-KEM-512"};
-inline constexpr std::string_view kMlKem768Name{"ML-KEM-768"};
-inline constexpr std::string_view kMlKem1024Name{"ML-KEM-1024"};
+/// Standardized PQC identifiers from the algorithm catalog.
+inline constexpr std::string_view kMlDsa44Name{::score::crypto::ToAlgorithmName(::score::crypto::Algorithm::kMlDsa44)};
+inline constexpr std::string_view kMlDsa65Name{::score::crypto::ToAlgorithmName(::score::crypto::Algorithm::kMlDsa65)};
+inline constexpr std::string_view kMlDsa87Name{::score::crypto::ToAlgorithmName(::score::crypto::Algorithm::kMlDsa87)};
+inline constexpr std::string_view kMlKem512Name{::score::crypto::ToAlgorithmName(::score::crypto::Algorithm::kMlKem512)};
+inline constexpr std::string_view kMlKem768Name{::score::crypto::ToAlgorithmName(::score::crypto::Algorithm::kMlKem768)};
+inline constexpr std::string_view kMlKem1024Name{::score::crypto::ToAlgorithmName(::score::crypto::Algorithm::kMlKem1024)};
 
 /// @brief Identifies the operation family implemented by a PQC algorithm.
 enum class PqcAlgorithmKind : std::uint8_t
@@ -158,294 +59,126 @@ struct PqcAlgorithmInfo
     std::size_t shared_secret_size;            ///< Shared-secret size in bytes; zero for signature algorithms.
 };
 
-inline constexpr std::array<PqcAlgorithmInfo, 6UL> kPqcAlgorithms = {{
-    // ML-DSA: public key, private key, and signature sizes from FIPS 204.
-    {kMlDsa44Name, PqcAlgorithmKind::kSignature, 1312U, 2560U, 2420U, 0U},
-    {kMlDsa65Name, PqcAlgorithmKind::kSignature, 1952U, 4032U, 3309U, 0U},
-    {kMlDsa87Name, PqcAlgorithmKind::kSignature, 2592U, 4896U, 4627U, 0U},
-
-    // ML-KEM: public key, private key, ciphertext, and shared-secret sizes
-    // from FIPS 203.
-    {kMlKem512Name, PqcAlgorithmKind::kKem, 800U, 1632U, 768U, 32U},
-    {kMlKem768Name, PqcAlgorithmKind::kKem, 1184U, 2400U, 1088U, 32U},
-    {kMlKem1024Name, PqcAlgorithmKind::kKem, 1568U, 3168U, 1568U, 32U},
-}};
-
-/// @brief Look up a standardized PQC algorithm by its textual identifier.
-[[nodiscard]] inline constexpr std::optional<PqcAlgorithmInfo> LookupPqcAlgorithm(std::string_view algorithm) noexcept
+/// @brief Read standardized PQC sizes from an already resolved catalog descriptor.
+[[nodiscard]] inline constexpr std::optional<PqcAlgorithmInfo> LookupPqcAlgorithm(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
-    for (const auto& entry : kPqcAlgorithms)
-    {
-        if (entry.name == algorithm)
-        {
-            return entry;
-        }
-    }
-    return std::nullopt;
-}
-
-/// @brief Return whether the identifier names a PQC signature algorithm.
-[[nodiscard]] inline constexpr bool IsPqcSignatureAlgorithm(std::string_view algorithm) noexcept
-{
-    const auto info = LookupPqcAlgorithm(algorithm);
-    return info.has_value() && info->kind == PqcAlgorithmKind::kSignature;
-}
-
-/// @brief Return whether the identifier names a PQC KEM algorithm.
-[[nodiscard]] inline constexpr bool IsPqcKemAlgorithm(std::string_view algorithm) noexcept
-{
-    const auto info = LookupPqcAlgorithm(algorithm);
-    return info.has_value() && info->kind == PqcAlgorithmKind::kKem;
-}
-
-// ---------------------------------------------------------------------------
-// Key algorithm properties (provider-independent)
-// ---------------------------------------------------------------------------
-
-struct KeyAlgorithmInfo
-{
-    std::string_view name;
-    std::size_t key_size;  ///< Default key size in bytes; PQC uses the private-key byte representation.
-};
-
-/// Ed25519 key size in bytes (RFC 8032).
-inline constexpr std::size_t kEd25519KeySize{32U};
-
-inline constexpr std::array<KeyAlgorithmInfo, 24UL> kKeyAlgorithms = {{
-    {"HMAC-SHA256", 32U},
-    {"HMAC-SHA384", 48U},
-    {"HMAC-SHA512", 64U},
-    {"AES-128-CBC", 16U},
-    {"AES-192-CBC", 24U},
-    {"AES-256-CBC", 32U},
-    {"AES-128-GCM", 16U},
-    {"AES-192-GCM", 24U},
-    {"AES-256-GCM", 32U},
-    {"AES-128-CMAC", 16U},
-    {"AES-256-CMAC", 32U},
-    {"ECDSA-P256", 32U},
-    {"ECDSA-P384", 48U},
-    {"ECDSA-P521", 66U},
-    {"RSA-2048", 256U},
-    {"RSA-3072", 384U},
-    {"RSA-4096", 512U},
-    {"Ed25519", kEd25519KeySize},
-    {kMlDsa44Name, LookupPqcAlgorithm(kMlDsa44Name).value().private_key_size},
-    {kMlDsa65Name, LookupPqcAlgorithm(kMlDsa65Name).value().private_key_size},
-    {kMlDsa87Name, LookupPqcAlgorithm(kMlDsa87Name).value().private_key_size},
-    {kMlKem512Name, LookupPqcAlgorithm(kMlKem512Name).value().private_key_size},
-    {kMlKem768Name, LookupPqcAlgorithm(kMlKem768Name).value().private_key_size},
-    {kMlKem1024Name, LookupPqcAlgorithm(kMlKem1024Name).value().private_key_size},
-}};
-
-/// @brief Look up default key size by algorithm name.
-/// @note PQC algorithms use the private-key byte size from kPqcAlgorithms.
-/// @return key size in bytes, or std::nullopt if unknown.
-[[nodiscard]] inline constexpr std::optional<std::size_t> LookupKeySize(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kKeyAlgorithms)
-    {
-        if (entry.name == algorithm)
-        {
-            return entry.key_size;
-        }
-    }
-    return std::nullopt;
-}
-
-// ---------------------------------------------------------------------------
-// Symmetric cipher properties (provider-independent)
-// ---------------------------------------------------------------------------
-
-struct CipherAlgorithmInfo
-{
-    std::string_view name;
-    std::size_t key_size;    ///< Key length in bytes
-    std::size_t block_size;  ///< Cipher block size in bytes; 1 for stream modes
-    std::size_t iv_size;     ///< Required IV / nonce length in bytes; 0 when none
-};
-
-// Currently only AES-CBC is supported by the daemon, but this table can be
-// extended to include other symmetric ciphers (AES-CTR, AES-ECB, etc.)
-inline constexpr CipherAlgorithmInfo kCipherAlgorithms[] = {
-    {"AES-128-CBC", 16U, 16U, 16U},
-    {"AES-192-CBC", 24U, 16U, 16U},
-    {"AES-256-CBC", 32U, 16U, 16U},
-};
-
-/// @brief Look up symmetric cipher properties by algorithm name.
-/// @return the entry, or std::nullopt if the algorithm is unknown.
-[[nodiscard]] inline constexpr std::optional<CipherAlgorithmInfo> LookupCipher(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kCipherAlgorithms)
-    {
-        if (entry.name == algorithm)
-        {
-            return entry;
-        }
-    }
-    return std::nullopt;
-}
-
-// ---------------------------------------------------------------------------
-// Elliptic-curve / ECDSA properties (provider-independent)
-// ---------------------------------------------------------------------------
-
-/// @brief Properties of a NIST prime curve and the ECDSA variant built on it.
-///
-/// @note @c signature_size is the IEEE P1363 fixed-length encoding r?s, which
-///       is the on-the-wire signature format of this stack.  It is twice the
-///       byte length of the field order, so P-521 yields 2 * 66 = 132 bytes.
-struct EcCurveInfo
-{
-    std::string_view name;        ///< Curve identifier as used in AlgorithmId, e.g. "P256"
-    std::string_view group_name;  ///< Standard NIST designation of the curve, e.g. "P-256"
-    std::size_t field_size;       ///< Byte length of one coordinate / of r and s
-    std::size_t signature_size;   ///< P1363 signature length = 2 * field_size
-    std::size_t key_bits;         ///< Nominal key strength in bits
-};
-
-/// @note Curve names are spelled without an inner hyphen ("P256", not "P-256")
-///       so that the hyphen is unambiguously the separator in composite
-///       identifiers such as "ECDSA-P256-SHA256". This matches the AlgorithmId
-///       examples documented in score/crypto/src/api/common/types.hpp.
-/// @note @c group_name carries the hyphen that @c name omits, and the two are not
-///       interchangeable where a provider selects a curve by name. The spelling
-///       of @c group_name does not follow from @c name in general, so each curve
-///       carries both.
-inline constexpr EcCurveInfo kEcCurves[] = {
-    {"P256", "P-256", 32U, 64U, 256U},
-    {"P384", "P-384", 48U, 96U, 384U},
-    // NIST's largest prime curve is P-521 (not P-512); 521 bits is 66 bytes.
-    {"P521", "P-521", 66U, 132U, 521U},
-};
-
-/// @brief Properties of a supported RSA key size.
-struct RsaKeyInfo
-{
-    std::string_view name;
-    std::size_t modulus_size;
-    std::size_t key_bits;
-};
-
-/// Supported RSA key sizes.
-inline constexpr RsaKeyInfo kRsaKeys[] = {
-    {"RSA-2048", 256U, 2048U},
-    {"RSA-3072", 384U, 3072U},
-    {"RSA-4096", 512U, 4096U},
-};
-
-/// Offset of the digit run within an entry of kRsaKeys, e.g. "2048" in "RSA-2048".
-inline constexpr std::size_t kRsaKeySizeSubstringStart{4U};
-
-/// Prefix of RSA-PSS signature algorithm identifiers, e.g. "RSA-PSS-2048-SHA256".
-inline constexpr std::string_view kRsaPssAlgorithmPrefix{"RSA-PSS-"};
-
-/// @brief Look up RSA key properties from an RSA key algorithm identifier.
-/// @return the matching entry of kRsaKeys, or std::nullopt if the key size is unsupported.
-[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfo(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kRsaKeys)
-    {
-        if (algorithm == entry.name)
-        {
-            return entry;
-        }
-    }
-    return std::nullopt;
-}
-
-/// @brief Look up RSA key properties from an RSA-PSS signature algorithm.
-[[nodiscard]] inline constexpr std::optional<RsaKeyInfo> LookupRsaKeyInfoForSignatureAlgorithm(
-    std::string_view algorithm) noexcept
-{
-    if (algorithm.substr(0, kRsaPssAlgorithmPrefix.size()) != kRsaPssAlgorithmPrefix)
+    if ((algorithm.key_type != ::score::crypto::KeyType::kMlDsa) &&
+        (algorithm.key_type != ::score::crypto::KeyType::kMlKem))
     {
         return std::nullopt;
     }
-    const auto remainder = algorithm.substr(kRsaPssAlgorithmPrefix.size());
-    for (const auto& entry : kRsaKeys)
-    {
-        const auto key_size_substring = entry.name.substr(kRsaKeySizeSubstringStart);
+    return PqcAlgorithmInfo{
+        algorithm.name,
+        algorithm.key_type == ::score::crypto::KeyType::kMlDsa ? PqcAlgorithmKind::kSignature : PqcAlgorithmKind::kKem,
+        algorithm.public_key_size,
+        algorithm.private_key_size,
+        algorithm.output_size,
+        algorithm.shared_secret_size};
+}
 
-        if (remainder.substr(0, key_size_substring.size()) == key_size_substring)
+/// @brief Look up a standardized PQC algorithm by its exact textual identifier.
+[[nodiscard]] inline constexpr std::optional<PqcAlgorithmInfo> LookupPqcAlgorithm(std::string_view name) noexcept
+{
+    const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(name);
+    return algorithm.has_value() ? LookupPqcAlgorithm(*algorithm) : std::nullopt;
+}
+
+/// @brief Return whether the resolved row describes a PQC signature algorithm.
+[[nodiscard]] inline constexpr bool IsPqcSignatureAlgorithm(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
+{
+    return algorithm.key_type == ::score::crypto::KeyType::kMlDsa;
+}
+
+/// @brief Return whether the identifier names a PQC signature algorithm.
+[[nodiscard]] inline constexpr bool IsPqcSignatureAlgorithm(std::string_view name) noexcept
+{
+    const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(name);
+    return algorithm.has_value() && IsPqcSignatureAlgorithm(*algorithm);
+}
+
+/// @brief Return whether the resolved row describes a PQC KEM algorithm.
+[[nodiscard]] inline constexpr bool IsPqcKemAlgorithm(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
+{
+    return algorithm.key_type == ::score::crypto::KeyType::kMlKem;
+}
+
+/// @brief Return whether the identifier names a PQC KEM algorithm.
+[[nodiscard]] inline constexpr bool IsPqcKemAlgorithm(std::string_view name) noexcept
+{
+    const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(name);
+    return algorithm.has_value() && IsPqcKemAlgorithm(*algorithm);
+}
+
+/// @brief Digest length in bytes of a hash function, from its hash row in the catalog.
+/// @return the length, or std::nullopt for HashFunction::kNone.
+[[nodiscard]] inline constexpr std::optional<std::size_t> LookupDigestSize(::score::crypto::HashFunction hash) noexcept
+{
+    if (hash == ::score::crypto::HashFunction::kNone)
+    {
+        return std::nullopt;
+    }
+    for (const auto& row : ::score::crypto::kAlgorithmCatalog)
+    {
+        if ((row.category == ::score::crypto::AlgorithmCategory::kHash) && (row.hash == hash))
         {
-            return entry;
+            return row.output_size;
         }
     }
     return std::nullopt;
 }
+
+/// @brief Default key size of the key an algorithm labels.
+///
+/// Answers for rows that can label a key: key rows, symmetric cipher, AEAD
+/// and MAC rows, and Ed25519. A signature scheme such as
+/// "RSA-PSS-2048-SHA256" or "ECDSA-P256-SHA256" names no key and yields
+/// std::nullopt, so it cannot be mistaken for a request for that many random
+/// bytes. For elliptic curves this is the byte length of one coordinate.
+/// For ML-DSA and ML-KEM it is the encoded private-key length.
+/// @return key size in bytes, or std::nullopt if the row labels no key.
+[[nodiscard]] inline constexpr std::optional<std::size_t> LookupKeySize(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
+{
+    if ((algorithm.key_type == ::score::crypto::KeyType::kMlDsa) ||
+        (algorithm.key_type == ::score::crypto::KeyType::kMlKem))
+    {
+        return algorithm.private_key_size;
+    }
+    if ((algorithm.key_type == ::score::crypto::KeyType::kNone) ||
+        ((algorithm.category == ::score::crypto::AlgorithmCategory::kSignature) &&
+         (algorithm.key_type != ::score::crypto::KeyType::kEd25519)))
+    {
+        return std::nullopt;
+    }
+    return (static_cast<std::size_t>(algorithm.key_bits) + 7U) / 8U;
+}
+
+/// @brief Byte length of one coordinate of the curve of an ECC row, which is
+///        also the length of r and s in an ECDSA signature.
+/// @return the length, or 0 for rows without a curve.
+[[nodiscard]] inline constexpr std::size_t EcFieldSize(const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
+{
+    return ::score::crypto::algorithm_catalog_detail::EccFieldSize(algorithm.curve);
+}
+
+// ---------------------------------------------------------------------------
+// Ed25519 properties
+// ---------------------------------------------------------------------------
+
+/// Ed25519 key size in bytes (RFC 8032).
+inline constexpr std::size_t kEd25519KeySize{
+    ::score::crypto::GetKeySizeBytes(::score::crypto::Algorithm::kEd25519).value_or(0U)};
 
 /// Ed25519 signature size in bytes (RFC 8032).
-inline constexpr std::size_t kEd25519SignatureSize{64U};
+inline constexpr std::size_t kEd25519SignatureSize{
+    ::score::crypto::GetAlgorithmDescriptor(::score::crypto::Algorithm::kEd25519).has_value()
+        ? ::score::crypto::GetAlgorithmDescriptor(::score::crypto::Algorithm::kEd25519)->output_size
+        : 0U};
 
-/// @brief True when the identifier names the Ed25519 key or signature algorithm.
-[[nodiscard]] inline constexpr bool IsEd25519Algorithm(std::string_view algorithm) noexcept
-{
-    return algorithm == "Ed25519";
-}
-
-/// @brief Extract the curve of an ECDSA signature algorithm identifier.
-///
-/// Accepts signature algorithms like ECDSA-P256-SHA256 i.e.ECDSA-<NIST curve>-<Hash algo>.
-[[nodiscard]] inline constexpr std::optional<EcCurveInfo> LookupEcCurveOfAlgorithm(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kEcCurves)
-    {
-        if (algorithm.find(entry.name) != std::string_view::npos)
-        {
-            return entry;
-        }
-    }
-    return std::nullopt;
-}
-
-/// @brief Extract the message-digest name of a signature algorithm identifier.
-///
-/// "ECDSA-P256-SHA256" -> "SHA256".
-[[nodiscard]] inline constexpr std::optional<std::string_view> LookupSignatureDigest(
-    std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kHashAlgorithms)
-    {
-        if (algorithm.find(entry.name) != std::string_view::npos)
-        {
-            return entry.name;
-        }
-    }
-    return std::nullopt;
-}
-
-/// @brief Look up the digest size for a signature algorithm identifier.
-/// @return digest size in bytes, or std::nullopt if the digest is unknown.
-[[nodiscard]] inline constexpr std::optional<std::size_t> LookupSignatureDigestSize(std::string_view algorithm) noexcept
-{
-    for (const auto& entry : kHashAlgorithms)
-    {
-        if (algorithm.find(entry.name) != std::string_view::npos)
-        {
-            return entry.digest_size;
-        }
-    }
-    return std::nullopt;
-}
-
-/// @brief True when the identifier names a complete RSA-PSS signature scheme.
-///
-/// The identifier must carry a supported key size and a known digest,
-/// e.g. "RSA-PSS-2048-SHA256".
-[[nodiscard]] inline constexpr bool IsRsaPssAlgorithm(std::string_view algorithm) noexcept
-{
-    return algorithm.find("RSA-PSS-") == 0U && LookupSignatureDigest(algorithm).has_value() &&
-           (algorithm.find("RSA-PSS-2048-") == 0U || algorithm.find("RSA-PSS-3072-") == 0U ||
-            algorithm.find("RSA-PSS-4096-") == 0U);
-}
-
-/// @brief True when the identifier names an ECDSA key or signature algorithm.
-[[nodiscard]] inline constexpr bool IsEcdsaAlgorithm(std::string_view algorithm) noexcept
-{
-    return (algorithm.find("ECDSA") != std::string_view::npos) && LookupEcCurveOfAlgorithm(algorithm).has_value();
-}
+static_assert((kEd25519KeySize == 32U) && (kEd25519SignatureSize == 64U), "Ed25519 sizes are fixed by RFC 8032");
 
 }  // namespace score::crypto::daemon::common
 

@@ -30,7 +30,7 @@ using common::StreamOperationState;
 class TestVerifyHandler final : public ScoreVerifyHandler
 {
   public:
-    TestVerifyHandler() : ScoreVerifyHandler{std::make_unique<VerifyExecutor>(), "test"} {}
+    TestVerifyHandler() : ScoreVerifyHandler{std::make_unique<VerifyExecutor>(), AlgorithmDescriptor{}} {}
 
     Expected<bool, DaemonErrorCode> FinalizeVerify(score::cpp::span<const std::uint8_t> signature) override
     {
@@ -143,7 +143,7 @@ TEST_F(VerifyExecutorTest, SingleShotReturnsBooleanAndPreservesProviderError)
 
 TEST_F(VerifyExecutorTest, BaseHandlerReportsUnsupportedFinalize)
 {
-    ScoreVerifyHandler base{std::make_unique<VerifyExecutor>(), "test"};
+    ScoreVerifyHandler base{std::make_unique<VerifyExecutor>(), AlgorithmDescriptor{}};
     base.SetOperationState(StreamOperationState::STREAM_ACTIVE);
     common::RequestParameters request{signature_};
     const auto result = base.Execute({kVerifyActor, verify_ops::VERIFY_FINALIZE}, request);

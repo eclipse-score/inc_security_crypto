@@ -27,7 +27,7 @@ namespace
 ///
 /// @return Signature size in bytes, or zero if the algorithm is not a
 ///         supported signature algorithm.
-std::size_t SignatureSize(const common::AlgorithmId& algorithm)
+std::size_t SignatureSize(const AlgorithmDescriptor& algorithm)
 {
     const auto info = common::LookupPqcAlgorithm(algorithm);
     return info && info->kind == common::PqcAlgorithmKind::kSignature ? info->signature_or_ciphertext_size : 0U;
@@ -35,8 +35,8 @@ std::size_t SignatureSize(const common::AlgorithmId& algorithm)
 }  // namespace
 
 IavPrimulaVerifyHandler::IavPrimulaVerifyHandler(std::unique_ptr<operations::verify::VerifyExecutor> executor,
-                                                 common::AlgorithmId algorithm)
-    : ScoreVerifyHandler{std::move(executor), std::move(algorithm)}
+                                                 const AlgorithmDescriptor& algorithm)
+    : ScoreVerifyHandler{std::move(executor), algorithm}
 {
 }
 

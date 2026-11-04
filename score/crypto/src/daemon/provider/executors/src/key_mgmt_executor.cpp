@@ -347,13 +347,18 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleGetEnca
     {
         return make_unexpected(Error::kInvalidArgument);
     }
+    const auto descriptor = GetAlgorithmDescriptor(algorithm.value());
+    if (!descriptor.has_value())
+    {
+        return make_unexpected(Error::kUnsupportedAlgorithm);
+    }
     auto lease = m_service->AcquireKeyForOperation(ctx.client_id, key_id.value(), ctx.provider_id, Permission::kAgree);
     if (!lease.has_value())
     {
         return make_unexpected(lease.error());
     }
     const auto& key = lease.value().Handler();
-    if (key.GetHandle().algorithm != algorithm.value())
+    if (key.GetHandle().algorithm.name != algorithm.value())
     {
         return make_unexpected(Error::kInvalidArgument);
     }
@@ -362,7 +367,7 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleGetEnca
     {
         return make_unexpected(Error::kInvalidArgument);
     }
-    const km::KeyEncapsulationRequest params{key, std::string{algorithm.value()}};
+    const km::KeyEncapsulationRequest params{key, *descriptor};
     auto size = m_factory->GetEncapsulationCiphertextSize(params);
     if (!size.has_value())
     {
@@ -400,18 +405,23 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleEncapsu
     {
         return make_unexpected(Error::kInvalidArgument);
     }
+    const auto descriptor = GetAlgorithmDescriptor(algorithm.value());
+    if (!descriptor.has_value())
+    {
+        return make_unexpected(Error::kUnsupportedAlgorithm);
+    }
     auto lease = m_service->AcquireKeyForOperation(ctx.client_id, key_id.value(), ctx.provider_id, Permission::kAgree);
     if (!lease.has_value())
     {
         return make_unexpected(lease.error());
     }
     const auto& key = lease.value().Handler();
-    if ((key.GetHandle().algorithm != algorithm.value()) ||
+    if ((key.GetHandle().algorithm.name != algorithm.value()) ||
         (key.GetHandle().material_kind != km::KeyMaterialKind::kPublicKey))
     {
         return make_unexpected(Error::kInvalidArgument);
     }
-    const km::KeyEncapsulationRequest params{key, std::string{algorithm.value()}};
+    const km::KeyEncapsulationRequest params{key, *descriptor};
     auto size = m_factory->GetEncapsulationCiphertextSize(params);
     if (!size.has_value())
     {
@@ -480,18 +490,23 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleDecapsu
     {
         return make_unexpected(Error::kInvalidArgument);
     }
+    const auto descriptor = GetAlgorithmDescriptor(algorithm.value());
+    if (!descriptor.has_value())
+    {
+        return make_unexpected(Error::kUnsupportedAlgorithm);
+    }
     auto lease = m_service->AcquireKeyForOperation(ctx.client_id, key_id.value(), ctx.provider_id, Permission::kAgree);
     if (!lease.has_value())
     {
         return make_unexpected(lease.error());
     }
     const auto& key = lease.value().Handler();
-    if ((key.GetHandle().algorithm != algorithm.value()) ||
+    if ((key.GetHandle().algorithm.name != algorithm.value()) ||
         (key.GetHandle().material_kind != km::KeyMaterialKind::kPrivateKey))
     {
         return make_unexpected(Error::kInvalidArgument);
     }
-    auto result = m_factory->DecapsulateKey({key, std::string{algorithm.value()}, *ciphertext});
+    auto result = m_factory->DecapsulateKey({key, *descriptor, *ciphertext});
     if (!result.has_value())
     {
         return make_unexpected(result.error());
@@ -540,8 +555,13 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleImport(
     {
         return make_unexpected(Error::kInvalidArgument);
     }
+    const auto descriptor = GetAlgorithmDescriptor(algorithm.value());
+    if (!descriptor.has_value())
+    {
+        return make_unexpected(Error::kUnsupportedAlgorithm);
+    }
     km::KeyImportRequest params;
-    params.algorithm = std::string{algorithm.value()};
+    params.algorithm = *descriptor;
     params.key_data = data->data();
     params.key_data_size = data->size();
     params.format = static_cast<score::crypto::FormatType>(*format);
@@ -564,7 +584,8 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleImport(
             ? handle.public_key_permissions.value_or(Permission::kAll)
             : handle.permissions;
 
-    if (handle.algorithm != params.algorithm || actual_permissions != params.permissions || handle.key_size == 0U)
+    if (handle.algorithm.name != params.algorithm.name || actual_permissions != params.permissions ||
+        handle.key_size == 0U)
     {
         return make_unexpected(Error::kOperationFailed);
     }

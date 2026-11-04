@@ -51,7 +51,7 @@ Pkcs11KeyStore::Pkcs11KeyStore(std::weak_ptr<Pkcs11Provider> provider, std::weak
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 key_management::ProviderKeyHandle Pkcs11KeyStore::Register(CK_SESSION_HANDLE session,
                                                            CK_OBJECT_HANDLE object,
-                                                           const std::string& algorithm,
+                                                           const ::score::crypto::AlgorithmDescriptor& algorithm,
                                                            std::size_t key_size,
                                                            score::crypto::KeyOperationPermission permissions) noexcept
 {
@@ -76,7 +76,7 @@ key_management::ProviderKeyHandle Pkcs11KeyStore::Register(CK_SESSION_HANDLE ses
 
 key_management::ProviderKeyHandle Pkcs11KeyStore::RegisterTokenObject(
     const SearchTemplate& search_template,
-    const std::string& algorithm,
+    const ::score::crypto::AlgorithmDescriptor& algorithm,
     std::size_t key_size,
     score::crypto::KeyOperationPermission permissions) noexcept
 {
