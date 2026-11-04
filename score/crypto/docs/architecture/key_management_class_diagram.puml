@@ -366,7 +366,7 @@ package "Provider Handler" <<Rectangle>> #FCE4EC {
     }
 
     abstract class MacHandler {
-        # m_algorithm : AlgorithmId
+        # m_algorithm : AlgorithmDescriptor
         # m_state : StreamOperationState
         --
         + GetMacSize() : size_t
@@ -390,7 +390,7 @@ package "Provider Handler" <<Rectangle>> #FCE4EC {
         + FinalizeMac(output, finalData) : Expected<ResponseParameters>
         + VerifyMac(expectedTag) : Expected<bool>
         + InitMac(initialDataOrIV) : Expected<monostate>
-        + {static} IsAlgorithmSupported(algorithm) : bool
+        + {static} IsAlgorithmSupported(const AlgorithmDescriptor&) : bool
     }
 }
 

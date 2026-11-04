@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_VERIFY_OPENSSL_ED25519_VERIFY_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_VERIFY_OPENSSL_ED25519_VERIFY_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/score_verify_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/verify/verify_executor.hpp"
@@ -36,7 +37,7 @@ class OpenSslEd25519VerifyHandler final : public operations::verify::ScoreVerify
 {
   public:
     explicit OpenSslEd25519VerifyHandler(std::unique_ptr<operations::verify::VerifyExecutor> executor,
-                                         const common::AlgorithmId& algorithm);
+                                         const AlgorithmDescriptor& algorithm);
     ~OpenSslEd25519VerifyHandler() override;
     OpenSslEd25519VerifyHandler(const OpenSslEd25519VerifyHandler&) = delete;
     OpenSslEd25519VerifyHandler& operator=(const OpenSslEd25519VerifyHandler&) = delete;
@@ -61,7 +62,7 @@ class OpenSslEd25519VerifyHandler final : public operations::verify::ScoreVerify
     ///         if verification cannot be completed.
     Expected<bool, common::DaemonErrorCode> SingleShotVerify(score::cpp::span<const std::uint8_t> data,
                                                              score::cpp::span<const std::uint8_t> signature) override;
-    static bool IsAlgorithmSupported(const common::AlgorithmId&) noexcept;
+    static bool IsAlgorithmSupported(const AlgorithmDescriptor&) noexcept;
 
   private:
     signature::Stream m_stream;

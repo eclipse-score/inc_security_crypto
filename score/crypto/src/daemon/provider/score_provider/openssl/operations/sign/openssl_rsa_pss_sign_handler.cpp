@@ -40,18 +40,17 @@ using ::score::crypto::daemon::common::DaemonErrorCode;
 using ::score::crypto::daemon::common::StreamOperationState;
 
 OpenSslRsaPssSignHandler::OpenSslRsaPssSignHandler(std::unique_ptr<operations::sign::SignExecutor> executor,
-                                                   const common::AlgorithmId& algorithm)
+                                                   const AlgorithmDescriptor& algorithm)
     : ScoreSignHandler{std::move(executor), algorithm}
 {
 }
 
 OpenSslRsaPssSignHandler::~OpenSslRsaPssSignHandler() = default;
 
-bool OpenSslRsaPssSignHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool OpenSslRsaPssSignHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    const std::string_view value{algorithm.data(), algorithm.size()};
-    return ::score::crypto::daemon::provider::openssl::detail::IsSignatureAlgorithmSupported(value) &&
-           algo::IsRsaPssAlgorithm(value);
+    return (algorithm.key_type == ::score::crypto::KeyType::kRsa) &&
+           ::score::crypto::daemon::provider::openssl::detail::IsSignatureSupported(algorithm);
 }
 
 Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::InitializeContext(
@@ -72,8 +71,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::InitializeCo
     m_digest_size = 0U;
     if (m_prehashed)
     {
-        const auto digest_size =
-            algo::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        const auto digest_size = ::score::crypto::daemon::common::LookupDigestSize(m_algorithm.hash);
         m_digest_size = digest_size.value_or(0U);
     }
 
@@ -94,9 +92,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::Reset()
 
 std::size_t OpenSslRsaPssSignHandler::GetSignatureSize() const noexcept
 {
-    const auto key =
-        algo::LookupRsaKeyInfoForSignatureAlgorithm(std::string_view{m_algorithm.data(), m_algorithm.size()});
-    return key.has_value() ? key->modulus_size : 0U;
+    return IsAlgorithmSupported(m_algorithm) ? m_algorithm.output_size : 0U;
 }
 
 Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::InitSign()
@@ -123,21 +119,21 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::InitializeSi
         m_buffer.clear();
         return std::monostate{};
     }
-    const auto digest = algo::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
-    const std::string digest_name = digest.has_value() ? std::string{digest.value()} : std::string{};
+    const char* const digest =
+        ::score::crypto::daemon::provider::openssl::detail::ToOpenSslDigestName(m_algorithm.hash);
+    const std::string digest_name = (digest != nullptr) ? std::string{digest} : std::string{};
     if (EVP_DigestSignInit_ex(m_stream.Context(), nullptr, digest_name.c_str(), nullptr, nullptr, key, nullptr) != 1)
     {
         score::mw::log::LogError() << kLogPrefix << "InitializeSignContext: EVP_DigestSignInit_ex failed for "
-                                   << m_algorithm;
+                                   << m_algorithm.name;
         return make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
     }
     m_buffer.clear();
-    auto configured = signature::ConfigureRsaPssContext(
-        m_stream.Context(), std::string_view{m_algorithm.data(), m_algorithm.size()}, RSA_PSS_SALTLEN_DIGEST);
+    auto configured = signature::ConfigureRsaPssContext(m_stream.Context(), m_algorithm, RSA_PSS_SALTLEN_DIGEST);
     if (!configured.has_value())
     {
         score::mw::log::LogError() << kLogPrefix << "InitializeSignContext: RSA-PSS context configuration failed for "
-                                   << m_algorithm;
+                                   << m_algorithm.name;
         return configured;
     }
     return std::monostate{};
@@ -156,7 +152,8 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::UpdateSign(
         if (m_digest_size == 0U || m_buffer.size() > m_digest_size || data.size() > m_digest_size - m_buffer.size())
         {
             score::mw::log::LogError() << kLogPrefix << "UpdateSign: prehashed input exceeds digest size for "
-                                       << m_algorithm << "; buffered=" << m_buffer.size() << ", chunk=" << data.size();
+                                       << m_algorithm.name << "; buffered=" << m_buffer.size()
+                                       << ", chunk=" << data.size();
             return make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
         m_buffer.insert(m_buffer.end(), data.begin(), data.end());
@@ -164,7 +161,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::UpdateSign(
     }
     if (EVP_DigestSignUpdate(m_stream.Context(), data.data(), data.size()) != 1)
     {
-        score::mw::log::LogError() << kLogPrefix << "UpdateSign: EVP_DigestSignUpdate failed for " << m_algorithm;
+        score::mw::log::LogError() << kLogPrefix << "UpdateSign: EVP_DigestSignUpdate failed for " << m_algorithm.name;
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
     return std::monostate{};
@@ -176,7 +173,8 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssSignHandler::ResolveBuffer(
     const auto size = GetSignatureSize();
     if (size == 0U)
     {
-        score::mw::log::LogError() << kLogPrefix << "ResolveBuffer: unsupported signature algorithm " << m_algorithm;
+        score::mw::log::LogError() << kLogPrefix << "ResolveBuffer: unsupported signature algorithm "
+                                   << m_algorithm.name;
         return make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
     }
     if (output.size() < size)
@@ -207,11 +205,7 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssSignHandler::FinalizeSign(sc
             return make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
         EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new(m_stream.Key(), nullptr);
-        const auto digest_name = algo::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
-        const EVP_MD* digest =
-            digest_name.has_value()
-                ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
-                : nullptr;
+        const EVP_MD* digest = ::score::crypto::daemon::provider::openssl::detail::ToEvpMd(m_algorithm.hash);
         const bool configured = pctx != nullptr && EVP_PKEY_sign_init(pctx) == 1 &&
                                 signature::ConfigureRsaPssPkeyContext(pctx, digest, RSA_PSS_SALTLEN_DIGEST) &&
                                 EVP_PKEY_CTX_set_signature_md(pctx, digest) == 1;
@@ -224,7 +218,7 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssSignHandler::FinalizeSign(sc
         }
         else if (prehashed_sign_result != 1)
         {
-            score::mw::log::LogError() << kLogPrefix << "FinalizeSign: EVP_PKEY_sign failed for " << m_algorithm;
+            score::mw::log::LogError() << kLogPrefix << "FinalizeSign: EVP_PKEY_sign failed for " << m_algorithm.name;
         }
         if (pctx != nullptr)
         {
@@ -242,7 +236,8 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssSignHandler::FinalizeSign(sc
     m_buffer.clear();
     if (sign_result != 1)
     {
-        score::mw::log::LogError() << kLogPrefix << "FinalizeSign: OpenSSL finalization failed for " << m_algorithm;
+        score::mw::log::LogError() << kLogPrefix << "FinalizeSign: OpenSSL finalization failed for "
+                                   << m_algorithm.name;
     }
     return sign_result == 1
                ? Expected<std::size_t, DaemonErrorCode>{written}
@@ -282,7 +277,7 @@ Expected<std::size_t, DaemonErrorCode> OpenSslRsaPssSignHandler::SingleShotSign(
     m_state = StreamOperationState::IDLE;
     if (sign_result != 1)
     {
-        score::mw::log::LogError() << kLogPrefix << "SingleShotSign: EVP_DigestSign failed for " << m_algorithm;
+        score::mw::log::LogError() << kLogPrefix << "SingleShotSign: EVP_DigestSign failed for " << m_algorithm.name;
     }
     return sign_result == 1
                ? Expected<std::size_t, DaemonErrorCode>{written}

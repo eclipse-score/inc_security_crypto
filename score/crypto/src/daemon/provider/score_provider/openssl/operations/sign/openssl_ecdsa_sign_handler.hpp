@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_SIGN_OPENSSL_ECDSA_SIGN_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_SIGN_OPENSSL_ECDSA_SIGN_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/score_sign_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/sign_executor.hpp"
@@ -48,7 +49,7 @@ class OpenSslEcdsaSignHandler final
 
     explicit OpenSslEcdsaSignHandler(
         std::unique_ptr<::score::crypto::daemon::provider::score_provider::operations::sign::SignExecutor> executor,
-        const common::AlgorithmId& algorithm);
+        const AlgorithmDescriptor& algorithm);
     ~OpenSslEcdsaSignHandler() override;
 
     OpenSslEcdsaSignHandler(const OpenSslEcdsaSignHandler&) = delete;
@@ -85,7 +86,7 @@ class OpenSslEcdsaSignHandler final
     SingleShotSign(score::cpp::span<const std::uint8_t> data, score::cpp::span<std::uint8_t> signature) override;
 
     /// @brief Check if the given algorithm is supported by this handler.
-    [[nodiscard]] static bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
+    [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
 
   private:
     /// @brief The caller's signature buffer together with the curve it must hold.
