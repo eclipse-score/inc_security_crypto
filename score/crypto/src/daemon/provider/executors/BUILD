@@ -27,6 +27,7 @@ cc_library(
     ],
     deps = [
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider/handler:handler_headers",
     ],

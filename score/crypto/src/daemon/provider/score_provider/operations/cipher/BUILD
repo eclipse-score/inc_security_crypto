@@ -27,6 +27,7 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
         "//score/crypto/src/daemon/provider/handler:handler_headers",
@@ -41,6 +42,7 @@ cc_test(
     deps = [
         ":score_cipher_handler",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
         "@googletest//:gtest_main",
     ],

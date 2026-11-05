@@ -21,7 +21,6 @@
 #include <optional>
 #include <string_view>
 
-#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -62,37 +61,33 @@ struct ContextScopeCapability final
 
 /// @brief Scope prefixes recognized by CTX_CREATE for capability-based provider routing.
 ///
-/// The scope is the case-sensitive substring before the first ':' in the context type.
-/// Context types without a recognized scope add no capability constraint.
+/// The scope is the case-sensitive substring before the first ':' in the context type
+/// (common::context_types::ScopeOf). Context types without a recognized scope add no
+/// capability constraint.
 inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities{{
-    {"CERT", common::ProviderCapability::kCertManagement},
-    {"KEY", common::ProviderCapability::kKeyManagement},
+    {common::context_types::kCertScope, common::ProviderCapability::kCertManagement},
+    {common::context_types::kKeyScope, common::ProviderCapability::kKeyManagement},
 }};
 
-/// @brief Whether a CTX_CREATE context of @p context_type is bound to an algorithm.
-///
-/// A KEY_MANAGEMENT context names no algorithm; each of its requests carries
-/// and resolves its own.
-[[nodiscard]] inline constexpr bool ContextTakesAlgorithm(const std::string_view context_type) noexcept
+/// @brief The provider capability a CTX_CREATE of @p context_type requires.
+/// @return the capability mapped to the type's scope, or kNone if the type is
+///         unscoped or its scope is not in kContextScopeCapabilities.
+[[nodiscard]] inline constexpr common::ProviderCapability RequiredProviderCapability(
+    const std::string_view context_type) noexcept
 {
-    return context_type != common::context_types::kKeyManagement;
-}
-
-/// @brief Resolve the algorithm name of a CTX_CREATE request to its catalog row.
-///
-/// The name is resolved once, here; providers receive the row and never see
-/// the name. A RANDOM context without an algorithm asks for the default
-/// generator, CTR-DRBG.
-/// @return the catalog row, or std::nullopt if the catalog does not know the name.
-[[nodiscard]] inline constexpr std::optional<::score::crypto::AlgorithmDescriptor> ResolveContextAlgorithm(
-    const std::string_view context_type,
-    const std::string_view algorithm) noexcept
-{
-    if ((context_type == common::context_types::kRandom) && algorithm.empty())
+    const auto scope = common::context_types::ScopeOf(context_type);
+    if (scope.empty())
     {
-        return ::score::crypto::GetAlgorithmDescriptor(::score::crypto::Algorithm::kCtrDrbg);
+        return common::ProviderCapability::kNone;
     }
-    return ::score::crypto::GetAlgorithmDescriptor(algorithm);
+    for (const auto& scope_capability : kContextScopeCapabilities)
+    {
+        if (scope == scope_capability.scope)
+        {
+            return scope_capability.capability;
+        }
+    }
+    return common::ProviderCapability::kNone;
 }
 
 /// @brief Daemon-side interpretation of a public ProviderType wire value.

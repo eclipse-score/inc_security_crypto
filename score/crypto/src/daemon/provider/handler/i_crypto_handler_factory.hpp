@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_I_CRYPTO_HANDLER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_I_CRYPTO_HANDLER_FACTORY_HPP
 #include "i_handler.hpp"
-#include "score/crypto/src/api/types/algorithm.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/result/result.h"
 #include <memory>
@@ -61,7 +61,7 @@ class ICryptoHandlerFactory
     /**
      * @brief Create the provider's key management handler.
      *
-     * A KEY_MANAGEMENT context names no algorithm; each key request carries
+     * A KEY:MANAGEMENT context names no algorithm; each key request carries
      * its own, resolved where the request is decoded.
      *
      * @return The created Handler on success, or an error if the provider has

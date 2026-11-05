@@ -13,7 +13,7 @@
 
 #include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
 
-#include "score/crypto/src/api/types/algorithm.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/crypto/src/daemon/common/storage/file_io.hpp"
 #include "score/crypto/src/daemon/key_management/detail/slot_info_builder.hpp"

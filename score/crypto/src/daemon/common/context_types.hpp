@@ -32,13 +32,33 @@ namespace score::crypto::daemon::common
 /// than being spelled out as literals in each of those places.
 namespace context_types
 {
+/// Separates the scope prefix of a scoped context type from its name, e.g.
+/// "KEY:MANAGEMENT". The mediator derives the required provider capability
+/// from the scope (see mediator::operations::RequiredProviderCapability).
+inline constexpr char kScopeSeparator = ':';
+inline constexpr std::string_view kKeyScope = "KEY";
+inline constexpr std::string_view kCertScope = "CERT";
+
 inline constexpr std::string_view kHash = "HASH";
 inline constexpr std::string_view kMac = "MAC";
 inline constexpr std::string_view kCipher = "CIPHER";
 inline constexpr std::string_view kSign = "SIGN";
 inline constexpr std::string_view kVerify = "VERIFY";
 inline constexpr std::string_view kRandom = "RANDOM";
-inline constexpr std::string_view kKeyManagement = "KEY_MANAGEMENT";
+inline constexpr std::string_view kKeyManagement = "KEY:MANAGEMENT";
+inline constexpr std::string_view kCertManagement = "CERT:MANAGEMENT";
+
+/// @brief The scope prefix of @p context_type: the part before the first
+///        kScopeSeparator, or an empty view for an unscoped type such as "HASH".
+[[nodiscard]] inline constexpr std::string_view ScopeOf(const std::string_view context_type) noexcept
+{
+    const auto separator = context_type.find(kScopeSeparator);
+    return (separator == std::string_view::npos) ? std::string_view{} : context_type.substr(0U, separator);
+}
+
+static_assert(ScopeOf(kKeyManagement) == kKeyScope, "kKeyManagement must be in the KEY scope");
+static_assert(ScopeOf(kCertManagement) == kCertScope, "kCertManagement must be in the CERT scope");
+static_assert(ScopeOf(kHash).empty(), "unscoped context types carry no scope");
 }  // namespace context_types
 
 /// @brief The key permission a context of this type consumes for its whole lifetime.
@@ -54,7 +74,7 @@ inline constexpr std::string_view kKeyManagement = "KEY_MANAGEMENT";
 /// @return The required permission, or std::nullopt when the context type
 ///         consumes no key permission:
 ///           - HASH and RANDOM bind no key at all.
-///           - KEY_MANAGEMENT binds no key at CTX_CREATE; its operations carry
+///           - KEY:MANAGEMENT binds no key at CTX_CREATE; its operations carry
 ///             their own key references and are checked individually (kDerive
 ///             for DeriveKey, kWrap for WrapKey, kExport for ExportKey).
 ///         std::nullopt is also the answer for a context type this build does
