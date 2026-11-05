@@ -41,21 +41,21 @@ state "ServerLifecycle\n(one per server)" as SL {
   SL_Stopping -[#orange]-> SL_Stopped : WaitForTermination()\n[MarkStopped]
 
   SL_NotStarted : do / **S1** Start(handler_factory) [Executor]
-  SL_NotStarted : do / **S2** EnableAdmissions() [SessionRegistry]
-  SL_Stopping : entry / **S3** DisableAdmissions(), DrainConnections() [SessionRegistry]
+  SL_NotStarted : do / **S2** StartAcceptConnections() [SessionRegistry]
+  SL_Stopping : entry / **S3** StopAcceptConnections(), DrainConnections() [SessionRegistry]
   SL_Stopping : entry / **S4** Disconnect() for each detached [Session]
   SL_Stopping : do / **S5** WaitForAllConnectionsClosed() [SessionRegistry]
   SL_Stopping : exit / **S6** Shutdown() + Join() [Executor]
 }
 
-state "FixedWorkerWorkItemExecutor\nimplements IWorkItemSubmitter:\nTrySubmitWorkItem() / TrySubmitCleanup()\n(implicit state: started_ / stopping_)" as EX {
+state "FixedWorkerWorkItemExecutor\nimplements IWorkItemSubmitter:\nTrySubmitWorkItem() / TrySubmitCleanup()\n(implicit state: m_started / m_stopping)" as EX {
   state "Not started" as EX_Idle
   state "Running" as EX_Running
   state "Stopping" as EX_Stopping
 
   [*] --> EX_Idle
   EX_Idle -[#blue]-> EX_Running : Start(handler_factory)\n[all workers initialized]
-  EX_Running -[#orange]-> EX_Stopping : Shutdown()\n[stopping_ = true]
+  EX_Running -[#orange]-> EX_Stopping : Shutdown()\n[m_stopping = true]
   EX_Stopping -[#orange]-> EX_Idle : Join()\n[all workers exited]
   EX_Idle -[#blue]-> EX_Idle : Start() failed\n[internal Shutdown + Join]
 
@@ -88,7 +88,7 @@ state "Session\n(one per connection)" as SE {
 
   [*] -[#purple]-> SE_Active : SessionFactory (on connect)
   SE_Active -[#red]-> SE_Draining : Disconnect()
-  SE_Draining -[#red]-> SE_Ready : ClaimCleanupIfReady()\n[work_items_ empty]\nfrom Disconnect() or OnWorkItemCompleted()
+  SE_Draining -[#red]-> SE_Ready : ClaimCleanupIfReady()\n[m_work_items empty]\nfrom Disconnect() or OnWorkItemCompleted()
   SE_Ready -[#red]-> SE_Running : RunCleanup()\n[BeginCleanup, on worker]
   SE_Ready -[#red]-> SE_Finished : ScheduleCleanupJob()\n[no cleanup_callback]
   SE_Ready -[#red]-> SE_Failed : TrySubmitCleanup() failed\nor threw
@@ -121,16 +121,16 @@ state "WorkItem\n(one per request)" as WI {
   WI_CancelReq -[#green]-> WI_Completed : Complete()
   WI_Cancelled -[#green]-> WI_Completed : Complete()\n[kOperationCancelled response]
   WI_Expired -[#green]-> WI_Completed : Complete()\n[kOperationTimedOut response]
-  WI_Completed -[#red]-> [*] : erased from Session::work_items_
+  WI_Completed -[#red]-> [*] : erased from Session::m_work_items
 
   WI_Completed : entry / **R7** / **D4** OnWorkItemCompleted() [Session]
 }
 
 note right of RC
-  admissions_enabled_ flag (not a client state):
-  EnableAdmissions() / DisableAdmissions()
+  m_accept_connections flag (not a client state):
+  StartAcceptConnections() / StopAcceptConnections()
   gate TryRegisterAuthorizedConnection()
-  (kConnectionFailed while disabled).
+  (kConnectionFailed while no connections are accepted).
 end note
 
 note right of EX
@@ -164,8 +164,8 @@ RC -[dashed,#purple]-> SE : **C2** SessionFactory creates Session
 ' Flow R (green): request handling
 ROOT_R -[dashed,#green]-> WI : **R1** WorkItem::Create() [Session must be kActive]\n**R6** Complete() [after Respond(), also on error]
 ROOT_R -[dashed,#green]-> SE : **R2** TryAdmitWorkItem() [only while kActive]\nor RequestCancellationByRequestId() for kCancel\n**R5** Respond(response bytes) [only while kActive]\n[worker thread after R4, or directly on R2 / R3 error]
-ROOT_R -[dashed,#green]-> EX : **R3** TrySubmitWorkItem(session, item, processor)
-EX -[dashed,#green]-> WI : **R4** worker runs processor:\nPrepareForExecution(), processRequest()
+ROOT_R -[dashed,#green]-> EX : **R3** TrySubmitWorkItem(session, item, job)
+EX -[dashed,#green]-> WI : **R4** worker runs job:\nPrepareForExecution(), processRequest()
 SE -[dashed,#green]-> TP : **R5** connection.Notify(response bytes)
 
 ' Flow D (red): disconnect and cleanup
@@ -179,8 +179,8 @@ SE -[dashed,#red]-> RC : **D7** FinishCleanup() calls\nOnCleanupFinished()
 
 ' Flow S (blue): server start / stop
 SL -[dashed,#blue]-> EX : **S1** Start(): executor Start(handler_factory)
-SL -[dashed,#blue]-> RC : **S2** Start(): EnableAdmissions()
-SL -[dashed,#orange]-> RC : **S3** Stop(): DisableAdmissions(), then DrainConnections()\ncalls DetachAllConnections() [every client: kCleanupPending, like D1]\n**S5** WaitForTermination(): WaitForAllConnectionsClosed()\n[blocks until D7 completed for all clients]
+SL -[dashed,#blue]-> RC : **S2** Start(): StartAcceptConnections()
+SL -[dashed,#orange]-> RC : **S3** Stop(): StopAcceptConnections(), then DrainConnections()\ncalls DetachAllConnections() [every client: kCleanupPending, like D1]\n**S5** WaitForTermination(): WaitForAllConnectionsClosed()\n[blocks until D7 completed for all clients]
 SL -[dashed,#orange]-> SE : **S4** DrainConnections() calls Session::Disconnect()\nfor every detached Session, continues as D3 to D7
 SL -[dashed,#orange]-> EX : **S6** WaitForTermination(): Shutdown() + Join()\n[only after S5, so cleanup jobs (D5) can still be submitted]
 

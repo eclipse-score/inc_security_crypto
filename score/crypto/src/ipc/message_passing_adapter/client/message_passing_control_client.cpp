@@ -64,7 +64,7 @@ score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> CreateCon
 MessagePassingControlClient::MessagePassingControlClient(
     std::unique_ptr<score::message_passing::ClientFactory> factory,
     score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection)
-    : factory_{std::move(factory)}, codec_{}, session_{codec_, std::move(connection)}
+    : m_factory{std::move(factory)}, m_codec{}, m_session{m_codec, std::move(connection)}
 {
 }
 
@@ -100,7 +100,7 @@ MessagePassingControlClient::Create(const std::string_view service_identifier) n
             << service_identifier;
         return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
     }
-    const auto callback_result = client->session_.StartCallbacks();
+    const auto callback_result = client->m_session.StartCallbacks();
     if (!callback_result.has_value())
     {
         return make_unexpected(callback_result.error());
@@ -110,13 +110,13 @@ MessagePassingControlClient::Create(const std::string_view service_identifier) n
 
 MessagePassingControlClient::~MessagePassingControlClient() noexcept
 {
-    session_.Shutdown();
+    m_session.Shutdown();
 }
 
 Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode> MessagePassingControlClient::SendRequest(
     protocol::ControlRequest& request) noexcept
 {
-    return session_.SendRequest(request);
+    return m_session.SendRequest(request);
 }
 
 Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode> MessagePassingControlClient::SendRequest(
@@ -124,7 +124,7 @@ Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode> MessagePassi
     const std::chrono::milliseconds timeout,
     const CancellationToken& cancellation) noexcept
 {
-    return session_.SendRequest(request, timeout, cancellation);
+    return m_session.SendRequest(request, timeout, cancellation);
 }
 
 }  // namespace score::crypto::ipc::message_passing

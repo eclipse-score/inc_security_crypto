@@ -36,7 +36,7 @@ std::chrono::milliseconds ClampRequestTimeout(const std::chrono::milliseconds ti
 
 ClientSession::ClientSession(const score::crypto::ipc::protocol::IControlCodec& codec,
                              score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection)
-    : codec_(codec), connection_(std::move(connection))
+    : m_codec(codec), m_connection(std::move(connection))
 {
 }
 
@@ -77,7 +77,7 @@ score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCod
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kOperationTimedOut);
     }
 
-    auto registration_result = pending_call_registry_.Register();
+    auto registration_result = m_pending_call_registry.Register();
     if (!registration_result.has_value())
     {
         return score::crypto::make_unexpected(registration_result.error());
@@ -86,24 +86,24 @@ score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCod
     request.request_id = request_id;
     request.deadline = deadline;
 
-    const auto serialized = codec_.SerializeRequest(request);
+    const auto serialized = m_codec.SerializeRequest(request);
     if (!serialized.has_value())
     {
-        pending_call_registry_.Fail(request_id, call, serialized.error());
+        m_pending_call_registry.Fail(request_id, call, serialized.error());
         return score::crypto::make_unexpected(serialized.error());
     }
 
     const auto bytes = std::move(serialized).value();
     if (bytes.size() > ipc::kMaxPayloadBytes)
     {
-        pending_call_registry_.Fail(request_id, call, score::crypto::CryptoErrorCode::kInvalidArgument);
+        m_pending_call_registry.Fail(request_id, call, score::crypto::CryptoErrorCode::kInvalidArgument);
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
     }
 
     const auto send_result = TransferRequestBytes(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()});
     if (!send_result.has_value())
     {
-        pending_call_registry_.Fail(request_id, call, send_result.error());
+        m_pending_call_registry.Fail(request_id, call, send_result.error());
         return score::crypto::make_unexpected(send_result.error());
     }
 
@@ -127,7 +127,7 @@ score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCod
             << "; waiting for terminal response or request timeout";
     }
 
-    auto response = pending_call_registry_.WaitForResponse(request_id, call, deadline + ipc::kTimeoutGracePeriod);
+    auto response = m_pending_call_registry.WaitForResponse(request_id, call, deadline + ipc::kTimeoutGracePeriod);
     cancellation_registration.DeregisterAndWait();
     return response;
 }
@@ -135,20 +135,20 @@ score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCod
 score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSession::WaitForConnectionReady(
     const std::chrono::steady_clock::time_point deadline) noexcept
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    state_condition_.wait_until(lock, deadline, [this] {
-        return (state_ == LifecycleState::kReady) || (state_ == LifecycleState::kStopping) ||
-               (state_ == LifecycleState::kStopped);
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_state_condition.wait_until(lock, deadline, [this] {
+        return (m_state == LifecycleState::kReady) || (m_state == LifecycleState::kStopping) ||
+               (m_state == LifecycleState::kStopped);
     });
 
-    if (state_ == LifecycleState::kReady)
+    if (m_state == LifecycleState::kReady)
     {
         return {};
     }
 
-    if (state_ == LifecycleState::kStopped || state_ == LifecycleState::kStopping)
+    if (m_state == LifecycleState::kStopped || m_state == LifecycleState::kStopping)
     {
-        auto stop_reason = connection_->GetStopReason();
+        auto stop_reason = m_connection->GetStopReason();
         if (stop_reason == score::message_passing::IClientConnection::StopReason::kPermission)
         {
             score::mw::log::LogError() << "ClientSession::WaitForConnectionReady failed due to access denied.";
@@ -166,14 +166,14 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSe
 score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSession::TransferRequestBytes(
     const score::cpp::span<const std::uint8_t> bytes) noexcept
 {
-    const std::lock_guard<std::mutex> state_lock(mutex_);
-    if (state_ != LifecycleState::kReady)
+    const std::lock_guard<std::mutex> state_lock(m_mutex);
+    if (m_state != LifecycleState::kReady)
     {
         score::mw::log::LogError() << "ClientSession::TransferRequestBytes called while connection is not ready.";
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kConnectionFailed);
     }
 
-    const auto send_result = connection_->Send(bytes);
+    const auto send_result = m_connection->Send(bytes);
     if (!send_result.has_value())
     {
         score::mw::log::LogError() << "ClientSession::TransferRequestBytes failed to send bytes.";
@@ -186,17 +186,17 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSe
 void ClientSession::HandleTransportState(const LifecycleState state) noexcept
 {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        state_ = state;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_state = state;
     }
-    state_condition_.notify_all();
+    m_state_condition.notify_all();
 }
 
 score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSession::StartCallbacks() noexcept
 {
     try
     {
-        connection_->Start(
+        m_connection->Start(
             [this](const score::message_passing::IClientConnection::State state) noexcept {
                 OnTransportStateChanged(state);
             },
@@ -257,36 +257,36 @@ void ClientSession::OnTransportStateChanged(const score::message_passing::IClien
 void ClientSession::OnResponseBytes(const score::cpp::span<const std::uint8_t> message) noexcept
 {
     protocol::ControlResponse response{};
-    const auto deserialize_result = codec_.DeserializeResponse(message, response);
+    const auto deserialize_result = m_codec.DeserializeResponse(message, response);
     if (!deserialize_result.has_value())
     {
         const auto error = deserialize_result.error();
         score::mw::log::LogError() << "[IPC][MESSAGE_PASSING_CLIENT] Dropped malformed response notification (size="
                                    << message.size() << ", error=" << static_cast<int>(error) << ")";
-        pending_call_registry_.FailAllPendingCalls(error);
+        m_pending_call_registry.FailAllPendingCalls(error);
         return;
     }
     const auto request_id = response.request_id;
-    pending_call_registry_.Complete(request_id, std::move(response));
+    m_pending_call_registry.Complete(request_id, std::move(response));
 }
 
 void ClientSession::Shutdown() noexcept
 {
     FailAllPendingCalls(score::crypto::CryptoErrorCode::kConnectionFailed);
-    connection_->Stop();
+    m_connection->Stop();
     WaitForStopped();
 }
 
 void ClientSession::FailAllPendingCalls(const score::crypto::CryptoErrorCode error) noexcept
 {
-    pending_call_registry_.FailAllPendingCalls(error);
+    m_pending_call_registry.FailAllPendingCalls(error);
 }
 
 void ClientSession::WaitForStopped() noexcept
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    state_condition_.wait(lock, [this] {
-        return state_ == LifecycleState::kStopped;
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_state_condition.wait(lock, [this] {
+        return m_state == LifecycleState::kStopped;
     });
 }
 
@@ -297,7 +297,7 @@ bool ClientSession::CreateAndSendCancelRequest(const protocol::RequestId request
     cancellation.kind = protocol::ControlRequestKind::kCancel;
     cancellation.deadline = std::chrono::steady_clock::now() + ipc::kMaximumRequestTimeout;
 
-    const auto serialized = codec_.SerializeRequest(cancellation);
+    const auto serialized = m_codec.SerializeRequest(cancellation);
     if (!serialized.has_value())
     {
         return false;

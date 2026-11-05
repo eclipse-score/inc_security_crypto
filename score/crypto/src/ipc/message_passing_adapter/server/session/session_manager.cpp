@@ -35,9 +35,9 @@ AuthorizationCallback DefaultDenyAuthorization()
 SessionManager::SessionManager(IWorkItemSubmitter& submitter,
                                AuthorizationCallback authorization,
                                DisconnectCleanupCallback cleanup_callback)
-    : submitter_(submitter),
-      authorization_(authorization ? std::move(authorization) : DefaultDenyAuthorization()),
-      cleanup_callback_(std::move(cleanup_callback))
+    : m_submitter(submitter),
+      m_authorization(authorization ? std::move(authorization) : DefaultDenyAuthorization()),
+      m_cleanup_callback(std::move(cleanup_callback))
 {
 }
 
@@ -58,7 +58,7 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
         }
 
         auto registration_result =
-            session_registry_.TryRegisterAuthorizedConnection(connection, identity.uid, CreateSessionFactory());
+            m_session_registry.TryRegisterAuthorizedConnection(connection, identity.uid, CreateSessionFactory());
         if (!registration_result.has_value())
         {
             return score::crypto::make_unexpected(registration_result.error());
@@ -84,7 +84,7 @@ score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> Se
     score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> authorization_result{false};
     try
     {
-        authorization_result = authorization_(uid, gid);
+        authorization_result = m_authorization(uid, gid);
     }
     catch (...)
     {
@@ -112,13 +112,13 @@ SessionRegistry::SessionFactory SessionManager::CreateSessionFactory()
                   const SessionRegistry::ClientId client_id,
                   detail::Session::CleanupFinishedCallback cleanup_finished_callback) {
         return std::make_shared<detail::Session>(
-            connection, client_id, submitter_, cleanup_callback_, std::move(cleanup_finished_callback));
+            connection, client_id, m_submitter, m_cleanup_callback, std::move(cleanup_finished_callback));
     };
 }
 
 void SessionManager::OnDisconnect(score::message_passing::IServerConnection& connection) noexcept
 {
-    auto detached = session_registry_.DetachConnection(connection);
+    auto detached = m_session_registry.DetachConnection(connection);
     if (detached != nullptr)
     {
         detached->Disconnect();
@@ -128,23 +128,23 @@ void SessionManager::OnDisconnect(score::message_passing::IServerConnection& con
 std::shared_ptr<detail::Session> SessionManager::FindSessionForRequest(
     score::message_passing::IServerConnection& connection) const noexcept
 {
-    return session_registry_.FindSessionForRequest(connection);
+    return m_session_registry.FindSessionForRequest(connection);
 }
 
-void SessionManager::EnableAdmissions() noexcept
+void SessionManager::StartAcceptConnections() noexcept
 {
-    session_registry_.EnableAdmissions();
+    m_session_registry.StartAcceptConnections();
 }
 
-void SessionManager::DisableAdmissions() noexcept
+void SessionManager::StopAcceptConnections() noexcept
 {
-    session_registry_.DisableAdmissions();
+    m_session_registry.StopAcceptConnections();
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 SessionManager::DrainConnections() noexcept
 {
-    auto detached_connections = session_registry_.DetachAllConnections();
+    auto detached_connections = m_session_registry.DetachAllConnections();
     if (!detached_connections.has_value())
     {
         return score::crypto::make_unexpected(detached_connections.error());
@@ -162,7 +162,7 @@ SessionManager::DrainConnections() noexcept
 
 void SessionManager::WaitForAllConnectionsClosed() noexcept
 {
-    session_registry_.WaitForAllConnectionsClosed();
+    m_session_registry.WaitForAllConnectionsClosed();
 }
 
 }  // namespace score::crypto::ipc::message_passing

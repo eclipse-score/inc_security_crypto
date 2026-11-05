@@ -68,7 +68,7 @@ Expected<std::monostate, score::crypto::CryptoErrorCode> ControlPlaneConnection:
     try
     {
         auto request_result = daemon::control_plane::protocol::ControlRequestBuilder()
-                                  .forDataNodeId(connection_node_id_)
+                                  .forDataNodeId(m_connection_node_id)
                                   .operation(daemon::control_plane::operations::CloseConnection())
                                   .build();
         if (!request_result.has_value())
@@ -93,13 +93,13 @@ Expected<std::monostate, score::crypto::CryptoErrorCode> ControlPlaneConnection:
 
 ControlPlaneConnection::ControlPlaneConnection(
     std::shared_ptr<score::crypto::ipc::message_passing::MessagePassingControlClient> transport) noexcept
-    : transport_(std::move(transport))
+    : m_transport(std::move(transport))
 {
 }
 
 ControlPlaneConnection::~ControlPlaneConnection()
 {
-    if ((transport_ != nullptr) && (connection_node_id_ != 0U))
+    if ((m_transport != nullptr) && (m_connection_node_id != 0U))
     {
         static_cast<void>(CloseConnection());
     }
@@ -108,24 +108,24 @@ ControlPlaneConnection::~ControlPlaneConnection()
 Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
 ControlPlaneConnection::SendRequest(daemon::control_plane::protocol::ControlRequest& request)
 {
-    return transport_->SendRequest(request);
+    return m_transport->SendRequest(request);
 }
 
 Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
 ControlPlaneConnection::SendRequest(daemon::control_plane::protocol::ControlRequest& request,
                                     const std::chrono::milliseconds timeout)
 {
-    return transport_->SendRequest(request, timeout);
+    return m_transport->SendRequest(request, timeout);
 }
 
 daemon::control_plane::protocol::DataNodeId ControlPlaneConnection::GetConnectionNodeId() const
 {
-    return connection_node_id_;
+    return m_connection_node_id;
 }
 
 Expected<std::monostate, score::crypto::CryptoErrorCode> ControlPlaneConnection::Establish() noexcept
 {
-    if (connection_node_id_ != 0U)
+    if (m_connection_node_id != 0U)
     {
         return {};
     }
@@ -134,7 +134,7 @@ Expected<std::monostate, score::crypto::CryptoErrorCode> ControlPlaneConnection:
     {
         return make_unexpected(result.error());
     }
-    connection_node_id_ = result.value();
+    m_connection_node_id = result.value();
     return {};
 }
 

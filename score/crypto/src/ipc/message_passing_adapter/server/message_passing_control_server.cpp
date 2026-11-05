@@ -103,45 +103,45 @@ MessagePassingControlServer::MessagePassingControlServer(
     std::unique_ptr<daemon::control_plane::IHandlerChainFactory> factory,
     AuthorizationCallback authorization,
     DisconnectCleanupCallback cleanup_callback)
-    : server_factory_(std::make_unique<score::message_passing::ServerFactory>()),
-      handler_chain_factory_(std::move(factory)),
-      work_item_executor_(ipc::kWorkerThreads, ipc::kCleanupQueueCapacity),
-      codec_{},
-      session_manager_(work_item_executor_, std::move(authorization), std::move(cleanup_callback)),
-      work_item_dispatcher_(session_manager_, work_item_executor_, codec_)
+    : m_server_factory(std::make_unique<score::message_passing::ServerFactory>()),
+      m_handler_chain_factory(std::move(factory)),
+      m_work_item_executor(ipc::kWorkerThreads, ipc::kCleanupQueueCapacity),
+      m_codec{},
+      m_session_manager(m_work_item_executor, std::move(authorization), std::move(cleanup_callback)),
+      m_work_item_dispatcher(m_session_manager, m_work_item_executor, m_codec)
 {
 }
 
 MessagePassingControlServer::~MessagePassingControlServer() noexcept
 {
     Stop();
-    work_item_executor_.Shutdown();
-    work_item_executor_.Join();
+    m_work_item_executor.Shutdown();
+    m_work_item_executor.Join();
 }
 
 void MessagePassingControlServer::RollbackStartup() noexcept
 {
-    if (message_server_ != nullptr)
+    if (m_message_server != nullptr)
     {
-        static_cast<void>(message_server_->StopListening());
+        static_cast<void>(m_message_server->StopListening());
     }
-    message_server_.reset();
-    session_manager_.DisableAdmissions();
-    const auto drain_result = session_manager_.DrainConnections();
+    m_message_server.reset();
+    m_session_manager.StopAcceptConnections();
+    const auto drain_result = m_session_manager.DrainConnections();
     if (!drain_result.has_value())
     {
         score::mw::log::LogError()
             << "[MESSAGE_PASSING_SERVER] Failed to drain connections during startup rollback (error="
             << static_cast<int>(drain_result.error()) << ")";
     }
-    work_item_executor_.Shutdown();
-    work_item_executor_.Join();
+    m_work_item_executor.Shutdown();
+    m_work_item_executor.Join();
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
 {
-    auto start_guard = lifecycle_.TryBeginStart();
+    auto start_guard = m_lifecycle.TryBeginStart();
     if (!start_guard.has_value())
     {
         return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kAlreadyInitialized);
@@ -150,8 +150,8 @@ MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
     // Startup spans several resources; exceptions must trigger rollback before returning failure.
     try
     {
-        message_server_ = server_factory_->Create(BuildProtocolConfig(service_identifier), BuildServerConfig());
-        auto startup_failed = message_server_ == nullptr;
+        m_message_server = m_server_factory->Create(BuildProtocolConfig(service_identifier), BuildServerConfig());
+        auto startup_failed = m_message_server == nullptr;
         if (startup_failed)
         {
             startup_error = daemon::common::DaemonErrorCode::kConnectionFailed;
@@ -160,15 +160,15 @@ MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
 
         if (!startup_failed)
         {
-            startup_failed = !work_item_executor_.Start([this] {
-                return handler_chain_factory_->CreateRequestHandler();
+            startup_failed = !m_work_item_executor.Start([this] {
+                return m_handler_chain_factory->CreateRequestHandler();
             });
         }
 
         if (!startup_failed)
         {
-            session_manager_.EnableAdmissions();
-            const auto listening_result = message_server_->StartListening(
+            m_session_manager.StartAcceptConnections();
+            const auto listening_result = m_message_server->StartListening(
                 [this](score::message_passing::IServerConnection& connection) {
                     return OnConnect(connection);
                 },
@@ -194,7 +194,7 @@ MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
 
         if (!startup_failed)
         {
-            lifecycle_.MarkStarted(*start_guard);
+            m_lifecycle.MarkStarted(*start_guard);
             return std::monostate{};
         }
     }
@@ -217,7 +217,7 @@ MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
 score::cpp::expected<score::message_passing::UserData, score::os::Error> MessagePassingControlServer::OnConnect(
     score::message_passing::IServerConnection& connection) noexcept
 {
-    auto result = session_manager_.OnConnect(connection);
+    auto result = m_session_manager.OnConnect(connection);
     if (!result.has_value())
     {
         return score::cpp::make_unexpected(
@@ -229,14 +229,14 @@ score::cpp::expected<score::message_passing::UserData, score::os::Error> Message
 
 void MessagePassingControlServer::OnDisconnect(score::message_passing::IServerConnection& connection) noexcept
 {
-    session_manager_.OnDisconnect(connection);
+    m_session_manager.OnDisconnect(connection);
 }
 
 score::cpp::expected_blank<score::os::Error> MessagePassingControlServer::OnRequest(
     score::message_passing::IServerConnection& connection,
     const score::cpp::span<const std::uint8_t> message) noexcept
 {
-    const auto result = work_item_dispatcher_.OnRequest(connection, message);
+    const auto result = m_work_item_dispatcher.OnRequest(connection, message);
     if (!result.has_value())
     {
         return score::cpp::make_unexpected(
@@ -247,16 +247,16 @@ score::cpp::expected_blank<score::os::Error> MessagePassingControlServer::OnRequ
 
 void MessagePassingControlServer::Stop() noexcept
 {
-    if (!lifecycle_.BeginStopping())
+    if (!m_lifecycle.BeginStopping())
     {
         return;
     }
-    session_manager_.DisableAdmissions();
-    if (message_server_ != nullptr)
+    m_session_manager.StopAcceptConnections();
+    if (m_message_server != nullptr)
     {
-        message_server_->StopListening();
+        m_message_server->StopListening();
     }
-    const auto drain_result = session_manager_.DrainConnections();
+    const auto drain_result = m_session_manager.DrainConnections();
     if (!drain_result.has_value())
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to drain connections during stop (error="
@@ -266,12 +266,12 @@ void MessagePassingControlServer::Stop() noexcept
 
 void MessagePassingControlServer::WaitForTermination() noexcept
 {
-    session_manager_.WaitForAllConnectionsClosed();
-    work_item_executor_.Shutdown();
-    work_item_executor_.Join();
-    session_manager_.DisableAdmissions();
-    message_server_.reset();
-    lifecycle_.MarkStopped();
+    m_session_manager.WaitForAllConnectionsClosed();
+    m_work_item_executor.Shutdown();
+    m_work_item_executor.Join();
+    m_session_manager.StopAcceptConnections();
+    m_message_server.reset();
+    m_lifecycle.MarkStopped();
 }
 
 }  // namespace score::crypto::ipc::message_passing

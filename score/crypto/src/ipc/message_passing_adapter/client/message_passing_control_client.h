@@ -65,9 +65,9 @@ class MessagePassingControlClient final
     MessagePassingControlClient(std::unique_ptr<score::message_passing::ClientFactory> factory,
                                 score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection);
 
-    std::unique_ptr<score::message_passing::ClientFactory> factory_;
-    score::crypto::ipc::protocol::FlatBufferCodec codec_;
-    ClientSession session_;
+    std::unique_ptr<score::message_passing::ClientFactory> m_factory;
+    score::crypto::ipc::protocol::FlatBufferCodec m_codec;
+    ClientSession m_session;
 };
 
 }  // namespace score::crypto::ipc::message_passing

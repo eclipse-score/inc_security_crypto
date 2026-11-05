@@ -54,17 +54,17 @@ score::crypto::daemon::common::DaemonErrorCode MapCodecError(const score::crypto
 bool WorkItem::TryRequestCancellation() noexcept
 {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(m_mutex);
 
-        if (lifecycle_ == WorkItemState::kCancellationRequested || lifecycle_ == WorkItemState::kCancelled)
+        if (m_lifecycle == WorkItemState::kCancellationRequested || m_lifecycle == WorkItemState::kCancelled)
         {
             return true;
         }
-        if (lifecycle_ == WorkItemState::kQueued)
+        if (m_lifecycle == WorkItemState::kQueued)
         {
             return TryTransitionTo(lock, WorkItemState::kCancellationRequested);
         }
-        if (lifecycle_ != WorkItemState::kRunning)
+        if (m_lifecycle != WorkItemState::kRunning)
         {
             return false;
         }
@@ -80,16 +80,16 @@ bool WorkItem::TryRequestCancellation() noexcept
 
 bool WorkItem::IsCancellationRequested() const noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return (lifecycle_ == WorkItemState::kCancellationRequested) || (lifecycle_ == WorkItemState::kCancelled);
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return (m_lifecycle == WorkItemState::kCancellationRequested) || (m_lifecycle == WorkItemState::kCancelled);
 }
 
 void WorkItem::Complete() noexcept
 {
     std::shared_ptr<Session> session;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (lifecycle_ == WorkItemState::kCompleted)
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_lifecycle == WorkItemState::kCompleted)
         {
             return;
         }
@@ -97,7 +97,7 @@ void WorkItem::Complete() noexcept
         {
             return;
         }
-        session = session_.lock();
+        session = m_session.lock();
     }
     if (session != nullptr)
     {
@@ -107,36 +107,36 @@ void WorkItem::Complete() noexcept
 
 WorkItemState WorkItem::PrepareForExecution() noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(m_mutex);
 
-    if ((lifecycle_ == WorkItemState::kCompleted) || (lifecycle_ == WorkItemState::kCancelled) ||
-        (lifecycle_ == WorkItemState::kDeadlineExpired) || (lifecycle_ == WorkItemState::kRunning))
+    if ((m_lifecycle == WorkItemState::kCompleted) || (m_lifecycle == WorkItemState::kCancelled) ||
+        (m_lifecycle == WorkItemState::kDeadlineExpired) || (m_lifecycle == WorkItemState::kRunning))
     {
-        return lifecycle_;
+        return m_lifecycle;
     }
-    if (lifecycle_ == WorkItemState::kCancellationRequested)
+    if (m_lifecycle == WorkItemState::kCancellationRequested)
     {
         static_cast<void>(TryTransitionTo(lock, WorkItemState::kCancelled));
-        return lifecycle_;
+        return m_lifecycle;
     }
     if (std::chrono::steady_clock::now() >= request.deadline)
     {
         static_cast<void>(TryTransitionTo(lock, WorkItemState::kDeadlineExpired));
-        return lifecycle_;
+        return m_lifecycle;
     }
     static_cast<void>(TryTransitionTo(lock, WorkItemState::kRunning));
-    return lifecycle_;
+    return m_lifecycle;
 }
 
 bool WorkItem::TryTransitionTo(std::lock_guard<std::mutex>& lock, const WorkItemState next_state) noexcept
 {
     static_cast<void>(lock);
-    if (lifecycle_ == next_state)
+    if (m_lifecycle == next_state)
     {
         return true;
     }
     bool allowed{false};
-    switch (lifecycle_)
+    switch (m_lifecycle)
     {
         case WorkItemState::kQueued:
             allowed = (next_state == WorkItemState::kRunning) ||
@@ -161,7 +161,7 @@ bool WorkItem::TryTransitionTo(std::lock_guard<std::mutex>& lock, const WorkItem
     {
         return false;
     }
-    lifecycle_ = next_state;
+    m_lifecycle = next_state;
     return true;
 }
 
@@ -215,7 +215,7 @@ score::crypto::Expected<std::shared_ptr<WorkItem>, score::crypto::daemon::common
         auto deadline =
             received_at + std::min(std::chrono::milliseconds{metadata.timeout_ms}, ipc::kMaximumRequestTimeout);
         item->deadline = deadline;
-        item->session_ = session;
+        item->m_session = session;
         item->client_id = session->client_id();
         item->kind = metadata.kind;
         item->request_id = metadata.request_id;

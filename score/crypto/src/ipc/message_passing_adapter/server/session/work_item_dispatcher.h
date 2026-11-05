@@ -77,9 +77,9 @@ class WorkItemDispatcher final
     BuildEnvelopeErrorResponse(const daemon::control_plane::protocol::RequestId request_id,
                                const score::crypto::daemon::common::DaemonErrorCode error) noexcept;
 
-    SessionManager& session_manager_;
-    IWorkItemSubmitter& submitter_;
-    const score::crypto::ipc::protocol::IControlCodec& codec_;
+    SessionManager& m_session_manager;
+    IWorkItemSubmitter& m_submitter;
+    const score::crypto::ipc::protocol::IControlCodec& m_codec;
 };
 
 }  // namespace score::crypto::ipc::message_passing

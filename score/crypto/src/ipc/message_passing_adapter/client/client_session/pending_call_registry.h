@@ -60,9 +60,9 @@ class PendingCallRegistry final
     score::crypto::Expected<daemon::control_plane::protocol::RequestId, score::crypto::CryptoErrorCode>
     GenerateRequestId(const std::lock_guard<std::mutex>& lock);
 
-    std::mutex pending_calls_mutex_{};
-    std::unordered_map<daemon::control_plane::protocol::RequestId, PendingCallHandle> pending_calls_{};
-    std::uint32_t next_request_counter_{1U};
+    std::mutex m_pending_calls_mutex{};
+    std::unordered_map<daemon::control_plane::protocol::RequestId, PendingCallHandle> m_pending_calls{};
+    std::uint32_t m_next_request_counter{1U};
 };
 
 }  // namespace score::crypto::ipc::message_passing

@@ -77,14 +77,14 @@ class ClientSession final : public std::enable_shared_from_this<ClientSession>
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> TransferRequestBytes(
         score::cpp::span<const std::uint8_t> bytes) noexcept;
 
-    mutable std::mutex mutex_{};
-    std::condition_variable state_condition_{};
-    LifecycleState state_{LifecycleState::kStarting};
+    mutable std::mutex m_mutex{};
+    std::condition_variable m_state_condition{};
+    LifecycleState m_state{LifecycleState::kStarting};
 
-    const score::crypto::ipc::protocol::IControlCodec& codec_;
+    const score::crypto::ipc::protocol::IControlCodec& m_codec;
 
-    PendingCallRegistry pending_call_registry_{};
-    score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection_;
+    PendingCallRegistry m_pending_call_registry{};
+    score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> m_connection;
 };
 
 }  // namespace score::crypto::ipc::message_passing

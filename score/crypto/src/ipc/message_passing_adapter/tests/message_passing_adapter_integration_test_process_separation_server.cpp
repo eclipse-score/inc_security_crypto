@@ -48,24 +48,24 @@ class DisconnectCleanupObserver final
     void Record() noexcept
     {
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            cleanup_called_ = true;
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_cleanup_called = true;
         }
-        condition_.notify_one();
+        m_condition.notify_one();
     }
 
     bool WaitForCleanup(const std::chrono::milliseconds timeout)
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        return condition_.wait_for(lock, timeout, [this] {
-            return cleanup_called_;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_condition.wait_for(lock, timeout, [this] {
+            return m_cleanup_called;
         });
     }
 
   private:
-    std::mutex mutex_{};
-    std::condition_variable condition_{};
-    bool cleanup_called_{false};
+    std::mutex m_mutex{};
+    std::condition_variable m_condition{};
+    bool m_cleanup_called{false};
 };
 
 class EchoRequestHandler final : public score::crypto::daemon::control_plane::IRequestHandler

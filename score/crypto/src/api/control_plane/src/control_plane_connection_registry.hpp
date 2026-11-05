@@ -43,9 +43,9 @@ class ControlPlaneConnectionRegistry final
     ControlPlaneConnectionRegistry(ControlPlaneConnectionRegistry&&) = default;
     ControlPlaneConnectionRegistry& operator=(ControlPlaneConnectionRegistry&&) = default;
 
-    std::mutex mutex_;
-    std::unordered_map<std::string, std::weak_ptr<ControlPlaneConnection>> connections_;
-    std::unordered_map<std::string, std::shared_ptr<std::mutex>> establishment_mutexes_;
+    std::mutex m_mutex;
+    std::unordered_map<std::string, std::weak_ptr<ControlPlaneConnection>> m_connections;
+    std::unordered_map<std::string, std::shared_ptr<std::mutex>> m_establishment_mutexes;
 };
 
 }  // namespace score::crypto::api::control_plane

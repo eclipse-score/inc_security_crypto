@@ -52,7 +52,7 @@ DaemonErrorCode MapCodecError(const score::crypto::CryptoErrorCode error) noexce
 WorkItemDispatcher::WorkItemDispatcher(SessionManager& session_manager,
                                        IWorkItemSubmitter& submitter,
                                        const score::crypto::ipc::protocol::IControlCodec& codec) noexcept
-    : session_manager_(session_manager), submitter_(submitter), codec_(codec)
+    : m_session_manager(session_manager), m_submitter(submitter), m_codec(codec)
 {
 }
 
@@ -67,7 +67,7 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::OnR
                                    << ")";
         return score::crypto::make_unexpected(DaemonErrorCode::kInvalidFormat);
     }
-    const auto session = session_manager_.FindSessionForRequest(connection);
+    const auto session = m_session_manager.FindSessionForRequest(connection);
     if (session == nullptr)
     {
         score::mw::log::LogWarn() << "[MESSAGE_PASSING_SERVER] Request received without a registered session (size="
@@ -80,7 +80,7 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::OnR
                                   << message.size() << ")";
         return score::crypto::make_unexpected(DaemonErrorCode::kConnectionFailed);
     }
-    auto request_item_result = WorkItem::Create(message, session, codec_, received_at);
+    auto request_item_result = WorkItem::Create(message, session, m_codec, received_at);
     if (!request_item_result.has_value())
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to create request work item (error="
@@ -119,18 +119,18 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Han
     }
 
     // If accepted, RunAcceptedWorkItem owns the request's terminal response.
-    IWorkItemSubmitter::WorkItemProcessor processor;
+    IWorkItemSubmitter::WorkItemJob job;
     try
     {
-        processor = [this](const WorkItemSubmission& submission,
-                           daemon::control_plane::IRequestHandler& handler,
-                           const score::cpp::stop_token& stop_token) {
+        job = [this](const WorkItemSubmission& submission,
+                     daemon::control_plane::IRequestHandler& handler,
+                     const score::cpp::stop_token& stop_token) {
             return RunAcceptedWorkItem(submission.session, submission.item, handler, stop_token);
         };
     }
     catch (const std::bad_alloc&)
     {
-        score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to allocate work-item processor for request_id="
+        score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to allocate work-item job for request_id="
                                    << item->GetRequestId();
         auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), DaemonErrorCode::kAllocationFailed);
         return RespondAndCompleteWorkItem(session, item, std::move(response));
@@ -138,13 +138,13 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Han
     catch (...)
     {
         score::mw::log::LogError()
-            << "[MESSAGE_PASSING_SERVER] Unexpected failure while creating work-item processor for request_id="
+            << "[MESSAGE_PASSING_SERVER] Unexpected failure while creating work-item job for request_id="
             << item->GetRequestId();
         auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), DaemonErrorCode::kInternalError);
         return RespondAndCompleteWorkItem(session, item, std::move(response));
     }
 
-    const auto submit_result = submitter_.TrySubmitWorkItem(WorkItemSubmission{session, item}, std::move(processor));
+    const auto submit_result = m_submitter.TrySubmitWorkItem(WorkItemSubmission{session, item}, std::move(job));
     if (submit_result.has_value())
     {
         return score::crypto::Expected<std::monostate, DaemonErrorCode>{};
@@ -163,7 +163,7 @@ WorkItemDispatcher::RunAcceptedWorkItem(const std::shared_ptr<detail::Session>& 
     // Handler calls and response construction may throw; finalize the admitted item before reporting failure.
     try
     {
-        const auto deserialize_result = item->DeserializeRequest(codec_);
+        const auto deserialize_result = item->DeserializeRequest(m_codec);
         if (!deserialize_result.has_value())
         {
             const auto error = deserialize_result.error();
@@ -261,7 +261,7 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Res
         return score::crypto::make_unexpected(response.error());
     }
 
-    const auto response_bytes = codec_.SerializeResponse(response.value());
+    const auto response_bytes = m_codec.SerializeResponse(response.value());
     if (!response_bytes.has_value())
     {
         item->Complete();

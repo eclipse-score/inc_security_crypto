@@ -49,8 +49,8 @@ class ServerLifecycle final
     void MarkStopped() noexcept;
 
   private:
-    std::mutex mutex_;
-    State state_{State::kNotStarted};
+    std::mutex m_mutex;
+    State m_state{State::kNotStarted};
 };
 
 }  // namespace score::crypto::ipc::message_passing

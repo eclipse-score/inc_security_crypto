@@ -97,7 +97,7 @@ class Session final : public std::enable_shared_from_this<Session>
     /// @return The client ID of this session.
     daemon::control_plane::protocol::ClientId client_id() const noexcept
     {
-        return client_id_;
+        return m_client_id;
     }
 
   private:
@@ -126,21 +126,21 @@ class Session final : public std::enable_shared_from_this<Session>
     /// @param cleanup_succeeded Indicates whether the cleanup was successful.
     void FinishCleanup(bool cleanup_succeeded) noexcept;
 
-    std::mutex mutex_;
-    SessionState state_{SessionState::kActive};
-    const daemon::control_plane::protocol::ClientId client_id_;
-    score::message_passing::IServerConnection& connection_;
+    std::mutex m_mutex;
+    SessionState m_state{SessionState::kActive};
+    const daemon::control_plane::protocol::ClientId m_client_id;
+    score::message_passing::IServerConnection& m_connection;
     // Workitem of this session, keyed by their unique request IDs.
-    std::unordered_map<daemon::control_plane::protocol::RequestId, std::shared_ptr<WorkItem>> work_items_{};
+    std::unordered_map<daemon::control_plane::protocol::RequestId, std::shared_ptr<WorkItem>> m_work_items{};
 
     // Function to schedule when connection is closed / lost
-    DisconnectCleanupCallback cleanup_callback_;
-    IWorkItemSubmitter& cleanup_submitter_;
+    DisconnectCleanupCallback m_cleanup_callback;
+    IWorkItemSubmitter& m_cleanup_submitter;
 
     // Hint:
     // This shall only be called without the mutex being held, to avoid lock ordering issues.
     // The call is going up to the Registry, which may hold its lock internally.
-    CleanupFinishedCallback cleanup_finished_callback_;
+    CleanupFinishedCallback m_cleanup_finished_callback;
 };
 
 }  // namespace score::crypto::ipc::message_passing::detail

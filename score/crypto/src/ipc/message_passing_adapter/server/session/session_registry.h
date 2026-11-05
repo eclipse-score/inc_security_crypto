@@ -64,8 +64,8 @@ class SessionRegistry final
     std::shared_ptr<detail::Session> FindSessionForRequest(
         score::message_passing::IServerConnection& connection) const noexcept;
 
-    void EnableAdmissions() noexcept;
-    void DisableAdmissions() noexcept;
+    void StartAcceptConnections() noexcept;
+    void StopAcceptConnections() noexcept;
     void WaitForAllConnectionsClosed() noexcept;
 
   private:
@@ -101,14 +101,14 @@ class SessionRegistry final
 
     void OnCleanupFinished(ClientId client_id, bool cleanup_succeeded) noexcept;
 
-    mutable std::mutex mutex_;
-    std::condition_variable disconnect_condition_;
-    std::size_t pending_disconnect_count_{0U};
-    bool admissions_enabled_{true};
-    std::unordered_map<ClientId, ClientState> client_states_{};
-    std::unordered_map<uid_t, std::size_t> reserved_connections_by_uid_{};
-    ConnectionMap connections_{};
-    std::uint32_t next_connection_generation_{1U};
+    mutable std::mutex m_mutex;
+    std::condition_variable m_disconnect_condition;
+    std::size_t m_pending_disconnect_count{0U};
+    bool m_accept_connections{false};
+    std::unordered_map<ClientId, ClientState> m_client_states{};
+    std::unordered_map<uid_t, std::size_t> m_reserved_connections_by_uid{};
+    ConnectionMap m_connections{};
+    std::uint32_t m_next_connection_generation{1U};
 };
 
 }  // namespace score::crypto::ipc::message_passing

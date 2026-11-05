@@ -50,8 +50,8 @@ class SessionManager final
     std::shared_ptr<detail::Session> FindSessionForRequest(
         score::message_passing::IServerConnection& connection) const noexcept;
 
-    void EnableAdmissions() noexcept;
-    void DisableAdmissions() noexcept;
+    void StartAcceptConnections() noexcept;
+    void StopAcceptConnections() noexcept;
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DrainConnections() noexcept;
     void WaitForAllConnectionsClosed() noexcept;
 
@@ -60,10 +60,10 @@ class SessionManager final
                                                                                                         gid_t gid);
     SessionRegistry::SessionFactory CreateSessionFactory();
 
-    IWorkItemSubmitter& submitter_;
-    AuthorizationCallback authorization_;
-    DisconnectCleanupCallback cleanup_callback_;
-    SessionRegistry session_registry_;
+    IWorkItemSubmitter& m_submitter;
+    AuthorizationCallback m_authorization;
+    DisconnectCleanupCallback m_cleanup_callback;
+    SessionRegistry m_session_registry;
 };
 
 }  // namespace score::crypto::ipc::message_passing

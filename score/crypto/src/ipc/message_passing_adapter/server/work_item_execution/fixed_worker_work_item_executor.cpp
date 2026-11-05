@@ -24,7 +24,7 @@ namespace score::crypto::ipc::message_passing
 
 FixedWorkerWorkItemExecutor::FixedWorkerWorkItemExecutor(const std::size_t worker_count,
                                                          const std::size_t cleanup_queue_capacity) noexcept
-    : worker_count_(worker_count), cleanup_queue_capacity_(cleanup_queue_capacity)
+    : m_worker_count(worker_count), m_cleanup_queue_capacity(cleanup_queue_capacity)
 {
 }
 
@@ -53,46 +53,46 @@ bool FixedWorkerWorkItemExecutor::Start(HandlerFactory handler_factory) noexcept
 
 bool FixedWorkerWorkItemExecutor::StartImpl(HandlerFactory handler_factory)
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (started_)
+    std::unique_lock<std::mutex> lock(m_mutex);
+    if (m_started)
     {
         return false;
     }
-    if (worker_count_ == 0U)
+    if (m_worker_count == 0U)
     {
         return false;
     }
-    handler_factory_ = std::move(handler_factory);
-    stopping_ = false;
-    startup_failed_ = false;
-    initialized_worker_count_ = 0U;
-    exited_worker_count_ = 0U;
-    started_ = true;
-    stop_sources_.resize(worker_count_);
-    worker_conditions_.resize(worker_count_);
-    assigned_work_items_.resize(worker_count_);
-    assigned_cleanup_jobs_.resize(worker_count_);
-    worker_busy_.assign(worker_count_, false);
-    workers_.reserve(worker_count_);
+    m_handler_factory = std::move(handler_factory);
+    m_stopping = false;
+    m_startup_failed = false;
+    m_initialized_worker_count = 0U;
+    m_exited_worker_count = 0U;
+    m_started = true;
+    m_stop_sources.resize(m_worker_count);
+    m_worker_conditions.resize(m_worker_count);
+    m_assigned_work_items.resize(m_worker_count);
+    m_assigned_cleanup_jobs.resize(m_worker_count);
+    m_worker_busy.assign(m_worker_count, false);
+    m_workers.reserve(m_worker_count);
     // Thread creation may fail after earlier workers start, so stop and join those workers.
     try
     {
-        for (std::size_t index = 0U; index < worker_count_; ++index)
+        for (std::size_t index = 0U; index < m_worker_count; ++index)
         {
-            workers_.emplace_back([this, index] {
+            m_workers.emplace_back([this, index] {
                 RunWorker(index);
             });
         }
     }
     catch (...)
     {
-        stopping_ = true;
-        for (auto& stop_source : stop_sources_)
+        m_stopping = true;
+        for (auto& stop_source : m_stop_sources)
         {
             stop_source.request_stop();
         }
         lock.unlock();
-        for (auto& worker_condition : worker_conditions_)
+        for (auto& worker_condition : m_worker_conditions)
         {
             worker_condition.notify_all();
         }
@@ -100,18 +100,18 @@ bool FixedWorkerWorkItemExecutor::StartImpl(HandlerFactory handler_factory)
         return false;
     }
 
-    startup_condition_.wait(lock, [this] {
-        return startup_failed_ || (initialized_worker_count_ == worker_count_);
+    m_startup_condition.wait(lock, [this] {
+        return m_startup_failed || (m_initialized_worker_count == m_worker_count);
     });
-    if (startup_failed_)
+    if (m_startup_failed)
     {
-        stopping_ = true;
-        for (auto& stop_source : stop_sources_)
+        m_stopping = true;
+        for (auto& stop_source : m_stop_sources)
         {
             stop_source.request_stop();
         }
         lock.unlock();
-        for (auto& worker_condition : worker_conditions_)
+        for (auto& worker_condition : m_worker_conditions)
         {
             worker_condition.notify_all();
         }
@@ -122,25 +122,25 @@ bool FixedWorkerWorkItemExecutor::StartImpl(HandlerFactory handler_factory)
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-FixedWorkerWorkItemExecutor::TrySubmitWorkItem(WorkItemSubmission submission, WorkItemProcessor processor) noexcept
+FixedWorkerWorkItemExecutor::TrySubmitWorkItem(WorkItemSubmission submission, WorkItemJob job) noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (stopping_ || !started_)
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_stopping || !m_started)
     {
         score::mw::log::LogWarn()
             << "FixedWorkerWorkItemExecutor::TrySubmitWorkItem: Executor unavailable for request_id="
             << submission.item->GetRequestId();
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidState);
     }
-    for (std::size_t index = 0U; index < worker_count_; ++index)
+    for (std::size_t index = 0U; index < m_worker_count; ++index)
     {
-        if (!worker_busy_.at(index))
+        if (!m_worker_busy.at(index))
         {
-            // Moving a user-supplied processor into its worker slot may throw.
+            // Moving a user-supplied job into its worker slot may throw.
             try
             {
-                assigned_work_items_.at(index).submission = std::move(submission);
-                assigned_work_items_.at(index).processor = std::move(processor);
+                m_assigned_work_items.at(index).submission = std::move(submission);
+                m_assigned_work_items.at(index).job = std::move(job);
             }
             catch (const std::bad_alloc&)
             {
@@ -154,8 +154,8 @@ FixedWorkerWorkItemExecutor::TrySubmitWorkItem(WorkItemSubmission submission, Wo
                     << "FixedWorkerWorkItemExecutor::TrySubmitWorkItem: Unexpected assignment failure";
                 return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
             }
-            worker_busy_.at(index) = true;
-            worker_conditions_.at(index).notify_one();
+            m_worker_busy.at(index) = true;
+            m_worker_conditions.at(index).notify_one();
             return {};
         }
     }
@@ -167,19 +167,19 @@ FixedWorkerWorkItemExecutor::TrySubmitWorkItem(WorkItemSubmission submission, Wo
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 FixedWorkerWorkItemExecutor::TrySubmitCleanup(CleanupJob job) noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (stopping_ || !started_)
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_stopping || !m_started)
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidState);
     }
-    for (std::size_t index = 0U; index < worker_count_; ++index)
+    for (std::size_t index = 0U; index < m_worker_count; ++index)
     {
-        if (!worker_busy_.at(index))
+        if (!m_worker_busy.at(index))
         {
             // Moving the cleanup callable into its worker slot may throw.
             try
             {
-                assigned_cleanup_jobs_.at(index) = std::move(job);
+                m_assigned_cleanup_jobs.at(index) = std::move(job);
             }
             catch (const std::bad_alloc&)
             {
@@ -190,19 +190,19 @@ FixedWorkerWorkItemExecutor::TrySubmitCleanup(CleanupJob job) noexcept
             {
                 return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
             }
-            worker_busy_.at(index) = true;
-            worker_conditions_.at(index).notify_one();
+            m_worker_busy.at(index) = true;
+            m_worker_conditions.at(index).notify_one();
             return {};
         }
     }
-    if (cleanup_jobs_.size() >= cleanup_queue_capacity_)
+    if (m_cleanup_jobs.size() >= m_cleanup_queue_capacity)
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kResourceBusy);
     }
     // Growing the cleanup deque can allocate; report exhaustion through the submit result.
     try
     {
-        cleanup_jobs_.push_back(std::move(job));
+        m_cleanup_jobs.push_back(std::move(job));
     }
     catch (const std::bad_alloc&)
     {
@@ -218,18 +218,18 @@ FixedWorkerWorkItemExecutor::TrySubmitCleanup(CleanupJob job) noexcept
 void FixedWorkerWorkItemExecutor::Shutdown() noexcept
 {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (!started_ || stopping_)
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (!m_started || m_stopping)
         {
             return;
         }
-        stopping_ = true;
-        for (auto& stop_source : stop_sources_)
+        m_stopping = true;
+        for (auto& stop_source : m_stop_sources)
         {
             stop_source.request_stop();
         }
     }
-    for (auto& worker_condition : worker_conditions_)
+    for (auto& worker_condition : m_worker_conditions)
     {
         worker_condition.notify_all();
     }
@@ -238,36 +238,36 @@ void FixedWorkerWorkItemExecutor::Shutdown() noexcept
 void FixedWorkerWorkItemExecutor::Join() noexcept
 {
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        worker_exit_condition_.wait(lock, [this] {
-            return exited_worker_count_ == workers_.size();
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_worker_exit_condition.wait(lock, [this] {
+            return m_exited_worker_count == m_workers.size();
         });
     }
-    for (auto& worker : workers_)
+    for (auto& worker : m_workers)
     {
         if (worker.joinable())
         {
             worker.join();
         }
     }
-    workers_.clear();
-    stop_sources_.clear();
-    worker_conditions_.clear();
-    std::lock_guard<std::mutex> lock(mutex_);
-    cleanup_jobs_.clear();
-    assigned_work_items_.clear();
-    assigned_cleanup_jobs_.clear();
-    worker_busy_.clear();
-    exited_worker_count_ = 0U;
-    started_ = false;
-    handler_factory_ = {};
+    m_workers.clear();
+    m_stop_sources.clear();
+    m_worker_conditions.clear();
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_cleanup_jobs.clear();
+    m_assigned_work_items.clear();
+    m_assigned_cleanup_jobs.clear();
+    m_worker_busy.clear();
+    m_exited_worker_count = 0U;
+    m_started = false;
+    m_handler_factory = {};
 }
 
 void FixedWorkerWorkItemExecutor::MarkWorkerExited() noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    ++exited_worker_count_;
-    worker_exit_condition_.notify_all();
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ++m_exited_worker_count;
+    m_worker_exit_condition.notify_all();
 }
 
 void FixedWorkerWorkItemExecutor::RunWorker(const std::size_t worker_index) noexcept
@@ -276,21 +276,21 @@ void FixedWorkerWorkItemExecutor::RunWorker(const std::size_t worker_index) noex
     // The configured handler factory is external code and may throw during worker startup.
     try
     {
-        handler = handler_factory_();
+        handler = m_handler_factory();
     }
     catch (...)
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Request-handler factory threw for worker="
                                    << worker_index;
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            startup_failed_ = true;
-            ++initialized_worker_count_;
-            for (auto& stop_source : stop_sources_)
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_startup_failed = true;
+            ++m_initialized_worker_count;
+            for (auto& stop_source : m_stop_sources)
             {
                 stop_source.request_stop();
             }
-            startup_condition_.notify_all();
+            m_startup_condition.notify_all();
         }
         MarkWorkerExited();
         return;
@@ -300,27 +300,27 @@ void FixedWorkerWorkItemExecutor::RunWorker(const std::size_t worker_index) noex
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Request-handler factory returned null for worker="
                                    << worker_index;
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            startup_failed_ = true;
-            ++initialized_worker_count_;
-            for (auto& stop_source : stop_sources_)
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_startup_failed = true;
+            ++m_initialized_worker_count;
+            for (auto& stop_source : m_stop_sources)
             {
                 stop_source.request_stop();
             }
-            startup_condition_.notify_all();
+            m_startup_condition.notify_all();
         }
         MarkWorkerExited();
         return;
     }
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        ++initialized_worker_count_;
-        startup_condition_.notify_all();
+        std::lock_guard<std::mutex> lock(m_mutex);
+        ++m_initialized_worker_count;
+        m_startup_condition.notify_all();
     }
     // Keep unexpected loop failures from escaping the worker thread and signal its exit to Join().
     try
     {
-        RunWorkerLoop(worker_index, *handler, stop_sources_.at(worker_index).get_token());
+        RunWorkerLoop(worker_index, *handler, m_stop_sources.at(worker_index).get_token());
     }
     catch (...)
     {
@@ -338,20 +338,20 @@ void FixedWorkerWorkItemExecutor::RunWorkerLoop(const std::size_t worker_index,
         AssignedWorkItem work_item;
         CleanupJob cleanup_job;
         {
-            std::unique_lock<std::mutex> lock(mutex_);
-            worker_conditions_.at(worker_index).wait(lock, [this, worker_index] {
-                return stopping_ || assigned_work_items_.at(worker_index).processor ||
-                       assigned_cleanup_jobs_.at(worker_index);
+            std::unique_lock<std::mutex> lock(m_mutex);
+            m_worker_conditions.at(worker_index).wait(lock, [this, worker_index] {
+                return m_stopping || m_assigned_work_items.at(worker_index).job ||
+                       m_assigned_cleanup_jobs.at(worker_index);
             });
-            if (assigned_cleanup_jobs_.at(worker_index))
+            if (m_assigned_cleanup_jobs.at(worker_index))
             {
-                cleanup_job = std::move(assigned_cleanup_jobs_.at(worker_index));
+                cleanup_job = std::move(m_assigned_cleanup_jobs.at(worker_index));
             }
-            else if (assigned_work_items_.at(worker_index).processor)
+            else if (m_assigned_work_items.at(worker_index).job)
             {
-                work_item = std::move(assigned_work_items_.at(worker_index));
+                work_item = std::move(m_assigned_work_items.at(worker_index));
             }
-            else if (stopping_)
+            else if (m_stopping)
             {
                 lock.unlock();
                 MarkWorkerExited();
@@ -384,12 +384,12 @@ void FixedWorkerWorkItemExecutor::ExecuteJob(AssignedWorkItem work_item,
             score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Cleanup job threw an exception";
         }
     }
-    else if (work_item.processor)
+    else if (work_item.job)
     {
-        // The processor type permits throwing callables; contain failures to keep this worker alive.
+        // The job type permits throwing callables; contain failures to keep this worker alive.
         try
         {
-            const auto result = work_item.processor(work_item.submission, handler, stop_token);
+            const auto result = work_item.job(work_item.submission, handler, stop_token);
             if (!result.has_value())
             {
                 score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Work-item job failed for client_id="
@@ -409,14 +409,14 @@ void FixedWorkerWorkItemExecutor::ExecuteJob(AssignedWorkItem work_item,
 
 void FixedWorkerWorkItemExecutor::CompleteWork(const std::size_t worker_index) noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    worker_busy_.at(worker_index) = false;
-    if (!cleanup_jobs_.empty())
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_worker_busy.at(worker_index) = false;
+    if (!m_cleanup_jobs.empty())
     {
-        assigned_cleanup_jobs_.at(worker_index) = std::move(cleanup_jobs_.front());
-        cleanup_jobs_.pop_front();
-        worker_busy_.at(worker_index) = true;
-        worker_conditions_.at(worker_index).notify_one();
+        m_assigned_cleanup_jobs.at(worker_index) = std::move(m_cleanup_jobs.front());
+        m_cleanup_jobs.pop_front();
+        m_worker_busy.at(worker_index) = true;
+        m_worker_conditions.at(worker_index).notify_one();
     }
 }
 

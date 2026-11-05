@@ -84,16 +84,16 @@ class MessagePassingControlServer final : public daemon::control_plane::IControl
                                                            score::cpp::span<const std::uint8_t> message) noexcept;
     void RollbackStartup() noexcept;
 
-    std::unique_ptr<score::message_passing::ServerFactory> server_factory_;
-    score::cpp::pmr::unique_ptr<score::message_passing::IServer> message_server_;
-    std::unique_ptr<daemon::control_plane::IHandlerChainFactory> handler_chain_factory_;
+    std::unique_ptr<score::message_passing::ServerFactory> m_server_factory;
+    score::cpp::pmr::unique_ptr<score::message_passing::IServer> m_message_server;
+    std::unique_ptr<daemon::control_plane::IHandlerChainFactory> m_handler_chain_factory;
 
-    FixedWorkerWorkItemExecutor work_item_executor_;
-    score::crypto::ipc::protocol::FlatBufferCodec codec_;
-    SessionManager session_manager_;
-    WorkItemDispatcher work_item_dispatcher_;
+    FixedWorkerWorkItemExecutor m_work_item_executor;
+    score::crypto::ipc::protocol::FlatBufferCodec m_codec;
+    SessionManager m_session_manager;
+    WorkItemDispatcher m_work_item_dispatcher;
 
-    ServerLifecycle lifecycle_;
+    ServerLifecycle m_lifecycle;
 };
 
 }  // namespace score::crypto::ipc::message_passing

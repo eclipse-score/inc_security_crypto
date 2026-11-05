@@ -77,17 +77,17 @@ package "Message-Passing Adapter Server Side" as ServerSide {
 
     class "WorkItemDispatcher" as Dispatcher
     class "SessionManager" as SessionManager {
-        authorization_ : AuthorizationCallback
-        cleanup_callback_ : DisconnectCleanupCallback
+        m_authorization : AuthorizationCallback
+        m_cleanup_callback : DisconnectCleanupCallback
     }
     class "SessionRegistry" as SessionRegistry {
-        connections_ : map<IServerConnection*, shared_ptr<Session>>
+        m_connections : map<IServerConnection*, shared_ptr<Session>>
     }
     class "Session" as Session {
-        work_items_ : map<RequestId, shared_ptr<WorkItem>>
+        m_work_items : map<RequestId, shared_ptr<WorkItem>>
     }
     class "WorkItem" as WorkItem {
-        session_ : weak_ptr<Session>
+        m_session : weak_ptr<Session>
     }
 
     interface "IWorkItemSubmitter" as IWorkItemSubmitter
@@ -96,14 +96,14 @@ package "Message-Passing Adapter Server Side" as ServerSide {
         item : shared_ptr<WorkItem>
     }
     class "FixedWorkerWorkItemExecutor" as Executor {
-        worker_busy_ : vector<bool>[N]
-        assigned_work_items_ : {WorkItemSubmission, processor}[N]
-        assigned_cleanup_jobs_ : CleanupJob[N]
-        worker_conditions_ : condition_variable[N]
-        stop_sources_ : stop_source[N]
-        cleanup_jobs_ : deque, max kCleanupQueueCapacity
-        handler_factory_ : HandlerFactory
-        mutex_ : one lock for all slots
+        m_worker_busy : vector<bool>[N]
+        m_assigned_work_items : {WorkItemSubmission, job}[N]
+        m_assigned_cleanup_jobs : CleanupJob[N]
+        m_worker_conditions : condition_variable[N]
+        m_stop_sources : stop_source[N]
+        m_cleanup_jobs : deque, max kCleanupQueueCapacity
+        m_handler_factory : HandlerFactory
+        m_mutex : one lock for all slots
         --
         TrySubmitWorkItem() : selects the worker
         TrySubmitCleanup() : selects a worker or queues
@@ -147,15 +147,15 @@ Worker *-- HandlerChain : reused for every request
 
 note left of Executor
     **Worker selection** (TrySubmitWorkItem, on the transport callback thread)
-    1. Lock mutex_.
-    2. Scan worker_busy_ from index 0; take the first idle worker i.
-    3. Move the submission and processor into slot i,
-        set worker_busy_[i] = true, notify worker_conditions_[i].
+    1. Lock m_mutex.
+    2. Scan m_worker_busy from index 0; take the first idle worker i.
+    3. Move the submission and job into slot i,
+        set m_worker_busy[i] = true, notify m_worker_conditions[i].
     4. No idle worker: return kProviderBusy. Operations are never queued;
         WorkItemDispatcher answers the request with an error response.
 
     **Cleanup jobs** use the same first-fit scan, but are queued in
-    cleanup_jobs_ when no worker is idle. A worker that finishes a job
+    m_cleanup_jobs when no worker is idle. A worker that finishes a job
     takes the next queued cleanup job before it becomes idle again.
 end note
 

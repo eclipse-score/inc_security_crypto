@@ -31,8 +31,8 @@ ControlPlaneConnectionRegistry::Result ControlPlaneConnectionRegistry::Establish
     const std::string registry_key{service_identifier};
     std::shared_ptr<std::mutex> establishment_mutex;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto& mutex_entry = establishment_mutexes_[registry_key];
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto& mutex_entry = m_establishment_mutexes[registry_key];
         if (mutex_entry == nullptr)
         {
             mutex_entry = std::make_shared<std::mutex>();
@@ -42,16 +42,16 @@ ControlPlaneConnectionRegistry::Result ControlPlaneConnectionRegistry::Establish
 
     std::lock_guard<std::mutex> establishment_lock(*establishment_mutex);
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        const auto iterator = connections_.find(registry_key);
-        if (iterator != connections_.end())
+        std::lock_guard<std::mutex> lock(m_mutex);
+        const auto iterator = m_connections.find(registry_key);
+        if (iterator != m_connections.end())
         {
             auto connection = iterator->second.lock();
             if (connection != nullptr)
             {
                 return connection;
             }
-            connections_.erase(iterator);
+            m_connections.erase(iterator);
         }
     }
 
@@ -68,8 +68,8 @@ ControlPlaneConnectionRegistry::Result ControlPlaneConnectionRegistry::Establish
         return score::crypto::make_unexpected(establish_result.error());
     }
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        connections_[registry_key] = connection;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_connections[registry_key] = connection;
     }
     return connection;
 }

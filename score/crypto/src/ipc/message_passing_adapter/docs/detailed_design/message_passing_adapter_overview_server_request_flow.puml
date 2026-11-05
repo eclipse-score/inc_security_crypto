@@ -36,7 +36,7 @@ SessionManager -> Registry: FindSessionForRequest(connection)
 Registry --> SessionManager: Session
 SessionManager --> Dispatcher: Session
 Dispatcher -> Session: TryAdmitWorkItem(item)
-Dispatcher -> Executor: Submit(session, item, processor)
+Dispatcher -> Executor: Submit(session, item, job)
 
 ... worker executes accepted operation ...
 

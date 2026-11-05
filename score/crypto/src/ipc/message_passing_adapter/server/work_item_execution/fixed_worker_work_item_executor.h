@@ -48,7 +48,7 @@ class FixedWorkerWorkItemExecutor final : public IWorkItemSubmitter
     bool Start(HandlerFactory handler_factory) noexcept;
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TrySubmitWorkItem(
         WorkItemSubmission submission,
-        WorkItemProcessor processor) noexcept override;
+        WorkItemJob job) noexcept override;
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TrySubmitCleanup(
         CleanupJob job) noexcept override;
     void Shutdown() noexcept;
@@ -63,7 +63,7 @@ class FixedWorkerWorkItemExecutor final : public IWorkItemSubmitter
     struct AssignedWorkItem final
     {
         WorkItemSubmission submission{};
-        WorkItemProcessor processor{};
+        WorkItemJob job{};
     };
     static void ExecuteJob(AssignedWorkItem work_item,
                            CleanupJob cleanup_job,
@@ -72,24 +72,24 @@ class FixedWorkerWorkItemExecutor final : public IWorkItemSubmitter
     void CompleteWork(std::size_t worker_index) noexcept;
     void MarkWorkerExited() noexcept;
 
-    std::size_t worker_count_{0U};
-    std::size_t cleanup_queue_capacity_{0U};
-    std::mutex mutex_{};
-    std::deque<std::condition_variable> worker_conditions_{};
-    std::condition_variable startup_condition_{};
-    std::condition_variable worker_exit_condition_{};
-    std::deque<CleanupJob> cleanup_jobs_{};
-    std::vector<AssignedWorkItem> assigned_work_items_{};
-    std::vector<CleanupJob> assigned_cleanup_jobs_{};
-    std::vector<bool> worker_busy_{};
-    std::vector<std::thread> workers_{};
-    std::vector<score::cpp::stop_source> stop_sources_{};
-    HandlerFactory handler_factory_{};
-    std::size_t initialized_worker_count_{0U};
-    std::size_t exited_worker_count_{0U};
-    bool startup_failed_{false};
-    bool stopping_{false};
-    bool started_{false};
+    std::size_t m_worker_count{0U};
+    std::size_t m_cleanup_queue_capacity{0U};
+    std::mutex m_mutex{};
+    std::deque<std::condition_variable> m_worker_conditions{};
+    std::condition_variable m_startup_condition{};
+    std::condition_variable m_worker_exit_condition{};
+    std::deque<CleanupJob> m_cleanup_jobs{};
+    std::vector<AssignedWorkItem> m_assigned_work_items{};
+    std::vector<CleanupJob> m_assigned_cleanup_jobs{};
+    std::vector<bool> m_worker_busy{};
+    std::vector<std::thread> m_workers{};
+    std::vector<score::cpp::stop_source> m_stop_sources{};
+    HandlerFactory m_handler_factory{};
+    std::size_t m_initialized_worker_count{0U};
+    std::size_t m_exited_worker_count{0U};
+    bool m_startup_failed{false};
+    bool m_stopping{false};
+    bool m_started{false};
 };
 
 }  // namespace score::crypto::ipc::message_passing

@@ -62,27 +62,27 @@ Session::Session(score::message_passing::IServerConnection& connection,
                  IWorkItemSubmitter& cleanup_submitter,
                  DisconnectCleanupCallback cleanup_callback,
                  CleanupFinishedCallback cleanup_finished_callback) noexcept
-    : client_id_(client_id),
-      connection_(connection),
-      cleanup_callback_(std::move(cleanup_callback)),
-      cleanup_submitter_(cleanup_submitter),
-      cleanup_finished_callback_(std::move(cleanup_finished_callback))
+    : m_client_id(client_id),
+      m_connection(connection),
+      m_cleanup_callback(std::move(cleanup_callback)),
+      m_cleanup_submitter(cleanup_submitter),
+      m_cleanup_finished_callback(std::move(cleanup_finished_callback))
 {
 }
 
 score::crypto::Expected<std::shared_ptr<WorkItem>, score::crypto::daemon::common::DaemonErrorCode>
 Session::TryAdmitWorkItem(std::shared_ptr<WorkItem> item) noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (state_ != SessionState::kActive)
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_state != SessionState::kActive)
     {
         score::mw::log::LogWarn() << "Session::TryAdmitWorkItem: Connection is no longer active for client_id="
-                                  << client_id_;
+                                  << m_client_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kConnectionFailed);
     }
-    if (work_items_.size() >= ipc::kMaxOutstandingOperationsPerConnection)
+    if (m_work_items.size() >= ipc::kMaxOutstandingOperationsPerConnection)
     {
-        score::mw::log::LogWarn() << "Session::TryAdmitWorkItem: Capacity reached for client_id=" << client_id_
+        score::mw::log::LogWarn() << "Session::TryAdmitWorkItem: Capacity reached for client_id=" << m_client_id
                                   << ", request_id=" << item->GetRequestId();
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kProviderBusy);
     }
@@ -90,24 +90,24 @@ Session::TryAdmitWorkItem(std::shared_ptr<WorkItem> item) noexcept
     // Work-item admission can allocate a map node; translate allocation and unexpected failures to crypto errors.
     try
     {
-        inserted = work_items_.try_emplace(item->request_id, item).second;
+        inserted = m_work_items.try_emplace(item->request_id, item).second;
     }
     catch (const std::bad_alloc&)
     {
-        score::mw::log::LogError() << "Session::TryAdmitWorkItem: Allocation failed for client_id=" << client_id_
+        score::mw::log::LogError() << "Session::TryAdmitWorkItem: Allocation failed for client_id=" << m_client_id
                                    << ", request_id=" << item->GetRequestId();
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
         score::mw::log::LogError() << "Session::TryAdmitWorkItem: Unexpected insertion failure for client_id="
-                                   << client_id_ << ", request_id=" << item->GetRequestId();
+                                   << m_client_id << ", request_id=" << item->GetRequestId();
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
     if (!inserted)
     {
         score::mw::log::LogWarn() << "Session::TryAdmitWorkItem: Duplicate request_id=" << item->GetRequestId()
-                                  << " for client_id=" << client_id_;
+                                  << " for client_id=" << m_client_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kProviderBusy);
     }
     return item;
@@ -118,9 +118,9 @@ Session::RequestCancellationByRequestId(const daemon::control_plane::protocol::R
 {
     std::shared_ptr<WorkItem> item;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        const auto iterator = work_items_.find(cancel_request_id);
-        if (iterator != work_items_.end())
+        std::lock_guard<std::mutex> lock(m_mutex);
+        const auto iterator = m_work_items.find(cancel_request_id);
+        if (iterator != m_work_items.end())
         {
             item = iterator->second;
         }
@@ -139,8 +139,8 @@ void Session::CancelAllPendingWorkItems() noexcept
     std::array<std::shared_ptr<WorkItem>, ipc::kMaxOutstandingOperationsPerConnection> to_cancel{};
     std::size_t cancellation_count{0U};
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (auto& entry : work_items_)
+        std::lock_guard<std::mutex> lock(m_mutex);
+        for (auto& entry : m_work_items)
         {
             to_cancel[cancellation_count] = entry.second;
             ++cancellation_count;
@@ -157,13 +157,13 @@ void Session::OnWorkItemCompleted(const WorkItem& item) noexcept
 {
     bool cleanup_ready{false};
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        const auto iterator = work_items_.find(item.request_id);
-        if ((iterator == work_items_.end()) || (iterator->second.get() != &item))
+        std::lock_guard<std::mutex> lock(m_mutex);
+        const auto iterator = m_work_items.find(item.request_id);
+        if ((iterator == m_work_items.end()) || (iterator->second.get() != &item))
         {
             return;
         }
-        work_items_.erase(iterator);
+        m_work_items.erase(iterator);
         cleanup_ready = ClaimCleanupIfReady(lock);
     }
     if (cleanup_ready)
@@ -175,17 +175,17 @@ void Session::OnWorkItemCompleted(const WorkItem& item) noexcept
 bool Session::ClaimCleanupIfReady(std::lock_guard<std::mutex>& lock) noexcept
 {
     static_cast<void>(lock);
-    if ((state_ != SessionState::kDrainingWork) || !work_items_.empty())
+    if ((m_state != SessionState::kDrainingWork) || !m_work_items.empty())
     {
         return false;
     }
-    state_ = SessionState::kReadyForCleanup;
+    m_state = SessionState::kReadyForCleanup;
     return true;
 }
 
 void Session::ScheduleCleanupJob() noexcept
 {
-    if (!cleanup_callback_)
+    if (!m_cleanup_callback)
     {
         FinishCleanup(true);
         return;
@@ -196,20 +196,20 @@ void Session::ScheduleCleanupJob() noexcept
         score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>{std::monostate{}};
     try
     {
-        submit_result = cleanup_submitter_.TrySubmitCleanup([session]() noexcept {
+        submit_result = m_cleanup_submitter.TrySubmitCleanup([session]() noexcept {
             return session->RunCleanup();
         });
     }
     catch (...)
     {
-        score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Cleanup submission threw for client_id=" << client_id_;
+        score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Cleanup submission threw for client_id=" << m_client_id;
         FinishCleanup(false);
         return;
     }
     if (!submit_result.has_value())
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to schedule disconnect cleanup for client_id="
-                                   << client_id_ << " (error=" << static_cast<int>(submit_result.error()) << ")";
+                                   << m_client_id << " (error=" << static_cast<int>(submit_result.error()) << ")";
         FinishCleanup(false);
     }
 }
@@ -217,14 +217,14 @@ void Session::ScheduleCleanupJob() noexcept
 void Session::Disconnect() noexcept
 {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (state_ == SessionState::kCleanupFinished || state_ == SessionState::kCleanupFailed)
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_state == SessionState::kCleanupFinished || m_state == SessionState::kCleanupFailed)
         {
             return;
         }
-        if (state_ == SessionState::kActive)
+        if (m_state == SessionState::kActive)
         {
-            state_ = SessionState::kDrainingWork;
+            m_state = SessionState::kDrainingWork;
         }
     }
 
@@ -232,7 +232,7 @@ void Session::Disconnect() noexcept
 
     bool cleanup_ready{false};
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard<std::mutex> lock(m_mutex);
         cleanup_ready = ClaimCleanupIfReady(lock);
     }
 
@@ -255,7 +255,7 @@ IWorkItemSubmitter::JobResult Session::RunCleanup() noexcept
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> cleanup_result;
     try
     {
-        cleanup_result = cleanup_callback_(client_id_);
+        cleanup_result = m_cleanup_callback(m_client_id);
     }
     catch (...)
     {
@@ -264,7 +264,7 @@ IWorkItemSubmitter::JobResult Session::RunCleanup() noexcept
     const bool cleanup_succeeded = cleanup_result.has_value();
     if (!cleanup_succeeded)
     {
-        score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Disconnect cleanup failed for client_id=" << client_id_
+        score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Disconnect cleanup failed for client_id=" << m_client_id
                                    << " (error=" << static_cast<int>(cleanup_result.error()) << ")";
     }
     FinishCleanup(cleanup_succeeded);
@@ -277,49 +277,49 @@ IWorkItemSubmitter::JobResult Session::RunCleanup() noexcept
 
 bool Session::BeginCleanup() noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (state_ != SessionState::kReadyForCleanup)
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_state != SessionState::kReadyForCleanup)
     {
         score::mw::log::LogWarn() << "[MESSAGE_PASSING_SERVER] Cleanup requested in unexpected state for client_id="
-                                  << client_id_ << " (state=" << static_cast<int>(state_) << ")";
+                                  << m_client_id << " (state=" << static_cast<int>(m_state) << ")";
         return false;
     }
-    state_ = SessionState::kCleanupRunning;
+    m_state = SessionState::kCleanupRunning;
     return true;
 }
 
 void Session::FinishCleanup(const bool cleanup_succeeded) noexcept
 {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if ((state_ == SessionState::kReadyForCleanup) || (state_ == SessionState::kCleanupRunning))
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if ((m_state == SessionState::kReadyForCleanup) || (m_state == SessionState::kCleanupRunning))
         {
-            state_ = cleanup_succeeded ? SessionState::kCleanupFinished : SessionState::kCleanupFailed;
+            m_state = cleanup_succeeded ? SessionState::kCleanupFinished : SessionState::kCleanupFailed;
         }
         else
         {
             score::mw::log::LogWarn() << "[MESSAGE_PASSING_SERVER] Cleanup completed in unexpected state for client_id="
-                                      << client_id_ << " (state=" << static_cast<int>(state_) << ")";
+                                      << m_client_id << " (state=" << static_cast<int>(m_state) << ")";
         }
     }
-    if (cleanup_finished_callback_)
+    if (m_cleanup_finished_callback)
     {
         try
         {
-            cleanup_finished_callback_(client_id_, cleanup_succeeded);
+            m_cleanup_finished_callback(m_client_id, cleanup_succeeded);
         }
         catch (...)
         {
             score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Cleanup completion callback threw for client_id="
-                                       << client_id_;
+                                       << m_client_id;
         }
     }
 }
 
 bool Session::IsActive() noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return state_ == SessionState::kActive;
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_state == SessionState::kActive;
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Session::Respond(
@@ -333,12 +333,12 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
     // against concurrent connection teardown -- this mutex, held for the whole call and shared with
     // Disconnect(), is what prevents a worker thread from touching a connection object the transport's
     // dispatch thread is concurrently destroying.
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (state_ != SessionState::kActive)
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_state != SessionState::kActive)
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kConnectionFailed);
     }
-    const auto notify_result = connection_.Notify(bytes);
+    const auto notify_result = m_connection.Notify(bytes);
     if (!notify_result.has_value())
     {
         return score::crypto::make_unexpected(MapTransportError(notify_result.error()));

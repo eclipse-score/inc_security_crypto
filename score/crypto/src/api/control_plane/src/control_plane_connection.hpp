@@ -52,8 +52,8 @@ class ControlPlaneConnection final : public IConnection
     Expected<daemon::control_plane::protocol::DataNodeId, score::crypto::CryptoErrorCode> OpenConnection() noexcept;
     Expected<std::monostate, score::crypto::CryptoErrorCode> CloseConnection() noexcept;
 
-    std::shared_ptr<score::crypto::ipc::message_passing::MessagePassingControlClient> transport_;
-    daemon::control_plane::protocol::DataNodeId connection_node_id_{0U};
+    std::shared_ptr<score::crypto::ipc::message_passing::MessagePassingControlClient> m_transport;
+    daemon::control_plane::protocol::DataNodeId m_connection_node_id{0U};
 };
 
 }  // namespace score::crypto::api::control_plane

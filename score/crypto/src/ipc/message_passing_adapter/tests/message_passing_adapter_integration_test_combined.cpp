@@ -56,31 +56,31 @@ constexpr std::uint64_t kLateResponseGuardPayload{0x0A1B2C3D4E5F6071ULL};
 class RequestConcurrencyGate final
 {
   public:
-    explicit RequestConcurrencyGate(const std::size_t limit) : limit_(limit) {}
+    explicit RequestConcurrencyGate(const std::size_t limit) : m_limit(limit) {}
 
     void Acquire()
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        condition_.wait(lock, [this] {
-            return active_requests_ < limit_;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_condition.wait(lock, [this] {
+            return m_active_requests < m_limit;
         });
-        ++active_requests_;
+        ++m_active_requests;
     }
 
     void Release() noexcept
     {
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            --active_requests_;
+            std::lock_guard<std::mutex> lock(m_mutex);
+            --m_active_requests;
         }
-        condition_.notify_one();
+        m_condition.notify_one();
     }
 
   private:
-    const std::size_t limit_;
-    std::mutex mutex_{};
-    std::condition_variable condition_{};
-    std::size_t active_requests_{0U};
+    const std::size_t m_limit;
+    std::mutex m_mutex{};
+    std::condition_variable m_condition{};
+    std::size_t m_active_requests{0U};
 };
 
 // Helper to block execution of the Server Side request handler
@@ -90,58 +90,58 @@ class HandlerBlocker final
   public:
     void WaitForRelease()
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        entered_ = true;
-        ++entered_count_;
-        condition_.notify_all();
-        condition_.wait(lock, [this] {
-            return released_;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_entered = true;
+        ++m_entered_count;
+        m_condition.notify_all();
+        m_condition.wait(lock, [this] {
+            return m_released;
         });
-        handler_resumed_ = true;
+        m_handler_resumed = true;
         lock.unlock();
-        condition_.notify_all();
+        m_condition.notify_all();
     }
 
     bool WaitUntilEntered(const std::chrono::milliseconds timeout)
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        return condition_.wait_for(lock, timeout, [this] {
-            return entered_;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_condition.wait_for(lock, timeout, [this] {
+            return m_entered;
         });
     }
 
     bool WaitUntilEnteredCount(const std::size_t expected_count, const std::chrono::milliseconds timeout)
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        return condition_.wait_for(lock, timeout, [this, expected_count] {
-            return entered_count_ >= expected_count;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_condition.wait_for(lock, timeout, [this, expected_count] {
+            return m_entered_count >= expected_count;
         });
     }
 
     bool WaitUntilHandlerResumed(const std::chrono::milliseconds timeout)
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        return condition_.wait_for(lock, timeout, [this] {
-            return handler_resumed_;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_condition.wait_for(lock, timeout, [this] {
+            return m_handler_resumed;
         });
     }
 
     void Release() noexcept
     {
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            released_ = true;
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_released = true;
         }
-        condition_.notify_all();
+        m_condition.notify_all();
     }
 
   private:
-    std::mutex mutex_{};
-    std::condition_variable condition_{};
-    bool entered_{false};
-    std::size_t entered_count_{0U};
-    bool released_{false};
-    bool handler_resumed_{false};
+    std::mutex m_mutex{};
+    std::condition_variable m_condition{};
+    bool m_entered{false};
+    std::size_t m_entered_count{0U};
+    bool m_released{false};
+    bool m_handler_resumed{false};
 };
 
 // Helper to observe cleanup events, e.g., to verify resource deallocation
@@ -151,30 +151,30 @@ class CleanupObserver final
     void Record() noexcept
     {
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            ++cleanup_count_;
+            std::lock_guard<std::mutex> lock(m_mutex);
+            ++m_cleanup_count;
         }
-        condition_.notify_all();
+        m_condition.notify_all();
     }
 
     bool WaitForCount(const std::size_t expected_count, const std::chrono::milliseconds timeout)
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        return condition_.wait_for(lock, timeout, [this, expected_count] {
-            return cleanup_count_ >= expected_count;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_condition.wait_for(lock, timeout, [this, expected_count] {
+            return m_cleanup_count >= expected_count;
         });
     }
 
     std::size_t count() const noexcept
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return cleanup_count_;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_cleanup_count;
     }
 
   private:
-    mutable std::mutex mutex_{};
-    std::condition_variable condition_{};
-    std::size_t cleanup_count_{0U};
+    mutable std::mutex m_mutex{};
+    std::condition_variable m_condition{};
+    std::size_t m_cleanup_count{0U};
 };
 
 // Helper to observe cancellation events, e.g., to verify that cancellation is properly propagated
@@ -184,61 +184,61 @@ class CancellationObserver final
     void RecordHandlerEntered() noexcept
     {
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            handler_entered_ = true;
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_handler_entered = true;
         }
-        condition_.notify_all();
+        m_condition.notify_all();
     }
 
     bool WaitForHandlerEntry(const std::chrono::milliseconds timeout)
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        return condition_.wait_for(lock, timeout, [this] {
-            return handler_entered_;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_condition.wait_for(lock, timeout, [this] {
+            return m_handler_entered;
         });
     }
 
     void NotifyCancellation() noexcept
     {
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            cancellation_notified_ = true;
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_cancellation_notified = true;
         }
-        condition_.notify_all();
+        m_condition.notify_all();
     }
 
     bool WaitForCancellation(const daemon::control_plane::CancellationToken& token,
                              const std::chrono::milliseconds timeout)
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        return condition_.wait_for(lock, timeout, [this, &token] {
-            return cancellation_notified_ || token.IsCancellationRequested();
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_condition.wait_for(lock, timeout, [this, &token] {
+            return m_cancellation_notified || token.IsCancellationRequested();
         });
     }
 
     void RecordCancellationObserved() noexcept
     {
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            cancellation_observed_ = true;
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_cancellation_observed = true;
         }
-        condition_.notify_all();
+        m_condition.notify_all();
     }
 
     bool WaitForCancellationObserved(const std::chrono::milliseconds timeout)
     {
-        std::unique_lock<std::mutex> lock(mutex_);
-        return condition_.wait_for(lock, timeout, [this] {
-            return cancellation_observed_;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_condition.wait_for(lock, timeout, [this] {
+            return m_cancellation_observed;
         });
     }
 
   private:
-    std::mutex mutex_{};
-    std::condition_variable condition_{};
-    bool handler_entered_{false};
-    bool cancellation_notified_{false};
-    bool cancellation_observed_{false};
+    std::mutex m_mutex{};
+    std::condition_variable m_condition{};
+    bool m_handler_entered{false};
+    bool m_cancellation_notified{false};
+    bool m_cancellation_observed{false};
 };
 
 class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
@@ -248,10 +248,10 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
                        std::shared_ptr<HandlerBlocker> late_response_blocker,
                        std::shared_ptr<CancellationObserver> cancellation_observer,
                        std::shared_ptr<std::atomic<std::size_t>> handler_invocation_count)
-        : blocker_(std::move(blocker)),
-          late_response_blocker_(std::move(late_response_blocker)),
-          cancellation_observer_(std::move(cancellation_observer)),
-          handler_invocation_count_(std::move(handler_invocation_count))
+        : m_blocker(std::move(blocker)),
+          m_late_response_blocker(std::move(late_response_blocker)),
+          m_cancellation_observer(std::move(cancellation_observer)),
+          m_handler_invocation_count(std::move(handler_invocation_count))
     {
     }
 
@@ -271,7 +271,7 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
     daemon::control_plane::ControlResponse ProcessRequest(daemon::control_plane::ControlRequest& request,
                                                           const daemon::control_plane::CancellationToken& cancellation)
     {
-        handler_invocation_count_->fetch_add(1U, std::memory_order_relaxed);
+        m_handler_invocation_count->fetch_add(1U, std::memory_order_relaxed);
         protocol::ControlResponse response{};
         response.request_id = request.request_id;
         for (const auto& operation : request.operations)
@@ -288,16 +288,16 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
             if (value.value() == kCancellationPayload)
             {
                 auto cancellation_registration =
-                    cancellation.RegisterCallback([observer = cancellation_observer_]() noexcept {
+                    cancellation.RegisterCallback([observer = m_cancellation_observer]() noexcept {
                         observer->NotifyCancellation();
                     });
-                cancellation_observer_->RecordHandlerEntered();
+                m_cancellation_observer->RecordHandlerEntered();
                 const bool cancellation_observed =
-                    cancellation_observer_->WaitForCancellation(cancellation, std::chrono::seconds{5});
+                    m_cancellation_observer->WaitForCancellation(cancellation, std::chrono::seconds{5});
                 cancellation_registration.DeregisterAndWait();
                 if (cancellation_observed)
                 {
-                    cancellation_observer_->RecordCancellationObserved();
+                    m_cancellation_observer->RecordCancellationObserved();
                 }
                 response.operations.push_back(protocol::SingleOperationResponse{
                     operation.operationId,
@@ -309,11 +309,11 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
             }
             if (value.value() == kBlockedPayload)
             {
-                blocker_->WaitForRelease();
+                m_blocker->WaitForRelease();
             }
             if (value.value() == kLateResponseGuardPayload)
             {
-                late_response_blocker_->WaitForRelease();
+                m_late_response_blocker->WaitForRelease();
                 if (cancellation.IsCancellationRequested())
                 {
                     response.operations.push_back(protocol::SingleOperationResponse{
@@ -337,10 +337,10 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
         return response;
     }
 
-    std::shared_ptr<HandlerBlocker> blocker_;
-    std::shared_ptr<HandlerBlocker> late_response_blocker_;
-    std::shared_ptr<CancellationObserver> cancellation_observer_;
-    std::shared_ptr<std::atomic<std::size_t>> handler_invocation_count_;
+    std::shared_ptr<HandlerBlocker> m_blocker;
+    std::shared_ptr<HandlerBlocker> m_late_response_blocker;
+    std::shared_ptr<CancellationObserver> m_cancellation_observer;
+    std::shared_ptr<std::atomic<std::size_t>> m_handler_invocation_count;
 };
 
 class EchoHandlerFactory final : public daemon::control_plane::IHandlerChainFactory
@@ -350,24 +350,24 @@ class EchoHandlerFactory final : public daemon::control_plane::IHandlerChainFact
                        std::shared_ptr<HandlerBlocker> late_response_blocker,
                        std::shared_ptr<CancellationObserver> cancellation_observer,
                        std::shared_ptr<std::atomic<std::size_t>> handler_invocation_count)
-        : blocker_(std::move(blocker)),
-          late_response_blocker_(std::move(late_response_blocker)),
-          cancellation_observer_(std::move(cancellation_observer)),
-          handler_invocation_count_(std::move(handler_invocation_count))
+        : m_blocker(std::move(blocker)),
+          m_late_response_blocker(std::move(late_response_blocker)),
+          m_cancellation_observer(std::move(cancellation_observer)),
+          m_handler_invocation_count(std::move(handler_invocation_count))
     {
     }
 
     std::unique_ptr<daemon::control_plane::IRequestHandler> CreateRequestHandler() override
     {
         return std::make_unique<EchoRequestHandler>(
-            blocker_, late_response_blocker_, cancellation_observer_, handler_invocation_count_);
+            m_blocker, m_late_response_blocker, m_cancellation_observer, m_handler_invocation_count);
     }
 
   private:
-    std::shared_ptr<HandlerBlocker> blocker_;
-    std::shared_ptr<HandlerBlocker> late_response_blocker_;
-    std::shared_ptr<CancellationObserver> cancellation_observer_;
-    std::shared_ptr<std::atomic<std::size_t>> handler_invocation_count_;
+    std::shared_ptr<HandlerBlocker> m_blocker;
+    std::shared_ptr<HandlerBlocker> m_late_response_blocker;
+    std::shared_ptr<CancellationObserver> m_cancellation_observer;
+    std::shared_ptr<std::atomic<std::size_t>> m_handler_invocation_count;
 };
 
 std::string MakeServiceIdentifier()
@@ -383,13 +383,13 @@ class RunningServer final
   public:
     explicit RunningServer(std::shared_ptr<CleanupObserver> cleanup_observer = {},
                            AuthorizationCallback authorization_callback = {})
-        : service_identifier_(MakeServiceIdentifier()),
-          handler_blocker_(std::make_shared<HandlerBlocker>()),
-          late_response_blocker_(std::make_shared<HandlerBlocker>()),
-          cancellation_observer_(std::make_shared<CancellationObserver>()),
-          handler_invocation_count_(std::make_shared<std::atomic<std::size_t>>(0U)),
-          cleanup_observer_(std::move(cleanup_observer)),
-          authorization_callback_(std::move(authorization_callback))
+        : m_service_identifier(MakeServiceIdentifier()),
+          m_handler_blocker(std::make_shared<HandlerBlocker>()),
+          m_late_response_blocker(std::make_shared<HandlerBlocker>()),
+          m_cancellation_observer(std::make_shared<CancellationObserver>()),
+          m_handler_invocation_count(std::make_shared<std::atomic<std::size_t>>(0U)),
+          m_cleanup_observer(std::move(cleanup_observer)),
+          m_authorization_callback(std::move(authorization_callback))
     {
     }
 
@@ -404,50 +404,50 @@ class RunningServer final
     bool Start()
     {
         DisconnectCleanupCallback cleanup_callback{};
-        if (cleanup_observer_ != nullptr)
+        if (m_cleanup_observer != nullptr)
         {
-            cleanup_callback = [observer = cleanup_observer_](const protocol::ClientId) {
+            cleanup_callback = [observer = m_cleanup_observer](const protocol::ClientId) {
                 observer->Record();
                 return score::crypto::Expected<std::monostate, DaemonErrorCode>{std::monostate{}};
             };
         }
 
-        if (!authorization_callback_)
+        if (!m_authorization_callback)
         {
-            authorization_callback_ = [](const auto, const auto) -> score::crypto::Expected<bool, DaemonErrorCode> {
+            m_authorization_callback = [](const auto, const auto) -> score::crypto::Expected<bool, DaemonErrorCode> {
                 return score::crypto::Expected<bool, DaemonErrorCode>{true};
             };
         }
 
         auto created_server = MessagePassingControlServer::Create(
             std::make_unique<EchoHandlerFactory>(
-                handler_blocker_, late_response_blocker_, cancellation_observer_, handler_invocation_count_),
-            authorization_callback_,
+                m_handler_blocker, m_late_response_blocker, m_cancellation_observer, m_handler_invocation_count),
+            m_authorization_callback,
             std::move(cleanup_callback));
         if (!created_server.has_value())
         {
             return false;
         }
-        server_ = std::move(created_server).value();
+        m_server = std::move(created_server).value();
 
         std::promise<bool> startup_promise;
         auto startup_future = startup_promise.get_future();
-        server_thread_ = std::thread([this, startup_promise = std::move(startup_promise)]() mutable {
-            const auto start_result = server_->Start(service_identifier_);
+        m_server_thread = std::thread([this, startup_promise = std::move(startup_promise)]() mutable {
+            const auto start_result = m_server->Start(m_service_identifier);
             startup_promise.set_value(start_result.has_value());
             if (!start_result.has_value())
             {
                 return;
             }
 
-            std::unique_lock<std::mutex> lock(stop_mutex_);
-            stop_condition_.wait(lock, [this] {
-                return stop_requested_;
+            std::unique_lock<std::mutex> lock(m_stop_mutex);
+            m_stop_condition.wait(lock, [this] {
+                return m_stop_requested;
             });
             lock.unlock();
 
-            server_->Stop();
-            server_->WaitForTermination();
+            m_server->Stop();
+            m_server->WaitForTermination();
         });
 
         if (startup_future.wait_for(std::chrono::seconds{5}) != std::future_status::ready)
@@ -460,63 +460,63 @@ class RunningServer final
 
     const std::string& service_identifier() const noexcept
     {
-        return service_identifier_;
+        return m_service_identifier;
     }
 
     HandlerBlocker& handler_blocker() noexcept
     {
-        return *handler_blocker_;
+        return *m_handler_blocker;
     }
 
     HandlerBlocker& late_response_blocker() noexcept
     {
-        return *late_response_blocker_;
+        return *m_late_response_blocker;
     }
 
     CancellationObserver& cancellation_observer() noexcept
     {
-        return *cancellation_observer_;
+        return *m_cancellation_observer;
     }
 
     std::size_t handler_invocation_count() const noexcept
     {
-        return handler_invocation_count_->load(std::memory_order_relaxed);
+        return m_handler_invocation_count->load(std::memory_order_relaxed);
     }
 
     void StopServer() noexcept
     {
-        if (server_ != nullptr)
+        if (m_server != nullptr)
         {
-            server_->Stop();
+            m_server->Stop();
         }
     }
 
     void StopAndJoin() noexcept
     {
         {
-            std::lock_guard<std::mutex> lock(stop_mutex_);
-            stop_requested_ = true;
+            std::lock_guard<std::mutex> lock(m_stop_mutex);
+            m_stop_requested = true;
         }
-        stop_condition_.notify_all();
-        if (server_thread_.joinable())
+        m_stop_condition.notify_all();
+        if (m_server_thread.joinable())
         {
-            server_thread_.join();
+            m_server_thread.join();
         }
     }
 
   private:
-    std::string service_identifier_;
-    std::shared_ptr<HandlerBlocker> handler_blocker_;
-    std::shared_ptr<HandlerBlocker> late_response_blocker_;
-    std::shared_ptr<CancellationObserver> cancellation_observer_;
-    std::shared_ptr<std::atomic<std::size_t>> handler_invocation_count_;
-    std::shared_ptr<CleanupObserver> cleanup_observer_;
-    AuthorizationCallback authorization_callback_;
-    std::unique_ptr<MessagePassingControlServer> server_{};
-    std::mutex stop_mutex_{};
-    std::condition_variable stop_condition_{};
-    bool stop_requested_{false};
-    std::thread server_thread_{};
+    std::string m_service_identifier;
+    std::shared_ptr<HandlerBlocker> m_handler_blocker;
+    std::shared_ptr<HandlerBlocker> m_late_response_blocker;
+    std::shared_ptr<CancellationObserver> m_cancellation_observer;
+    std::shared_ptr<std::atomic<std::size_t>> m_handler_invocation_count;
+    std::shared_ptr<CleanupObserver> m_cleanup_observer;
+    AuthorizationCallback m_authorization_callback;
+    std::unique_ptr<MessagePassingControlServer> m_server{};
+    std::mutex m_stop_mutex{};
+    std::condition_variable m_stop_condition{};
+    bool m_stop_requested{false};
+    std::thread m_server_thread{};
 };
 
 protocol::ControlRequest MakeEchoRequest(const std::uint64_t value)

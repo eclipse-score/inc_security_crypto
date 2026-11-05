@@ -42,14 +42,14 @@ struct WorkItemSubmission final
  * @brief
  * Submission boundary for operation work and disconnect-cleanup jobs.
  * Implementations accept work for asynchronous execution and retain submitted session and item
- * objects until the operation processor completes.
+ * objects until the operation job completes.
  * @endrst
  */
 class IWorkItemSubmitter
 {
   public:
     using JobResult = score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>;
-    using WorkItemProcessor = std::function<
+    using WorkItemJob = std::function<
         JobResult(const WorkItemSubmission&, daemon::control_plane::IRequestHandler&, const score::cpp::stop_token&)>;
     using CleanupJob = std::function<JobResult()>;
 
@@ -63,7 +63,7 @@ class IWorkItemSubmitter
     // An accepted submission keeps both the session and item alive through worker completion.
     virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TrySubmitWorkItem(
         WorkItemSubmission submission,
-        WorkItemProcessor processor) noexcept = 0;
+        WorkItemJob job) noexcept = 0;
     virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TrySubmitCleanup(
         CleanupJob job) noexcept = 0;
 

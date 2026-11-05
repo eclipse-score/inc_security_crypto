@@ -34,8 +34,8 @@ SessionRegistry::TryRegisterAuthorizedConnection(score::message_passing::IServer
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Missing session factory while registering connection";
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!admissions_enabled_)
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_accept_connections)
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kConnectionFailed);
     }
@@ -60,13 +60,13 @@ SessionRegistry::TryRegisterAuthorizedConnection(score::message_passing::IServer
 
 bool SessionRegistry::NewConnectionFitsInTotalCapacity(std::lock_guard<std::mutex>& lock) const noexcept
 {
-    return client_states_.size() < ipc::kMaxTotalConnections;
+    return m_client_states.size() < ipc::kMaxTotalConnections;
 }
 
 bool SessionRegistry::NewConnectionFitsInUidCapacity(std::lock_guard<std::mutex>& lock, const uid_t uid) const noexcept
 {
-    const auto iterator = reserved_connections_by_uid_.find(uid);
-    return (iterator == reserved_connections_by_uid_.end()) || (iterator->second < ipc::kMaxConnectionsPerUid);
+    const auto iterator = m_reserved_connections_by_uid.find(uid);
+    return (iterator == m_reserved_connections_by_uid.end()) || (iterator->second < ipc::kMaxConnectionsPerUid);
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
@@ -113,11 +113,11 @@ SessionRegistry::TryReserveClient(std::lock_guard<std::mutex>& lock,
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
 
-    decltype(connections_)::iterator connection_iterator;
+    decltype(m_connections)::iterator connection_iterator;
     // The connection registry insertion may allocate before the admission gate is committed.
     try
     {
-        const auto insertion = connections_.try_emplace(&connection, session);
+        const auto insertion = m_connections.try_emplace(&connection, session);
         connection_iterator = insertion.first;
         if (!insertion.second)
         {
@@ -141,14 +141,14 @@ SessionRegistry::TryReserveClient(std::lock_guard<std::mutex>& lock,
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
 
-    decltype(client_states_)::iterator client_iterator;
+    decltype(m_client_states)::iterator client_iterator;
     try
     {
         const auto client_result =
-            client_states_.try_emplace(client_id.value(), ClientState{uid, ClientLifecycleState::kConnectionActive});
+            m_client_states.try_emplace(client_id.value(), ClientState{uid, ClientLifecycleState::kConnectionActive});
         if (!client_result.second)
         {
-            connections_.erase(connection_iterator);
+            m_connections.erase(connection_iterator);
             score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Duplicate generated client_id="
                                        << client_id.value();
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
@@ -157,14 +157,14 @@ SessionRegistry::TryReserveClient(std::lock_guard<std::mutex>& lock,
     }
     catch (const std::bad_alloc&)
     {
-        connections_.erase(connection_iterator);
+        m_connections.erase(connection_iterator);
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Allocation failed while reserving client_id="
                                    << client_id.value();
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
-        connections_.erase(connection_iterator);
+        m_connections.erase(connection_iterator);
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Unexpected failure while reserving client_id="
                                    << client_id.value();
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
@@ -172,21 +172,21 @@ SessionRegistry::TryReserveClient(std::lock_guard<std::mutex>& lock,
 
     try
     {
-        const auto uid_result = reserved_connections_by_uid_.try_emplace(uid, 0U);
+        const auto uid_result = m_reserved_connections_by_uid.try_emplace(uid, 0U);
         ++uid_result.first->second;
     }
     catch (const std::bad_alloc&)
     {
-        connections_.erase(connection_iterator);
-        client_states_.erase(client_iterator);
+        m_connections.erase(connection_iterator);
+        m_client_states.erase(client_iterator);
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Allocation failed while reserving UID for client_id="
                                    << client_id.value();
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
-        connections_.erase(connection_iterator);
-        client_states_.erase(client_iterator);
+        m_connections.erase(connection_iterator);
+        m_client_states.erase(client_iterator);
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Unexpected failure while reserving UID for client_id="
                                    << client_id.value();
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
@@ -201,13 +201,13 @@ auto SessionRegistry::GenerateClientId(std::lock_guard<std::mutex>& lock, const 
     -> score::crypto::Expected<ClientId, score::crypto::daemon::common::DaemonErrorCode>
 {
     static_cast<void>(lock);
-    auto candidate_generation = next_connection_generation_;
+    auto candidate_generation = m_next_connection_generation;
     // Since we have at most kMaxTotalConnections, we shall always find a free ID within
     // kMaxTotalConnections attempts.
     for (std::size_t attempt{0U}; attempt <= ipc::kMaxTotalConnections; ++attempt)
     {
         auto candidate_client_id = (static_cast<ClientId>(uid) << 32U) | static_cast<ClientId>(candidate_generation);
-        if (client_states_.find(candidate_client_id) == client_states_.end())
+        if (m_client_states.find(candidate_client_id) == m_client_states.end())
         {
             return candidate_client_id;
         }
@@ -225,19 +225,19 @@ void SessionRegistry::CommitClientId(std::lock_guard<std::mutex>& lock, ClientId
     static_cast<void>(lock);
     // TODO: Improve this
     const auto server_side_id = static_cast<std::uint32_t>(client_id & 0xFFFFFFFFU);
-    next_connection_generation_ = server_side_id + 1U;
-    if (next_connection_generation_ == 0U)
+    m_next_connection_generation = server_side_id + 1U;
+    if (m_next_connection_generation == 0U)
     {
-        next_connection_generation_ = 1U;
+        m_next_connection_generation = 1U;
     }
 }
 
 std::shared_ptr<detail::Session> SessionRegistry::DetachConnection(
     score::message_passing::IServerConnection& connection) noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    const auto iterator = connections_.find(&connection);
-    if (iterator == connections_.end())
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const auto iterator = m_connections.find(&connection);
+    if (iterator == m_connections.end())
     {
         return {};
     }
@@ -249,11 +249,11 @@ std::shared_ptr<detail::Session> SessionRegistry::DetachConnection(
     const ConnectionMap::iterator connection_iterator) noexcept
 {
     auto session = std::move(connection_iterator->second);
-    connections_.erase(connection_iterator);
-    ++pending_disconnect_count_;
+    m_connections.erase(connection_iterator);
+    ++m_pending_disconnect_count;
 
-    const auto iterator = client_states_.find(session->client_id());
-    if ((iterator == client_states_.end()) || (iterator->second.lifecycle != ClientLifecycleState::kConnectionActive))
+    const auto iterator = m_client_states.find(session->client_id());
+    if ((iterator == m_client_states.end()) || (iterator->second.lifecycle != ClientLifecycleState::kConnectionActive))
     {
         score::mw::log::LogWarn() << "DetachConnection: Admission reservation was not active for client_id="
                                   << session->client_id();
@@ -267,21 +267,21 @@ std::shared_ptr<detail::Session> SessionRegistry::DetachConnection(
 std::shared_ptr<detail::Session> SessionRegistry::FindSessionForRequest(
     score::message_passing::IServerConnection& connection) const noexcept
 {
-    const std::lock_guard<std::mutex> lock(mutex_);
-    const auto iterator = connections_.find(&connection);
-    return iterator == connections_.end() ? nullptr : iterator->second;
+    const std::lock_guard<std::mutex> lock(m_mutex);
+    const auto iterator = m_connections.find(&connection);
+    return iterator == m_connections.end() ? nullptr : iterator->second;
 }
 
-void SessionRegistry::EnableAdmissions() noexcept
+void SessionRegistry::StartAcceptConnections() noexcept
 {
-    const std::lock_guard<std::mutex> lock(mutex_);
-    admissions_enabled_ = true;
+    const std::lock_guard<std::mutex> lock(m_mutex);
+    m_accept_connections = true;
 }
 
-void SessionRegistry::DisableAdmissions() noexcept
+void SessionRegistry::StopAcceptConnections() noexcept
 {
-    const std::lock_guard<std::mutex> lock(mutex_);
-    admissions_enabled_ = false;
+    const std::lock_guard<std::mutex> lock(m_mutex);
+    m_accept_connections = false;
 }
 
 score::crypto::Expected<std::vector<std::shared_ptr<detail::Session>>, score::crypto::daemon::common::DaemonErrorCode>
@@ -289,13 +289,13 @@ SessionRegistry::DetachAllConnections() noexcept
 {
     std::vector<std::shared_ptr<detail::Session>> result;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        admissions_enabled_ = false;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_accept_connections = false;
 
         // Reserve the full snapshot before mutation so allocation failure leaves the registry intact.
         try
         {
-            result.reserve(connections_.size());
+            result.reserve(m_connections.size());
         }
         catch (const std::bad_alloc&)
         {
@@ -306,9 +306,9 @@ SessionRegistry::DetachAllConnections() noexcept
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
         }
 
-        while (!connections_.empty())
+        while (!m_connections.empty())
         {
-            result.push_back(DetachConnection(lock, connections_.begin()));
+            result.push_back(DetachConnection(lock, m_connections.begin()));
         }
     }
     return result;
@@ -316,9 +316,9 @@ SessionRegistry::DetachAllConnections() noexcept
 
 void SessionRegistry::WaitForAllConnectionsClosed() noexcept
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    disconnect_condition_.wait(lock, [this] {
-        return pending_disconnect_count_ == 0U;
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_disconnect_condition.wait(lock, [this] {
+        return m_pending_disconnect_count == 0U;
     });
 }
 
@@ -326,10 +326,11 @@ void SessionRegistry::OnCleanupFinished(const ClientId client_id, const bool cle
 {
     bool completed{false};
     {
-        const std::lock_guard<std::mutex> lock(mutex_);
+        const std::lock_guard<std::mutex> lock(m_mutex);
 
-        const auto iterator = client_states_.find(client_id);
-        if ((iterator == client_states_.end()) || (iterator->second.lifecycle != ClientLifecycleState::kCleanupPending))
+        const auto iterator = m_client_states.find(client_id);
+        if ((iterator == m_client_states.end()) ||
+            (iterator->second.lifecycle != ClientLifecycleState::kCleanupPending))
         {
             return;
         }
@@ -339,32 +340,32 @@ void SessionRegistry::OnCleanupFinished(const ClientId client_id, const bool cle
         }
         else
         {
-            const auto uid_reservation = reserved_connections_by_uid_.find(iterator->second.uid);
-            if ((uid_reservation == reserved_connections_by_uid_.end()) || (uid_reservation->second == 0U))
+            const auto uid_reservation = m_reserved_connections_by_uid.find(iterator->second.uid);
+            if ((uid_reservation == m_reserved_connections_by_uid.end()) || (uid_reservation->second == 0U))
             {
                 score::mw::log::LogError() << "Cleanup completion found no UID reservation for client_id=" << client_id;
                 iterator->second.lifecycle = ClientLifecycleState::kConnectionQuarantined;
             }
             else
             {
-                client_states_.erase(iterator);
+                m_client_states.erase(iterator);
                 --uid_reservation->second;
                 if (uid_reservation->second == 0U)
                 {
-                    reserved_connections_by_uid_.erase(uid_reservation);
+                    m_reserved_connections_by_uid.erase(uid_reservation);
                 }
             }
         }
 
-        if (pending_disconnect_count_ > 0U)
+        if (m_pending_disconnect_count > 0U)
         {
-            --pending_disconnect_count_;
+            --m_pending_disconnect_count;
         }
         completed = true;
     }
     if (completed)
     {
-        disconnect_condition_.notify_all();
+        m_disconnect_condition.notify_all();
     }
 }
 

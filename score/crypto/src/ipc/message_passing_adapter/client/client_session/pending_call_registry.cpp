@@ -32,8 +32,8 @@ PendingCallRegistry::Register() noexcept
 {
     using RequestId = daemon::control_plane::protocol::RequestId;
 
-    std::lock_guard<std::mutex> lock(pending_calls_mutex_);
-    if (pending_calls_.size() >= ipc::kMaxOutstandingOperationsPerConnection)
+    std::lock_guard<std::mutex> lock(m_pending_calls_mutex);
+    if (m_pending_calls.size() >= ipc::kMaxOutstandingOperationsPerConnection)
     {
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kProviderBusy);
     }
@@ -64,7 +64,7 @@ PendingCallRegistry::Register() noexcept
     try
     {
         const auto request_id = request_id_result.value();
-        const auto inserted = pending_calls_.emplace(request_id, call).second;
+        const auto inserted = m_pending_calls.emplace(request_id, call).second;
         if (!inserted)
         {
             score::mw::log::LogError() << "[IPC][MESSAGE_PASSING_CLIENT] Duplicate pending request_id=" << request_id;
@@ -94,13 +94,13 @@ PendingCallRegistry::GenerateRequestId(const std::lock_guard<std::mutex>& lock)
     const auto process_prefix = process_id << 32U;
     for (std::uint32_t attempt{0U}; attempt < ipc::kMaxOutstandingOperationsPerConnection; ++attempt)
     {
-        const auto sequence = next_request_counter_++;
-        if (next_request_counter_ == 0U)
+        const auto sequence = m_next_request_counter++;
+        if (m_next_request_counter == 0U)
         {
-            next_request_counter_ = 1U;
+            m_next_request_counter = 1U;
         }
         const auto request_id = process_prefix | sequence;
-        if ((request_id != 0U) && (pending_calls_.find(request_id) == pending_calls_.end()))
+        if ((request_id != 0U) && (m_pending_calls.find(request_id) == m_pending_calls.end()))
         {
             return request_id;
         }
@@ -112,9 +112,9 @@ PendingCallRegistry::GenerateRequestId(const std::lock_guard<std::mutex>& lock)
 void PendingCallRegistry::Complete(const daemon::control_plane::protocol::RequestId request_id,
                                    daemon::control_plane::protocol::ControlResponse response) noexcept
 {
-    std::lock_guard<std::mutex> lock(pending_calls_mutex_);
-    const auto iterator = pending_calls_.find(request_id);
-    if (iterator == pending_calls_.end())
+    std::lock_guard<std::mutex> lock(m_pending_calls_mutex);
+    const auto iterator = m_pending_calls.find(request_id);
+    if (iterator == m_pending_calls.end())
     {
         score::mw::log::LogWarn() << "[IPC][MESSAGE_PASSING_CLIENT] Dropped late terminal notification for request_id="
                                   << request_id;
@@ -122,16 +122,16 @@ void PendingCallRegistry::Complete(const daemon::control_plane::protocol::Reques
     }
 
     iterator->second->Complete(std::move(response));
-    pending_calls_.erase(iterator);
+    m_pending_calls.erase(iterator);
 }
 
 void PendingCallRegistry::Fail(const daemon::control_plane::protocol::RequestId request_id,
                                const PendingCallHandle& expected_call,
                                const score::crypto::CryptoErrorCode error) noexcept
 {
-    std::lock_guard<std::mutex> lock(pending_calls_mutex_);
-    const auto iterator = pending_calls_.find(request_id);
-    if (iterator == pending_calls_.end())
+    std::lock_guard<std::mutex> lock(m_pending_calls_mutex);
+    const auto iterator = m_pending_calls.find(request_id);
+    if (iterator == m_pending_calls.end())
     {
         score::mw::log::LogWarn() << "[IPC][MESSAGE_PASSING_CLIENT] Pending call was already removed for request_id="
                                   << request_id;
@@ -144,7 +144,7 @@ void PendingCallRegistry::Fail(const daemon::control_plane::protocol::RequestId 
         return;
     }
     iterator->second->Fail(error);
-    pending_calls_.erase(iterator);
+    m_pending_calls.erase(iterator);
 }
 
 score::crypto::Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
@@ -173,11 +173,11 @@ PendingCallRegistry::WaitForResponse(const daemon::control_plane::protocol::Requ
 
 void PendingCallRegistry::FailAllPendingCalls(const score::crypto::CryptoErrorCode error) noexcept
 {
-    std::lock_guard<std::mutex> lock(pending_calls_mutex_);
-    for (auto iterator = pending_calls_.begin(); iterator != pending_calls_.end();)
+    std::lock_guard<std::mutex> lock(m_pending_calls_mutex);
+    for (auto iterator = m_pending_calls.begin(); iterator != m_pending_calls.end();)
     {
         static_cast<void>(iterator->second->Fail(error));
-        iterator = pending_calls_.erase(iterator);
+        iterator = m_pending_calls.erase(iterator);
     }
 }
 

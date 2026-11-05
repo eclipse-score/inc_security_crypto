@@ -92,9 +92,9 @@ struct WorkItem final
     friend class Session;
     bool TryTransitionTo(std::lock_guard<std::mutex>& lock, WorkItemState next_state) noexcept;
 
-    mutable std::mutex mutex_{};
-    std::weak_ptr<Session> session_{};
-    WorkItemState lifecycle_{WorkItemState::kQueued};
+    mutable std::mutex m_mutex{};
+    std::weak_ptr<Session> m_session{};
+    WorkItemState m_lifecycle{WorkItemState::kQueued};
     // Owns the backing storage for all string and buffer views in request.
     std::vector<std::uint8_t> serialized_request{};
     protocol::ControlRequest request{};

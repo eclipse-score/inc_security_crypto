@@ -24,8 +24,8 @@ namespace score::crypto::ipc::message_passing
 score::crypto::Expected<ServerLifecycle::StartGuard, score::crypto::daemon::common::DaemonErrorCode>
 ServerLifecycle::TryBeginStart() noexcept
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    if ((state_ != State::kNotStarted) && (state_ != State::kStopped))
+    std::unique_lock<std::mutex> lock(m_mutex);
+    if ((m_state != State::kNotStarted) && (m_state != State::kStopped))
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidState);
     }
@@ -34,30 +34,30 @@ ServerLifecycle::TryBeginStart() noexcept
 
 void ServerLifecycle::MarkStarted(StartGuard& lock) noexcept
 {
-    if (!lock.owns_lock() || (lock.mutex() != &mutex_))
+    if (!lock.owns_lock() || (lock.mutex() != &m_mutex))
     {
         return;
     }
-    state_ = State::kRunning;
+    m_state = State::kRunning;
     lock.unlock();
 }
 
 bool ServerLifecycle::BeginStopping() noexcept
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (state_ != State::kRunning)
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_state != State::kRunning)
     {
         return false;
     }
-    state_ = State::kStopping;
+    m_state = State::kStopping;
     return true;
 }
 
 void ServerLifecycle::MarkStopped() noexcept
 {
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        state_ = State::kStopped;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_state = State::kStopped;
     }
 }
 
