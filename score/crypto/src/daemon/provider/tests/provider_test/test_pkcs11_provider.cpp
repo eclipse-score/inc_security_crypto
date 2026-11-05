@@ -478,27 +478,20 @@ TEST(Pkcs11HashExecutorErrorTest, RejectsUnexpectedHashParametersBeforeCallingTo
     EXPECT_EQ(GetDigestFinalStubState().call_count, 0U);
 }
 
-/// @brief Test fixture that initialises a SoftHSM token before each test.
+/// @brief Test fixture that initialises a PKCS#11 token before each test.
 ///
-/// The fixture mirrors the token-setup pattern from the existing SoftHSM block
-/// cipher tests: it creates a temporary token directory, writes a minimal
-/// softhsm2.conf, initialises the token, and sets the user PIN.  The
+/// The fixture sets up a temporary token directory for both SoftHSM and Rust Cryptoki,
+/// initialises the token with a vendor-neutral label, and sets the user PIN. The
 /// Pkcs11Provider is then constructed and initialised on top of that token.
 class Pkcs11ProviderHashTest : public ::testing::Test
 {
   protected:
     void SetUp() override
     {
-        // TODO: Check if we can use SetupTestSuite for the SoftHSM environment setup, since it is shared across all
-        // tests in this suite. If we do that, we can avoid repeating the setup for each test and potentially speed up
-        // the test execution. However, we need to ensure that the token state is properly isolated between tests, which
-        // may require additional cleanup logic in TearDownTestSuite.
-        //  -- SoftHSM environment setup ----------------------------------------
         const char* tmpDir = std::getenv("TEST_TMPDIR");
         const std::string baseDir = (tmpDir != nullptr) ? tmpDir : "/tmp";
 
         // Create a unique token directory for each test to avoid state conflicts.
-        // Use a random number to generate a unique directory for each test instance.
         static unsigned int testCounter = 0;
         const std::string testId = std::to_string(++testCounter);
         const std::string tokenDir = baseDir + "/softhsm_pkcs11_tokens_" + testId;
@@ -516,6 +509,14 @@ class Pkcs11ProviderHashTest : public ::testing::Test
         // NOLINTNEXTLINE(concurrency-mt-unsafe) -- test-only
         setenv("SOFTHSM2_CONF", configPath.c_str(), 1);
 
+        // -- Rust Cryptoki environment setup ---------------------------------
+        const std::string cryptokiTokenDir = baseDir + "/cryptoki_tokens_" + testId;
+        const std::string cryptokiStorePath = cryptokiTokenDir + "/token.json";
+        system(("rm -rf " + cryptokiTokenDir).c_str());
+        system(("mkdir -p " + cryptokiTokenDir).c_str());
+        // NOLINTNEXTLINE(concurrency-mt-unsafe) -- test-only
+        setenv("CRYPTOKI_STORE", cryptokiStorePath.c_str(), 1);
+
         // -- Raw PKCS#11 bootstrap to create a token with a user PIN ----------
         CK_FUNCTION_LIST_PTR fl{nullptr};
         CK_RV rv = C_GetFunctionList(&fl);
@@ -527,7 +528,6 @@ class Pkcs11ProviderHashTest : public ::testing::Test
         // CKR_OK is fine too (first test or fresh process).
         ASSERT_TRUE((rv == CKR_OK) || (rv == CKR_CRYPTOKI_ALREADY_INITIALIZED));
 
-#ifndef USE_RUST_PKCS11
         // Get first available slot (without token).
         CK_ULONG slotCount{0U};
         rv = fl->C_GetSlotList(CK_FALSE, nullptr, &slotCount);
@@ -539,8 +539,8 @@ class Pkcs11ProviderHashTest : public ::testing::Test
         ASSERT_EQ(rv, CKR_OK);
         slotId_ = slots[0];
 
-        // Init token (label must be padded to 32 chars for SoftHSM).
-        std::string label = "SoftHSM";
+        // Init token (label must be padded to 32 chars per PKCS#11 standard).
+        std::string label = "TestToken";
         label.resize(32U, ' ');
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- PKCS#11 C API
         auto* labelPtr = reinterpret_cast<CK_UTF8CHAR_PTR>(label.data());
@@ -568,7 +568,6 @@ class Pkcs11ProviderHashTest : public ::testing::Test
         ASSERT_EQ(rv, CKR_OK);
         rv = fl->C_CloseSession(tmpSession);
         ASSERT_EQ(rv, CKR_OK);
-#endif  // USE_RUST_PKCS11
 
         // NOTE: Do NOT call C_Finalize here — the provider manages module lifecycle.
         // The provider's Pkcs11Module will finalize when it's destroyed.
@@ -577,9 +576,9 @@ class Pkcs11ProviderHashTest : public ::testing::Test
         pkcs11::Pkcs11ProviderConfig cfg{};
         // Use kSlotIdAutoDetect — Initialize() resolves slot via FindSlotByToken.
         // cfg.slotId is kSlotIdAutoDetect by default.
-        cfg.tokenLabel = "SoftHSM";
+        cfg.tokenLabel = "TestToken";
         cfg.userPin = "1234";
-        cfg.providerName = "SOFTHSM";  // SOFTHSM provider name
+        cfg.providerName = "PKCS11_TEST";
         // Override session limits to allow concurrent handler creation.
         // SoftHSM may report very small limits; we ensure at least 32 sessions available.
         cfg.maxRoSessionsOverride = 32U;
@@ -588,7 +587,7 @@ class Pkcs11ProviderHashTest : public ::testing::Test
         // sessionType removed: session type is now per-handler via kRequirements
 
         provider_ = std::make_shared<pkcs11::Pkcs11Provider>(std::move(cfg));
-        provider::ProviderInitContext ctx{1, "SOFTHSM"};  // ID 1, name "SOFTHSM"
+        provider::ProviderInitContext ctx{1, "PKCS11_TEST"};
         ASSERT_TRUE(provider_->Initialize(ctx));
     }
 
@@ -606,6 +605,8 @@ class Pkcs11ProviderHashTest : public ::testing::Test
             provider_->Shutdown();
             provider_.reset();
         }
+        unsetenv("SOFTHSM2_CONF");
+        unsetenv("CRYPTOKI_STORE");
     }
 
     CK_SLOT_ID slotId_{0U};
