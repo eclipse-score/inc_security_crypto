@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/context_mode.hpp"
 #include "score/crypto/src/daemon/common/context_types.hpp"
@@ -316,7 +317,7 @@ score::crypto::Expected<MediatorImpl::ProviderHandlerSelection, score::crypto::C
 MediatorImpl::ResolveProviderAndCreateHandler(const std::uint64_t client_id,
                                               const std::optional<data_manager::DataNodeId>& key_node_id,
                                               const std::string_view context_type,
-                                              const std::string_view algorithm,
+                                              const std::optional<AlgorithmDescriptor>& algorithm,
                                               const common::CryptoProviderType primary_provider_type,
                                               const std::optional<common::CryptoProviderType>& fallback_provider_type,
                                               const common::ProviderCapability required_capability)
@@ -400,7 +401,9 @@ MediatorImpl::ResolveProviderAndCreateHandler(const std::uint64_t client_id,
             continue;
         }
 
-        auto create_result = crypto_ops->CreateHandler(std::string(context_type), std::string(algorithm));
+        auto create_result = algorithm.has_value()
+                                 ? crypto_ops->CreateHandler(std::string(context_type), algorithm.value())
+                                 : crypto_ops->CreateKeyManagementHandler();
         if (create_result.has_value())
         {
             return ProviderHandlerSelection{
@@ -522,11 +525,27 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         }
     }
 
+    // Resolve the algorithm name once, before any provider is asked; a name
+    // the catalog does not know is refused here. std::nullopt is passed on for
+    // a KEY_MANAGEMENT context, which is bound to no algorithm.
+    std::optional<AlgorithmDescriptor> algorithm_descriptor{};
+    if (operations::ContextTakesAlgorithm(context_type))
+    {
+        algorithm_descriptor = operations::ResolveContextAlgorithm(context_type, algorithm);
+        if (!algorithm_descriptor.has_value())
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Unknown algorithm: " << algorithm;
+            responseBuilder.operation(operation.operationId)
+                .return_error(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm);
+            return false;
+        }
+    }
+
     const auto provider_handler = ResolveProviderAndCreateHandler(
         request.client_id,
         has_key_binding ? std::optional<data_manager::DataNodeId>{key_node_id} : std::nullopt,
         context_type,
-        algorithm,
+        algorithm_descriptor,
         provider_preference.primary,
         provider_preference.fallback,
         required_capability);

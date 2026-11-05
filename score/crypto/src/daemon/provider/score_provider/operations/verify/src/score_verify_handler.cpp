@@ -25,7 +25,7 @@ using common::DaemonErrorCode;
 using common::ResponseParameters;
 using common::StreamOperationState;
 
-ScoreVerifyHandler::ScoreVerifyHandler(std::unique_ptr<VerifyExecutor> executor, const common::AlgorithmId& algorithm)
+ScoreVerifyHandler::ScoreVerifyHandler(std::unique_ptr<VerifyExecutor> executor, const AlgorithmDescriptor& algorithm)
     : m_algorithm{algorithm}, m_state{StreamOperationState::IDLE}, m_executor{std::move(executor)}
 {
 }
@@ -58,9 +58,7 @@ Expected<std::monostate, DaemonErrorCode> ScoreVerifyHandler::Reset()
 
 std::size_t ScoreVerifyHandler::GetSignatureSize() const noexcept
 {
-    const auto curve = ::score::crypto::daemon::common::LookupEcCurveOfAlgorithm(
-        std::string_view{m_algorithm.data(), m_algorithm.size()});
-    return curve.has_value() ? curve->signature_size : 0U;
+    return 2U * ::score::crypto::daemon::common::EcFieldSize(m_algorithm);
 }
 
 Expected<std::monostate, DaemonErrorCode> ScoreVerifyHandler::InitVerify()

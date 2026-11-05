@@ -39,7 +39,7 @@ Pkcs11HandlerFactory::Pkcs11HandlerFactory(const Pkcs11Module& module, Pkcs11Pro
 }
 
 score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHandler(const common::HandlerId& handlerId,
-                                                                          const common::AlgorithmId& algorithm)
+                                                                          const AlgorithmDescriptor& algorithm)
 {
     if (handlerId == common::context_types::kHash)
     {
@@ -51,11 +51,6 @@ score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHandler(const 
         return CreateMacHandler(algorithm);
     }
 
-    if (handlerId == common::context_types::kKeyManagement)
-    {
-        return CreateKeyManagementHandler();
-    }
-
     const score::result::Error error(
         static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedOperation),
         score::crypto::kCryptoErrorDomain,
@@ -63,25 +58,25 @@ score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHandler(const 
     return score::Result<handler::Handler::Sptr>(score::unexpect, error);
 }
 
-score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHashHandler(const common::AlgorithmId& algorithm)
+score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHashHandler(const AlgorithmDescriptor& algorithm)
 {
     if (!Pkcs11HashHandler::IsAlgorithmSupported(algorithm))
     {
         const score::result::Error error(
             static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
             score::crypto::kCryptoErrorDomain,
-            "Algorithm not supported for PKCS#11 hash handler: " + algorithm);
+            "Algorithm not supported for PKCS#11 hash handler: " + std::string{algorithm.name});
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
     }
 
-    const auto mechanism = detail::LookupHashMechanism(std::string_view{algorithm.data(), algorithm.size()});
+    const auto mechanism = detail::LookupHashMechanism(algorithm);
     const auto mechanism_support = m_provider.SupportsMechanism(mechanism, CKF_DIGEST);
     if (!mechanism_support.has_value())
     {
         const auto error_code = score::crypto::daemon::common::ToCryptoErrorCode(mechanism_support.error());
         const score::result::Error error(static_cast<score::result::ErrorCode>(error_code),
                                          score::crypto::kCryptoErrorDomain,
-                                         "Failed to query PKCS#11 hash mechanism: " + algorithm);
+                                         "Failed to query PKCS#11 hash mechanism: " + std::string{algorithm.name});
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
     }
     if (!mechanism_support.value())
@@ -89,11 +84,11 @@ score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHashHandler(co
         const score::result::Error error(
             static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
             score::crypto::kCryptoErrorDomain,
-            "Selected PKCS#11 token does not support hash mechanism: " + algorithm);
+            "Selected PKCS#11 token does not support hash mechanism: " + std::string{algorithm.name});
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
     }
 
-    score::mw::log::LogDebug() << "[PKCS11_HANDLER_FACTORY] Creating HASH handler for algorithm:" << algorithm;
+    score::mw::log::LogDebug() << "[PKCS11_HANDLER_FACTORY] Creating HASH handler for algorithm:" << algorithm.name;
 
     Pkcs11SessionGuard guard(m_provider, Pkcs11HashHandler::kRequirements);
     if (!guard)
@@ -111,25 +106,25 @@ score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHashHandler(co
     return handler;
 }
 
-score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateMacHandler(const common::AlgorithmId& algorithm)
+score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateMacHandler(const AlgorithmDescriptor& algorithm)
 {
     if (!Pkcs11MacHandler::IsAlgorithmSupported(algorithm))
     {
         const score::result::Error error(
             static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
             score::crypto::kCryptoErrorDomain,
-            "Algorithm not supported for PKCS#11 MAC handler: " + algorithm);
+            "Algorithm not supported for PKCS#11 MAC handler: " + std::string{algorithm.name});
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
     }
 
-    const auto mechanism = detail::LookupMacMechanism(std::string_view{algorithm.data(), algorithm.size()});
+    const auto mechanism = detail::LookupMacMechanism(algorithm);
     const auto mechanism_support = m_provider.SupportsMechanism(mechanism, CKF_SIGN | CKF_VERIFY);
     if (!mechanism_support.has_value())
     {
         const auto error_code = score::crypto::daemon::common::ToCryptoErrorCode(mechanism_support.error());
         const score::result::Error error(static_cast<score::result::ErrorCode>(error_code),
                                          score::crypto::kCryptoErrorDomain,
-                                         "Failed to query PKCS#11 MAC mechanism: " + algorithm);
+                                         "Failed to query PKCS#11 MAC mechanism: " + std::string{algorithm.name});
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
     }
     if (!mechanism_support.value())
@@ -137,7 +132,7 @@ score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateMacHandler(con
         const score::result::Error error(
             static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
             score::crypto::kCryptoErrorDomain,
-            "Selected PKCS#11 token does not support MAC mechanism: " + algorithm);
+            "Selected PKCS#11 token does not support MAC mechanism: " + std::string{algorithm.name});
         return score::Result<handler::Handler::Sptr>(score::unexpect, error);
     }
 
