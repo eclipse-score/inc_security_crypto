@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/api/types/algorithm.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 
 #include <gtest/gtest.h>
 

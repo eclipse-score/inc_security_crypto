@@ -20,7 +20,7 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 
-#include "score/crypto/src/api/types/algorithm.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cipher/openssl_cipher_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/hash/openssl_hash_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"

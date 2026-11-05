@@ -60,7 +60,7 @@
 #include <string_view>
 
 // Provider interfaces
-#include "score/crypto/src/api/types/algorithm.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 

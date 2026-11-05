@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_API_TYPES_ALGORITHM_HPP
-#define SCORE_CRYPTO_SRC_API_TYPES_ALGORITHM_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_CATALOG_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_CATALOG_HPP
 
 #include <cstddef>
 #include <cstdint>
@@ -81,6 +81,10 @@ enum class CipherMode : std::uint8_t
 /// strings. FromAlgorithmName() turns such a string into this enumerator by
 /// exact match, so code that needs the properties of an algorithm reads them
 /// from the catalog instead of searching the string for fragments.
+///
+/// The catalog is internal to the daemon. Clients only name algorithms, and the
+/// daemon alone decides which names it knows, so adding a row does not require
+/// rebuilding any client.
 enum class Algorithm : std::uint16_t
 {
     kUnknown = 0,
@@ -607,4 +611,4 @@ inline constexpr AlgorithmDescriptor kAlgorithmCatalog[] = {
 
 }  // namespace score::crypto
 
-#endif  // SCORE_CRYPTO_SRC_API_TYPES_ALGORITHM_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_ALGORITHM_CATALOG_HPP

@@ -84,7 +84,7 @@ class IKeySlotObject;
 /// @code
 ///   auto slot = ctx->ResolveResource("MyMacKey", ResourceType::kKeySlot);
 ///   MacContextConfig config;
-///   config.SetAlgorithm("HMAC-SHA-256");
+///   config.SetAlgorithm("HMAC-SHA256");
 ///   config.SetKeySlot(slot.value());
 ///   auto mac_ctx = ctx->CreateMacContext(config);
 ///   // Context internally loads key material from the key slot; releases on destruction.
