@@ -28,7 +28,7 @@ cc_test(
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_library",
         "//score/tests/utility",
-        "//third_party/openssl:openssl_shared",
+        "@score_openssl//:openssl",
         "@googletest//:gtest",
     ],
 )

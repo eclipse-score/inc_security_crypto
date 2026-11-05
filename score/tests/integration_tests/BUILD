@@ -17,6 +17,13 @@ load("//score/tests/bazel:integration.bzl", "integration_test")
 cc_binary(
     name = "init_pkcs11_token",
     srcs = ["init_pkcs11_token.cpp"],
+    dynamic_deps = select({
+        "@score_openssl//:dynamic_openssl_enabled": [
+            "@score_openssl//:openssl_shared",
+            "//score/crypto/src/backend:pkcs11_shared_backend",
+        ],
+        "//conditions:default": [],
+    }),
     target_compatible_with = select({
         "//score/crypto/src/backend:pkcs11_backend_enabled": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -273,9 +280,13 @@ integration_test(
     libraries = [
         "//score/crypto/src/api/control_plane",
         "//third_party/grpc:libgrpc_shared",
-        "//third_party/openssl:openssl_so",
         "//third_party/soft_hsm:softhsm_so",
-    ],
+    ] + select({
+        "@score_openssl//:dynamic_openssl_enabled": [
+            "@score_openssl//:openssl_shared",
+        ],
+        "//conditions:default": [],
+    }),
     deps = [
         "//score/tests:common_fixtures",
         "//score/tests/utility/process_runner",

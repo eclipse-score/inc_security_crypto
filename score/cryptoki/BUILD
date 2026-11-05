@@ -25,6 +25,7 @@ filegroup(
 DEPS = [
     # --- Company Approved (Score Ecosystem) ---
     "@score_crates//:libc",
+    "@score_crates//:openssl",
     "@score_crates//:serde",
     "@score_crates//:serde_json",
     "@score_baselibs//score/log_rust/score_log",
@@ -39,8 +40,6 @@ DEPS = [
     "@crates//:tempfile",
     "@crates//:toml",
     "@crates//:zeroize",
-    "@crates//:openssl",
-    "//third_party/openssl:openssl_shared",
 ]
 
 # Shared C/C++ linker flags required by score_log_bridge

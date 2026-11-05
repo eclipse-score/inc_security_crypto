@@ -88,7 +88,7 @@ via a `label_flag`:
 # backend/BUILD
 label_flag(
     name = "pkcs11_backend",
-    build_setting_default = "//third_party/soft_hsm:softhsm_shared",
+    build_setting_default = "//third_party/soft_hsm:soft_hsm",
 )
 ```
 
@@ -101,6 +101,38 @@ bazel build //score/crypto/src/daemon:crypto_daemon \
 
 Config parsing (`Pkcs11Config::ParseConfig`) lives in `backend/pkcs11/` and is
 independent of the selected library.
+
+## Static vs. Dynamic Linking Behavior
+
+By default (per S-CORE DR-002), all cryptographic backends and dependencies are linked **statically** into the binaries:
+- OpenSSL static archives (`libcrypto.a`, `libssl.a`) are linked directly into the binary.
+- SoftHSM compiles as a static archive (`libsofthsm2-static.a`) and is linked statically into `crypto_daemon`.
+
+### How to Test Statically (Default)
+
+```bash
+bazel test //score/...
+```
+
+### How to Test Dynamically (Opt-In)
+
+Dynamic shared library linking (`.so`) across OpenSSL and SoftHSM can be enabled via:
+
+```bash
+bazel test //score/... --@score_openssl//:use_dynamic_openssl=true
+```
+
+When this flag is active:
+1. `@score_openssl//:openssl_shared` builds and exposes `libopenssl.so`.
+2. `//third_party/soft_hsm:softhsm_shared` builds `libsofthsm2.so` via `cc_shared_library` with `dynamic_deps` referencing `openssl_shared`.
+3. `crypto_daemon` activates `dynamic_deps` for both `openssl_shared` and `softhsm_shared`, resolving both libraries at runtime.
+
+### Current Behavior & Transitive Dependency Invariants
+
+Currently, the dynamic build of SoftHSM (PKCS#11 backend) is coupled to `--@score_openssl//:use_dynamic_openssl=true`. 
+
+* **Transitive Dependency Rule:** If a PKCS#11 backend (SoftHSM or Cryptoki) is dynamically linked, OpenSSL **must also be dynamically linked**. Otherwise, `crypto_daemon` would link static OpenSSL code directly while SoftHSM/Cryptoki dynamically loads another instance of OpenSSL, leading to duplicate static symbols and runtime memory collision.
+* **Follow-Up Scope:** In an upcoming story, this coupling will be decoupled so that dynamic OpenSSL does not automatically force SoftHSM to be dynamic.
 
 ## Requirements for the PKCS#11 Library
 

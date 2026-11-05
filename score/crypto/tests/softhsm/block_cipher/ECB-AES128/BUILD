@@ -22,7 +22,7 @@ cc_test(
     linkstatic = True,
     deps = [
         "//score/tests/utility",
-        "//third_party/soft_hsm:softhsm_shared",
+        "//third_party/soft_hsm:soft_hsm",
         "@googletest//:gtest",
     ],
 )

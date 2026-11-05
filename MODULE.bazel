@@ -29,7 +29,14 @@ python.toolchain(
 )
 
 # Foreign CC rules for building projects with external build systems (make, cmake, etc.)
-bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
+bazel_dep(name = "rules_foreign_cc", version = "0.16.0")
+
+# rules_foreign_cc's cmake rule does not know the QNX target OS (CMAKE_SYSTEM_NAME "QNX")
+single_version_override(
+    module_name = "rules_foreign_cc",
+    patch_strip = 1,
+    patches = ["//third_party/soft_hsm:rules_foreign_cc_qnx.patch"],
+)
 
 # HTTP archive rule for downloading and extracting source code from the web
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -154,6 +161,11 @@ use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
 bazel_dep(name = "score_toolchains_rust", version = "0.10.0", dev_dependency = True)
 
 bazel_dep(name = "score_crates", version = "0.0.13")
+git_override(
+    module_name = "score_crates",
+    commit = "218c0f1c3a801df16176b8a90d729e880a124066",
+    remote = "https://github.com/Valeo-S-CORE-Organization/score-crates.git",
+)
 
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", isolate = True)
 crate.from_cargo(
@@ -166,13 +178,6 @@ crate.from_cargo(
         "aarch64-unknown-nto-qnx710",
         "x86_64-pc-nto-qnx710",
     ],
-)
-crate.annotation(
-    crate = "openssl-sys",
-    patch_args = ["-p1"],
-    patches = ["@@//third_party/patches:openssl_sys_build_rs.patch"],
-    rustc_flags = ["--cap-lints=allow"],
-    deps = ["@@//third_party/openssl:openssl_shared"],
 )
 use_repo(crate, "crates")
 
@@ -270,20 +275,11 @@ bazel_dep(name = "flatbuffers", version = "25.12.19")
 # OpenSSL
 # *******************************************************************************
 
-http_archive(
-    name = "openssl_source",
-    build_file_content = """
-filegroup(
-    name = "all",
-    srcs = glob(["**"]),
-    visibility = ["//visibility:public"],
-)
-""",
-    patch_args = ["-p1"],
-    patches = ["//third_party/openssl:openssl_qnx_target.patch"],
-    sha256 = "b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e",
-    strip_prefix = "openssl-3.6.1",
-    urls = ["https://www.openssl.org/source/openssl-3.6.1.tar.gz"],
+bazel_dep(name = "score_openssl", version = "0.1.0")
+git_override(
+    module_name = "score_openssl",
+    commit = "8079eaad28900ee3a0ac62eefd8d77921b85a3dd",
+    remote = "https://github.com/Valeo-S-CORE-Organization/openssl.git",
 )
 
 # *******************************************************************************
@@ -333,6 +329,11 @@ bazel_dep(name = "score_platform", version = "0.7.4")
 
 # score baselibs
 bazel_dep(name = "score_baselibs", version = "0.2.16")
+git_override(
+    module_name = "score_baselibs",
+    commit = "262ab1b5bfb07e7ddec7ced70c10164704762441",
+    remote = "https://github.com/Valeo-S-CORE-Organization/baselibs.git",
+)
 
 # score communication
 bazel_dep(name = "score_communication", version = "0.6.0")
