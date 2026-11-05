@@ -606,5 +606,9 @@
   {
     "version": "pr-381",
     "url": "https://eclipse-score.github.io/inc_security_crypto/pr-381/"
+  },
+  {
+    "version": "pr-382",
+    "url": "https://eclipse-score.github.io/inc_security_crypto/pr-382/"
   }
 ]
