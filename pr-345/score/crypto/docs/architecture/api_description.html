@@ -907,7 +907,7 @@ allocated on permission violation.</p>
 <p><strong>Key/algorithm fit:</strong></p>
 <p>After the permission check, the daemon compares the key’s algorithm with
 the context algorithm, using the algorithm catalog
-(<code class="docutils literal notranslate"><span class="pre">score/crypto/src/api/types/algorithm.hpp</span></code>):</p>
+(<code class="docutils literal notranslate"><span class="pre">score/crypto/src/daemon/common/algorithm_catalog.hpp</span></code>):</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>ECDSA-&lt;curve&gt;-&lt;hash&gt;     → EC key on the same curve (any hash)
 RSA-PSS-&lt;bits&gt;-&lt;hash&gt;    → RSA key with a &lt;bits&gt; modulus (RSA-&lt;bits&gt;)
 Ed25519                  → Ed25519 key
@@ -921,8 +921,8 @@ HMAC-&lt;hash&gt;              → any symmetric key (AES or generic secret)
 keyed operation, so no key fits them. A key that does not fit returns
 <code class="docutils literal notranslate"><span class="pre">CryptoErrorCode::kIncompatibleKeyType</span></code> and the context is not created. A
 context algorithm that the catalog does not know never gets this far: it is
-refused with <code class="docutils literal notranslate"><span class="pre">CryptoErrorCode::kUnsupportedAlgorithm</span></code> (see
-<a class="reference internal" href="#algorithm-selection">Algorithm Selection</a>).</p>
+refused with <code class="docutils literal notranslate"><span class="pre">CryptoErrorCode::kUnsupportedAlgorithm</span></code> (see “Algorithm
+Catalog Alongside <code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code>” in <a class="reference internal" href="design_decisions.html#crypto-design-decisions"><span class="std std-ref">Design Decisions</span></a>).</p>
 <p><strong>Querying permissions:</strong></p>
 <p>Permissions can be queried at runtime via:</p>
 <ul class="simple">
@@ -977,33 +977,6 @@ automatically.</p></li>
 (source-compatible). Existing code continues to compile and behave
 identically.</p></li>
 </ul>
-</section>
-<section id="algorithm-selection">
-<h2>Algorithm Selection<a class="headerlink" href="#algorithm-selection" title="Link to this heading">#</a></h2>
-<p>Every config that takes an algorithm (hash, MAC, cipher, sign, verify,
-random, and <code class="docutils literal notranslate"><span class="pre">GenerateKeyParams</span></code> / <code class="docutils literal notranslate"><span class="pre">ImportKeyParams</span></code>) has two setters:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">SetAlgorithm(const</span> <span class="pre">AlgorithmId&amp;)</span></code> takes the catalog name, e.g.
-<code class="docutils literal notranslate"><span class="pre">&quot;SHA256&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;ECDSA-P256-SHA256&quot;</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">SetAlgorithm(Algorithm)</span></code> takes the catalog enumerator from
-<code class="docutils literal notranslate"><span class="pre">score/crypto/src/api/types/algorithm.hpp</span></code> and stores its name
-(<code class="docutils literal notranslate"><span class="pre">ToAlgorithmName()</span></code>). An enumerator without a catalog row, such as
-<code class="docutils literal notranslate"><span class="pre">Algorithm::kUnknown</span></code>, stores the placeholder <code class="docutils literal notranslate"><span class="pre">&quot;UNKNOWN&quot;</span></code>, which no row
-carries. <code class="docutils literal notranslate"><span class="pre">Algorithm</span></code> is an enum class, so string literals and
-<code class="docutils literal notranslate"><span class="pre">std::string</span></code> still select the name overload.</p></li>
-</ul>
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">HashContextConfig</span><span class="w"> </span><span class="n">hash_cfg</span><span class="p">;</span>
-<span class="n">hash_cfg</span><span class="p">.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="n">Algorithm</span><span class="o">::</span><span class="n">kSha256</span><span class="p">);</span><span class="w">  </span><span class="c1">// sends "SHA256"</span>
-</pre></div>
-</div>
-<p>The name is what goes on the wire; the IPC protocol is unchanged. Before any
-IPC the client applies the daemon’s rule (see
-<code class="docutils literal notranslate"><span class="pre">dec_rec__crypto__alg_catalog</span></code>): <code class="docutils literal notranslate"><span class="pre">ICryptoContext::Create*Context()</span></code>
-and <code class="docutils literal notranslate"><span class="pre">IKeyManagementContext::GenerateKey()</span></code> / <code class="docutils literal notranslate"><span class="pre">ImportKey()</span></code> return
-<code class="docutils literal notranslate"><span class="pre">kUnsupportedAlgorithm</span></code> for a name without a catalog row. A <code class="docutils literal notranslate"><span class="pre">RANDOM</span></code>
-context with an empty algorithm is accepted (the daemon selects
-<code class="docutils literal notranslate"><span class="pre">&quot;CTR-DRBG&quot;</span></code>), and a key management context, which carries no algorithm, is
-not checked.</p>
 </section>
 <section id="provider-auto-resolution">
 <h2>Provider Auto-Resolution<a class="headerlink" href="#provider-auto-resolution" title="Link to this heading">#</a></h2>
@@ -1260,7 +1233,6 @@ to decouple configuration from the interfaces they parameterize.</p></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-operation-permission-model">Key Operation Permission Model</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration-model">Configuration Model</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#config-extensibility-contract">Config Extensibility Contract</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#algorithm-selection">Algorithm Selection</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#provider-auto-resolution">Provider Auto-Resolution</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#certificate-lifecycle">Certificate Lifecycle</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ipc-transport">IPC Transport</a></li>
