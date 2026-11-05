@@ -73,7 +73,7 @@ score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
     }
 
     proto::ControlRequest ctrl_req{};
-    ctrl_req.operation = req.value();
+    ctrl_req.operations = req.value();
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
     ctrl_req.data_node_id = connection->GetConnectionNodeId();
     auto res = connection->SendRequest(ctrl_req, operation_timeout);

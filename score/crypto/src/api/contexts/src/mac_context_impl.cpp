@@ -145,7 +145,7 @@ score::Result<std::monostate> MacContextImpl::Update(score::cpp::span<const uint
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = control_request_result.value();
+    control_req.operations = control_request_result.value();
     control_req.data_node_id = m_context_id;
     auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
@@ -183,7 +183,7 @@ score::Result<std::size_t> MacContextImpl::Finalize(score::cpp::span<uint8_t> ou
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = control_request_result.value();
+    control_req.operations = control_request_result.value();
     control_req.data_node_id = m_context_id;
     auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
@@ -221,7 +221,7 @@ score::Result<bool> MacContextImpl::Verify(score::cpp::span<const uint8_t> mac)
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = control_request_result.value();
+    control_req.operations = control_request_result.value();
     control_req.data_node_id = m_context_id;
     auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 

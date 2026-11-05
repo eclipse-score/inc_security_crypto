@@ -46,7 +46,7 @@ ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
     tid << std::this_thread::get_id();
     score::mw::log::LogDebug() << "[CONTROL_HANDLER] Thread ID:" << tid.str();
     // Validate empty request
-    if (request.operation.operations.empty())
+    if (request.operations.empty())
     {
         score::mw::log::LogDebug() << "[CONTROL_HANDLER] Empty operation, returning error";
         protocol::OperationResponseBuilder builder;
@@ -65,10 +65,10 @@ ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
     protocol::OperationResponseBuilder responseBuilder;
 
     // Iterate through operations in request - process those for the control plane
-    for (size_t idx = 0; idx < request.operation.operations.size(); ++idx)
+    for (size_t idx = 0; idx < request.operations.size(); ++idx)
     {
         // Extract operation name
-        const auto& opId = request.operation.operations[idx].operationId;
+        const auto& opId = request.operations[idx].operationId;
         score::mw::log::LogDebug() << "[CONTROL_HANDLER] Operation actor:" << opId.operationActor
                                    << " action:" << opId.operationAction;
         if (opId.operationActor != common::actors::OP_ACTOR_CONTROL)
@@ -78,7 +78,7 @@ ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
         }
         else
         {
-            if (!ProcessSingleRequest(request, request.operation.operations[idx].operationId, responseBuilder))
+            if (!ProcessSingleRequest(request, request.operations[idx].operationId, responseBuilder))
             {
                 score::mw::log::LogError()
                     << "[CONTROL_HANDLER] Failed to process control operation: actor=" << opId.operationActor
@@ -90,8 +90,9 @@ ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
         }
     }
 
-    return ControlResponse{request.request_id,
-                           responseBuilder.build().value_or(control_plane::protocol::OperationResponse())};
+    return ControlResponse{
+        request.request_id,
+        responseBuilder.build().value_or(std::vector<control_plane::protocol::SingleOperationResponse>{})};
 }
 
 bool ConnectionHandler::ProcessSingleRequest(const ControlRequest& request,

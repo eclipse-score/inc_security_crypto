@@ -148,37 +148,22 @@ score::crypto::Expected<IReadWriteMemory::Uptr, CryptoErrorCode> ShmMemoryAlloca
     }
 
     protocol::ControlRequest ctrl_req{};
-    ctrl_req.operation = request.value();
+    ctrl_req.operations = request.value();
     ctrl_req.data_node_id = m_connection_ptr->GetConnectionNodeId();
-    auto send_res = m_connection_ptr->SendRequest(ctrl_req, m_operation_timeout);
-    if (!send_res.has_value())
-    {
-        return score::crypto::make_unexpected(send_res.error());
-    }
-    auto response = send_res.value().operation;
-    if (response.operations.empty())
-    {
-        return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
-    }
+    auto control_response_res = m_connection_ptr->SendRequest(ctrl_req, m_operation_timeout);
 
-    const auto& op_resp = response.operations[0];
-
-    // Check daemon result
-    if (op_resp.result != protocol::OPERATION_RESULT_SUCCESS)
+    auto validator = protocol::ControlResponseValidator::FromResult(control_response_res);
+    validator.expectOperation({actors::OP_ACTOR_MEDIATOR, med_ops::SHM_SETUP}).expectSuccess();
+    if (!validator.isValid())
     {
-        // Map daemon error to client error
-        if (op_resp.result == static_cast<protocol::OperationResult>(CryptoErrorCode::kQuotaExceeded))
-        {
-            return score::crypto::make_unexpected(CryptoErrorCode::kQuotaExceeded);
-        }
-        return score::crypto::make_unexpected(CryptoErrorCode::kAllocationFailed);
+        return score::crypto::make_unexpected(validator.getOperationError().value_or(CryptoErrorCode::kInternalError));
     }
 
     // Extract parameters and build ShmSetupResponse for the data plane factory.
-    auto node_id_param = op_resp.getParameter<std::uint64_t>(0);
-    auto size_param = op_resp.getParameter<std::uint64_t>(1);
-    auto token_param = op_resp.getParameter<protocol::DataBufferReturn>(2);
-    auto transport_param = op_resp.getParameter<std::uint64_t>(3);
+    auto node_id_param = validator.getParameterAt<std::uint64_t>(0, 0);
+    auto size_param = validator.getParameterAt<std::uint64_t>(0, 1);
+    auto token_param = validator.getParameterAt<protocol::DataBufferReturn>(0, 2);
+    auto transport_param = validator.getParameterAt<std::uint64_t>(0, 3);
 
     if (!node_id_param.has_value() || !size_param.has_value() || !token_param.has_value())
     {

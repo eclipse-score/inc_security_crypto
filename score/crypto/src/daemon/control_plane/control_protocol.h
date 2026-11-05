@@ -132,20 +132,6 @@ struct SingleOperationResponse
 };
 
 // ============================================================================
-// Batching of multiple Operation per Request & Response
-// ============================================================================
-
-struct OperationRequest
-{
-    std::vector<SingleOperationRequest> operations;
-};
-
-struct OperationResponse
-{
-    std::vector<SingleOperationResponse> operations;
-};
-
-// ============================================================================
 // ControlRequest & ControlResponse
 // ============================================================================
 
@@ -185,7 +171,7 @@ struct ControlRequest
     ExecutionPolicy execution_policy;
     std::chrono::steady_clock::time_point deadline{};
     ControlRequestKind kind{ControlRequestKind::kOperation};
-    protocol::OperationRequest operation;
+    std::vector<SingleOperationRequest> operations;
 };
 
 static_assert(sizeof(uint32_t) == sizeof(decltype(ControlRequest::opaque_id)),
@@ -199,13 +185,12 @@ static_assert(sizeof(ClientId) == sizeof(decltype(ControlRequest::opaque_id)) + 
 struct ControlResponse
 {
     RequestId request_id;
-    protocol::OperationResponse operation;
+    std::vector<SingleOperationResponse> operations;
 };
 
 inline bool IsEnvelopeErrorResponse(const ControlResponse& response) noexcept
 {
-    return (response.operation.operations.size() == 1U) &&
-           IsEnvelopeErrorOperation(response.operation.operations.front().operationId);
+    return (response.operations.size() == 1U) && IsEnvelopeErrorOperation(response.operations.front().operationId);
 }
 
 /// Extract the user ID (uid) from a ClientId
@@ -236,7 +221,7 @@ class OperationRequestBuilder
   public:
     OperationRequestBuilder& operation(const OperationIdentifier& opId)
     {
-        operationRequest.operations.push_back(SingleOperationRequest{opId, {}});
+        operations.push_back(SingleOperationRequest{opId, {}});
 
         return *this;
     }
@@ -245,7 +230,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(NoParam{});
+            operations.back().parameters.push_back(NoParam{});
         }
         return *this;
     };
@@ -254,7 +239,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(string);
+            operations.back().parameters.push_back(string);
         }
         return *this;
     };
@@ -263,7 +248,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(data);
+            operations.back().parameters.push_back(data);
         }
         return *this;
     };
@@ -272,7 +257,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -281,7 +266,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -290,7 +275,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -299,7 +284,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -308,7 +293,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -320,12 +305,12 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(common::DataShm{node_id, offset, size, direction});
+            operations.back().parameters.push_back(common::DataShm{node_id, offset, size, direction});
         }
         return *this;
     };
 
-    Expected<OperationRequest, score::crypto::CryptoErrorCode> build()
+    Expected<std::vector<SingleOperationRequest>, score::crypto::CryptoErrorCode> build()
     {
         if (error)
         {
@@ -334,25 +319,22 @@ class OperationRequestBuilder
                    "building process";
 
             error = false;
-            operationRequest.operations.clear();
+            operations.clear();
 
             return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
-        OperationRequest ret{
-            std::move(operationRequest.operations),
-        };
-        return ret;
+        return std::move(operations);
     }
 
   private:
     bool error = false;
 
-    OperationRequest operationRequest;
+    std::vector<SingleOperationRequest> operations;
 
     bool validateOperationExists()
     {
-        if (operationRequest.operations.empty())
+        if (operations.empty())
         {
             score::mw::log::LogError()
                 << "[CONTROL_OP_REQ_BUILDER] ERROR - Trying to add parameter without an operation";
@@ -368,7 +350,7 @@ class OperationResponseBuilder
   public:
     OperationResponseBuilder& operation(const OperationIdentifier& opId)
     {
-        operationResponse.operations.push_back(SingleOperationResponse{opId, {}});
+        operations.push_back(SingleOperationResponse{opId, {}});
 
         return *this;
     }
@@ -377,7 +359,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().result = OPERATION_RESULT_SUCCESS;
+            operations.back().result = OPERATION_RESULT_SUCCESS;
         }
         return *this;
     };
@@ -386,7 +368,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().result = static_cast<OperationResult>(error);
+            operations.back().result = static_cast<OperationResult>(error);
         }
         return *this;
     };
@@ -403,7 +385,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -412,7 +394,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -421,7 +403,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -430,7 +412,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -439,7 +421,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -448,7 +430,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(OwnedBuffer{std::move(data)});
+            operations.back().parameters.push_back(OwnedBuffer{std::move(data)});
         }
         return *this;
     };
@@ -466,11 +448,11 @@ class OperationResponseBuilder
         {
             return_error(static_cast<score::crypto::CryptoErrorCode>(res));
         }
-        operationResponse.operations.back().parameters = std::move(response);
+        operations.back().parameters = std::move(response);
         return *this;
     };
 
-    Expected<OperationResponse, score::crypto::CryptoErrorCode> build()
+    Expected<std::vector<SingleOperationResponse>, score::crypto::CryptoErrorCode> build()
     {
         if (error)
         {
@@ -479,24 +461,22 @@ class OperationResponseBuilder
                    "building process";
 
             error = false;
-            operationResponse.operations.clear();
+            operations.clear();
 
             return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
-        return OperationResponse{
-            std::move(operationResponse.operations),
-        };
+        return std::move(operations);
     }
 
   private:
     bool error = false;
 
-    OperationResponse operationResponse;
+    std::vector<SingleOperationResponse> operations;
 
     bool validateOperationExists()
     {
-        if (operationResponse.operations.empty())
+        if (operations.empty())
         {
             score::mw::log::LogError()
                 << "[CONTROL_OP_RESP_BUILDER] ERROR - Trying to add parameter without an operation";
@@ -514,7 +494,7 @@ class OperationResponseBuilder
 class ControlResponseValidator
 {
   public:
-    explicit ControlResponseValidator(const OperationResponse& response, bool logErrors = false)
+    explicit ControlResponseValidator(const std::vector<SingleOperationResponse>& response, bool logErrors = false)
         : m_response(response),
           m_currentOpIndex(std::numeric_limits<size_t>::max()),
           m_errorMsg(""),
@@ -524,23 +504,23 @@ class ControlResponseValidator
 
     /// Create a validator from a Result/Expected type, validating has_value() first
     /// Works with any type T where has_value() and value() are available
-    /// Automatically extracts .operation from ControlResponse if present
+    /// Automatically extracts .operations from ControlResponse if present
     template <typename T>
     static ControlResponseValidator FromResult(const T& result, bool logErrors = false)
     {
         if (!result.has_value())
         {
-            ControlResponseValidator validator(OperationResponse{}, logErrors);
+            ControlResponseValidator validator(std::vector<SingleOperationResponse>{}, logErrors);
             validator.m_isValid = false;
             validator.m_errorMsg = "Operation response is not available (has_value() returned false)";
             return validator;
         }
 
         const auto& response = result.value();
-        ControlResponseValidator validator(response.operation, logErrors);
+        ControlResponseValidator validator(response.operations, logErrors);
         if (IsEnvelopeErrorResponse(response))
         {
-            const auto operation_result = response.operation.operations.front().result;
+            const auto operation_result = response.operations.front().result;
             if (operation_result == OPERATION_RESULT_SUCCESS)
             {
                 validator.m_isValid = false;
@@ -580,16 +560,16 @@ class ControlResponseValidator
         }
 
         // Validate we have enough operations
-        if (m_currentOpIndex >= m_response.get().operations.size())
+        if (m_currentOpIndex >= m_response.get().size())
         {
             m_isValid = false;
             m_errorMsg = "Expected operation at index " + std::to_string(m_currentOpIndex) + " but response has only " +
-                         std::to_string(m_response.get().operations.size()) + " operations";
+                         std::to_string(m_response.get().size()) + " operations";
             return *this;
         }
 
         // Validate operation ID
-        const auto& op = m_response.get().operations[m_currentOpIndex];
+        const auto& op = m_response.get()[m_currentOpIndex];
         if (op.operationId.operationActor != opId.operationActor ||
             op.operationId.operationAction != opId.operationAction)
         {
@@ -615,7 +595,7 @@ class ControlResponseValidator
         if (!m_isValid)
             return *this;
 
-        const auto& op = m_response.get().operations[m_currentOpIndex];
+        const auto& op = m_response.get()[m_currentOpIndex];
         if (op.result != OPERATION_RESULT_SUCCESS)
         {
             auto errorCode = static_cast<score::crypto::CryptoErrorCode>(op.result);
@@ -659,12 +639,12 @@ class ControlResponseValidator
             return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
-        if (opIndex >= m_response.get().operations.size())
+        if (opIndex >= m_response.get().size())
         {
             return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
-        const auto& op = m_response.get().operations[opIndex];
+        const auto& op = m_response.get()[opIndex];
 
         if (paramIdx >= op.parameters.size())
         {
@@ -684,7 +664,7 @@ class ControlResponseValidator
             return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
-        if (opIndex >= m_response.get().operations.size())
+        if (opIndex >= m_response.get().size())
         {
             m_isValid = false;
             m_errorMsg = "Operation index " + std::to_string(opIndex) + " out of bounds";
@@ -692,7 +672,7 @@ class ControlResponseValidator
             return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
-        const auto& op = m_response.get().operations[opIndex];
+        const auto& op = m_response.get()[opIndex];
 
         if (paramIdx >= op.parameters.size())
         {
@@ -728,7 +708,7 @@ class ControlResponseValidator
     }
 
   private:
-    std::reference_wrapper<const OperationResponse> m_response;
+    std::reference_wrapper<const std::vector<SingleOperationResponse>> m_response;
     size_t m_currentOpIndex;
     bool m_isValid = true;
     std::string m_errorMsg;
@@ -918,7 +898,7 @@ class ControlRequestBuilder
             return make_unexpected(op_result.error());
         }
 
-        m_request.operation = std::move(op_result).value();
+        m_request.operations = std::move(op_result).value();
         return m_request;
     }
 

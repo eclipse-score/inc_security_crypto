@@ -150,7 +150,7 @@ score::Result<std::size_t> RandomContextImpl::Generate(score::cpp::span<uint8_t>
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = control_request_result.value();
+    control_req.operations = control_request_result.value();
     control_req.data_node_id = m_context_id;
     auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
@@ -206,7 +206,7 @@ score::Result<std::monostate> RandomContextImpl::Seed(score::cpp::span<const uin
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = control_request_result.value();
+    control_req.operations = control_request_result.value();
     control_req.data_node_id = m_context_id;
     auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 

@@ -92,7 +92,7 @@ score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Crea
                 if (destroy_req.has_value())
                 {
                     protocol::ControlRequest ctrl_req{};
-                    ctrl_req.operation = destroy_req.value();
+                    ctrl_req.operations = destroy_req.value();
                     ctrl_req.data_node_id = connection->GetConnectionNodeId();
                     connection->SendRequest(ctrl_req, operation_timeout);
                 }

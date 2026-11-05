@@ -67,7 +67,7 @@ proto::ControlResponse MakeResponse(proto::OperationResult result,
                                     ::score::crypto::daemon::common::ResponseParameters parameters)
 {
     proto::ControlResponse response{};
-    response.operation.operations.push_back(proto::SingleOperationResponse{kGetMaxOutputSize, result, parameters});
+    response.operations.push_back(proto::SingleOperationResponse{kGetMaxOutputSize, result, parameters});
     return response;
 }
 
@@ -90,8 +90,8 @@ TEST_F(CipherContextImplMaxOutputSizeTest, SendsInputLengthAndReturnsDaemonBound
     ASSERT_EQ(connection_->requests.size(), 1U);
     const auto& request = connection_->requests.front();
     EXPECT_EQ(request.data_node_id, kContextId);
-    ASSERT_EQ(request.operation.operations.size(), 1U);
-    const auto& operation = request.operation.operations.front();
+    ASSERT_EQ(request.operations.size(), 1U);
+    const auto& operation = request.operations.front();
     EXPECT_EQ(operation.operationId.operationActor, kGetMaxOutputSize.operationActor);
     EXPECT_EQ(operation.operationId.operationAction, kGetMaxOutputSize.operationAction);
     ASSERT_EQ(operation.parameters.size(), 1U);

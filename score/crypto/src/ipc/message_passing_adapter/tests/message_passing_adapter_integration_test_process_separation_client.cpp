@@ -90,7 +90,7 @@ TEST(MessagePassingClientProcessTest, CompletesTwoHundredRequestsAcrossFourThrea
                     const auto expected_payload =
                         static_cast<std::uint64_t>(client_index * requests_per_process + process_request_index + 1U);
                     protocol::ControlRequest request{};
-                    request.operation.operations.push_back(
+                    request.operations.push_back(
                         protocol::SingleOperationRequest{process_test::kEchoOperationId, {expected_payload}});
                     responses[thread_index].push_back(client->SendRequest(request, request_timeout));
                     request_ids[thread_index].push_back(request.request_id);
@@ -114,12 +114,12 @@ TEST(MessagePassingClientProcessTest, CompletesTwoHundredRequestsAcrossFourThrea
             ASSERT_TRUE(response.has_value()) << "Thread " << thread_index << ", request " << request_index
                                               << " failed with error " << static_cast<std::uint32_t>(response.error());
             EXPECT_EQ(response->request_id, request_ids[thread_index][request_index]);
-            ASSERT_EQ(response->operation.operations.size(), 1U);
+            ASSERT_EQ(response->operations.size(), 1U);
 
             const auto process_request_index = thread_index * requests_per_thread + request_index;
             const auto expected_payload =
                 static_cast<std::uint64_t>(client_index * requests_per_process + process_request_index + 1U);
-            const auto& operation = response->operation.operations.front();
+            const auto& operation = response->operations.front();
             EXPECT_EQ(operation.operationId.operationActor, process_test::kEchoOperationId.operationActor);
             EXPECT_EQ(operation.operationId.operationAction, process_test::kEchoOperationId.operationAction);
             ASSERT_EQ(operation.result, protocol::OPERATION_RESULT_SUCCESS);
@@ -148,7 +148,7 @@ TEST(MessagePassingClientProcessTest, IsDeniedByServerUidAuthorization)
     {
         auto client = std::move(client_result).value();
         protocol::ControlRequest request{};
-        request.operation.operations.push_back(
+        request.operations.push_back(
             protocol::SingleOperationRequest{process_test::kEchoOperationId, {process_test::kEchoValue}});
         const auto response = client->SendRequest(request, std::chrono::milliseconds{1000});
         ASSERT_FALSE(response.has_value()) << "UID-authorized server accepted the client request";
@@ -176,8 +176,8 @@ TEST(MessagePassingClientProcessTest, ReturnsAfterRequestTimeoutAndGracePeriod)
 
     constexpr auto request_timeout = std::chrono::milliseconds{300};
     protocol::ControlRequest request{};
-    request.operation.operations.push_back(protocol::SingleOperationRequest{
-        process_test::kEchoOperationId, {process_test::kBlockUntilServerShutdownValue}});
+    request.operations.push_back(protocol::SingleOperationRequest{process_test::kEchoOperationId,
+                                                                  {process_test::kBlockUntilServerShutdownValue}});
 
     const auto start_time = std::chrono::steady_clock::now();
     const auto response = client->SendRequest(request, request_timeout);
@@ -213,8 +213,8 @@ TEST(MessagePassingClientProcessTest, CancellationTokenIsObservedByServer)
 
     std::thread request_thread([client, cancellation_token, &response_promise]() mutable {
         protocol::ControlRequest request{};
-        request.operation.operations.push_back(protocol::SingleOperationRequest{
-            process_test::kEchoOperationId, {process_test::kWaitForClientCancellationValue}});
+        request.operations.push_back(protocol::SingleOperationRequest{process_test::kEchoOperationId,
+                                                                      {process_test::kWaitForClientCancellationValue}});
         response_promise.set_value(client->SendRequest(request, std::chrono::seconds{8}, cancellation_token));
     });
 
@@ -240,8 +240,8 @@ TEST(MessagePassingClientProcessTest, CancellationTokenIsObservedByServer)
     const auto response = response_future.get();
     ASSERT_TRUE(response.has_value()) << "Client request failed with error "
                                       << static_cast<std::uint32_t>(response.error());
-    ASSERT_EQ(response->operation.operations.size(), 1U);
-    EXPECT_EQ(response->operation.operations.front().result,
+    ASSERT_EQ(response->operations.size(), 1U);
+    EXPECT_EQ(response->operations.front().result,
               static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled));
 }
 
@@ -258,12 +258,12 @@ TEST(MessagePassingClientProcessTest, CrashesAfterSuccessfulRequest)
     auto client = std::move(client_result).value();
 
     protocol::ControlRequest request{};
-    request.operation.operations.push_back(
+    request.operations.push_back(
         protocol::SingleOperationRequest{process_test::kEchoOperationId, {process_test::kEchoValue}});
     const auto response = client->SendRequest(request, std::chrono::seconds{5});
     ASSERT_TRUE(response.has_value()) << "Failed to complete request before simulated client crash";
-    ASSERT_EQ(response->operation.operations.size(), 1U);
-    ASSERT_EQ(response->operation.operations.front().result, protocol::OPERATION_RESULT_SUCCESS);
+    ASSERT_EQ(response->operations.size(), 1U);
+    ASSERT_EQ(response->operations.front().result, protocol::OPERATION_RESULT_SUCCESS);
 
     std::cout << "CLIENT_CRASHING\n" << std::flush;
     ASSERT_EQ(::kill(::getpid(), SIGKILL), 0);

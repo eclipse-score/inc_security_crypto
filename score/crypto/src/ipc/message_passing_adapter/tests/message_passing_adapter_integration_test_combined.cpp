@@ -274,12 +274,12 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
         handler_invocation_count_->fetch_add(1U, std::memory_order_relaxed);
         protocol::ControlResponse response{};
         response.request_id = request.request_id;
-        for (const auto& operation : request.operation.operations)
+        for (const auto& operation : request.operations)
         {
             const auto value = operation.getParameter<std::uint64_t>(0U);
             if (!value.has_value())
             {
-                response.operation.operations.push_back(protocol::SingleOperationResponse{
+                response.operations.push_back(protocol::SingleOperationResponse{
                     operation.operationId,
                     static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kInvalidArgument),
                     {}});
@@ -299,7 +299,7 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
                 {
                     cancellation_observer_->RecordCancellationObserved();
                 }
-                response.operation.operations.push_back(protocol::SingleOperationResponse{
+                response.operations.push_back(protocol::SingleOperationResponse{
                     operation.operationId,
                     static_cast<protocol::OperationResult>(cancellation_observed
                                                                ? score::crypto::CryptoErrorCode::kOperationCancelled
@@ -316,7 +316,7 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
                 late_response_blocker_->WaitForRelease();
                 if (cancellation.IsCancellationRequested())
                 {
-                    response.operation.operations.push_back(protocol::SingleOperationResponse{
+                    response.operations.push_back(protocol::SingleOperationResponse{
                         operation.operationId,
                         static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled),
                         {}});
@@ -325,13 +325,13 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
             }
             if (value.value() == kServerTimeoutPayload)
             {
-                response.operation.operations.push_back(protocol::SingleOperationResponse{
+                response.operations.push_back(protocol::SingleOperationResponse{
                     operation.operationId,
                     static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationTimedOut),
                     {}});
                 continue;
             }
-            response.operation.operations.push_back(protocol::SingleOperationResponse{
+            response.operations.push_back(protocol::SingleOperationResponse{
                 operation.operationId, protocol::OPERATION_RESULT_SUCCESS, {value.value()}});
         }
         return response;
@@ -523,15 +523,15 @@ protocol::ControlRequest MakeEchoRequest(const std::uint64_t value)
 {
     protocol::ControlRequest request{};
     request.data_node_id = 1U;
-    request.operation.operations.push_back(protocol::SingleOperationRequest{kEchoOperationId, {value}});
+    request.operations.push_back(protocol::SingleOperationRequest{kEchoOperationId, {value}});
     return request;
 }
 
 void ExpectEchoResponse(const ClientResult& response, const std::uint64_t expected_value)
 {
     ASSERT_TRUE(response.has_value());
-    ASSERT_EQ(response->operation.operations.size(), 1U);
-    const auto& operation = response->operation.operations.front();
+    ASSERT_EQ(response->operations.size(), 1U);
+    const auto& operation = response->operations.front();
     EXPECT_EQ(operation.operationId.operationActor, kEchoOperationId.operationActor);
     EXPECT_EQ(operation.operationId.operationAction, kEchoOperationId.operationAction);
     ASSERT_EQ(operation.result, protocol::OPERATION_RESULT_SUCCESS);
@@ -658,7 +658,7 @@ TEST(MessagePassingAdapterIntegrationTest, MultipleOperationsInSingleInteraction
     request.data_node_id = 7U;
     for (std::size_t operation_index = 0U; operation_index < operation_ids.size(); ++operation_index)
     {
-        request.operation.operations.push_back(
+        request.operations.push_back(
             protocol::SingleOperationRequest{operation_ids[operation_index], {values[operation_index]}});
     }
 
@@ -668,10 +668,10 @@ TEST(MessagePassingAdapterIntegrationTest, MultipleOperationsInSingleInteraction
     const auto response = client->SendRequest(request, std::chrono::milliseconds{2000});
 
     ASSERT_TRUE(response.has_value());
-    ASSERT_EQ(response->operation.operations.size(), operation_ids.size());
+    ASSERT_EQ(response->operations.size(), operation_ids.size());
     for (std::size_t operation_index = 0U; operation_index < operation_ids.size(); ++operation_index)
     {
-        const auto& operation = response->operation.operations[operation_index];
+        const auto& operation = response->operations[operation_index];
         EXPECT_EQ(operation.operationId.operationActor, operation_ids[operation_index].operationActor);
         EXPECT_EQ(operation.operationId.operationAction, operation_ids[operation_index].operationAction);
         ASSERT_EQ(operation.result, protocol::OPERATION_RESULT_SUCCESS);
@@ -758,7 +758,7 @@ TEST(MessagePassingAdapterIntegrationTest, OversizedRequestIsRejectedAndConnecti
     const std::string oversized_value(static_cast<std::size_t>(::score::crypto::ipc::kMaxPayloadBytes) + 256U, 'x');
     protocol::ControlRequest oversized_request{};
     oversized_request.data_node_id = 1U;
-    oversized_request.operation.operations.push_back(
+    oversized_request.operations.push_back(
         protocol::SingleOperationRequest{kEchoOperationId, {std::string_view{oversized_value}}});
 
     const auto oversized_result = client->SendRequest(oversized_request, std::chrono::milliseconds{1000});
@@ -1178,8 +1178,8 @@ TEST(MessagePassingAdapterIntegrationTest, ClientCancellationIsObservedByDaemonT
     ASSERT_TRUE(response_ready) << "The client did not receive a terminal response after cancellation";
     const auto response = response_future.get();
     ASSERT_TRUE(response.has_value());
-    ASSERT_EQ(response->operation.operations.size(), 1U);
-    EXPECT_EQ(response->operation.operations.front().result,
+    ASSERT_EQ(response->operations.size(), 1U);
+    EXPECT_EQ(response->operations.front().result,
               static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled));
 }
 
@@ -1232,8 +1232,8 @@ TEST(MessagePassingAdapterIntegrationTest, CancellationDoesNotAffectOtherCallsOn
 
     const auto cancelled_response = cancelled_response_future.get();
     ASSERT_TRUE(cancelled_response.has_value());
-    ASSERT_EQ(cancelled_response->operation.operations.size(), 1U);
-    EXPECT_EQ(cancelled_response->operation.operations.front().result,
+    ASSERT_EQ(cancelled_response->operations.size(), 1U);
+    EXPECT_EQ(cancelled_response->operations.front().result,
               static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled));
 
     const auto independent_response = independent_response_future.get();
@@ -1273,8 +1273,8 @@ TEST(MessagePassingAdapterIntegrationTest, ClientForwardsServerOperationTimeoutR
 
     const auto response = response_future.get();
     ASSERT_TRUE(response.has_value()) << "A server operation timeout must be forwarded as a response";
-    ASSERT_EQ(response->operation.operations.size(), 1U);
-    const auto& operation = response->operation.operations.front();
+    ASSERT_EQ(response->operations.size(), 1U);
+    const auto& operation = response->operations.front();
     EXPECT_EQ(operation.operationId.operationActor, kEchoOperationId.operationActor);
     EXPECT_EQ(operation.operationId.operationAction, kEchoOperationId.operationAction);
     EXPECT_EQ(operation.result,

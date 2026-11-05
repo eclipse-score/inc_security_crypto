@@ -184,7 +184,7 @@ score::Result<std::monostate> VerifySignatureContextImpl::Update(score::cpp::spa
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = control_request_result.value();
+    control_req.operations = control_request_result.value();
     control_req.data_node_id = m_context_id;
     auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
@@ -222,7 +222,7 @@ score::Result<bool> VerifySignatureContextImpl::VerifyFinalize(score::cpp::span<
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = control_request_result.value();
+    control_req.operations = control_request_result.value();
     control_req.data_node_id = m_context_id;
     auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
@@ -278,7 +278,7 @@ score::Result<bool> VerifySignatureContextImpl::SingleShot(score::cpp::span<cons
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = control_request_result.value();
+    control_req.operations = control_request_result.value();
     control_req.data_node_id = m_context_id;
     auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 

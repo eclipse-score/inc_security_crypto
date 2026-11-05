@@ -89,7 +89,7 @@ TEST(FlatBufferCodecTest, EnvelopeErrorResponseRoundTrips)
 {
     protocol::ControlResponse response{};
     response.request_id = 42U;
-    response.operation.operations.push_back(protocol::SingleOperationResponse{
+    response.operations.push_back(protocol::SingleOperationResponse{
         protocol::kEnvelopeErrorOperationIdentifier,
         static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kProviderBusy),
         {}});
@@ -103,8 +103,8 @@ TEST(FlatBufferCodecTest, EnvelopeErrorResponseRoundTrips)
                     .has_value());
     EXPECT_EQ(decoded.request_id, response.request_id);
     EXPECT_TRUE(protocol::IsEnvelopeErrorResponse(decoded));
-    ASSERT_EQ(decoded.operation.operations.size(), 1U);
-    EXPECT_EQ(decoded.operation.operations.front().result,
+    ASSERT_EQ(decoded.operations.size(), 1U);
+    EXPECT_EQ(decoded.operations.front().result,
               static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kProviderBusy));
 }
 
@@ -112,11 +112,11 @@ TEST(FlatBufferCodecTest, EnvelopeOperationIdentifierIsPassedThrough)
 {
     protocol::ControlResponse response{};
     response.request_id = 43U;
-    response.operation.operations.push_back(protocol::SingleOperationResponse{
+    response.operations.push_back(protocol::SingleOperationResponse{
         protocol::kEnvelopeErrorOperationIdentifier,
         static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kInternalError),
         {}});
-    response.operation.operations.push_back(protocol::SingleOperationResponse{
+    response.operations.push_back(protocol::SingleOperationResponse{
         protocol::OperationIdentifier{1U, 1U}, protocol::OPERATION_RESULT_SUCCESS, {}});
 
     const auto serialized = codec.SerializeResponse(response);
@@ -125,8 +125,8 @@ TEST(FlatBufferCodecTest, EnvelopeOperationIdentifierIsPassedThrough)
     protocol::ControlResponse decoded{};
     ASSERT_TRUE(codec.DeserializeResponse(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()}, decoded)
                     .has_value());
-    ASSERT_EQ(decoded.operation.operations.size(), 2U);
-    EXPECT_TRUE(protocol::IsEnvelopeErrorOperation(decoded.operation.operations.front().operationId));
+    ASSERT_EQ(decoded.operations.size(), 2U);
+    EXPECT_TRUE(protocol::IsEnvelopeErrorOperation(decoded.operations.front().operationId));
 }
 
 TEST(FlatBufferCodecTest, RejectsUnknownRequestKind)
@@ -154,7 +154,7 @@ TEST(FlatBufferCodecTest, AllowsEmptyOperationVector)
                     .has_value());
     EXPECT_EQ(decoded.request_id, request.request_id);
     EXPECT_EQ(decoded.kind, protocol::ControlRequestKind::kOperation);
-    EXPECT_TRUE(decoded.operation.operations.empty());
+    EXPECT_TRUE(decoded.operations.empty());
 }
 
 TEST(FlatBufferCodecTest, ZeroRequestIdPassesThroughCodec)
@@ -189,7 +189,7 @@ TEST(FlatBufferCodecTest, RejectsOversizedResponseDuringSerialization)
 {
     protocol::ControlResponse response{};
     protocol::OwnedBuffer oversized_value(protocol_config::kMaxSerializedBytes + 1U, 0U);
-    response.operation.operations.push_back(protocol::SingleOperationResponse{
+    response.operations.push_back(protocol::SingleOperationResponse{
         protocol::OperationIdentifier{1U, 2U}, protocol::OPERATION_RESULT_SUCCESS, {std::move(oversized_value)}});
 
     const auto serialized = codec.SerializeResponse(response);
@@ -202,7 +202,7 @@ TEST(FlatBufferCodecTest, EnvelopeOperationIdentifierInRequestPassesThroughCodec
     protocol::ControlRequest request{};
     SetFutureDeadline(request);
     request.request_id = 20U;
-    request.operation.operations.push_back(
+    request.operations.push_back(
         protocol::SingleOperationRequest{protocol::kEnvelopeErrorOperationIdentifier, {protocol::NoParam{}}});
     const auto serialized = codec.SerializeRequest(request);
     ASSERT_TRUE(serialized.has_value());
@@ -210,8 +210,8 @@ TEST(FlatBufferCodecTest, EnvelopeOperationIdentifierInRequestPassesThroughCodec
     protocol::ControlRequest decoded{};
     ASSERT_TRUE(codec.DeserializeRequest(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()}, decoded)
                     .has_value());
-    ASSERT_EQ(decoded.operation.operations.size(), 1U);
-    EXPECT_TRUE(protocol::IsEnvelopeErrorOperation(decoded.operation.operations.front().operationId));
+    ASSERT_EQ(decoded.operations.size(), 1U);
+    EXPECT_TRUE(protocol::IsEnvelopeErrorOperation(decoded.operations.front().operationId));
 }
 
 TEST(FlatBufferCodecTest, CancellationRequestRoundTrips)
@@ -230,7 +230,7 @@ TEST(FlatBufferCodecTest, CancellationRequestRoundTrips)
                     .has_value());
     EXPECT_EQ(decoded.kind, protocol::ControlRequestKind::kCancel);
     EXPECT_EQ(decoded.request_id, request.request_id);
-    EXPECT_TRUE(decoded.operation.operations.empty());
+    EXPECT_TRUE(decoded.operations.empty());
 }
 
 TEST(FlatBufferCodecTest, RequestTimeoutBudgetRoundTrips)
@@ -281,7 +281,7 @@ TEST(FlatBufferCodecTest, RejectsOversizedRequestDuringSerialization)
     protocol::ControlRequest request{};
     SetFutureDeadline(request);
     std::array<char, protocol_config::kMaxSerializedBytes + 1U> oversized_value{};
-    request.operation.operations.push_back(protocol::SingleOperationRequest{
+    request.operations.push_back(protocol::SingleOperationRequest{
         protocol::OperationIdentifier{1U, 2U}, {std::string_view{oversized_value.data(), oversized_value.size()}}});
 
     const auto serialized = codec.SerializeRequest(request);
@@ -341,7 +341,7 @@ TEST(FlatBufferCodecTest, RejectsCancellationWithOperations)
     SetFutureDeadline(request);
     request.request_id = 18U;
     request.kind = protocol::ControlRequestKind::kCancel;
-    request.operation.operations.push_back(
+    request.operations.push_back(
         protocol::SingleOperationRequest{protocol::OperationIdentifier{1U, 1U}, {protocol::NoParam{}}});
     EXPECT_FALSE(codec.SerializeRequest(request).has_value());
 }
@@ -371,7 +371,7 @@ TEST(FlatBufferCodecTest, RequestWithParametersRoundTrips)
     request.request_id = 7U;
     request.client_id = 0x12345678U;
     request.data_node_id = 9U;
-    request.operation.operations.push_back(protocol::SingleOperationRequest{
+    request.operations.push_back(protocol::SingleOperationRequest{
         protocol::OperationIdentifier{1U, 2U}, {protocol::NoParam{}, std::uint8_t{3U}, std::string_view{"HASH"}}});
 
     const auto serialized = codec.SerializeRequest(request);
@@ -381,23 +381,23 @@ TEST(FlatBufferCodecTest, RequestWithParametersRoundTrips)
 
     ASSERT_TRUE(codec.DeserializeRequest(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()}, decoded)
                     .has_value());
-    ASSERT_EQ(decoded.operation.operations.size(), 1U);
+    ASSERT_EQ(decoded.operations.size(), 1U);
     EXPECT_EQ(decoded.request_id, request.request_id);
     EXPECT_EQ(decoded.client_id, request.client_id);
     EXPECT_EQ(decoded.data_node_id, request.data_node_id);
-    EXPECT_EQ(decoded.operation.operations[0].operationId.operationActor, 1U);
-    EXPECT_EQ(decoded.operation.operations[0].operationId.operationAction, 2U);
-    ASSERT_EQ(decoded.operation.operations[0].parameters.size(), 3U);
-    EXPECT_TRUE(std::holds_alternative<protocol::NoParam>(decoded.operation.operations[0].parameters[0]));
-    EXPECT_EQ(std::get<std::uint8_t>(decoded.operation.operations[0].parameters[1]), 3U);
-    EXPECT_EQ(std::get<std::string_view>(decoded.operation.operations[0].parameters[2]), "HASH");
+    EXPECT_EQ(decoded.operations[0].operationId.operationActor, 1U);
+    EXPECT_EQ(decoded.operations[0].operationId.operationAction, 2U);
+    ASSERT_EQ(decoded.operations[0].parameters.size(), 3U);
+    EXPECT_TRUE(std::holds_alternative<protocol::NoParam>(decoded.operations[0].parameters[0]));
+    EXPECT_EQ(std::get<std::uint8_t>(decoded.operations[0].parameters[1]), 3U);
+    EXPECT_EQ(std::get<std::string_view>(decoded.operations[0].parameters[2]), "HASH");
 }
 
 TEST(FlatBufferCodecTest, FinalResponseWithOperationRoundTrips)
 {
     protocol::ControlResponse response{};
     response.request_id = 99U;
-    response.operation.operations.push_back(protocol::SingleOperationResponse{
+    response.operations.push_back(protocol::SingleOperationResponse{
         protocol::OperationIdentifier{4U, 5U}, protocol::OPERATION_RESULT_SUCCESS, {}});
 
     const auto serialized = codec.SerializeResponse(response);
@@ -407,12 +407,12 @@ TEST(FlatBufferCodecTest, FinalResponseWithOperationRoundTrips)
 
     ASSERT_TRUE(codec.DeserializeResponse(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()}, decoded)
                     .has_value());
-    ASSERT_EQ(decoded.operation.operations.size(), 1U);
+    ASSERT_EQ(decoded.operations.size(), 1U);
     EXPECT_EQ(decoded.request_id, response.request_id);
-    EXPECT_EQ(decoded.operation.operations[0].operationId.operationActor, 4U);
-    EXPECT_EQ(decoded.operation.operations[0].operationId.operationAction, 5U);
-    EXPECT_EQ(decoded.operation.operations[0].result, protocol::OPERATION_RESULT_SUCCESS);
-    EXPECT_TRUE(decoded.operation.operations[0].parameters.empty());
+    EXPECT_EQ(decoded.operations[0].operationId.operationActor, 4U);
+    EXPECT_EQ(decoded.operations[0].operationId.operationAction, 5U);
+    EXPECT_EQ(decoded.operations[0].result, protocol::OPERATION_RESULT_SUCCESS);
+    EXPECT_TRUE(decoded.operations[0].parameters.empty());
 }
 
 TEST(FlatBufferCodecTest, RejectsResponseWithWrongFileIdentifier)

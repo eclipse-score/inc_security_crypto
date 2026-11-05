@@ -91,12 +91,12 @@ class EchoRequestHandler final : public score::crypto::daemon::control_plane::IR
     {
         protocol::ControlResponse response{};
         response.request_id = request.request_id;
-        for (const auto& operation : request.operation.operations)
+        for (const auto& operation : request.operations)
         {
             const auto input = operation.getParameter<std::uint64_t>(0U);
             if (!input.has_value())
             {
-                response.operation.operations.push_back(protocol::SingleOperationResponse{
+                response.operations.push_back(protocol::SingleOperationResponse{
                     operation.operationId,
                     static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kInvalidArgument),
                     {}});
@@ -119,7 +119,7 @@ class EchoRequestHandler final : public score::crypto::daemon::control_plane::IR
                 cancellation_condition.wait(lock, [&] {
                     return cancellation_requested;
                 });
-                response.operation.operations.push_back(protocol::SingleOperationResponse{
+                response.operations.push_back(protocol::SingleOperationResponse{
                     operation.operationId,
                     static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled),
                     {}});
@@ -150,13 +150,13 @@ class EchoRequestHandler final : public score::crypto::daemon::control_plane::IR
                     return cancellation_requested;
                 });
                 std::cout << "SERVER_CANCELLATION_TOKEN_OBSERVED\n" << std::flush;
-                response.operation.operations.push_back(protocol::SingleOperationResponse{
+                response.operations.push_back(protocol::SingleOperationResponse{
                     operation.operationId,
                     static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled),
                     {}});
                 continue;
             }
-            response.operation.operations.push_back(protocol::SingleOperationResponse{
+            response.operations.push_back(protocol::SingleOperationResponse{
                 operation.operationId, protocol::OPERATION_RESULT_SUCCESS, {input.value()}});
         }
         return response;

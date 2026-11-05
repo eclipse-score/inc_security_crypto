@@ -43,7 +43,7 @@ class ErrorConnection final : public api::control_plane::IConnection
     {
         ++m_request_count;
         protocol::ControlResponse response{};
-        response.operation.operations.push_back(protocol::SingleOperationResponse{
+        response.operations.push_back(protocol::SingleOperationResponse{
             daemon::mediator::operations::CreateContext(), static_cast<protocol::OperationResult>(m_error_code), {}});
         return response;
     }

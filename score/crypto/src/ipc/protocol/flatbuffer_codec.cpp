@@ -378,14 +378,14 @@ score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::CryptoErrorCod
         flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::SingleOperationRequest>>> operations{};
         if (((request.kind != bl::ControlRequestKind::kOperation) &&
              (request.kind != bl::ControlRequestKind::kCancel)) ||
-            ((request.kind == bl::ControlRequestKind::kCancel) && !request.operation.operations.empty()))
+            ((request.kind == bl::ControlRequestKind::kCancel) && !request.operations.empty()))
         {
             return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
         }
         if (request.kind == bl::ControlRequestKind::kOperation)
         {
             std::vector<flatbuffers::Offset<fb::SingleOperationRequest>> operation_offsets;
-            for (const auto& operation : request.operation.operations)
+            for (const auto& operation : request.operations)
             {
                 const auto operation_id = fb::CreateOperationIdentifier(
                     builder, operation.operationId.operationActor, operation.operationId.operationAction);
@@ -436,7 +436,7 @@ score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::CryptoErrorCod
     {
         flatbuffers::FlatBufferBuilder builder;
         std::vector<flatbuffers::Offset<fb::SingleOperationResponse>> operations;
-        for (const auto& operation : response.operation.operations)
+        for (const auto& operation : response.operations)
         {
             const auto operation_id = fb::CreateOperationIdentifier(
                 builder, operation.operationId.operationActor, operation.operationId.operationAction);
@@ -570,7 +570,7 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBuff
                 return score::crypto::make_unexpected(parameters.error());
             }
             decoded.parameters = std::move(parameters.value());
-            request.operation.operations.push_back(std::move(decoded));
+            request.operations.push_back(std::move(decoded));
         }
         return {};
     }
@@ -630,7 +630,7 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBuff
                 return score::crypto::make_unexpected(parameters.error());
             }
             decoded.parameters = std::move(parameters.value());
-            response.operation.operations.push_back(std::move(decoded));
+            response.operations.push_back(std::move(decoded));
         }
         return {};
     }

@@ -88,9 +88,9 @@ control_plane::ControlResponse MediatorImpl::processRequest(control_plane::Contr
 {
     auto responseBuilder = control_plane::protocol::OperationResponseBuilder();
 
-    for (size_t idx = 0; idx < request.operation.operations.size(); ++idx)
+    for (size_t idx = 0; idx < request.operations.size(); ++idx)
     {
-        const auto& operation = request.operation.operations[idx];
+        const auto& operation = request.operations[idx];
 
         // Stop processing requests, once one fails. They may depend on each other
         if (!HandleSingleOperation(request, operation, responseBuilder))
@@ -102,14 +102,14 @@ control_plane::ControlResponse MediatorImpl::processRequest(control_plane::Contr
     }
 
     // Build response
-    auto opResponse = responseBuilder.build().value_or(control_plane::protocol::OperationResponse());
+    auto opResponse = responseBuilder.build().value_or(std::vector<control_plane::protocol::SingleOperationResponse>{});
 
     ControlResponse response;
     response.request_id = request.request_id;
-    response.operation = opResponse;
+    response.operations = opResponse;
 
     score::mw::log::LogVerbose() << "[SCORE_API_MED] Response operations: "
-                                 << static_cast<std::uint64_t>(opResponse.operations.size());
+                                 << static_cast<std::uint64_t>(opResponse.size());
 
     return response;
 }
