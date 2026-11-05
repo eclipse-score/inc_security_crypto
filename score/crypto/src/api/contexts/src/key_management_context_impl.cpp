@@ -149,7 +149,9 @@ class KeyManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCallb
         {
             score::mw::log::LogError() << "[API][KeyMgmtRelease] ERROR:" << validator.getError();
             return score::Result<std::monostate>{
-                score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "KEY_RELEASE daemon response invalid")};
+                score::unexpect,
+                MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed),
+                          "KEY_RELEASE daemon response invalid")};
         }
 
         return std::monostate{};
@@ -214,7 +216,9 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::GenerateKey(const G
     {
         score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR:" << validator.getError();
         return score::Result<CryptoResourceGuard>{
-            score::unexpect, MakeError(CryptoErrorCode::kKeyGenerationFailed, "KEY_GENERATE daemon response invalid")};
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kKeyGenerationFailed),
+                      "KEY_GENERATE daemon response invalid")};
     }
 
     // Extract the daemon-assigned resource id from the response
@@ -275,7 +279,9 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::LoadKey(const Crypt
     {
         score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR:" << validator.getError();
         return score::Result<CryptoResourceGuard>{
-            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "KEY_LOAD daemon response invalid")};
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError),
+                      "KEY_LOAD daemon response invalid")};
     }
 
     // Extract the daemon-assigned resource id for the loaded key material
@@ -484,7 +490,8 @@ score::Result<std::size_t> KeyManagementContextImpl::ExportKey(const CryptoResou
 {
     if (key.type != ResourceType::kKey)
     {
-        score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: ExportKey called with invalid key resource type";
+        score::mw::log::LogError()
+            << "[API][KeyMgmtContextImpl] ERROR: ExportKey called with invalid key resource type";
         return score::Result<std::size_t>{
             score::unexpect,
             MakeError(CryptoErrorCode::kInvalidArgument, "ExportKey called with invalid key resource type")};

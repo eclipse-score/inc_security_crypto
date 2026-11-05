@@ -150,8 +150,9 @@ score::Result<std::monostate> MacContextImpl::Update(score::cpp::span<const uint
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
@@ -187,8 +188,9 @@ score::Result<std::size_t> MacContextImpl::Finalize(score::cpp::span<uint8_t> ou
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(tspan, validator);
@@ -224,7 +226,9 @@ score::Result<bool> MacContextImpl::Verify(score::cpp::span<const uint8_t> mac)
 
     if (!validator.isValid())
     {
-        return score::Result<bool>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<bool>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     auto verify_result = validator.getParameterAt<bool>(0, 0);
@@ -257,8 +261,9 @@ score::Result<std::monostate> MacContextImpl::Reset()
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
@@ -324,7 +329,9 @@ score::Result<std::monostate> MacContextImpl::Init(std::optional<score::cpp::spa
     {
         score::mw::log::LogError() << "[API][MacContextImpl] ERROR:" << validator.getError();
         return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "MAC_INIT daemon response invalid")};
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed),
+                      "MAC_INIT daemon response invalid")};
     }
 
     return std::monostate{};
