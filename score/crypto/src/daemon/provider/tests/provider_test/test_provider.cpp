@@ -22,8 +22,8 @@
 #include <variant>
 #include <vector>
 
-#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
