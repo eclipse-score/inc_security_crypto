@@ -11,9 +11,9 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/flatbuffer_codec.h"
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/control_generated.h"
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/protocol_config.h"
+#include "score/crypto/src/ipc/protocol/flatbuffer_codec.h"
+#include "score/crypto/src/ipc/protocol/control_generated.h"
+#include "score/crypto/src/ipc/protocol/protocol_config.h"
 
 #include <gtest/gtest.h>
 
@@ -26,7 +26,7 @@
 #include <string_view>
 #include <utility>
 
-namespace score::crypto::ipc::message_passing
+namespace score::crypto::ipc::protocol::test
 {
 namespace
 {
@@ -433,4 +433,4 @@ TEST(FlatBufferCodecTest, RejectsResponseWithWrongFileIdentifier)
 }
 
 }  // namespace
-}  // namespace score::crypto::ipc::message_passing
+}  // namespace score::crypto::ipc::protocol::test

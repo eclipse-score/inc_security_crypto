@@ -11,12 +11,12 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_PROTOCOL_PROTOCOL_CONFIG_H
-#define SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_PROTOCOL_PROTOCOL_CONFIG_H
+#ifndef SCORE_CRYPTO_IPC_PROTOCOL_CONFIG_H
+#define SCORE_CRYPTO_IPC_PROTOCOL_CONFIG_H
 
 #include <cstdint>
 
-namespace score::crypto::ipc::message_passing::protocol_config
+namespace score::crypto::ipc::protocol_config
 {
 
 // Define the maximum serialized message size for the protocol / codec
@@ -24,6 +24,6 @@ namespace score::crypto::ipc::message_passing::protocol_config
 // See: score/crypto/src/ipc/message_passing_adapter/ipc_config.h
 inline constexpr std::uint16_t kMaxSerializedBytes = 2U * 1024U;
 
-}  // namespace score::crypto::ipc::message_passing::protocol_config
+}  // namespace score::crypto::ipc::protocol_config
 
-#endif  // SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_PROTOCOL_PROTOCOL_CONFIG_H
+#endif  // SCORE_CRYPTO_IPC_PROTOCOL_CONFIG_H

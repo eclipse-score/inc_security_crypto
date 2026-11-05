@@ -11,10 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/flatbuffer_codec.h"
+#include "score/crypto/src/ipc/protocol/flatbuffer_codec.h"
 
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/control_generated.h"
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/protocol_config.h"
+#include "score/crypto/src/ipc/protocol/control_generated.h"
+#include "score/crypto/src/ipc/protocol/protocol_config.h"
 
 #include <flatbuffers/flatbuffers.h>
 
@@ -27,7 +27,7 @@
 #include <utility>
 #include <variant>
 
-namespace score::crypto::ipc::message_passing
+namespace score::crypto::ipc::protocol
 {
 namespace
 {
@@ -646,4 +646,4 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBuff
     }
 }
 
-}  // namespace score::crypto::ipc::message_passing
+}  // namespace score::crypto::ipc::protocol

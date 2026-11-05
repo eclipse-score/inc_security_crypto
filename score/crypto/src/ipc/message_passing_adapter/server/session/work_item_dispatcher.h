@@ -18,8 +18,8 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/i_control_codec.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/work_item_execution/i_work_item_submitter.h"
+#include "score/crypto/src/ipc/protocol/i_control_codec.h"
 
 #include "score/message_passing/i_server_connection.h"
 
@@ -47,7 +47,7 @@ class WorkItemDispatcher final
   public:
     WorkItemDispatcher(SessionManager& session_manager,
                        IWorkItemSubmitter& submitter,
-                       const IControlCodec& codec) noexcept;
+                       const score::crypto::ipc::protocol::IControlCodec& codec) noexcept;
 
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> OnRequest(
         score::message_passing::IServerConnection& connection,
@@ -79,7 +79,7 @@ class WorkItemDispatcher final
 
     SessionManager& session_manager_;
     IWorkItemSubmitter& submitter_;
-    const IControlCodec& codec_;
+    const score::crypto::ipc::protocol::IControlCodec& codec_;
 };
 
 }  // namespace score::crypto::ipc::message_passing

@@ -18,8 +18,8 @@
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/i_control_codec.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session.h"
+#include "score/crypto/src/ipc/protocol/i_control_codec.h"
 
 #include <score/span.hpp>
 
@@ -166,7 +166,7 @@ bool WorkItem::TryTransitionTo(std::lock_guard<std::mutex>& lock, const WorkItem
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> WorkItem::DeserializeRequest(
-    const IControlCodec& codec) noexcept
+    const score::crypto::ipc::protocol::IControlCodec& codec) noexcept
 {
     const auto owned_request =
         score::cpp::span<const std::uint8_t>{serialized_request.data(), serialized_request.size()};
@@ -190,7 +190,7 @@ score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErr
 score::crypto::Expected<std::shared_ptr<WorkItem>, score::crypto::daemon::common::DaemonErrorCode> WorkItem::Create(
     const score::cpp::span<const std::uint8_t> serialized_request,
     const std::shared_ptr<Session>& session,
-    const IControlCodec& codec,
+    const score::crypto::ipc::protocol::IControlCodec& codec,
     const std::chrono::steady_clock::time_point received_at) noexcept
 {
     if (serialized_request.size() > ipc::kMaxPayloadBytes)

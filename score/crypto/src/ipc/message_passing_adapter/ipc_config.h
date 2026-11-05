@@ -14,7 +14,7 @@
 #ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_IPC_CONFIG_H
 #define SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_IPC_CONFIG_H
 
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/protocol_config.h"
+#include "score/crypto/src/ipc/protocol/protocol_config.h"
 
 #include <chrono>
 #include <cstdint>
@@ -66,10 +66,10 @@ static_assert(kMaxOutstandingOperationsPerConnection <= kServerNotificationCapac
               "The per-connection operation limit must leave notification capacity available");
 
 // Define the maximum payload size for IPC communication (in serialized bytes)
-inline constexpr std::uint16_t kMaxPayloadBytes = message_passing::protocol_config::kMaxSerializedBytes;
+inline constexpr std::uint16_t kMaxPayloadBytes = protocol_config::kMaxSerializedBytes;
 
 // IPC should be able to transfer the full protocol buffer
-static_assert(kMaxPayloadBytes >= message_passing::protocol_config::kMaxSerializedBytes,
+static_assert(kMaxPayloadBytes >= protocol_config::kMaxSerializedBytes,
               "IPC must be able to transfer the full protocol buffer");
 
 // score communication message passing under QNX currently has a limit of 2088 Bytes

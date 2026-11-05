@@ -18,7 +18,7 @@
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/control_plane/cancellation_token.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/i_control_codec.h"
+#include "score/crypto/src/ipc/protocol/i_control_codec.h"
 
 #include <score/span.hpp>
 
@@ -55,12 +55,12 @@ enum class WorkItemState : std::uint8_t
 struct WorkItem final
 {
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DeserializeRequest(
-        const IControlCodec& codec) noexcept;
+        const score::crypto::ipc::protocol::IControlCodec& codec) noexcept;
 
     static score::crypto::Expected<std::shared_ptr<WorkItem>, score::crypto::daemon::common::DaemonErrorCode> Create(
         score::cpp::span<const std::uint8_t> serialized_request,
         const std::shared_ptr<Session>& session,
-        const IControlCodec& codec,
+        const score::crypto::ipc::protocol::IControlCodec& codec,
         std::chrono::steady_clock::time_point received_at) noexcept;
 
     WorkItemState PrepareForExecution() noexcept;

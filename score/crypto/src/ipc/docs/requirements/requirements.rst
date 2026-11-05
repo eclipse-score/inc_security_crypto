@@ -27,8 +27,10 @@ Crypto IPC Requirements
 Scope
 -----
 
-The requirements below describe the requirements for an IPC mechanism to be used to allow
-communication between the library and the daemon.
+These requirements define the IPC capabilities needed for communication between the library and
+the daemon. They specify externally visible behavior rather than a particular transport or wire
+encoding. The ``satisfied_by`` links identify the current concrete implementation that provides
+the evidence of satisfaction; they do not make that implementation the only possible backend.
 
 Functional requirements
 -----------------------
@@ -181,7 +183,7 @@ Functional requirements
    :security: NO
    :safety: QM
    :status: valid
-   :satisfied_by: comp__ipc_message_passing_adapter
+   :satisfied_by: comp__ipc_protocol
    :derived_from: feat_req__sec_crypt__no_key_exposure[version==1],
       feat_req__sec_crypt__os_protection[version==1],
       feat_req__sec_crypt__access_control[version==1],

@@ -15,12 +15,12 @@
 
 #include "score/crypto/src/daemon/control_plane/i_control_server.h"
 #include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/flatbuffer_codec.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/server_callbacks.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/server_lifecycle.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session_manager.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/work_item_dispatcher.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/work_item_execution/fixed_worker_work_item_executor.h"
+#include "score/crypto/src/ipc/protocol/flatbuffer_codec.h"
 
 #include <score/memory.hpp>
 #include <score/span.hpp>
@@ -89,7 +89,7 @@ class MessagePassingControlServer final : public daemon::control_plane::IControl
     std::unique_ptr<daemon::control_plane::IHandlerChainFactory> handler_chain_factory_;
 
     FixedWorkerWorkItemExecutor work_item_executor_;
-    FlatBufferCodec codec_;
+    score::crypto::ipc::protocol::FlatBufferCodec codec_;
     SessionManager session_manager_;
     WorkItemDispatcher work_item_dispatcher_;
 

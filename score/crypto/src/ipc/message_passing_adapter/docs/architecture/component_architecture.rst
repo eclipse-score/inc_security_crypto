@@ -38,7 +38,11 @@ IPC Message Passing Adapter Component Architecture Documentation
 Overview
 --------
 
-<Brief summary of the architecture.>
+IPC Message Passing Adapter allows communication between clients and the server.
+Hereby it also takes care of connection and session management, which coordinates client calls,
+connection and session state, request dispatch, and worker execution.
+
+It is built upon the SCORE Communication Message Passing framework (score::message_passing).
 
 Requirements Linked to Component Architecture
 ---------------------------------------------

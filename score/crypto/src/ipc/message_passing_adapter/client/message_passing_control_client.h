@@ -16,7 +16,7 @@
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/client/client_session/client_session.h"
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/flatbuffer_codec.h"
+#include "score/crypto/src/ipc/protocol/flatbuffer_codec.h"
 
 #include "score/memory.hpp"
 #include "score/message_passing/client_factory.h"
@@ -66,7 +66,7 @@ class MessagePassingControlClient final
                                 score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection);
 
     std::unique_ptr<score::message_passing::ClientFactory> factory_;
-    FlatBufferCodec codec_;
+    score::crypto::ipc::protocol::FlatBufferCodec codec_;
     ClientSession session_;
 };
 

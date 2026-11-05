@@ -34,7 +34,7 @@ std::chrono::milliseconds ClampRequestTimeout(const std::chrono::milliseconds ti
 
 }  // namespace
 
-ClientSession::ClientSession(const IControlCodec& codec,
+ClientSession::ClientSession(const score::crypto::ipc::protocol::IControlCodec& codec,
                              score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection)
     : codec_(codec), connection_(std::move(connection))
 {

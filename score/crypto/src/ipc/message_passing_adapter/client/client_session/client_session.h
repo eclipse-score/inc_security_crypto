@@ -17,7 +17,7 @@
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/client/client_session/pending_call_registry.h"
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/i_control_codec.h"
+#include "score/crypto/src/ipc/protocol/i_control_codec.h"
 
 #include "score/message_passing/i_client_connection.h"
 
@@ -43,7 +43,7 @@ namespace score::crypto::ipc::message_passing
 class ClientSession final : public std::enable_shared_from_this<ClientSession>
 {
   public:
-    explicit ClientSession(const IControlCodec& codec,
+    explicit ClientSession(const score::crypto::ipc::protocol::IControlCodec& codec,
                            score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection);
     ~ClientSession() noexcept;
 
@@ -81,7 +81,7 @@ class ClientSession final : public std::enable_shared_from_this<ClientSession>
     std::condition_variable state_condition_{};
     LifecycleState state_{LifecycleState::kStarting};
 
-    const IControlCodec& codec_;
+    const score::crypto::ipc::protocol::IControlCodec& codec_;
 
     PendingCallRegistry pending_call_registry_{};
     score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection_;

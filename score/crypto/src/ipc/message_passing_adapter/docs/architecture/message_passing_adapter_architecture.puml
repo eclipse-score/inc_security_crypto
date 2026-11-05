@@ -14,7 +14,6 @@
 @startuml message_passing_adapter_architecture
 !theme plain
 
-skinparam linetype ortho
 skinparam componentStyle rectangle
 skinparam packageStyle rectangle
 skinparam shadowing false
@@ -43,17 +42,14 @@ package "Client Side" as ClientSide {
     PendingRegistry o-- PendingCall : tracks
 }
 
+package "Control Protocol" as Protocol {
+    interface "IControlCodec" as IControlCodec
+}
+
 package "Transport" as Transport {
     package "SCORE Message Passing" as MessagePassing {
         interface "IClientConnection" as IClientConnection
         interface "IServerConnection" as IServerConnection
-    }
-
-    package "Protocol" as Protocol {
-        component "FlatBufferCodec" as Codec
-        component "control.fbs" as Schema <<schema>>
-
-        Codec --> Schema : encodes and decodes
     }
 }
 
@@ -84,11 +80,14 @@ package "Daemon Control Plane" as ControlPlane {
     interface "IRequestHandler" as RequestHandler
 }
 
-Caller <.right.> ClientSide
-ClientSide <.right.> Transport
-ServerSide <.left.> Transport
-ServerSide <.right.> ControlPlane
+Caller <..> ClientSide
 
-MessagePassing <.[hidden]down.> Protocol
+ClientSession --> IControlCodec : uses
+ClientSession --> IClientConnection : uses Send and response callbacks
+Server --> IServerConnection : uses connection callbacks
+Session --> IServerConnection : uses Notify for responses
+Dispatcher --> IControlCodec : uses
+
+Dispatcher <..> ControlPlane
 
 @enduml

@@ -14,9 +14,9 @@
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/work_item_dispatcher.h"
 
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/i_control_codec.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session_manager.h"
+#include "score/crypto/src/ipc/protocol/i_control_codec.h"
 
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/mw/log/logging.h"
@@ -51,7 +51,7 @@ DaemonErrorCode MapCodecError(const score::crypto::CryptoErrorCode error) noexce
 
 WorkItemDispatcher::WorkItemDispatcher(SessionManager& session_manager,
                                        IWorkItemSubmitter& submitter,
-                                       const IControlCodec& codec) noexcept
+                                       const score::crypto::ipc::protocol::IControlCodec& codec) noexcept
     : session_manager_(session_manager), submitter_(submitter), codec_(codec)
 {
 }

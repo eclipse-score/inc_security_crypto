@@ -11,7 +11,7 @@
   SPDX-License-Identifier: Apache-2.0
 ----------------------------------------------------------------------------- -->
 
-# DAR — IPC Mechanism for score-crypto Daemon
+# Auxiliary DAR: Selection of IPC Transport
 
 | | |
 |---|---|
@@ -25,6 +25,12 @@
 ## 1. Problem Statement
 
 The score-crypto daemon requires an IPC transport to serve cryptographic operations to client processes. The current implementation uses gRPC. The target deployment environment is automotive ECUs with strict functional-safety requirements (ISO 26262), potentially running mixed ASIL-level workloads, possibly across VM boundaries. A replacement or continuation decision is needed.
+
+This document compares transport choices. The IPC requirements describe capabilities independently
+of transport, and the shared crypto control protocol is a separate layer: ``IControlCodec`` defines
+the serialization boundary, currently implemented by ``FlatBufferCodec`` using ``control.fbs``.
+Unless an option explicitly states otherwise, the comparison assumes that the transport carries a
+common application-level envelope. Selecting a transport does not, by itself, select its encoding.
 
 ---
 
@@ -188,7 +194,7 @@ its R2, R6, and resource-scaling limitations.
 
 ## 6. Decision
 
-**Option E — LoLa Message Passing Abstraction (Send + Notify)** is selected as the IPC transport for the score-crypto daemon, using `score::message_passing` as its current implementation basis. The no-`Reply` protocol avoids the per-connection request/reply serialization window and still allows server-side submission failures to be reported through a negative `Notify()` result.
+**Option E — LoLa Message Passing Abstraction (Send + Notify)** is selected as the IPC transport for the score-crypto daemon, using `score::message_passing` as its current implementation basis. The no-`Reply` transport model avoids the per-connection request/reply serialization window and still allows server-side submission failures to be reported through a negative `Notify()` result. The control-payload encoding remains a separate protocol-layer concern.
 
 ---
 

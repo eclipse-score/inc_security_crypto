@@ -28,9 +28,14 @@ Message-Passing Adapter Architecture
 Overview
 --------
 
-The message-passing adapter implements inter-process transport for the crypto daemon control plane. It converts typed control requests and responses to byte messages, delegates transport to SCORE message passing, and runs accepted operations through the daemon's request-handler interfaces. The adapter owns connection, request, and session coordination; it does not implement the crypto operations or the underlying transport.
+The message-passing adapter is the current concrete IPC implementation for the crypto daemon control plane. It coordinates client calls, connection and session state, request dispatch, and worker execution, using SCORE message passing to carry serialized frames. It does not implement the crypto operations or the underlying transport.
 
 The client API is synchronous from its caller's perspective: a call waits for a matching response, a terminal error, or its bounded timeout. On the server, transport callbacks hand incoming frames to session admission and request dispatch, while worker threads execute admitted operations independently of the transport callback.
+
+The adapter currently constructs ``FlatBufferCodec`` for the shared crypto control protocol. The
+codec contract, schema, and wire format are documented in
+:doc:`../../../protocol/docs/index`; the package boundary does not by itself make alternate
+transports or codecs pluggable end to end.
 
 Static Architecture
 -------------------
@@ -86,15 +91,9 @@ Transport
 SCORE Message-Passing Transport
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Moves byte frames between ``IClientConnection`` and ``IServerConnection`` and reports connection lifecycle events. The transport implementation is outside this adapter.
-
-FlatBufferCodec
-^^^^^^^^^^^^^^^
-
-.. literalinclude:: ../../protocol/flatbuffer_codec.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Moves serialized byte frames between ``IClientConnection`` and ``IServerConnection`` and reports
+connection lifecycle events. The adapter uses this transport today; the codec itself operates on
+serialized bytes rather than message-passing connection types.
 
 Server Side
 ~~~~~~~~~~~

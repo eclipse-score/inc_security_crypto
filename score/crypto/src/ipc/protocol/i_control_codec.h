@@ -10,8 +10,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
-#ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_I_CONTROL_CODEC_H
-#define SCORE_CRYPTO_IPC_MESSAGE_PASSING_I_CONTROL_CODEC_H
+#ifndef SCORE_CRYPTO_IPC_PROTOCOL_I_CONTROL_CODEC_H
+#define SCORE_CRYPTO_IPC_PROTOCOL_I_CONTROL_CODEC_H
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/common/types.hpp"
@@ -21,14 +21,14 @@
 #include <cstdint>
 #include <vector>
 
-namespace score::crypto::ipc::message_passing
+namespace score::crypto::ipc::protocol
 {
 
 /**
  * @brief
- * Converts typed control requests and responses to and from transport frame bytes.
- * Implementations provide the wire-format boundary shared by the message-passing client and
- * server. Request metadata can be inspected before full request deserialization.
+ * Converts typed control requests and responses to and from serialized bytes.
+ * Implementations provide the wire-format boundary between the crypto control plane and IPC
+ * transports. Request metadata can be inspected before full request deserialization.
  * @endrst
  */
 class IControlCodec
@@ -64,6 +64,6 @@ class IControlCodec
     IControlCodec() noexcept = default;
 };
 
-}  // namespace score::crypto::ipc::message_passing
+}  // namespace score::crypto::ipc::protocol
 
-#endif  // SCORE_CRYPTO_IPC_MESSAGE_PASSING_I_CONTROL_CODEC_H
+#endif  // SCORE_CRYPTO_IPC_PROTOCOL_I_CONTROL_CODEC_H

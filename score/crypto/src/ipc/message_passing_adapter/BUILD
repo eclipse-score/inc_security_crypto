@@ -11,59 +11,14 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-load("@score_baselibs//score/flatbuffers/bazel:codegen.bzl", "generate_cpp")
-
-# FlatBuffers schema and codec shared by the message-passing client and server.
-generate_cpp(
-    name = "generated_control",
-    schema = "protocol/control.fbs",
-    output = "protocol/control_generated.h",
-    size_prefixed = True,
-)
-
-cc_library(
-    name = "protocol_config",
-    hdrs = ["protocol/protocol_config.h"],
-    linkstatic = True,
-    visibility = ["//:__subpackages__"],
-)
+load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
     name = "ipc_config",
     hdrs = ["ipc_config.h"],
     linkstatic = True,
     visibility = ["//:__subpackages__"],
-    deps = [":protocol_config"],
-)
-
-cc_library(
-    name = "message_passing_protocol",
-    srcs = ["protocol/flatbuffer_codec.cpp"],
-    hdrs = [
-        "protocol/i_control_codec.h",
-        "protocol/flatbuffer_codec.h",
-        ":generated_control",
-    ],
-    linkstatic = True,
-    visibility = ["//:__subpackages__"],
-    deps = [
-        "//score/crypto/src/daemon/control_plane",
-        ":protocol_config",
-        "@score_baselibs//score/flatbuffers:flatbufferscpp",
-        "@score_baselibs//score/language/futurecpp",
-    ],
-)
-
-cc_test(
-    name = "flatbuffer_codec_test",
-    srcs = ["protocol/flatbuffer_codec_test.cpp"],
-    deps = [
-        ":message_passing_protocol",
-        ":protocol_config",
-        "@googletest//:gtest_main",
-    ],
-    testonly = True,
+    deps = ["//score/crypto/src/ipc/protocol:protocol_config"],
 )
 
 cc_library(
@@ -83,7 +38,7 @@ cc_library(
     linkstatic = True,
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/src/ipc/message_passing_adapter:message_passing_protocol",
+        "//score/crypto/src/ipc/protocol:protocol",
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/control_plane:control_plane_hdr",
         "//score/crypto/src/common:common_types",
@@ -122,7 +77,7 @@ cc_library(
     linkstatic = True,
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/src/ipc/message_passing_adapter:message_passing_protocol",
+        "//score/crypto/src/ipc/protocol:protocol",
         "//score/crypto/src/daemon/control_plane",
         ":ipc_config",
         "@score_baselibs//score/language/futurecpp",

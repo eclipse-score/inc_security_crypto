@@ -10,12 +10,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
-#ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_FLATBUFFER_CODEC_H
-#define SCORE_CRYPTO_IPC_MESSAGE_PASSING_FLATBUFFER_CODEC_H
+#ifndef SCORE_CRYPTO_IPC_PROTOCOL_FLATBUFFER_CODEC_H
+#define SCORE_CRYPTO_IPC_PROTOCOL_FLATBUFFER_CODEC_H
 
-#include "score/crypto/src/ipc/message_passing_adapter/protocol/i_control_codec.h"
+#include "score/crypto/src/ipc/protocol/i_control_codec.h"
 
-namespace score::crypto::ipc::message_passing
+namespace score::crypto::ipc::protocol
 {
 
 /**
@@ -40,6 +40,6 @@ class FlatBufferCodec final : public IControlCodec
         daemon::control_plane::protocol::ControlResponse& response) const noexcept override;
 };
 
-}  // namespace score::crypto::ipc::message_passing
+}  // namespace score::crypto::ipc::protocol
 
-#endif  // SCORE_CRYPTO_IPC_MESSAGE_PASSING_FLATBUFFER_CODEC_H
+#endif  // SCORE_CRYPTO_IPC_PROTOCOL_FLATBUFFER_CODEC_H

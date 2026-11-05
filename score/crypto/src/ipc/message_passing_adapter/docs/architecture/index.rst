@@ -22,5 +22,4 @@ IPC Message Passing Adapter Architecture
 
    component_architecture
    design_decisions
-   ipc_comparison
    message_passing_adapter
