@@ -38,18 +38,17 @@ using ::score::crypto::daemon::common::DaemonErrorCode;
 using ::score::crypto::daemon::common::StreamOperationState;
 
 OpenSslRsaPssVerifyHandler::OpenSslRsaPssVerifyHandler(std::unique_ptr<operations::verify::VerifyExecutor> executor,
-                                                       const common::AlgorithmId& algorithm)
+                                                       const AlgorithmDescriptor& algorithm)
     : ScoreVerifyHandler{std::move(executor), algorithm}
 {
 }
 
 OpenSslRsaPssVerifyHandler::~OpenSslRsaPssVerifyHandler() = default;
 
-bool OpenSslRsaPssVerifyHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool OpenSslRsaPssVerifyHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    const std::string_view value{algorithm.data(), algorithm.size()};
-    return ::score::crypto::daemon::provider::openssl::detail::IsSignatureAlgorithmSupported(value) &&
-           algo::IsRsaPssAlgorithm(value);
+    return (algorithm.key_type == ::score::crypto::KeyType::kRsa) &&
+           ::score::crypto::daemon::provider::openssl::detail::IsSignatureSupported(algorithm);
 }
 
 Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssVerifyHandler::InitializeContext(
@@ -70,8 +69,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssVerifyHandler::Initialize
     m_digest_size = 0U;
     if (m_prehashed)
     {
-        const auto digest_size =
-            algo::LookupSignatureDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
+        const auto digest_size = ::score::crypto::daemon::common::LookupDigestSize(m_algorithm.hash);
         m_digest_size = digest_size.value_or(0U);
     }
 
@@ -92,9 +90,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssVerifyHandler::Reset()
 
 std::size_t OpenSslRsaPssVerifyHandler::GetSignatureSize() const noexcept
 {
-    const auto key =
-        algo::LookupRsaKeyInfoForSignatureAlgorithm(std::string_view{m_algorithm.data(), m_algorithm.size()});
-    return key.has_value() ? key->modulus_size : 0U;
+    return IsAlgorithmSupported(m_algorithm) ? m_algorithm.output_size : 0U;
 }
 
 Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssVerifyHandler::InitVerify()
@@ -121,23 +117,23 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssVerifyHandler::Initialize
         m_buffer.clear();
         return std::monostate{};
     }
-    const auto digest = algo::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
-    const std::string digest_name = digest.has_value() ? std::string{digest.value()} : std::string{};
+    const char* const digest =
+        ::score::crypto::daemon::provider::openssl::detail::ToOpenSslDigestName(m_algorithm.hash);
+    const std::string digest_name = (digest != nullptr) ? std::string{digest} : std::string{};
     if (EVP_DigestVerifyInit_ex(m_stream.Context(), nullptr, digest_name.c_str(), nullptr, nullptr, key, nullptr) != 1)
     {
         score::mw::log::LogError() << kLogPrefix << "InitializeVerifyContext: EVP_DigestVerifyInit_ex failed for "
-                                   << m_algorithm;
+                                   << m_algorithm.name;
         return make_unexpected(DaemonErrorCode::kAlgorithmInitializationFailed);
     }
     m_buffer.clear();
     // AUTO accepts any legal salt length recovered from the signature, instead of
     // requiring it to match this provider's own (fixed) signing default.
-    auto configured = signature::ConfigureRsaPssContext(
-        m_stream.Context(), std::string_view{m_algorithm.data(), m_algorithm.size()}, RSA_PSS_SALTLEN_AUTO);
+    auto configured = signature::ConfigureRsaPssContext(m_stream.Context(), m_algorithm, RSA_PSS_SALTLEN_AUTO);
     if (!configured.has_value())
     {
         score::mw::log::LogError() << kLogPrefix << "InitializeVerifyContext: RSA-PSS context configuration failed for "
-                                   << m_algorithm;
+                                   << m_algorithm.name;
         return configured;
     }
     return std::monostate{};
@@ -156,7 +152,8 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssVerifyHandler::UpdateVeri
         if (m_digest_size == 0U || m_buffer.size() > m_digest_size || data.size() > m_digest_size - m_buffer.size())
         {
             score::mw::log::LogError() << kLogPrefix << "UpdateVerify: prehashed input exceeds digest size for "
-                                       << m_algorithm << "; buffered=" << m_buffer.size() << ", chunk=" << data.size();
+                                       << m_algorithm.name << "; buffered=" << m_buffer.size()
+                                       << ", chunk=" << data.size();
             return make_unexpected(DaemonErrorCode::kInvalidArgument);
         }
         m_buffer.insert(m_buffer.end(), data.begin(), data.end());
@@ -164,7 +161,8 @@ Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssVerifyHandler::UpdateVeri
     }
     if (EVP_DigestVerifyUpdate(m_stream.Context(), data.data(), data.size()) != 1)
     {
-        score::mw::log::LogError() << kLogPrefix << "UpdateVerify: EVP_DigestVerifyUpdate failed for " << m_algorithm;
+        score::mw::log::LogError() << kLogPrefix << "UpdateVerify: EVP_DigestVerifyUpdate failed for "
+                                   << m_algorithm.name;
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
     return std::monostate{};
@@ -202,11 +200,7 @@ Expected<bool, DaemonErrorCode> OpenSslRsaPssVerifyHandler::FinalizeVerify(
         }
 
         EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new(m_stream.Key(), nullptr);
-        const auto digest_name = algo::LookupSignatureDigest(std::string_view{m_algorithm.data(), m_algorithm.size()});
-        const EVP_MD* digest =
-            digest_name.has_value()
-                ? ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(digest_name.value())
-                : nullptr;
+        const EVP_MD* digest = ::score::crypto::daemon::provider::openssl::detail::ToEvpMd(m_algorithm.hash);
         const bool configured = pctx != nullptr && EVP_PKEY_verify_init(pctx) == 1 &&
                                 signature::ConfigureRsaPssPkeyContext(pctx, digest, RSA_PSS_SALTLEN_AUTO) &&
                                 EVP_PKEY_CTX_set_signature_md(pctx, digest) == 1;
@@ -230,11 +224,12 @@ Expected<bool, DaemonErrorCode> OpenSslRsaPssVerifyHandler::FinalizeVerify(
         if (!configured)
         {
             score::mw::log::LogError() << kLogPrefix << "FinalizeVerify: failed to configure prehashed RSA-PSS "
-                                       << "verification for " << m_algorithm;
+                                       << "verification for " << m_algorithm.name;
         }
         else
         {
-            score::mw::log::LogError() << kLogPrefix << "FinalizeVerify: EVP_PKEY_verify failed for " << m_algorithm;
+            score::mw::log::LogError() << kLogPrefix << "FinalizeVerify: EVP_PKEY_verify failed for "
+                                       << m_algorithm.name;
         }
         return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
     }
@@ -249,7 +244,7 @@ Expected<bool, DaemonErrorCode> OpenSslRsaPssVerifyHandler::FinalizeVerify(
     {
         return false;
     }
-    score::mw::log::LogError() << kLogPrefix << "FinalizeVerify: OpenSSL verification failed for " << m_algorithm;
+    score::mw::log::LogError() << kLogPrefix << "FinalizeVerify: OpenSSL verification failed for " << m_algorithm.name;
     return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
 }
 
@@ -291,7 +286,7 @@ Expected<bool, DaemonErrorCode> OpenSslRsaPssVerifyHandler::SingleShotVerify(
     {
         return false;
     }
-    score::mw::log::LogError() << kLogPrefix << "SingleShotVerify: EVP_DigestVerify failed for " << m_algorithm;
+    score::mw::log::LogError() << kLogPrefix << "SingleShotVerify: EVP_DigestVerify failed for " << m_algorithm.name;
     return make_unexpected(DaemonErrorCode::kAlgorithmExecutionFailed);
 }
 

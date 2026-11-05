@@ -45,28 +45,28 @@ OpenSslHandlerFactory::OpenSslHandlerFactory(std::shared_ptr<key_management::IKe
 {
 }
 
-score::Result<HandlerSptr> OpenSslHandlerFactory::CreateHashHandler(const common::AlgorithmId& algorithm)
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateHashHandler(const AlgorithmDescriptor& algorithm)
 {
     if (!OpenSslHashHandler::IsAlgorithmSupported(algorithm))
     {
         score::result::Error error(
             static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
             score::crypto::kCryptoErrorDomain,
-            "Algorithm not supported for handler: " + algorithm);
+            "Algorithm not supported for handler: " + std::string{algorithm.name});
         return score::Result<HandlerSptr>(score::unexpect, error);
     }
     auto hash_executor = std::make_unique<operations::hash::HashExecutor>();
     return std::make_shared<OpenSslHashHandler>(std::move(hash_executor), algorithm);
 }
 
-score::Result<HandlerSptr> OpenSslHandlerFactory::CreateMacHandler(const common::AlgorithmId& algorithm)
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateMacHandler(const AlgorithmDescriptor& algorithm)
 {
     if (!OpenSslHmacHandler::IsAlgorithmSupported(algorithm))
     {
         score::result::Error error(
             static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
             score::crypto::kCryptoErrorDomain,
-            "Algorithm not supported for handler: " + algorithm);
+            "Algorithm not supported for handler: " + std::string{algorithm.name});
         return score::Result<HandlerSptr>(score::unexpect, error);
     }
     auto mac_executor = std::make_unique<operations::mac::MacExecutor>();
@@ -80,14 +80,14 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateKeyManagementHandler()
     return std::make_shared<OpenSslKeyManagementHandler>(std::move(executor));
 }
 
-score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCipherHandler(const common::AlgorithmId& algorithm)
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCipherHandler(const AlgorithmDescriptor& algorithm)
 {
     if (!OpenSslCipherHandler::IsAlgorithmSupported(algorithm))
     {
         score::result::Error error(
             static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
             score::crypto::kCryptoErrorDomain,
-            "Algorithm not supported for handler: " + algorithm);
+            "Algorithm not supported for handler: " + std::string{algorithm.name});
         return score::Result<HandlerSptr>(score::unexpect, error);
     }
     auto cipher_executor = std::make_unique<operations::cipher::CipherExecutor>();
@@ -96,7 +96,7 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateCipherHandler(const comm
 
 // Each signature family claims the algorithms it serves; an identifier no
 // family claims is unsupported. Further families (RSA, ML-DSA) add a branch.
-score::Result<HandlerSptr> OpenSslHandlerFactory::CreateSignHandler(const common::AlgorithmId& algorithm)
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateSignHandler(const AlgorithmDescriptor& algorithm)
 {
     if (OpenSslEcdsaSignHandler::IsAlgorithmSupported(algorithm))
     {
@@ -117,11 +117,11 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateSignHandler(const common
     score::result::Error error(
         static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
         score::crypto::kCryptoErrorDomain,
-        "Algorithm not supported for handler: " + algorithm);
+        "Algorithm not supported for handler: " + std::string{algorithm.name});
     return score::Result<HandlerSptr>(score::unexpect, error);
 }
 
-score::Result<HandlerSptr> OpenSslHandlerFactory::CreateVerifyHandler(const common::AlgorithmId& algorithm)
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateVerifyHandler(const AlgorithmDescriptor& algorithm)
 {
     if (OpenSslEcdsaVerifyHandler::IsAlgorithmSupported(algorithm))
     {
@@ -142,18 +142,18 @@ score::Result<HandlerSptr> OpenSslHandlerFactory::CreateVerifyHandler(const comm
     score::result::Error error(
         static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
         score::crypto::kCryptoErrorDomain,
-        "Algorithm not supported for handler: " + algorithm);
+        "Algorithm not supported for handler: " + std::string{algorithm.name});
     return score::Result<HandlerSptr>(score::unexpect, error);
 }
 
-score::Result<HandlerSptr> OpenSslHandlerFactory::CreateRandomHandler(const common::AlgorithmId& algorithm)
+score::Result<HandlerSptr> OpenSslHandlerFactory::CreateRandomHandler(const AlgorithmDescriptor& algorithm)
 {
     if (!OpenSslRandomHandler::IsAlgorithmSupported(algorithm))
     {
         score::result::Error error(
             static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm),
             score::crypto::kCryptoErrorDomain,
-            "Algorithm not supported for handler: " + algorithm);
+            "Algorithm not supported for handler: " + std::string{algorithm.name});
         return score::Result<HandlerSptr>(score::unexpect, error);
     }
     auto random_executor = std::make_unique<operations::random::RandomExecutor>();

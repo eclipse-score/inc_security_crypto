@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include <gtest/gtest.h>
+#include <string_view>
 
 #include <array>
 #include <cstddef>
@@ -23,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
@@ -41,6 +43,14 @@ namespace ops = score::crypto::daemon::provider::handler::hash_handler_operation
 
 namespace
 {
+
+/// Catalog row of @p name; the daemon resolves names before a provider sees them.
+score::crypto::AlgorithmDescriptor Row(std::string_view name)
+{
+    const auto row = score::crypto::GetAlgorithmDescriptor(name);
+    EXPECT_TRUE(row.has_value()) << "not in the catalog: " << name;
+    return row.value_or(score::crypto::AlgorithmDescriptor{});
+}
 
 /// Helper to build an OperationIdentifier for hash operations.
 common::OperationIdentifier MakeHashOp(common::OperationAction action)
@@ -622,7 +632,7 @@ TEST_F(Pkcs11ProviderSoftCleanupHashTest, DiscardsSessionWhenHandlerCleanupFails
     ConfigureDigestFinalStub({CKR_DEVICE_ERROR});
     {
         auto executor = std::make_unique<pkcs11::Pkcs11HashExecutor>(functionList);
-        pkcs11::Pkcs11HashHandler hashHandler{std::move(executor), session, "SHA256", provider_.get()};
+        pkcs11::Pkcs11HashHandler hashHandler{std::move(executor), session, Row("SHA256"), provider_.get()};
     }
 
     EXPECT_FALSE(provider_->ValidateSession(session));
@@ -644,7 +654,7 @@ TEST_F(Pkcs11ProviderSoftCleanupHashTest, ReusesSessionWhenHandlerCleanupSucceed
     ConfigureDigestFinalStub({CKR_OPERATION_NOT_INITIALIZED});
     {
         auto executor = std::make_unique<pkcs11::Pkcs11HashExecutor>(functionList);
-        pkcs11::Pkcs11HashHandler hashHandler{std::move(executor), session, "SHA256", provider_.get()};
+        pkcs11::Pkcs11HashHandler hashHandler{std::move(executor), session, Row("SHA256"), provider_.get()};
     }
 
     EXPECT_TRUE(provider_->ValidateSession(session));
@@ -669,7 +679,7 @@ TEST_P(Pkcs11ProviderHashAlgorithmTest, SupportsSingleShotStreamingResetAndDiges
     auto cryptoOps = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(cryptoOps, nullptr);
 
-    auto handlerResult = cryptoOps->CreateHandler("HASH", testData.algorithm);
+    auto handlerResult = cryptoOps->CreateHandler("HASH", Row(testData.algorithm));
     ASSERT_TRUE(handlerResult.has_value()) << "Failed to create HASH/" << testData.algorithm;
     auto hashHandler = handlerResult.value();
     ASSERT_NE(hashHandler, nullptr);
@@ -818,9 +828,9 @@ TEST_F(Pkcs11ProviderHashTest, RejectsUnsupportedAlgorithm)
 {
     auto cryptoOps = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(cryptoOps, nullptr);
-    for (const char* algorithm : {"UNSUPPORTED_ALGORITHM", "SHA1", "MD5"})
+    for (const char* algorithm : {"SHA1", "MD5"})
     {
-        const auto result = cryptoOps->CreateHandler("HASH", algorithm);
+        const auto result = cryptoOps->CreateHandler("HASH", Row(algorithm));
         ASSERT_FALSE(result.has_value()) << "Unexpectedly accepted hash algorithm: " << algorithm;
         EXPECT_EQ(*result.error(),
                   static_cast<score::result::ErrorCode>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm));
@@ -852,7 +862,7 @@ TEST_F(Pkcs11ProviderHashTest, ReportsExecutorUpdateFailure)
     auto cryptoOps = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(cryptoOps, nullptr);
 
-    auto handlerResult = cryptoOps->CreateHandler("HASH", "SHA256");
+    auto handlerResult = cryptoOps->CreateHandler("HASH", Row("SHA256"));
     ASSERT_TRUE(handlerResult.has_value());
     auto hashHandler = handlerResult.value();
     ASSERT_TRUE(hashHandler->InitializeContext(handler::InitializationParams{}).has_value());
@@ -873,7 +883,7 @@ TEST_F(Pkcs11ProviderHashTest, StreamStateViolation)
     auto cryptoOps = provider_->GetCryptoHandlerFactory();
     ASSERT_NE(cryptoOps, nullptr);
 
-    auto handlerResult = cryptoOps->CreateHandler("HASH", "SHA256");
+    auto handlerResult = cryptoOps->CreateHandler("HASH", Row("SHA256"));
     ASSERT_TRUE(handlerResult.has_value());
     auto handler = handlerResult.value();
     ASSERT_NE(handler, nullptr);
@@ -922,13 +932,13 @@ TEST_F(Pkcs11ProviderHashTest, TrueConcurrentStreamingOnSeparateSessions)
     ASSERT_NE(cryptoOps, nullptr);
 
     // Create handler A (SHA256) -- acquires session A from pool
-    auto handlerResultA = cryptoOps->CreateHandler("HASH", "SHA256");
+    auto handlerResultA = cryptoOps->CreateHandler("HASH", Row("SHA256"));
     ASSERT_TRUE(handlerResultA.has_value());
     auto handlerA = handlerResultA.value();
     ASSERT_NE(handlerA, nullptr);
 
     // Create handler B (SHA384) -- acquires session B from pool (different from A)
-    auto handlerResultB = cryptoOps->CreateHandler("HASH", "SHA384");
+    auto handlerResultB = cryptoOps->CreateHandler("HASH", Row("SHA384"));
     ASSERT_TRUE(handlerResultB.has_value());
     auto handlerB = handlerResultB.value();
     ASSERT_NE(handlerB, nullptr);

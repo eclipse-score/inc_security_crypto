@@ -20,48 +20,77 @@ namespace score::crypto::daemon::provider::pkcs11::detail
 namespace
 {
 
-void ExpectKey(const char* name, const CK_KEY_TYPE key_type, const CK_MECHANISM_TYPE gen, const CK_ULONG len)
+using ::score::crypto::Algorithm;
+using ::score::crypto::GetAlgorithmDescriptor;
+
+// Returned by value: GetAlgorithmDescriptor() yields a temporary optional.
+::score::crypto::AlgorithmDescriptor Row(const Algorithm id)
 {
-    const auto info = LookupAlgorithm(common::AlgorithmId{name});
-    ASSERT_TRUE(info.has_value()) << name;
-    EXPECT_EQ(info->ck_key_type, key_type) << name;
-    EXPECT_EQ(info->gen_mechanism, gen) << name;
-    EXPECT_EQ(info->value_len, len) << name;
+    return *GetAlgorithmDescriptor(id);
 }
 
-TEST(Pkcs11AlgorithmInfoTest, AesKeyCipherAndCmacNamesNeedAnAesKeyOfTheNamedLength)
+TEST(Pkcs11AlgorithmInfoTest, HashRowsMapToDigestMechanisms)
 {
-    ExpectKey("AES-128", CKK_AES, CKM_AES_KEY_GEN, 16U);
-    ExpectKey("AES-192", CKK_AES, CKM_AES_KEY_GEN, 24U);
-    ExpectKey("AES-256", CKK_AES, CKM_AES_KEY_GEN, 32U);
-    ExpectKey("AES-128-CBC", CKK_AES, CKM_AES_KEY_GEN, 16U);
-    ExpectKey("AES-256-GCM", CKK_AES, CKM_AES_KEY_GEN, 32U);
-    ExpectKey("AES-128-CMAC", CKK_AES, CKM_AES_KEY_GEN, 16U);
-    ExpectKey("AES-256-CMAC", CKK_AES, CKM_AES_KEY_GEN, 32U);
+    EXPECT_EQ(LookupHashMechanism(Row(Algorithm::kSha224)), CKM_SHA224);
+    EXPECT_EQ(LookupHashMechanism(Row(Algorithm::kSha256)), CKM_SHA256);
+    EXPECT_EQ(LookupHashMechanism(Row(Algorithm::kSha384)), CKM_SHA384);
+    EXPECT_EQ(LookupHashMechanism(Row(Algorithm::kSha512)), CKM_SHA512);
 }
 
-TEST(Pkcs11AlgorithmInfoTest, HmacNamesNeedAGenericSecretOfTheDigestLength)
+TEST(Pkcs11AlgorithmInfoTest, LegacyHashesAndNonHashRowsHaveNoDigestMechanism)
 {
-    ExpectKey("HMAC-SHA256", CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 32U);
-    ExpectKey("HMAC-SHA384", CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 48U);
-    ExpectKey("HMAC-SHA512", CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 64U);
+    EXPECT_EQ(LookupHashMechanism(Row(Algorithm::kMd5)), CK_UNAVAILABLE_INFORMATION);
+    EXPECT_EQ(LookupHashMechanism(Row(Algorithm::kSha1)), CK_UNAVAILABLE_INFORMATION);
+    // An HMAC row carries a hash but is not a hash operation.
+    EXPECT_EQ(LookupHashMechanism(Row(Algorithm::kHmacSha256)), CK_UNAVAILABLE_INFORMATION);
 }
 
-// Names are matched exactly; a known name inside a longer one is not enough.
-TEST(Pkcs11AlgorithmInfoTest, MalformedAndUnknownNamesHaveNoKey)
+TEST(Pkcs11AlgorithmInfoTest, HmacRowsMapToHmacMechanisms)
 {
-    for (const char* name : {"XAES-256", "AES-256X", "HMAC-SHA256-X", "aes-256", "", "UNKNOWN"})
-    {
-        EXPECT_FALSE(LookupAlgorithm(common::AlgorithmId{name}).has_value()) << name;
-    }
+    EXPECT_EQ(LookupMacMechanism(Row(Algorithm::kHmacSha256)), CKM_SHA256_HMAC);
+    EXPECT_EQ(LookupMacMechanism(Row(Algorithm::kHmacSha384)), CKM_SHA384_HMAC);
+    EXPECT_EQ(LookupMacMechanism(Row(Algorithm::kHmacSha512)), CKM_SHA512_HMAC);
 }
 
-TEST(Pkcs11AlgorithmInfoTest, EllipticCurveAndKeylessNamesHaveNoKey)
+TEST(Pkcs11AlgorithmInfoTest, OtherMacRowsAreNotServed)
 {
-    for (const char* name : {"ECDSA-P256", "ECDSA-P256-SHA256", "SHA256"})
-    {
-        EXPECT_FALSE(LookupAlgorithm(common::AlgorithmId{name}).has_value()) << name;
-    }
+    EXPECT_EQ(LookupMacMechanism(Row(Algorithm::kAes128Cmac)), CK_UNAVAILABLE_INFORMATION);
+    EXPECT_EQ(LookupMacMechanism(Row(Algorithm::kAes256Cmac)), CK_UNAVAILABLE_INFORMATION);
+    EXPECT_EQ(LookupMacMechanism(Row(Algorithm::kSha256)), CK_UNAVAILABLE_INFORMATION);
+}
+
+void ExpectKey(const Algorithm id, const CK_KEY_TYPE key_type, const CK_MECHANISM_TYPE gen, const CK_ULONG len)
+{
+    const auto info = LookupAlgorithm(Row(id));
+    ASSERT_TRUE(info.has_value()) << Row(id).name;
+    EXPECT_EQ(info->ck_key_type, key_type) << Row(id).name;
+    EXPECT_EQ(info->gen_mechanism, gen) << Row(id).name;
+    EXPECT_EQ(info->value_len, len) << Row(id).name;
+}
+
+TEST(Pkcs11AlgorithmInfoTest, AesKeyCipherAndCmacRowsNeedAnAesKeyOfTheRowLength)
+{
+    ExpectKey(Algorithm::kAes128, CKK_AES, CKM_AES_KEY_GEN, 16U);
+    ExpectKey(Algorithm::kAes192, CKK_AES, CKM_AES_KEY_GEN, 24U);
+    ExpectKey(Algorithm::kAes256, CKK_AES, CKM_AES_KEY_GEN, 32U);
+    ExpectKey(Algorithm::kAes128Cbc, CKK_AES, CKM_AES_KEY_GEN, 16U);
+    ExpectKey(Algorithm::kAes256Gcm, CKK_AES, CKM_AES_KEY_GEN, 32U);
+    ExpectKey(Algorithm::kAes128Cmac, CKK_AES, CKM_AES_KEY_GEN, 16U);
+    ExpectKey(Algorithm::kAes256Cmac, CKK_AES, CKM_AES_KEY_GEN, 32U);
+}
+
+TEST(Pkcs11AlgorithmInfoTest, HmacRowsNeedAGenericSecretOfTheDigestLength)
+{
+    ExpectKey(Algorithm::kHmacSha256, CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 32U);
+    ExpectKey(Algorithm::kHmacSha384, CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 48U);
+    ExpectKey(Algorithm::kHmacSha512, CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, 64U);
+}
+
+TEST(Pkcs11AlgorithmInfoTest, EllipticCurveAndKeylessRowsHaveNoKey)
+{
+    EXPECT_FALSE(LookupAlgorithm(Row(Algorithm::kEcdsaP256)).has_value());
+    EXPECT_FALSE(LookupAlgorithm(Row(Algorithm::kEcdsaP256Sha256)).has_value());
+    EXPECT_FALSE(LookupAlgorithm(Row(Algorithm::kSha256)).has_value());
 }
 
 }  // namespace

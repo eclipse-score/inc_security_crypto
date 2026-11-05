@@ -20,6 +20,7 @@ cc_library(
         "//:__subpackages__",
     ],
     deps = [
+        "//score/crypto/src/api/types:algorithm_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",
     ],
@@ -28,6 +29,15 @@ cc_library(
 cc_test(
     name = "provider_type_preference_test",
     srcs = ["provider_type_preference_test.cpp"],
+    deps = [
+        ":mediator_operations",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "context_algorithm_test",
+    srcs = ["context_algorithm_test.cpp"],
     deps = [
         ":mediator_operations",
         "@googletest//:gtest_main",
@@ -47,6 +57,7 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":mediator_operations",
+        "//score/crypto/src/api/types:algorithm_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:operation_names",
         "//score/crypto/src/daemon/config",

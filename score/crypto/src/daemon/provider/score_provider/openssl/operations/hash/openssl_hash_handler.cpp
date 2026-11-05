@@ -33,14 +33,14 @@ using common::DaemonErrorCode;
 using common::ResponseParameters;
 using common::StreamOperationState;
 
-bool OpenSslHashHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool OpenSslHashHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    return ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(algorithm) != nullptr;
+    return ::score::crypto::daemon::provider::openssl::detail::IsHashSupported(algorithm);
 }
 
 OpenSslHashHandler::OpenSslHashHandler(
     std::unique_ptr<::score::crypto::daemon::provider::score_provider::operations::hash::HashExecutor> executor,
-    common::AlgorithmId algorithm,
+    const AlgorithmDescriptor& algorithm,
     const DigestUpdateFunction digestUpdate)
     : ScoreHashHandler(std::move(executor), algorithm), mCurrentStreamContext(nullptr), mDigestUpdate(digestUpdate)
 {
@@ -52,7 +52,8 @@ OpenSslHashHandler::~OpenSslHashHandler()
     CleanupStreamContext();
 }
 
-Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::ValidateAlgorithm(const std::string& algorithm) const
+Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::ValidateAlgorithm(
+    const AlgorithmDescriptor& algorithm) const
 {
     return GetEVPMD(algorithm) != nullptr ? Expected<std::monostate, DaemonErrorCode>{std::monostate{}}
                                           : make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
@@ -61,7 +62,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::ValidateAlgorithm(
 Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::InitializeContext(
     const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
 {
-    score::mw::log::LogDebug() << "DEBUG: InitializeContext called with algorithm:" << m_algorithm;
+    score::mw::log::LogDebug() << "DEBUG: InitializeContext called with algorithm:" << m_algorithm.name;
 
     // Validate the algorithm
     const auto result = ValidateAlgorithm(m_algorithm);
@@ -84,9 +85,10 @@ void OpenSslHashHandler::CleanupStreamContext()
     }
 }
 
-const EVP_MD* OpenSslHashHandler::GetEVPMD(const std::string& algorithm) const
+const EVP_MD* OpenSslHashHandler::GetEVPMD(const AlgorithmDescriptor& algorithm) const
 {
-    return ::score::crypto::daemon::provider::openssl::detail::LookupHashEVPMD(algorithm);
+    return IsAlgorithmSupported(algorithm) ? ::score::crypto::daemon::provider::openssl::detail::ToEvpMd(algorithm.hash)
+                                           : nullptr;
 }
 
 Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::Reset()
@@ -98,7 +100,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::Reset()
 
 Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::InitHash()
 {
-    score::mw::log::LogDebug() << "[OPENSSL_HASH] Initializing stream for algorithm:" << m_algorithm;
+    score::mw::log::LogDebug() << "[OPENSSL_HASH] Initializing stream for algorithm:" << m_algorithm.name;
     const EVP_MD* md = GetEVPMD(m_algorithm);
     if (md == nullptr)
     {
@@ -192,11 +194,6 @@ Expected<common::ResponseParameters, DaemonErrorCode> OpenSslHashHandler::Single
     const score::cpp::span<const std::uint8_t> dataToHash,
     const score::cpp::span<std::uint8_t> outputHash)
 {
-    if (m_algorithm.empty())
-    {
-        return make_unexpected(DaemonErrorCode::kInsufficientParameters);
-    }
-
     const auto algResult = ValidateAlgorithm(m_algorithm);
     if (!algResult.has_value())
     {

@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_VERIFY_SCORE_VERIFY_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_VERIFY_SCORE_VERIFY_HANDLER_HPP
 
+#include "score/crypto/src/api/types/algorithm.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
@@ -52,7 +53,7 @@ class ScoreVerifyHandler : public handler::Handler
 
     /// @param executor   Verify executor injected by the handler factory.
     /// @param algorithm  Algorithm identifier (e.g. "ECDSA-P256-SHA256").
-    explicit ScoreVerifyHandler(std::unique_ptr<VerifyExecutor> executor, const common::AlgorithmId& algorithm);
+    explicit ScoreVerifyHandler(std::unique_ptr<VerifyExecutor> executor, const AlgorithmDescriptor& algorithm);
 
     ~ScoreVerifyHandler() override;
 
@@ -83,7 +84,7 @@ class ScoreVerifyHandler : public handler::Handler
         m_state = state;
     }
 
-    [[nodiscard]] const common::AlgorithmId& GetAlgorithm() const noexcept
+    [[nodiscard]] const AlgorithmDescriptor& GetAlgorithm() const noexcept
     {
         return m_algorithm;
     }
@@ -122,7 +123,7 @@ class ScoreVerifyHandler : public handler::Handler
         score::cpp::span<const std::uint8_t> signature);
 
   protected:
-    common::AlgorithmId m_algorithm;
+    AlgorithmDescriptor m_algorithm;
     common::StreamOperationState m_state{common::StreamOperationState::IDLE};
 
   private:

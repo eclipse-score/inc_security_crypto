@@ -371,7 +371,7 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
         return score::Result<std::unique_ptr<IKeyManagementContext>>{score::unexpect, context_id.error()};
     }
 
-    return std::make_unique<KeyManagementContextImpl>(m_connection, context_id.value());
+    return std::make_unique<KeyManagementContextImpl>(m_connection, context_id.value(), m_transcoder);
 }
 
 // ---------------------------------------------------------------------------

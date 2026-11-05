@@ -15,21 +15,15 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_OPENSSL_ALGORITHM_INFO_HPP
 
 #include "score/crypto/src/api/types/algorithm.hpp"
-#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 
 #include <openssl/evp.h>
 
-#include <cstddef>
-#include <optional>
-#include <string_view>
+#include <cstdint>
 
-// The common algorithm tables in daemon/common/algorithm_info.hpp hold the
-// provider-neutral properties (key, block, IV and field sizes). The lists in
-// this header say which of those algorithms the OpenSSL provider serves. Both
-// have to agree for an algorithm to be accepted: the common table supplies the
-// properties the handler bases read, and the list here is the gate, so a row
-// added to the common table does not enable an algorithm this provider has
-// never been taught.
+// The OpenSSL provider decides from the typed fields of a resolved catalog row
+// whether it serves an algorithm. Every decision on a catalog enum is a switch
+// without a default case, so a value added to the catalog does not compile
+// until this provider has decided whether it serves it.
 
 namespace score::crypto::daemon::provider::openssl::detail
 {
@@ -38,8 +32,6 @@ namespace score::crypto::daemon::provider::openssl::detail
 /// @return EVP_MD pointer, or nullptr if this provider does not serve the hash function.
 [[nodiscard]] inline const EVP_MD* ToEvpMd(::score::crypto::HashFunction hash) noexcept
 {
-    // Keep this switch exhaustive and without a default case so a hash function
-    // added to the catalog requires an explicit OpenSSL support decision.
     switch (hash)
     {
         case ::score::crypto::HashFunction::kSha224:
@@ -58,101 +50,145 @@ namespace score::crypto::daemon::provider::openssl::detail
     return nullptr;
 }
 
-/// @brief Look up the EVP_MD for a hash algorithm name.
-/// @return EVP_MD pointer, or nullptr if the algorithm is not supported.
-[[nodiscard]] inline const EVP_MD* LookupHashEVPMD(std::string_view algorithm) noexcept
+/// @brief The OpenSSL digest name of a hash function, for the *_ex() APIs that take a name.
+/// @return e.g. "SHA256", or nullptr if this provider does not serve the hash function.
+[[nodiscard]] inline constexpr const char* ToOpenSslDigestName(::score::crypto::HashFunction hash) noexcept
 {
-    const auto hash = common::LookupHashFunction(algorithm);
-    return hash.has_value() ? ToEvpMd(*hash) : nullptr;
+    switch (hash)
+    {
+        case ::score::crypto::HashFunction::kSha224:
+            return "SHA224";
+        case ::score::crypto::HashFunction::kSha256:
+            return "SHA256";
+        case ::score::crypto::HashFunction::kSha384:
+            return "SHA384";
+        case ::score::crypto::HashFunction::kSha512:
+            return "SHA512";
+        case ::score::crypto::HashFunction::kNone:
+        case ::score::crypto::HashFunction::kMd5:
+        case ::score::crypto::HashFunction::kSha1:
+            return nullptr;
+    }
+    return nullptr;
 }
 
-/// @brief Look up the EVP_MD for an HMAC algorithm name.
-/// @return EVP_MD pointer, or nullptr if the algorithm is not supported.
-[[nodiscard]] inline const EVP_MD* LookupHmacEVPMD(std::string_view algorithm) noexcept
+/// @brief The OpenSSL group name of an elliptic curve.
+/// @return e.g. "prime256v1" for EccCurve::kP256, or nullptr if this provider does not serve the curve.
+[[nodiscard]] inline constexpr const char* ToOpenSslGroupName(::score::crypto::EccCurve curve) noexcept
 {
-    const auto hash = common::LookupHmacHashFunction(algorithm);
-    return hash.has_value() ? ToEvpMd(*hash) : nullptr;
+    switch (curve)
+    {
+        case ::score::crypto::EccCurve::kP256:
+            return "prime256v1";
+        case ::score::crypto::EccCurve::kP384:
+            return "secp384r1";
+        case ::score::crypto::EccCurve::kP521:
+            return "secp521r1";
+        case ::score::crypto::EccCurve::kNone:
+            return nullptr;
+    }
+    return nullptr;
 }
 
-/// @brief Look up the OpenSSL canonical group name for a provider-neutral EC curve.
-/// @return e.g. "prime256v1" for "P256", or nullopt if the curve is not supported.
-[[nodiscard]] inline constexpr std::optional<std::string_view> LookupOpenSslGroupName(
-    std::string_view curve_name) noexcept
+/// @brief Whether the OpenSSL provider serves RSA keys of @p modulus_bits.
+[[nodiscard]] inline constexpr bool IsRsaModulusSupported(std::uint16_t modulus_bits) noexcept
 {
-    if (curve_name == "P256")
-    {
-        return "prime256v1";
-    }
-    if (curve_name == "P384")
-    {
-        return "secp384r1";
-    }
-    if (curve_name == "P521")
-    {
-        return "secp521r1";
-    }
-    return std::nullopt;
+    return (modulus_bits == 2048U) || (modulus_bits == 3072U) || (modulus_bits == 4096U);
 }
 
-/// @brief Symmetric cipher identifiers the OpenSSL provider serves.
-inline constexpr std::string_view kSupportedCiphers[] = {
-    "AES-128-CBC",
-    "AES-192-CBC",
-    "AES-256-CBC",
-};
-static_assert(common::AllInCatalog(kSupportedCiphers, ::score::crypto::AlgorithmCategory::kCipher),
-              "every OpenSSL cipher must be a cipher in score::crypto::kAlgorithmCatalog");
-
-/// @brief Whether the OpenSSL provider serves @p algorithm as a cipher.
-[[nodiscard]] inline constexpr bool IsCipherSupported(std::string_view algorithm) noexcept
+/// @brief The OpenSSL cipher name of a symmetric cipher row, for EVP_CIPHER_fetch().
+/// @return e.g. "AES-256-CBC", or nullptr if this provider does not serve the row as a cipher.
+[[nodiscard]] inline constexpr const char* ToEvpCipherName(
+    const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
-    for (const auto& name : kSupportedCiphers)
+    if (algorithm.category != ::score::crypto::AlgorithmCategory::kCipher)
     {
-        if (name == algorithm)
-        {
-            return true;
-        }
+        return nullptr;
+    }
+    switch (algorithm.mode)
+    {
+        case ::score::crypto::CipherMode::kCbc:
+            if (algorithm.key_bits == 128U)
+            {
+                return "AES-128-CBC";
+            }
+            if (algorithm.key_bits == 192U)
+            {
+                return "AES-192-CBC";
+            }
+            if (algorithm.key_bits == 256U)
+            {
+                return "AES-256-CBC";
+            }
+            return nullptr;
+        case ::score::crypto::CipherMode::kNone:
+        case ::score::crypto::CipherMode::kGcm:
+            return nullptr;
+    }
+    return nullptr;
+}
+
+/// @brief Whether the OpenSSL provider serves @p algorithm as a hash.
+[[nodiscard]] inline bool IsHashSupported(const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
+{
+    return (algorithm.category == ::score::crypto::AlgorithmCategory::kHash) && (ToEvpMd(algorithm.hash) != nullptr);
+}
+
+/// @brief Whether the OpenSSL provider serves @p algorithm as an HMAC.
+///
+/// CMAC rows are MACs too, but take an AES key and no hash, so they are refused.
+[[nodiscard]] inline bool IsHmacSupported(const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
+{
+    if (algorithm.category != ::score::crypto::AlgorithmCategory::kMac)
+    {
+        return false;
+    }
+    switch (algorithm.key_type)
+    {
+        case ::score::crypto::KeyType::kSecret:
+            return ToEvpMd(algorithm.hash) != nullptr;
+        case ::score::crypto::KeyType::kNone:
+        case ::score::crypto::KeyType::kAes:
+        case ::score::crypto::KeyType::kEcc:
+        case ::score::crypto::KeyType::kRsa:
+        case ::score::crypto::KeyType::kEd25519:
+            return false;
     }
     return false;
 }
-
-/// @brief Signature scheme identifiers the OpenSSL provider serves, apart from ECDSA.
-///
-/// ECDSA is served for every "ECDSA-<curve>-<hash>" whose hash ToEvpMd()
-/// accepts; see IsSignatureAlgorithmSupported().
-inline constexpr std::string_view kSupportedSignatureAlgorithms[] = {
-    "RSA-PSS-2048-SHA256",
-    "RSA-PSS-2048-SHA384",
-    "RSA-PSS-2048-SHA512",
-    "RSA-PSS-3072-SHA256",
-    "RSA-PSS-3072-SHA384",
-    "RSA-PSS-3072-SHA512",
-    "RSA-PSS-4096-SHA256",
-    "RSA-PSS-4096-SHA384",
-    "RSA-PSS-4096-SHA512",
-    "Ed25519",
-};
-static_assert(common::AllInCatalog(kSupportedSignatureAlgorithms, ::score::crypto::AlgorithmCategory::kSignature),
-              "every OpenSSL signature scheme must be a signature scheme in score::crypto::kAlgorithmCatalog");
 
 /// @brief Whether the OpenSSL provider serves @p algorithm for signing and verification.
 ///
-/// The bare ECDSA key form ("ECDSA-P256") names no digest and is a key
-/// algorithm, not a signature scheme.
-[[nodiscard]] inline bool IsSignatureAlgorithmSupported(std::string_view algorithm) noexcept
+/// ECDSA rows need a curve and a digest this provider serves; RSA-PSS rows a
+/// supported modulus and digest; Ed25519 has no parameters. Key rows such as
+/// "ECDSA-P256" are not signature schemes and are refused.
+[[nodiscard]] inline bool IsSignatureSupported(const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
-    if (const auto ecdsa = common::ParseEcdsaName(algorithm); ecdsa.has_value())
+    if (algorithm.category != ::score::crypto::AlgorithmCategory::kSignature)
     {
-        return ecdsa->digest.has_value() && (LookupHashEVPMD(*ecdsa->digest) != nullptr);
+        return false;
     }
-    for (const auto& name : kSupportedSignatureAlgorithms)
+    switch (algorithm.key_type)
     {
-        if (name == algorithm)
-        {
+        case ::score::crypto::KeyType::kEcc:
+            return (ToOpenSslGroupName(algorithm.curve) != nullptr) && (ToEvpMd(algorithm.hash) != nullptr);
+        case ::score::crypto::KeyType::kRsa:
+            return IsRsaModulusSupported(algorithm.key_bits) && (ToEvpMd(algorithm.hash) != nullptr);
+        case ::score::crypto::KeyType::kEd25519:
             return true;
-        }
+        case ::score::crypto::KeyType::kNone:
+        case ::score::crypto::KeyType::kSecret:
+        case ::score::crypto::KeyType::kAes:
+            return false;
     }
     return false;
+}
+
+/// @brief Whether the OpenSSL provider serves @p algorithm as a random generator.
+[[nodiscard]] inline constexpr bool IsRandomSupported(const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
+{
+    // OpenSSL's public RNG is a CTR-DRBG.
+    return algorithm.id == ::score::crypto::Algorithm::kCtrDrbg;
 }
 
 }  // namespace score::crypto::daemon::provider::openssl::detail
