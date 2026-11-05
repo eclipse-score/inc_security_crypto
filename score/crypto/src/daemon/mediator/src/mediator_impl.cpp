@@ -511,24 +511,11 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         return false;
     }
 
-    common::ProviderCapability required_capability = common::ProviderCapability::kNone;
-    const auto colon_pos = context_type.find(':');
-    if (colon_pos != std::string_view::npos)
-    {
-        const auto scope = context_type.substr(0, colon_pos);
-        for (const auto& scope_capability : operations::kContextScopeCapabilities)
-        {
-            if (scope == scope_capability.scope)
-            {
-                required_capability = scope_capability.capability;
-                break;
-            }
-        }
-    }
+    const common::ProviderCapability required_capability = operations::RequiredProviderCapability(context_type);
 
     // Resolve the algorithm name once, before any provider is asked; a name
     // the catalog does not know is refused here. std::nullopt is passed on for
-    // a KEY_MANAGEMENT context, which is bound to no algorithm.
+    // a KEY:MANAGEMENT context, which is bound to no algorithm.
     std::optional<AlgorithmDescriptor> algorithm_descriptor{};
     if (operations::ContextTakesAlgorithm(context_type))
     {

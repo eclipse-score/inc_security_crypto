@@ -61,7 +61,7 @@ class ICryptoHandlerFactory
     /**
      * @brief Create the provider's key management handler.
      *
-     * A KEY_MANAGEMENT context names no algorithm; each key request carries
+     * A KEY:MANAGEMENT context names no algorithm; each key request carries
      * its own, resolved where the request is decoded.
      *
      * @return The created Handler on success, or an error if the provider has

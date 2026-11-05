@@ -60,7 +60,7 @@ class Pkcs11HandlerFactory final : public handler::ICryptoHandlerFactory
     [[nodiscard]] score::Result<handler::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
                                                                       const AlgorithmDescriptor& algorithm) override;
 
-    /// Creates the KEY_MANAGEMENT handler, which is bound to no algorithm.
+    /// Creates the KEY:MANAGEMENT handler, which is bound to no algorithm.
     [[nodiscard]] score::Result<handler::Handler::Sptr> CreateKeyManagementHandler() override;
 
   private:
