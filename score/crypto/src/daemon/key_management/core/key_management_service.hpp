@@ -225,6 +225,14 @@ class KeyManagementService final
         data_manager::ClientId client_id,
         data_manager::DataNodeId slot_node_id);
 
+    /// Get the slot handler of a given provider, e.g. a slot's primary provider.
+    ///
+    /// A key-management context may be served by a different provider than the
+    /// slot it addresses; only the owning provider's handler can read the slot.
+    [[nodiscard]] Expected<IKeySlotHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode> GetSlotHandler(
+        const common::ProviderId& provider_id,
+        const KeySlotConfig& slot_config);
+
     /// Resolve a key DataNode ID (a KeyDataNode) back to its backing KeyEntry.
     ///
     /// Used by executor handlers that need a ProviderKeyHandle or the raw

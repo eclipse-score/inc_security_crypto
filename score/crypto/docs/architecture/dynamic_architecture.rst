@@ -89,7 +89,7 @@ use ``LoadKey()`` to get a ``CryptoResourceGuard``:
 
    // 2. Query key slot metadata
    auto info = key_mgmt->GetKeySlotInfo(slot).value();
-   // info == {kOccupied, "AES-256", provider=2, compatible=[2,5]}
+   // info == {kOccupied, "AES-256", primary_provider=2, compatible_providers=[5]}
 
    // 3. Use the same loaded key in two contexts — implicit conversion
    CipherContextConfig enc_config;
