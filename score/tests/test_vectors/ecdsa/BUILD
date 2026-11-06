@@ -20,6 +20,7 @@ filegroup(
     srcs = glob([
         "*/*.bin",
         "*/*.der",
+        "*/*.rsp",
     ]),
     visibility = ["//visibility:public"],
 )
@@ -29,6 +30,7 @@ pkg_files(
     srcs = glob([
         "*/*.bin",
         "*/*.der",
+        "*/*.rsp",
     ]),
     # preserve test_vectors/ecdsa/<curve>/ folders
     strip_prefix = strip_prefix.from_root("score/tests"),
