@@ -225,7 +225,16 @@ bool Config::ParseConfig()
 
 bool Config::Validate() const
 {
-    // TODO: Implement validation
+    if (!m_provider_construction.Validate())
+    {
+        score::mw::log::LogError() << "[CONFIG] Invalid provider construction policy";
+        return false;
+    }
+    if (!m_provider_routing.Validate(m_provider_construction))
+    {
+        score::mw::log::LogError() << "[CONFIG] Invalid provider routing policy";
+        return false;
+    }
     return true;
 }
 

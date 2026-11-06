@@ -81,3 +81,15 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "provider_manager_factory_unit_test",
+    srcs = ["src/provider_manager_factory_test.cpp"],
+    deps = [
+        ":provider_manager",
+        ":provider_manager_factory",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/config",
+        "@googletest//:gtest_main",
+    ],
+)
