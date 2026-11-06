@@ -114,21 +114,44 @@ separate config type and resolved at a different point during daemon startup.
    binary. ``ProviderManagerFactory`` creates the corresponding backend factory
    for every configured family that is compiled in.
 
-2. Provider-specific parameters — config file / defaults
-   Each family parses its own parameters from the daemon configuration:
+2. Provider-specific parameters — backend-owned config file / defaults
+   The common Crypto configuration contains only a catalog of stable backend
+   identifiers and paths to backend-owned configuration files. Relative paths
+   are resolved against the directory containing the common configuration.
+   The common parser does not include or interpret backend schemas.
+
+   A compiled-in backend looks up its identifier and, when a path is present,
+   verifies and parses that file using its own schema. Consequently, disabled
+   backends do not add schema or parser dependencies to the daemon. Backend
+   configuration is loaded once during startup; live reload is not supported.
+
+   The PKCS#11 backend owns a FlatBuffers schema using the standard SCORE
+   ``BufferVersion`` envelope, identified by ``P11C`` and versioned as
+   major/minor ``0.1``. It requires at least one token entry, validates the
+   entries, and maps them to ``Pkcs11TokenEntry`` values. A supplied file is
+   authoritative and malformed content is reported as a PKCS#11 factory
+   creation failure. When the common catalog has no ``pkcs11`` entry, the
+   existing build-selected defaults remain in effect for compatibility.
+
+   The Score provider currently obtains its entries from the active backends
+   discovered at build time. A Score sub-backend that later needs custom
+   runtime parameters can add its own schema and consume another catalog entry
+   without changing the common schema.
+
+   The resulting provider-family configuration types are:
 
    - ``ScoreProviderConfig`` (``score_provider/score_provider_config.hpp``)
      holds one ``ScoreProviderEntry`` per score backend. An entry contains the
      provider name, the backend implementation tag (for example ``"openssl"``),
      and the provider type (``SOFTWARE``, ``HARDWARE``, ``SPECIALIZED``).
-     ``ScoreProviderConfig::ParseConfig(config)`` populates entries from the config
-     file; when no config is present it falls back to the active backends
-     discovered at compile time.
+     ``ScoreProviderConfig::ParseConfig(config)`` populates entries from the
+     active backends discovered at compile time.
 
    - ``Pkcs11Config`` (``pkcs11/pkcs11_token_config.hpp``) holds one
      ``Pkcs11TokenEntry`` per token. An entry contains the token label, model,
      user PIN, provider name, provider type, and session cleanup strategy.
-     ``Pkcs11Config::ParseConfig(config)`` reads these values from the daemon config.
+     ``Pkcs11Config::ParseConfig(config_path)`` reads these values from the
+     PKCS#11-owned file when one is referenced.
 
 3. Runtime enablement and type mapping — ``ProviderInitConfig``
    After all factories have created and registered their providers,
@@ -164,17 +187,20 @@ Configuration flow
 
    Config::ParseConfig()
         │
-        ├── ScoreProviderConfig::ParseConfig(config)  ──► ScoreProviderEntry list
-        │
-        └── Pkcs11Config::ParseConfig(config)         ──► Pkcs11TokenEntry list
+        └── common backend catalog
+              backend identifier ──► normalized backend config path
         │
    ProviderManagerFactory::Create(config)
         │
         ├── CreateScoreProviderFactory(config)
+        │      ScoreProviderConfig::ParseConfig(config)
+        │        └── active build-time backends ──► ScoreProviderEntry list
         │      ScoreProviderFactory(ScoreProviderFactoryConfig)
         │      CreateAndRegister(manager) ──► ProviderId assigned once
         │
         ├── CreatePkcs11ProviderFactory(config)
+        │      catalog["pkcs11"] ──► Pkcs11Config::ParseConfig(path)
+        │        └── PKCS#11 schema validation ──► Pkcs11TokenEntry list
         │      Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig)
         │      CreateAndRegister(manager) ──► ProviderId assigned once
         │

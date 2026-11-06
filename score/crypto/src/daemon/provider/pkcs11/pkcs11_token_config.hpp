@@ -17,18 +17,17 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 
+#include <optional>
 #include <string>
-#include <utility>
+#include <string_view>
 #include <variant>
 #include <vector>
 
-namespace score::crypto::daemon::config
-{
-class Config;
-}
-
 namespace score::crypto::daemon::provider::pkcs11
 {
+
+/// Stable identifier used by the common backend configuration catalog.
+inline constexpr std::string_view kBackendConfigId{"pkcs11"};
 
 /// @brief Plain-data configuration entry for one PKCS#11 token.
 ///
@@ -45,7 +44,7 @@ struct Pkcs11TokenEntry
     std::string userPin{};
     /// Provider name used to register and look up this provider in ProviderManager.
     std::string providerName{};
-    /// Provider Type used to register this provider in ProviderManager (HARDWARE or SOFTWARE).
+    /// Provider type used to register this provider (HARDWARE, SOFTWARE, or SPECIALIZED).
     std::string providerType{"HARDWARE"};
     /// Cleanup strategy for session objects (soft vs hard cleanup).
     /// true = kHardCleanup (re-open session after every handler), false = kSoftCleanup.
@@ -77,17 +76,19 @@ class Pkcs11Config
   public:
     Pkcs11Config() = default;
 
-    /// @brief Add a token entry (called by parser or bootstrapper).
-    void AddTokenEntry(Pkcs11TokenEntry entry);
-
     /// @brief Get the complete factory configuration snapshot (read-only).
     const Pkcs11ProviderFactoryConfig& GetConfig() const;
 
-    /// @brief Parse the configuration and populate the token information.
+    /// @brief Parse a backend-owned runtime configuration and populate token information.
     ///
-    /// This method parses the pkcs11 configuration and populates the token information.
+    /// When no path is supplied, the existing build-selected test defaults are
+    /// retained for backward compatibility. A supplied path is authoritative:
+    /// read or validation failures are returned without falling back to the
+    /// build-selected defaults.
+    /// @param config_path Optional path from the common backend config catalog.
     /// @return Empty value on success, or a daemon error if parsing fails.
-    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ParseConfig(config::Config& config);
+    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ParseConfig(
+        std::optional<std::string_view> config_path);
 
   private:
     Pkcs11ProviderFactoryConfig m_config;
