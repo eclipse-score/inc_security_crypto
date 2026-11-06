@@ -148,21 +148,6 @@ ExtractOptionalFormat(const common::RequestParameters& request, std::size_t inde
     return format;
 }
 
-/// Extract an encoding format at the given index, defaulting to kDer.
-///
-/// Same wire rules as ExtractOptionalFormat(); no format resolves to kDer, the
-/// documented default of ExportKey()'s format argument.
-[[nodiscard]] inline Expected<score::crypto::FormatType, score::crypto::daemon::common::DaemonErrorCode>
-ExtractFormatOrDefault(const common::RequestParameters& request, std::size_t index)
-{
-    auto format = ExtractOptionalFormat(request, index);
-    if (!format.has_value())
-    {
-        return score::crypto::make_unexpected(format.error());
-    }
-    return format.value().value_or(score::crypto::FormatType::kDer);
-}
-
 /// Build a KeyImportRequest from the packed request parameters.
 ///
 /// Expected layout:

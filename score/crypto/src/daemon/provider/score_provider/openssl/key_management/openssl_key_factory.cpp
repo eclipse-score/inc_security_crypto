@@ -17,16 +17,16 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
-#include <openssl/bio.h>         // BIO_new_mem_buf
+#include <openssl/bio.h>         // BIO_new_mem_buf / BIO_get_mem_data
 #include <openssl/core_names.h>  // OSSL_PKEY_PARAM_GROUP_NAME
 #include <openssl/crypto.h>      // OPENSSL_cleanse
 #include <openssl/err.h>         // ERR_clear_error
 #include <openssl/evp.h>         // EVP_PKEY_CTX, EVP_PKEY_generate
 #include <openssl/params.h>      // OSSL_PARAM
-#include <openssl/pem.h>         // PEM_read_bio_ex
+#include <openssl/pem.h>         // PEM_read_bio_ex / PEM_write_bio_PUBKEY
 #include <openssl/rand.h>        // RAND_bytes
 #include <openssl/rsa.h>         // EVP_PKEY_CTX_set_rsa_keygen_bits
-#include <openssl/x509.h>        // d2i_AutoPrivateKey / d2i_PUBKEY
+#include <openssl/x509.h>        // d2i_AutoPrivateKey / d2i_PUBKEY / i2d_PUBKEY
 
 #include "score/mw/log/logging.h"
 
@@ -228,6 +228,82 @@ score::crypto::FormatType ResolveAsymmetricFormat(const key_management::KeyImpor
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
     return reinterpret_cast<EVP_PKEY*>(static_cast<std::uintptr_t>(handle.opaque_id));
 }
+
+struct BioDeleter
+{
+    void operator()(BIO* bio) const noexcept
+    {
+        BIO_free(bio);
+    }
+};
+using BioPtr = std::unique_ptr<BIO, BioDeleter>;
+
+/// EC public key as the uncompressed SEC1 point 0x04||X||Y.
+::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
+EncodeRawEcPoint(const EVP_PKEY* pkey)
+{
+    std::size_t out_len = 0U;
+    if (EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, nullptr, 0U, &out_len) != 1)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+
+    key_management::SecureKeyBytes out{out_len};
+    if (EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, out.bytes.data(), out_len, &out_len) != 1)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+    out.bytes.resize(out_len);
+    return out;
+}
+
+/// Public key as DER-encoded SubjectPublicKeyInfo.
+::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
+EncodeSpkiDer(const EVP_PKEY* pkey)
+{
+    const int der_len = i2d_PUBKEY(pkey, nullptr);
+    if (der_len <= 0)
+    {
+        score::mw::log::LogError() << kLogPrefix << "EncodeSpkiDer: i2d_PUBKEY failed";
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+
+    key_management::SecureKeyBytes out{static_cast<std::size_t>(der_len)};
+    unsigned char* cursor = out.bytes.data();
+    if (i2d_PUBKEY(pkey, &cursor) != der_len)
+    {
+        score::mw::log::LogError() << kLogPrefix << "EncodeSpkiDer: i2d_PUBKEY failed";
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+    return out;
+}
+
+/// Public key as PEM ("-----BEGIN PUBLIC KEY-----") SubjectPublicKeyInfo.
+::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
+EncodeSpkiPem(const EVP_PKEY* pkey)
+{
+    BioPtr bio{BIO_new(BIO_s_mem())};
+    if (!bio)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
+    }
+    if (PEM_write_bio_PUBKEY(bio.get(), pkey) != 1)
+    {
+        score::mw::log::LogError() << kLogPrefix << "EncodeSpkiPem: PEM_write_bio_PUBKEY failed";
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+
+    char* pem_data = nullptr;
+    const long pem_len = BIO_get_mem_data(bio.get(), &pem_data);  // NOLINT(google-runtime-int)
+    if ((pem_len <= 0) || (pem_data == nullptr))
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+
+    key_management::SecureKeyBytes out{static_cast<std::size_t>(pem_len)};
+    std::copy(pem_data, pem_data + pem_len, out.bytes.begin());
+    return out;
+}
 }  // namespace
 
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
@@ -283,7 +359,7 @@ OpenSslKeyFactory::GenerateAsymmetricKey(const key_management::KeyGenerationRequ
     return std::make_shared<OpenSslKeyHandler>(std::move(owned_pkey), handle);
 }
 
-OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id){};
+OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id) {};
 
 ::score::crypto::Expected<OpenSslKeyFactory::ParsedDerKey, common::DaemonErrorCode> OpenSslKeyFactory::ParseKey(
     const key_management::KeyImportRequest& request)
@@ -733,16 +809,15 @@ OpenSslKeyFactory::ImportRawEcPublicKey(const key_management::KeyImportRequest& 
     EvpPkeyPtr owned_pkey = BuildEcPublicKeyFromRawPoint(openssl_group_name, request.key_data, request.key_data_size);
     if (!owned_pkey)
     {
-        score::mw::log::LogError() << kLogPrefix
-                                   << "ImportRawEcPublicKey: point is not a valid public key on curve "
+        score::mw::log::LogError() << kLogPrefix << "ImportRawEcPublicKey: point is not a valid public key on curve "
                                    << std::string{openssl_group_name};
         return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
     }
 
     // Raw import delivers no private scalar, so the private half can perform
     // nothing; only the public half carries the slot's grant (verify / export).
-    auto handle = MakeHandle(
-        m_provider_id, request.algorithm, score::crypto::KeyOperationPermission::kNone, field_size, true);
+    auto handle =
+        MakeHandle(m_provider_id, request.algorithm, score::crypto::KeyOperationPermission::kNone, field_size, true);
     handle.opaque_id = static_cast<std::uint64_t>(
         reinterpret_cast<std::uintptr_t>(owned_pkey.get()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     handle.public_key_permissions = request.permissions;
@@ -788,99 +863,100 @@ OpenSslKeyFactory::PrepareUncompressedEcExport(const key_management::ProviderKey
 }
 
 ::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle,
+                             std::optional<score::crypto::FormatType> format)
 {
-    const auto curve = CheckRawEcExport(handle, format);
-    if (!curve.has_value())
-    {
-        return ::score::crypto::make_unexpected(curve.error());
-    }
-
-    auto export_res = PrepareUncompressedEcExport(handle);
-    if (!export_res.has_value())
-    {
-        return ::score::crypto::make_unexpected(export_res.error());
-    }
-    EvpPkeyPtr export_pkey = std::move(export_res.value());
-
-    // The export yields the uncompressed point 0x04||X||Y, which is exactly the
-    // raw form this factory imports — so export round-trips import.
-    std::size_t out_len = 0U;
-    if (EVP_PKEY_get_octet_string_param(export_pkey.get(), OSSL_PKEY_PARAM_PUB_KEY, nullptr, 0U, &out_len) != 1)
-    {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
-    }
-
-    key_management::SecureKeyBytes out{out_len};
-    if (EVP_PKEY_get_octet_string_param(
-            export_pkey.get(), OSSL_PKEY_PARAM_PUB_KEY, out.bytes.data(), out_len, &out_len) != 1)
-    {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
-    }
-    out.bytes.resize(out_len);
-
-    return out;
+    return EncodeExport(handle, format);
 }
 
 ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+OpenSslKeyFactory::GetExportKeySize(const key_management::ProviderKeyHandle& handle,
+                                    std::optional<score::crypto::FormatType> format)
 {
-    const auto curve = CheckRawEcExport(handle, format);
-    if (!curve.has_value())
+    // Encode with the same code path ExportKey uses, so the advertised size can
+    // never disagree with the exported bytes. The encoding is zeroised on return.
+    const auto encoded = EncodeExport(handle, format);
+    if (!encoded.has_value())
     {
-        return ::score::crypto::make_unexpected(curve.error());
+        return ::score::crypto::make_unexpected(encoded.error());
     }
-
-    // Read the length from the same live, uncompressed-pinned key that ExportKey
-    // serialises, so the advertised size can never disagree with the exported
-    // bytes even if a key's stored encoding differs from its algorithm metadata.
-    auto export_res = PrepareUncompressedEcExport(handle);
-    if (!export_res.has_value())
-    {
-        return ::score::crypto::make_unexpected(export_res.error());
-    }
-
-    std::size_t out_len = 0U;
-    if (EVP_PKEY_get_octet_string_param(export_res.value().get(), OSSL_PKEY_PARAM_PUB_KEY, nullptr, 0U, &out_len) != 1)
-    {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
-    }
-
-    return out_len;
+    return encoded.value().bytes.size();
 }
 
-::score::crypto::Expected<::score::crypto::AlgorithmDescriptor, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::CheckRawEcExport(const key_management::ProviderKeyHandle& handle,
-                                    score::crypto::FormatType format) const
+::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::EncodeExport(const key_management::ProviderKeyHandle& handle,
+                                std::optional<score::crypto::FormatType> requested_format) const
 {
-    // Only the raw public-point export is implemented; DER/PEM key export stays
-    // on the base class's unsupported path.
-    if (format != score::crypto::FormatType::kRaw)
-    {
-        return ::score::crypto::make_unexpected(
-            ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
-    }
+    using ::score::crypto::daemon::common::DaemonErrorCode;
 
-    const bool is_supported_ec =
-        (handle.algorithm.key_type == ::score::crypto::KeyType::kEcc) &&
-        (::score::crypto::daemon::provider::openssl::detail::ToOpenSslGroupName(handle.algorithm.curve) != nullptr);
-    if (!handle.is_asymmetric || !is_supported_ec)
+    // Secret and private key material never leaves the daemon in plaintext; it
+    // can only be wrapped. Only the public half of a key pair is exported.
+    if (!handle.is_asymmetric)
     {
-        return ::score::crypto::make_unexpected(
-            ::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+        score::mw::log::LogError() << kLogPrefix << "EncodeExport: secret keys are not exportable";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kKeyNotExportable);
     }
 
     // Exporting a public key is still an export: it is gated by kExport on the
     // public half's grant. A nullopt grant means unrestricted, matching the
     // documented default for a public key.
-    const auto public_permissions =
-        handle.public_key_permissions.value_or(score::crypto::KeyOperationPermission::kAll);
+    const auto public_permissions = handle.public_key_permissions.value_or(score::crypto::KeyOperationPermission::kAll);
     if (!score::crypto::HasPermission(public_permissions, score::crypto::KeyOperationPermission::kExport))
     {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kKeyNotExportable);
     }
 
-    return handle.algorithm;
+    // The native format of a public key is DER SubjectPublicKeyInfo.
+    const auto format = requested_format.value_or(score::crypto::FormatType::kDer);
+    const bool is_ec = handle.algorithm.key_type == ::score::crypto::KeyType::kEcc;
+    switch (format)
+    {
+        case score::crypto::FormatType::kRaw:
+            if (!is_ec || (::score::crypto::daemon::provider::openssl::detail::ToOpenSslGroupName(
+                               handle.algorithm.curve) == nullptr))
+            {
+                return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
+            }
+            break;
+        case score::crypto::FormatType::kDer:
+        case score::crypto::FormatType::kPem:
+            break;
+        default:
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedOperation);
+    }
+
+    EvpPkeyPtr export_pkey{};
+    if (is_ec)
+    {
+        // Pin EC keys to the uncompressed point so raw and SPKI exports carry the
+        // same, most interoperable encoding regardless of how the key was imported.
+        auto export_res = PrepareUncompressedEcExport(handle);
+        if (!export_res.has_value())
+        {
+            return ::score::crypto::make_unexpected(export_res.error());
+        }
+        export_pkey = std::move(export_res.value());
+    }
+    else
+    {
+        EVP_PKEY* pkey = PkeyFromHandle(handle);
+        if ((pkey == nullptr) || (EVP_PKEY_up_ref(pkey) != 1))
+        {
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+        }
+        export_pkey.reset(pkey);
+    }
+
+    switch (format)
+    {
+        case score::crypto::FormatType::kRaw:
+            return EncodeRawEcPoint(export_pkey.get());
+        case score::crypto::FormatType::kDer:
+            return EncodeSpkiDer(export_pkey.get());
+        case score::crypto::FormatType::kPem:
+        default:
+            return EncodeSpkiPem(export_pkey.get());
+    }
 }
 
 // static

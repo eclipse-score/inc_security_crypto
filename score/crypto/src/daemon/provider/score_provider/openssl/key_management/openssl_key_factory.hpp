@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 // Opaque OpenSSL context type; the implementation includes the OpenSSL headers.
@@ -76,19 +77,21 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const key_management::KeyImportRequest& request) override;
 
-    /// Export an EC public key as the raw uncompressed SEC1 point 0x04||X||Y.
-    ///
-    /// Only FormatType::kRaw on an EC key is supported; DER/PEM export and
-    /// symmetric keys fall through to the base class's unsupported path. The
-    /// export is gated by kExport on the key's public-half permissions.
+    /// Export the public half of an asymmetric key (EC, RSA, Ed25519) as
+    /// SubjectPublicKeyInfo (std::nullopt / kDer, or kPem) or, for EC, the raw
+    /// uncompressed SEC1 point 0x04||X||Y (kRaw). Gated by kExport on the
+    /// public-half permissions. Symmetric keys and private halves are never
+    /// exported (kKeyNotExportable).
     [[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
-    ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
+    ExportKey(const key_management::ProviderKeyHandle& handle,
+              std::optional<score::crypto::FormatType> format) override;
 
-    /// Byte length of the raw export for @p handle, for the mandatory
-    /// size-then-data two-call export. Same gating as ExportKey.
+    /// Byte length of the export for @p handle in @p format, for the mandatory
+    /// size-then-data two-call export. Same gating and encoding as ExportKey.
     [[nodiscard]] ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
-    GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
+    GetExportKeySize(const key_management::ProviderKeyHandle& handle,
+                     std::optional<score::crypto::FormatType> format) override;
 
   private:
     /// Result of parsing DER key material.
@@ -181,11 +184,12 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportRawEcPublicKey(const key_management::KeyImportRequest& request);
 
-    /// Validate a raw EC export request (format, key type, export permission).
-    /// @return The key's algorithm descriptor on success, or the error that should be reported.
-    [[nodiscard]] ::score::crypto::Expected<::score::crypto::AlgorithmDescriptor,
+    /// Check format, key type and kExport permission, then encode the export of
+    /// @p handle. Shared by ExportKey and GetExportKeySize so both always agree.
+    [[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
-    CheckRawEcExport(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) const;
+    EncodeExport(const key_management::ProviderKeyHandle& handle,
+                 std::optional<score::crypto::FormatType> requested_format) const;
 
     /// Duplicate the handle's live EVP_PKEY and pin its point-conversion format
     /// to uncompressed, so both the export bytes and the export length are read

@@ -23,6 +23,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <variant>
 
 namespace score::crypto::daemon::key_management
@@ -103,19 +104,21 @@ class IKeyFactory
     [[nodiscard]] virtual score::crypto::Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode>
     UnwrapKey(const UnwrapKeyRequest& request);
 
-    /// Export formatted key material (DER / PEM / RAW).
+    /// Export the public key of an asymmetric key (DER / PEM / RAW).
     ///
-    /// Used for asymmetric keys where formatting is provider-specific.
-    /// For raw symmetric bytes, prefer IKeyHandler::Export().
+    /// std::nullopt selects the provider's native format. Private and secret
+    /// key material must never be returned in plaintext: a provider refuses
+    /// it with kKeyNotExportable.
     /// Default: returns kNotSupported.
     [[nodiscard]] virtual score::crypto::Expected<SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode>
-    ExportKey(const ProviderKeyHandle& handle, score::crypto::FormatType format);
+    ExportKey(const ProviderKeyHandle& handle, std::optional<score::crypto::FormatType> format);
 
     /// Return the byte length of the exported key in the given format.
     ///
+    /// Must refuse exactly the requests ExportKey() refuses, with the same error.
     /// Default: returns kNotSupported.
     [[nodiscard]] virtual score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorCode>
-    GetExportKeySize(const ProviderKeyHandle& handle, score::crypto::FormatType format);
+    GetExportKeySize(const ProviderKeyHandle& handle, std::optional<score::crypto::FormatType> format);
 
     /// Generate a key atomically into a persistent slot.
     ///

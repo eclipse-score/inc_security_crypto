@@ -233,6 +233,7 @@ cc_test(
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/tests/utility",
+        "//third_party/openssl:openssl_shared",
         "@googletest//:gtest_main",
     ],
 )

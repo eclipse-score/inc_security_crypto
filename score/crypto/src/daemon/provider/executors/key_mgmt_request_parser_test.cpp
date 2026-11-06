@@ -82,17 +82,6 @@ TEST(FormatWireTest, ExtractOptionalFormat_BadValueOrType_IsInvalidArgument)
     }
 }
 
-TEST(FormatWireTest, ExtractFormatOrDefault_NativeFallsBackToDer)
-{
-    const RequestParameters sentinel{ops::kFormatNative};
-    auto result = parser::ExtractFormatOrDefault(sentinel, 0U);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result.value(), FormatType::kDer);
-
-    const RequestParameters bad{std::uint32_t{256U}};
-    EXPECT_FALSE(parser::ExtractFormatOrDefault(bad, 0U).has_value());
-}
-
 TEST(FormatWireTest, BuildImportRequest_CarriesFormat)
 {
     const std::array<std::uint8_t, 4U> key{1U, 2U, 3U, 4U};
