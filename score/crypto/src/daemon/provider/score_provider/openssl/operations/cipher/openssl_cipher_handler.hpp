@@ -16,9 +16,9 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/handler_init_params.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/cipher_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/score_cipher_handler.hpp"
 

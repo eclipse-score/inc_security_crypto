@@ -29,6 +29,6 @@ cc_library(
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/key_management",
-        "//score/crypto/src/daemon/provider/handler:handler_headers",
+        "//score/crypto/src/daemon/common/context:handler_headers",
     ],
 )

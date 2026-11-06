@@ -14,9 +14,9 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_KEY_MANAGEMENT_SCORE_KEY_MANAGEMENT_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_KEY_MANAGEMENT_SCORE_KEY_MANAGEMENT_HANDLER_HPP
 
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_context.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 
 #include <memory>
 

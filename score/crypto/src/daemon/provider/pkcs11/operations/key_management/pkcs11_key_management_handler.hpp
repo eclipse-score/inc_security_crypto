@@ -15,13 +15,13 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_KEY_MANAGEMENT_PKCS11_KEY_MANAGEMENT_HANDLER_HPP
 
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_context.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 
 #include <pkcs11.h>
 

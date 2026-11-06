@@ -14,7 +14,7 @@
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/score_cipher_handler.hpp"
 
 #include "score/crypto/src/daemon/common/cipher_padding.hpp"
-#include "score/crypto/src/daemon/common/context_mode.hpp"
+#include "score/crypto/src/daemon/common/context/context_mode.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/cipher/cipher_executor.hpp"
 
 #include <limits>
