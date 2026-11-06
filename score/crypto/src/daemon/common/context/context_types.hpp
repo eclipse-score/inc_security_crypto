@@ -11,13 +11,15 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_TYPES_HPP
-#define SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_TYPES_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_CONTEXT_TYPES_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_CONTEXT_TYPES_HPP
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
-#include "score/crypto/src/daemon/common/context_mode.hpp"
+#include "score/crypto/src/daemon/common/context/context_mode.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -33,9 +35,11 @@ namespace score::crypto::daemon::common
 namespace context_types
 {
 /// Separates the scope prefix of a scoped context type from its name, e.g.
-/// "KEY:MANAGEMENT". The mediator derives the required provider capability
-/// from the scope (see mediator::operations::RequiredProviderCapability).
+/// "KEY:MANAGEMENT".
 inline constexpr char kScopeSeparator = ':';
+
+/// Scope prefixes. The scope of a context type decides the provider capability it
+/// requires (see RequiredProviderCapability).
 inline constexpr std::string_view kKeyScope = "KEY";
 inline constexpr std::string_view kCertScope = "CERT";
 
@@ -120,6 +124,45 @@ static_assert(ScopeOf(kHash).empty(), "unscoped context types carry no scope");
     return std::nullopt;
 }
 
+/// @brief Maps a context-type scope prefix to the provider capability it requires.
+struct ContextScopeCapability final
+{
+    std::string_view scope;         ///< Case-sensitive context-type scope prefix before ':'.
+    ProviderCapability capability;  ///< Capability required for contexts with this scope.
+};
+
+/// @brief Scope prefixes that require a provider capability at context creation.
+///
+/// The scope is the case-sensitive substring before the first ':' in the context type
+/// (context_types::ScopeOf). Context types without a recognized scope add no
+/// capability constraint.
+inline constexpr std::array<ContextScopeCapability, 2U> kContextScopeCapabilities{{
+    {context_types::kCertScope, ProviderCapability::kCertManagement},
+    {context_types::kKeyScope, ProviderCapability::kKeyManagement},
+}};
+
+/// @brief The provider capability a context of @p context_type requires.
+/// @param context_type Context type being checked for a scoped capability requirement.
+/// @return the capability mapped to the type's scope, or kNone if the type is
+///         unscoped or its scope is not in kContextScopeCapabilities.
+[[nodiscard]] inline constexpr ProviderCapability RequiredProviderCapability(
+    const std::string_view context_type) noexcept
+{
+    const auto scope = context_types::ScopeOf(context_type);
+    if (scope.empty())
+    {
+        return ProviderCapability::kNone;
+    }
+    for (const auto& scope_capability : kContextScopeCapabilities)
+    {
+        if (scope == scope_capability.scope)
+        {
+            return scope_capability.capability;
+        }
+    }
+    return ProviderCapability::kNone;
+}
+
 }  // namespace score::crypto::daemon::common
 
-#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_TYPES_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_CONTEXT_TYPES_HPP

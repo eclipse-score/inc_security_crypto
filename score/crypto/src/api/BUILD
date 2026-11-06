@@ -75,6 +75,8 @@ cc_library(
         "//score/crypto/src/api/data_plane:data_plane_client",
         "//score/crypto/src/api/objects:crypto_objects",
         "//score/crypto/src/api/types",
+        "//score/crypto/src/daemon/common/context:context_mode",
+        "//score/crypto/src/daemon/common/context:context_types",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/result",
     ],

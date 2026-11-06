@@ -11,18 +11,18 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
+#include "score/crypto/src/daemon/common/context/context_data_node.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 #include <memory>
-#include <string>
+#include <optional>
 #include <utility>
 
 namespace score::crypto::daemon::provider::handler
 {
 
 ContextDataNode::ContextDataNode(std::shared_ptr<score::crypto::daemon::provider::handler::Handler> handler,
-                                 const std::string& algorithm)
+                                 std::optional<score::crypto::AlgorithmDescriptor> algorithm)
     : DataNode(true), m_handler(std::move(handler)), m_algorithm(algorithm)
 {
 }
@@ -34,7 +34,7 @@ std::shared_ptr<score::crypto::daemon::provider::handler::Handler> ContextDataNo
     return m_handler;
 }
 
-const std::string& ContextDataNode::GetAlgorithm() const
+const std::optional<score::crypto::AlgorithmDescriptor>& ContextDataNode::GetAlgorithm() const
 {
     return m_algorithm;
 }

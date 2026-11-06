@@ -31,7 +31,6 @@ cc_library(
     deps = [
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/provider/handler:handler_headers",
         "@score_baselibs//score/mw/log",
     ],
 )

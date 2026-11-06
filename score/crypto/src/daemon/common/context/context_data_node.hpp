@@ -11,13 +11,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_CONTEXT_DATA_NODE_HPP
-#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_CONTEXT_DATA_NODE_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_CONTEXT_DATA_NODE_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_CONTEXT_DATA_NODE_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 #include <memory>
-#include <string>
+#include <optional>
 
 namespace score::crypto::daemon::provider::handler
 {
@@ -25,7 +26,8 @@ namespace score::crypto::daemon::provider::handler
 /**
  * @brief DataNode specialization for storing crypto operation context information
  *
- * Stores handler, algorithm, and configuration for a crypto context.
+ * Stores the handler and the resolved algorithm of a crypto context. A context bound to
+ * no algorithm, such as key management, holds none.
  * Used by MediatorImpl to persist context across multiple operations.
  *
  * Key binding lifecycle: when a key is bound to a context, the mediator
@@ -36,7 +38,7 @@ class ContextDataNode : public data_manager::DataNode
 {
   public:
     ContextDataNode(std::shared_ptr<score::crypto::daemon::provider::handler::Handler> handler,
-                    const std::string& algorithm);
+                    std::optional<score::crypto::AlgorithmDescriptor> algorithm);
 
     ~ContextDataNode() override;
 
@@ -46,13 +48,13 @@ class ContextDataNode : public data_manager::DataNode
     }
 
     std::shared_ptr<score::crypto::daemon::provider::handler::Handler> GetHandler() const;
-    const std::string& GetAlgorithm() const;
+    const std::optional<score::crypto::AlgorithmDescriptor>& GetAlgorithm() const;
 
   private:
     std::shared_ptr<score::crypto::daemon::provider::handler::Handler> m_handler;
-    std::string m_algorithm;
+    std::optional<score::crypto::AlgorithmDescriptor> m_algorithm;
 };
 
 }  // namespace score::crypto::daemon::provider::handler
 
-#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_CONTEXT_DATA_NODE_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_CONTEXT_DATA_NODE_HPP

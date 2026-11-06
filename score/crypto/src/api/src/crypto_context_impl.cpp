@@ -32,8 +32,8 @@
 #include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
-#include "score/crypto/src/daemon/common/context_mode.hpp"
-#include "score/crypto/src/daemon/common/context_types.hpp"
+#include "score/crypto/src/daemon/common/context/context_mode.hpp"
+#include "score/crypto/src/daemon/common/context/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 

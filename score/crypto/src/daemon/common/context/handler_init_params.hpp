@@ -11,14 +11,18 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_HANDLER_INIT_PARAMS_HPP
-#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_HANDLER_INIT_PARAMS_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_HANDLER_INIT_PARAMS_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_HANDLER_INIT_PARAMS_HPP
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include <cstdint>
 #include <vector>
+
+namespace score::crypto::daemon::key_management
+{
+class IKeyHandler;
+}  // namespace score::crypto::daemon::key_management
 
 namespace score::crypto::daemon::provider::handler
 {
@@ -27,20 +31,22 @@ namespace score::crypto::daemon::provider::handler
 ///
 /// Carries the authenticated client identity, the assigned context node ID,
 /// provider identity, and an optional bound key handler for keyed contexts
-/// (MAC, cipher).  The bound_key_handler pointer is valid for the duration of
-/// the InitializeContext() call only.
+/// (MAC, cipher, sign, verify).  The bound_key_handler pointer is valid for the
+/// whole life of the context, so a handler may keep it.
 struct InitializationParams
 {
     std::uint64_t client_id{0U};                                 ///< IPC-authenticated client identity
     std::uint64_t context_node_id{0U};                           ///< DataNodeId assigned by the DataManager
     common::ProviderId provider_id{common::kInvalidProviderId};  ///< Numeric provider ID for this context
-    std::uint64_t key_node_id{0U};                               ///< Client-supplied key ref node (0 = no key)
+    std::uint64_t key_node_id{0U};                               ///< Bound key's node under the context (0 = no key)
 
     /// Non-owning pointer to the bound key's IKeyHandler.
     /// Handlers downcast to their provider-specific implementation
     /// (e.g. OpenSslKeyHandler, Pkcs11KeyHandler) to access
     /// key material in a type-safe manner.
-    /// Set by the mediator after BindKeyToContext(); nullptr when no key is bound.
+    /// The key's data node is a child of the context node, which owns the key
+    /// handler; the pointer stays valid until the context is closed.
+    /// nullptr when no key is bound.
     const key_management::IKeyHandler* bound_key_handler{nullptr};
 
     /// Raw CTX_CREATE parameters [0..N] as received on the wire.
@@ -59,4 +65,4 @@ struct InitializationParams
 
 }  // namespace score::crypto::daemon::provider::handler
 
-#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_HANDLER_INIT_PARAMS_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_HANDLER_INIT_PARAMS_HPP
