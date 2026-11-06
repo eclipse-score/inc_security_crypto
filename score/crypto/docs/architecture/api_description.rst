@@ -387,6 +387,36 @@ daemon returns ``CryptoErrorCode::kKeyOperationNotPermitted`` and the
 context is not created. This is a fail-fast check — no resources are
 allocated on permission violation.
 
+**Key/algorithm fit:**
+
+After the permission check, the daemon compares the key's algorithm with
+the context algorithm, using the algorithm catalog
+(``score/crypto/src/daemon/common/algorithm_catalog.hpp``). A key labelled
+with a key row names key material only and serves every operation of its
+family:
+
+.. code-block:: none
+
+   ECDSA-P<n>   → ECDSA-P<n>-<hash>       (any hash)
+   RSA-<bits>   → RSA-PSS-<bits>-<hash>   (any hash)
+   AES-<n>      → AES-<n>-CBC, AES-<n>-GCM, AES-<n>-CMAC
+
+A key labelled with any other row (``AES-256-GCM``, ``HMAC-SHA256``,
+``ECDSA-P256-SHA256``, ``Ed25519``) names an operation and serves that
+operation only. HMAC keys have no key row, so ``HMAC-<hash>`` takes only a
+key labelled ``HMAC-<hash>``, never an AES key; its length is free. An AES
+key must hold as many bytes as its label states: a key labelled ``AES-256``
+that holds 16 bytes fits no operation. A key slot that is not loaded yet is
+checked by its label first and by the length of its key after binding.
+
+Both algorithms are catalog rows (``IsKeyCompatible()`` in
+``daemon/common/key_compatibility.hpp``); hash, random and key rows name no
+keyed operation, so no key fits them. A key that does not fit returns
+``CryptoErrorCode::kIncompatibleKeyType`` and the context is not created. A
+context algorithm that the catalog does not know never gets this far: it is
+refused with ``CryptoErrorCode::kUnsupportedAlgorithm`` (see "Algorithm
+Catalog Alongside ``AlgorithmId``" in :ref:`crypto_design_decisions`).
+
 **Querying permissions:**
 
 Permissions can be queried at runtime via:

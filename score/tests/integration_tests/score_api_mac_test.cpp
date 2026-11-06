@@ -668,6 +668,35 @@ INSTANTIATE_TEST_SUITE_P(KeySlotProviderType,
                              return std::string{info.param.test_case_name};
                          });
 
+/// An HMAC takes only a key labelled with that HMAC: an AES key, even one with
+/// MAC permission and of the HMAC's digest length, is refused.
+TEST(MacKeyFitTest, HmacRefusesAnAesKey)
+{
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    auto& ctx = ctx_result.value();
+
+    auto key_mgmt_result = ctx->CreateKeyManagementContext(KeyManagementContextConfig{});
+    ASSERT_TRUE(key_mgmt_result.has_value()) << "Failed to create key management context";
+
+    GenerateKeyParams key_gen_params;
+    key_gen_params.SetAlgorithm("AES-256").SetPermissions(KeyOperationPermission::kMac);
+    auto key_result = key_mgmt_result.value()->GenerateKey(key_gen_params);
+    ASSERT_TRUE(key_result.has_value()) << "Failed to generate AES-256 key";
+    auto key = std::move(key_result.value());
+
+    MacContextConfig mac_config;
+    mac_config.SetAlgorithm(std::string{kAlgHmacSha256}).SetKey(key);
+    const auto refused = ctx->CreateMacContext(mac_config);
+    ASSERT_FALSE(refused.has_value()) << "An AES-256 key must not serve HMAC-SHA256";
+    EXPECT_EQ(*refused.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kIncompatibleKeyType))
+        << refused.error().Message();
+}
+
 }  // namespace
 
 int main(int argc, char** argv)
