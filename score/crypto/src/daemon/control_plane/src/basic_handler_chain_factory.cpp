@@ -19,7 +19,7 @@
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/data_plane/src/shm_registry.hpp"
 #include "score/crypto/src/daemon/data_plane/src/shm_request_handler.hpp"
-#include "score/crypto/src/daemon/mediator/src/mediator_impl.hpp"
+#include "score/crypto/src/daemon/mediator/mediator_impl.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <memory>

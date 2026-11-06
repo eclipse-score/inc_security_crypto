@@ -16,10 +16,10 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/handler_init_params.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/resolved_key.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_context.hpp"

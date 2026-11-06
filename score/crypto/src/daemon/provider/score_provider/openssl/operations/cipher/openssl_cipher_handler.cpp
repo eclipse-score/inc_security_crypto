@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/cipher/openssl_cipher_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"

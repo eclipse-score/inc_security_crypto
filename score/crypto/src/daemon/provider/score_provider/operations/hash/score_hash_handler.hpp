@@ -17,9 +17,9 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 
 #include <cstdint>
 #include <memory>

@@ -14,15 +14,11 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <optional>
-#include <string_view>
 
 #include "score/crypto/src/daemon/common/actors.hpp"
-#include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
@@ -51,75 +47,6 @@ using OperationAction = common::OperationAction;
 // ============================================================================
 // Common Mediator Operations
 // ============================================================================
-
-/// @brief Maps a CTX_CREATE context-type scope prefix to its required capability.
-struct ContextScopeCapability final
-{
-    std::string_view scope;
-    common::ProviderCapability capability;
-};
-
-/// @brief Scope prefixes recognized by CTX_CREATE for capability-based provider routing.
-///
-/// The scope is the case-sensitive substring before the first ':' in the context type
-/// (common::context_types::ScopeOf). Context types without a recognized scope add no
-/// capability constraint.
-inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities{{
-    {common::context_types::kCertScope, common::ProviderCapability::kCertManagement},
-    {common::context_types::kKeyScope, common::ProviderCapability::kKeyManagement},
-}};
-
-/// @brief The provider capability a CTX_CREATE of @p context_type requires.
-/// @return the capability mapped to the type's scope, or kNone if the type is
-///         unscoped or its scope is not in kContextScopeCapabilities.
-[[nodiscard]] inline constexpr common::ProviderCapability RequiredProviderCapability(
-    const std::string_view context_type) noexcept
-{
-    const auto scope = common::context_types::ScopeOf(context_type);
-    if (scope.empty())
-    {
-        return common::ProviderCapability::kNone;
-    }
-    for (const auto& scope_capability : kContextScopeCapabilities)
-    {
-        if (scope == scope_capability.scope)
-        {
-            return scope_capability.capability;
-        }
-    }
-    return common::ProviderCapability::kNone;
-}
-
-/// @brief Daemon-side interpretation of a public ProviderType wire value.
-struct ProviderTypePreference final
-{
-    common::CryptoProviderType primary;
-    std::optional<common::CryptoProviderType> fallback;
-};
-
-/// @brief Decode the stable ProviderType wire contract without losing preferred-provider fallback semantics.
-/// @return The decoded preference, or std::nullopt for an unknown wire value.
-[[nodiscard]] inline constexpr std::optional<ProviderTypePreference> DecodeProviderTypePreference(
-    const std::uint8_t wire_value) noexcept
-{
-    using ProviderType = common::CryptoProviderType;
-
-    switch (wire_value)
-    {
-        case 0U:
-            return ProviderTypePreference{ProviderType::DEFAULT, std::nullopt};
-        case 1U:
-            return ProviderTypePreference{ProviderType::HARDWARE, std::nullopt};
-        case 2U:
-            return ProviderTypePreference{ProviderType::SOFTWARE, std::nullopt};
-        case 3U:
-            return ProviderTypePreference{ProviderType::HARDWARE, ProviderType::SOFTWARE};
-        case 4U:
-            return ProviderTypePreference{ProviderType::SOFTWARE, ProviderType::HARDWARE};
-        default:
-            return std::nullopt;
-    }
-}
 
 // CTX_CREATE
 // Request:  data_node_id = connection_id (parent node),

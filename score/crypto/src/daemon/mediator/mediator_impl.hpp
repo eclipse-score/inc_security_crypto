@@ -18,13 +18,15 @@
 
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 
+#include "score/crypto/src/daemon/common/context/context_data_node.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
-#include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
+#include "score/crypto/src/daemon/mediator/src/context_assembler.hpp"
+#include "score/crypto/src/daemon/mediator/src/provider_arbiter.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <cstddef>
@@ -42,7 +44,7 @@ namespace score::crypto::daemon::mediator
 {
 
 /**
- * @brief Struct to hold context for executing a crypto operation, used to pass information
+ * @brief Request data passed to the shared crypto-operation execution helper.
  */
 struct OperationExecutionContext
 {
@@ -51,82 +53,51 @@ struct OperationExecutionContext
     common::RequestParameters& parameters;    ///< Parameters from the request
 };
 
+/// @brief Routes control-plane operations to mediator handlers or provider contexts.
 class MediatorImpl : public IMediator
 {
   public:
+    /// @brief Construct a mediator from its subsystem dependencies.
+    /// @param deps Dependencies used to resolve resources, providers, and handlers.
     explicit MediatorImpl(MediatorDependencies deps);
 
+    /// @brief Copy construction is disabled.
     MediatorImpl(const MediatorImpl&) = delete;
+    /// @brief Copy assignment is disabled.
     MediatorImpl& operator=(const MediatorImpl&) = delete;
 
+    /// @brief Move-construct a mediator.
     MediatorImpl(MediatorImpl&&) = default;
+    /// @brief Move-assign a mediator.
     MediatorImpl& operator=(MediatorImpl&&) = default;
 
+    /// @brief Destroy the mediator and its owned state.
     ~MediatorImpl() override = default;
+
+    /// @brief Process the operations in a control-plane request in order.
+    ///
+    /// Processing stops after the first operation that cannot be handled.
+    /// @param request Request whose operations are dispatched.
+    /// @return Response containing the results accumulated before processing stopped.
     score::crypto::daemon::control_plane::ControlResponse processRequest(
         score::crypto::daemon::control_plane::ControlRequest& request) override;
 
   private:
-    struct ProviderHandlerSelection
-    {
-        std::shared_ptr<provider::IProvider> provider;
-        provider::handler::Handler::Sptr handler;
-        bool used_fallback{false};
-    };
-
+    /// @brief Select a provider, assemble a context, and add its identifier to the response.
+    /// @param request Control-plane request containing the client and connection identifiers.
+    /// @param operation CTX_CREATE operation to decode and execute.
+    /// @param responseBuilder Builder receiving the operation result.
+    /// @return True if the context was created successfully.
     bool HandleContextCreationOperation(
         const score::crypto::daemon::control_plane::ControlRequest& request,
         const control_plane::SingleOperationRequest& operation,
         score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
 
-    /// @brief Resolve a provider and create a compatible handler.
-    ///
-    /// @p algorithm is the resolved catalog row of the requested algorithm, or
-    /// std::nullopt for a KEY:MANAGEMENT context, which names no algorithm.
-    ///
-    /// Preferred-provider fallback is attempted only when the primary provider
-    /// is unavailable or rejects the requested context/algorithm. Exact provider
-    /// requests never fall back. Initialization is deliberately performed after
-    /// selection and is not retried because binding and provider initialization
-    /// can have side effects that must not be duplicated across providers.
-    score::crypto::Expected<ProviderHandlerSelection, score::crypto::CryptoErrorCode> ResolveProviderAndCreateHandler(
-        std::uint64_t client_id,
-        const std::optional<data_manager::DataNodeId>& key_node_id,
-        std::string_view context_type,
-        const std::optional<AlgorithmDescriptor>& algorithm,
-        common::CryptoProviderType primary_provider_type,
-        const std::optional<common::CryptoProviderType>& fallback_provider_type,
-        common::ProviderCapability required_capability);
-
-    /// @brief Resolves a client-supplied key reference and authorizes it for the context.
-    ///
-    /// Performs the two steps that must not be separated: binding the key to the
-    /// context node, after checking that the key's permissions cover what the
-    /// context intends to do with it. The check reads metadata only, so a refused
-    /// request loads no key material. Called only when CTX_CREATE carried a key
-    /// reference.
-    ///
-    /// @param client_id       Authenticated client requesting the context.
-    /// @param context_node_id Node the key is being bound to.
-    /// @param key_node_id     In: the client-supplied reference (key or slot).
-    ///                        Out: the resolved live key node id.
-    /// @param provider_id     Provider that will own the context.
-    /// @param context_type    CTX_CREATE param[0].
-    /// @param params          Full CTX_CREATE parameter list (param[4] carries the mode).
-    ///
-    /// @return The bound key handler, or the error code to report to the client.
-    ///         The caller owns cleanup of @p context_node_id on failure.
-    score::crypto::Expected<key_management::IKeyHandler::Sptr, score::crypto::CryptoErrorCode> BindAndAuthorizeKey(
-        std::uint64_t client_id,
-        std::uint64_t context_node_id,
-        std::uint64_t& key_node_id,
-        const common::ProviderId& provider_id,
-        std::string_view context_type,
-        const std::optional<AlgorithmDescriptor>& algorithm,
-        const common::RequestParameters& params);
-
-    // Private helpers
-    // Shared operation execution helper - handles parameter extraction, execution, and response building
+    /// @brief Execute a provider handler and append its result to the response.
+    /// @param exec_ctx Operation identifier, context identifier, and request parameters.
+    /// @param handler Handler that executes the operation.
+    /// @param responseBuilder Builder receiving the operation result.
+    /// @return True if execution succeeded.
     bool ExecuteOperation(const OperationExecutionContext& exec_ctx,
                           const std::shared_ptr<score::crypto::daemon::provider::handler::Handler>& handler,
                           score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
@@ -136,38 +107,82 @@ class MediatorImpl : public IMediator
     /// Deletes @p node_id from the data manager and writes the response. Deletion is
     /// idempotent: a missing node means the desired end-state already holds and is
     /// reported as success (mirrors ConnectionHandler's connection-close handling).
+    /// @param request Control-plane request identifying the client and, for CTX_CLOSE, the node.
+    /// @param operation CTX_CLOSE or SHM_DESTROY_OBJECT operation to handle.
+    /// @param responseBuilder Builder receiving the operation result.
     /// @return Always true; the caller can return the value directly.
     bool DeleteNodeAndRespond(
         const control_plane::ControlRequest& request,
         const control_plane::SingleOperationRequest& operation,
         score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
 
+    /// @brief Dispatch one operation to the mediator or forward it to a context handler.
+    /// @param request Parent control-plane request.
+    /// @param operation Operation to dispatch.
+    /// @param responseBuilder Builder receiving the operation result.
+    /// @return True if the operation was handled successfully.
     bool HandleSingleOperation(const control_plane::ControlRequest& request,
                                const control_plane::SingleOperationRequest& operation,
                                control_plane::protocol::OperationResponseBuilder& responseBuilder);
 
+    /// @brief Resolve a session resource using the resolver registered for its type.
+    /// @param client_id Client requesting the resource.
+    /// @param session_id Session in which the resource is resolved.
+    /// @param operation Resource-resolution operation containing the resource name and type.
+    /// @param responseBuilder Builder receiving the resolved resource or an error.
+    /// @return True if a resolver resolved the resource successfully.
     bool HandleResourceResolutionOperation(uint64_t client_id,
                                            uint64_t session_id,
                                            const control_plane::SingleOperationRequest& operation,
                                            control_plane::protocol::OperationResponseBuilder& responseBuilder);
+
+    /// @brief Populate the dispatch table for supported session-resource types.
     void RegisterResourceResolvers();
 
-    /// Dispatch table for session-level resource resolution.
-    /// Key: static_cast<uint8_t>(ResourceType). Populated once in RegisterResourceResolvers().
-    /// Adding a new resource type: register one lambda here — no other code changes required.
+    /// @brief Callback signature for resolving a named session resource and writing its response.
+    /// @param client_id Client requesting the resource.
+    /// @param session_id Session in which the resource is resolved.
+    /// @param resource_name Application resource name.
+    /// @param op_id Identifier of the resource-resolution operation.
+    /// @param responseBuilder Builder receiving the resolved resource or an error.
+    /// @return True if resolution succeeded.
     using ResourceResolverFn = std::function<bool(uint64_t client_id,
                                                   uint64_t session_id,
                                                   const std::string& resource_name,
                                                   const common::OperationIdentifier& op_id,
                                                   control_plane::protocol::OperationResponseBuilder& responseBuilder)>;
+
+    /// Dispatch table keyed by the numeric ResourceType value. Populated once by RegisterResourceResolvers().
     std::unordered_map<uint8_t, ResourceResolverFn> m_resource_resolvers;
 
+    /// Provider and handler selection for CTX_CREATE.
+    ProviderArbiter m_arbiter;
+    /// Context node creation, key binding, and handler initialization for CTX_CREATE.
+    ContextAssembler m_assembler;
+
+    /// @brief Handle a mediator-owned control-plane operation.
+    /// @param request Parent control-plane request.
+    /// @param operation Mediator operation to handle.
+    /// @param responseBuilder Builder receiving the operation result.
+    /// @return True if the operation was handled successfully.
     bool HandleMediatorOperation(const control_plane::ControlRequest& request,
                                  const control_plane::SingleOperationRequest& operation,
                                  control_plane::protocol::OperationResponseBuilder& responseBuilder);
+
+    /// @brief Create a shared-memory object and register its data node.
+    /// @param request Parent control-plane request containing the client identity.
+    /// @param operation SHM_SETUP operation with the object configuration.
+    /// @param responseBuilder Builder receiving the object identifier or an error.
+    /// @return True if the object was created successfully.
     bool HandleShmCreateObject(const control_plane::ControlRequest& request,
                                const control_plane::SingleOperationRequest& operation,
                                control_plane::protocol::OperationResponseBuilder& responseBuilder);
+
+    /// @brief Find a context and forward a non-mediator operation to its handler.
+    /// @param request Parent control-plane request identifying the client and context.
+    /// @param operation Operation to forward.
+    /// @param responseBuilder Builder receiving the handler result or an error.
+    /// @return True if the handler executed the operation successfully.
     bool ForwardSingleOperation(const control_plane::ControlRequest& request,
                                 const control_plane::SingleOperationRequest& operation,
                                 control_plane::protocol::OperationResponseBuilder& responseBuilder);

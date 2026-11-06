@@ -1,0 +1,60 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml uc_context_creation
+title Use Case: Create a Context (CTX_CREATE)
+autonumber
+hide footbox
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ParticipantPadding 18
+skinparam sequenceMessageAlign center
+
+actor Client
+participant "MediatorImpl" as Mediator
+participant "Decoder" as Decoder
+participant "ProviderArbiter" as Arbiter
+participant "ContextAssembler" as Assembler
+participant "KeyManagementService" as KeyMgmt
+participant "IDataManager" as DataMgr
+participant "Handler" as Handler
+
+Client -> Mediator : CTX_CREATE(type, algorithm, preference, key, ...)
+Mediator -> Decoder : DecodeContextCreationRequest
+alt validation fails
+  Decoder --> Mediator : kInvalidArgument, or kUnsupportedAlgorithm\nfor an unknown algorithm
+  Mediator --> Client : error
+  note right: No provider is asked.\nNo node is created.
+else valid
+  Decoder --> Mediator : ContextCreationRequest
+  Mediator -> Arbiter : Select(request)
+  opt key referenced
+    Arbiter -> KeyMgmt : ResolveTargetProvider
+  end
+  Arbiter --> Mediator : provider + handler, or error
+  Mediator -> Assembler : Assemble(request, handler)
+  Assembler -> DataMgr : add context node under connection
+  opt key referenced
+    Assembler -> KeyMgmt : BindAndAuthorize
+  end
+  Assembler -> Handler : InitializeContext(identity, bound key,\nunchanged creation parameters)
+  alt bind or initialization fails
+    Assembler -> DataMgr : remove context node
+    Assembler --> Mediator : error
+    Mediator --> Client : error as public code
+  else
+    Assembler --> Mediator : context node id
+    Mediator --> Client : context node id
+  end
+end
+@enduml
