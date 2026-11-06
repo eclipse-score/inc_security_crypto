@@ -48,13 +48,12 @@ ClientSession::~ClientSession() noexcept
 score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode> ClientSession::SendRequest(
     protocol::ControlRequest& request) noexcept
 {
-    return SendRequest(request, ipc::kMaximumRequestTimeout, {});
+    return SendRequest(request, ipc::kMaximumRequestTimeout);
 }
 
 score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode> ClientSession::SendRequest(
     protocol::ControlRequest& request,
-    const std::chrono::milliseconds timeout,
-    const daemon::control_plane::CancellationToken& cancellation) noexcept
+    const std::chrono::milliseconds timeout) noexcept
 {
     const auto now = std::chrono::steady_clock::now();
     const auto deadline = now + ClampRequestTimeout(timeout);
@@ -63,11 +62,6 @@ score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCod
     if (!ready_result.has_value())
     {
         return score::crypto::make_unexpected(ready_result.error());
-    }
-
-    if (cancellation.IsCancellationRequested())
-    {
-        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kOperationCancelled);
     }
 
     const auto remaining_timeout =
@@ -106,30 +100,7 @@ score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCod
         m_pending_call_registry.Fail(request_id, call, send_result.error());
         return score::crypto::make_unexpected(send_result.error());
     }
-
-    daemon::control_plane::CancellationRegistration cancellation_registration;
-    // Cancellation callback registration can allocate its type-erased callback and extend token storage.
-    try
-    {
-        cancellation_registration = cancellation.RegisterCallback([this, request_id]() noexcept {
-            if (!CreateAndSendCancelRequest(request_id))
-            {
-                score::mw::log::LogWarn()
-                    << "[IPC][MESSAGE_PASSING_CLIENT] Failed to send cancellation request for request_id=" << request_id
-                    << "; waiting for terminal response or request timeout";
-            }
-        });
-    }
-    catch (...)
-    {
-        score::mw::log::LogWarn()
-            << "[IPC][MESSAGE_PASSING_CLIENT] Failed to register cancellation callback for request_id=" << request_id
-            << "; waiting for terminal response or request timeout";
-    }
-
-    auto response = m_pending_call_registry.WaitForResponse(request_id, call, deadline + ipc::kTimeoutGracePeriod);
-    cancellation_registration.DeregisterAndWait();
-    return response;
+    return m_pending_call_registry.WaitForResponse(request_id, call, deadline + ipc::kTimeoutGracePeriod);
 }
 
 score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSession::WaitForConnectionReady(

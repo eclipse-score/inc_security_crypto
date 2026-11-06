@@ -169,7 +169,7 @@ WorkItemDispatcher::RunAcceptedWorkItem(const std::shared_ptr<detail::Session>& 
         {
             case detail::WorkItemState::kRunning:
             {
-                auto response = handler.processRequest(item->GetRequest(), item->GetCancellationToken());
+                auto response = handler.processRequest(item->GetRequest());
                 return RespondAndCompleteWorkItem(session, item, {std::move(response)});
             }
             case detail::WorkItemState::kCancelled:

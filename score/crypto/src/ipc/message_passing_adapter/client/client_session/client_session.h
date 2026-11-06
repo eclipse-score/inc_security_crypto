@@ -48,9 +48,7 @@ class ClientSession final : public std::enable_shared_from_this<ClientSession>
     ~ClientSession() noexcept;
 
     score::crypto::Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
-    SendRequest(daemon::control_plane::protocol::ControlRequest& request,
-                std::chrono::milliseconds timeout,
-                const daemon::control_plane::CancellationToken& cancellation) noexcept;
+    SendRequest(daemon::control_plane::protocol::ControlRequest& request, std::chrono::milliseconds timeout) noexcept;
     score::crypto::Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
     SendRequest(daemon::control_plane::protocol::ControlRequest& request) noexcept;
 

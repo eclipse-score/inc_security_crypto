@@ -14,7 +14,6 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_I_REQUEST_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_I_REQUEST_HANDLER_HPP
 
-#include "score/crypto/src/daemon/control_plane/cancellation_token.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 namespace score::crypto::daemon::control_plane
@@ -60,13 +59,6 @@ class IRequestHandler
      * @return ControlResponse The response generated after processing the request.
      */
     virtual ControlResponse processRequest(ControlRequest& request) = 0;
-
-    virtual ControlResponse processRequest(ControlRequest& request, const CancellationToken& cancellation)
-    {
-        // TODO: Dummy umbrella impl until cancellation is fully supported
-        static_cast<void>(cancellation);
-        return processRequest(request);
-    }
 };
 
 }  // namespace score::crypto::daemon::control_plane

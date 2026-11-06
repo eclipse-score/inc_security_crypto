@@ -25,7 +25,6 @@ cc_library(
 cc_library(
     name = "request_handler_hdr",
     hdrs = [
-        "cancellation_token.hpp",
         "control_protocol.h",
         "i_request_handler.hpp",
     ],

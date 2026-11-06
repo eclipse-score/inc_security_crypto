@@ -27,11 +27,11 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdlib>
-#include <fstream>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <string_view>
+#include <thread>
 #include <utility>
 
 namespace
@@ -40,7 +40,6 @@ namespace
 namespace process_test = score::crypto::ipc::message_passing::process_test;
 namespace protocol = score::crypto::ipc::message_passing::process_test::protocol;
 using DaemonErrorCode = score::crypto::daemon::common::DaemonErrorCode;
-using CancellationToken = score::crypto::daemon::control_plane::CancellationToken;
 
 class DisconnectCleanupObserver final
 {
@@ -74,20 +73,12 @@ class EchoRequestHandler final : public score::crypto::daemon::control_plane::IR
     score::crypto::daemon::control_plane::ControlResponse processRequest(
         score::crypto::daemon::control_plane::ControlRequest& request) override
     {
-        return ProcessRequest(request, {});
-    }
-
-    score::crypto::daemon::control_plane::ControlResponse processRequest(
-        score::crypto::daemon::control_plane::ControlRequest& request,
-        const CancellationToken& cancellation) override
-    {
-        return ProcessRequest(request, cancellation);
+        return ProcessRequest(request);
     }
 
   private:
     score::crypto::daemon::control_plane::ControlResponse ProcessRequest(
-        score::crypto::daemon::control_plane::ControlRequest& request,
-        const CancellationToken& cancellation)
+        score::crypto::daemon::control_plane::ControlRequest& request)
     {
         protocol::ControlResponse response{};
         response.request_id = request.request_id;
@@ -102,57 +93,13 @@ class EchoRequestHandler final : public score::crypto::daemon::control_plane::IR
                     {}});
                 continue;
             }
-            if (input.value() == process_test::kBlockUntilServerShutdownValue)
+            if (input.value() == process_test::kLongRunningOperationValue)
             {
                 std::cout << "SERVER_TIMEOUT_HANDLER_BLOCKED\n" << std::flush;
-                std::mutex cancellation_mutex{};
-                std::condition_variable cancellation_condition{};
-                bool cancellation_requested{false};
-                auto cancellation_registration = cancellation.RegisterCallback([&]() noexcept {
-                    {
-                        std::lock_guard<std::mutex> lock(cancellation_mutex);
-                        cancellation_requested = true;
-                    }
-                    cancellation_condition.notify_one();
-                });
-                std::unique_lock<std::mutex> lock(cancellation_mutex);
-                cancellation_condition.wait(lock, [&] {
-                    return cancellation_requested;
-                });
+                std::this_thread::sleep_for(std::chrono::seconds{3});
                 response.operations.push_back(protocol::SingleOperationResponse{
                     operation.operationId,
-                    static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled),
-                    {}});
-                continue;
-            }
-            if (input.value() == process_test::kWaitForClientCancellationValue)
-            {
-                const char* marker_path = std::getenv("MESSAGE_PASSING_CANCELLATION_MARKER");
-                if (marker_path != nullptr)
-                {
-                    std::ofstream marker_file{marker_path};
-                    marker_file << "handler entered\n";
-                }
-                std::cout << "SERVER_CANCELLATION_HANDLER_BLOCKED\n" << std::flush;
-
-                std::mutex cancellation_mutex{};
-                std::condition_variable cancellation_condition{};
-                bool cancellation_requested{false};
-                auto cancellation_registration = cancellation.RegisterCallback([&]() noexcept {
-                    {
-                        std::lock_guard<std::mutex> lock(cancellation_mutex);
-                        cancellation_requested = true;
-                    }
-                    cancellation_condition.notify_one();
-                });
-                std::unique_lock<std::mutex> lock(cancellation_mutex);
-                cancellation_condition.wait(lock, [&] {
-                    return cancellation_requested;
-                });
-                std::cout << "SERVER_CANCELLATION_TOKEN_OBSERVED\n" << std::flush;
-                response.operations.push_back(protocol::SingleOperationResponse{
-                    operation.operationId,
-                    static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled),
+                    static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationTimedOut),
                     {}});
                 continue;
             }

@@ -73,8 +73,14 @@ bool WorkItem::TryRequestCancellation() noexcept
         m_lifecycle = WorkItemState::kCancellationRequested;
     }
 
-    cancellation.RequestCancellation();
+    CancelRunningWorkItem();
     return true;
+}
+
+void WorkItem::CancelRunningWorkItem() noexcept
+{
+    // TODO: Cancellation of running work items is not yet implemented.
+    // For now it is an no-op.
 }
 
 bool WorkItem::IsCancellationRequested() const noexcept
@@ -105,21 +111,20 @@ protocol::RequestId WorkItem::GetRequestId() const noexcept
 {
     return request_id;
 }
+
 protocol::ClientId WorkItem::GetClientId() const noexcept
 {
     return client_id;
 }
+
 protocol::ControlRequestKind WorkItem::GetKind() const noexcept
 {
     return kind;
 }
+
 protocol::ControlRequest& WorkItem::GetRequest() noexcept
 {
     return request;
-}
-daemon::control_plane::CancellationToken WorkItem::GetCancellationToken() const noexcept
-{
-    return cancellation.GetToken();
 }
 
 WorkItemState WorkItem::PrepareForExecution() noexcept

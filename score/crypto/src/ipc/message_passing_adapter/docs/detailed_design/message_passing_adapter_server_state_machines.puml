@@ -116,7 +116,7 @@ state "WorkItem\n(one per request)" as WI {
   WI_Queued -[#green]-> WI_Expired : PrepareForExecution()\n[deadline reached]
   WI_Queued -[#red]-> WI_CancelReq : TryRequestCancellation()
   WI_Queued -[#green]-> WI_Completed : Complete()\n[admission / submit /\ndeserialize failed]
-  WI_Running -[#red]-> WI_CancelReq : TryRequestCancellation()
+  WI_Running -[#red]-> WI_CancelReq : TryRequestCancellation()\n[CancelRunningWorkItem(): no-op]
   WI_Running -[#green]-> WI_Completed : Complete()\n[handler done, response sent attempted]
   WI_CancelReq -[#green]-> WI_Cancelled : PrepareForExecution()\n[cancellation requested while still queued]
   WI_CancelReq -[#green]-> WI_Completed : Complete()
@@ -139,6 +139,11 @@ note right of EX
   Work: kProviderBusy if no idle worker.
   Cleanup: queued if no idle worker,
   kResourceBusy if queue is full.
+end note
+
+note right of WI
+  Cancellation is not fully supported yet. A queued item can be stopped before
+  execution; but CancelRunningWorkItem() is currently a no-op.
 end note
 
 ' ---- Independent roots: callbacks registered on the SCORE message-passing server ----

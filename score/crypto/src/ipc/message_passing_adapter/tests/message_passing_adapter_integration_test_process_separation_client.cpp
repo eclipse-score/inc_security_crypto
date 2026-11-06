@@ -26,7 +26,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <fstream>
 #include <future>
 #include <iostream>
 #include <memory>
@@ -176,8 +175,8 @@ TEST(MessagePassingClientProcessTest, ReturnsAfterRequestTimeoutAndGracePeriod)
 
     constexpr auto request_timeout = std::chrono::milliseconds{300};
     protocol::ControlRequest request{};
-    request.operations.push_back(protocol::SingleOperationRequest{process_test::kEchoOperationId,
-                                                                  {process_test::kBlockUntilServerShutdownValue}});
+    request.operations.push_back(
+        protocol::SingleOperationRequest{process_test::kEchoOperationId, {process_test::kLongRunningOperationValue}});
 
     const auto start_time = std::chrono::steady_clock::now();
     const auto response = client->SendRequest(request, request_timeout);
@@ -189,60 +188,6 @@ TEST(MessagePassingClientProcessTest, ReturnsAfterRequestTimeoutAndGracePeriod)
     EXPECT_LE(elapsed, request_timeout + score::crypto::ipc::kTimeoutGracePeriod + std::chrono::milliseconds{1000});
     std::cout << "CLIENT_TIMEOUT_ELAPSED_MS=" << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count()
               << '\n';
-}
-
-TEST(MessagePassingClientProcessTest, CancellationTokenIsObservedByServer)
-{
-    const char* service_identifier_env = std::getenv("MESSAGE_PASSING_SERVICE_ID");
-    const std::string_view service_identifier = (service_identifier_env == nullptr)
-                                                    ? process_test::kServiceIdentifier
-                                                    : std::string_view{service_identifier_env};
-    ASSERT_FALSE(service_identifier.empty());
-
-    const char* cancellation_marker = std::getenv("MESSAGE_PASSING_CANCELLATION_MARKER");
-    ASSERT_NE(cancellation_marker, nullptr) << "MESSAGE_PASSING_CANCELLATION_MARKER is not set";
-
-    auto client_result = score::crypto::ipc::message_passing::MessagePassingControlClient::Create(service_identifier);
-    ASSERT_TRUE(client_result.has_value()) << "Failed to create message-passing client";
-    auto client = std::move(client_result).value();
-    score::crypto::ipc::message_passing::CancellationSource cancellation_source{};
-    const auto cancellation_token = cancellation_source.GetToken();
-    using ClientResult = score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode>;
-    std::promise<ClientResult> response_promise;
-    auto response_future = response_promise.get_future();
-
-    std::thread request_thread([client, cancellation_token, &response_promise]() mutable {
-        protocol::ControlRequest request{};
-        request.operations.push_back(protocol::SingleOperationRequest{process_test::kEchoOperationId,
-                                                                      {process_test::kWaitForClientCancellationValue}});
-        response_promise.set_value(client->SendRequest(request, std::chrono::seconds{8}, cancellation_token));
-    });
-
-    bool server_handler_entered{false};
-    const auto handler_start_deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
-    while (std::chrono::steady_clock::now() < handler_start_deadline)
-    {
-        std::ifstream marker_file{cancellation_marker};
-        if (marker_file.good())
-        {
-            server_handler_entered = true;
-            break;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds{20});
-    }
-
-    cancellation_source.RequestCancellation();
-    const auto response_ready = response_future.wait_for(std::chrono::seconds{10}) == std::future_status::ready;
-    request_thread.join();
-
-    ASSERT_TRUE(server_handler_entered) << "The server handler did not start before cancellation";
-    ASSERT_TRUE(response_ready) << "The client request did not finish after cancellation";
-    const auto response = response_future.get();
-    ASSERT_TRUE(response.has_value()) << "Client request failed with error "
-                                      << static_cast<std::uint32_t>(response.error());
-    ASSERT_EQ(response->operations.size(), 1U);
-    EXPECT_EQ(response->operations.front().result,
-              static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled));
 }
 
 TEST(MessagePassingClientProcessTest, CrashesAfterSuccessfulRequest)

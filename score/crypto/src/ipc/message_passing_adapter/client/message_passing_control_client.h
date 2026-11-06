@@ -30,9 +30,6 @@
 namespace score::crypto::ipc::message_passing
 {
 
-using CancellationToken = daemon::control_plane::CancellationToken;
-using CancellationSource = daemon::control_plane::CancellationSource;
-
 /**
  * @brief
  * Client-facing synchronous facade for the message-passing control protocol.
@@ -58,8 +55,7 @@ class MessagePassingControlClient final
 
     Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
         daemon::control_plane::protocol::ControlRequest& request,
-        std::chrono::milliseconds timeout,
-        const CancellationToken& cancellation = {}) noexcept;
+        std::chrono::milliseconds timeout) noexcept;
 
   private:
     MessagePassingControlClient(std::unique_ptr<score::message_passing::ClientFactory> factory,

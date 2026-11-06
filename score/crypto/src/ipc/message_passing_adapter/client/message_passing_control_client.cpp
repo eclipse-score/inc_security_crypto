@@ -121,10 +121,9 @@ Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode> MessagePassi
 
 Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode> MessagePassingControlClient::SendRequest(
     protocol::ControlRequest& request,
-    const std::chrono::milliseconds timeout,
-    const CancellationToken& cancellation) noexcept
+    const std::chrono::milliseconds timeout) noexcept
 {
-    return m_session.SendRequest(request, timeout, cancellation);
+    return m_session.SendRequest(request, timeout);
 }
 
 }  // namespace score::crypto::ipc::message_passing

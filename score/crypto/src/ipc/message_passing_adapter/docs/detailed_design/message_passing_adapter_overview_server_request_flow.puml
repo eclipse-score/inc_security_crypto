@@ -43,7 +43,7 @@ Dispatcher -> Executor: Submit(session, item, job)
 Executor -> Dispatcher: RunAcceptedWorkItem(item, handler)
 Dispatcher -> Codec: DeserializeRequest(item bytes)
 Codec --> Dispatcher: ControlRequest
-Dispatcher -> Handler: processRequest(request, cancellation token)
+Dispatcher -> Handler: processRequest(request)
 Handler --> Dispatcher: ControlResponse
 Dispatcher -> Codec: SerializeResponse(response)
 Codec --> Dispatcher: Response bytes

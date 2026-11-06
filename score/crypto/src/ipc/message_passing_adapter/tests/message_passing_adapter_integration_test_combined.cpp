@@ -49,7 +49,6 @@ constexpr protocol::OperationIdentifier kEchoOperationId{17U, 3U};
 constexpr std::uint64_t kPayload{0x123456789ABCDEF0ULL};
 constexpr std::uint64_t kBlockedPayload{0x0FEDCBA987654321ULL};
 constexpr std::uint64_t kServerTimeoutPayload{0x0BADF00DDEADBEEFULL};
-constexpr std::uint64_t kCancellationPayload{0x0123456789ABCDEFULL};
 constexpr std::uint64_t kLateResponseGuardPayload{0x0A1B2C3D4E5F6071ULL};
 
 // Helper to limit the number of concurrent requests
@@ -177,99 +176,25 @@ class CleanupObserver final
     std::size_t m_cleanup_count{0U};
 };
 
-// Helper to observe cancellation events, e.g., to verify that cancellation is properly propagated
-class CancellationObserver final
-{
-  public:
-    void RecordHandlerEntered() noexcept
-    {
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_handler_entered = true;
-        }
-        m_condition.notify_all();
-    }
-
-    bool WaitForHandlerEntry(const std::chrono::milliseconds timeout)
-    {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        return m_condition.wait_for(lock, timeout, [this] {
-            return m_handler_entered;
-        });
-    }
-
-    void NotifyCancellation() noexcept
-    {
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_cancellation_notified = true;
-        }
-        m_condition.notify_all();
-    }
-
-    bool WaitForCancellation(const daemon::control_plane::CancellationToken& token,
-                             const std::chrono::milliseconds timeout)
-    {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        return m_condition.wait_for(lock, timeout, [this, &token] {
-            return m_cancellation_notified || token.IsCancellationRequested();
-        });
-    }
-
-    void RecordCancellationObserved() noexcept
-    {
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_cancellation_observed = true;
-        }
-        m_condition.notify_all();
-    }
-
-    bool WaitForCancellationObserved(const std::chrono::milliseconds timeout)
-    {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        return m_condition.wait_for(lock, timeout, [this] {
-            return m_cancellation_observed;
-        });
-    }
-
-  private:
-    std::mutex m_mutex{};
-    std::condition_variable m_condition{};
-    bool m_handler_entered{false};
-    bool m_cancellation_notified{false};
-    bool m_cancellation_observed{false};
-};
-
 class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
 {
   public:
     EchoRequestHandler(std::shared_ptr<HandlerBlocker> blocker,
                        std::shared_ptr<HandlerBlocker> late_response_blocker,
-                       std::shared_ptr<CancellationObserver> cancellation_observer,
                        std::shared_ptr<std::atomic<std::size_t>> handler_invocation_count)
         : m_blocker(std::move(blocker)),
           m_late_response_blocker(std::move(late_response_blocker)),
-          m_cancellation_observer(std::move(cancellation_observer)),
           m_handler_invocation_count(std::move(handler_invocation_count))
     {
     }
 
     daemon::control_plane::ControlResponse processRequest(daemon::control_plane::ControlRequest& request) override
     {
-        return ProcessRequest(request, {});
-    }
-
-    daemon::control_plane::ControlResponse processRequest(
-        daemon::control_plane::ControlRequest& request,
-        const daemon::control_plane::CancellationToken& cancellation) override
-    {
-        return ProcessRequest(request, cancellation);
+        return ProcessRequest(request);
     }
 
   private:
-    daemon::control_plane::ControlResponse ProcessRequest(daemon::control_plane::ControlRequest& request,
-                                                          const daemon::control_plane::CancellationToken& cancellation)
+    daemon::control_plane::ControlResponse ProcessRequest(daemon::control_plane::ControlRequest& request)
     {
         m_handler_invocation_count->fetch_add(1U, std::memory_order_relaxed);
         protocol::ControlResponse response{};
@@ -285,28 +210,6 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
                     {}});
                 continue;
             }
-            if (value.value() == kCancellationPayload)
-            {
-                auto cancellation_registration =
-                    cancellation.RegisterCallback([observer = m_cancellation_observer]() noexcept {
-                        observer->NotifyCancellation();
-                    });
-                m_cancellation_observer->RecordHandlerEntered();
-                const bool cancellation_observed =
-                    m_cancellation_observer->WaitForCancellation(cancellation, std::chrono::seconds{5});
-                cancellation_registration.DeregisterAndWait();
-                if (cancellation_observed)
-                {
-                    m_cancellation_observer->RecordCancellationObserved();
-                }
-                response.operations.push_back(protocol::SingleOperationResponse{
-                    operation.operationId,
-                    static_cast<protocol::OperationResult>(cancellation_observed
-                                                               ? score::crypto::CryptoErrorCode::kOperationCancelled
-                                                               : score::crypto::CryptoErrorCode::kOperationTimedOut),
-                    {}});
-                continue;
-            }
             if (value.value() == kBlockedPayload)
             {
                 m_blocker->WaitForRelease();
@@ -314,14 +217,6 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
             if (value.value() == kLateResponseGuardPayload)
             {
                 m_late_response_blocker->WaitForRelease();
-                if (cancellation.IsCancellationRequested())
-                {
-                    response.operations.push_back(protocol::SingleOperationResponse{
-                        operation.operationId,
-                        static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled),
-                        {}});
-                    continue;
-                }
             }
             if (value.value() == kServerTimeoutPayload)
             {
@@ -339,7 +234,6 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
 
     std::shared_ptr<HandlerBlocker> m_blocker;
     std::shared_ptr<HandlerBlocker> m_late_response_blocker;
-    std::shared_ptr<CancellationObserver> m_cancellation_observer;
     std::shared_ptr<std::atomic<std::size_t>> m_handler_invocation_count;
 };
 
@@ -348,25 +242,21 @@ class EchoHandlerFactory final : public daemon::control_plane::IHandlerChainFact
   public:
     EchoHandlerFactory(std::shared_ptr<HandlerBlocker> blocker,
                        std::shared_ptr<HandlerBlocker> late_response_blocker,
-                       std::shared_ptr<CancellationObserver> cancellation_observer,
                        std::shared_ptr<std::atomic<std::size_t>> handler_invocation_count)
         : m_blocker(std::move(blocker)),
           m_late_response_blocker(std::move(late_response_blocker)),
-          m_cancellation_observer(std::move(cancellation_observer)),
           m_handler_invocation_count(std::move(handler_invocation_count))
     {
     }
 
     std::unique_ptr<daemon::control_plane::IRequestHandler> CreateRequestHandler() override
     {
-        return std::make_unique<EchoRequestHandler>(
-            m_blocker, m_late_response_blocker, m_cancellation_observer, m_handler_invocation_count);
+        return std::make_unique<EchoRequestHandler>(m_blocker, m_late_response_blocker, m_handler_invocation_count);
     }
 
   private:
     std::shared_ptr<HandlerBlocker> m_blocker;
     std::shared_ptr<HandlerBlocker> m_late_response_blocker;
-    std::shared_ptr<CancellationObserver> m_cancellation_observer;
     std::shared_ptr<std::atomic<std::size_t>> m_handler_invocation_count;
 };
 
@@ -386,7 +276,6 @@ class RunningServer final
         : m_service_identifier(MakeServiceIdentifier()),
           m_handler_blocker(std::make_shared<HandlerBlocker>()),
           m_late_response_blocker(std::make_shared<HandlerBlocker>()),
-          m_cancellation_observer(std::make_shared<CancellationObserver>()),
           m_handler_invocation_count(std::make_shared<std::atomic<std::size_t>>(0U)),
           m_cleanup_observer(std::move(cleanup_observer)),
           m_authorization_callback(std::move(authorization_callback))
@@ -421,7 +310,7 @@ class RunningServer final
 
         auto created_server = MessagePassingControlServer::Create(
             std::make_unique<EchoHandlerFactory>(
-                m_handler_blocker, m_late_response_blocker, m_cancellation_observer, m_handler_invocation_count),
+                m_handler_blocker, m_late_response_blocker, m_handler_invocation_count),
             m_authorization_callback,
             std::move(cleanup_callback));
         if (!created_server.has_value())
@@ -473,11 +362,6 @@ class RunningServer final
         return *m_late_response_blocker;
     }
 
-    CancellationObserver& cancellation_observer() noexcept
-    {
-        return *m_cancellation_observer;
-    }
-
     std::size_t handler_invocation_count() const noexcept
     {
         return m_handler_invocation_count->load(std::memory_order_relaxed);
@@ -508,7 +392,6 @@ class RunningServer final
     std::string m_service_identifier;
     std::shared_ptr<HandlerBlocker> m_handler_blocker;
     std::shared_ptr<HandlerBlocker> m_late_response_blocker;
-    std::shared_ptr<CancellationObserver> m_cancellation_observer;
     std::shared_ptr<std::atomic<std::size_t>> m_handler_invocation_count;
     std::shared_ptr<CleanupObserver> m_cleanup_observer;
     AuthorizationCallback m_authorization_callback;
@@ -573,6 +456,15 @@ TEST(MessagePassingAdapterIntegrationTest, OneClientOneServerEchoesValue)
 
     auto response = response_future.get();
     ExpectEchoResponse(response, kPayload);
+}
+
+TEST(MessagePassingAdapterIntegrationTest, QueuedWorkItemCancellationPreventsExecution)
+{
+    detail::WorkItem item{};
+
+    EXPECT_TRUE(item.TryRequestCancellation());
+    EXPECT_TRUE(item.IsCancellationRequested());
+    EXPECT_EQ(item.PrepareForExecution(), detail::WorkItemState::kCancelled);
 }
 
 TEST(MessagePassingAdapterIntegrationTest, FreshClientRecoversAfterServerBecomesAvailable)
@@ -1024,7 +916,7 @@ TEST(MessagePassingAdapterIntegrationTest, CleanupWaitsUntilLastWorkItemComplete
     EXPECT_EQ(cleanup_observer->count(), 1U);
 }
 
-TEST(MessagePassingAdapterIntegrationTest, ServerShutdownCancelsActiveCallAndCleansUp)
+TEST(MessagePassingAdapterIntegrationTest, ServerShutdownWaitsForRunningWorkBeforeCleanup)
 {
     auto cleanup_observer = std::make_shared<CleanupObserver>();
     RunningServer server{cleanup_observer};
@@ -1036,24 +928,22 @@ TEST(MessagePassingAdapterIntegrationTest, ServerShutdownCancelsActiveCallAndCle
     std::promise<ClientResult> response_promise;
     auto response_future = response_promise.get_future();
     std::thread client_thread([client = std::move(client), &response_promise]() mutable {
-        auto request = MakeEchoRequest(kCancellationPayload);
+        auto request = MakeEchoRequest(kBlockedPayload);
         response_promise.set_value(client->SendRequest(request, std::chrono::milliseconds{5000}));
     });
 
-    const bool handler_entered = server.cancellation_observer().WaitForHandlerEntry(std::chrono::seconds{3});
+    const bool handler_entered = server.handler_blocker().WaitUntilEntered(std::chrono::seconds{3});
     server.StopServer();
-    const bool handler_observed_shutdown =
-        server.cancellation_observer().WaitForCancellationObserved(std::chrono::seconds{3});
-    const bool client_call_finished = response_future.wait_for(std::chrono::seconds{6}) == std::future_status::ready;
+    const bool cleanup_ran_before_release = cleanup_observer->WaitForCount(1U, std::chrono::milliseconds{100});
+    server.handler_blocker().Release();
+    const bool client_call_finished = response_future.wait_for(std::chrono::seconds{8}) == std::future_status::ready;
     server.StopAndJoin();
     client_thread.join();
 
     EXPECT_TRUE(handler_entered) << "The active request did not reach the daemon handler";
-    EXPECT_TRUE(handler_observed_shutdown) << "Server shutdown did not cancel the active handler token";
-    ASSERT_TRUE(client_call_finished) << "The client call did not terminate during server shutdown";
-    const auto response = response_future.get();
-    ASSERT_FALSE(response.has_value());
-    EXPECT_EQ(response.error(), score::crypto::CryptoErrorCode::kConnectionFailed);
+    EXPECT_FALSE(cleanup_ran_before_release) << "Cleanup ran before the active WorkItem completed";
+    ASSERT_TRUE(client_call_finished) << "The client call did not finish after releasing the handler";
+    static_cast<void>(response_future.get());
     EXPECT_EQ(cleanup_observer->count(), 1U);
 }
 
@@ -1146,98 +1036,6 @@ TEST(MessagePassingAdapterIntegrationTest, LateResponseDoesNotCompleteNextReques
     ASSERT_TRUE(follow_up_call_finished) << "The follow-up request did not finish after release";
     const auto follow_up_result = follow_up_future.get();
     ExpectEchoResponse(follow_up_result, kLateResponseGuardPayload);
-}
-
-TEST(MessagePassingAdapterIntegrationTest, ClientCancellationIsObservedByDaemonToken)
-{
-    RunningServer server;
-    ASSERT_TRUE(server.Start());
-
-    auto created_client = MessagePassingControlClient::Create(server.service_identifier());
-    ASSERT_TRUE(created_client.has_value());
-    auto client = std::move(created_client).value();
-    score::crypto::daemon::control_plane::CancellationSource cancellation_source{};
-    const auto cancellation_token = cancellation_source.GetToken();
-
-    std::promise<ClientResult> response_promise;
-    auto response_future = response_promise.get_future();
-    std::thread client_thread([client = std::move(client), cancellation_token, &response_promise]() mutable {
-        auto request = MakeEchoRequest(kCancellationPayload);
-        response_promise.set_value(client->SendRequest(request, std::chrono::milliseconds{5000}, cancellation_token));
-    });
-
-    const bool handler_entered = server.cancellation_observer().WaitForHandlerEntry(std::chrono::seconds{3});
-    cancellation_source.RequestCancellation();
-    const bool cancellation_observed =
-        server.cancellation_observer().WaitForCancellationObserved(std::chrono::seconds{3});
-    const bool response_ready = response_future.wait_for(std::chrono::seconds{3}) == std::future_status::ready;
-    client_thread.join();
-
-    EXPECT_TRUE(handler_entered) << "The daemon handler did not start the cancellation test request";
-    EXPECT_TRUE(cancellation_observed) << "The daemon handler's CancellationToken was not cancelled";
-    ASSERT_TRUE(response_ready) << "The client did not receive a terminal response after cancellation";
-    const auto response = response_future.get();
-    ASSERT_TRUE(response.has_value());
-    ASSERT_EQ(response->operations.size(), 1U);
-    EXPECT_EQ(response->operations.front().result,
-              static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled));
-}
-
-TEST(MessagePassingAdapterIntegrationTest, CancellationDoesNotAffectOtherCallsOnSameClient)
-{
-    RunningServer server;
-    ASSERT_TRUE(server.Start());
-
-    auto created_client = MessagePassingControlClient::Create(server.service_identifier());
-    ASSERT_TRUE(created_client.has_value());
-    auto client = std::move(created_client).value();
-    score::crypto::daemon::control_plane::CancellationSource cancellation_source{};
-    const auto cancellation_token = cancellation_source.GetToken();
-
-    std::promise<ClientResult> cancelled_response_promise;
-    auto cancelled_response_future = cancelled_response_promise.get_future();
-    std::thread cancelled_request_thread([client, cancellation_token, &cancelled_response_promise]() mutable {
-        auto request = MakeEchoRequest(kCancellationPayload);
-        cancelled_response_promise.set_value(
-            client->SendRequest(request, std::chrono::milliseconds{5000}, cancellation_token));
-    });
-
-    constexpr std::uint64_t independent_payload{kLateResponseGuardPayload};
-    std::promise<ClientResult> independent_response_promise;
-    auto independent_response_future = independent_response_promise.get_future();
-    std::thread independent_request_thread([client, independent_payload, &independent_response_promise]() mutable {
-        auto request = MakeEchoRequest(independent_payload);
-        independent_response_promise.set_value(client->SendRequest(request, std::chrono::milliseconds{5000}));
-    });
-
-    const bool cancellation_handler_entered =
-        server.cancellation_observer().WaitForHandlerEntry(std::chrono::seconds{3});
-    const bool independent_handler_entered = server.late_response_blocker().WaitUntilEntered(std::chrono::seconds{3});
-    cancellation_source.RequestCancellation();
-    const bool cancellation_observed =
-        server.cancellation_observer().WaitForCancellationObserved(std::chrono::seconds{3});
-    server.late_response_blocker().Release();
-    const bool cancelled_response_ready =
-        cancelled_response_future.wait_for(std::chrono::seconds{3}) == std::future_status::ready;
-    const bool independent_response_ready =
-        independent_response_future.wait_for(std::chrono::seconds{3}) == std::future_status::ready;
-    cancelled_request_thread.join();
-    independent_request_thread.join();
-
-    EXPECT_TRUE(cancellation_handler_entered) << "The cancelled call did not reach the daemon handler";
-    EXPECT_TRUE(independent_handler_entered) << "The independent call did not remain active during cancellation";
-    EXPECT_TRUE(cancellation_observed) << "The daemon did not observe cancellation for the selected call";
-    ASSERT_TRUE(cancelled_response_ready) << "The cancelled call did not complete";
-    ASSERT_TRUE(independent_response_ready) << "The unrelated call did not complete";
-
-    const auto cancelled_response = cancelled_response_future.get();
-    ASSERT_TRUE(cancelled_response.has_value());
-    ASSERT_EQ(cancelled_response->operations.size(), 1U);
-    EXPECT_EQ(cancelled_response->operations.front().result,
-              static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationCancelled));
-
-    const auto independent_response = independent_response_future.get();
-    ExpectEchoResponse(independent_response, independent_payload);
 }
 
 TEST(MessagePassingAdapterIntegrationTest, ClientForwardsServerOperationTimeoutResponse)

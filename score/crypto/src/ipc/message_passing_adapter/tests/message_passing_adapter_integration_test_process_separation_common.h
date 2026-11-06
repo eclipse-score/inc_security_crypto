@@ -27,8 +27,7 @@ namespace protocol = score::crypto::daemon::control_plane::protocol;
 inline constexpr std::string_view kServiceIdentifier{"crypto_adapter_process_separation"};
 inline constexpr protocol::OperationIdentifier kEchoOperationId{17U, 3U};
 inline constexpr std::uint64_t kEchoValue{0xA1B2C3D4E5F60718ULL};
-inline constexpr std::uint64_t kBlockUntilServerShutdownValue{0xF1E2D3C4B5A69788ULL};
-inline constexpr std::uint64_t kWaitForClientCancellationValue{0x8899AABBCCDDEEFFULL};
+inline constexpr std::uint64_t kLongRunningOperationValue{0xF1E2D3C4B5A69788ULL};
 
 }  // namespace score::crypto::ipc::message_passing::process_test
 

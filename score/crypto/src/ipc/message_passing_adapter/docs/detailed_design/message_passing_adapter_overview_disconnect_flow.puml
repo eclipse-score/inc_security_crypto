@@ -31,7 +31,12 @@ Server -> SessionManager: OnDisconnect(connection)
 SessionManager -> Registry: DetachConnection(connection)
 Registry --> SessionManager: Detached session
 SessionManager -> Session: Disconnect()
-Session -> Session: Stop admission; cancel outstanding work
+Session -> Session: Stop admission; request cancellation of outstanding work
+
+note right of Session
+	Cancellation is currently partial: queued work is prevented from starting,
+	but running work is not interrupted.
+end note
 
 ... outstanding work drains ...
 

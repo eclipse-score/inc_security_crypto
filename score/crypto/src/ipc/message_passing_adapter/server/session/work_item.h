@@ -16,7 +16,6 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
-#include "score/crypto/src/daemon/control_plane/cancellation_token.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/ipc/protocol/i_control_codec.h"
 
@@ -71,10 +70,11 @@ struct WorkItem final
     protocol::ClientId GetClientId() const noexcept;
     protocol::ControlRequestKind GetKind() const noexcept;
     protocol::ControlRequest& GetRequest() noexcept;
-    daemon::control_plane::CancellationToken GetCancellationToken() const noexcept;
 
   private:
     friend class Session;
+
+    void CancelRunningWorkItem() noexcept;
 
     mutable std::mutex m_mutex{};
     std::weak_ptr<Session> m_session{};
@@ -82,7 +82,6 @@ struct WorkItem final
     // Owns the backing storage for all string and buffer views in request.
     std::vector<std::uint8_t> serialized_request{};
     protocol::ControlRequest request{};
-    daemon::control_plane::CancellationSource cancellation{};
 
     // Additionally store these elements, such that we can easily access them within the IPC
     // classes, without the need to fully deserialize the request.
