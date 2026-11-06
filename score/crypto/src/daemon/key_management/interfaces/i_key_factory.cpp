@@ -19,6 +19,23 @@
 namespace score::crypto::daemon::key_management
 {
 
+Expected<std::size_t, common::DaemonErrorCode> IKeyFactory::GetEncapsulationCiphertextSize(
+    const KeyEncapsulationRequest&) const
+{
+    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+}
+
+Expected<ProviderEncapsulationResult, common::DaemonErrorCode> IKeyFactory::EncapsulateKey(
+    const KeyEncapsulationRequest&)
+{
+    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+}
+
+Expected<IKeyHandler::Sptr, common::DaemonErrorCode> IKeyFactory::DecapsulateKey(const KeyDecapsulationRequest&)
+{
+    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+}
+
 score::crypto::Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode> IKeyFactory::GenerateKey(
     const KeyGenerationRequest& /*request*/)
 {

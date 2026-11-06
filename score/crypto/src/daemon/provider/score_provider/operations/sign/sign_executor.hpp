@@ -42,6 +42,10 @@ class SignExecutor
     [[nodiscard]] static Expected<common::ResponseParameters, common::DaemonErrorCode>
     ExecuteStreaming(ScoreSignHandler& handler, common::OperationAction action, common::RequestParameters& request);
 
+    /// @brief Finalize a streaming signature.
+    /// @param handler Signature handler receiving the operation.
+    /// @param request Exactly one output buffer; message data must be passed via UPDATE.
+    /// @return Signature response, or a daemon error if the request is invalid or the handler fails.
     [[nodiscard]] static Expected<common::ResponseParameters, common::DaemonErrorCode> ExecuteFinalize(
         ScoreSignHandler& handler,
         common::RequestParameters& request);

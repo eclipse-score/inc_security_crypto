@@ -30,6 +30,12 @@ jobs:
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.19.1
 
+      - name: Install LLVM runtime dependencies
+        # The prebuilt LLVM linker needs libxml2.so.2, provided by libxml2 on Ubuntu 24.04.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libxml2
+
       - name: Check coverage scope completeness
         run: ./.github/tools/check_coverage_scope.sh
 
