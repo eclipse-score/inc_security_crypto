@@ -38,3 +38,12 @@ cc_test(
     ],
 )
 
+
+cc_test(
+    name = "test_slot_info_builder",
+    srcs = ["test_slot_info_builder.cpp"],
+    deps = [
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "@googletest//:gtest_main",
+    ],
+)

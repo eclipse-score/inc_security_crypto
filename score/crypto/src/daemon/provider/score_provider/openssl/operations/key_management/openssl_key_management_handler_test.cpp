@@ -34,6 +34,8 @@
 #include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
 #include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
+#include "score/crypto/src/daemon/provider/i_provider.hpp"
+#include "score/crypto/src/daemon/provider/provider_manager.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
 
 #include <gtest/gtest.h>
@@ -48,10 +50,46 @@ namespace handler_ns = score::crypto::daemon::provider::score_provider::openssl:
 namespace common = score::crypto::daemon::common;
 namespace config = score::crypto::daemon::config;
 namespace crypto_executor = score::crypto::daemon::provider::crypto_executor;
+namespace provider = score::crypto::daemon::provider;
 
 // ---------------------------------------------------------------------------
 // Test fixture
 // ---------------------------------------------------------------------------
+/// Minimal provider registered as "OPENSSL" so SlotRegistry::ResolveProviderIds
+/// assigns the fixture's OpenSSL slots to provider 0, as the daemon does at startup.
+class OpenSslSlotOwner final : public provider::IProvider
+{
+  public:
+    bool Initialize(const provider::ProviderInitContext& context) override
+    {
+        m_id = context.numeric_id;
+        m_name = context.name;
+        m_initialized = true;
+        return true;
+    }
+    void Shutdown() override
+    {
+        m_initialized = false;
+    }
+    [[nodiscard]] bool IsInitialized() const override
+    {
+        return m_initialized;
+    }
+    common::ProviderId GetProviderId() const override
+    {
+        return m_id;
+    }
+    const common::ProviderName& GetProviderName() const override
+    {
+        return m_name;
+    }
+
+  private:
+    common::ProviderId m_id{};
+    common::ProviderName m_name{};
+    bool m_initialized{false};
+};
+
 class KeyManagementHandlerTest : public ::testing::Test
 {
   protected:
@@ -71,6 +109,18 @@ class KeyManagementHandlerTest : public ::testing::Test
         // Use ConfigDrivenSlotCatalog to properly convert and register slots
         km::ConfigDrivenSlotCatalog catalog{test_config};
         catalog.Load(*m_slot_registry);
+
+        // Only OPENSSL is registered: "test/pkcs11-hmac-sha256" names SOFTHSM and
+        // stays without a provider, like a slot whose backend is not available.
+        provider::ProviderManager provider_manager{config::ProviderInitConfig{}};
+        ASSERT_TRUE(provider_manager.RegisterProvider(
+            "OPENSSL", std::make_shared<OpenSslSlotOwner>(), common::CryptoProviderType::SOFTWARE));
+        ASSERT_TRUE(provider_manager.Initialize());
+        m_slot_registry->ResolveProviderIds(provider_manager);
+        ASSERT_EQ(m_slot_registry
+                      ->GetPrimaryProviderId(m_slot_registry->ResolveSlot("test/hmac-sha256", kAllowedClient).value())
+                      .value(),
+                  kProviderId);
 
         // KeyManagementService needs a DataManager, optional ProviderManager, and config.
         m_service =
@@ -198,6 +248,46 @@ TEST_F(KeyManagementHandlerTest, GetKeySlotInfo_SecondSlot_ReturnsState)
     auto result = m_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_SLOT_INFO}, params);
     ASSERT_TRUE(result.has_value());
+}
+
+TEST_F(KeyManagementHandlerTest, GetKeySlotInfo_SlotWithoutAvailableProvider_IsRefused)
+{
+    const auto slot_node_id = ResolveSlotToDataNode("test/pkcs11-hmac-sha256", kAllowedClient);
+    ASSERT_NE(slot_node_id, 0U);
+
+    common::RequestParameters params;
+    SetStandardParams(params);
+    params.push_back(static_cast<std::uint64_t>(slot_node_id));
+
+    auto result = m_handler->Execute(
+        {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_SLOT_INFO}, params);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kResourceNotFound);
+}
+
+TEST_F(KeyManagementHandlerTest, KeyLoad_SlotWithoutAvailableProvider_IsRefused)
+{
+    const auto slot_node_id = ResolveSlotToDataNode("test/pkcs11-hmac-sha256", kAllowedClient);
+    ASSERT_NE(slot_node_id, 0U);
+
+    common::RequestParameters params;
+    SetStandardParams(params);
+    params.push_back(static_cast<std::uint64_t>(slot_node_id));
+
+    auto result = m_handler->Execute(
+        {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_LOAD}, params);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kResourceNotFound);
+}
+
+TEST_F(KeyManagementHandlerTest, BindKeyToContext_SlotWithoutAvailableProvider_IsRefused)
+{
+    const auto slot_node_id = ResolveSlotToDataNode("test/pkcs11-hmac-sha256", kAllowedClient);
+    ASSERT_NE(slot_node_id, 0U);
+
+    auto result = m_service->BindKeyToContext(kAllowedClient, m_parent_id, slot_node_id, kProviderId);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kResourceNotFound);
 }
 
 TEST_F(KeyManagementHandlerTest, GetKeySlotInfo_InvalidSlotNodeId_ReturnsError)

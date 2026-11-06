@@ -83,7 +83,7 @@ Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorC
     }
     if (action == km_ops::KEY_SLOT_INFO)
     {
-        return HandleSlotInfo(ctx.client_id, request);
+        return HandleSlotInfo(ctx, request);
     }
 
     // PKCS#11-specific operations — stubs for future implementation.
@@ -154,6 +154,22 @@ KeyManagementExecutor::HandleGenerate(const KeyMgmtExecutionContext& ctx, common
 //   request[0]       = slot_node_id (uint64_t)
 // ---------------------------------------------------------------------------
 
+Expected<common::ProviderId, score::crypto::daemon::common::DaemonErrorCode> KeyManagementExecutor::OwnerOf(
+    const key_management::SlotResolution& resolution) const
+{
+    // Slot handlers are provider-specific, so a slot is only ever accessed
+    // through its owner. A slot whose configured provider was not registered
+    // at startup has no owner and is refused instead of being guessed at.
+    auto owner = m_service->GetSlotRegistry()->GetPrimaryProviderId(resolution.handle);
+    if (!owner.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "slot '" << resolution.config->slot_name
+                                   << "' has no available provider";
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kResourceNotFound);
+    }
+    return owner.value();
+}
+
 Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> KeyManagementExecutor::HandleLoad(
     const KeyMgmtExecutionContext& ctx,
     common::RequestParameters& request)
@@ -174,6 +190,21 @@ Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorC
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
     const auto& resolution = slot_res.value();
+
+    // The loaded key is registered with this context's provider, so a slot owned
+    // by another provider is refused, as in BindKeyToContext; m_slot_handler
+    // could not read it anyway.
+    const auto slot_provider = OwnerOf(resolution);
+    if (!slot_provider.has_value())
+    {
+        return score::crypto::make_unexpected(slot_provider.error());
+    }
+    if (slot_provider.value() != ctx.provider_id)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleLoad: cross-provider load not supported (slot provider="
+                                   << slot_provider.value() << ", context provider=" << ctx.provider_id << ")";
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    }
 
     // Orchestration: load or reuse an existing key from the registry.
     auto node_id_result = m_service->LoadOrShare(
@@ -427,10 +458,18 @@ KeyManagementExecutor::HandleRelease(std::uint64_t client_id, common::RequestPar
 // Parameter layout:
 //   client_id   – authenticated client (from InitializationParams)
 //   request[0]  = slot_node_id (uint64_t)
+//
+// Response layout:
+//   [0] = state (uint64_t, KeySlotState)
+//   [1] = occupied flag (uint64_t, 0/1)
+//   [2] = permitted operations (uint64_t, KeyOperationPermission bits)
+//   [3] = slot algorithm (string, empty when unconstrained)
+//   [4] = primary provider id (uint16_t)
+//   [5..] = compatible provider ids (uint16_t each)
 // ---------------------------------------------------------------------------
 
 Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
-KeyManagementExecutor::HandleSlotInfo(std::uint64_t client_id, common::RequestParameters& request)
+KeyManagementExecutor::HandleSlotInfo(const KeyMgmtExecutionContext& ctx, common::RequestParameters& request)
 {
     auto slot_nid_res = km_parse::ExtractUint64(request, 0U);
     if (!slot_nid_res.has_value())
@@ -439,15 +478,37 @@ KeyManagementExecutor::HandleSlotInfo(std::uint64_t client_id, common::RequestPa
         return score::crypto::make_unexpected(slot_nid_res.error());
     }
 
-    auto slot_res = m_service->ResolveSlotForOperation(client_id, slot_nid_res.value());
+    auto slot_res = m_service->ResolveSlotForOperation(ctx.client_id, slot_nid_res.value());
     if (!slot_res.has_value())
     {
         score::mw::log::LogError() << LOG_PREFIX << "HandleSlotInfo: slot resolution failed";
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
-    // Provider-specific: query slot metadata.
-    auto info_result = m_slot_handler->GetSlotInfo(*slot_res.value().config);
+    // Only the provider that owns the slot can read it: each provider's slot
+    // handler looks for its own entries in the deployment file and reports any
+    // other provider's slot as empty. The context may be served by another
+    // provider, so a foreign slot is queried through its primary provider.
+    const auto& resolution = slot_res.value();
+    const auto slot_provider = OwnerOf(resolution);
+    if (!slot_provider.has_value())
+    {
+        return score::crypto::make_unexpected(slot_provider.error());
+    }
+    auto slot_handler = m_slot_handler;
+    if (slot_provider.value() != ctx.provider_id)
+    {
+        auto owner_handler = m_service->GetSlotHandler(slot_provider.value(), *resolution.config);
+        if (!owner_handler.has_value())
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "HandleSlotInfo: no slot handler for provider "
+                                       << slot_provider.value();
+            return score::crypto::make_unexpected(owner_handler.error());
+        }
+        slot_handler = std::move(owner_handler).value();
+    }
+
+    auto info_result = slot_handler->GetSlotInfo(*resolution.config);
     if (!info_result.has_value())
     {
         score::mw::log::LogError() << LOG_PREFIX << "HandleSlotInfo: GetSlotInfo failed";
@@ -460,6 +521,12 @@ KeyManagementExecutor::HandleSlotInfo(std::uint64_t client_id, common::RequestPa
     output.push_back(static_cast<std::uint64_t>(info.state));
     output.push_back(static_cast<std::uint64_t>(info.state != score::crypto::KeySlotState::kEmpty ? 1U : 0U));
     output.push_back(static_cast<std::uint64_t>(info.permitted_operations));
+    output.push_back(common::OwnedString{std::string_view{info.algorithm}});
+    output.push_back(info.primary_provider);
+    for (std::size_t i = 0U; i < info.compatible_provider_count; ++i)
+    {
+        output.push_back(info.compatible_providers.at(i));
+    }
     return output;
 }
 
