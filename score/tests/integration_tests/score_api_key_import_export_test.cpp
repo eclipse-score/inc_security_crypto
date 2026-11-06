@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -109,8 +110,8 @@ std::vector<std::uint8_t> ReadPublicKey(const EcCurve curve, const PublicKeyForm
 
     if ((x.size() != coordinate_size) || (y.size() != coordinate_size))
     {
-        ADD_FAILURE() << "Unexpected EC coordinate size. Expected " << coordinate_size
-                      << " bytes, got X=" << x.size() << " and Y=" << y.size();
+        ADD_FAILURE() << "Unexpected EC coordinate size. Expected " << coordinate_size << " bytes, got X=" << x.size()
+                      << " and Y=" << y.size();
         return {};
     }
 
@@ -209,8 +210,7 @@ struct RoundTripCurve
     std::size_t point_size;
 };
 
-class KeyImportExportRoundTripTest : public KeyImportExportTest,
-                                     public ::testing::WithParamInterface<RoundTripCurve>
+class KeyImportExportRoundTripTest : public KeyImportExportTest, public ::testing::WithParamInterface<RoundTripCurve>
 {
 };
 
@@ -277,11 +277,149 @@ TEST_F(KeyImportExportTest, ExportWithoutPermission_IsRejected)
     ASSERT_TRUE(key_result.has_value());
     auto key = std::move(key_result.value());
 
-    EXPECT_FALSE(key_mgmt_->GetExportKeySize(key, FormatType::kRaw).has_value());
+    const auto expected = static_cast<score::result::ErrorCode>(CryptoErrorCode::kKeyNotExportable);
+    auto size = key_mgmt_->GetExportKeySize(key, FormatType::kRaw);
+    ASSERT_FALSE(size.has_value());
+    EXPECT_EQ(*size.error(), expected);
 
     std::vector<std::uint8_t> buffer(point.size(), 0U);
-    EXPECT_FALSE(key_mgmt_->ExportKey(key, {buffer.data(), buffer.size()}, FormatType::kRaw).has_value());
+    auto written = key_mgmt_->ExportKey(key, {buffer.data(), buffer.size()}, FormatType::kRaw);
+    ASSERT_FALSE(written.has_value());
+    EXPECT_EQ(*written.error(), expected);
 }
+
+TEST_F(KeyImportExportTest, GenerateP256_ExportDer_ImportDer_RawExportsMatch)
+{
+    GenerateKeyParams gen_params;
+    gen_params.SetAlgorithm("ECDSA-P256-SHA256")
+        .SetPermissions(KeyOperationPermission::kSign)
+        .SetPublicKeyPermissions(KeyOperationPermission::kVerify | KeyOperationPermission::kExport);
+    auto generated = key_mgmt_->GenerateKey(gen_params);
+    ASSERT_TRUE(generated.has_value());
+    auto gen_key = std::move(generated.value());
+
+    std::vector<std::uint8_t> raw(65U, 0U);
+    auto raw_written = key_mgmt_->ExportKey(gen_key, {raw.data(), raw.size()}, FormatType::kRaw);
+    ASSERT_TRUE(raw_written.has_value());
+    ASSERT_EQ(raw_written.value(), raw.size());
+
+    auto der_size = key_mgmt_->GetExportKeySize(gen_key, FormatType::kDer);
+    ASSERT_TRUE(der_size.has_value());
+    EXPECT_EQ(der_size.value(), 91U) << "P-256 SubjectPublicKeyInfo with an uncompressed point is 91 bytes";
+
+    std::vector<std::uint8_t> der(der_size.value(), 0U);
+    auto der_written = key_mgmt_->ExportKey(gen_key, {der.data(), der.size()}, FormatType::kDer);
+    ASSERT_TRUE(der_written.has_value());
+    ASSERT_EQ(der_written.value(), der.size());
+
+    ImportKeyParams import_params;
+    import_params.SetKeyData(der.data(), der.size())
+        .SetFormat(FormatType::kDer)
+        .SetAlgorithm("ECDSA-P256-SHA256")
+        .SetPermissions(KeyOperationPermission::kVerify | KeyOperationPermission::kExport);
+    auto reimported = key_mgmt_->ImportKey(import_params);
+    ASSERT_TRUE(reimported.has_value()) << "an exported SPKI must import back";
+    auto reimported_key = std::move(reimported.value());
+
+    std::vector<std::uint8_t> reraw(65U, 0U);
+    auto reraw_written = key_mgmt_->ExportKey(reimported_key, {reraw.data(), reraw.size()}, FormatType::kRaw);
+    ASSERT_TRUE(reraw_written.has_value());
+    EXPECT_EQ(reraw, raw);
+}
+
+TEST_F(KeyImportExportTest, ExportPem_SizeThenData)
+{
+    GenerateKeyParams gen_params;
+    gen_params.SetAlgorithm("ECDSA-P256-SHA256")
+        .SetPermissions(KeyOperationPermission::kSign)
+        .SetPublicKeyPermissions(KeyOperationPermission::kVerify | KeyOperationPermission::kExport);
+    auto generated = key_mgmt_->GenerateKey(gen_params);
+    ASSERT_TRUE(generated.has_value());
+    auto key = std::move(generated.value());
+
+    auto pem_size = key_mgmt_->GetExportKeySize(key, FormatType::kPem);
+    ASSERT_TRUE(pem_size.has_value());
+
+    std::vector<std::uint8_t> pem(pem_size.value(), 0U);
+    auto written = key_mgmt_->ExportKey(key, {pem.data(), pem.size()}, FormatType::kPem);
+    ASSERT_TRUE(written.has_value());
+    ASSERT_EQ(written.value(), pem.size());
+
+    const std::string text(pem.begin(), pem.end());
+    EXPECT_EQ(text.rfind("-----BEGIN PUBLIC KEY-----\n", 0), 0U) << text;
+    EXPECT_NE(text.find("-----END PUBLIC KEY-----\n"), std::string::npos) << text;
+}
+
+TEST_F(KeyImportExportTest, ExportWithoutFormat_IsDerSubjectPublicKeyInfo)
+{
+    GenerateKeyParams gen_params;
+    gen_params.SetAlgorithm("ECDSA-P256-SHA256")
+        .SetPermissions(KeyOperationPermission::kSign)
+        .SetPublicKeyPermissions(KeyOperationPermission::kVerify | KeyOperationPermission::kExport);
+    auto generated = key_mgmt_->GenerateKey(gen_params);
+    ASSERT_TRUE(generated.has_value());
+    auto key = std::move(generated.value());
+
+    auto native_size = key_mgmt_->GetExportKeySize(key);
+    ASSERT_TRUE(native_size.has_value());
+    std::vector<std::uint8_t> native(native_size.value(), 0U);
+    auto native_written = key_mgmt_->ExportKey(key, {native.data(), native.size()});
+    ASSERT_TRUE(native_written.has_value());
+    ASSERT_EQ(native_written.value(), native.size());
+
+    std::vector<std::uint8_t> der(native.size(), 0U);
+    auto der_written = key_mgmt_->ExportKey(key, {der.data(), der.size()}, FormatType::kDer);
+    ASSERT_TRUE(der_written.has_value());
+    EXPECT_EQ(native, der) << "the native export of a public key is DER SubjectPublicKeyInfo";
+}
+
+/// Secret keys never leave in plaintext, even with kExport, on any provider.
+class SecretKeyExportTest : public KeyImportExportTest, public ::testing::WithParamInterface<ProviderType>
+{
+};
+
+TEST_P(SecretKeyExportTest, ExportSecretKey_IsNotExportable)
+{
+    KeyManagementContextConfig config;
+    config.SetProviderType(GetParam());
+    auto ctx_result = ctx_->CreateKeyManagementContext(config);
+    ASSERT_TRUE(ctx_result.has_value());
+    auto key_mgmt = std::move(ctx_result.value());
+
+    GenerateKeyParams gen_params;
+    gen_params.SetAlgorithm("HMAC-SHA256")
+        .SetPermissions(KeyOperationPermission::kMac | KeyOperationPermission::kExport);
+    auto generated = key_mgmt->GenerateKey(gen_params);
+    ASSERT_TRUE(generated.has_value());
+    auto key = std::move(generated.value());
+
+    const auto expected = static_cast<score::result::ErrorCode>(CryptoErrorCode::kKeyNotExportable);
+    const std::optional<FormatType> formats[] = {std::nullopt, FormatType::kRaw, FormatType::kDer};
+    for (const auto& format : formats)
+    {
+        auto size = key_mgmt->GetExportKeySize(key, format);
+        ASSERT_FALSE(size.has_value());
+        EXPECT_EQ(*size.error(), expected);
+
+        std::vector<std::uint8_t> buffer(64U, 0U);
+        auto written = key_mgmt->ExportKey(key, {buffer.data(), buffer.size()}, format);
+        ASSERT_FALSE(written.has_value());
+        EXPECT_EQ(*written.error(), expected);
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(AllProviders,
+                         SecretKeyExportTest,
+                         ::testing::Values(ProviderType::kSoftware
+#ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
+                                           ,
+                                           ProviderType::kHardware
+#endif
+                                           ),
+                         [](const ::testing::TestParamInfo<ProviderType>& info) {
+                             return info.param == ProviderType::kHardware ? std::string{"Hardware"}
+                                                                          : std::string{"Software"};
+                         });
 
 TEST_F(KeyImportExportTest, ImportMalformedRawPoint_IsRejected)
 {
@@ -322,8 +460,7 @@ TEST_F(KeyImportExportTest, ImportDerP384WithMatchingAlgorithm_Succeeds)
         .SetPermissions(KeyOperationPermission::kVerify | KeyOperationPermission::kExport);
 
     auto key_result = key_mgmt_->ImportKey(import_params);
-    ASSERT_TRUE(key_result.has_value())
-        << "Importing a valid P-384 SubjectPublicKeyInfo DER key must succeed";
+    ASSERT_TRUE(key_result.has_value()) << "Importing a valid P-384 SubjectPublicKeyInfo DER key must succeed";
 
     auto key = std::move(key_result.value());
     EXPECT_TRUE(key.IsActive());

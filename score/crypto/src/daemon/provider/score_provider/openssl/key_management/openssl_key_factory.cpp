@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
 
+#include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/detail/openssl_asymmetric_key.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_ec_key_pair.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_ed25519_key_pair.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_rsa_key_pair.hpp"
@@ -95,11 +96,23 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
 }
 
 ::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle,
+                             std::optional<score::crypto::FormatType> format)
 {
+    // Secret and private key material never leaves the daemon in plaintext;
+    // only the public half of a key pair is exported.
+    if (!handle.is_asymmetric)
+    {
+        score::mw::log::LogError() << kLogPrefix << "ExportKey: secret keys are not exportable";
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
     if (IsEcKeySupported(handle.algorithm))
     {
         return ExportEcPublicKey(handle, format);
+    }
+    if (IsRsaKeySupported(handle.algorithm) || IsEd25519KeySupported(handle.algorithm))
+    {
+        return detail::ExportSpkiPublicKey(handle, format);
     }
 
     score::mw::log::LogError() << kLogPrefix << "ExportKey: no export for algorithm '" << handle.algorithm.name << "'";
@@ -107,16 +120,17 @@ OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, sc
 }
 
 ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+OpenSslKeyFactory::GetExportKeySize(const key_management::ProviderKeyHandle& handle,
+                                    std::optional<score::crypto::FormatType> format)
 {
-    if (IsEcKeySupported(handle.algorithm))
+    // Encode with the same code path ExportKey uses, so the advertised size can
+    // never disagree with the exported bytes. The encoding is zeroised on return.
+    const auto encoded = ExportKey(handle, format);
+    if (!encoded.has_value())
     {
-        return GetEcPublicKeyExportSize(handle, format);
+        return ::score::crypto::make_unexpected(encoded.error());
     }
-
-    score::mw::log::LogError() << kLogPrefix << "GetExportKeySize: no export for algorithm '" << handle.algorithm.name
-                               << "'";
-    return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    return encoded.value().bytes.size();
 }
 
 }  // namespace score::crypto::daemon::provider::openssl

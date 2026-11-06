@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 
 // Opaque OpenSSL context type; the implementation includes the OpenSSL headers.
 struct evp_pkey_ctx_st;
@@ -100,6 +101,42 @@ struct ParsedDerKey
 [[nodiscard]] ::score::crypto::Expected<ParsedDerKey, ::score::crypto::daemon::common::DaemonErrorCode> ParseKey(
     const key_management::KeyImportRequest& request,
     int expected_pkey_type);
+
+/// Checks that the public half of @p handle may be exported.
+///
+/// Secret and private key material never leaves the daemon in plaintext; it can
+/// only be wrapped. Exporting the public half is still an export, gated by kExport
+/// on the public-half grant, where an unset grant is unrestricted.
+/// @param handle Handle of the key to export.
+/// @return Nothing, or kKeyNotExportable when @p handle is not a key pair or public
+///         key, or its public-half permissions lack kExport.
+[[nodiscard]] ::score::crypto::Expected<void, ::score::crypto::daemon::common::DaemonErrorCode> CheckPublicKeyExport(
+    const key_management::ProviderKeyHandle& handle);
+
+/// Encodes the public half of @p pkey as SubjectPublicKeyInfo.
+///
+/// @param pkey Key whose public half is encoded.
+/// @param format kDer, or kPem for a "-----BEGIN PUBLIC KEY-----" block.
+/// @return The encoding, or
+///         - kUnsupportedOperation when @p format is neither kDer nor kPem;
+///         - kAllocationFailed or kOperationFailed when OpenSSL fails.
+[[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
+                                        ::score::crypto::daemon::common::DaemonErrorCode>
+EncodeSpki(const evp_pkey_st* pkey, score::crypto::FormatType format);
+
+/// Exports the public half of an RSA or Ed25519 key as SubjectPublicKeyInfo.
+///
+/// @param handle Handle of the key to export.
+/// @param format kDer or kPem; std::nullopt selects the native format, kDer.
+/// @return The encoding, or
+///         - the errors of CheckPublicKeyExport();
+///         - kIncompatibleKeyType for kRaw, which only EC keys have;
+///         - kInvalidArgument when @p handle carries no key;
+///         - the errors of EncodeSpki().
+/// @pre @p handle was issued by this provider, so its opaque_id is the address of its EVP_PKEY.
+[[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
+                                        ::score::crypto::daemon::common::DaemonErrorCode>
+ExportSpkiPublicKey(const key_management::ProviderKeyHandle& handle, std::optional<score::crypto::FormatType> format);
 
 /// Wraps a parsed key that the caller has already validated against
 /// request.algorithm in an OpenSslKeyHandler.

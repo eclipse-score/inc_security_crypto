@@ -83,7 +83,7 @@ inline constexpr OperationAction KEY_CLEAR = 0xE0;
 // Effect:   Decrements ref-count; frees key material when ref_count reaches 0
 inline constexpr OperationAction KEY_RELEASE = 0xF0;
 
-// Key format parameter (KEY_IMPORT; meant for every key format parameter)
+// Key format parameter (KEY_IMPORT, KEY_EXPORT, KEY_GET_EXPORT_SIZE)
 // Wire:     uint32 — a FormatType value, or kFormatNative when the caller named no
 //                    format and the daemon picks the key type's native format.
 // Any other value is a malformed request.

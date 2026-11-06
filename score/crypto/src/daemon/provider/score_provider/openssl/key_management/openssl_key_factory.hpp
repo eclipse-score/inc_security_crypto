@@ -18,6 +18,8 @@
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 
+#include <optional>
+
 namespace score::crypto::daemon::provider::openssl
 {
 
@@ -67,23 +69,30 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const key_management::KeyImportRequest& request) override;
 
-    /// Export an EC public key as the raw uncompressed SEC1 point 0x04||X||Y.
+    /// Export the public half of an asymmetric key (EC, RSA, Ed25519) as SubjectPublicKeyInfo
+    /// (std::nullopt / kDer, or kPem) or, for EC, the raw uncompressed SEC1 point 0x04||X||Y (kRaw).
     ///
+    /// Gated by kExport on the public-half permissions. Symmetric keys and private halves
+    /// are never exported in plaintext; they can only leave wrapped.
     /// @param handle Handle of the key to export.
-    /// @param format Requested export format; only kRaw is supported.
-    /// @return The point, kUnsupportedOperation when the EC family does not claim the key's row,
-    ///         or the errors of ExportEcPublicKey().
+    /// @param format Requested export format; std::nullopt selects the native format, DER SPKI.
+    /// @return The encoding, kKeyNotExportable for a secret key, kUnsupportedOperation when no
+    ///         asymmetric family claims the key's row, or the errors of ExportEcPublicKey() or
+    ///         detail::ExportSpkiPublicKey().
     [[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
-    ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
+    ExportKey(const key_management::ProviderKeyHandle& handle,
+              std::optional<score::crypto::FormatType> format) override;
 
-    /// Byte length of the raw export for @p handle, for the size-then-data two-call export.
+    /// Byte length of the export for @p handle in @p format, for the size-then-data two-call export.
     ///
+    /// Encodes through ExportKey(), so gating, errors and length always agree with it.
     /// @param handle Handle of the key to export.
-    /// @param format Requested export format; only kRaw is supported.
+    /// @param format Requested export format; std::nullopt selects the native format.
     /// @return The length, or the errors of ExportKey().
     [[nodiscard]] ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
-    GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
+    GetExportKeySize(const key_management::ProviderKeyHandle& handle,
+                     std::optional<score::crypto::FormatType> format) override;
 
   private:
     common::ProviderId m_provider_id{common::kInvalidProviderId};

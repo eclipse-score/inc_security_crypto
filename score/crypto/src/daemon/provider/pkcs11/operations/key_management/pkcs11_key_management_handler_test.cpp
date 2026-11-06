@@ -221,6 +221,51 @@ TEST_F(Pkcs11KeyHandlerTest, HmacSha256_GenerateAndRelease_FullLifecycle)
     EXPECT_TRUE(release.has_value()) << "KEY_RELEASE failed";
 }
 
+/// Secret keys are never exported in plaintext, not even with kExport: both
+/// KEY_EXPORT and KEY_GET_EXPORT_SIZE refuse with kKeyNotExportable for the
+/// native-format sentinel and for an explicit kRaw.
+TEST_F(Pkcs11KeyHandlerTest, ExportSecretKey_WithExportPermission_IsNotExportable)
+{
+    common::RequestParameters gen_params;
+    SetStandardParams(gen_params);
+    const std::string algo = "AES-256";
+    gen_params.push_back(std::string_view(algo));
+    gen_params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kEncrypt |
+                                                    score::crypto::KeyOperationPermission::kExport));
+
+    auto gen = m_km_handler->Execute(
+        {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, gen_params);
+    ASSERT_TRUE(gen.has_value()) << "KEY_GENERATE AES-256 failed";
+    const auto key_node_id = std::get<std::uint64_t>(gen.value()[0]);
+
+    const std::uint32_t wire_formats[] = {
+        km::operations::kFormatNative,
+        static_cast<std::uint32_t>(score::crypto::FormatType::kRaw),
+    };
+    for (const auto wire_format : wire_formats)
+    {
+        for (const auto op : {km::operations::KEY_EXPORT, km::operations::KEY_GET_EXPORT_SIZE})
+        {
+            common::RequestParameters params;
+            SetStandardParams(params);
+            params.push_back(static_cast<std::uint64_t>(key_node_id));
+            params.push_back(wire_format);
+            auto result =
+                m_km_handler->Execute({score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, op}, params);
+            ASSERT_FALSE(result.has_value()) << "op " << static_cast<unsigned>(op) << " format " << wire_format;
+            EXPECT_EQ(result.error(), common::DaemonErrorCode::kKeyNotExportable)
+                << "op " << static_cast<unsigned>(op) << " format " << wire_format;
+        }
+    }
+
+    common::RequestParameters rel_params;
+    SetStandardParams(rel_params);
+    rel_params.push_back(static_cast<std::uint64_t>(key_node_id));
+    auto release = m_km_handler->Execute(
+        {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_RELEASE}, rel_params);
+    EXPECT_TRUE(release.has_value()) << "KEY_RELEASE failed";
+}
+
 // ===========================================================================
 // Test 3 — LoadKey_ByLabel_ReturnsHandle (native PKCS#11 path)
 // ===========================================================================

@@ -238,4 +238,28 @@ Pkcs11KeyFactory::ImportKey(const key_management::KeyImportRequest& request)
     return std::make_shared<Pkcs11KeyHandler>(m_key_store, std::move(handle));
 }
 
+score::crypto::Expected<key_management::SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode>
+Pkcs11KeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle,
+                            std::optional<score::crypto::FormatType> format)
+{
+    if (!handle.is_asymmetric)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "ExportKey: secret keys are not exportable";
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+    return IKeyFactory::ExportKey(handle, format);
+}
+
+score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorCode> Pkcs11KeyFactory::GetExportKeySize(
+    const key_management::ProviderKeyHandle& handle,
+    std::optional<score::crypto::FormatType> format)
+{
+    if (!handle.is_asymmetric)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "GetExportKeySize: secret keys are not exportable";
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+    return IKeyFactory::GetExportKeySize(handle, format);
+}
+
 }  // namespace score::crypto::daemon::provider::pkcs11

@@ -174,7 +174,8 @@ The public API surface is organized into the following interface groups:
    wrapping (e.g., AES-GCM key wrap).
 
    Also supports ``LoadKey`` (optional, advanced), ``ExportKey``
-   (with format selection), ``ClearKey``, and ``GetKeySlotInfo``.
+   (public keys only; optional format, native DER SPKI), ``ClearKey``, and
+   ``GetKeySlotInfo``.
 
 .. real_arc_int:: ICertificateManagementContext
    :id: real_arc_int__crypto__i_cert_mgmt_context

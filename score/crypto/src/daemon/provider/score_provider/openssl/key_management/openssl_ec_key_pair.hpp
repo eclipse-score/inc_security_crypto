@@ -18,6 +18,8 @@
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 
+#include <optional>
+
 namespace score::crypto::daemon::provider::openssl
 {
 
@@ -58,28 +60,20 @@ GenerateEcKeyPair(common::ProviderId provider_id, const key_management::KeyGener
                                         ::score::crypto::daemon::common::DaemonErrorCode>
 ImportEcKey(common::ProviderId provider_id, const key_management::KeyImportRequest& request);
 
-/// Export the public half of an EC key as the raw uncompressed SEC1 point 0x04||X||Y.
+/// Export the public half of an EC key as SubjectPublicKeyInfo or as the raw
+/// uncompressed SEC1 point 0x04||X||Y.
 ///
-/// The point is uncompressed whatever encoding the key was imported from.
+/// The point is uncompressed whatever encoding the key was imported from, in every format.
 /// @param handle Handle of the key to export.
-/// @param format Requested export format; only kRaw is supported.
-/// @return The point, or
-///         - kUnsupportedOperation when @p format is not kRaw;
-///         - kIncompatibleKeyType when @p handle is not a key pair or public key that IsEcKeySupported() claims;
-///         - kKeyNotExportable when the public-half permissions lack kExport.
+/// @param format kRaw, kDer or kPem; std::nullopt selects the native format, kDer.
+/// @return The encoding, or
+///         - kKeyNotExportable when @p handle is a secret key or its public-half permissions lack kExport;
+///         - kUnsupportedOperation when @p format is not kRaw, kDer or kPem;
+///         - kIncompatibleKeyType when IsEcKeySupported() does not claim the key's row.
 /// @pre @p handle was issued by this provider, so its opaque_id is the address of its EVP_PKEY.
 [[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
                                         ::score::crypto::daemon::common::DaemonErrorCode>
-ExportEcPublicKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format);
-
-/// Byte length ExportEcPublicKey() produces for @p handle.
-///
-/// @param handle Handle of the key to export.
-/// @param format Requested export format; only kRaw is supported.
-/// @return The length of the uncompressed point, or the errors of ExportEcPublicKey().
-/// @pre @p handle was issued by this provider, so its opaque_id is the address of its EVP_PKEY.
-[[nodiscard]] ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
-GetEcPublicKeyExportSize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format);
+ExportEcPublicKey(const key_management::ProviderKeyHandle& handle, std::optional<score::crypto::FormatType> format);
 
 }  // namespace score::crypto::daemon::provider::openssl
 

@@ -26,6 +26,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -149,31 +150,6 @@ ImportRawEcPublicKey(common::ProviderId provider_id,
     return std::make_shared<OpenSslKeyHandler>(std::move(owned_pkey), handle);
 }
 
-/// Checks a raw export request: the format, the key family, and kExport on the public half.
-::score::crypto::Expected<void, ::score::crypto::daemon::common::DaemonErrorCode> CheckRawEcExport(
-    const key_management::ProviderKeyHandle& handle,
-    score::crypto::FormatType format)
-{
-    if (format != score::crypto::FormatType::kRaw)
-    {
-        return ::score::crypto::make_unexpected(
-            ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
-    }
-
-    if (!handle.is_asymmetric || !IsEcKeySupported(handle.algorithm))
-    {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
-    }
-
-    // An unset public-half grant is unrestricted.
-    const auto public_permissions = handle.public_key_permissions.value_or(score::crypto::KeyOperationPermission::kAll);
-    if (!score::crypto::HasPermission(public_permissions, score::crypto::KeyOperationPermission::kExport))
-    {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
-    }
-    return {};
-}
-
 /// Duplicates the EVP_PKEY of @p handle with its point format set to uncompressed.
 ///
 /// A key decoded from a compressed encoding keeps that format, so reading its
@@ -294,18 +270,39 @@ ImportEcKey(common::ProviderId provider_id, const key_management::KeyImportReque
 }
 
 ::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
-ExportEcPublicKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+ExportEcPublicKey(const key_management::ProviderKeyHandle& handle, std::optional<score::crypto::FormatType> format)
 {
-    const auto checked = CheckRawEcExport(handle, format);
+    using ::score::crypto::daemon::common::DaemonErrorCode;
+
+    const auto checked = detail::CheckPublicKeyExport(handle);
     if (!checked.has_value())
     {
         return ::score::crypto::make_unexpected(checked.error());
     }
 
+    // The native format of a public key is DER SubjectPublicKeyInfo.
+    const auto resolved = format.value_or(score::crypto::FormatType::kDer);
+    if ((resolved != score::crypto::FormatType::kRaw) && (resolved != score::crypto::FormatType::kDer) &&
+        (resolved != score::crypto::FormatType::kPem))
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedOperation);
+    }
+    if (!IsEcKeySupported(handle.algorithm))
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
+    }
+
+    // Pin the point to uncompressed so the raw and SPKI exports carry the same,
+    // most interoperable encoding whatever the key was imported from.
     const auto export_pkey = PrepareUncompressedEcExport(handle);
     if (!export_pkey.has_value())
     {
         return ::score::crypto::make_unexpected(export_pkey.error());
+    }
+
+    if (resolved != score::crypto::FormatType::kRaw)
+    {
+        return detail::EncodeSpki(export_pkey.value().get(), resolved);
     }
 
     auto point_len = PublicPointSize(export_pkey.value().get());
@@ -319,30 +316,10 @@ ExportEcPublicKey(const key_management::ProviderKeyHandle& handle, score::crypto
     if (EVP_PKEY_get_octet_string_param(
             export_pkey.value().get(), OSSL_PKEY_PARAM_PUB_KEY, out.bytes.data(), out.bytes.size(), &written) != 1)
     {
-        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kOperationFailed);
     }
     out.bytes.resize(written);
     return out;
-}
-
-::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode> GetEcPublicKeyExportSize(
-    const key_management::ProviderKeyHandle& handle,
-    score::crypto::FormatType format)
-{
-    const auto checked = CheckRawEcExport(handle, format);
-    if (!checked.has_value())
-    {
-        return ::score::crypto::make_unexpected(checked.error());
-    }
-
-    // The length comes from the same uncompressed copy ExportEcPublicKey() reads,
-    // so the advertised size always matches the exported bytes.
-    const auto export_pkey = PrepareUncompressedEcExport(handle);
-    if (!export_pkey.has_value())
-    {
-        return ::score::crypto::make_unexpected(export_pkey.error());
-    }
-    return PublicPointSize(export_pkey.value().get());
 }
 
 }  // namespace score::crypto::daemon::provider::openssl

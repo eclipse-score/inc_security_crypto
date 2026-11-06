@@ -28,6 +28,9 @@
 #include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>
+#include <openssl/evp.h>
+#include <openssl/x509.h>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -71,6 +74,24 @@ std::set<std::string_view> ServedRows(Predicate served)
         }
     }
     return names;
+}
+
+/// The EVP_PKEY behind an OpenSSL provider asymmetric handle.
+const EVP_PKEY* PkeyOf(const km::ProviderKeyHandle& handle)
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
+    return reinterpret_cast<const EVP_PKEY*>(static_cast<std::uintptr_t>(handle.opaque_id));
+}
+
+/// DER SubjectPublicKeyInfo of @p pkey, encoded directly with OpenSSL.
+std::vector<std::uint8_t> SpkiOf(const EVP_PKEY* pkey)
+{
+    const int len = i2d_PUBKEY(pkey, nullptr);
+    EXPECT_GT(len, 0);
+    std::vector<std::uint8_t> der(static_cast<std::size_t>(len > 0 ? len : 0));
+    unsigned char* cursor = der.data();
+    EXPECT_EQ(i2d_PUBKEY(pkey, &cursor), len);
+    return der;
 }
 }  // namespace
 
@@ -1801,29 +1822,215 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_WithoutExportPermission_IsDen
     EXPECT_TRUE(imported.value()->Release().has_value());
 }
 
-TEST_F(OpenSslKeyHandlerTest, ExportKey_NonEcKey_ReturnsUnsupportedOperation)
+TEST_F(OpenSslKeyHandlerTest, ExportSpkiDer_P256_MatchesOpenSslAndReimports)
 {
-    // Only the EC family exports, so the factory refuses every other key before any format check.
-    for (const char* name : {"Ed25519", "HMAC-SHA256"})
-    {
-        km::KeyGenerationRequest req{};
-        req.algorithm = Row(name);
-        req.permissions = score::crypto::KeyOperationPermission::kExport;
+    km::KeyGenerationRequest gen{};
+    gen.algorithm = Row("ECDSA-P256-SHA256");
+    gen.permissions = score::crypto::KeyOperationPermission::kSign;
 
-        auto generated = m_factory->GenerateKey(req);
-        ASSERT_TRUE(generated.has_value()) << name;
+    auto generated = m_factory->GenerateKey(gen);
+    ASSERT_TRUE(generated.has_value());
+    const auto& handle = generated.value()->GetHandle();
+
+    auto size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kDer);
+    ASSERT_TRUE(size.has_value());
+    auto exported = m_factory->ExportKey(handle, score::crypto::FormatType::kDer);
+    ASSERT_TRUE(exported.has_value());
+    EXPECT_EQ(exported.value().bytes.size(), size.value()) << "size query must equal the exported length";
+    EXPECT_EQ(exported.value().bytes, SpkiOf(PkeyOf(handle))) << "DER export must be i2d_PUBKEY of the key";
+
+    // The export holds the public half only and decodes to the same key.
+    const unsigned char* cursor = exported.value().bytes.data();
+    EVP_PKEY* decoded = d2i_PUBKEY(nullptr, &cursor, static_cast<long>(exported.value().bytes.size()));
+    ASSERT_NE(decoded, nullptr);
+    EXPECT_EQ(EVP_PKEY_eq(decoded, PkeyOf(handle)), 1);
+    EVP_PKEY_free(decoded);
+
+    km::KeyImportRequest imp{};
+    imp.key_data = exported.value().bytes.data();
+    imp.key_data_size = exported.value().bytes.size();
+    imp.algorithm = Row("ECDSA-P256-SHA256");
+    imp.format = score::crypto::FormatType::kDer;
+    imp.permissions = score::crypto::KeyOperationPermission::kVerify | score::crypto::KeyOperationPermission::kExport;
+    auto reimported = m_factory->ImportKey(imp);
+    ASSERT_TRUE(reimported.has_value());
+    EXPECT_EQ(reimported.value()->GetHandle().permissions, score::crypto::KeyOperationPermission::kNone)
+        << "an SPKI export carries no private half";
+
+    auto raw = m_factory->ExportKey(handle, score::crypto::FormatType::kRaw);
+    auto reraw = m_factory->ExportKey(reimported.value()->GetHandle(), score::crypto::FormatType::kRaw);
+    ASSERT_TRUE(raw.has_value());
+    ASSERT_TRUE(reraw.has_value());
+    EXPECT_EQ(reraw.value().bytes, raw.value().bytes);
+
+    EXPECT_TRUE(generated.value()->Release().has_value());
+    EXPECT_TRUE(reimported.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportSpki_AllAsymmetricKeyTypes_NativeDerAndPemMatchSizeQuery)
+{
+    const std::string_view algorithms[] = {
+        "ECDSA-P256-SHA256", "ECDSA-P384-SHA512", "ECDSA-P521-SHA512", "RSA-2048", "Ed25519"};
+
+    for (const auto algorithm : algorithms)
+    {
+        km::KeyGenerationRequest gen{};
+        gen.algorithm = Row(algorithm);
+        gen.permissions = score::crypto::KeyOperationPermission::kSign;
+
+        auto generated = m_factory->GenerateKey(gen);
+        ASSERT_TRUE(generated.has_value()) << "generate failed for " << std::string{algorithm};
         const auto& handle = generated.value()->GetHandle();
 
-        auto exported = m_factory->ExportKey(handle, score::crypto::FormatType::kRaw);
-        ASSERT_FALSE(exported.has_value()) << name;
-        EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation) << name;
+        auto der = m_factory->ExportKey(handle, score::crypto::FormatType::kDer);
+        ASSERT_TRUE(der.has_value()) << "DER export failed for " << std::string{algorithm};
+        EXPECT_EQ(der.value().bytes, SpkiOf(PkeyOf(handle))) << std::string{algorithm};
+        auto der_size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kDer);
+        ASSERT_TRUE(der_size.has_value());
+        EXPECT_EQ(der_size.value(), der.value().bytes.size()) << std::string{algorithm};
 
-        auto size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kRaw);
-        ASSERT_FALSE(size.has_value()) << name;
-        EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation) << name;
+        auto native = m_factory->ExportKey(handle, std::nullopt);
+        ASSERT_TRUE(native.has_value()) << "native export failed for " << std::string{algorithm};
+        EXPECT_EQ(native.value().bytes, der.value().bytes) << "native export must be DER SPKI";
+        auto native_size = m_factory->GetExportKeySize(handle, std::nullopt);
+        ASSERT_TRUE(native_size.has_value());
+        EXPECT_EQ(native_size.value(), der.value().bytes.size()) << std::string{algorithm};
+
+        auto pem = m_factory->ExportKey(handle, score::crypto::FormatType::kPem);
+        ASSERT_TRUE(pem.has_value()) << "PEM export failed for " << std::string{algorithm};
+        const std::string pem_text(pem.value().bytes.begin(), pem.value().bytes.end());
+        EXPECT_EQ(pem_text.rfind("-----BEGIN PUBLIC KEY-----\n", 0), 0U) << pem_text;
+        EXPECT_NE(pem_text.find("-----END PUBLIC KEY-----\n"), std::string::npos) << pem_text;
+        auto pem_size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kPem);
+        ASSERT_TRUE(pem_size.has_value());
+        EXPECT_EQ(pem_size.value(), pem.value().bytes.size()) << std::string{algorithm};
 
         EXPECT_TRUE(generated.value()->Release().has_value());
     }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportRaw_NonEcAsymmetricKey_IsIncompatible)
+{
+    km::KeyGenerationRequest gen{};
+    gen.algorithm = Row("Ed25519");
+    gen.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto generated = m_factory->GenerateKey(gen);
+    ASSERT_TRUE(generated.has_value());
+
+    auto exported = m_factory->ExportKey(generated.value()->GetHandle(), score::crypto::FormatType::kRaw);
+    ASSERT_FALSE(exported.has_value());
+    EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+
+    EXPECT_TRUE(generated.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportSpki_WithoutPublicExportPermission_IsDenied)
+{
+    km::KeyGenerationRequest gen{};
+    gen.algorithm = Row("RSA-2048");
+    gen.permissions = score::crypto::KeyOperationPermission::kAll;
+    gen.public_key_permissions = score::crypto::KeyOperationPermission::kVerify;  // no kExport
+
+    auto generated = m_factory->GenerateKey(gen);
+    ASSERT_TRUE(generated.has_value());
+    const auto& handle = generated.value()->GetHandle();
+
+    for (const auto format : {score::crypto::FormatType::kDer, score::crypto::FormatType::kPem})
+    {
+        auto exported = m_factory->ExportKey(handle, format);
+        ASSERT_FALSE(exported.has_value());
+        EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+        auto size = m_factory->GetExportKeySize(handle, format);
+        ASSERT_FALSE(size.has_value());
+        EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+
+    EXPECT_TRUE(generated.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportSecretKey_EvenWithExportPermission_IsNotExportable)
+{
+    std::vector<std::uint8_t> key(32U, 0x5AU);
+
+    km::KeyImportRequest req{};
+    req.key_data = key.data();
+    req.key_data_size = key.size();
+    req.algorithm = Row("AES-256-GCM");
+    req.format = score::crypto::FormatType::kRaw;
+    req.permissions = score::crypto::KeyOperationPermission::kEncrypt | score::crypto::KeyOperationPermission::kExport;
+
+    auto imported = m_factory->ImportKey(req);
+    ASSERT_TRUE(imported.has_value());
+    const auto& handle = imported.value()->GetHandle();
+
+    // Secret keys never leave in plaintext, whatever the format or permissions.
+    const std::optional<score::crypto::FormatType> formats[] = {std::nullopt,
+                                                                score::crypto::FormatType::kRaw,
+                                                                score::crypto::FormatType::kDer,
+                                                                score::crypto::FormatType::kPem};
+    for (const auto& format : formats)
+    {
+        auto exported = m_factory->ExportKey(handle, format);
+        ASSERT_FALSE(exported.has_value());
+        EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+        auto size = m_factory->GetExportKeySize(handle, format);
+        ASSERT_FALSE(size.has_value());
+        EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+
+    EXPECT_TRUE(imported.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportSecretKey_WithoutExportPermission_IsNotExportable)
+{
+    km::KeyGenerationRequest gen{};
+    gen.algorithm = Row("HMAC-SHA256");
+    gen.permissions = score::crypto::KeyOperationPermission::kMac;  // no kExport
+
+    auto generated = m_factory->GenerateKey(gen);
+    ASSERT_TRUE(generated.has_value());
+    const auto& handle = generated.value()->GetHandle();
+
+    auto exported = m_factory->ExportKey(handle, score::crypto::FormatType::kRaw);
+    ASSERT_FALSE(exported.has_value());
+    EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+
+    auto size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kRaw);
+    ASSERT_FALSE(size.has_value());
+    EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+
+    EXPECT_TRUE(generated.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportKeyPair_PrivateExportPermission_DoesNotEnableExport)
+{
+    // kExport on the private half must not make anything exportable: the
+    // private key never leaves and the public half has its own permission.
+    km::KeyGenerationRequest gen{};
+    gen.algorithm = Row("ECDSA-P256-SHA256");
+    gen.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kExport;
+    gen.public_key_permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto generated = m_factory->GenerateKey(gen);
+    ASSERT_TRUE(generated.has_value());
+    const auto& handle = generated.value()->GetHandle();
+
+    const std::optional<score::crypto::FormatType> formats[] = {std::nullopt,
+                                                                score::crypto::FormatType::kRaw,
+                                                                score::crypto::FormatType::kDer,
+                                                                score::crypto::FormatType::kPem};
+    for (const auto& format : formats)
+    {
+        auto exported = m_factory->ExportKey(handle, format);
+        ASSERT_FALSE(exported.has_value());
+        EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+        auto size = m_factory->GetExportKeySize(handle, format);
+        ASSERT_FALSE(size.has_value());
+        EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+
+    EXPECT_TRUE(generated.value()->Release().has_value());
 }
 
 TEST_F(OpenSslKeyHandlerTest, ReleaseKey_ZeroOpaque_Idempotent)

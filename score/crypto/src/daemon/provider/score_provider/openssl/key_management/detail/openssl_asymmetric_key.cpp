@@ -15,12 +15,12 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/detail/openssl_key_handle.hpp"
 
-#include <openssl/bio.h>     // BIO_new_mem_buf
+#include <openssl/bio.h>     // BIO_new_mem_buf / BIO_get_mem_data
 #include <openssl/crypto.h>  // OPENSSL_secure_clear_free
 #include <openssl/err.h>     // ERR_clear_error
 #include <openssl/evp.h>     // EVP_PKEY_CTX, EVP_PKEY_generate
-#include <openssl/pem.h>     // PEM_read_bio_ex
-#include <openssl/x509.h>    // d2i_AutoPrivateKey / d2i_PUBKEY
+#include <openssl/pem.h>     // PEM_read_bio_ex / PEM_write_bio_PUBKEY
+#include <openssl/x509.h>    // d2i_AutoPrivateKey / d2i_PUBKEY / i2d_PUBKEY
 
 #include "score/mw/log/logging.h"
 
@@ -314,6 +314,105 @@ GenerateAsymmetricKey(common::ProviderId provider_id,
         return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }
     return parsed;
+}
+
+::score::crypto::Expected<void, ::score::crypto::daemon::common::DaemonErrorCode> CheckPublicKeyExport(
+    const key_management::ProviderKeyHandle& handle)
+{
+    using ::score::crypto::daemon::common::DaemonErrorCode;
+
+    if (!handle.is_asymmetric)
+    {
+        score::mw::log::LogError() << kLogPrefix << "CheckPublicKeyExport: secret keys are not exportable";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kKeyNotExportable);
+    }
+
+    const auto public_permissions = handle.public_key_permissions.value_or(score::crypto::KeyOperationPermission::kAll);
+    if (!score::crypto::HasPermission(public_permissions, score::crypto::KeyOperationPermission::kExport))
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kKeyNotExportable);
+    }
+    return {};
+}
+
+::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode> EncodeSpki(
+    const evp_pkey_st* pkey,
+    score::crypto::FormatType format)
+{
+    using ::score::crypto::daemon::common::DaemonErrorCode;
+
+    if (format == score::crypto::FormatType::kDer)
+    {
+        const int der_len = i2d_PUBKEY(pkey, nullptr);
+        if (der_len <= 0)
+        {
+            score::mw::log::LogError() << kLogPrefix << "EncodeSpki: i2d_PUBKEY failed";
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kOperationFailed);
+        }
+
+        key_management::SecureKeyBytes out{static_cast<std::size_t>(der_len)};
+        unsigned char* cursor = out.bytes.data();
+        if (i2d_PUBKEY(pkey, &cursor) != der_len)
+        {
+            score::mw::log::LogError() << kLogPrefix << "EncodeSpki: i2d_PUBKEY failed";
+            return ::score::crypto::make_unexpected(DaemonErrorCode::kOperationFailed);
+        }
+        return out;
+    }
+
+    if (format != score::crypto::FormatType::kPem)
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedOperation);
+    }
+
+    const std::unique_ptr<BIO, decltype(&BIO_free)> bio{BIO_new(BIO_s_mem()), &BIO_free};
+    if (!bio)
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAllocationFailed);
+    }
+    if (PEM_write_bio_PUBKEY(bio.get(), pkey) != 1)
+    {
+        score::mw::log::LogError() << kLogPrefix << "EncodeSpki: PEM_write_bio_PUBKEY failed";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kOperationFailed);
+    }
+
+    char* pem_data = nullptr;
+    const long pem_len = BIO_get_mem_data(bio.get(), &pem_data);  // NOLINT(google-runtime-int)
+    if ((pem_len <= 0) || (pem_data == nullptr))
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kOperationFailed);
+    }
+
+    key_management::SecureKeyBytes out{static_cast<std::size_t>(pem_len)};
+    std::copy(pem_data, pem_data + pem_len, out.bytes.begin());
+    return out;
+}
+
+::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
+ExportSpkiPublicKey(const key_management::ProviderKeyHandle& handle, std::optional<score::crypto::FormatType> format)
+{
+    using ::score::crypto::daemon::common::DaemonErrorCode;
+
+    const auto checked = CheckPublicKeyExport(handle);
+    if (!checked.has_value())
+    {
+        return ::score::crypto::make_unexpected(checked.error());
+    }
+
+    // The native format of a public key is DER SubjectPublicKeyInfo.
+    const auto resolved = format.value_or(score::crypto::FormatType::kDer);
+    if (resolved == score::crypto::FormatType::kRaw)
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
+    }
+
+    if (handle.opaque_id == 0U)
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
+    const auto* pkey = reinterpret_cast<const EVP_PKEY*>(static_cast<std::uintptr_t>(handle.opaque_id));
+    return EncodeSpki(pkey, resolved);
 }
 
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
