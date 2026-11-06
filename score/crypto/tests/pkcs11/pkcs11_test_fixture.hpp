@@ -11,53 +11,48 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-/// @file softhsm_test_fixture.hpp
-/// @brief Reusable Google Test fixture that initialises a SoftHSM2 token.
+/// @file pkcs11_test_fixture.hpp
+/// @brief Reusable, vendor-neutral Google Test fixture that initialises a PKCS#11 token.
 ///
-/// Extracted from test_softhsm_ecb_aes128.cpp so that multiple test binaries
-/// can share the same setup/teardown logic without code duplication.
+/// Provides a unified environment configuration supporting both SoftHSM2 and
+/// Rust Cryptoki seamlessly without compile-time preprocessor macros.
 ///
 /// ### Usage
 /// @code
-/// #include "tests/softhsm/softhsm_test_fixture.hpp"
+/// #include "score/crypto/tests/pkcs11/pkcs11_test_fixture.hpp"
 ///
-/// class MyTest : public tests::softhsm::SofthsmTestFixture { ... };
+/// class MyTest : public tests::pkcs11::Pkcs11TestFixture { ... };
 /// @endcode
 ///
 /// ### What SetUp() does
-///  1. Creates a temporary SoftHSM2 config file in TEST_TMPDIR (falls back to /tmp).
-///  2. Sets SOFTHSM2_CONF so the linked SoftHSM2 library finds the config.
-///  3. C_Initialize
-///  4. C_InitToken (label "Test Token", SO PIN "1234")
+///  1. Creates temporary directories for SoftHSM and Rust Cryptoki storage in TEST_TMPDIR.
+///  2. Sets both SOFTHSM2_CONF and CRYPTOKI_STORE environment variables.
+///  3. C_GetFunctionList & C_Initialize
+///  4. C_InitToken (label "TestToken", SO PIN "1234")
 ///  5. C_OpenSession (RW)
-///  6. C_Login(SO) → C_InitPIN(User PIN "1234") → C_Logout(SO)
+///  6. C_Login(SO) -> C_InitPIN(User PIN "1234") -> C_Logout(SO)
 ///  7. C_Login(User) — session is now user-authenticated.
 ///
-/// TearDown(): C_CloseSession → C_Finalize.
-///
-/// ### Slot-id reuse warning
-/// After C_InitToken the slot_id may change (SoftHSM2 assigns a new slot for
-/// the initialised token). The fixture re-queries the slot list and picks the
-/// first slot that has a present token, so the member `slot_id` is always the
-/// correct one for the active token.
+/// TearDown(): C_CloseSession -> C_Finalize -> unsets environment variables.
 
-#ifndef TESTS_SOFTHSM_SOFTHSM_TEST_FIXTURE_HPP
-#define TESTS_SOFTHSM_SOFTHSM_TEST_FIXTURE_HPP
+#ifndef SCORE_CRYPTO_TESTS_PKCS11_PKCS11_TEST_FIXTURE_HPP
+#define SCORE_CRYPTO_TESTS_PKCS11_PKCS11_TEST_FIXTURE_HPP
 
 #include <gtest/gtest.h>
 #include <pkcs11.h>
 
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
 
-namespace tests::softhsm
+namespace tests::pkcs11
 {
 
-/// @brief Google Test fixture base-class for tests that need a live SoftHSM2 token.
-class SofthsmTestFixture : public ::testing::Test
+/// @brief Google Test fixture base-class for tests that need an initialised PKCS#11 token.
+class Pkcs11TestFixture : public ::testing::Test
 {
   public:
     // -------------------------------------------------------------------------
@@ -97,9 +92,9 @@ class SofthsmTestFixture : public ::testing::Test
     ///
     /// Used by tests that verify LoadKey-by-label flows.
     ///
-    /// @param key_data   Raw key bytes.
-    /// @param label      CKA_LABEL string.
-    /// @param key_type   CKK_GENERIC_SECRET, CKK_AES, etc.
+    /// @param key_data    Raw key bytes.
+    /// @param label       CKA_LABEL string.
+    /// @param key_type    CKK_GENERIC_SECRET, CKK_AES, etc.
     /// @param extractable Whether to set CKA_EXTRACTABLE=true.
     /// @return The new CK_OBJECT_HANDLE, or CK_INVALID_HANDLE on failure.
     CK_OBJECT_HANDLE CreateTokenKey(const std::vector<uint8_t>& key_data,
@@ -109,7 +104,6 @@ class SofthsmTestFixture : public ::testing::Test
     {
         CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
         CK_BBOOL true_val = CK_TRUE;
-        CK_BBOOL false_val = CK_FALSE;
         CK_BBOOL extractable_v = extractable ? CK_TRUE : CK_FALSE;
 
         CK_ATTRIBUTE key_template[] = {
@@ -152,19 +146,28 @@ class SofthsmTestFixture : public ::testing::Test
         const char* tmpdir = std::getenv("TEST_TMPDIR");
         std::string base = (tmpdir != nullptr) ? tmpdir : "/tmp";
 
-        // --- Prepare SoftHSM2 token directory and config file ---
-        std::string token_dir = base + "/softhsm_tokens";
-        std::string config_path = base + "/softhsm2.conf";
+        static unsigned int s_test_count = 0;
+        std::string test_id = std::to_string(++s_test_count);
+        std::string test_dir = base + "/pkcs11_fixture_" + test_id;
 
-        (void)std::system(("mkdir -p " + token_dir).c_str());
+        // --- Prepare SoftHSM2 configuration ---
+        std::string softhsm_token_dir = test_dir + "/softhsm_tokens";
+        std::string softhsm_conf_path = test_dir + "/softhsm2.conf";
+        std::filesystem::create_directories(softhsm_token_dir);
 
         {
-            std::ofstream cfg(config_path);
-            cfg << "directories.tokendir = " << token_dir << "\n";
+            std::ofstream cfg(softhsm_conf_path);
+            cfg << "directories.tokendir = " << softhsm_token_dir << "\n";
             cfg << "objectstore.backend = file\n";
             cfg << "log.level = INFO\n";
         }
-        ::setenv("SOFTHSM2_CONF", config_path.c_str(), 1);
+        ::setenv("SOFTHSM2_CONF", softhsm_conf_path.c_str(), 1);
+
+        // --- Prepare Rust Cryptoki storage ---
+        std::string cryptoki_token_dir = test_dir + "/cryptoki_tokens";
+        std::string cryptoki_store_path = cryptoki_token_dir + "/token.json";
+        std::filesystem::create_directories(cryptoki_token_dir);
+        ::setenv("CRYPTOKI_STORE", cryptoki_store_path.c_str(), 1);
 
         // --- C_GetFunctionList ---
         CK_RV rv = C_GetFunctionList(&function_list);
@@ -173,7 +176,9 @@ class SofthsmTestFixture : public ::testing::Test
 
         // --- C_Initialize ---
         rv = function_list->C_Initialize(nullptr);
-        ASSERT_EQ(rv, CKR_OK) << "C_Initialize failed: " << rv;
+        // CKR_CRYPTOKI_ALREADY_INITIALIZED is fine if library was loaded in prior test in same process
+        ASSERT_TRUE((rv == CKR_OK) || (rv == CKR_CRYPTOKI_ALREADY_INITIALIZED))
+            << "C_Initialize failed: " << rv;
 
         // --- Discover first available slot (may be uninitialized) ---
         CK_ULONG slot_count = 0;
@@ -187,8 +192,8 @@ class SofthsmTestFixture : public ::testing::Test
         slot_id = slots[0];
 
         // --- C_InitToken ---
-        std::string label = "Test Token";
-        label.resize(32, ' ');  // SoftHSM2 requires exactly 32 chars
+        std::string label = "TestToken";
+        label.resize(32, ' ');  // PKCS#11 standard mandates 32-character padded label buffer
 
         CK_UTF8CHAR so_pin[] = "1234";
         CK_UTF8CHAR user_pin[] = "1234";
@@ -199,7 +204,7 @@ class SofthsmTestFixture : public ::testing::Test
                                         reinterpret_cast<CK_UTF8CHAR_PTR>(const_cast<char*>(label.c_str())));
         ASSERT_EQ(rv, CKR_OK) << "C_InitToken failed: " << rv;
 
-        // After InitToken SoftHSM2 may have moved the token to a new slot.
+        // After InitToken a provider may re-assign or expose the initialized slot.
         // Re-query to get the slot that now has a present token.
         slot_id = ResolveInitializedSlot();
         ASSERT_NE(slot_id, static_cast<CK_SLOT_ID>(CK_UNAVAILABLE_INFORMATION))
@@ -209,7 +214,7 @@ class SofthsmTestFixture : public ::testing::Test
         rv = function_list->C_OpenSession(slot_id, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &session);
         ASSERT_EQ(rv, CKR_OK) << "C_OpenSession failed: " << rv;
 
-        // --- SO login → set user PIN ---
+        // --- SO login -> set user PIN ---
         rv = function_list->C_Login(session, CKU_SO, so_pin, static_cast<CK_ULONG>(sizeof(so_pin) - 1));
         ASSERT_EQ(rv, CKR_OK) << "C_Login (SO) failed: " << rv;
 
@@ -236,6 +241,8 @@ class SofthsmTestFixture : public ::testing::Test
             function_list->C_Finalize(nullptr);
             function_list = nullptr;
         }
+        ::unsetenv("SOFTHSM2_CONF");
+        ::unsetenv("CRYPTOKI_STORE");
     }
 
   private:
@@ -261,6 +268,6 @@ class SofthsmTestFixture : public ::testing::Test
     }
 };
 
-}  // namespace tests::softhsm
+}  // namespace tests::pkcs11
 
-#endif  // TESTS_SOFTHSM_SOFTHSM_TEST_FIXTURE_HPP
+#endif  // SCORE_CRYPTO_TESTS_PKCS11_PKCS11_TEST_FIXTURE_HPP
