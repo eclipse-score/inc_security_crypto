@@ -85,11 +85,19 @@ enum class ProviderType : uint8_t
 };
 
 /// @brief Encoding format for serialized key, certificate, or CRL data.
+///
+/// For keys:
+/// - kDer: PKCS#8 or SEC1 private key, or SubjectPublicKeyInfo public key.
+/// - kPem: the same structures as kDer in one unencrypted PEM block.
+/// - kRaw: plain key bytes for symmetric keys (AES, HMAC), or an uncompressed
+///   SEC1 point 0x04||X||Y for EC public keys. Symmetric keys accept only kRaw.
+/// Key import also takes no format (std::nullopt) to mean the key type's native
+/// format; see ImportKeyParams::format.
 enum class FormatType : uint8_t
 {
     kDer,  ///< Distinguished Encoding Rules (binary) encoding.
     kPem,  ///< Privacy-Enhanced Mail (text) encoding.
-    kRaw
+    kRaw   ///< Unstructured key bytes; see above.
 };
 
 /// @brief Direction of a symmetric cipher operation.
