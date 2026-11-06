@@ -54,7 +54,7 @@ cc_library(
     name = "message_passing_server",
     srcs = [
         "server/message_passing_control_server.cpp",
-        "server/server_lifecycle.cpp",
+        "server/server_state_machine.cpp",
         "server/work_item_execution/fixed_worker_work_item_executor.cpp",
         "server/session/session.cpp",
         "server/session/work_item.cpp",
@@ -65,7 +65,7 @@ cc_library(
     hdrs = [
         "server/message_passing_control_server.h",
         "server/server_callbacks.hpp",
-        "server/server_lifecycle.h",
+        "server/server_state_machine.h",
         "server/work_item_execution/i_work_item_submitter.h",
         "server/work_item_execution/fixed_worker_work_item_executor.h",
         "server/session/session.h",

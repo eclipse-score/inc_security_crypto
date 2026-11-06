@@ -62,16 +62,15 @@ bool WorkItem::TryRequestCancellation() noexcept
         }
         if (m_lifecycle == WorkItemState::kQueued)
         {
-            return TryTransitionTo(lock, WorkItemState::kCancellationRequested);
+            m_lifecycle = WorkItemState::kCancellationRequested;
+            return true;
         }
         if (m_lifecycle != WorkItemState::kRunning)
         {
             return false;
         }
-        if (!TryTransitionTo(lock, WorkItemState::kCancellationRequested))
-        {
-            return false;
-        }
+
+        m_lifecycle = WorkItemState::kCancellationRequested;
     }
 
     cancellation.RequestCancellation();
@@ -93,16 +92,34 @@ void WorkItem::Complete() noexcept
         {
             return;
         }
-        if (!TryTransitionTo(lock, WorkItemState::kCompleted))
-        {
-            return;
-        }
+        m_lifecycle = WorkItemState::kCompleted;
         session = m_session.lock();
     }
     if (session != nullptr)
     {
         session->OnWorkItemCompleted(*this);
     }
+}
+
+protocol::RequestId WorkItem::GetRequestId() const noexcept
+{
+    return request_id;
+}
+protocol::ClientId WorkItem::GetClientId() const noexcept
+{
+    return client_id;
+}
+protocol::ControlRequestKind WorkItem::GetKind() const noexcept
+{
+    return kind;
+}
+protocol::ControlRequest& WorkItem::GetRequest() noexcept
+{
+    return request;
+}
+daemon::control_plane::CancellationToken WorkItem::GetCancellationToken() const noexcept
+{
+    return cancellation.GetToken();
 }
 
 WorkItemState WorkItem::PrepareForExecution() noexcept
@@ -116,53 +133,17 @@ WorkItemState WorkItem::PrepareForExecution() noexcept
     }
     if (m_lifecycle == WorkItemState::kCancellationRequested)
     {
-        static_cast<void>(TryTransitionTo(lock, WorkItemState::kCancelled));
+        m_lifecycle = WorkItemState::kCancelled;
         return m_lifecycle;
     }
-    if (std::chrono::steady_clock::now() >= request.deadline)
+    if (m_lifecycle == WorkItemState::kQueued && std::chrono::steady_clock::now() >= request.deadline)
     {
-        static_cast<void>(TryTransitionTo(lock, WorkItemState::kDeadlineExpired));
+        m_lifecycle = WorkItemState::kDeadlineExpired;
         return m_lifecycle;
     }
-    static_cast<void>(TryTransitionTo(lock, WorkItemState::kRunning));
-    return m_lifecycle;
-}
 
-bool WorkItem::TryTransitionTo(std::lock_guard<std::mutex>& lock, const WorkItemState next_state) noexcept
-{
-    static_cast<void>(lock);
-    if (m_lifecycle == next_state)
-    {
-        return true;
-    }
-    bool allowed{false};
-    switch (m_lifecycle)
-    {
-        case WorkItemState::kQueued:
-            allowed = (next_state == WorkItemState::kRunning) ||
-                      (next_state == WorkItemState::kCancellationRequested) ||
-                      (next_state == WorkItemState::kDeadlineExpired) || (next_state == WorkItemState::kCompleted);
-            break;
-        case WorkItemState::kRunning:
-            allowed =
-                (next_state == WorkItemState::kCancellationRequested) || (next_state == WorkItemState::kCompleted);
-            break;
-        case WorkItemState::kCancellationRequested:
-            allowed = (next_state == WorkItemState::kCancelled) || (next_state == WorkItemState::kCompleted);
-            break;
-        case WorkItemState::kCancelled:
-        case WorkItemState::kDeadlineExpired:
-            allowed = next_state == WorkItemState::kCompleted;
-            break;
-        case WorkItemState::kCompleted:
-            break;
-    }
-    if (!allowed)
-    {
-        return false;
-    }
-    m_lifecycle = next_state;
-    return true;
+    m_lifecycle = WorkItemState::kRunning;
+    return m_lifecycle;
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> WorkItem::DeserializeRequest(

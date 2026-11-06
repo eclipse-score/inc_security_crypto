@@ -338,11 +338,13 @@ void FixedWorkerWorkItemExecutor::RunWorkerLoop(const std::size_t worker_index,
         AssignedWorkItem work_item;
         CleanupJob cleanup_job;
         {
-            std::unique_lock<std::mutex> lock(m_mutex);
-            m_worker_conditions.at(worker_index).wait(lock, [this, worker_index] {
+            const auto has_assigned_job_or_shall_stop = [this, worker_index] {
                 return m_stopping || m_assigned_work_items.at(worker_index).job ||
                        m_assigned_cleanup_jobs.at(worker_index);
-            });
+            };
+
+            std::unique_lock<std::mutex> lock(m_mutex);
+            m_worker_conditions.at(worker_index).wait(lock, has_assigned_job_or_shall_stop);
             if (m_assigned_cleanup_jobs.at(worker_index))
             {
                 cleanup_job = std::move(m_assigned_cleanup_jobs.at(worker_index));
@@ -398,6 +400,12 @@ void FixedWorkerWorkItemExecutor::ExecuteJob(AssignedWorkItem work_item,
                                            << " (error=" << static_cast<int>(result.error()) << ")";
             }
         }
+
+        // TODO:
+        // The currently used job implementation does catch any exception thrown by the handler / request processing,
+        // internally and does complete the corresponding WorkItem.
+        // However any job with a different kind of behaviour might not complete the WorkItem upon exceptions
+        // leaving the WorkItem incomplete and stale.
         catch (...)
         {
             score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Work-item job threw for client_id="

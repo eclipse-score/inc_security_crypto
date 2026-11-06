@@ -77,6 +77,11 @@ class WorkItemDispatcher final
     BuildEnvelopeErrorResponse(const daemon::control_plane::protocol::RequestId request_id,
                                const score::crypto::daemon::common::DaemonErrorCode error) noexcept;
 
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> RespondWithEnvelopeError(
+        const std::shared_ptr<detail::Session>& session,
+        const std::shared_ptr<WorkItem>& item,
+        const score::crypto::daemon::common::DaemonErrorCode error) noexcept;
+
     SessionManager& m_session_manager;
     IWorkItemSubmitter& m_submitter;
     const score::crypto::ipc::protocol::IControlCodec& m_codec;

@@ -15,7 +15,11 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 cc_binary(
     name = "crypto_daemon",
-    srcs = ["src/daemon.cpp"],
+    srcs = [
+        "src/daemon.cpp",
+        "src/disconnect_cleanup_callback.cpp",
+        "src/disconnect_cleanup_callback.hpp",
+    ],
     copts = select({
         "//conditions:default": [],
         ":tsan_enabled": [

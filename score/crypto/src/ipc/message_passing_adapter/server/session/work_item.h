@@ -54,43 +54,27 @@ enum class WorkItemState : std::uint8_t
  */
 struct WorkItem final
 {
-    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DeserializeRequest(
-        const score::crypto::ipc::protocol::IControlCodec& codec) noexcept;
-
     static score::crypto::Expected<std::shared_ptr<WorkItem>, score::crypto::daemon::common::DaemonErrorCode> Create(
         score::cpp::span<const std::uint8_t> serialized_request,
         const std::shared_ptr<Session>& session,
         const score::crypto::ipc::protocol::IControlCodec& codec,
         std::chrono::steady_clock::time_point received_at) noexcept;
 
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DeserializeRequest(
+        const score::crypto::ipc::protocol::IControlCodec& codec) noexcept;
+
     WorkItemState PrepareForExecution() noexcept;
     bool TryRequestCancellation() noexcept;
     bool IsCancellationRequested() const noexcept;
     void Complete() noexcept;
-    protocol::RequestId GetRequestId() const noexcept
-    {
-        return request_id;
-    }
-    protocol::ClientId GetClientId() const noexcept
-    {
-        return client_id;
-    }
-    protocol::ControlRequestKind GetKind() const noexcept
-    {
-        return kind;
-    }
-    protocol::ControlRequest& GetRequest() noexcept
-    {
-        return request;
-    }
-    daemon::control_plane::CancellationToken GetCancellationToken() const noexcept
-    {
-        return cancellation.GetToken();
-    }
+    protocol::RequestId GetRequestId() const noexcept;
+    protocol::ClientId GetClientId() const noexcept;
+    protocol::ControlRequestKind GetKind() const noexcept;
+    protocol::ControlRequest& GetRequest() noexcept;
+    daemon::control_plane::CancellationToken GetCancellationToken() const noexcept;
 
   private:
     friend class Session;
-    bool TryTransitionTo(std::lock_guard<std::mutex>& lock, WorkItemState next_state) noexcept;
 
     mutable std::mutex m_mutex{};
     std::weak_ptr<Session> m_session{};

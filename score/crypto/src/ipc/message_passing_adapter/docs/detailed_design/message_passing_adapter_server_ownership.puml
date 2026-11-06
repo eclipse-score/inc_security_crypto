@@ -73,7 +73,7 @@ package "SCORE Message Passing" as Transport {
 package "Message-Passing Adapter Server Side" as ServerSide {
     class "MessagePassingControlServer" as Server
     class "FlatBufferCodec" as Codec
-    class "ServerLifecycle" as Lifecycle
+    class "ServerStateMachine" as StateMachine
 
     class "WorkItemDispatcher" as Dispatcher
     class "SessionManager" as SessionManager {
@@ -120,7 +120,7 @@ Server ..|> IControlServer
 HandlerChain ..|> IRequestHandler
 
 Server *-- IServer
-Server *-- Lifecycle
+Server *-- StateMachine
 Server *-- Codec
 Server *-- SessionManager
 Server *-- Dispatcher

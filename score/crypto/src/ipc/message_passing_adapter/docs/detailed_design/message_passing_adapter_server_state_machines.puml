@@ -28,24 +28,25 @@ skinparam nodesep 30
 
 title Server-side State Machines and Their Interaction
 
-state "ServerLifecycle\n(one per server)" as SL {
-  state "kNotStarted" as SL_NotStarted
-  state "kRunning" as SL_Running
-  state "kStopping" as SL_Stopping
-  state "kStopped" as SL_Stopped
+state "ServerStateMachine\n(one per server)" as SSM {
+  state "kStarting" as SSM_Starting
+  state "kStarted" as SSM_Started
+  state "kStopping" as SSM_Stopping
+  state "kStopped" as SSM_Stopped
 
-  [*] --> SL_NotStarted
-  SL_NotStarted -[#blue]-> SL_Running : Start() succeeded\n[MarkStarted]
-  SL_Stopped -[#blue]-> SL_Running : Start() succeeded\n[MarkStarted]
-  SL_Running -[#orange]-> SL_Stopping : Stop()\n[BeginStopping]
-  SL_Stopping -[#orange]-> SL_Stopped : WaitForTermination()\n[MarkStopped]
+  [*] --> SSM_Stopped
+  SSM_Stopped -[#blue]-> SSM_Starting : Start()\n[TryBeginStart]
+  SSM_Starting -[#blue]-> SSM_Started : Start() succeeded\n[MarkStarted]
+  SSM_Starting -[#blue]-> SSM_Stopped : Start() failed\n[RollbackStartup; MarkStopped]
+  SSM_Started -[#orange]-> SSM_Stopping : Stop()\n[BeginStopping]
+  SSM_Stopping -[#orange]-> SSM_Stopped : WaitForTermination()\n[MarkStopped]
 
-  SL_NotStarted : do / **S1** Start(handler_factory) [Executor]
-  SL_NotStarted : do / **S2** StartAcceptConnections() [SessionRegistry]
-  SL_Stopping : entry / **S3** StopAcceptConnections(), DrainConnections() [SessionRegistry]
-  SL_Stopping : entry / **S4** Disconnect() for each detached [Session]
-  SL_Stopping : do / **S5** WaitForAllConnectionsClosed() [SessionRegistry]
-  SL_Stopping : exit / **S6** Shutdown() + Join() [Executor]
+  SSM_Starting : do / **S1** Start(handler_factory) [Executor]
+  SSM_Starting : do / **S2** StartAcceptConnections() [SessionRegistry]
+  SSM_Stopping : entry / **S3** StopAcceptConnections(), DrainConnections() [SessionRegistry]
+  SSM_Stopping : entry / **S4** Disconnect() for each detached [Session]
+  SSM_Stopping : do / **S5** WaitForAllConnectionsClosed() [SessionRegistry]
+  SSM_Stopping : exit / **S6** Shutdown() + Join() [Executor]
 }
 
 state "FixedWorkerWorkItemExecutor\nimplements IWorkItemSubmitter:\nTrySubmitWorkItem() / TrySubmitCleanup()\n(implicit state: m_started / m_stopping)" as EX {
@@ -178,11 +179,11 @@ EX -[dashed,#red]-> SE : **D6** worker runs RunCleanup()
 SE -[dashed,#red]-> RC : **D7** FinishCleanup() calls\nOnCleanupFinished()
 
 ' Flow S (blue): server start / stop
-SL -[dashed,#blue]-> EX : **S1** Start(): executor Start(handler_factory)
-SL -[dashed,#blue]-> RC : **S2** Start(): StartAcceptConnections()
-SL -[dashed,#orange]-> RC : **S3** Stop(): StopAcceptConnections(), then DrainConnections()\ncalls DetachAllConnections() [every client: kCleanupPending, like D1]\n**S5** WaitForTermination(): WaitForAllConnectionsClosed()\n[blocks until D7 completed for all clients]
-SL -[dashed,#orange]-> SE : **S4** DrainConnections() calls Session::Disconnect()\nfor every detached Session, continues as D3 to D7
-SL -[dashed,#orange]-> EX : **S6** WaitForTermination(): Shutdown() + Join()\n[only after S5, so cleanup jobs (D5) can still be submitted]
+SSM -[dashed,#blue]-> EX : **S1** Start(): executor Start(handler_factory)
+SSM -[dashed,#blue]-> RC : **S2** Start(): StartAcceptConnections()
+SSM -[dashed,#orange]-> RC : **S3** Stop(): StopAcceptConnections(), then DrainConnections()\ncalls DetachAllConnections() [every client: kCleanupPending, like D1]\n**S5** WaitForTermination(): WaitForAllConnectionsClosed()\n[blocks until D7 completed for all clients]
+SSM -[dashed,#orange]-> SE : **S4** DrainConnections() calls Session::Disconnect()\nfor every detached Session, continues as D3 to D7
+SSM -[dashed,#orange]-> EX : **S6** WaitForTermination(): Shutdown() + Join()\n[only after S5, so cleanup jobs (D5) can still be submitted]
 
 legend right
   Solid arrows: state transitions (label = trigger [action / guard]),
@@ -199,8 +200,8 @@ legend right
     C1-C2 (purple): OnConnect, connection establishment.
     R1-R7 (green): OnRequest, admission, submission, execution, response.
     D1-D7 (red): OnDisconnect, draining and cleanup.
-    S1-S2 (blue): ServerLifecycle Start() from kNotStarted / kStopped.
-    S3-S6 (orange): ServerLifecycle Stop() / WaitForTermination() from kStopping.
+    S1-S2 (blue): ServerStateMachine Start() from kStopped through kStarting.
+    S3-S6 (orange): ServerStateMachine Stop() / WaitForTermination() from kStopping.
   Session::Respond() is only allowed while the Session is kActive.
 endlegend
 

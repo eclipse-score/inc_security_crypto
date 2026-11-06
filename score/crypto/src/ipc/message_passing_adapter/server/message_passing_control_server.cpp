@@ -136,13 +136,14 @@ void MessagePassingControlServer::RollbackStartup() noexcept
     }
     m_work_item_executor.Shutdown();
     m_work_item_executor.Join();
+
+    static_cast<void>(m_server_state_machine.MarkStopped());
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
 {
-    auto start_guard = m_lifecycle.TryBeginStart();
-    if (!start_guard.has_value())
+    if (!m_server_state_machine.TryBeginStart().has_value())
     {
         return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kAlreadyInitialized);
     }
@@ -194,7 +195,7 @@ MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
 
         if (!startup_failed)
         {
-            m_lifecycle.MarkStarted(*start_guard);
+            static_cast<void>(m_server_state_machine.MarkStarted());
             return std::monostate{};
         }
     }
@@ -247,7 +248,7 @@ score::cpp::expected_blank<score::os::Error> MessagePassingControlServer::OnRequ
 
 void MessagePassingControlServer::Stop() noexcept
 {
-    if (!m_lifecycle.BeginStopping())
+    if (!m_server_state_machine.BeginStopping())
     {
         return;
     }
@@ -271,7 +272,7 @@ void MessagePassingControlServer::WaitForTermination() noexcept
     m_work_item_executor.Join();
     m_session_manager.StopAcceptConnections();
     m_message_server.reset();
-    m_lifecycle.MarkStopped();
+    static_cast<void>(m_server_state_machine.MarkStopped());
 }
 
 }  // namespace score::crypto::ipc::message_passing

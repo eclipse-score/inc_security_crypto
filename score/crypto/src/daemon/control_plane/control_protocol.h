@@ -595,6 +595,15 @@ class ControlResponseValidator
         if (!m_isValid)
             return *this;
 
+        // Validate we have enough operations
+        if (m_currentOpIndex >= m_response.get().size())
+        {
+            m_isValid = false;
+            m_errorMsg = "Expected successful operation at index " + std::to_string(m_currentOpIndex) +
+                         " but response has only " + std::to_string(m_response.get().size()) + " operations";
+            return *this;
+        }
+
         const auto& op = m_response.get()[m_currentOpIndex];
         if (op.result != OPERATION_RESULT_SUCCESS)
         {

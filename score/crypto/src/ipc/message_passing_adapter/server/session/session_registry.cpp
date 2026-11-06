@@ -60,11 +60,13 @@ SessionRegistry::TryRegisterAuthorizedConnection(score::message_passing::IServer
 
 bool SessionRegistry::NewConnectionFitsInTotalCapacity(std::lock_guard<std::mutex>& lock) const noexcept
 {
+    static_cast<void>(lock);
     return m_client_states.size() < ipc::kMaxTotalConnections;
 }
 
 bool SessionRegistry::NewConnectionFitsInUidCapacity(std::lock_guard<std::mutex>& lock, const uid_t uid) const noexcept
 {
+    static_cast<void>(lock);
     const auto iterator = m_reserved_connections_by_uid.find(uid);
     return (iterator == m_reserved_connections_by_uid.end()) || (iterator->second < ipc::kMaxConnectionsPerUid);
 }
@@ -250,7 +252,6 @@ std::shared_ptr<detail::Session> SessionRegistry::DetachConnection(
 {
     auto session = std::move(connection_iterator->second);
     m_connections.erase(connection_iterator);
-    ++m_pending_disconnect_count;
 
     const auto iterator = m_client_states.find(session->client_id());
     if ((iterator == m_client_states.end()) || (iterator->second.lifecycle != ClientLifecycleState::kConnectionActive))
@@ -259,7 +260,9 @@ std::shared_ptr<detail::Session> SessionRegistry::DetachConnection(
                                   << session->client_id();
         return session;
     }
+
     iterator->second.lifecycle = ClientLifecycleState::kCleanupPending;
+    ++m_pending_disconnect_count;
 
     return session;
 }
@@ -317,14 +320,14 @@ SessionRegistry::DetachAllConnections() noexcept
 void SessionRegistry::WaitForAllConnectionsClosed() noexcept
 {
     std::unique_lock<std::mutex> lock(m_mutex);
-    m_disconnect_condition.wait(lock, [this] {
+    m_all_connections_cleaned_up.wait(lock, [this] {
         return m_pending_disconnect_count == 0U;
     });
 }
 
 void SessionRegistry::OnCleanupFinished(const ClientId client_id, const bool cleanup_succeeded) noexcept
 {
-    bool completed{false};
+    bool all_cleaned_up{false};
     {
         const std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -361,11 +364,14 @@ void SessionRegistry::OnCleanupFinished(const ClientId client_id, const bool cle
         {
             --m_pending_disconnect_count;
         }
-        completed = true;
+        if (m_pending_disconnect_count == 0U)
+        {
+            all_cleaned_up = true;
+        }
     }
-    if (completed)
+    if (all_cleaned_up)
     {
-        m_disconnect_condition.notify_all();
+        m_all_connections_cleaned_up.notify_all();
     }
 }
 

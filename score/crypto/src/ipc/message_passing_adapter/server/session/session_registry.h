@@ -102,7 +102,7 @@ class SessionRegistry final
     void OnCleanupFinished(ClientId client_id, bool cleanup_succeeded) noexcept;
 
     mutable std::mutex m_mutex;
-    std::condition_variable m_disconnect_condition;
+    std::condition_variable m_all_connections_cleaned_up;
     std::size_t m_pending_disconnect_count{0U};
     bool m_accept_connections{false};
     std::unordered_map<ClientId, ClientState> m_client_states{};

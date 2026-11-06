@@ -39,8 +39,17 @@ Executor --> Session: Work drains
 Session -> Executor: **TrySubmitCleanup(job)**
 Executor -> Session: RunCleanup()
 Session -> Cleanup: **cleanup(client_id)**
-Cleanup --> Session: Success
-Session -> Registry: **OnCleanupFinished(success)**
-Registry -> Registry: Release connection capacity
+alt Cleanup succeeds
+	Cleanup --> Session: Success
+	Session -> Registry: **OnCleanupFinished(success)**
+	Registry -> Registry: Release total and UID capacity reservations
+else Cleanup fails
+	Cleanup --> Session: Failure
+	Session -> Registry: **OnCleanupFinished(failure)**
+	Registry -> Registry: Quarantine client; retain total and UID reservations
+	note right of Registry
+		Quarantined reservations reduce the global and per-UID capacity for connections.
+	end note
+end
 
 @enduml

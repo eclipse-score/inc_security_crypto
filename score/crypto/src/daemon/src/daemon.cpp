@@ -29,6 +29,7 @@
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"
 #include "score/crypto/src/daemon/key_management/key_management_module.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager_factory.hpp"
+#include "score/crypto/src/daemon/src/disconnect_cleanup_callback.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/message_passing_control_server.h"
 
@@ -102,25 +103,8 @@ int main(int argc, char** argv)
         return score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode>{true};
     };
     const auto key_management_service = key_mgmt_module ? key_mgmt_module->GetService() : nullptr;
-    MessagePassingServer::DisconnectCleanupCallback cleanup_callback = [data_manager,
-                                                                        key_management_service](std::uint64_t client_id)
-        -> score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> {
-        score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> first_failure{};
-        if (data_manager)
-        {
-            auto result = data_manager->deleteClientNodes(client_id, true);
-            if (first_failure.has_value())
-            {
-                first_failure = result;
-            }
-        }
-        if (key_management_service)
-        {
-            key_management_service->CleanupClient(client_id);
-        }
-
-        return first_failure;
-    };
+    auto cleanup_callback =
+        score::crypto::daemon::detail::MakeDisconnectCleanupCallback(data_manager, key_management_service);
 
     auto server_result =
         MessagePassingServer::Create(std::move(handler_factory), std::move(authorization), std::move(cleanup_callback));

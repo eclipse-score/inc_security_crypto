@@ -16,7 +16,7 @@
 #include "score/crypto/src/daemon/control_plane/i_control_server.h"
 #include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/server_callbacks.hpp"
-#include "score/crypto/src/ipc/message_passing_adapter/server/server_lifecycle.h"
+#include "score/crypto/src/ipc/message_passing_adapter/server/server_state_machine.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session_manager.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/work_item_dispatcher.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/work_item_execution/fixed_worker_work_item_executor.h"
@@ -28,10 +28,8 @@
 #include "score/message_passing/server_factory.h"
 #include "score/message_passing/service_protocol_config.h"
 
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <string_view>
 
@@ -93,7 +91,7 @@ class MessagePassingControlServer final : public daemon::control_plane::IControl
     SessionManager m_session_manager;
     WorkItemDispatcher m_work_item_dispatcher;
 
-    ServerLifecycle m_lifecycle;
+    ServerStateMachine m_server_state_machine;
 };
 
 }  // namespace score::crypto::ipc::message_passing

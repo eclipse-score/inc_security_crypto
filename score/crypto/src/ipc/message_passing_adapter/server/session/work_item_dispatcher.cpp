@@ -113,9 +113,7 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Han
     const auto admission_result = session->TryAdmitWorkItem(item);
     if (!admission_result.has_value())
     {
-        const auto admission_error = admission_result.error();
-        auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), admission_error);
-        return RespondAndCompleteWorkItem(session, item, std::move(response));
+        return RespondWithEnvelopeError(session, item, admission_result.error());
     }
 
     // If accepted, RunAcceptedWorkItem owns the request's terminal response.
@@ -124,7 +122,7 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Han
     {
         job = [this](const WorkItemSubmission& submission,
                      daemon::control_plane::IRequestHandler& handler,
-                     const score::cpp::stop_token& stop_token) {
+                     const score::cpp::stop_token& stop_token) noexcept {
             return RunAcceptedWorkItem(submission.session, submission.item, handler, stop_token);
         };
     }
@@ -132,16 +130,14 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Han
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to allocate work-item job for request_id="
                                    << item->GetRequestId();
-        auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), DaemonErrorCode::kAllocationFailed);
-        return RespondAndCompleteWorkItem(session, item, std::move(response));
+        return RespondWithEnvelopeError(session, item, DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
         score::mw::log::LogError()
             << "[MESSAGE_PASSING_SERVER] Unexpected failure while creating work-item job for request_id="
             << item->GetRequestId();
-        auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), DaemonErrorCode::kInternalError);
-        return RespondAndCompleteWorkItem(session, item, std::move(response));
+        return RespondWithEnvelopeError(session, item, DaemonErrorCode::kInternalError);
     }
 
     const auto submit_result = m_submitter.TrySubmitWorkItem(WorkItemSubmission{session, item}, std::move(job));
@@ -150,8 +146,7 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Han
         return score::crypto::Expected<std::monostate, DaemonErrorCode>{};
     }
 
-    auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), submit_result.error());
-    return RespondAndCompleteWorkItem(session, item, std::move(response));
+    return RespondWithEnvelopeError(session, item, submit_result.error());
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
@@ -169,8 +164,7 @@ WorkItemDispatcher::RunAcceptedWorkItem(const std::shared_ptr<detail::Session>& 
             const auto error = deserialize_result.error();
             score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to deserialize accepted request request_id="
                                        << item->GetRequestId() << " (error=" << static_cast<int>(error) << ")";
-            auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), error);
-            return RespondAndCompleteWorkItem(session, item, std::move(response));
+            return RespondWithEnvelopeError(session, item, error);
         }
 
         const auto work_item_state = item->PrepareForExecution();
@@ -183,20 +177,17 @@ WorkItemDispatcher::RunAcceptedWorkItem(const std::shared_ptr<detail::Session>& 
             }
             case detail::WorkItemState::kCancelled:
             {
-                auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), DaemonErrorCode::kOperationCancelled);
-                return RespondAndCompleteWorkItem(session, item, std::move(response));
+                return RespondWithEnvelopeError(session, item, DaemonErrorCode::kOperationCancelled);
             }
             case detail::WorkItemState::kDeadlineExpired:
             {
-                auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), DaemonErrorCode::kOperationTimedOut);
-                return RespondAndCompleteWorkItem(session, item, std::move(response));
+                return RespondWithEnvelopeError(session, item, DaemonErrorCode::kOperationTimedOut);
             }
             default:
             {
                 score::mw::log::LogError()
                     << "[MESSAGE_PASSING_SERVER] Invalid work-item state for request_id=" << item->GetRequestId();
-                auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), DaemonErrorCode::kInternalError);
-                return RespondAndCompleteWorkItem(session, item, std::move(response));
+                return RespondWithEnvelopeError(session, item, DaemonErrorCode::kInternalError);
             }
         }
     }
@@ -204,16 +195,23 @@ WorkItemDispatcher::RunAcceptedWorkItem(const std::shared_ptr<detail::Session>& 
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Allocation failed while processing request_id="
                                    << item->GetRequestId();
-        auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), DaemonErrorCode::kAllocationFailed);
-        return RespondAndCompleteWorkItem(session, item, std::move(response));
+        return RespondWithEnvelopeError(session, item, DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Unexpected failure while processing request_id="
                                    << item->GetRequestId();
-        auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), DaemonErrorCode::kInternalError);
-        return RespondAndCompleteWorkItem(session, item, std::move(response));
+        return RespondWithEnvelopeError(session, item, DaemonErrorCode::kInternalError);
     }
+}
+
+score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+WorkItemDispatcher::RespondWithEnvelopeError(const std::shared_ptr<detail::Session>& session,
+                                             const std::shared_ptr<WorkItem>& item,
+                                             const score::crypto::daemon::common::DaemonErrorCode error) noexcept
+{
+    auto response = BuildEnvelopeErrorResponse(item->GetRequestId(), error);
+    return RespondAndCompleteWorkItem(session, item, std::move(response));
 }
 
 score::crypto::Expected<protocol::ControlResponse, score::crypto::daemon::common::DaemonErrorCode>

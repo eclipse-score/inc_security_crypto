@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_SERVER_LIFECYCLE_H
-#define SCORE_CRYPTO_IPC_MESSAGE_PASSING_SERVER_LIFECYCLE_H
+#ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_SERVER_STATE_MACHINE_H
+#define SCORE_CRYPTO_IPC_MESSAGE_PASSING_SERVER_STATE_MACHINE_H
 
 #include <cstdint>
 #include <mutex>
@@ -28,31 +28,27 @@ namespace score::crypto::ipc::message_passing
  * Serializes server start, stop, and terminal lifecycle transitions.
  * @endrst
  */
-class ServerLifecycle final
+class ServerStateMachine final
 {
   public:
     enum class State : std::uint8_t
     {
-        kNotStarted,
-        kRunning,
+        kStarting,
+        kStarted,
         kStopping,
         kStopped,
     };
 
-    using StartGuard = std::unique_lock<std::mutex>;
-
-    score::crypto::Expected<ServerLifecycle::StartGuard, score::crypto::daemon::common::DaemonErrorCode>
-    TryBeginStart() noexcept;
-
-    void MarkStarted(StartGuard& lock) noexcept;
-    bool BeginStopping() noexcept;
-    void MarkStopped() noexcept;
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TryBeginStart() noexcept;
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> MarkStarted() noexcept;
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> BeginStopping() noexcept;
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> MarkStopped() noexcept;
 
   private:
     std::mutex m_mutex;
-    State m_state{State::kNotStarted};
+    State m_state{State::kStopped};
 };
 
 }  // namespace score::crypto::ipc::message_passing
 
-#endif  // SCORE_CRYPTO_IPC_MESSAGE_PASSING_SERVER_LIFECYCLE_H
+#endif  // SCORE_CRYPTO_IPC_MESSAGE_PASSING_SERVER_STATE_MACHINE_H
