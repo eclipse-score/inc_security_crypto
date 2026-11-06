@@ -18,8 +18,6 @@
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 
-#include <score/stop_token.hpp>
-
 #include <functional>
 #include <variant>
 
@@ -49,8 +47,7 @@ class IWorkItemSubmitter
 {
   public:
     using JobResult = score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>;
-    using WorkItemJob = std::function<
-        JobResult(const WorkItemSubmission&, daemon::control_plane::IRequestHandler&, const score::cpp::stop_token&)>;
+    using WorkItemJob = std::function<JobResult(const WorkItemSubmission&, daemon::control_plane::IRequestHandler&)>;
     using CleanupJob = std::function<JobResult()>;
 
     virtual ~IWorkItemSubmitter() noexcept = default;

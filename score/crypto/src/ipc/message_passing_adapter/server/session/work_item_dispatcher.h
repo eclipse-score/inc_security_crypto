@@ -24,7 +24,6 @@
 #include "score/message_passing/i_server_connection.h"
 
 #include <score/span.hpp>
-#include <score/stop_token.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -70,8 +69,7 @@ class WorkItemDispatcher final
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> RunAcceptedWorkItem(
         const std::shared_ptr<detail::Session>& session,
         const std::shared_ptr<WorkItem>& item,
-        daemon::control_plane::IRequestHandler& handler,
-        const score::cpp::stop_token& stop_token) noexcept;
+        daemon::control_plane::IRequestHandler& handler) noexcept;
     static score::crypto::Expected<daemon::control_plane::protocol::ControlResponse,
                                    score::crypto::daemon::common::DaemonErrorCode>
     BuildEnvelopeErrorResponse(const daemon::control_plane::protocol::RequestId request_id,

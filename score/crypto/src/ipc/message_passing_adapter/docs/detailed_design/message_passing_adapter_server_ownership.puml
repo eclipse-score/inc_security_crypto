@@ -100,7 +100,6 @@ package "Message-Passing Adapter Server Side" as ServerSide {
         m_assigned_work_items : {WorkItemSubmission, job}[N]
         m_assigned_cleanup_jobs : CleanupJob[N]
         m_worker_conditions : condition_variable[N]
-        m_stop_sources : stop_source[N]
         m_cleanup_jobs : deque, max kCleanupQueueCapacity
         m_handler_factory : HandlerFactory
         m_mutex : one lock for all slots

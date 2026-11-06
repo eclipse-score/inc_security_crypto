@@ -16,8 +16,6 @@
 
 #include "score/crypto/src/ipc/message_passing_adapter/server/work_item_execution/i_work_item_submitter.h"
 
-#include <score/stop_token.hpp>
-
 #include <condition_variable>
 #include <cstddef>
 #include <deque>
@@ -57,9 +55,7 @@ class FixedWorkerWorkItemExecutor final : public IWorkItemSubmitter
   private:
     bool StartImpl(HandlerFactory handler_factory);
     void RunWorker(std::size_t worker_index) noexcept;
-    void RunWorkerLoop(std::size_t worker_index,
-                       daemon::control_plane::IRequestHandler& handler,
-                       const score::cpp::stop_token& stop_token);
+    void RunWorkerLoop(std::size_t worker_index, daemon::control_plane::IRequestHandler& handler);
     struct AssignedWorkItem final
     {
         WorkItemSubmission submission{};
@@ -67,8 +63,7 @@ class FixedWorkerWorkItemExecutor final : public IWorkItemSubmitter
     };
     static void ExecuteJob(AssignedWorkItem work_item,
                            CleanupJob cleanup_job,
-                           daemon::control_plane::IRequestHandler& handler,
-                           const score::cpp::stop_token& stop_token) noexcept;
+                           daemon::control_plane::IRequestHandler& handler) noexcept;
     void CompleteWork(std::size_t worker_index) noexcept;
     void MarkWorkerExited() noexcept;
 
@@ -83,7 +78,6 @@ class FixedWorkerWorkItemExecutor final : public IWorkItemSubmitter
     std::vector<CleanupJob> m_assigned_cleanup_jobs{};
     std::vector<bool> m_worker_busy{};
     std::vector<std::thread> m_workers{};
-    std::vector<score::cpp::stop_source> m_stop_sources{};
     HandlerFactory m_handler_factory{};
     std::size_t m_initialized_worker_count{0U};
     std::size_t m_exited_worker_count{0U};

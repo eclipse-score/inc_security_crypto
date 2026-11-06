@@ -120,10 +120,8 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Han
     IWorkItemSubmitter::WorkItemJob job;
     try
     {
-        job = [this](const WorkItemSubmission& submission,
-                     daemon::control_plane::IRequestHandler& handler,
-                     const score::cpp::stop_token& stop_token) noexcept {
-            return RunAcceptedWorkItem(submission.session, submission.item, handler, stop_token);
+        job = [this](const WorkItemSubmission& submission, daemon::control_plane::IRequestHandler& handler) noexcept {
+            return RunAcceptedWorkItem(submission.session, submission.item, handler);
         };
     }
     catch (const std::bad_alloc&)
@@ -152,8 +150,7 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Han
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 WorkItemDispatcher::RunAcceptedWorkItem(const std::shared_ptr<detail::Session>& session,
                                         const std::shared_ptr<WorkItem>& item,
-                                        daemon::control_plane::IRequestHandler& handler,
-                                        const score::cpp::stop_token& stop_token) noexcept
+                                        daemon::control_plane::IRequestHandler& handler) noexcept
 {
     // Handler calls and response construction may throw; finalize the admitted item before reporting failure.
     try

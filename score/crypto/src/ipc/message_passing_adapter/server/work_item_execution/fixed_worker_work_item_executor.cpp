@@ -68,7 +68,6 @@ bool FixedWorkerWorkItemExecutor::StartImpl(HandlerFactory handler_factory)
     m_initialized_worker_count = 0U;
     m_exited_worker_count = 0U;
     m_started = true;
-    m_stop_sources.resize(m_worker_count);
     m_worker_conditions.resize(m_worker_count);
     m_assigned_work_items.resize(m_worker_count);
     m_assigned_cleanup_jobs.resize(m_worker_count);
@@ -87,10 +86,6 @@ bool FixedWorkerWorkItemExecutor::StartImpl(HandlerFactory handler_factory)
     catch (...)
     {
         m_stopping = true;
-        for (auto& stop_source : m_stop_sources)
-        {
-            stop_source.request_stop();
-        }
         lock.unlock();
         for (auto& worker_condition : m_worker_conditions)
         {
@@ -106,10 +101,6 @@ bool FixedWorkerWorkItemExecutor::StartImpl(HandlerFactory handler_factory)
     if (m_startup_failed)
     {
         m_stopping = true;
-        for (auto& stop_source : m_stop_sources)
-        {
-            stop_source.request_stop();
-        }
         lock.unlock();
         for (auto& worker_condition : m_worker_conditions)
         {
@@ -224,10 +215,6 @@ void FixedWorkerWorkItemExecutor::Shutdown() noexcept
             return;
         }
         m_stopping = true;
-        for (auto& stop_source : m_stop_sources)
-        {
-            stop_source.request_stop();
-        }
     }
     for (auto& worker_condition : m_worker_conditions)
     {
@@ -251,7 +238,6 @@ void FixedWorkerWorkItemExecutor::Join() noexcept
         }
     }
     m_workers.clear();
-    m_stop_sources.clear();
     m_worker_conditions.clear();
     std::lock_guard<std::mutex> lock(m_mutex);
     m_cleanup_jobs.clear();
@@ -286,10 +272,6 @@ void FixedWorkerWorkItemExecutor::RunWorker(const std::size_t worker_index) noex
             std::lock_guard<std::mutex> lock(m_mutex);
             m_startup_failed = true;
             ++m_initialized_worker_count;
-            for (auto& stop_source : m_stop_sources)
-            {
-                stop_source.request_stop();
-            }
             m_startup_condition.notify_all();
         }
         MarkWorkerExited();
@@ -303,10 +285,6 @@ void FixedWorkerWorkItemExecutor::RunWorker(const std::size_t worker_index) noex
             std::lock_guard<std::mutex> lock(m_mutex);
             m_startup_failed = true;
             ++m_initialized_worker_count;
-            for (auto& stop_source : m_stop_sources)
-            {
-                stop_source.request_stop();
-            }
             m_startup_condition.notify_all();
         }
         MarkWorkerExited();
@@ -320,7 +298,7 @@ void FixedWorkerWorkItemExecutor::RunWorker(const std::size_t worker_index) noex
     // Keep unexpected loop failures from escaping the worker thread and signal its exit to Join().
     try
     {
-        RunWorkerLoop(worker_index, *handler, m_stop_sources.at(worker_index).get_token());
+        RunWorkerLoop(worker_index, *handler);
     }
     catch (...)
     {
@@ -330,8 +308,7 @@ void FixedWorkerWorkItemExecutor::RunWorker(const std::size_t worker_index) noex
 }
 
 void FixedWorkerWorkItemExecutor::RunWorkerLoop(const std::size_t worker_index,
-                                                daemon::control_plane::IRequestHandler& handler,
-                                                const score::cpp::stop_token& stop_token)
+                                                daemon::control_plane::IRequestHandler& handler)
 {
     while (true)
     {
@@ -364,15 +341,14 @@ void FixedWorkerWorkItemExecutor::RunWorkerLoop(const std::size_t worker_index,
                 continue;
             }
         }
-        ExecuteJob(std::move(work_item), std::move(cleanup_job), handler, stop_token);
+        ExecuteJob(std::move(work_item), std::move(cleanup_job), handler);
         CompleteWork(worker_index);
     }
 }
 
 void FixedWorkerWorkItemExecutor::ExecuteJob(AssignedWorkItem work_item,
                                              CleanupJob cleanup_job,
-                                             daemon::control_plane::IRequestHandler& handler,
-                                             const score::cpp::stop_token& stop_token) noexcept
+                                             daemon::control_plane::IRequestHandler& handler) noexcept
 {
     if (cleanup_job)
     {
@@ -391,7 +367,7 @@ void FixedWorkerWorkItemExecutor::ExecuteJob(AssignedWorkItem work_item,
         // The job type permits throwing callables; contain failures to keep this worker alive.
         try
         {
-            const auto result = work_item.job(work_item.submission, handler, stop_token);
+            const auto result = work_item.job(work_item.submission, handler);
             if (!result.has_value())
             {
                 score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Work-item job failed for client_id="
