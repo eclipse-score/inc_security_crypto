@@ -14,8 +14,16 @@
 #include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/config/cipher_context_config.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
+#include "score/crypto/src/api/config/mac_context_config.hpp"
+#include "score/crypto/src/api/config/sign_context_config.hpp"
+#include "score/crypto/src/api/config/verify_signature_context_config.hpp"
+#include "score/crypto/src/api/contexts/i_cipher_context.hpp"
 #include "score/crypto/src/api/contexts/i_hash_context.hpp"
+#include "score/crypto/src/api/contexts/i_mac_context.hpp"
+#include "score/crypto/src/api/contexts/i_sign_context.hpp"
+#include "score/crypto/src/api/contexts/i_verify_signature_context.hpp"
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
@@ -92,6 +100,39 @@ TEST(CryptoContextImplTest, RejectsExplicitHashProviderInsteadOfIgnoringIt)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(*result.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kUnsupportedOperation));
+    EXPECT_EQ(connection->GetRequestCount(), 0U);
+}
+
+TEST(CryptoContextImplTest, RejectsSharedSecretsForKeyedOperationContextsBeforeIpc)
+{
+    const std::shared_ptr<ErrorConnection> connection =
+        std::make_shared<ErrorConnection>(CryptoErrorCode::kInternalError);
+    CryptoContextImpl context{connection, nullptr};
+    const CryptoResourceId secret{71U, ResourceType::kSharedSecret, ResourcePersistence::kEphemeral, 3U};
+    CipherContextConfig cipher{};
+    cipher.SetAlgorithm("AES-256-GCM").SetKey(secret);
+    MacContextConfig mac{};
+    mac.SetAlgorithm("HMAC-SHA256").SetKey(secret);
+    SignContextConfig sign{};
+    sign.SetAlgorithm("ML-DSA-44").SetKey(secret);
+    VerifySignatureContextConfig verify{};
+    verify.SetAlgorithm("ML-DSA-44").SetKey(secret);
+
+    const score::Result<std::unique_ptr<ICipherContext>> cipher_result = context.CreateCipherContext(cipher);
+    const score::Result<std::unique_ptr<IMacContext>> mac_result = context.CreateMacContext(mac);
+    const score::Result<std::unique_ptr<ISignContext>> sign_result = context.CreateSignContext(sign);
+    const score::Result<std::unique_ptr<IVerifySignatureContext>> verify_result =
+        context.CreateVerifySignatureContext(verify);
+
+    ASSERT_FALSE(cipher_result.has_value());
+    ASSERT_FALSE(mac_result.has_value());
+    ASSERT_FALSE(sign_result.has_value());
+    ASSERT_FALSE(verify_result.has_value());
+    const score::result::Error unsupported = MakeError(CryptoErrorCode::kUnsupportedOperation);
+    EXPECT_EQ(cipher_result.error(), unsupported);
+    EXPECT_EQ(mac_result.error(), unsupported);
+    EXPECT_EQ(sign_result.error(), unsupported);
+    EXPECT_EQ(verify_result.error(), unsupported);
     EXPECT_EQ(connection->GetRequestCount(), 0U);
 }
 

@@ -158,6 +158,8 @@ Expected<std::monostate, DaemonErrorCode> Stream::Bind(
         case ::score::crypto::KeyType::kEd25519:
             key_matches_algorithm = key_type == EVP_PKEY_ED25519;
             break;
+        case ::score::crypto::KeyType::kMlDsa:
+        case ::score::crypto::KeyType::kMlKem:
         case ::score::crypto::KeyType::kNone:
         case ::score::crypto::KeyType::kSecret:
         case ::score::crypto::KeyType::kAes:

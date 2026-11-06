@@ -18,26 +18,40 @@
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/span.hpp"
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace score::crypto::daemon::key_management
 {
 
+class IKeyHandler;
+
 // ---------------------------------------------------------------------------
 // ProviderKeyHandle — opaque per-key runtime reference
 // ---------------------------------------------------------------------------
 
+/// Identifies the kind of key material held by a provider.
+enum class KeyMaterialKind : std::uint8_t
+{
+    kUnspecified,
+    kPublicKey,
+    kPrivateKey,
+    kSymmetricKey,
+    kSharedSecret
+};
+
 /// Runtime reference to key material held by a specific provider.
 ///
-/// The opaque_id is allocated, interpreted, and freed exclusively by the
-/// provider that issued the handle.  Callers must not dereference or
-/// arithmetic-shift opaque_id.
-///
+/// Only the issuing provider may interpret or dereference opaque_id. This
+/// internal metadata is never a client resource identity.
 ///   OpenSSL  : opaque_id maps to raw key bytes managed by the factory
 ///   PKCS#11  : opaque_id maps to (CK_SESSION_HANDLE, CK_OBJECT_HANDLE)
 ///   TEE/PSA  : opaque_id = persistent key identifier from the TEE driver
@@ -63,34 +77,48 @@ struct ProviderKeyHandle
     /// Catalog row the key was created or loaded for.
     ::score::crypto::AlgorithmDescriptor algorithm{};
     std::size_t key_size{0U};
+    KeyMaterialKind material_kind{KeyMaterialKind::kUnspecified};
 };
 
 /// @brief The permission set that governs @p required for this key.
 ///
-/// An asymmetric key carries two permission sets because its halves are used
-/// by different operations: the private half signs, decrypts, agrees and
-/// derives; the public half verifies, encrypts and wraps. Checking a verify
-/// request against the private half's permissions would deny a correctly
-/// provisioned sign-only key its legitimate public use, so the caller's
-/// intended operation selects which set applies.
+/// Material explicitly identified as a public key uses public_key_permissions
+/// for every requested operation, including KEM encapsulation and export.
+/// An unset public_key_permissions grants all permissions.
 ///
-/// A symmetric key has one half and one permission set, so `permissions`
-/// always applies.
+/// For other asymmetric handles, the requested operation selects the half:
+/// verify, encrypt and wrap use public_key_permissions; other operations use
+/// permissions. Raw EC export emits only the public point, so it uses
+/// public_key_permissions when export_format is kRaw. Symmetric keys and
+/// shared secrets use permissions.
+/// The caller separately checks whether the algorithm and key material
+/// support the requested operation.
 ///
 /// @param handle   The key whose permissions are being consulted.
 /// @param required The single permission bit the caller intends to exercise.
+/// @param export_format Encoding of an export operation; absent for other operations.
 [[nodiscard]] inline score::crypto::KeyOperationPermission GrantedPermissionsFor(
     const ProviderKeyHandle& handle,
-    score::crypto::KeyOperationPermission required) noexcept
+    score::crypto::KeyOperationPermission required,
+    std::optional<score::crypto::FormatType> export_format = std::nullopt) noexcept
 {
     using Permission = score::crypto::KeyOperationPermission;
+
+    if (handle.material_kind == KeyMaterialKind::kPublicKey)
+    {
+        return handle.public_key_permissions.value_or(Permission::kAll);
+    }
 
     /// Operations that consume the public half of a key pair.
     constexpr Permission kPublicHalfOperations = Permission::kVerify | Permission::kEncrypt | Permission::kWrap;
 
     // HasPermission(kPublicHalfOperations, required) asks whether `required` is
     // a subset of the public-half operations, i.e. "is this a public-half use?".
-    if (handle.is_asymmetric && score::crypto::HasPermission(kPublicHalfOperations, required))
+    const bool exports_ec_public_point =
+        required == Permission::kExport && export_format == score::crypto::FormatType::kRaw &&
+        handle.algorithm.key_type == score::crypto::KeyType::kEcc;
+    if (handle.is_asymmetric &&
+        (score::crypto::HasPermission(kPublicHalfOperations, required) || exports_ec_public_point))
     {
         return handle.public_key_permissions.value_or(Permission::kAll);
     }
@@ -143,7 +171,7 @@ struct KeyDeriveRequest
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
 };
 
-/// Parameters for key agreement (ECDH, X25519, ML-KEM).
+/// Parameters for key agreement (ECDH, X25519). KEM uses dedicated factory requests.
 ///
 /// When kdf is set, the provider performs agree-then-derive atomically,
 /// matching AgreeKeyParams semantics from the client API.
@@ -161,6 +189,31 @@ struct KeyAgreeRequest
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
     /// Optional KDF for combined agree-then-derive (e.g., ECIES, TLS key exchange).
     std::optional<score::crypto::KdfParameters> kdf{std::nullopt};
+};
+
+// ---------------------------------------------------------------------------
+// KEM request and result types
+// ---------------------------------------------------------------------------
+
+struct KeyEncapsulationRequest
+{
+    const IKeyHandler& public_key;
+    AlgorithmDescriptor algorithm;
+};
+
+struct KeyDecapsulationRequest
+{
+    const IKeyHandler& private_key;
+    AlgorithmDescriptor algorithm;
+    score::cpp::span<const std::uint8_t> ciphertext;
+};
+
+/// Internal provider result. Only ciphertext can be serialized; shared_secret
+/// must first be registered with KeyManagementService.
+struct ProviderEncapsulationResult
+{
+    std::vector<std::uint8_t> ciphertext;
+    std::shared_ptr<IKeyHandler> shared_secret;
 };
 
 // ---------------------------------------------------------------------------
@@ -200,13 +253,14 @@ struct UnwrapKeyRequest
 };
 
 // ---------------------------------------------------------------------------
-// SecureKeyBytes — RAII container for exported key material
+// SecureKeyBytes — move-only storage for temporary or provider-owned secrets
 // ---------------------------------------------------------------------------
 
 /// Bytes are securely zeroized on destruction.
 ///
-/// Ephemeral keys remain associated with their creating provider for the
-/// duration of the context. Must not be stored in persistent data structures.
+/// Allocate to the final size before filling the buffer. Do not resize or
+/// reallocate populated secret storage: discarded allocations cannot be wiped
+/// by this owner. This container does not lock pages or exclude crash dumps.
 struct SecureKeyBytes
 {
     std::vector<std::uint8_t> bytes;
@@ -216,16 +270,21 @@ struct SecureKeyBytes
 
     ~SecureKeyBytes()
     {
-        for (auto& b : bytes)
-        {
-            b = 0U;
-        }
+        common::SecureZeroizeAndClear(bytes);
     }
 
     SecureKeyBytes(const SecureKeyBytes&) = delete;
     SecureKeyBytes& operator=(const SecureKeyBytes&) = delete;
     SecureKeyBytes(SecureKeyBytes&&) noexcept = default;
-    SecureKeyBytes& operator=(SecureKeyBytes&&) noexcept = default;
+    SecureKeyBytes& operator=(SecureKeyBytes&& other) noexcept
+    {
+        if (this != &other)
+        {
+            common::SecureZeroizeAndClear(bytes);
+            bytes = std::move(other.bytes);
+        }
+        return *this;
+    }
 };
 
 // ---------------------------------------------------------------------------

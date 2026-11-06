@@ -62,6 +62,7 @@ enum class KeyShape : std::uint8_t
     kRsa,
     kEd25519,
     kSymmetric,
+    kUnsupported,
 };
 
 /// Decided by key type; every KeyType needs a case so a new one forces a choice here.
@@ -78,6 +79,9 @@ KeyShape ShapeOf(const AlgorithmDescriptor& algorithm) noexcept
                                                                                     : KeyShape::kSymmetric;
         case ::score::crypto::KeyType::kEd25519:
             return KeyShape::kEd25519;
+        case ::score::crypto::KeyType::kMlDsa:
+        case ::score::crypto::KeyType::kMlKem:
+            return KeyShape::kUnsupported;
         case ::score::crypto::KeyType::kNone:
         case ::score::crypto::KeyType::kSecret:
         case ::score::crypto::KeyType::kAes:
@@ -280,6 +284,8 @@ OpenSslKeyFactory::CreateImportedAsymmetricKey(const key_management::KeyImportRe
     auto permissions = parsed.has_private_half ? request.permissions : score::crypto::KeyOperationPermission::kNone;
 
     auto handle = MakeHandle(m_provider_id, request.algorithm, permissions, key_size, true);
+    handle.material_kind = parsed.has_private_half ? key_management::KeyMaterialKind::kPrivateKey
+                                                  : key_management::KeyMaterialKind::kPublicKey;
     handle.public_key_permissions = request.permissions;
     handle.opaque_id = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(owned_pkey.get()));
     return std::make_shared<OpenSslKeyHandler>(std::move(owned_pkey), handle);
@@ -296,6 +302,9 @@ OpenSslKeyFactory::GenerateKey(const key_management::KeyGenerationRequest& reque
             return GenerateRsaKey(request);
         case KeyShape::kEd25519:
             return GenerateEd25519Key(request);
+        case KeyShape::kUnsupported:
+            return ::score::crypto::make_unexpected(
+                ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
         case KeyShape::kSymmetric:
             break;
     }
@@ -370,6 +379,9 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
             return ImportRsaKey(request);
         case KeyShape::kEd25519:
             return ImportEd25519Key(request);
+        case KeyShape::kUnsupported:
+            return ::score::crypto::make_unexpected(
+                ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
         case KeyShape::kSymmetric:
             break;
     }
@@ -579,6 +591,7 @@ OpenSslKeyFactory::ImportRawEcPublicKey(const key_management::KeyImportRequest& 
     // nothing; only the public half carries the slot's grant (verify / export).
     auto handle = MakeHandle(
         m_provider_id, request.algorithm, score::crypto::KeyOperationPermission::kNone, field_size, true);
+    handle.material_kind = key_management::KeyMaterialKind::kPublicKey;
     handle.opaque_id = static_cast<std::uint64_t>(
         reinterpret_cast<std::uintptr_t>(owned_pkey.get()));  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     handle.public_key_permissions = request.permissions;

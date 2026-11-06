@@ -48,7 +48,7 @@ Backend enable/disable is controlled via `bool_flag` targets. All flags are in
 | `score_crypto_pkcs11_backend_enabled` | `True` | `--//score/crypto/src/backend:score_crypto_pkcs11_backend_enabled=False` |
 | `score_crypto_score_backend_enabled` | `True` | `--//score/crypto/src/backend:score_crypto_score_backend_enabled=False` |
 | `score_crypto_score_openssl_enabled` | `True` | `--//score/crypto/src/backend:score_crypto_score_openssl_enabled=False` |
-| `score_crypto_score_primula_enabled` | `False` | `--//score/crypto/src/backend:score_crypto_score_primula_enabled=True` |
+| `score_crypto_score_primula_enabled` | `True` | `--//score/crypto/src/backend:score_crypto_score_primula_enabled=False` |
 
 `score_crypto_score_backend_enabled` is the master gate for the score provider
 Individual sub-backend flags (`score_crypto_score_openssl_enabled`, etc.) have

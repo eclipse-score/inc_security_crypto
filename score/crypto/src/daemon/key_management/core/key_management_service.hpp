@@ -16,6 +16,7 @@
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_entry.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_registry.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
@@ -72,9 +73,8 @@ struct KeyDataNodeResult
 /// are NOT part of this service. Executors call IKeyFactory and IKeySlotHandler
 /// directly for those, then use the service for bookkeeping integration.
 ///
-/// Thread safety: methods are serialized by the underlying DataManager and
-/// SlotRegistry mutexes. The service itself holds no mutable state beyond
-/// the injected shared pointers.
+/// Thread safety: DataManager and registries synchronize their bookkeeping.
+/// Provider key handlers are responsible for synchronizing key usage.
 class KeyManagementService final
 {
   public:
@@ -225,20 +225,26 @@ class KeyManagementService final
         data_manager::ClientId client_id,
         data_manager::DataNodeId slot_node_id);
 
-    /// Resolve a key DataNode ID (a KeyDataNode) back to its backing KeyEntry.
+    /// Resolve a key DataNode ID (a KeyDataNode) back to its owning KeyEntry.
     ///
     /// Used by executor handlers that need a ProviderKeyHandle or the raw
     /// IKeyHandler to build provider-level request structs (WrapKey, ExportKey, ...).
-    ///
-    /// Returns the owning KeyEntry (not just the IKeyHandler) so the caller can
-    /// keep it alive for the full duration of the operation. The KeyEntry
-    /// destructor calls IKeyHandler::Release(), which frees the underlying key
-    /// material regardless of how many IKeyHandler shared_ptrs still exist;
-    /// holding only the handler would therefore not prevent a concurrent release
-    /// (from another key-management context sharing the same key) from freeing
-    /// the key material mid-operation, causing a use-after-free.
+    /// The caller retains the entry for the whole operation to prevent its
+    /// destructor from releasing key material when the client node is removed.
     [[nodiscard]] Expected<std::shared_ptr<KeyEntry>, score::crypto::daemon::common::DaemonErrorCode>
     ResolveKeyForOperation(data_manager::ClientId client_id, data_manager::DataNodeId key_node_id) const;
+
+    /// Resolve a client-owned key and retain its entry without serializing provider use.
+    /// Both registry and handler provider identities must match the context.
+    /// Checks the requested permission using GrantedPermissionsFor().
+    /// export_format selects the public-half permission for raw EC public-point export.
+    /// The caller validates the algorithm and key material for its operation.
+    [[nodiscard]] Expected<std::shared_ptr<KeyEntry>, common::DaemonErrorCode> AcquireKeyForOperation(
+        data_manager::ClientId client_id,
+        data_manager::DataNodeId key_node_id,
+        common::ProviderId provider_id,
+        score::crypto::KeyOperationPermission permission,
+        std::optional<score::crypto::FormatType> export_format = std::nullopt) const;
 
     // ------------------------------------------------------------------
     // Accessors

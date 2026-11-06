@@ -140,10 +140,14 @@ Expected<ResponseParameters, DaemonErrorCode> SignExecutor::ExecuteStreaming(Sco
 Expected<ResponseParameters, DaemonErrorCode> SignExecutor::ExecuteFinalize(ScoreSignHandler& handler_ref,
                                                                             RequestParameters& request)
 {
-    // request[0] = caller-provided signature output buffer
+    // FINALIZE accepts one output buffer. Message data is supplied via UPDATE.
     if (request.empty())
     {
         return make_unexpected(DaemonErrorCode::kInsufficientParameters);
+    }
+    if (request.size() != 1U)
+    {
+        return make_unexpected(DaemonErrorCode::kInvalidArgument);
     }
 
     const auto signatureSpan = handler::handler_utils::CheckAndGetSpan<std::uint8_t>(request[0]);

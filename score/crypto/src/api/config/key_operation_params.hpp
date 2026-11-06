@@ -221,13 +221,94 @@ struct GenerateKeyParams
     }
 };
 
+/// @brief Encapsulate using an imported public-key resource.
+/// The resulting shared secret is ephemeral, derive-only and non-exportable.
+struct EncapsulateKeyParams
+{
+    /// @brief Handle to the peer's imported public key (required).
+    /// Must reference a key resource (ResourceType::kKey).
+    CryptoResourceId peer_public_key{};
+
+    /// @brief KEM algorithm identifier for encapsulation (required).
+    /// Example: "ML-KEM-768".
+    AlgorithmId algorithm{};
+
+    EncapsulateKeyParams& SetPeerPublicKey(const CryptoResourceId& key) noexcept
+    {
+        peer_public_key = key;
+        return *this;
+    }
+    EncapsulateKeyParams& SetAlgorithm(const AlgorithmId& value) noexcept
+    {
+        algorithm = value;
+        return *this;
+    }
+    score::Result<std::monostate> Validate() const noexcept
+    {
+        if (peer_public_key.id == kInvalidCryptoResourceId || peer_public_key.type != ResourceType::kKey ||
+            algorithm.empty() || algorithm.truncated())
+        {
+            return score::Result<std::monostate>{
+                score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Invalid encapsulation parameters")};
+        }
+        return std::monostate{};
+    }
+};
+
+/// @brief Decapsulate using a private-key resource and peer ciphertext.
+/// Ciphertext is borrowed until the call returns. Only a secret guard is returned.
+struct DecapsulateKeyParams
+{
+    /// @brief Handle to the private key used for decapsulation (required).
+    /// Must reference a key resource (ResourceType::kKey) belonging to this
+    /// context's provider and permitting KeyOperationPermission::kAgree.
+    CryptoResourceId private_key{};
+
+    /// @brief Ciphertext produced by the peer during encapsulation (required).
+    /// Non-owning view. The underlying buffer must remain valid until
+    /// IKeyManagementContext::DecapsulateKey() returns.
+    score::cpp::span<const uint8_t> ciphertext{};
+
+    /// @brief KEM algorithm identifier for decapsulation (required).
+    /// Example: "ML-KEM-768".
+    AlgorithmId algorithm{};
+
+    DecapsulateKeyParams& SetPrivateKey(const CryptoResourceId& key) noexcept
+    {
+        private_key = key;
+        return *this;
+    }
+    DecapsulateKeyParams& SetCiphertext(score::cpp::span<const uint8_t> value) noexcept
+    {
+        ciphertext = value;
+        return *this;
+    }
+    DecapsulateKeyParams& SetAlgorithm(const AlgorithmId& value) noexcept
+    {
+        algorithm = value;
+        return *this;
+    }
+    score::Result<std::monostate> Validate() const noexcept
+    {
+        if (private_key.id == kInvalidCryptoResourceId || private_key.type != ResourceType::kKey ||
+            algorithm.empty() || algorithm.truncated() || ciphertext.empty() || ciphertext.data() == nullptr)
+        {
+            return score::Result<std::monostate>{
+                score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Invalid decapsulation parameters")};
+        }
+        return std::monostate{};
+    }
+};
+
 /// @brief Parameters for key derivation via IKeyManagementContext::DeriveKey().
 ///
 /// Supports HKDF, TLS 1.2 PRF, TLS 1.3 HKDF, PBKDF2, and SP800-108
 /// via the structured KdfParameters field.
 struct DeriveKeyParams
 {
-    /// @brief Handle to the source key (required). CryptoResourceId with type = kKey.
+    /// @brief Handle to the source key material (required).
+    /// Must reference ResourceType::kKey or ResourceType::kSharedSecret.
+    /// The provider must permit KeyOperationPermission::kDerive for this resource.
     CryptoResourceId source_key{};
 
     /// @brief Algorithm identifier for the derived key (required).
@@ -268,18 +349,27 @@ struct DeriveKeyParams
 
     /// @brief Validates these parameters.
     ///
-    /// Propagates KdfParameters::Validate() — in particular, catches truncation
-    /// that occurred in SetSalt() or SetSeed().
+    /// Requires an assigned source id (not kInvalidCryptoResourceId) of type
+    /// kKey or kSharedSecret; otherwise returns kInvalidArgument.
+    /// Propagates KdfParameters::Validate(), including truncation detected
+    /// by SetSalt() or SetSeed().
     score::Result<std::monostate> Validate() const noexcept
     {
+        if (source_key.id == kInvalidCryptoResourceId ||
+            (source_key.type != ResourceType::kKey && source_key.type != ResourceType::kSharedSecret))
+        {
+            return score::Result<std::monostate>{
+                score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Invalid derivation source")};
+        }
         return kdf.Validate();
     }
 };
 
 /// @brief Parameters for key agreement via IKeyManagementContext::AgreeKey().
 ///
-/// Supports raw key agreement (ECDH, X25519, ML-KEM decapsulation) and
+/// Supports key agreement (ECDH, X25519) and
 /// combined agree-then-derive (ECIES, TLS key exchange) when kdf is set.
+/// For KEM, use DecapsulateKeyParams or EncapsulateKeyParams.
 struct AgreeKeyParams
 {
     /// @brief Handle to this party's private key (required).
@@ -290,7 +380,7 @@ struct AgreeKeyParams
     score::cpp::span<const uint8_t> peer_public_key{};
 
     /// @brief Key agreement algorithm (required).
-    /// Examples: "ECDH-P256", "X25519", "ML-KEM-768"
+    /// Examples: "ECDH-P256", "X25519"
     AlgorithmId agreement_algorithm{};
 
     /// @brief Format of the peer public key data. Defaults to raw/uncompressed.
@@ -533,11 +623,11 @@ struct UnwrapKeyParams
 struct ImportKeyParams
 {
     /// @brief Key data to import (required). Points to caller-owned memory.
-    /// For public keys: DER-encoded SubjectPublicKeyInfo or PEM equivalent.
+    /// For public keys: DER/PEM, or algorithm-defined bytes with FormatType::kRaw.
     score::cpp::span<const uint8_t> key_data{};
 
-    /// @brief Encoding format of key_data: DER (binary ASN.1) or PEM (base64-armored).
-    /// Both formats are meaningful only for asymmetric (public) keys.
+    /// @brief Encoding of key_data: DER, PEM, or algorithm-defined raw key bytes.
+    /// Supported encodings depend on the selected algorithm and provider.
     /// Symmetric keys have no ASN.1 structure and must not be imported via this struct.
     FormatType format{FormatType::kDer};
 
@@ -577,6 +667,23 @@ struct ImportKeyParams
     {
         permissions = perms;
         return *this;
+    }
+
+    /// @brief Validates the provider-independent key-import parameters.
+    /// @return Success, or kInvalidArgument for an empty or truncated algorithm,
+    /// empty or null key data, an invalid format, or unknown permission bits.
+    /// @note Algorithm support and key encoding are validated by the daemon/provider.
+    score::Result<std::monostate> Validate() const noexcept
+    {
+        if (algorithm.empty() || algorithm.truncated() || key_data.empty() ||
+            !key_data.data() ||
+            static_cast<std::uint8_t>(format) > static_cast<std::uint8_t>(FormatType::kRaw) ||
+            (static_cast<std::uint32_t>(permissions) & ~static_cast<std::uint32_t>(KeyOperationPermission::kAll)) !=
+                0U)
+        {
+            return score::Result<std::monostate>{score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument)};
+        }
+        return std::monostate{};
     }
 };
 
