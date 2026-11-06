@@ -20,6 +20,7 @@ filegroup(
     srcs = glob([
         "*/*.bin",
         "*/*.der",
+        "*/*.pem",
         "*/*.rsp",
     ]),
     visibility = ["//visibility:public"],
@@ -30,6 +31,7 @@ pkg_files(
     srcs = glob([
         "*/*.bin",
         "*/*.der",
+        "*/*.pem",
         "*/*.rsp",
     ]),
     # preserve test_vectors/ecdsa/<curve>/ folders

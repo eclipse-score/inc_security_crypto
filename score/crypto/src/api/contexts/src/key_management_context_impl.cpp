@@ -396,7 +396,7 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::ImportKey(const Imp
     builder.operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_IMPORT})
         .with_in_string(params.algorithm)
         .with_in_val_uint32(static_cast<std::uint32_t>(params.permissions))
-        .with_in_val_uint32(static_cast<std::uint32_t>(params.format));
+        .with_in_val_uint32(keymgmt_ops::EncodeFormat(params.format));
 
     // Route the key material through the data plane (shared memory) rather than an
     // in-band control-plane buffer: acquire an input slot and attach it so the

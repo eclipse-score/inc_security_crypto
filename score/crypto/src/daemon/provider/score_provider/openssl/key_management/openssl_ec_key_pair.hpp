@@ -40,16 +40,17 @@ GenerateEcKeyPair(common::ProviderId provider_id, const key_management::KeyGener
 
 /// Import an EC key into an OpenSslKeyHandler.
 ///
-/// With request.format kDer the bytes are a private key (PKCS#8 or traditional) or a SubjectPublicKeyInfo.
-/// With request.format kRaw they are the uncompressed SEC1 public point 0x04||X||Y.
+/// The format is request.format, or detected when unset (see detail::ResolveAsymmetricFormat()).
+/// As kDer or kPem the bytes are a private key (PKCS#8 or traditional) or a SubjectPublicKeyInfo.
+/// As kRaw they are the uncompressed SEC1 public point 0x04||X||Y.
 /// @param provider_id Provider that issues the key handle.
 /// @param request Key material, its format, catalog row and permissions.
 /// @return The imported key, or
 ///         - kUnsupportedAlgorithm when IsEcKeySupported() rejects the request.algorithm row;
-///         - kInvalidFormat when request.format is neither kDer nor kRaw, the DER is not one complete key,
+///         - kInvalidFormat when the DER or PEM is not one complete key,
 ///           or the raw point has the wrong length, another encoding, or lies off the curve;
 ///         - kInvalidArgument when request.key_data_size does not fit a long;
-///         - kIncompatibleKeyType when the DER key is not an EC key or lies on another curve.
+///         - kIncompatibleKeyType when the parsed key is not an EC key or lies on another curve.
 /// @pre request.key_data is non-null and request.key_data_size is non-zero.
 /// @note A SubjectPublicKeyInfo or raw-point import carries no private-half permissions,
 ///       whatever request.permissions grants.

@@ -700,7 +700,10 @@ and one dep in ``daemon/common/storage/BUILD``.  No other files change.
    * - ``key_path``
      - Filesystem path to the key material file (file-backed providers)
    * - ``key_format``
-     - Encoding of the file: ``"raw"``, ``"pem"``, ``"der"``
+     - Encoding of the file: ``"raw"``, ``"pem"``, ``"der"``; any other
+       value fails the load. When absent, the key type's native format is
+       used (raw for AES and HMAC; PEM, DER or a raw EC point detected
+       from the data otherwise). Symmetric keys must be raw
    * - ``key``
      - Plain-text key material (hex/base64). **For testing/development only.**
    * - ``pkcs11.label``

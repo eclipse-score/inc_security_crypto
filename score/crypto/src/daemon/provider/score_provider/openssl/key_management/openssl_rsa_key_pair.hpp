@@ -38,14 +38,14 @@ namespace score::crypto::daemon::provider::openssl
                                         ::score::crypto::daemon::common::DaemonErrorCode>
 GenerateRsaKeyPair(common::ProviderId provider_id, const key_management::KeyGenerationRequest& request);
 
-/// Import a DER-encoded RSA key (a private key, PKCS#8 or traditional, or a
-/// SubjectPublicKeyInfo) into an OpenSslKeyHandler.
+/// Import a DER or PEM encoded RSA key (a private key, PKCS#8 or traditional, or a
+/// SubjectPublicKeyInfo) into an OpenSslKeyHandler; see detail::ParseKey().
 ///
 /// @param provider_id Provider that issues the key handle.
 /// @param request Key material, its format, catalog row and permissions.
 /// @return The imported key, or
 ///         - kUnsupportedAlgorithm when IsRsaKeySupported() rejects the request.algorithm row;
-///         - kInvalidFormat when request.format is not kDer or the bytes are not one complete DER key;
+///         - kInvalidFormat when the format resolves to neither kDer nor kPem or the bytes are not one complete key;
 ///         - kInvalidArgument when request.key_data_size does not fit a long;
 ///         - kIncompatibleKeyType when the key is not an RSA key or its modulus size differs from the row's.
 /// @pre request.key_data is non-null and request.key_data_size is non-zero.

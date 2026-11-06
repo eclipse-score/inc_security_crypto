@@ -23,6 +23,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <variant>
 
 namespace score::crypto::daemon::key_management
 {
@@ -150,6 +151,17 @@ class IKeyFactory
     /// Default: UnwrapKey(request) + slot_handler.StoreKey(slot, *handler).
     [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     UnwrapKeyToSlot(const KeySlotConfig& slot, const UnwrapKeyRequest& request, IKeySlotHandler& slot_handler);
+
+  protected:
+    /// Check a symmetric key import before a provider stores the bytes.
+    ///
+    /// Shared by every provider so that all of them accept the same material:
+    ///   - the row must label a symmetric key (AES or HMAC secret): kInvalidArgument otherwise;
+    ///   - request.format must be unset (native) or kRaw: kInvalidFormat otherwise;
+    ///   - an AES key must be exactly as long as its variant (16, 24 or 32 bytes),
+    ///     and an HMAC key at least as long as its digest: kIncompatibleKeyType otherwise.
+    [[nodiscard]] static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+    ValidateSymmetricImport(const KeyImportRequest& request) noexcept;
 };
 
 }  // namespace score::crypto::daemon::key_management

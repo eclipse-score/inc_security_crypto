@@ -55,10 +55,13 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
-    /// Import raw symmetric key material, a DER-encoded key pair or public key, or a raw EC public point.
+    /// Import raw symmetric key material, a DER or PEM encoded key pair or public key, or a raw EC public point.
     ///
+    /// Symmetric material must pass IKeyFactory::ValidateSymmetricImport() first. An unset
+    /// request.format means the native format of the key type (see detail::ResolveAsymmetricFormat()).
     /// @param request Key material, its format, catalog row and permissions.
     /// @return The imported key, kInvalidArgument when request.key_data is null or empty,
+    ///         kInvalidFormat or kIncompatibleKeyType when symmetric material is refused,
     ///         kUnsupportedAlgorithm when no family claims the row, or the error of the family that claims it.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>

@@ -200,7 +200,7 @@ Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorC
 //   context_node_id  – parent context node for the new key node
 //   request[0]       = algorithm   (string_view)
 //   request[1]       = permissions (uint32_t, optional)
-//   request[2]       = format      (uint32_t FormatType, optional)
+//   request[2]       = format      (uint32_t, operations::EncodeFormat(); optional)
 //   request[3]       = key_data    (span<const uint8_t>)
 // ---------------------------------------------------------------------------
 

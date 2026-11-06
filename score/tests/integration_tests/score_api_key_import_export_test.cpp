@@ -12,7 +12,8 @@
  ********************************************************************************/
 
 /// @file score_api_key_import_export_test.cpp
-/// @brief End-to-end integration tests for raw and DER EC public-key import and export.
+/// @brief End-to-end integration tests for raw, DER and PEM EC public-key import and
+/// export, and for symmetric key import validation.
 
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
 #include "score/crypto/src/api/config/key_operation_params.hpp"
@@ -63,12 +64,14 @@ enum class EcCurve
 enum class PublicKeyFormat
 {
     kRaw,
-    kDer
+    kDer,
+    kPem
 };
 
 /// Reads a public-key test vector.
 /// For kRaw, constructs SEC 1 uncompressed encoding: 0x04 || X || Y.
 /// For kDer, returns the complete SubjectPublicKeyInfo DER bytes.
+/// For kPem, returns the same SubjectPublicKeyInfo in PEM armour.
 std::vector<std::uint8_t> ReadPublicKey(const EcCurve curve, const PublicKeyFormat format)
 {
     std::string curve_directory;
@@ -95,6 +98,10 @@ std::vector<std::uint8_t> ReadPublicKey(const EcCurve curve, const PublicKeyForm
     if (format == PublicKeyFormat::kDer)
     {
         return read_bin(GetTestVectorPath(curve_directory + file_prefix + "_public_key.der"));
+    }
+    if (format == PublicKeyFormat::kPem)
+    {
+        return read_bin(GetTestVectorPath(curve_directory + file_prefix + "_public_key.pem"));
     }
 
     const auto x = read_bin(GetTestVectorPath(curve_directory + file_prefix + "_ux.bin"));
@@ -337,6 +344,102 @@ TEST_F(KeyImportExportTest, ImportDerP384WithP256Algorithm_IsRejected)
 
     const auto result = key_mgmt_->ImportKey(import_params);
     EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(KeyImportExportTest, ImportPemP384_ExportsSamePointAsRawVector)
+{
+    const auto pem_key = ReadPublicKey(EcCurve::kP384, PublicKeyFormat::kPem);
+    const auto point = ReadPublicKey(EcCurve::kP384, PublicKeyFormat::kRaw);
+    ASSERT_FALSE(pem_key.empty());
+    ASSERT_EQ(point.size(), 97U);
+
+    ImportKeyParams import_params;
+    import_params.SetKeyData(pem_key.data(), pem_key.size())
+        .SetFormat(FormatType::kPem)
+        .SetAlgorithm("ECDSA-P384-SHA512")
+        .SetPermissions(KeyOperationPermission::kVerify | KeyOperationPermission::kExport);
+
+    auto key_result = key_mgmt_->ImportKey(import_params);
+    ASSERT_TRUE(key_result.has_value()) << "Importing a valid P-384 SubjectPublicKeyInfo PEM key must succeed";
+    auto key = std::move(key_result.value());
+
+    std::vector<std::uint8_t> exported(point.size(), 0U);
+    auto written = key_mgmt_->ExportKey(key, {exported.data(), exported.size()}, FormatType::kRaw);
+    ASSERT_TRUE(written.has_value());
+    ASSERT_EQ(written.value(), point.size());
+    EXPECT_EQ(exported, point);
+}
+
+TEST_F(KeyImportExportTest, ImportPublicKeyWithoutFormat_DetectsPemDerAndRawPoint)
+{
+    const auto point = ReadPublicKey(EcCurve::kP384, PublicKeyFormat::kRaw);
+    ASSERT_EQ(point.size(), 97U);
+
+    for (const auto format : {PublicKeyFormat::kPem, PublicKeyFormat::kDer, PublicKeyFormat::kRaw})
+    {
+        const auto data = ReadPublicKey(EcCurve::kP384, format);
+        ASSERT_FALSE(data.empty());
+
+        ImportKeyParams import_params;
+        import_params.SetKeyData(data.data(), data.size())
+            .SetAlgorithm("ECDSA-P384-SHA512")
+            .SetPermissions(KeyOperationPermission::kVerify | KeyOperationPermission::kExport);
+
+        auto key_result = key_mgmt_->ImportKey(import_params);
+        ASSERT_TRUE(key_result.has_value()) << "Native import failed for format " << static_cast<int>(format);
+        auto key = std::move(key_result.value());
+
+        std::vector<std::uint8_t> exported(point.size(), 0U);
+        auto written = key_mgmt_->ExportKey(key, {exported.data(), exported.size()}, FormatType::kRaw);
+        ASSERT_TRUE(written.has_value());
+        EXPECT_EQ(exported, point) << "format " << static_cast<int>(format);
+    }
+}
+
+TEST_F(KeyImportExportTest, ImportPemP384WithP256Algorithm_IsRejected)
+{
+    const auto pem_key = ReadPublicKey(EcCurve::kP384, PublicKeyFormat::kPem);
+    ASSERT_FALSE(pem_key.empty());
+
+    ImportKeyParams import_params;
+    import_params.SetKeyData(pem_key.data(), pem_key.size())
+        .SetFormat(FormatType::kPem)
+        .SetAlgorithm("ECDSA-P256-SHA256")
+        .SetPermissions(KeyOperationPermission::kVerify);
+
+    EXPECT_FALSE(key_mgmt_->ImportKey(import_params).has_value());
+}
+
+TEST_F(KeyImportExportTest, ImportAes256_NativeOrRawFormatAndExactLength)
+{
+    const std::vector<std::uint8_t> key_32(32U, 0x5AU);
+    const std::vector<std::uint8_t> key_31(31U, 0x5AU);
+
+    ImportKeyParams native_params;
+    native_params.SetAlgorithm("AES-256").SetPermissions(KeyOperationPermission::kEncrypt);
+    native_params.SetKeyData(key_32.data(), key_32.size());
+    auto native_result = key_mgmt_->ImportKey(native_params);
+    ASSERT_TRUE(native_result.has_value()) << "AES-256 key without a format must be read as raw bytes";
+    EXPECT_TRUE(native_result.value().IsActive());
+
+    native_params.SetKeyData(key_31.data(), key_31.size());
+    EXPECT_FALSE(key_mgmt_->ImportKey(native_params).has_value()) << "31-byte AES-256 key must be rejected";
+
+    ImportKeyParams import_params;
+    import_params.SetAlgorithm("AES-256").SetPermissions(KeyOperationPermission::kEncrypt);
+
+    import_params.SetKeyData(key_31.data(), key_31.size()).SetFormat(FormatType::kRaw);
+    EXPECT_FALSE(key_mgmt_->ImportKey(import_params).has_value()) << "31-byte AES-256 key must be rejected";
+
+    import_params.SetKeyData(key_32.data(), key_32.size()).SetFormat(FormatType::kDer);
+    auto der_result = key_mgmt_->ImportKey(import_params);
+    ASSERT_FALSE(der_result.has_value()) << "AES key labelled DER must be rejected";
+    EXPECT_EQ(*der_result.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kInvalidFormat));
+
+    import_params.SetFormat(FormatType::kRaw);
+    auto key_result = key_mgmt_->ImportKey(import_params);
+    ASSERT_TRUE(key_result.has_value()) << "32-byte raw AES-256 key must be accepted";
+    EXPECT_TRUE(key_result.value().IsActive());
 }
 
 }  // namespace

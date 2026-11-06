@@ -14,9 +14,11 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_REQUEST_PARSER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_REQUEST_PARSER_HPP
 
+#include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 
 #include "score/span.hpp"
@@ -123,37 +125,42 @@ ExtractDataBuffer(const common::RequestParameters& request, std::size_t index)
 
 /// Extract an optional encoding format at the given index.
 ///
-/// The client serialises FormatType with with_in_val_uint32(), so uint32_t is
-/// the alternative to look for.
+/// The client serialises the format with with_in_val_uint32() using
+/// operations::EncodeFormat(), so uint32_t is the alternative to look for.
 ///
-/// An absent parameter is legitimate and yields kDer — the documented default
-/// of ImportKeyParams::format and ExportKey()'s format argument. A parameter
-/// that is present but of a different variant type is a wire-encoding bug on
-/// the client side; defaulting it to kDer would mask that, so it is rejected
-/// with kInvalidArgument instead.
-[[nodiscard]] inline Expected<score::crypto::FormatType, score::crypto::daemon::common::DaemonErrorCode>
-ExtractFormatOrDefault(const common::RequestParameters& request, std::size_t index)
+/// An absent parameter or operations::kFormatNative yields std::nullopt: the
+/// caller named no format. A parameter of a different variant type, or a value
+/// that DecodeFormat() does not know, is a wire-encoding bug on the client
+/// side and is rejected with kInvalidArgument.
+[[nodiscard]] inline Expected<std::optional<score::crypto::FormatType>, score::crypto::daemon::common::DaemonErrorCode>
+ExtractOptionalFormat(const common::RequestParameters& request, std::size_t index)
 {
     if (request.size() <= index)
     {
-        return score::crypto::FormatType::kDer;
+        return std::optional<score::crypto::FormatType>{};
     }
     const auto* val = std::get_if<std::uint32_t>(&request[index]);
-    if (val == nullptr)
+    std::optional<score::crypto::FormatType> format{};
+    if ((val == nullptr) || !key_management::operations::DecodeFormat(*val, format))
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
-    switch (*val)
+    return format;
+}
+
+/// Extract an encoding format at the given index, defaulting to kDer.
+///
+/// Same wire rules as ExtractOptionalFormat(); no format resolves to kDer, the
+/// documented default of ExportKey()'s format argument.
+[[nodiscard]] inline Expected<score::crypto::FormatType, score::crypto::daemon::common::DaemonErrorCode>
+ExtractFormatOrDefault(const common::RequestParameters& request, std::size_t index)
+{
+    auto format = ExtractOptionalFormat(request, index);
+    if (!format.has_value())
     {
-        case static_cast<std::uint32_t>(score::crypto::FormatType::kDer):
-            return score::crypto::FormatType::kDer;
-        case static_cast<std::uint32_t>(score::crypto::FormatType::kPem):
-            return score::crypto::FormatType::kPem;
-        case static_cast<std::uint32_t>(score::crypto::FormatType::kRaw):
-            return score::crypto::FormatType::kRaw;
-        default:
-            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+        return score::crypto::make_unexpected(format.error());
     }
+    return format.value().value_or(score::crypto::FormatType::kDer);
 }
 
 /// Build a KeyImportRequest from the packed request parameters.
@@ -161,7 +168,7 @@ ExtractFormatOrDefault(const common::RequestParameters& request, std::size_t ind
 /// Expected layout:
 ///   request[0] = algorithm   (string_view,            required)
 ///   request[1] = permissions (uint32_t,               optional, default kAll)
-///   request[2] = format      (uint32_t FormatType,    optional, default kDer)
+///   request[2] = format      (uint32_t, see operations::EncodeFormat(); kFormatNative = native)
 ///   request[3] = key_data    (span<const uint8_t>,    required)
 ///
 /// key_data borrows the IPC buffer (valid for the call only); the factory's
@@ -181,7 +188,7 @@ BuildImportRequest(const common::RequestParameters& request)
         return score::crypto::make_unexpected(key_data.error());
     }
 
-    auto format = ExtractFormatOrDefault(request, 2U);
+    auto format = ExtractOptionalFormat(request, 2U);
     if (!format.has_value())
     {
         return score::crypto::make_unexpected(format.error());

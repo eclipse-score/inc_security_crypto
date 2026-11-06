@@ -344,8 +344,10 @@ The public API surface is organized into the following interface groups:
    - ``UnwrapKeyParams`` — wrapped data (span), wrapping key,
      inner key algorithm, optional wrapping algorithm, IV, AAD,
      permissions.
-   - ``ImportKeyParams`` — key data (span), format, algorithm,
-     permissions.
+   - ``ImportKeyParams`` — key data (span), optional format (unset
+     means the key type's native format: raw for symmetric keys,
+     PEM/DER/raw EC point detected from the data for asymmetric keys),
+     algorithm, permissions.
 
    The ``target_slot`` destination is **not** part of any params
    struct — it is expressed via the method overload signature

@@ -83,7 +83,7 @@ ImportRsaKey(common::ProviderId provider_id, const key_management::KeyImportRequ
             ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
-    auto parsed = detail::ParseDerKey(request, EVP_PKEY_RSA);
+    auto parsed = detail::ParseKey(request, EVP_PKEY_RSA);
     if (!parsed.has_value())
     {
         return ::score::crypto::make_unexpected(parsed.error());

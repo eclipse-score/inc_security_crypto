@@ -45,8 +45,7 @@ GenerateSymmetricKey(common::ProviderId provider_id, const key_management::KeyGe
 /// @param request Key bytes, catalog row and permissions.
 /// @return A handler owning the copied key bytes.
 /// @pre request.key_data is non-null and request.key_data_size is non-zero.
-/// @note request.key_data_size is not checked against the key size of
-///       request.algorithm; it becomes the handle's key_size as given.
+/// @pre The request passed IKeyFactory::ValidateSymmetricImport(); OpenSslKeyFactory::ImportKey() checks it.
 [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                         ::score::crypto::daemon::common::DaemonErrorCode>
 ImportSymmetricKey(common::ProviderId provider_id, const key_management::KeyImportRequest& request);
