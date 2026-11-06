@@ -241,10 +241,14 @@ package "Slot Deployment" <<Rectangle>> #E8F0FE {
 package "OpenSSL Provider" <<Rectangle>> #FFFDE7 {
     class OpenSslKeyFactory {
         + GenerateKey(request) : Expected<IKeyHandler::Sptr>
-        .. RAND_bytes → heap buffer → OpenSslKeyHandler ..
         + ImportKey(request) : Expected<IKeyHandler::Sptr>
-        .. memcpy to heap buffer ..
-        - DetermineKeySize(algorithm) : size_t
+        .. asks each key family whether it claims the request.algorithm row ..
+        .. AES / secret → openssl_symmetric_key (RAND_bytes / memcpy → heap buffer) ..
+        .. ECC / RSA key / Ed25519 → openssl_{ec,rsa,ed25519}_key_pair (EVP_PKEY_generate / DER parse → EVP_PKEY) ..
+        .. row no family claims → kUnsupportedAlgorithm ..
+        + ExportKey(handle, format) : Expected<SecureKeyBytes>
+        + GetExportKeySize(handle, format) : Expected<size_t>
+        .. kRaw EC public point 0x04||X||Y → openssl_ec_key_pair ..
     }
 
     class OpenSslKeyHandler {
