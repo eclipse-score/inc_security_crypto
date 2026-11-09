@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <chrono>
 #include <cstdlib>
@@ -299,6 +300,21 @@ TEST_F(CreateSecretFileTest, LeavesNoTemporaryFile)
         entries.push_back(entry.path());
     }
     EXPECT_EQ(entries, std::vector<std::filesystem::path>{path});
+}
+
+// A leftover temporary file of an earlier store (for example after a crash) must not
+// block the next store, and consecutive stores in the same process must not collide.
+TEST_F(CreateSecretFileTest, LeftoverTemporaryFileDoesNotBlockStore)
+{
+    const auto path = PathOf("key");
+    WriteAll(PathOf("key.tmp." + std::to_string(::getpid())), std::vector<char>(16U, '\x11'));
+    const std::vector<std::uint8_t> secret(16U, 0x5AU);
+
+    ASSERT_TRUE(CreateSecretFile(path.string(), AsSpan(secret)).has_value());
+    ASSERT_TRUE(CreateSecretFile(PathOf("key2").string(), AsSpan(secret)).has_value());
+
+    EXPECT_EQ(ReadFile(path.string(), kMaxSize).value(), secret);
+    EXPECT_EQ(ReadFile(PathOf("key2").string(), kMaxSize).value(), secret);
 }
 
 TEST_F(CreateSecretFileTest, CreatesMissingParentDirectory)

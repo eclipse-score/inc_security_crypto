@@ -33,6 +33,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -47,11 +48,11 @@ using score::crypto::daemon::common::DaemonErrorCode;
 namespace
 {
 
-score::crypto::AlgorithmDescriptor Row(std::string_view name)
+/// Catalog row of @p name. Callers ASSERT on the result, so a name missing from the
+/// catalog stops the test instead of running it with a default descriptor.
+std::optional<score::crypto::AlgorithmDescriptor> Row(std::string_view name)
 {
-    const auto row = score::crypto::GetAlgorithmDescriptor(name);
-    EXPECT_TRUE(row.has_value()) << "not in the catalog: " << name;
-    return row.value_or(score::crypto::AlgorithmDescriptor{});
+    return score::crypto::GetAlgorithmDescriptor(name);
 }
 
 /// The bytes a key would be persisted as; equal bytes mean the same key.
@@ -102,10 +103,17 @@ class OpenSslSlotStorageTest : public ::testing::Test
         return slot;
     }
 
+    /// Generates a key; returns nullptr on any failure, which every caller ASSERTs against.
     km::IKeyHandler::Sptr Generate(std::string_view algorithm, KeyOperationPermission permissions)
     {
+        const auto row = Row(algorithm);
+        if (!row.has_value())
+        {
+            ADD_FAILURE() << "not in the catalog: " << algorithm;
+            return nullptr;
+        }
         km::KeyGenerationRequest request{};
-        request.algorithm = Row(algorithm);
+        request.algorithm = row.value();
         request.permissions = permissions;
         auto generated = m_factory->GenerateKey(request);
         EXPECT_TRUE(generated.has_value()) << "GenerateKey failed for " << algorithm;
@@ -153,7 +161,9 @@ TEST_F(OpenSslSlotStorageTest, StoreThenLoad_PublicOnlyEcKey_ReturnsTheSameKey)
     km::KeyImportRequest request{};
     request.key_data = spki.data();
     request.key_data_size = spki.size();
-    request.algorithm = Row("ECDSA-P256");
+    const auto row = Row("ECDSA-P256");
+    ASSERT_TRUE(row.has_value()) << "not in the catalog: ECDSA-P256";
+    request.algorithm = row.value();
     request.permissions = KeyOperationPermission::kVerify;
     auto imported = m_factory->ImportKey(request);
     ASSERT_TRUE(imported.has_value());

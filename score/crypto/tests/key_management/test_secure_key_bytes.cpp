@@ -41,24 +41,24 @@ km::SecureKeyBytes MakeKey()
     return key;
 }
 
-// Wipe() keeps the vector's capacity, so its storage stays owned by the vector
-// and can be inspected after the wipe. That read is past size(), so a build with
-// container-overflow checks (_GLIBCXX_SANITIZE_VECTOR under ASan, or libc++'s
-// annotations) would report it; such a build has to exclude this test.
-TEST(SecureKeyBytesTest, Wipe_ZeroizesBufferAndClearsIt)
+// Zeroize() keeps the size, so the zeroed bytes can be checked within bounds.
+TEST(SecureKeyBytesTest, Zeroize_ZeroizesEveryByteInPlace)
 {
     auto key = MakeKey();
-    const std::uint8_t* const storage = key.bytes.data();
+
+    key.Zeroize();
+
+    EXPECT_EQ(key.bytes, std::vector<std::uint8_t>(kKeySize, 0U));
+}
+
+// Wipe() is Zeroize() followed by clear(); the zeroing itself is checked above.
+TEST(SecureKeyBytesTest, Wipe_LeavesBufferEmpty)
+{
+    auto key = MakeKey();
 
     key.Wipe();
 
     EXPECT_TRUE(key.bytes.empty());
-    ASSERT_GE(key.bytes.capacity(), kKeySize);
-    ASSERT_EQ(key.bytes.data(), storage);
-    for (std::size_t i = 0U; i < kKeySize; ++i)
-    {
-        EXPECT_EQ(storage[i], 0U) << "byte " << i << " still holds key material";
-    }
 }
 
 TEST(SecureKeyBytesTest, Wipe_OnEmptyBuffer_IsHarmless)

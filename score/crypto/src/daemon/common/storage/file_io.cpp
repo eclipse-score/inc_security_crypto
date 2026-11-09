@@ -24,6 +24,10 @@
 
 #include <array>
 #include <cerrno>
+#include <chrono>
+#include <cstdint>
+#include <random>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -53,6 +57,16 @@ class FdGuard
     [[nodiscard]] int Get() const noexcept
     {
         return m_fd;
+    }
+
+    /// Close the descriptor held so far, if any, and take over @p fd.
+    void Reset(int fd) noexcept
+    {
+        if (m_fd >= 0)
+        {
+            static_cast<void>(::close(m_fd));
+        }
+        m_fd = fd;
     }
 
     /// Close now and report whether the close succeeded.
@@ -118,14 +132,40 @@ bool SyncParentDirectory(const std::string& path) noexcept
     return dir.Close();
 }
 
-/// Log a failed step of @p operation together with the errno it left, and return @p code.
+/// Log a failed step of @p operation and return @p code.
+///
+/// @p error_number is the errno of the failing system call, captured by the caller right
+/// after that call. Pass kNoErrno for a check or a call that does not set errno, so no
+/// stale value is logged.
+constexpr int kNoErrno = 0;
 score::crypto::Expected<std::monostate, DaemonErrorCode> StepFailed(std::string_view operation,
                                                                     std::string_view step,
-                                                                    DaemonErrorCode code)
+                                                                    DaemonErrorCode code,
+                                                                    int error_number)
 {
-    const int error_number = errno;
-    score::mw::log::LogError() << "[FILE_IO] " << operation << ": " << step << " failed (errno " << error_number << ")";
+    if (error_number != kNoErrno)
+    {
+        score::mw::log::LogError() << "[FILE_IO] " << operation << ": " << step << " failed (errno " << error_number
+                                   << ", error " << static_cast<int>(code) << ")";
+    }
+    else
+    {
+        score::mw::log::LogError() << "[FILE_IO] " << operation << ": " << step << " failed (error "
+                                   << static_cast<int>(code) << ")";
+    }
     return score::crypto::make_unexpected(code);
+}
+
+/// A temporary-file name next to @p path that is unique per call: the process id plus a
+/// random suffix, so concurrent stores and leftovers of a crashed process do not collide.
+std::string TemporaryNameFor(const std::string& path)
+{
+    static thread_local std::mt19937_64 generator{
+        std::random_device{}() ^
+        static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count())};
+    std::ostringstream name;
+    name << path << ".tmp." << ::getpid() << '.' << std::hex << generator();
+    return name.str();
 }
 
 }  // namespace
@@ -251,57 +291,61 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> SecureEraseFile(const s
     FdGuard fd{::open(path.c_str(), O_WRONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)};
     if (fd.Get() < 0)
     {
-        if (errno == ENOENT)
+        const int open_errno = errno;
+        if (open_errno == ENOENT)
         {
             return std::monostate{};
         }
-        if ((errno == ELOOP) || (errno == EISDIR) || (errno == ENXIO))
+        if ((open_errno == ELOOP) || (open_errno == EISDIR) || (open_errno == ENXIO))
         {
-            return StepFailed("SecureEraseFile", "open (not a regular file)", DaemonErrorCode::kInvalidArgument);
+            return StepFailed(
+                "SecureEraseFile", "open (not a regular file)", DaemonErrorCode::kInvalidArgument, open_errno);
         }
-        return StepFailed("SecureEraseFile", "open", DaemonErrorCode::kPersistFailed);
+        return StepFailed("SecureEraseFile", "open", DaemonErrorCode::kPersistFailed, open_errno);
     }
 
     struct stat file_status{};
     if (::fstat(fd.Get(), &file_status) != 0)
     {
-        return StepFailed("SecureEraseFile", "fstat", DaemonErrorCode::kPersistFailed);
+        return StepFailed("SecureEraseFile", "fstat", DaemonErrorCode::kPersistFailed, errno);
     }
     if (!S_ISREG(file_status.st_mode))
     {
-        return StepFailed("SecureEraseFile", "type check (not a regular file)", DaemonErrorCode::kInvalidArgument);
+        return StepFailed(
+            "SecureEraseFile", "type check (not a regular file)", DaemonErrorCode::kInvalidArgument, kNoErrno);
     }
     if (static_cast<std::uintmax_t>(file_status.st_size) > max_size)
     {
         return StepFailed(
-            "SecureEraseFile", "size check (file larger than allowed)", DaemonErrorCode::kInvalidArgument);
+            "SecureEraseFile", "size check (file larger than allowed)", DaemonErrorCode::kInvalidArgument, kNoErrno);
     }
 
     if (!OverwriteWithZeros(fd.Get(), file_status.st_size))
     {
-        return StepFailed("SecureEraseFile", "overwrite", DaemonErrorCode::kPersistFailed);
+        return StepFailed("SecureEraseFile", "overwrite", DaemonErrorCode::kPersistFailed, errno);
     }
     // Without fsync the zeros may still sit in the page cache when the file is unlinked,
     // and the kernel is then free to drop them without ever writing them to the device.
     if (::fsync(fd.Get()) != 0)
     {
-        return StepFailed("SecureEraseFile", "fsync", DaemonErrorCode::kPersistFailed);
+        return StepFailed("SecureEraseFile", "fsync", DaemonErrorCode::kPersistFailed, errno);
     }
     if (!fd.Close())
     {
-        return StepFailed("SecureEraseFile", "close", DaemonErrorCode::kPersistFailed);
+        return StepFailed("SecureEraseFile", "close", DaemonErrorCode::kPersistFailed, errno);
     }
 
+    // RemoveFile reports through score::filesystem, not errno; its error code is logged instead.
     if (const auto removed = RemoveFile(path); !removed)
     {
-        return StepFailed("SecureEraseFile", "remove", removed.error());
+        return StepFailed("SecureEraseFile", "remove", removed.error(), kNoErrno);
     }
 
     // Make the unlink itself durable. Otherwise a power loss before the file system commits
     // it brings the file back zero-filled, and the slot reads as occupied by an all-zero key.
     if (!SyncParentDirectory(path))
     {
-        return StepFailed("SecureEraseFile", "directory fsync", DaemonErrorCode::kPersistFailed);
+        return StepFailed("SecureEraseFile", "directory fsync", DaemonErrorCode::kPersistFailed, errno);
     }
     return std::monostate{};
 }
@@ -321,22 +365,34 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> CreateSecretFile(const 
         score::filesystem::StandardFilesystem fs{};
         if (!fs.CreateDirectories(parent).has_value())
         {
-            return StepFailed("CreateSecretFile", "create directories", DaemonErrorCode::kPersistFailed);
+            return StepFailed("CreateSecretFile", "create directories", DaemonErrorCode::kPersistFailed, kNoErrno);
         }
     }
 
     // O_EXCL with mode 0600: the file is owner-only from the moment it exists, and a stale or
-    // planted file (or link) at the temporary name is never reused.
-    const std::string temp_path = path + ".tmp." + std::to_string(::getpid());
-    FdGuard fd{::open(temp_path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)};
+    // planted file (or link) at the temporary name is never reused. The name is random, so a
+    // collision is not expected; should one happen anyway, try a fresh name.
+    constexpr int kTemporaryNameAttempts = 8;
+    std::string temp_path;
+    FdGuard fd{-1};
+    for (int attempt = 0; (attempt < kTemporaryNameAttempts) && (fd.Get() < 0); ++attempt)
+    {
+        temp_path = TemporaryNameFor(path);
+        fd.Reset(::open(temp_path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR));
+        if ((fd.Get() < 0) && (errno != EEXIST))
+        {
+            break;
+        }
+    }
     if (fd.Get() < 0)
     {
-        return StepFailed("CreateSecretFile", "create temporary file", DaemonErrorCode::kPersistFailed);
+        return StepFailed("CreateSecretFile", "create temporary file", DaemonErrorCode::kPersistFailed, errno);
     }
 
-    // Anything that fails from here on leaves key bytes in the temporary file; wipe it.
-    const auto discard_temp = [&temp_path, &data](std::string_view step, DaemonErrorCode code) {
-        auto result = StepFailed("CreateSecretFile", step, code);
+    // Anything that fails before the file is published leaves key bytes in the temporary
+    // file; wipe it. The errno is captured by the caller before the wipe can change it.
+    const auto discard_temp = [&temp_path, &data](std::string_view step, DaemonErrorCode code, int error_number) {
+        auto result = StepFailed("CreateSecretFile", step, code, error_number);
         static_cast<void>(SecureEraseFile(temp_path, data.size()));
         return result;
     };
@@ -351,39 +407,48 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> CreateSecretFile(const 
             {
                 continue;
             }
-            return discard_temp("write", DaemonErrorCode::kPersistFailed);
+            return discard_temp("write", DaemonErrorCode::kPersistFailed, errno);
         }
         if (written == 0)
         {
-            return discard_temp("write", DaemonErrorCode::kPersistFailed);
+            return discard_temp("write", DaemonErrorCode::kPersistFailed, kNoErrno);
         }
         written_total += static_cast<std::size_t>(written);
     }
     if (::fsync(fd.Get()) != 0)
     {
-        return discard_temp("fsync", DaemonErrorCode::kPersistFailed);
+        return discard_temp("fsync", DaemonErrorCode::kPersistFailed, errno);
     }
     if (!fd.Close())
     {
-        return discard_temp("close", DaemonErrorCode::kPersistFailed);
+        return discard_temp("close", DaemonErrorCode::kPersistFailed, errno);
     }
 
     // link() publishes the complete file under its final name and fails with EEXIST when that
     // name is taken, so an occupied key file is never replaced, even by a concurrent writer.
     if (::link(temp_path.c_str(), path.c_str()) != 0)
     {
-        return discard_temp("publish",
-                            (errno == EEXIST) ? DaemonErrorCode::kKeySlotOccupied : DaemonErrorCode::kPersistFailed);
+        const int link_errno = errno;
+        return discard_temp(
+            "publish",
+            (link_errno == EEXIST) ? DaemonErrorCode::kKeySlotOccupied : DaemonErrorCode::kPersistFailed,
+            link_errno);
     }
     // The key file now holds the bytes; the temporary name is only a second link to the same
     // blocks, so removing it must not overwrite them.
     if (::unlink(temp_path.c_str()) != 0)
     {
-        return StepFailed("CreateSecretFile", "remove temporary name", DaemonErrorCode::kPersistFailed);
+        // Both names now point at the key. Rather than leave a second name that a later
+        // ClearSlot would not see, wipe the key through its final name (both names share the
+        // same blocks) and report the store as failed.
+        const int unlink_errno = errno;
+        static_cast<void>(SecureEraseFile(path, data.size()));
+        static_cast<void>(::unlink(temp_path.c_str()));
+        return StepFailed("CreateSecretFile", "remove temporary name", DaemonErrorCode::kPersistFailed, unlink_errno);
     }
     if (!SyncParentDirectory(path))
     {
-        return StepFailed("CreateSecretFile", "directory fsync", DaemonErrorCode::kPersistFailed);
+        return StepFailed("CreateSecretFile", "directory fsync", DaemonErrorCode::kPersistFailed, errno);
     }
     return std::monostate{};
 }

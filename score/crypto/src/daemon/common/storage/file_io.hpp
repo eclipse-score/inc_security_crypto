@@ -105,9 +105,12 @@ using FileWriter = std::function<score::crypto::Expected<std::monostate, DaemonE
 /// exclusively with mode 0600 (never world-readable, not even briefly), flushed with fsync,
 /// then published under @p path with link(), which fails atomically when @p path already
 /// exists, so an occupied key file is never replaced. Finally the temporary name is removed
-/// and the directory is flushed. Missing parent directories are created. If anything fails
-/// before the file is published, the temporary file is securely erased, so no partial key
-/// is left behind.
+/// and the directory is flushed. Missing parent directories are created. The temporary name
+/// carries the process id and a random suffix, and a taken name is retried with a fresh one.
+/// If anything fails before the file is published, the temporary file is securely erased, so
+/// no partial key is left behind; if the temporary name cannot be removed after publishing,
+/// the key is erased through its final name and the store fails, so no second name to the
+/// key survives.
 ///
 /// @return std::monostate on success; kInvalidArgument if path or data is empty;
 ///         kKeySlotOccupied if a file (or link) already exists at path; kPersistFailed if the

@@ -241,10 +241,17 @@ struct SecureKeyBytes
         return *this;
     }
 
-    /// Securely zeroize and clear the bytes. The buffer's capacity is kept.
+    /// Securely zeroize the bytes in place; the size is kept.
+    void Zeroize() noexcept
+    {
+        common::SecureZeroize(bytes.data(), bytes.size());
+    }
+
+    /// Securely zeroize, then clear the bytes.
     void Wipe() noexcept
     {
-        common::SecureZeroizeAndClear(bytes);
+        Zeroize();
+        bytes.clear();
     }
 };
 
