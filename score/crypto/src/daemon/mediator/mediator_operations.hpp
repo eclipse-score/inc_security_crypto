@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_MEDIATOR_OPERATIONS_HPP
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -152,6 +153,14 @@ inline constexpr std::size_t SHM_PARAM_TOTAL_QUOTA = 5;
 //           no output parameters
 // Effect:   Unmaps and unlinks the SHM object, removes it from the daemon registry.
 inline constexpr OperationAction SHM_DESTROY_OBJECT = 5;
+
+/// @brief Operation actions the mediator implements itself. A mediator query is never registered
+/// for one of these.
+inline constexpr std::array<OperationAction, 5U> kBuiltInActions{CTX_CREATE,
+                                                                 CTX_CLOSE,
+                                                                 RESOLVE_RESOURCE,
+                                                                 SHM_SETUP,
+                                                                 SHM_DESTROY_OBJECT};
 
 inline control_plane::protocol::OperationIdentifier CreateShmObject()
 {

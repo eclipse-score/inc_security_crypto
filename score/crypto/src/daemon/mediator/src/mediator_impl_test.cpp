@@ -13,11 +13,14 @@
 
 #include "score/crypto/src/daemon/mediator/mediator_impl.hpp"
 
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
+#include "score/crypto/src/daemon/mediator/src/context_assembler.hpp"
 #include "score/crypto/src/daemon/mediator/src/mediator_test_doubles.hpp"
+#include "score/crypto/src/daemon/mediator/src/provider_arbiter.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <gtest/gtest.h>
@@ -26,6 +29,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -40,9 +44,13 @@ using common::ProviderCapability;
 using test_doubles::RecordingDataManager;
 using test_doubles::StubProvider;
 using CryptoError = score::crypto::CryptoErrorCode;
+using ActionCode = std::decay_t<decltype(operations::CUSTOM_OP_START)>;
 
 constexpr std::uint64_t kClient = 7U;
 constexpr std::uint8_t kHardwarePreferredWire = 3U;
+// Operation codes outside the built-in set, used for mediator query registration.
+constexpr ActionCode kQueryAction = static_cast<ActionCode>(operations::CUSTOM_OP_START + 1U);
+constexpr ActionCode kUnlistedAction = static_cast<ActionCode>(operations::CUSTOM_OP_START + 2U);
 
 // Exercises CTX_CREATE through the real mediator, ProviderManager, ProviderArbiter,
 // ContextAssembler, and DataManager. StubProvider instances supply controlled provider-side
@@ -66,9 +74,20 @@ class MediatorContextCreationTest : public ::testing::Test
         // This connection is added directly; only later addChildNode calls are recorded as contexts.
         m_connection_id = connection.value();
 
+        // Tests register entries after construction. The mediator reads the registries through shared
+        // pointers at request time, so later registrations are visible to it.
+        m_context_factories = std::make_shared<ContextFactoryRegistry>();
+        m_resource_resolvers = std::make_shared<ResourceResolverRegistry>();
+        m_mediator_queries = std::make_shared<MediatorQueryRegistry>();
+
         MediatorDependencies deps;
         deps.data_manager = m_data_manager;
         deps.provider_manager = m_provider_manager;
+        deps.arbiter = std::make_shared<ProviderArbiter>(m_provider_manager, nullptr);
+        deps.assembler = std::make_shared<ContextAssembler>(m_data_manager, nullptr);
+        deps.context_factories = m_context_factories;
+        deps.resource_resolvers = m_resource_resolvers;
+        deps.mediator_queries = m_mediator_queries;
         m_mediator = std::make_unique<MediatorImpl>(std::move(deps));
     }
 
@@ -139,10 +158,19 @@ class MediatorContextCreationTest : public ::testing::Test
         return static_cast<control_plane::protocol::OperationResult>(error);
     }
 
+    static control_plane::protocol::OperationIdentifier MediatorOperation(const ActionCode action)
+    {
+        return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                            .operationAction = action};
+    }
+
     std::shared_ptr<RecordingDataManager> m_data_manager;
     provider::ProviderManager::Sptr m_provider_manager;
     std::shared_ptr<StubProvider> m_software;
     std::shared_ptr<StubProvider> m_hardware;
+    std::shared_ptr<ContextFactoryRegistry> m_context_factories;
+    std::shared_ptr<ResourceResolverRegistry> m_resource_resolvers;
+    std::shared_ptr<MediatorQueryRegistry> m_mediator_queries;
     data_manager::DataNodeId m_connection_id{0U};
     std::unique_ptr<MediatorImpl> m_mediator;
 };
@@ -402,6 +430,180 @@ TEST_F(MediatorContextCreationTest, RequestStopsAtTheFirstFailingOperation)
     EXPECT_EQ(m_software->Factory()->CreateCalls(), 0);
     EXPECT_EQ(m_hardware->Factory()->CreateCalls(), 0);
     EXPECT_TRUE(m_data_manager->AddedChildren().empty());
+}
+
+// ============================================================================
+// Context factories, mediator queries and resource resolvers registered with the mediator
+// ============================================================================
+
+TEST_F(MediatorContextCreationTest, RegisteredFactoryCreatesTheContextWithoutProviderSelection)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__context_factory");
+    RecordProperty("Description",
+                   "A context type with a registered factory is created by that factory, and no provider "
+                   "factory is called.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
+    auto factory = std::make_shared<test_doubles::StubContextFactory>();
+    ASSERT_TRUE(m_context_factories->Register("HASH", factory));
+
+    const auto response = CreateContext(HashRequest());
+
+    ASSERT_EQ(response.result, control_plane::protocol::OPERATION_RESULT_SUCCESS);
+    const auto context_id = response.getParameter<std::uint64_t>(0U);
+    ASSERT_TRUE(context_id.has_value());
+    EXPECT_TRUE(m_data_manager->NodeExists(kClient, context_id.value()));
+    EXPECT_EQ(factory->CreateCalls(), 1);
+    ASSERT_NE(factory->LastHandler(), nullptr);
+    EXPECT_EQ(factory->LastHandler()->InitCalls(), 1);
+    EXPECT_EQ(m_software->Factory()->CreateCalls(), 0);
+    EXPECT_EQ(m_hardware->Factory()->CreateCalls(), 0);
+}
+
+TEST_F(MediatorContextCreationTest, RegisteredFactoryErrorIsReturnedAndNoNodeIsCreated)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__context_factory");
+    RecordProperty("Description",
+                   "When a registered factory fails, the client receives its error and no context node is "
+                   "created.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
+    auto factory = std::make_shared<test_doubles::StubContextFactory>();
+    factory->FailWith(DaemonErrorCode::kOperationFailed);
+    ASSERT_TRUE(m_context_factories->Register("HASH", factory));
+
+    const auto response = CreateContext(HashRequest());
+
+    EXPECT_EQ(response.result, ResultOf(CryptoError::kOperationFailed));
+    EXPECT_EQ(factory->CreateCalls(), 1);
+    EXPECT_TRUE(m_data_manager->AddedChildren().empty());
+}
+
+TEST_F(MediatorContextCreationTest, KeyedRequestForRegisteredFactoryIsRefusedBeforeTheFactoryRuns)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__context_factory");
+    RecordProperty(
+        "Description",
+        "A context type served by a factory that references a key is refused as not permitted, and its factory "
+        "is not called.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
+    auto factory = std::make_shared<test_doubles::StubContextFactory>();
+    ASSERT_TRUE(m_context_factories->Register("SIGN", factory));
+
+    const auto response = CreateContext(common::RequestParameters{
+        std::string_view{"SIGN"}, std::string_view{"ECDSA-P256-SHA256"}, common::NoParam{}, std::uint64_t{5U}});
+
+    EXPECT_EQ(response.result, ResultOf(CryptoError::kKeyOperationNotPermitted));
+    EXPECT_EQ(factory->CreateCalls(), 0);
+    EXPECT_TRUE(m_data_manager->AddedChildren().empty());
+}
+
+TEST_F(MediatorContextCreationTest, QueryAtABuiltInCodeIsNeverCalledWhenTheMediatorIsBuiltDirectly)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__query_dispatch");
+    RecordProperty("Description",
+                   "A mediator built without the factory, whose query registry holds a query at a built-in "
+                   "operation code, still runs the built-in handler and never calls the query. The factory "
+                   "rejects the same registration at startup.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
+    auto query = std::make_shared<test_doubles::StubMediatorQuery>(std::uint64_t{77U});
+    ASSERT_TRUE(m_mediator_queries->Register(operations::CTX_CREATE, query));
+
+    const auto response = CreateContext(HashRequest());
+
+    EXPECT_EQ(response.result, control_plane::protocol::OPERATION_RESULT_SUCCESS);
+    EXPECT_EQ(query->Calls(), 0);
+    EXPECT_EQ(m_software->Factory()->CreateCalls() + m_hardware->Factory()->CreateCalls(), 1);
+}
+
+TEST_F(MediatorContextCreationTest, MediatorQueryHandlesItsOperationCode)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__query_dispatch");
+    RecordProperty("Description",
+                   "An operation code without a built-in handler is dispatched to the query registered for it, "
+                   "and the query's result is returned.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
+    auto query = std::make_shared<test_doubles::StubMediatorQuery>(std::uint64_t{77U});
+    ASSERT_TRUE(m_mediator_queries->Register(kQueryAction, query));
+
+    const auto responses = Process(m_connection_id, {Operation(MediatorOperation(kQueryAction))});
+
+    ASSERT_EQ(responses.size(), 1U);
+    EXPECT_EQ(responses[0].result, control_plane::protocol::OPERATION_RESULT_SUCCESS);
+    EXPECT_EQ(responses[0].getParameter<std::uint64_t>(0U).value_or(0U), 77U);
+    EXPECT_EQ(query->Calls(), 1);
+    EXPECT_EQ(query->LastClientId(), kClient);
+}
+
+TEST_F(MediatorContextCreationTest, UnregisteredOperationCodeIsNotDispatchedToAnyQuery)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__query_dispatch");
+    RecordProperty("Description",
+                   "An operation code with no built-in handler and no registered query is not dispatched, and the "
+                   "request does not succeed.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
+    auto query = std::make_shared<test_doubles::StubMediatorQuery>(std::uint64_t{77U});
+    ASSERT_TRUE(m_mediator_queries->Register(kQueryAction, query));
+
+    const auto responses = Process(m_connection_id, {Operation(MediatorOperation(kUnlistedAction))});
+
+    EXPECT_EQ(query->Calls(), 0);
+    EXPECT_TRUE(responses.empty() || responses[0].result != control_plane::protocol::OPERATION_RESULT_SUCCESS);
+}
+
+TEST_F(MediatorContextCreationTest, ResourceResolverReceivesTheClientAndNameAndReturnsItsResult)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__res_resolution");
+    RecordProperty("Description",
+                   "A resource request is resolved by the resolver registered for its resource type, which receives "
+                   "the client, session and name, and whose result is returned.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
+    auto resolver = std::make_shared<test_doubles::StubResourceResolver>(true, std::uint64_t{42U});
+    ASSERT_TRUE(m_resource_resolvers->Register(score::crypto::ResourceType::kKeySlot, resolver));
+
+    const auto responses =
+        Process(m_connection_id,
+                {Operation(operations::ResolveResource(),
+                           {std::string_view{"my_key"},
+                            std::uint64_t{static_cast<std::uint64_t>(score::crypto::ResourceType::kKeySlot)}})});
+
+    ASSERT_EQ(responses.size(), 1U);
+    EXPECT_EQ(responses[0].result, control_plane::protocol::OPERATION_RESULT_SUCCESS);
+    EXPECT_EQ(responses[0].getParameter<std::uint64_t>(0U).value_or(0U), 42U);
+    EXPECT_EQ(resolver->Calls(), 1);
+    EXPECT_EQ(resolver->LastClientId(), kClient);
+    EXPECT_EQ(resolver->LastSessionId(), m_connection_id);
+    EXPECT_EQ(resolver->LastResourceName(), "my_key");
+}
+
+TEST_F(MediatorContextCreationTest, ResourceTypeWithoutRegisteredResolverIsUnsupported)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__res_resolution");
+    RecordProperty("Description",
+                   "A resource request for a resource type with no registered resolver is refused as unsupported.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
+    const auto responses =
+        Process(m_connection_id,
+                {Operation(operations::ResolveResource(),
+                           {std::string_view{"my_key"},
+                            std::uint64_t{static_cast<std::uint64_t>(score::crypto::ResourceType::kKeySlot)}})});
+
+    ASSERT_EQ(responses.size(), 1U);
+    EXPECT_EQ(responses[0].result, ResultOf(CryptoError::kUnsupportedOperation));
 }
 
 }  // namespace
