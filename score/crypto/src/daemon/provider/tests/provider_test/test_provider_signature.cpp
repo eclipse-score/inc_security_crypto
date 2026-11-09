@@ -199,7 +199,7 @@ class ProviderSignatureTest : public ::testing::TestWithParam<SignatureCase>
     }
 
     static score::crypto::daemon::common::InitializationParams InitParams(const SignatureCase& test_case,
-                                                    const key_management::IKeyHandler& key)
+                                                                          const key_management::IKeyHandler& key)
     {
         score::crypto::daemon::common::InitializationParams params;
         params.provider_id = provider_->GetProviderId();
