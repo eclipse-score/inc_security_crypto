@@ -45,7 +45,11 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/context/handler_init_params.hpp"
+#include "score/crypto/src/daemon/common/context/i_context_factory.hpp"
 #include "score/crypto/src/daemon/common/context/i_handler.hpp"
+#include "score/crypto/src/daemon/common/context/i_mediator_query.hpp"
+#include "score/crypto/src/daemon/common/context/i_mediator_registrar.hpp"
+#include "score/crypto/src/daemon/common/context/i_resource_resolver.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"
@@ -56,6 +60,7 @@
 #include "score/result/result.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -404,6 +409,181 @@ class RecordingDataManager final : public data_manager::IDataManager
     data_manager::DataManager m_inner;
     std::vector<data_manager::DataNodeId> m_added_children;
     std::vector<data_manager::DataNodeId> m_deleted;
+};
+
+/// @brief Context factory registered for a context type that a subsystem serves directly.
+///
+/// It creates a `StubHandler`, or fails with the error given to `FailWith`. It counts calls, so a
+/// test can check whether a request reached the factory at all.
+class StubContextFactory final : public common::IContextFactory
+{
+  public:
+    /// @brief Make every later creation fail.
+    /// @param error Error that `Create` returns.
+    void FailWith(const common::DaemonErrorCode error) noexcept
+    {
+        m_error = error;
+    }
+
+    /// @return Number of `Create` calls, whether or not they failed.
+    [[nodiscard]] int CreateCalls() const noexcept
+    {
+        return m_create_calls;
+    }
+
+    /// @return Handler created by the latest successful call, or null if none succeeded.
+    [[nodiscard]] const std::shared_ptr<StubHandler>& LastHandler() const noexcept
+    {
+        return m_last_handler;
+    }
+
+    /// @brief Create a handler or fail as configured. The request is ignored.
+    Expected<common::Handler::Sptr, common::DaemonErrorCode> Create(const common::ContextCreationRequest&) override
+    {
+        ++m_create_calls;
+        if (m_error.has_value())
+        {
+            return make_unexpected(m_error.value());
+        }
+        m_last_handler = std::make_shared<StubHandler>();
+        common::Handler::Sptr handler{m_last_handler};
+        return handler;
+    }
+
+  private:
+    std::optional<common::DaemonErrorCode> m_error;
+    int m_create_calls{0};
+    std::shared_ptr<StubHandler> m_last_handler;
+};
+
+/// @brief Resource resolver that records its arguments and returns a configured result.
+///
+/// On success it writes `value` as a uint64 result. On failure it writes `kResourceNotFound`.
+class StubResourceResolver final : public common::IResourceResolver
+{
+  public:
+    /// @brief Create a resolver.
+    /// @param succeeds Whether `Resolve` succeeds.
+    /// @param value Value written as the result when `Resolve` succeeds.
+    StubResourceResolver(const bool succeeds, const std::uint64_t value) : m_succeeds{succeeds}, m_value{value} {}
+
+    bool Resolve(std::uint64_t client_id,
+                 std::uint64_t session_id,
+                 const std::string& resource_name,
+                 const common::OperationIdentifier& op_id,
+                 control_plane::protocol::OperationResponseBuilder& responseBuilder) override
+    {
+        ++m_calls;
+        m_last_client_id = client_id;
+        m_last_session_id = session_id;
+        m_last_resource_name = resource_name;
+        if (!m_succeeds)
+        {
+            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kResourceNotFound);
+            return false;
+        }
+        responseBuilder.operation(op_id).return_success().return_value_uint64(m_value);
+        return true;
+    }
+
+    /// @return Number of `Resolve` calls.
+    [[nodiscard]] int Calls() const noexcept
+    {
+        return m_calls;
+    }
+
+    /// @return Client id passed to the latest `Resolve`.
+    [[nodiscard]] std::uint64_t LastClientId() const noexcept
+    {
+        return m_last_client_id;
+    }
+
+    /// @return Session id passed to the latest `Resolve`.
+    [[nodiscard]] std::uint64_t LastSessionId() const noexcept
+    {
+        return m_last_session_id;
+    }
+
+    /// @return Resource name passed to the latest `Resolve`.
+    [[nodiscard]] const std::string& LastResourceName() const noexcept
+    {
+        return m_last_resource_name;
+    }
+
+  private:
+    bool m_succeeds;
+    std::uint64_t m_value;
+    int m_calls{0};
+    std::uint64_t m_last_client_id{0U};
+    std::uint64_t m_last_session_id{0U};
+    std::string m_last_resource_name;
+};
+
+/// @brief Mediator query that counts its calls and writes a configured uint64 result.
+class StubMediatorQuery final : public common::IMediatorQuery
+{
+  public:
+    /// @brief Create a query.
+    /// @param value Value written as the result of each successful `Handle`.
+    explicit StubMediatorQuery(const std::uint64_t value) : m_value{value} {}
+
+    bool Handle(const control_plane::protocol::ControlRequest& request,
+                const control_plane::protocol::SingleOperationRequest& operation,
+                control_plane::protocol::OperationResponseBuilder& responseBuilder) override
+    {
+        ++m_calls;
+        m_last_client_id = request.client_id;
+        responseBuilder.operation(operation.operationId).return_success().return_value_uint64(m_value);
+        return true;
+    }
+
+    /// @return Number of `Handle` calls.
+    [[nodiscard]] int Calls() const noexcept
+    {
+        return m_calls;
+    }
+
+    /// @return Client id of the request passed to the latest `Handle`.
+    [[nodiscard]] std::uint64_t LastClientId() const noexcept
+    {
+        return m_last_client_id;
+    }
+
+  private:
+    std::uint64_t m_value;
+    int m_calls{0};
+    std::uint64_t m_last_client_id{0U};
+};
+
+/// @brief Registrar that runs a configured action against the registries and counts its calls.
+///
+/// A test passes the registrations it wants, for example adding a query, and the result the
+/// registrar reports.
+class StubRegistrar final : public common::IMediatorRegistrar
+{
+  public:
+    /// @brief Action performed by `Register`; its result is the result of `Register`.
+    using Action = std::function<bool(common::MediatorRegistries&)>;
+
+    /// @brief Create a registrar.
+    /// @param action Action run by each `Register` call.
+    explicit StubRegistrar(Action action) : m_action{std::move(action)} {}
+
+    bool Register(common::MediatorRegistries& registries) const override
+    {
+        ++m_calls;
+        return m_action(registries);
+    }
+
+    /// @return Number of `Register` calls.
+    [[nodiscard]] int Calls() const noexcept
+    {
+        return m_calls;
+    }
+
+  private:
+    Action m_action;
+    mutable int m_calls{0};
 };
 
 }  // namespace score::crypto::daemon::mediator::test_doubles

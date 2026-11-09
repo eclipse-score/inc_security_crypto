@@ -104,8 +104,11 @@ Before a key can be loaded the application resolves a slot name to a
 ``DataNodeId``:
 
 1. The client sends ``RESOLVE_RESOURCE(slot_name, kKeySlot)`` to the mediator.
-2. ``MediatorImpl`` calls ``SlotRegistry::ResolveAppResource(slot_name,
-   client_id)`` which checks the UID-to-resource map and delegates to
+2. ``MediatorImpl`` hands the request to the resolver registered for ``kKeySlot``,
+   ``KeySlotResourceResolver``, which the key management module registers when
+   the mediator is created. The resolver asks ``KeyManagementService`` to resolve
+   the name, and the service calls ``SlotRegistry::ResolveAppResource(slot_name,
+   client_id)``, which checks the UID-to-resource map and delegates to
    ``ResolveSlot``.  ``AccessPolicyEnforcer::CheckSlotAccess`` validates that
    ``client_id`` is in the slot's ``allowed_uids`` list.
 3. A ``KeySlotDataNode(slot_handle, slot_registry)`` is stored in the
