@@ -140,7 +140,7 @@ TEST_P(ProviderHashAlgorithmTest, SupportsSingleShotStreamingResetAndDigestSize)
     ASSERT_TRUE(handlerResult.has_value()) << "Failed to create HASH/" << testData.algorithm;
     auto hashHandler = handlerResult.value();
     ASSERT_NE(hashHandler, nullptr);
-    ASSERT_TRUE(hashHandler->InitializeContext(handler::InitializationParams{}).has_value());
+    ASSERT_TRUE(hashHandler->InitializeContext(score::crypto::daemon::common::InitializationParams{}).has_value());
 
     const std::vector<HashVector> vectors{
         {"score/tests/test_vectors/hash/input_hello_world.bin", testData.hello_digest_path},
@@ -304,7 +304,7 @@ TEST_F(ProviderHashTest, ReportsHashStreamStateViolations)
     auto handlerResult = factory->CreateHandler("HASH", Row("SHA256"));
     ASSERT_TRUE(handlerResult.has_value());
     auto hashHandler = handlerResult.value();
-    ASSERT_TRUE(hashHandler->InitializeContext(handler::InitializationParams{}).has_value());
+    ASSERT_TRUE(hashHandler->InitializeContext(score::crypto::daemon::common::InitializationParams{}).has_value());
 
     const std::array<std::uint8_t, 1U> input{0x42U};
     common::RequestParameters updateRequest{
@@ -335,7 +335,7 @@ TEST_F(ProviderHashTest, RejectsMalformedRequestsBeforeProviderExecutionAndPrese
     auto handlerResult = factory->CreateHandler("HASH", Row("SHA256"));
     ASSERT_TRUE(handlerResult.has_value());
     auto hashHandler = handlerResult.value();
-    ASSERT_TRUE(hashHandler->InitializeContext(handler::InitializationParams{}).has_value());
+    ASSERT_TRUE(hashHandler->InitializeContext(score::crypto::daemon::common::InitializationParams{}).has_value());
 
     const std::array<std::uint8_t, 1U> input{0x42U};
     std::array<std::uint8_t, 32U> output{};
@@ -407,8 +407,8 @@ TEST_F(ProviderHashTest, SupportsIndependentInterleavedHashContexts)
     ASSERT_TRUE(sha384Result.has_value());
     auto sha256 = sha256Result.value();
     auto sha384 = sha384Result.value();
-    ASSERT_TRUE(sha256->InitializeContext(handler::InitializationParams{}).has_value());
-    ASSERT_TRUE(sha384->InitializeContext(handler::InitializationParams{}).has_value());
+    ASSERT_TRUE(sha256->InitializeContext(score::crypto::daemon::common::InitializationParams{}).has_value());
+    ASSERT_TRUE(sha384->InitializeContext(score::crypto::daemon::common::InitializationParams{}).has_value());
 
     common::RequestParameters initRequest{};
     ASSERT_TRUE(sha256->Execute(MakeHashOp(ops::HASH_INIT), initRequest).has_value());
@@ -452,7 +452,7 @@ TEST(OpenSslHashHandlerErrorTest, DigestUpdateFailureAbortsStreamAndAllowsReuse)
     using OpenSslHashHandler = provider::score_provider::openssl::handler::OpenSslHashHandler;
 
     OpenSslHashHandler hashHandler{std::make_unique<HashExecutor>(), Row("SHA256"), &FailingDigestUpdate};
-    ASSERT_TRUE(hashHandler.InitializeContext(handler::InitializationParams{}).has_value());
+    ASSERT_TRUE(hashHandler.InitializeContext(score::crypto::daemon::common::InitializationParams{}).has_value());
 
     const std::array<std::uint8_t, 1U> input{0x42U};
     common::RequestParameters initRequest{};

@@ -40,7 +40,7 @@ Expected<ResponseParameters, DaemonErrorCode> ScoreCipherHandler::Execute(
     return m_executor->Execute(*this, operationId, request);
 }
 
-void ScoreCipherHandler::ExtractDirection(const handler::InitializationParams& init_params) noexcept
+void ScoreCipherHandler::ExtractDirection(const common::InitializationParams& init_params) noexcept
 {
     const auto mode = common::ExtractContextMode(init_params.context_creation_params);
     if (!mode.has_value())
@@ -54,7 +54,7 @@ void ScoreCipherHandler::ExtractDirection(const handler::InitializationParams& i
     }
 }
 
-void ScoreCipherHandler::ExtractPadding(const handler::InitializationParams& init_params) noexcept
+void ScoreCipherHandler::ExtractPadding(const common::InitializationParams& init_params) noexcept
 {
     const auto padding = common::ExtractCipherPadding(init_params.context_creation_params);
     if (padding.has_value())
@@ -64,7 +64,7 @@ void ScoreCipherHandler::ExtractPadding(const handler::InitializationParams& ini
 }
 
 Expected<std::monostate, DaemonErrorCode> ScoreCipherHandler::InitializeContext(
-    const handler::InitializationParams& init_params)
+    const common::InitializationParams& init_params)
 {
     ExtractDirection(init_params);
     ExtractPadding(init_params);

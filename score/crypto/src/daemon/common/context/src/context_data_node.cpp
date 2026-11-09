@@ -18,10 +18,10 @@
 #include <optional>
 #include <utility>
 
-namespace score::crypto::daemon::provider::handler
+namespace score::crypto::daemon::common
 {
 
-ContextDataNode::ContextDataNode(std::shared_ptr<score::crypto::daemon::provider::handler::Handler> handler,
+ContextDataNode::ContextDataNode(std::shared_ptr<Handler> handler,
                                  std::optional<score::crypto::AlgorithmDescriptor> algorithm)
     : DataNode(true), m_handler(std::move(handler)), m_algorithm(algorithm)
 {
@@ -29,7 +29,7 @@ ContextDataNode::ContextDataNode(std::shared_ptr<score::crypto::daemon::provider
 
 ContextDataNode::~ContextDataNode() = default;
 
-std::shared_ptr<score::crypto::daemon::provider::handler::Handler> ContextDataNode::GetHandler() const
+std::shared_ptr<Handler> ContextDataNode::GetHandler() const
 {
     return m_handler;
 }
@@ -39,4 +39,4 @@ const std::optional<score::crypto::AlgorithmDescriptor>& ContextDataNode::GetAlg
     return m_algorithm;
 }
 
-}  // namespace score::crypto::daemon::provider::handler
+}  // namespace score::crypto::daemon::common

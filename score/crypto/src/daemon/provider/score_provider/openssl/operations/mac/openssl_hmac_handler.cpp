@@ -93,7 +93,7 @@ std::size_t OpenSslHmacHandler::GetMacSize() const noexcept
 
 ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslHmacHandler::InitializeContext(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
+    const ::score::crypto::daemon::common::InitializationParams& init_params)
 {
     // Validate algorithm (m_algorithm is set at construction).
     if (!IsAlgorithmSupported(m_algorithm))

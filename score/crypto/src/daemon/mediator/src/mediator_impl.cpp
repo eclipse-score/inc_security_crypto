@@ -205,7 +205,7 @@ bool MediatorImpl::ForwardSingleOperation(const control_plane::ControlRequest& r
     }
 
     auto context_node_accessor_res =
-        std::move(node_accessor_res).value().downCast<provider::handler::ContextDataNode>();
+        std::move(node_accessor_res).value().downCast<score::crypto::daemon::common::ContextDataNode>();
     if (!context_node_accessor_res.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Context node for context_id:" << context_id
@@ -301,7 +301,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
 // Shared Operation Execution Helper
 // ============================================================================
 bool MediatorImpl::ExecuteOperation(const OperationExecutionContext& exec_ctx,
-                                    const std::shared_ptr<provider::handler::Handler>& handler,
+                                    const std::shared_ptr<score::crypto::daemon::common::Handler>& handler,
                                     control_plane::protocol::OperationResponseBuilder& responseBuilder)
 {
     auto execute_result = handler->Execute(exec_ctx.operationId, exec_ctx.parameters);

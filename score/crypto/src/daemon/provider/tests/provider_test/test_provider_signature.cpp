@@ -188,7 +188,8 @@ class ProviderSignatureTest : public ::testing::TestWithParam<SignatureCase>
         }
     }
 
-    static handler::Handler::Sptr CreateHandler(const std::string& type, const SignatureCase& test_case)
+    static score::crypto::daemon::common::Handler::Sptr CreateHandler(const std::string& type,
+                                                                      const SignatureCase& test_case)
     {
         auto factory = provider_->GetCryptoHandlerFactory();
         EXPECT_NE(factory, nullptr);
@@ -197,10 +198,10 @@ class ProviderSignatureTest : public ::testing::TestWithParam<SignatureCase>
         return result.has_value() ? result.value() : nullptr;
     }
 
-    static handler::InitializationParams InitParams(const SignatureCase& test_case,
+    static score::crypto::daemon::common::InitializationParams InitParams(const SignatureCase& test_case,
                                                     const key_management::IKeyHandler& key)
     {
-        handler::InitializationParams params;
+        score::crypto::daemon::common::InitializationParams params;
         params.provider_id = provider_->GetProviderId();
         params.context_node_id = 1U;
         params.key_node_id = 1U;
@@ -211,7 +212,7 @@ class ProviderSignatureTest : public ::testing::TestWithParam<SignatureCase>
         return params;
     }
 
-    static common::ResponseParameters Execute(handler::Handler& crypto_handler,
+    static common::ResponseParameters Execute(score::crypto::daemon::common::Handler& crypto_handler,
                                               common::OperationActor actor,
                                               common::OperationAction action,
                                               common::RequestParameters request = {})
