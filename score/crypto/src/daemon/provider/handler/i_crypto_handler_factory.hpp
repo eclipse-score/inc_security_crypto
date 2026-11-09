@@ -55,7 +55,7 @@ class ICryptoHandlerFactory
      * @return The created Handler on success, or an error if the type or
      *         algorithm is not supported.
      */
-    virtual ::score::Result<Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
+    virtual ::score::Result<common::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
                                                          const ::score::crypto::AlgorithmDescriptor& algorithm) = 0;
 
     /**
@@ -67,7 +67,7 @@ class ICryptoHandlerFactory
      * @return The created Handler on success, or an error if the provider has
      *         no key management.
      */
-    virtual ::score::Result<Handler::Sptr> CreateKeyManagementHandler() = 0;
+    virtual ::score::Result<common::Handler::Sptr> CreateKeyManagementHandler() = 0;
 
   protected:
     ICryptoHandlerFactory() = default;

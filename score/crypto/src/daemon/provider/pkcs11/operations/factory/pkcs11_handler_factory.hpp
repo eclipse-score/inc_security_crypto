@@ -57,15 +57,15 @@ class Pkcs11HandlerFactory final : public handler::ICryptoHandlerFactory
     ///
     /// Acquires a session from the provider pool using the handler type's
     /// static kRequirements. The session is released on handler destruction.
-    [[nodiscard]] score::Result<handler::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
-                                                                      const AlgorithmDescriptor& algorithm) override;
+    [[nodiscard]] score::Result<common::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
+                                                                     const AlgorithmDescriptor& algorithm) override;
 
     /// Creates the KEY:MANAGEMENT handler, which is bound to no algorithm.
-    [[nodiscard]] score::Result<handler::Handler::Sptr> CreateKeyManagementHandler() override;
+    [[nodiscard]] score::Result<common::Handler::Sptr> CreateKeyManagementHandler() override;
 
   private:
-    [[nodiscard]] score::Result<handler::Handler::Sptr> CreateHashHandler(const AlgorithmDescriptor& algorithm);
-    [[nodiscard]] score::Result<handler::Handler::Sptr> CreateMacHandler(const AlgorithmDescriptor& algorithm);
+    [[nodiscard]] score::Result<common::Handler::Sptr> CreateHashHandler(const AlgorithmDescriptor& algorithm);
+    [[nodiscard]] score::Result<common::Handler::Sptr> CreateMacHandler(const AlgorithmDescriptor& algorithm);
 
     const Pkcs11Module& m_module;
     Pkcs11Provider& m_provider;  ///< non-owning; provider always outlives the factory

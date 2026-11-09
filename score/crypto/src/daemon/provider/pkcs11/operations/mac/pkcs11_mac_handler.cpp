@@ -108,7 +108,7 @@ std::size_t Pkcs11MacHandler::GetMacSize() const noexcept
 // Handler interface
 // ---------------------------------------------------------------------------
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-Pkcs11MacHandler::InitializeContext(const handler::InitializationParams& init_params)
+Pkcs11MacHandler::InitializeContext(const score::crypto::daemon::common::InitializationParams& init_params)
 {
     if (!IsAlgorithmSupported(m_algorithm))
     {

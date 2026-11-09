@@ -40,7 +40,7 @@ class HashExecutor;
 /// provider compiles and returns a clear error at runtime.
 ///
 /// State management (algorithm, stream operation state) is centralised here.
-class ScoreHashHandler : public handler::Handler
+class ScoreHashHandler : public score::crypto::daemon::common::Handler
 {
   public:
     using Sptr = std::shared_ptr<ScoreHashHandler>;
@@ -64,7 +64,7 @@ class ScoreHashHandler : public handler::Handler
 
     /// Validates algorithm and resets state to IDLE.
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
-        const handler::InitializationParams& init_params) override;
+        const score::crypto::daemon::common::InitializationParams& init_params) override;
 
     /// Resets intermediate state back to IDLE.
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> Reset() override;

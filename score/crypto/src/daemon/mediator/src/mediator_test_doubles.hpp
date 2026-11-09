@@ -71,7 +71,7 @@ namespace score::crypto::daemon::mediator::test_doubles
 /// It records the initialization parameters and each executed operation. Initialization fails with
 /// the error given at construction. Execution returns a configured response, or fails with a
 /// configured error. `Reset` always succeeds.
-class StubHandler final : public provider::handler::Handler
+class StubHandler final : public score::crypto::daemon::common::Handler
 {
   public:
     /// @brief Create a handler.
@@ -82,7 +82,7 @@ class StubHandler final : public provider::handler::Handler
     /// @param init_params Parameters supplied by the unit under test; kept for `LastParams`.
     /// @return Success, or the error given at construction.
     Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
-        const provider::handler::InitializationParams& init_params) override
+        const score::crypto::daemon::common::InitializationParams& init_params) override
     {
         ++m_init_calls;
         m_last_params = init_params;
@@ -158,7 +158,7 @@ class StubHandler final : public provider::handler::Handler
 
     /// @return Parameters passed to the latest `InitializeContext`; default-constructed before the
     ///         first call.
-    [[nodiscard]] const provider::handler::InitializationParams& LastParams() const noexcept
+    [[nodiscard]] const score::crypto::daemon::common::InitializationParams& LastParams() const noexcept
     {
         return m_last_params;
     }
@@ -171,7 +171,7 @@ class StubHandler final : public provider::handler::Handler
     int m_execute_calls{0};
     common::OperationIdentifier m_last_operation_id{};
     common::RequestParameters m_last_execute_parameters{};
-    provider::handler::InitializationParams m_last_params{};
+    score::crypto::daemon::common::InitializationParams m_last_params{};
 };
 
 /// @brief Handler factory that creates `StubHandler`s, or fails with a configured error.
@@ -213,7 +213,7 @@ class StubHandlerFactory final : public provider::handler::ICryptoHandlerFactory
 
     /// @brief Create a handler or fail as configured; the arguments are ignored.
     /// @return A new `StubHandler`, or the error set by `FailWith`.
-    ::score::Result<provider::handler::Handler::Sptr> CreateHandler(
+    ::score::Result<score::crypto::daemon::common::Handler::Sptr> CreateHandler(
         const common::HandlerId&,
         const ::score::crypto::AlgorithmDescriptor&) override
     {
@@ -222,22 +222,22 @@ class StubHandlerFactory final : public provider::handler::ICryptoHandlerFactory
 
     /// @brief Create a handler or fail as configured.
     /// @return A new `StubHandler`, or the error set by `FailWith`.
-    ::score::Result<provider::handler::Handler::Sptr> CreateKeyManagementHandler() override
+    ::score::Result<score::crypto::daemon::common::Handler::Sptr> CreateKeyManagementHandler() override
     {
         return Create();
     }
 
   private:
-    ::score::Result<provider::handler::Handler::Sptr> Create()
+    ::score::Result<score::crypto::daemon::common::Handler::Sptr> Create()
     {
         ++m_create_calls;
         if (m_error.has_value())
         {
-            return ::score::Result<provider::handler::Handler::Sptr>(::score::unexpect,
+            return ::score::Result<score::crypto::daemon::common::Handler::Sptr>(::score::unexpect,
                                                                      ::score::crypto::MakeError(m_error.value()));
         }
         m_last_handler = std::make_shared<StubHandler>(m_handler_init_error);
-        return ::score::Result<provider::handler::Handler::Sptr>(m_last_handler);
+        return ::score::Result<score::crypto::daemon::common::Handler::Sptr>(m_last_handler);
     }
 
     std::optional<score::crypto::CryptoErrorCode> m_error;

@@ -31,7 +31,7 @@ ScoreKeyManagementHandler::ScoreKeyManagementHandler(std::unique_ptr<crypto_exec
 }
 
 Expected<std::monostate, common::DaemonErrorCode> ScoreKeyManagementHandler::InitializeContext(
-    const handler::InitializationParams& init_params)
+    const score::crypto::daemon::common::InitializationParams& init_params)
 {
     m_ctx.client_id = init_params.client_id;
     m_ctx.context_node_id = init_params.context_node_id;

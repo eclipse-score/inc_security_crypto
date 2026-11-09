@@ -47,7 +47,7 @@ struct ProviderSelectionRequest final
 struct ProviderHandlerSelection final
 {
     std::shared_ptr<provider::IProvider> provider;  ///< Provider selected by the arbiter.
-    provider::handler::Handler::Sptr handler;       ///< Handler created by the selected provider.
+    score::crypto::daemon::common::Handler::Sptr handler;       ///< Handler created by the selected provider.
     bool used_fallback{false};                      ///< Whether selection used the fallback preference.
 };
 

@@ -20,7 +20,7 @@
 #include <memory>
 #include <optional>
 
-namespace score::crypto::daemon::provider::handler
+namespace score::crypto::daemon::common
 {
 
 /**
@@ -37,8 +37,7 @@ namespace score::crypto::daemon::provider::handler
 class ContextDataNode : public data_manager::DataNode
 {
   public:
-    ContextDataNode(std::shared_ptr<score::crypto::daemon::provider::handler::Handler> handler,
-                    std::optional<score::crypto::AlgorithmDescriptor> algorithm);
+    ContextDataNode(std::shared_ptr<Handler> handler, std::optional<score::crypto::AlgorithmDescriptor> algorithm);
 
     ~ContextDataNode() override;
 
@@ -47,14 +46,14 @@ class ContextDataNode : public data_manager::DataNode
         return data_manager::DataNodeType::kContext;
     }
 
-    std::shared_ptr<score::crypto::daemon::provider::handler::Handler> GetHandler() const;
+    std::shared_ptr<Handler> GetHandler() const;
     const std::optional<score::crypto::AlgorithmDescriptor>& GetAlgorithm() const;
 
   private:
-    std::shared_ptr<score::crypto::daemon::provider::handler::Handler> m_handler;
+    std::shared_ptr<Handler> m_handler;
     std::optional<score::crypto::AlgorithmDescriptor> m_algorithm;
 };
 
-}  // namespace score::crypto::daemon::provider::handler
+}  // namespace score::crypto::daemon::common
 
 #endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_CONTEXT_DATA_NODE_HPP

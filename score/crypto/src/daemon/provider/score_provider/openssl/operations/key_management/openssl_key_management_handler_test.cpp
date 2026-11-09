@@ -88,7 +88,7 @@ class KeyManagementHandlerTest : public ::testing::Test
         m_handler = std::make_shared<handler_ns::OpenSslKeyManagementHandler>(std::move(executor));
 
         // Initialize handler context with client identity and assigned node IDs
-        handler::InitializationParams init_params{.client_id = kAllowedClient,
+        score::crypto::daemon::common::InitializationParams init_params{.client_id = kAllowedClient,
                                                   .context_node_id = m_parent_id,
                                                   .provider_id = kProviderId,
                                                   .key_node_id = 0U,
@@ -236,7 +236,7 @@ TEST_F(KeyManagementHandlerTest, GetKeySlotInfo_DeniedClient_ReturnsError)
     auto denied_parent = m_data_manager->addNode(kDeniedClient, denied_parent_node);
     ASSERT_TRUE(denied_parent.has_value());
 
-    handler::InitializationParams denied_init{.client_id = kDeniedClient,
+    score::crypto::daemon::common::InitializationParams denied_init{.client_id = kDeniedClient,
                                               .context_node_id = denied_parent.value(),
                                               .provider_id = kProviderId,
                                               .key_node_id = 0U,

@@ -46,7 +46,7 @@ class Pkcs11Provider;
 ///
 /// kRequirements declares the session type and auth state needed by this
 /// handler type so the factory and provider pool can allocate correctly.
-class Pkcs11HashHandler final : public handler::Handler
+class Pkcs11HashHandler final : public score::crypto::daemon::common::Handler
 {
   public:
     /// @brief Session and auth requirements for hash operations.
@@ -75,7 +75,7 @@ class Pkcs11HashHandler final : public handler::Handler
 
     // --- Handler interface ---
     [[nodiscard]] Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> InitializeContext(
-        const handler::InitializationParams& init_params) override;
+        const score::crypto::daemon::common::InitializationParams& init_params) override;
 
     [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Execute(
         const common::OperationIdentifier& operationId,

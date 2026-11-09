@@ -42,7 +42,7 @@ class MacExecutor;
 /// Key binding is performed via InitializeContext(): the mediator sets
 /// bound_key_handler before calling InitializeContext(), which the concrete
 /// handler uses to bind the key.
-class ScoreMacHandler : public handler::Handler
+class ScoreMacHandler : public score::crypto::daemon::common::Handler
 {
   public:
     using Sptr = std::shared_ptr<ScoreMacHandler>;
@@ -64,7 +64,7 @@ class ScoreMacHandler : public handler::Handler
         common::RequestParameters& request) override;
 
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
-        const handler::InitializationParams& init_params) override;
+        const score::crypto::daemon::common::InitializationParams& init_params) override;
 
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> Reset() override;
 

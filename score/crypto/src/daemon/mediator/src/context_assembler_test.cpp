@@ -101,7 +101,7 @@ TEST_F(ContextAssemblerTest, CreatesContextNodeAndInitializesTheHandler)
     EXPECT_TRUE(m_data_manager->NodeExists(kClient, node_id.value()));
     auto accessor = m_data_manager->getNodeAccessor(kClient, node_id.value());
     ASSERT_TRUE(accessor.has_value());
-    auto context_node = std::move(accessor).value().downCast<provider::handler::ContextDataNode>();
+    auto context_node = std::move(accessor).value().downCast<score::crypto::daemon::common::ContextDataNode>();
     ASSERT_TRUE(context_node.has_value());
     EXPECT_EQ(context_node.value()->GetHandler(), handler);
     ASSERT_TRUE(context_node.value()->GetAlgorithm().has_value());

@@ -99,7 +99,7 @@ class MediatorImpl : public IMediator
     /// @param responseBuilder Builder receiving the operation result.
     /// @return True if execution succeeded.
     bool ExecuteOperation(const OperationExecutionContext& exec_ctx,
-                          const std::shared_ptr<score::crypto::daemon::provider::handler::Handler>& handler,
+                          const std::shared_ptr<score::crypto::daemon::common::Handler>& handler,
                           score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
 
     /// @brief Shared node-deletion helper used by both CTX_CLOSE and SHM_DESTROY_OBJECT.

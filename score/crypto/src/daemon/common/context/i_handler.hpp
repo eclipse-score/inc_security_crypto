@@ -19,7 +19,7 @@
 #include "score/crypto/src/daemon/common/types.hpp"
 #include <memory>
 
-namespace score::crypto::daemon::provider::handler
+namespace score::crypto::daemon::common
 {
 
 class Handler
@@ -33,13 +33,13 @@ class Handler
     /// fixed at construction — this method wires the per-request identity and
     /// optional bound key handle.
     virtual Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> InitializeContext(
-        const handler::InitializationParams& init_params) = 0;
+        const InitializationParams& init_params) = 0;
     virtual Expected<common::ResponseParameters, ::score::crypto::daemon::common::DaemonErrorCode> Execute(
         const common::OperationIdentifier& operationId,
         common::RequestParameters& request) = 0;
     virtual Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> Reset() = 0;
 };
 
-}  // namespace score::crypto::daemon::provider::handler
+}  // namespace score::crypto::daemon::common
 
 #endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_I_HANDLER_HPP

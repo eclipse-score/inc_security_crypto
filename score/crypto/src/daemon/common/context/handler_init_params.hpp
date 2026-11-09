@@ -24,7 +24,7 @@ namespace score::crypto::daemon::key_management
 class IKeyHandler;
 }  // namespace score::crypto::daemon::key_management
 
-namespace score::crypto::daemon::provider::handler
+namespace score::crypto::daemon::common
 {
 
 /// Runtime context supplied by the mediator during single-phase CTX_CREATE.
@@ -63,6 +63,6 @@ struct InitializationParams
     common::RequestParameters context_creation_params{};
 };
 
-}  // namespace score::crypto::daemon::provider::handler
+}  // namespace score::crypto::daemon::common
 
 #endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_HANDLER_INIT_PARAMS_HPP

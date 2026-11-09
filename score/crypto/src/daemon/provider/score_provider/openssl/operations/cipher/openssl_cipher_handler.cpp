@@ -93,7 +93,7 @@ bool OpenSslCipherHandler::GetBoundKeyMaterial(const std::uint8_t*& key_bytes, s
 // ---------------------------------------------------------------------------
 
 ::score::crypto::Expected<std::monostate, DaemonErrorCode> OpenSslCipherHandler::InitializeContext(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
+    const ::score::crypto::daemon::common::InitializationParams& init_params)
 {
     const char* const cipher_name = ::score::crypto::daemon::provider::openssl::detail::ToEvpCipherName(m_algorithm);
     if (cipher_name == nullptr)

@@ -55,7 +55,7 @@ class Stream final
     /// @param init_params Context initialization parameters; retained so that
     ///        Reset() can rebuild the context from them.
     [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> Bind(
-        const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
+        const ::score::crypto::daemon::common::InitializationParams& init_params,
         const AlgorithmDescriptor& algorithm);
 
     /// @brief Replaces the digest context with a fresh one.
@@ -76,7 +76,7 @@ class Stream final
     [[nodiscard]] EVP_PKEY* Key() const noexcept;
 
     /// @brief The parameters Bind() was given, for rebuilding on Reset().
-    [[nodiscard]] const ::score::crypto::daemon::provider::handler::InitializationParams& InitParams() const noexcept
+    [[nodiscard]] const ::score::crypto::daemon::common::InitializationParams& InitParams() const noexcept
     {
         return m_init_params;
     }
@@ -85,7 +85,7 @@ class Stream final
     void Free() noexcept;
 
     EVP_MD_CTX* m_md_ctx{nullptr};
-    ::score::crypto::daemon::provider::handler::InitializationParams m_init_params;
+    ::score::crypto::daemon::common::InitializationParams m_init_params;
 };
 
 /// @brief Convert a DER ECDSA-Sig-Value into fixed-length r‖s.
