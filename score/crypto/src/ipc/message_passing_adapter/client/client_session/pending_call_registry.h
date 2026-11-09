@@ -14,10 +14,9 @@
 #ifndef SCORE_CRYPTO_IPC_PENDING_CALL_REGISTRY_H
 #define SCORE_CRYPTO_IPC_PENDING_CALL_REGISTRY_H
 
+#include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
-#include "score/crypto/src/ipc/message_passing_adapter/client/client_session/pending_call.h"
 
-#include <score/expected.hpp>
 #include <score/unordered_map.hpp>
 
 #include <chrono>

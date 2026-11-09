@@ -14,7 +14,6 @@
 #define SCORE_CRYPTO_IPC_MESSAGE_PASSING_CONTROL_SERVER_H
 
 #include "score/crypto/src/daemon/control_plane/i_control_server.h"
-#include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/server_callbacks.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/server_state_machine.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session_manager.h"
@@ -26,12 +25,21 @@
 #include <score/span.hpp>
 
 #include "score/message_passing/server_factory.h"
-#include "score/message_passing/service_protocol_config.h"
 
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string_view>
+
+namespace score::crypto::daemon::control_plane
+{
+class IHandlerChainFactory;
+}  // namespace score::crypto::daemon::control_plane
+
+namespace score::message_passing
+{
+class IServerConnection;
+class ServiceProtocolConfig;
+}  // namespace score::message_passing
 
 namespace score::crypto::ipc::message_passing
 {

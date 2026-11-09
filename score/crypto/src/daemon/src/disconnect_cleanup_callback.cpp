@@ -28,7 +28,7 @@ score::crypto::ipc::message_passing::DisconnectCleanupCallback MakeDisconnectCle
     // Using the lambda capture to hold shared pointers to the data manager and key management service
     // to ensure liftime
     return [data_manager = std::move(data_manager), key_management_service = std::move(key_management_service)](
-               const score::crypto::daemon::control_plane::protocol::ClientId client_id) {
+               const score::crypto::daemon::common::ClientId client_id) {
         score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> first_failure{};
         if (data_manager)
         {

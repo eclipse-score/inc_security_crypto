@@ -14,11 +14,8 @@
 #ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_SESSION_REGISTRY_H
 #define SCORE_CRYPTO_IPC_MESSAGE_PASSING_SESSION_REGISTRY_H
 
-#include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
-#include "score/crypto/src/ipc/message_passing_adapter/server/server_callbacks.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session.h"
 
 #include <score/unordered_map.hpp>
@@ -30,7 +27,6 @@
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <vector>
 
 namespace score::crypto::ipc::message_passing
@@ -46,7 +42,7 @@ namespace score::crypto::ipc::message_passing
 class SessionRegistry final
 {
   public:
-    using ClientId = score::crypto::daemon::control_plane::protocol::ClientId;
+    using ClientId = score::crypto::daemon::common::ClientId;
     using SessionFactory = std::function<std::shared_ptr<detail::Session>(score::message_passing::IServerConnection&,
                                                                           ClientId,
                                                                           detail::Session::CleanupFinishedCallback)>;

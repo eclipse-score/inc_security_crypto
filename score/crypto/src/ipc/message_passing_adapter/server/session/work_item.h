@@ -17,7 +17,6 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
-#include "score/crypto/src/ipc/protocol/i_control_codec.h"
 
 #include <score/span.hpp>
 
@@ -27,6 +26,11 @@
 #include <mutex>
 #include <variant>
 #include <vector>
+
+namespace score::crypto::ipc::protocol
+{
+class IControlCodec;
+}  // namespace score::crypto::ipc::protocol
 
 namespace score::crypto::ipc::message_passing::detail
 {

@@ -16,10 +16,9 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 #include <sys/types.h>
-#include <cstdint>
 #include <functional>
 #include <variant>
 
@@ -40,7 +39,7 @@ using AuthorizationCallback =
  */
 using DisconnectCleanupCallback =
     std::function<score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>(
-        score::crypto::daemon::control_plane::protocol::ClientId client_id)>;
+        score::crypto::daemon::common::ClientId client_id)>;
 
 }  // namespace score::crypto::ipc::message_passing
 

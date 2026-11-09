@@ -14,25 +14,41 @@
 #ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_WORK_ITEM_DISPATCHER_H
 #define SCORE_CRYPTO_IPC_MESSAGE_PASSING_WORK_ITEM_DISPATCHER_H
 
-#include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
-#include "score/crypto/src/ipc/message_passing_adapter/server/work_item_execution/i_work_item_submitter.h"
-#include "score/crypto/src/ipc/protocol/i_control_codec.h"
-
-#include "score/message_passing/i_server_connection.h"
 
 #include <score/span.hpp>
 
 #include <cstdint>
 #include <memory>
-#include <optional>
+
+namespace score::crypto::daemon::control_plane
+{
+class IRequestHandler;
+}  // namespace score::crypto::daemon::control_plane
+
+namespace score::crypto::ipc::protocol
+{
+class IControlCodec;
+}  // namespace score::crypto::ipc::protocol
+
+namespace score::message_passing
+{
+class IServerConnection;
+}  // namespace score::message_passing
 
 namespace score::crypto::ipc::message_passing
 {
 
 class SessionManager;
+class IWorkItemSubmitter;
+
+namespace detail
+{
+class Session;
+struct WorkItem;
+}  // namespace detail
 
 /**
  * @brief

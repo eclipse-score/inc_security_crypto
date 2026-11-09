@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/ipc/tests/message_passing_adapter_integration_test_process_separation_common.h"
 
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/message_passing_control_server.h"
@@ -38,7 +39,7 @@ namespace
 {
 
 namespace process_test = score::crypto::ipc::message_passing::process_test;
-namespace protocol = score::crypto::ipc::message_passing::process_test::protocol;
+namespace protocol = score::crypto::daemon::control_plane::protocol;
 using DaemonErrorCode = score::crypto::daemon::common::DaemonErrorCode;
 
 class DisconnectCleanupObserver final

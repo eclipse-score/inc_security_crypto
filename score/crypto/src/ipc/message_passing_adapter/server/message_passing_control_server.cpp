@@ -14,7 +14,9 @@
 #include "score/crypto/src/ipc/message_passing_adapter/server/message_passing_control_server.h"
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
+#include "score/message_passing/i_server_connection.h"
 
 #include "score/message_passing/service_protocol_config.h"
 #include "score/mw/log/logging.h"

@@ -16,10 +16,15 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
-#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 
 #include <functional>
+#include <memory>
 #include <variant>
+
+namespace score::crypto::daemon::control_plane
+{
+class IRequestHandler;
+}  // namespace score::crypto::daemon::control_plane
 
 namespace score::crypto::ipc::message_passing
 {

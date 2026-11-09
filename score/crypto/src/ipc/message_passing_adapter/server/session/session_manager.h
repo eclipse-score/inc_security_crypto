@@ -14,21 +14,23 @@
 #ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_SESSION_MANAGER_H
 #define SCORE_CRYPTO_IPC_MESSAGE_PASSING_SESSION_MANAGER_H
 
-#include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/server_callbacks.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session_registry.h"
-#include "score/crypto/src/ipc/message_passing_adapter/server/work_item_execution/i_work_item_submitter.h"
-
-#include "score/message_passing/i_server_connection.h"
 
 #include <sys/types.h>
-#include <cstdint>
 #include <memory>
+
+namespace score::message_passing
+{
+class IServerConnection;
+}  // namespace score::message_passing
 
 namespace score::crypto::ipc::message_passing
 {
+
+class IWorkItemSubmitter;
 
 /**
  * @brief

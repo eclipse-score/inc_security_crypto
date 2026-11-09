@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session_manager.h"
 
+#include "score/message_passing/i_server_connection.h"
 #include "score/mw/log/logging.h"
 
 #include <new>

@@ -14,6 +14,8 @@
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session.h"
 
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
+#include "score/crypto/src/ipc/message_passing_adapter/server/session/work_item.h"
+#include "score/message_passing/i_server_connection.h"
 
 #include "score/mw/log/logging.h"
 #include "score/os/errno.h"

@@ -16,9 +16,12 @@
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session_manager.h"
+#include "score/crypto/src/ipc/message_passing_adapter/server/session/work_item.h"
+#include "score/crypto/src/ipc/message_passing_adapter/server/work_item_execution/i_work_item_submitter.h"
 #include "score/crypto/src/ipc/protocol/i_control_codec.h"
 
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/mw/log/logging.h"
 
 #include <chrono>

@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/ipc/message_passing_adapter/server/work_item_execution/fixed_worker_work_item_executor.h"
 
+#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/work_item.h"
 #include "score/mw/log/logging.h"
 

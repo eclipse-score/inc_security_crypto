@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/ipc/tests/message_passing_adapter_integration_test_process_separation_common.h"
 
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/ipc/message_passing_adapter/client/message_passing_control_client.h"
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 
@@ -39,7 +40,7 @@ namespace
 {
 
 namespace process_test = score::crypto::ipc::message_passing::process_test;
-namespace protocol = process_test::protocol;
+namespace protocol = score::crypto::daemon::control_plane::protocol;
 using ClientResult = score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode>;
 using ClientResult = score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode>;
 

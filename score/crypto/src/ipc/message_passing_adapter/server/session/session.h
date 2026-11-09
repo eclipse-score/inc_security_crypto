@@ -14,28 +14,30 @@
 #ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_SESSION_H
 #define SCORE_CRYPTO_IPC_MESSAGE_PASSING_SESSION_H
 
-#include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/server_callbacks.hpp"
-#include "score/crypto/src/ipc/message_passing_adapter/server/session/work_item.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/work_item_execution/i_work_item_submitter.h"
-
-#include "score/message_passing/i_server_connection.h"
 
 #include <score/span.hpp>
 #include <score/unordered_map.hpp>
 
-#include <atomic>
-#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <variant>
+
+namespace score::message_passing
+{
+class IServerConnection;
+}  // namespace score::message_passing
 
 namespace score::crypto::ipc::message_passing::detail
 {
+
+struct WorkItem;
 
 enum class SessionState : std::uint8_t
 {
@@ -57,10 +59,10 @@ enum class SessionState : std::uint8_t
 class Session final : public std::enable_shared_from_this<Session>
 {
   public:
-    using CleanupFinishedCallback = std::function<void(daemon::control_plane::protocol::ClientId, bool)>;
+    using CleanupFinishedCallback = std::function<void(daemon::common::ClientId, bool)>;
 
     Session(score::message_passing::IServerConnection& connection,
-            daemon::control_plane::protocol::ClientId client_id,
+            daemon::common::ClientId client_id,
             IWorkItemSubmitter& cleanup_submitter,
             DisconnectCleanupCallback cleanup_callback,
             CleanupFinishedCallback cleanup_finished_callback) noexcept;
@@ -75,7 +77,7 @@ class Session final : public std::enable_shared_from_this<Session>
     /// @param cancel_request_id The unique request ID of the work item to cancel.
     /// @return An expected indicating success or failure of the cancellation request.
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    RequestCancellationByRequestId(daemon::control_plane::protocol::RequestId cancel_request_id) noexcept;
+    RequestCancellationByRequestId(daemon::common::RequestId cancel_request_id) noexcept;
 
     /// @brief Requests cancellation of all pending work items in this session.
     void CancelAllPendingWorkItems() noexcept;
@@ -95,7 +97,7 @@ class Session final : public std::enable_shared_from_this<Session>
 
     /// @brief Retrieves the client ID associated with this session.
     /// @return The client ID of this session.
-    daemon::control_plane::protocol::ClientId client_id() const noexcept
+    daemon::common::ClientId client_id() const noexcept
     {
         return m_client_id;
     }
@@ -128,10 +130,10 @@ class Session final : public std::enable_shared_from_this<Session>
 
     std::mutex m_mutex;
     SessionState m_state{SessionState::kActive};
-    const daemon::control_plane::protocol::ClientId m_client_id;
+    const daemon::common::ClientId m_client_id;
     score::message_passing::IServerConnection& m_connection;
     // Workitem of this session, keyed by their unique request IDs.
-    std::unordered_map<daemon::control_plane::protocol::RequestId, std::shared_ptr<WorkItem>> m_work_items{};
+    std::unordered_map<daemon::common::RequestId, std::shared_ptr<WorkItem>> m_work_items{};
 
     // Function to schedule when connection is closed / lost
     DisconnectCleanupCallback m_cleanup_callback;
