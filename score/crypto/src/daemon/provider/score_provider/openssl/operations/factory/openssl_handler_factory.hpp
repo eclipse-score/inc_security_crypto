@@ -37,8 +37,7 @@ class OpenSslHandlerFactory final
 
     ~OpenSslHandlerFactory() override = default;
 
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::common::Handler::Sptr>
-    CreateKeyManagementHandler() override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::common::Handler::Sptr> CreateKeyManagementHandler() override;
 
   protected:
     [[nodiscard]] ::score::Result<::score::crypto::daemon::common::Handler::Sptr> CreateHashHandler(

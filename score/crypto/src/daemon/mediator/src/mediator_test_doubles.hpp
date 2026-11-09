@@ -233,8 +233,8 @@ class StubHandlerFactory final : public provider::handler::ICryptoHandlerFactory
         ++m_create_calls;
         if (m_error.has_value())
         {
-            return ::score::Result<score::crypto::daemon::common::Handler::Sptr>(::score::unexpect,
-                                                                     ::score::crypto::MakeError(m_error.value()));
+            return ::score::Result<score::crypto::daemon::common::Handler::Sptr>(
+                ::score::unexpect, ::score::crypto::MakeError(m_error.value()));
         }
         m_last_handler = std::make_shared<StubHandler>(m_handler_init_error);
         return ::score::Result<score::crypto::daemon::common::Handler::Sptr>(m_last_handler);
