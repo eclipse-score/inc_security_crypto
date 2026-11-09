@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/ipc/message_passing_adapter/client/client_session/pending_call_registry.h"
 
+#include "score/crypto/src/ipc/message_passing_adapter/client/client_session/pending_call.h"
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 
 #include "score/mw/log/logging.h"
@@ -30,8 +31,6 @@ PendingCallRegistry::PendingCallRegistry() = default;
 score::crypto::Expected<PendingCallRegistry::RegisteredPendingCall, score::crypto::CryptoErrorCode>
 PendingCallRegistry::Register() noexcept
 {
-    using RequestId = daemon::control_plane::protocol::RequestId;
-
     std::lock_guard<std::mutex> lock(m_pending_calls_mutex);
     if (m_pending_calls.size() >= ipc::kMaxOutstandingOperationsPerConnection)
     {

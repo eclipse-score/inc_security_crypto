@@ -14,6 +14,8 @@
 #include "score/crypto/src/ipc/message_passing_adapter/client/client_session/client_session.h"
 
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
+#include "score/crypto/src/ipc/protocol/i_control_codec.h"
+#include "score/message_passing/i_client_connection.h"
 #include "score/mw/log/logging.h"
 
 #include <algorithm>
@@ -169,7 +171,26 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSe
     {
         m_connection->Start(
             [this](const score::message_passing::IClientConnection::State state) noexcept {
-                OnTransportStateChanged(state);
+                switch (state)
+                {
+                    case score::message_passing::IClientConnection::State::kStarting:
+                        OnTransportStateChanged(LifecycleState::kStarting);
+                        break;
+                    case score::message_passing::IClientConnection::State::kReady:
+                        OnTransportStateChanged(LifecycleState::kReady);
+                        break;
+                    case score::message_passing::IClientConnection::State::kStopping:
+                        OnTransportStateChanged(LifecycleState::kStopping);
+                        break;
+                    case score::message_passing::IClientConnection::State::kStopped:
+                        OnTransportStateChanged(LifecycleState::kStopped);
+                        break;
+                    default:
+                        score::mw::log::LogError() << "[IPC][MESSAGE_PASSING_CLIENT] Received unknown transport state="
+                                                   << static_cast<int>(state);
+                        OnTransportStateChanged(LifecycleState::kStopped);
+                        break;
+                }
             },
             [this](const score::cpp::span<const std::uint8_t> message) noexcept {
                 OnResponseBytes(message);
@@ -189,39 +210,12 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSe
     }
 }
 
-void ClientSession::OnTransportStateChanged(const score::message_passing::IClientConnection::State state) noexcept
+void ClientSession::OnTransportStateChanged(const LifecycleState state) noexcept
 {
-    switch (state)
+    HandleTransportState(state);
+    if ((state == LifecycleState::kStopping) || (state == LifecycleState::kStopped))
     {
-        case score::message_passing::IClientConnection::State::kStarting:
-        {
-            HandleTransportState(LifecycleState::kStarting);
-            break;
-        }
-        case score::message_passing::IClientConnection::State::kReady:
-        {
-            HandleTransportState(LifecycleState::kReady);
-            break;
-        }
-        case score::message_passing::IClientConnection::State::kStopping:
-        {
-            HandleTransportState(LifecycleState::kStopping);
-            FailAllPendingCalls(score::crypto::CryptoErrorCode::kConnectionFailed);
-            break;
-        }
-        case score::message_passing::IClientConnection::State::kStopped:
-        {
-            HandleTransportState(LifecycleState::kStopped);
-            FailAllPendingCalls(score::crypto::CryptoErrorCode::kConnectionFailed);
-            break;
-        }
-        default:
-        {
-            score::mw::log::LogError() << "[IPC][MESSAGE_PASSING_CLIENT] Received unknown transport state="
-                                       << static_cast<int>(state);
-            HandleTransportState(LifecycleState::kStopped);
-            FailAllPendingCalls(score::crypto::CryptoErrorCode::kConnectionFailed);
-        }
+        FailAllPendingCalls(score::crypto::CryptoErrorCode::kConnectionFailed);
     }
 }
 

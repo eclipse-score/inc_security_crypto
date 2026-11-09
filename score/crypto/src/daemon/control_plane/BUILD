@@ -50,7 +50,7 @@ cc_library(
         "i_handler_chain_factory.hpp",
         "i_request_handler.hpp",
     ],
-    linkstatic = True,  # Internal library should only be statically linked
+    linkstatic = True,
     visibility = ["//:__subpackages__"],
     deps = [
         ":control_operations",

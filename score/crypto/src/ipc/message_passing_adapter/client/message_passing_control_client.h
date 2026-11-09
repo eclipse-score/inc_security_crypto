@@ -14,18 +14,20 @@
 #define SCORE_CRYPTO_IPC_MESSAGE_PASSING_CONTROL_CLIENT_H
 
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
-#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/client/client_session/client_session.h"
 #include "score/crypto/src/ipc/protocol/flatbuffer_codec.h"
 
 #include "score/memory.hpp"
 #include "score/message_passing/client_factory.h"
-#include "score/message_passing/i_client_connection.h"
 
 #include <chrono>
-#include <cstdint>
 #include <memory>
 #include <string_view>
+
+namespace score::message_passing
+{
+class IClientConnection;
+}  // namespace score::message_passing
 
 namespace score::crypto::ipc::message_passing
 {

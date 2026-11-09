@@ -22,16 +22,14 @@
 #include <vector>
 
 #include "score/crypto/src/common/types.hpp"
-
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
-
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 namespace score::crypto::daemon::data_manager
 {
 
-using DataNodeId = control_plane::protocol::DataNodeId;
-using ClientId = control_plane::protocol::ClientId;
+using DataNodeId = score::crypto::daemon::common::DataNodeId;
+using ClientId = score::crypto::daemon::common::ClientId;
 
 /// @brief Discriminator for concrete DataNode subtypes.
 ///

@@ -37,12 +37,12 @@ class IControlCodec
     struct RequestMetadata final
     {
         daemon::control_plane::protocol::RequestId request_id{0U};
-        daemon::control_plane::protocol::ClientId client_id{0U};
-        daemon::control_plane::protocol::DataNodeId data_node_id{0U};
-        daemon::control_plane::protocol::ExecutionPolicy execution_policy{};
-        std::uint32_t timeout_ms{0U};
         daemon::control_plane::protocol::ControlRequestKind kind{
             daemon::control_plane::protocol::ControlRequestKind::kOperation};
+        daemon::control_plane::protocol::ClientId client_id{0U};
+        daemon::control_plane::protocol::ExecutionPolicy execution_policy{};
+        daemon::control_plane::protocol::DataNodeId data_node_id{0U};
+        std::uint32_t timeout_ms{0U};
     };
 
     virtual ~IControlCodec() noexcept = default;

@@ -14,12 +14,11 @@
 #ifndef SCORE_CRYPTO_IPC_PENDING_CALL_H
 #define SCORE_CRYPTO_IPC_PENDING_CALL_H
 
-#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
-#include <memory>
 #include <mutex>
 
 namespace score::crypto::ipc::message_passing
@@ -56,8 +55,6 @@ class PendingCall final
     State state{State::kPending};
     score::crypto::Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> result;
 };
-
-using PendingCallHandle = std::shared_ptr<PendingCall>;
 
 }  // namespace score::crypto::ipc::message_passing
 

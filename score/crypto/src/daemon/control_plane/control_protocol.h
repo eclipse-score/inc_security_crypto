@@ -44,38 +44,19 @@ namespace score::crypto::daemon::control_plane::protocol
 // If cross-version wire stability ever becomes a requirement (rolling daemon/client upgrades),
 // introduce a dedicated serialization enum here and translate at the boundary so CryptoErrorCode
 // can evolve independently of the on-wire representation.
-using OperationResult = std::underlying_type<score::crypto::CryptoErrorCode>::type;
-static constexpr OperationResult OPERATION_RESULT_SUCCESS = 0;
-
-/// @brief Opaque 64-bit identifier assigned to every DataNode by the DataManager.
-using DataNodeId = std::uint64_t;
-
-/// @brief Opaque 64-bit identifier that represents the owning client of a node.
-using ClientId = std::uint64_t;
-
-inline constexpr std::size_t DATA_NODE_ID_RESERVED_BITS{8U};
-inline constexpr std::size_t DATA_NODE_ID_VALUE_BITS{56U};
-
-using RequestId = std::uint64_t;
-
-enum class ControlRequestKind : std::uint8_t
-{
-    kOperation = 0U,
-    kCancel = 1U,
-};
-
-// ============================================================================
-// Convenience type aliased to bring them to into the namespace
-// ============================================================================
+using OperationResult = common::OperationResult;
+using common::OPERATION_RESULT_SUCCESS;
+using DataNodeId = common::DataNodeId;
+using ClientId = common::ClientId;
+using common::DATA_NODE_ID_RESERVED_BITS;
+using common::DATA_NODE_ID_VALUE_BITS;
+using RequestId = common::RequestId;
+using ControlRequestKind = common::ControlRequestKind;
 
 using OperationIdentifier = common::OperationIdentifier;
-inline constexpr OperationIdentifier kEnvelopeErrorOperationIdentifier{0U, 0U};
-
-inline constexpr bool IsEnvelopeErrorOperation(const OperationIdentifier& operation_id) noexcept
-{
-    return (operation_id.operationActor == kEnvelopeErrorOperationIdentifier.operationActor) &&
-           (operation_id.operationAction == kEnvelopeErrorOperationIdentifier.operationAction);
-}
+using common::GetUidFromClientId;
+using common::IsEnvelopeErrorOperation;
+using common::kEnvelopeErrorOperationIdentifier;
 
 using NoParam = daemon::common::NoParam;
 using OwnedString = common::OwnedString;
@@ -143,19 +124,9 @@ struct ExecutionPolicy
 struct ControlRequest
 {
     RequestId request_id;
-    // TODO: This is not really nice, since we duplicate the union definition
-    // But we avoid confusion about the order / portability
-    // BUT, we should get rid of this in general
-    // There are currently THREE copies either change none or all
-    union
-    {
-        ClientId client_id;
-        struct
-        {
-            uint32_t opaque_id;
-            uint32_t uid;
-        };
-    };
+    ControlRequestKind kind{ControlRequestKind::kOperation};
+    ClientId client_id{0U};
+    ExecutionPolicy execution_policy;
     union
     {
         DataNodeId data_node_id;
@@ -168,18 +139,9 @@ struct ControlRequest
             uint64_t node_tag_value : DATA_NODE_ID_RESERVED_BITS;
         };
     };
-    ExecutionPolicy execution_policy;
     std::chrono::steady_clock::time_point deadline{};
-    ControlRequestKind kind{ControlRequestKind::kOperation};
     std::vector<SingleOperationRequest> operations;
 };
-
-static_assert(sizeof(uint32_t) == sizeof(decltype(ControlRequest::opaque_id)),
-              "Error: The size of opaque_id is not the expected size.");
-static_assert(sizeof(uid_t) == sizeof(decltype(ControlRequest::uid)),
-              "Error: The size of uid is not the expected size.");
-static_assert(sizeof(ClientId) == sizeof(decltype(ControlRequest::opaque_id)) + sizeof(decltype(ControlRequest::uid)),
-              "Error: The size of ClientId and its components do not match.");
 
 /// Response from control operation
 struct ControlResponse
@@ -191,25 +153,6 @@ struct ControlResponse
 inline bool IsEnvelopeErrorResponse(const ControlResponse& response) noexcept
 {
     return (response.operations.size() == 1U) && IsEnvelopeErrorOperation(response.operations.front().operationId);
-}
-
-/// Extract the user ID (uid) from a ClientId
-inline uint32_t GetUidFromClientId(ClientId client_id)
-{
-    // TODO: This is not really nice, since we duplicate the union definition
-    // But we avoid confusion about the order / portability
-    // BUT, we should get rid of this in general
-    // There are currently THREE copies either change none or all
-    union
-    {
-        ClientId id;
-        struct
-        {
-            uint32_t opaque_id;
-            uint32_t uid;
-        };
-    } decomposed{client_id};
-    return decomposed.uid;
 }
 
 // ============================================================================
@@ -491,9 +434,18 @@ class OperationResponseBuilder
 // Response Validator (Fluent Builder Pattern)
 // ============================================================================
 
+/**
+ * @brief Validates operation results and parameters in a control response.
+ *
+ * The validator does not own the operations it examines. The referenced operations response must
+ * outlive the validator.
+ */
 class ControlResponseValidator
 {
   public:
+    /// @brief Constructs a validator over caller-owned response operations.
+    /// @param response Operations to validate; the vector must outlive this validator.
+    /// @param logErrors Whether validation failures should be logged.
     explicit ControlResponseValidator(const std::vector<SingleOperationResponse>& response, bool logErrors = false)
         : m_response(response),
           m_currentOpIndex(std::numeric_limits<size_t>::max()),
@@ -502,9 +454,12 @@ class ControlResponseValidator
     {
     }
 
-    /// Create a validator from a Result/Expected type, validating has_value() first
-    /// Works with any type T where has_value() and value() are available
-    /// Automatically extracts .operations from ControlResponse if present
+    /// @brief Creates a validator from a Result/Expected-like object.
+    ///
+    /// Checks has_value() and uses the contained ControlResponse's operations when present.
+    /// The caller must keep the result alive for the lifetime of the returned validator.
+    /// @param result Result-like object containing a ControlResponse.
+    /// @param logErrors Whether validation failures should be logged.
     template <typename T>
     static ControlResponseValidator FromResult(const T& result, bool logErrors = false)
     {
@@ -762,8 +717,7 @@ class ControlRequestBuilder
     {
         // Filled in by the IPC during transmission
         m_request.request_id = 0;
-        m_request.opaque_id = 0;
-        m_request.uid = 0;
+        m_request.client_id = 0U;
 
         // Default value, in case not provided
         m_request.data_node_id = 0;

@@ -13,7 +13,7 @@
 
 #include "score/crypto/src/daemon/data_plane/src/shm_data_node.hpp"
 
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/mw/log/logging.h"
 
 #include <chrono>
@@ -41,7 +41,7 @@ Expected<std::shared_ptr<ShmDataNode>, common::DaemonErrorCode> ShmDataNode::Cre
     std::size_t size,
     data_manager::ClientId client_id)
 {
-    const auto uid = control_plane::protocol::GetUidFromClientId(client_id);
+    const auto uid = common::GetUidFromClientId(client_id);
     const auto name = GetShmName(uid);
 
     // 1. Validate inputs
@@ -118,7 +118,7 @@ ShmDataNode::~ShmDataNode()
     // 2. Unregister from quota tracker (if registry still alive)
     if (auto registry = m_registry.lock())
     {
-        const auto uid = control_plane::protocol::GetUidFromClientId(m_client_id);
+        const auto uid = common::GetUidFromClientId(m_client_id);
         registry->Unregister(uid, m_size);
     }
 }

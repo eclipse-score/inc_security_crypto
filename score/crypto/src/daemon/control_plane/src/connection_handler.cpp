@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/control_plane/src/connection_handler.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_operations.h"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
@@ -38,7 +39,8 @@ ConnectionHandler::ConnectionHandler(std::unique_ptr<IRequestHandler> next_reque
 ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
 {
     score::mw::log::LogDebug() << "[CONTROL_HANDLER] Received request - Request ID:" << request.request_id
-                               << ", Client Id ID:" << request.client_id << ", UID:" << request.uid
+                               << ", Client Id ID:" << request.client_id
+                               << ", UID:" << score::crypto::daemon::common::GetUidFromClientId(request.client_id)
                                << ", Data Node Id:" << request.data_node_id
                                << ", Data Node Value:" << request.node_id_value
                                << ", Data Node Tag:" << request.node_tag_value;

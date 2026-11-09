@@ -29,7 +29,8 @@
 namespace score::crypto::ipc::message_passing
 {
 
-class ClientSession;
+class PendingCall;
+using PendingCallHandle = std::shared_ptr<PendingCall>;
 
 /**
  * @brief

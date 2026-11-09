@@ -20,7 +20,7 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
 
 namespace score::crypto::daemon::data_manager
@@ -30,10 +30,10 @@ namespace score::crypto::daemon::data_manager
 constexpr std::size_t BITS_PER_BYTE = 8;
 
 /// @brief Number of high-order bits in a DataNodeId reserved for future use (bits 56–63).
-constexpr std::size_t DATA_NODE_ID_RESERVED_BITS = control_plane::protocol::DATA_NODE_ID_RESERVED_BITS;
+constexpr std::size_t DATA_NODE_ID_RESERVED_BITS = score::crypto::daemon::common::DATA_NODE_ID_RESERVED_BITS;
 
 /// @brief Number of usable value bits in a DataNodeId (bits 0–55).
-constexpr std::size_t DATA_NODE_ID_VALUE_BITS = control_plane::protocol::DATA_NODE_ID_VALUE_BITS;
+constexpr std::size_t DATA_NODE_ID_VALUE_BITS = score::crypto::daemon::common::DATA_NODE_ID_VALUE_BITS;
 
 static_assert(sizeof(DataNodeId) * BITS_PER_BYTE == DATA_NODE_ID_RESERVED_BITS + DATA_NODE_ID_VALUE_BITS,
               "Error: The size of data_manager::DataNodeId and its components do not match.");

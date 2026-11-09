@@ -15,20 +15,26 @@
 #define SCORE_CRYPTO_IPC_CLIENT_SESSION_H
 
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
-#include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/client/client_session/pending_call_registry.h"
-#include "score/crypto/src/ipc/protocol/i_control_codec.h"
 
-#include "score/message_passing/i_client_connection.h"
-
-#include <score/expected.hpp>
 #include <score/memory.hpp>
 #include <score/span.hpp>
 
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <memory>
 #include <mutex>
+
+namespace score::crypto::ipc::protocol
+{
+class IControlCodec;
+}  // namespace score::crypto::ipc::protocol
+
+namespace score::message_passing
+{
+class IClientConnection;
+}  // namespace score::message_passing
 
 namespace score::crypto::ipc::message_passing
 {
@@ -65,7 +71,7 @@ class ClientSession final : public std::enable_shared_from_this<ClientSession>
     };
 
     void FailAllPendingCalls(score::crypto::CryptoErrorCode error) noexcept;
-    void OnTransportStateChanged(score::message_passing::IClientConnection::State state) noexcept;
+    void OnTransportStateChanged(LifecycleState state) noexcept;
     void OnResponseBytes(score::cpp::span<const std::uint8_t> message) noexcept;
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> WaitForConnectionReady(
         std::chrono::steady_clock::time_point deadline) noexcept;

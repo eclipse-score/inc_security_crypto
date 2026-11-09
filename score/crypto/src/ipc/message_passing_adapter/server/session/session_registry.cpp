@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/ipc/message_passing_adapter/server/session/session_registry.h"
 
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 
 #include "score/mw/log/logging.h"
@@ -208,7 +209,8 @@ auto SessionRegistry::GenerateClientId(std::lock_guard<std::mutex>& lock, const 
     // kMaxTotalConnections attempts.
     for (std::size_t attempt{0U}; attempt <= ipc::kMaxTotalConnections; ++attempt)
     {
-        auto candidate_client_id = (static_cast<ClientId>(uid) << 32U) | static_cast<ClientId>(candidate_generation);
+        const auto candidate_client_id =
+            score::crypto::daemon::common::MakeClientId(candidate_generation, static_cast<std::uint32_t>(uid));
         if (m_client_states.find(candidate_client_id) == m_client_states.end())
         {
             return candidate_client_id;
@@ -225,8 +227,7 @@ auto SessionRegistry::GenerateClientId(std::lock_guard<std::mutex>& lock, const 
 void SessionRegistry::CommitClientId(std::lock_guard<std::mutex>& lock, ClientId client_id) noexcept
 {
     static_cast<void>(lock);
-    // TODO: Improve this
-    const auto server_side_id = static_cast<std::uint32_t>(client_id & 0xFFFFFFFFU);
+    const auto server_side_id = score::crypto::daemon::common::GetClientIdParts(client_id).opaque_id;
     m_next_connection_generation = server_side_id + 1U;
     if (m_next_connection_generation == 0U)
     {

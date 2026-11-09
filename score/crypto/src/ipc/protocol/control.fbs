@@ -79,16 +79,16 @@ table ExecutionPolicy {
 
 table ControlRequestMetaData {
   // For Cancel, request_id is the target operation ID; cancellation has no reply of its own.
-  request_id: uint64;
-  client_id: uint64;
-  data_node_id: uint64;
-  request_type: ControlRequestKind = Operation;
+  request_id: uint64 (id: 0);
+  request_type: ControlRequestKind = Operation (id: 3);
+  client_id: uint64 (id: 1);
+  execution_policy: ExecutionPolicy (required, id: 5);
+  data_node_id: uint64 (id: 2);
   // Remaining client request budget in milliseconds.
   // On the daemon side, this is clamped to the max timeout
   // We transfer a duration, since we cannot rely that both, server and client
   // share the same clock source / epoch
-  timeout_ms: uint32 = 0;
-  execution_policy: ExecutionPolicy (required);
+  timeout_ms: uint32 = 0 (id: 4);
 }
 
 table ControlRequest {

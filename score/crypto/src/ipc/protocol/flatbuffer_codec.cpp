@@ -499,11 +499,11 @@ FlatBufferCodec::PeekRequestMetadata(const score::cpp::span<const std::uint8_t> 
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidFormat);
     }
     return RequestMetadata{meta_data->request_id(),
+                           static_cast<bl::ControlRequestKind>(kind),
                            meta_data->client_id(),
-                           meta_data->data_node_id(),
                            {},
-                           meta_data->timeout_ms(),
-                           static_cast<bl::ControlRequestKind>(kind)};
+                           meta_data->data_node_id(),
+                           meta_data->timeout_ms()};
 }
 
 score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> FlatBufferCodec::DeserializeRequest(

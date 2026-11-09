@@ -696,7 +696,7 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
     // param[3]: is_pool (0=bulk, 1=pool).
     const auto is_pool_param = operation.getParameter<std::uint64_t>(3);
     const bool is_pool = is_pool_param.has_value() && (is_pool_param.value() != 0U);
-    const std::uint32_t uid = control_plane::protocol::GetUidFromClientId(request.client_id);
+    const std::uint32_t uid = common::GetUidFromClientId(request.client_id);
 
     std::size_t size{};
     std::shared_ptr<data_plane::IShmFactory> factory_override{};
