@@ -30,7 +30,7 @@
 namespace score::crypto::daemon::data_plane
 {
 
-ShmRequestHandler::ShmRequestHandler(std::unique_ptr<control_plane::IRequestHandler> next_handler,
+ShmRequestHandler::ShmRequestHandler(std::shared_ptr<control_plane::IRequestHandler> next_handler,
                                      data_manager::IDataManager::Sptr data_manager)
     : m_next_handler(std::move(next_handler)), m_data_manager(std::move(data_manager))
 {

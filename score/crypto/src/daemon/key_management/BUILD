@@ -65,6 +65,7 @@ cc_library(
         "core/key_entry.hpp",
         "core/key_management_service.hpp",
         "core/key_registry.hpp",
+        "core/key_slot_resource_resolver.hpp",
         # detail/
         "detail/slot_info_builder.hpp",
         # root/
@@ -81,7 +82,10 @@ cc_library(
         "//score/crypto/src/api/config:context_configs",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/common/context:keyed_registry",
+        "//score/crypto/src/daemon/common/context:context_registration",
         "//score/crypto/src/daemon/common/context:context_mode",
+        "//score/crypto/src/daemon/common/context:resource_resolver",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/common/context:handler_headers",
@@ -105,6 +109,7 @@ cc_library(
         # core/
         "core/key_management_service.cpp",
         "core/key_registry.cpp",
+        "core/key_slot_resource_resolver.cpp",
         # root/
         "key_management_module.cpp",
     ],

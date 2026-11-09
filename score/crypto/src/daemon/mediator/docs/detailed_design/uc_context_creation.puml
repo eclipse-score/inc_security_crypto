@@ -23,6 +23,7 @@ skinparam sequenceMessageAlign center
 actor Client
 participant "MediatorImpl" as Mediator
 participant "Decoder" as Decoder
+participant "Context factory\n(registered)" as Factory
 participant "ProviderArbiter" as Arbiter
 participant "ContextAssembler" as Assembler
 participant "KeyManagementService" as KeyMgmt
@@ -37,11 +38,21 @@ alt validation fails
   note right: No provider is asked.\nNo node is created.
 else valid
   Decoder --> Mediator : ContextCreationRequest
-  Mediator -> Arbiter : Select(request)
-  opt key referenced
-    Arbiter -> KeyMgmt : ResolveTargetProvider
+  alt a factory is registered for the context type
+    alt the request references a key
+      Mediator --> Client : kKeyOperationNotPermitted
+      note right: The factory is not called.
+    else
+      Mediator -> Factory : Create(request)
+      Factory --> Mediator : handler, or error (returned to the client)
+    end
+  else provider-served type
+    Mediator -> Arbiter : Select(request)
+    opt key referenced
+      Arbiter -> KeyMgmt : ResolveTargetProvider
+    end
+    Arbiter --> Mediator : provider + handler, or error
   end
-  Arbiter --> Mediator : provider + handler, or error
   Mediator -> Assembler : Assemble(request, handler)
   Assembler -> DataMgr : add context node under connection
   opt key referenced

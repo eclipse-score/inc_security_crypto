@@ -61,7 +61,7 @@ bool IsContextParameterPresent(const control_plane::protocol::SingleOperationReq
 
 }  // namespace
 
-score::crypto::Expected<ContextCreationRequest, score::crypto::CryptoErrorCode> DecodeContextCreationRequest(
+score::crypto::Expected<common::ContextCreationRequest, score::crypto::CryptoErrorCode> DecodeContextCreationRequest(
     const control_plane::protocol::SingleOperationRequest& operation)
 {
     if ((operation.parameters.size() < 2U) || (operation.parameters.size() > operations::CTX_MAX_PARAMETER_COUNT))
@@ -150,7 +150,7 @@ score::crypto::Expected<ContextCreationRequest, score::crypto::CryptoErrorCode> 
         }
     }
 
-    ContextCreationRequest request{};
+    common::ContextCreationRequest request{};
     request.context_type = context_type;
     request.algorithm = algorithm;
     request.provider = provider_preference;

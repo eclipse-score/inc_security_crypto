@@ -48,7 +48,9 @@
 #include "score/crypto/src/daemon/mediator/i_mediator.hpp"
 #include "score/crypto/src/daemon/mediator/mediator_impl.hpp"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
+#include "score/crypto/src/daemon/mediator/src/context_assembler.hpp"
 #include "score/crypto/src/daemon/mediator/src/context_creation_decoder.hpp"
+#include "score/crypto/src/daemon/mediator/src/provider_arbiter.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
@@ -60,14 +62,7 @@ using ControlResponse = control_plane::ControlResponse;
 namespace score::crypto::daemon::mediator
 {
 
-MediatorImpl::MediatorImpl(MediatorDependencies deps)
-    : IMediator(std::move(deps)), m_arbiter(m_provider_manager, m_km_service), m_assembler(m_data_manager, m_km_service)
-{
-    if (m_km_service)
-    {
-        RegisterResourceResolvers();
-    }
-}
+MediatorImpl::MediatorImpl(MediatorDependencies deps) : IMediator(std::move(deps)) {}
 
 control_plane::ControlResponse MediatorImpl::processRequest(control_plane::ControlRequest& request)
 {
@@ -181,6 +176,18 @@ bool MediatorImpl::HandleMediatorOperation(const control_plane::ControlRequest& 
         return success;
     }
 
+    // Operation codes the mediator does not implement are offered to the registered queries.
+    if (const auto query = m_mediator_queries->Find(operationIdentifier.operationAction); query)
+    {
+        const auto success = query->Handle(request, operation, responseBuilder);
+        if (!success)
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Mediator query failed: "
+                                       << common::OpId{operationIdentifier};
+        }
+        return success;
+    }
+
     score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Unknown mediator operation: "
                                << common::OpId{operationIdentifier};
 
@@ -236,6 +243,52 @@ bool MediatorImpl::ForwardSingleOperation(const control_plane::ControlRequest& r
     return ExecuteOperation(exec_ctx, handler, responseBuilder);
 }
 
+bool MediatorImpl::CreateContextFromFactory(const control_plane::ControlRequest& request,
+                                            const control_plane::SingleOperationRequest& operation,
+                                            const common::ContextCreationRequest& decoded,
+                                            common::IContextFactory& factory,
+                                            control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    if (decoded.key_node_id.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Context type " << decoded.context_type
+                                   << " is served by a subsystem and does not accept a key reference";
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
+        return false;
+    }
+
+    auto handler = factory.Create(decoded);
+    if (!handler.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Context factory failed for: " << decoded.context_type;
+        responseBuilder.operation(operation.operationId).return_error(handler.error());
+        return false;
+    }
+
+    // A context created by a factory is not bound to a provider, so no provider identifier is recorded.
+    const auto context_node_id = m_assembler->Assemble(ContextAssemblyRequest{.client_id = request.client_id,
+                                                                              .connection_id = request.data_node_id,
+                                                                              .provider_id = common::kInvalidProviderId,
+                                                                              .algorithm = decoded.algorithm_descriptor,
+                                                                              .context_type = decoded.context_type,
+                                                                              .key_node_id = std::nullopt,
+                                                                              .mode = decoded.mode,
+                                                                              .raw_parameters = operation.parameters},
+                                                       handler.value());
+    if (!context_node_id.has_value())
+    {
+        responseBuilder.operation(operation.operationId).return_error(context_node_id.error());
+        return false;
+    }
+
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << decoded.context_type
+                                 << "] created by registered factory, context_id=" << context_node_id.value();
+
+    responseBuilder.operation(operation.operationId).return_success().return_value_uint64(context_node_id.value());
+    return true;
+}
+
 bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::control_plane::ControlRequest& request,
                                                   const control_plane::SingleOperationRequest& operation,
                                                   control_plane::protocol::OperationResponseBuilder& responseBuilder)
@@ -249,13 +302,19 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     }
     const auto& req = decoded.value();
 
+    // A context type with a registered factory is created by that factory and skips provider selection.
+    if (const auto factory = m_context_factories->Find(req.context_type); factory)
+    {
+        return CreateContextFromFactory(request, operation, req, *factory, responseBuilder);
+    }
+
     // Provider and handler selection.
-    const auto selection = m_arbiter.Select(ProviderSelectionRequest{.client_id = request.client_id,
-                                                                     .key_node_id = req.key_node_id,
-                                                                     .context_type = req.context_type,
-                                                                     .algorithm = req.algorithm_descriptor,
-                                                                     .provider = req.provider,
-                                                                     .required_capability = req.required_capability});
+    const auto selection = m_arbiter->Select(ProviderSelectionRequest{.client_id = request.client_id,
+                                                                      .key_node_id = req.key_node_id,
+                                                                      .context_type = req.context_type,
+                                                                      .algorithm = req.algorithm_descriptor,
+                                                                      .provider = req.provider,
+                                                                      .required_capability = req.required_capability});
     if (!selection.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No compatible provider/handler for: " << req.context_type
@@ -267,15 +326,15 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
 
     // Context node creation, optional key binding, and handler initialization.
     const auto context_node_id =
-        m_assembler.Assemble(ContextAssemblyRequest{.client_id = request.client_id,
-                                                    .connection_id = request.data_node_id,
-                                                    .provider_id = chosen.provider->GetProviderId(),
-                                                    .algorithm = req.algorithm_descriptor,
-                                                    .context_type = req.context_type,
-                                                    .key_node_id = req.key_node_id,
-                                                    .mode = req.mode,
-                                                    .raw_parameters = operation.parameters},
-                             chosen.handler);
+        m_assembler->Assemble(ContextAssemblyRequest{.client_id = request.client_id,
+                                                     .connection_id = request.data_node_id,
+                                                     .provider_id = chosen.provider->GetProviderId(),
+                                                     .algorithm = req.algorithm_descriptor,
+                                                     .context_type = req.context_type,
+                                                     .key_node_id = req.key_node_id,
+                                                     .mode = req.mode,
+                                                     .raw_parameters = operation.parameters},
+                              chosen.handler);
     if (!context_node_id.has_value())
     {
         responseBuilder.operation(operation.operationId).return_error(context_node_id.error());
@@ -510,52 +569,8 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
 }
 
 // ============================================================================
-// Key Management Operation Handling
+// Resource Resolution
 // ============================================================================
-
-void MediatorImpl::RegisterResourceResolvers()
-{
-    using RT = score::crypto::ResourceType;
-
-    // --- kKeySlot -----------------------------------------------------------
-    // Resolves an application resource name to a session-scoped KeySlotDataNode
-    // and returns its DataNodeId as an opaque handle to the client.
-    // The DataNodeId is enforced per-session by the DataManager and does NOT
-    // expose any internal SlotRegistry registry index to user space.
-    m_resource_resolvers[static_cast<uint8_t>(RT::kKeySlot)] =
-        [this](uint64_t client_id,
-               uint64_t /*session_id*/,
-               const std::string& resource_name,
-               const common::OperationIdentifier& op_id,
-               control_plane::protocol::OperationResponseBuilder& responseBuilder) -> bool {
-        if (!m_km_service)
-        {
-            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
-            return false;
-        }
-
-        auto node_id_result = m_km_service->ResolveKeySlot(resource_name, client_id);
-        if (!node_id_result.has_value())
-        {
-            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInternalError);
-            return false;
-        }
-
-        // TODO: How to get the primary provider ?
-        // For now just return 0
-        responseBuilder.operation(op_id)
-            .return_value_uint64(static_cast<uint64_t>(node_id_result.value()))
-            .return_value_uint8(static_cast<uint8_t>(RT::kKeySlot))
-            .return_value_bool(true)  // KeySlots are always persistent
-            .return_value_uint16(0)
-            .return_success();
-        return true;
-    };
-
-    // Additional resource types (kProvider, kCertSlot, kTrustAnchor, …) are
-    // registered here as those subsystems are implemented. Each entry is
-    // self-contained; no existing resolvers are modified.
-}
 
 bool MediatorImpl::HandleResourceResolutionOperation(uint64_t client_id,
                                                      uint64_t session_id,
@@ -588,18 +603,17 @@ bool MediatorImpl::HandleResourceResolutionOperation(uint64_t client_id,
         }
     }
 
-    const auto key = static_cast<uint8_t>(resource_type);
-    const auto it = m_resource_resolvers.find(key);
-    if (it == m_resource_resolvers.end())
+    const auto resolver = m_resource_resolvers->Find(resource_type);
+    if (!resolver)
     {
         score::mw::log::LogError() << "[SCORE_API_MED] RESOLVE_RESOURCE: no resolver registered for ResourceType="
-                                   << static_cast<unsigned>(key);
+                                   << static_cast<unsigned>(resource_type);
         responseBuilder.operation(operation.operationId)
             .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
         return false;
     }
 
-    return it->second(client_id, session_id, resource_name, operation.operationId, responseBuilder);
+    return resolver->Resolve(client_id, session_id, resource_name, operation.operationId, responseBuilder);
 }
 
 }  // namespace score::crypto::daemon::mediator

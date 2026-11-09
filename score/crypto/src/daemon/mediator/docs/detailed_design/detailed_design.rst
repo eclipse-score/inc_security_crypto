@@ -38,7 +38,10 @@ Creating a context
 
 Decoding reports every failure as ``kInvalidArgument`` except an algorithm name
 the catalog does not know, which is ``kUnsupportedAlgorithm``. The validation
-order is defined by the validation requirement.
+order is defined by the validation requirement. After decoding, a context type with
+a registered factory is created by that factory. A factory error is returned to the
+client and no node is created; a key reference is refused with
+``kKeyOperationNotPermitted`` and the factory is not called.
 
 .. uml:: uc_context_creation.puml
 
@@ -46,6 +49,18 @@ Operating on and closing a context
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. uml:: uc_operation_forwarding.puml
+
+Registered entries
+------------------
+
+The mediator hands an operation to a registered query only when it implements no
+handler for that operation code itself; a query at a built-in code is never called.
+An operation code with neither fails. A resource type with no registered resolver is
+``kUnsupportedOperation``.
+
+Creating the mediator fails with ``kInternalError`` if a registrar is null or reports
+a rejected registration, and with ``kInvalidArgument`` if a query is registered for a
+built-in operation code.
 
 Fallback policy
 ---------------
