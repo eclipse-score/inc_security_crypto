@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/crypto/src/ipc/message_passing_adapter/tests/message_passing_adapter_integration_test_process_separation_common.h"
+#include "score/crypto/src/ipc/tests/message_passing_adapter_integration_test_process_separation_common.h"
 
 #include "score/crypto/src/ipc/message_passing_adapter/client/message_passing_control_client.h"
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
