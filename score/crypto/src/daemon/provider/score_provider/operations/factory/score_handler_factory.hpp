@@ -48,8 +48,9 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
     ~ScoreHandlerFactory() override = default;
 
     /// Routes to the Create*Handler hook of the handler type.
-    ::score::Result<score::crypto::daemon::common::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
-                                                          const AlgorithmDescriptor& algorithm) override;
+    ::score::Result<score::crypto::daemon::common::Handler::Sptr> CreateHandler(
+        const common::HandlerId& handlerId,
+        const AlgorithmDescriptor& algorithm) override;
 
     /// Override in concrete provider to create a key management handler. Default returns unsupported.
     [[nodiscard]] ::score::Result<score::crypto::daemon::common::Handler::Sptr> CreateKeyManagementHandler() override;
