@@ -114,7 +114,7 @@ EVP_PKEY* Stream::Key() const noexcept
 }
 
 Expected<std::monostate, DaemonErrorCode> Stream::Bind(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
+    const ::score::crypto::daemon::common::InitializationParams& init_params,
     const AlgorithmDescriptor& algorithm)
 {
     Free();

@@ -33,7 +33,7 @@ Expected<ResponseParameters, DaemonErrorCode> ScoreHashHandler::Execute(const co
 }
 
 Expected<std::monostate, DaemonErrorCode> ScoreHashHandler::InitializeContext(
-    const handler::InitializationParams& /*init_params*/)
+    const score::crypto::daemon::common::InitializationParams& /*init_params*/)
 {
     m_state = StreamOperationState::IDLE;
     return std::monostate{};

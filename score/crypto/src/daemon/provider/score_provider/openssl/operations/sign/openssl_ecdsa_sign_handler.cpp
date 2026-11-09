@@ -52,7 +52,7 @@ bool OpenSslEcdsaSignHandler::IsAlgorithmSupported(const AlgorithmDescriptor& al
 // ---------------------------------------------------------------------------
 
 ::score::crypto::Expected<std::monostate, DaemonErrorCode> OpenSslEcdsaSignHandler::InitializeContext(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
+    const ::score::crypto::daemon::common::InitializationParams& init_params)
 {
     auto base_result = ScoreSignHandler::InitializeContext(init_params);
     if (!base_result.has_value())

@@ -64,7 +64,7 @@ class ContextAssembler final
     /// @return The new context node id, or the error to return to the client.
     [[nodiscard]] score::crypto::Expected<data_manager::DataNodeId, common::DaemonErrorCode> Assemble(
         const ContextAssemblyRequest& request,
-        const provider::handler::Handler::Sptr& handler) const;
+        const score::crypto::daemon::common::Handler::Sptr& handler) const;
 
   private:
     /// @brief Remove a partially assembled context node and log cleanup failures.

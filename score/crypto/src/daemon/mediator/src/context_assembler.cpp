@@ -46,9 +46,9 @@ void ContextAssembler::RollbackContext(const std::uint64_t client_id,
 
 score::crypto::Expected<data_manager::DataNodeId, common::DaemonErrorCode> ContextAssembler::Assemble(
     const ContextAssemblyRequest& request,
-    const provider::handler::Handler::Sptr& handler) const
+    const score::crypto::daemon::common::Handler::Sptr& handler) const
 {
-    auto context_node = std::make_shared<provider::handler::ContextDataNode>(handler, request.algorithm);
+    auto context_node = std::make_shared<score::crypto::daemon::common::ContextDataNode>(handler, request.algorithm);
 
     auto context_id_res = m_data_manager->addChildNode(request.client_id, request.connection_id, context_node);
     if (!context_id_res.has_value())
@@ -91,7 +91,7 @@ score::crypto::Expected<data_manager::DataNodeId, common::DaemonErrorCode> Conte
     }
 
     // Build InitializationParams and initialize the handler.
-    provider::handler::InitializationParams init_params{};
+    score::crypto::daemon::common::InitializationParams init_params{};
     init_params.client_id = request.client_id;
     init_params.context_node_id = context_node_id;
     init_params.provider_id = request.provider_id;

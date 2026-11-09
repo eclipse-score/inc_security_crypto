@@ -36,7 +36,7 @@
 namespace score::crypto::daemon::provider::score_provider::openssl::handler
 {
 
-using HandlerSptr = ::score::crypto::daemon::provider::handler::Handler::Sptr;
+using HandlerSptr = ::score::crypto::daemon::common::Handler::Sptr;
 
 OpenSslHandlerFactory::OpenSslHandlerFactory(std::shared_ptr<key_management::IKeyFactory> km_handler,
                                              std::shared_ptr<key_management::IKeySlotHandler> slot_handler,

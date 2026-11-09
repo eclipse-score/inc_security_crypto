@@ -58,7 +58,7 @@ class OpenSslEcdsaVerifyHandler final
     // -----------------------------------------------------------------------
 
     [[nodiscard]] ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
-    InitializeContext(const ::score::crypto::daemon::provider::handler::InitializationParams& init_params) override;
+    InitializeContext(const ::score::crypto::daemon::common::InitializationParams& init_params) override;
 
     [[nodiscard]] ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> Reset()
         override;
