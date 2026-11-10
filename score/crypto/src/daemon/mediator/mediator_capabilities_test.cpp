@@ -20,6 +20,7 @@
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/data_manager/data_manager.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
@@ -48,6 +49,8 @@ namespace flags = operations::capability_flags;
 using score::crypto::Algorithm;
 
 constexpr auto kInvalidArgument = static_cast<protocol::OperationResult>(CryptoErrorCode::kInvalidArgument);
+constexpr auto kInvalidResourceId = static_cast<protocol::OperationResult>(CryptoErrorCode::kInvalidResourceId);
+constexpr auto kProviderType = static_cast<std::uint64_t>(score::crypto::ResourceType::kProvider);
 
 /// Reports support for a fixed set of (context type, algorithm) pairs.
 class FakeHandlerFactory final : public provider::handler::ICryptoHandlerFactory
@@ -234,6 +237,76 @@ class MediatorCapabilitiesTest : public ::testing::Test
     std::shared_ptr<provider::ProviderManager> m_manager{
         std::make_shared<provider::ProviderManager>(config::Config{}.GetProviderInitConfig())};
     common::ProviderId m_next_id{0U};
+};
+
+/// Fixture for application-scoped provider resources (issue #290): a real
+/// DataManager plus requests sent on behalf of a given uid/pid.
+class MediatorProviderResourceTest : public MediatorCapabilitiesTest
+{
+  protected:
+    static constexpr std::uint32_t kAppUid{1000U};
+    static constexpr std::uint32_t kOtherUid{1001U};
+
+    void SetUp() override
+    {
+        Register("OPENSSL", common::CryptoProviderType::SOFTWARE, nullptr);
+        Register("PKCS11_ENGINE", common::CryptoProviderType::HARDWARE, nullptr);
+        (void)m_manager->Initialize();
+        ASSERT_TRUE(m_manager->RegisterAppProvider(kAppUid, "app/sw", "OPENSSL"));
+        ASSERT_TRUE(m_manager->RegisterAppProvider(kAppUid, "app/hw", "PKCS11_ENGINE"));
+        ASSERT_TRUE(m_manager->RegisterAppProvider(kOtherUid, "other/hw", "PKCS11_ENGINE"));
+    }
+
+    MediatorImpl MakeResourceMediator(bool with_manager = true)
+    {
+        return MediatorImpl{MediatorDependencies{m_data_manager, with_manager ? m_manager : nullptr, nullptr, nullptr}};
+    }
+
+    static std::uint64_t ClientOf(std::uint32_t uid, std::uint32_t pid = 42U)
+    {
+        return (static_cast<std::uint64_t>(uid) << 32U) | pid;
+    }
+
+    template <typename BuildOperation>
+    static protocol::ControlResponse SendAs(MediatorImpl& mediator,
+                                            std::uint64_t client_id,
+                                            BuildOperation&& build_operation)
+    {
+        protocol::ControlRequestBuilder builder;
+        builder.forDataNodeId(1U);
+        build_operation(builder);
+        auto request = builder.build();
+        EXPECT_TRUE(request.has_value());
+        request.value().client_id = client_id;
+        return mediator.processRequest(request.value());
+    }
+
+    static protocol::ControlResponse Resolve(MediatorImpl& mediator, std::uint64_t client_id, std::string_view name)
+    {
+        return SendAs(mediator, client_id, [name](auto& b) {
+            b.operation(operations::ResolveResource()).with_in_string(name).with_in_val_uint64(kProviderType);
+        });
+    }
+
+    static protocol::ControlResponse ProviderInfoByHandle(MediatorImpl& mediator,
+                                                          std::uint64_t client_id,
+                                                          std::uint64_t handle)
+    {
+        return SendAs(mediator, client_id, [handle](auto& b) {
+            b.operation(operations::GetProviderInfo()).with_in_val_uint64(handle).with_in_val_uint64(kProviderType);
+        });
+    }
+
+    /// Resolves @p name and returns the handle; fails the test if resolution fails.
+    std::uint64_t ResolveHandle(MediatorImpl& mediator, std::uint64_t client_id, std::string_view name)
+    {
+        const auto response = Resolve(mediator, client_id, name);
+        const auto& op = OnlyOperation(response);
+        EXPECT_EQ(op.result, protocol::OPERATION_RESULT_SUCCESS) << name;
+        return op.parameters.empty() ? 0U : std::get<std::uint64_t>(op.parameters[0]);
+    }
+
+    std::shared_ptr<data_manager::DataManager> m_data_manager{std::make_shared<data_manager::DataManager>()};
 };
 
 // ---------------------------------------------------------------------------
@@ -507,6 +580,145 @@ TEST_F(MediatorCapabilitiesTest, SystemCapabilitiesIsEmptyWithoutProviderManager
     ASSERT_EQ(op.parameters.size(), 2U);
     EXPECT_EQ(std::get<std::uint16_t>(op.parameters[0]), 0U);
     EXPECT_EQ(std::get<std::uint16_t>(op.parameters[1]), 0U);
+}
+
+// ---------------------------------------------------------------------------
+// RESOLVE_RESOURCE (kProvider) and PROVIDER_INFO by handle
+// ---------------------------------------------------------------------------
+
+TEST_F(MediatorProviderResourceTest, ResolvesMappedNameToOpaqueProviderHandle)
+{
+    auto mediator = MakeResourceMediator();
+
+    const auto response = Resolve(mediator, ClientOf(kAppUid), "app/hw");
+    const auto& op = OnlyOperation(response);
+    ASSERT_EQ(op.result, protocol::OPERATION_RESULT_SUCCESS);
+    ASSERT_EQ(op.parameters.size(), 4U);
+    const auto handle = std::get<std::uint64_t>(op.parameters[0]);
+    EXPECT_EQ(std::get<std::uint8_t>(op.parameters[1]), static_cast<std::uint8_t>(kProviderType));
+    EXPECT_TRUE(std::get<bool>(op.parameters[2]));
+    EXPECT_EQ(std::get<std::uint16_t>(op.parameters[3]), common::kInvalidProviderId);
+
+    auto accessor = m_data_manager->getNodeAccessor(ClientOf(kAppUid), handle);
+    ASSERT_TRUE(accessor.has_value());
+    EXPECT_EQ(accessor.value()->GetNodeType(), data_manager::DataNodeType::kProvider);
+}
+
+TEST_F(MediatorProviderResourceTest, ResolutionFailsAlikeForUnmappedForeignAndProviderNames)
+{
+    auto mediator = MakeResourceMediator();
+
+    // Unknown name, another uid's name, and configured provider names all fail
+    // with the same code, so a client cannot probe which names exist.
+    for (const std::string_view name : {"app/unknown", "other/hw", "OPENSSL", "PKCS11_ENGINE", ""})
+    {
+        const auto response = Resolve(mediator, ClientOf(kAppUid), name);
+        const auto& op = OnlyOperation(response);
+        EXPECT_EQ(op.result, kInvalidResourceId) << name;
+        EXPECT_TRUE(op.parameters.empty()) << name;
+    }
+}
+
+TEST_F(MediatorProviderResourceTest, SameNameResolvesPerUid)
+{
+    ASSERT_TRUE(m_manager->RegisterAppProvider(kOtherUid, "app/hw", "OPENSSL"));
+    auto mediator = MakeResourceMediator();
+
+    const auto app_handle = ResolveHandle(mediator, ClientOf(kAppUid), "app/hw");
+    const auto other_handle = ResolveHandle(mediator, ClientOf(kOtherUid), "app/hw");
+
+    const auto app_info = ProviderInfoByHandle(mediator, ClientOf(kAppUid), app_handle);
+    const auto other_info = ProviderInfoByHandle(mediator, ClientOf(kOtherUid), other_handle);
+    ASSERT_EQ(OnlyOperation(app_info).result, protocol::OPERATION_RESULT_SUCCESS);
+    ASSERT_EQ(OnlyOperation(other_info).result, protocol::OPERATION_RESULT_SUCCESS);
+    EXPECT_EQ(ToString(OnlyOperation(app_info).parameters[2]), "PKCS11_ENGINE");
+    EXPECT_EQ(ToString(OnlyOperation(other_info).parameters[2]), "OPENSSL");
+}
+
+TEST_F(MediatorProviderResourceTest, ResolutionFailsWithoutProviderManager)
+{
+    auto mediator = MakeResourceMediator(/*with_manager=*/false);
+    const auto response = Resolve(mediator, ClientOf(kAppUid), "app/sw");
+    EXPECT_EQ(OnlyOperation(response).result, kInvalidResourceId);
+}
+
+TEST_F(MediatorProviderResourceTest, ResolutionFailsWithoutDataManager)
+{
+    auto mediator = MakeMediator();
+    const auto response = Resolve(mediator, ClientOf(kAppUid), "app/sw");
+    EXPECT_EQ(OnlyOperation(response).result, kInvalidResourceId);
+}
+
+TEST_F(MediatorProviderResourceTest, ProviderInfoByHandleReportsMappedProvider)
+{
+    auto mediator = MakeResourceMediator();
+    const auto handle = ResolveHandle(mediator, ClientOf(kAppUid), "app/hw");
+
+    const auto response = ProviderInfoByHandle(mediator, ClientOf(kAppUid), handle);
+    const auto& op = OnlyOperation(response);
+    ASSERT_EQ(op.result, protocol::OPERATION_RESULT_SUCCESS);
+    ASSERT_EQ(op.parameters.size(), 3U);
+    EXPECT_EQ(std::get<std::uint16_t>(op.parameters[0]), 1U);
+    EXPECT_EQ(std::get<std::uint8_t>(op.parameters[1]), 1U);
+    EXPECT_EQ(ToString(op.parameters[2]), "PKCS11_ENGINE");
+}
+
+TEST_F(MediatorProviderResourceTest, ProviderInfoByHandleRejectsHandleOfAnotherClient)
+{
+    auto mediator = MakeResourceMediator();
+    const auto handle = ResolveHandle(mediator, ClientOf(kAppUid), "app/hw");
+
+    for (const auto client : {ClientOf(kOtherUid), ClientOf(kAppUid, 43U)})
+    {
+        const auto response = ProviderInfoByHandle(mediator, client, handle);
+        const auto& op = OnlyOperation(response);
+        EXPECT_EQ(op.result, kInvalidResourceId) << client;
+        EXPECT_TRUE(op.parameters.empty()) << client;
+    }
+}
+
+TEST_F(MediatorProviderResourceTest, ProviderInfoByHandleRejectsUnknownOrNonProviderNode)
+{
+    auto mediator = MakeResourceMediator();
+    const auto handle = ResolveHandle(mediator, ClientOf(kAppUid), "app/hw");
+
+    class OtherNode final : public data_manager::DataNode
+    {
+      public:
+        OtherNode() : DataNode(false) {}
+        data_manager::DataNodeType GetNodeType() const noexcept override
+        {
+            return data_manager::DataNodeType::kKeySlot;
+        }
+    };
+    const auto other = m_data_manager->addNode(ClientOf(kAppUid), std::make_shared<OtherNode>());
+    ASSERT_TRUE(other.has_value());
+
+    for (const std::uint64_t id : {handle + 100U, static_cast<std::uint64_t>(other.value())})
+    {
+        const auto response = ProviderInfoByHandle(mediator, ClientOf(kAppUid), id);
+        EXPECT_EQ(OnlyOperation(response).result, kInvalidResourceId) << id;
+    }
+}
+
+TEST_F(MediatorProviderResourceTest, ProviderInfoRejectsUnknownResourceTypeSelector)
+{
+    auto mediator = MakeResourceMediator();
+    const auto handle = ResolveHandle(mediator, ClientOf(kAppUid), "app/hw");
+
+    const auto response = SendAs(mediator, ClientOf(kAppUid), [handle](auto& b) {
+        b.operation(operations::GetProviderInfo())
+            .with_in_val_uint64(handle)
+            .with_in_val_uint64(static_cast<std::uint64_t>(score::crypto::ResourceType::kKeySlot));
+    });
+    EXPECT_EQ(OnlyOperation(response).result, kInvalidArgument);
+}
+
+TEST_F(MediatorProviderResourceTest, ProviderInfoByHandleWithoutDataManagerIsRejected)
+{
+    auto mediator = MakeMediator();
+    const auto response = ProviderInfoByHandle(mediator, ClientOf(kAppUid), 1U);
+    EXPECT_EQ(OnlyOperation(response).result, kInvalidResourceId);
 }
 
 }  // namespace

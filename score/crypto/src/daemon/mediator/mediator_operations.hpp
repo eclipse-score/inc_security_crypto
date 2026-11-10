@@ -171,7 +171,7 @@ inline constexpr OperationAction CTX_CLOSE = 2;
 //           param[0]: uint64 — daemon-assigned resource id
 //           param[1]: uint8  — ResourceType enum value
 //           param[2]: bool  — True if resource is persistent, false if ephemeral
-//           param[3]: uint16 — primary_provider id
+//           param[3]: uint16 — primary_provider id (kInvalidProviderId for kProvider)
 // Effect:   Resolves a named resource to a daemon-scoped CryptoResourceId.
 //           Access control (uid-based) is enforced during resolution.
 inline constexpr OperationAction RESOLVE_RESOURCE = 3;
@@ -238,8 +238,10 @@ inline control_plane::protocol::OperationIdentifier DestroyShmObject()
 }
 
 // PROVIDER_INFO
-// Request:  uint64 — provider id
-// Response: status_code (SUCCESS / kInvalidArgument for an unknown id)
+// Request:  param[0]: uint64 — provider id, or the resource id of a kProvider handle
+//           param[1]: uint64 — optional; ResourceType::kProvider selects the handle form
+// Response: status_code (SUCCESS / kInvalidArgument for an unknown id /
+//           kInvalidResourceId for a handle not owned by this client)
 //           param[0]: uint16     — provider id
 //           param[1]: uint8      — wire ProviderType (0 = default, 1 = hardware, 2 = software)
 //           param[2]: DataBuffer — provider name (UTF-8, not NUL-terminated)

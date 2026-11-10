@@ -48,6 +48,7 @@
 #include "score/crypto/src/daemon/mediator/i_mediator.hpp"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/crypto/src/daemon/mediator/src/mediator_impl.hpp"
+#include "score/crypto/src/daemon/mediator/src/provider_data_node.hpp"
 #include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
@@ -83,10 +84,7 @@ bool IsFallbackEligible(const score::crypto::CryptoErrorCode error) noexcept
 
 MediatorImpl::MediatorImpl(MediatorDependencies deps) : IMediator(std::move(deps))
 {
-    if (m_km_service)
-    {
-        RegisterResourceResolvers();
-    }
+    RegisterResourceResolvers();
 }
 
 control_plane::ControlResponse MediatorImpl::processRequest(control_plane::ControlRequest& request)
@@ -184,7 +182,7 @@ bool MediatorImpl::HandleMediatorOperation(const control_plane::ControlRequest& 
     }
     else if (operationIdentifier.operationAction == operations::PROVIDER_INFO)
     {
-        return HandleProviderInfoOperation(operation, responseBuilder);
+        return HandleProviderInfoOperation(request.client_id, operation, responseBuilder);
     }
     else if (operationIdentifier.operationAction == operations::QUERY_CAPABILITIES)
     {
@@ -987,18 +985,41 @@ std::uint8_t MediatorImpl::CollectCapabilities(const std::vector<std::shared_ptr
     return result;
 }
 
-bool MediatorImpl::HandleProviderInfoOperation(const control_plane::SingleOperationRequest& operation,
+bool MediatorImpl::HandleProviderInfoOperation(uint64_t client_id,
+                                               const control_plane::SingleOperationRequest& operation,
                                                control_plane::protocol::OperationResponseBuilder& responseBuilder)
 {
+    // param[0]: provider id, or the DataNodeId of a resolved provider resource.
+    // param[1] (optional): ResourceType cast to uint64. kProvider selects the handle form.
     const auto* id_param =
         operation.parameters.empty() ? nullptr : std::get_if<std::uint64_t>(&operation.parameters[0]);
-    if ((id_param == nullptr) || (*id_param >= common::kInvalidProviderId) || (m_provider_manager == nullptr))
+    const auto* type_param =
+        operation.parameters.size() > 1U ? std::get_if<std::uint64_t>(&operation.parameters[1]) : nullptr;
+    const bool by_handle =
+        (type_param != nullptr) && (*type_param == static_cast<std::uint64_t>(score::crypto::ResourceType::kProvider));
+    if ((id_param == nullptr) || (m_provider_manager == nullptr) || ((operation.parameters.size() > 1U) && !by_handle))
     {
         responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
         return false;
     }
 
-    const auto provider = m_provider_manager->GetProvider(static_cast<common::ProviderId>(*id_param));
+    std::shared_ptr<provider::IProvider> provider;
+    if (by_handle)
+    {
+        const auto provider_id = ResolvedProviderId(client_id, *id_param);
+        if (!provider_id.has_value())
+        {
+            responseBuilder.operation(operation.operationId)
+                .return_error(score::crypto::CryptoErrorCode::kInvalidResourceId);
+            return false;
+        }
+        provider = m_provider_manager->GetProvider(provider_id.value());
+    }
+    else if (*id_param < common::kInvalidProviderId)
+    {
+        provider = m_provider_manager->GetProvider(static_cast<common::ProviderId>(*id_param));
+    }
+
     if (provider == nullptr)
     {
         responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
@@ -1012,6 +1033,25 @@ bool MediatorImpl::HandleProviderInfoOperation(const control_plane::SingleOperat
         .return_value_data_buffer_out(ToBytes(name))
         .return_success();
     return true;
+}
+
+std::optional<common::ProviderId> MediatorImpl::ResolvedProviderId(uint64_t client_id, uint64_t node_id) const
+{
+    if (m_data_manager == nullptr)
+    {
+        return std::nullopt;
+    }
+    auto accessor = m_data_manager->getNodeAccessor(client_id, node_id);
+    if (!accessor.has_value())
+    {
+        return std::nullopt;
+    }
+    auto provider_node = std::move(accessor.value()).downCast<ProviderDataNode>();
+    if (!provider_node.has_value())
+    {
+        return std::nullopt;
+    }
+    return provider_node.value()->GetProviderId();
 }
 
 bool MediatorImpl::HandleQueryCapabilitiesOperation(const control_plane::SingleOperationRequest& operation,
@@ -1084,37 +1124,83 @@ void MediatorImpl::RegisterResourceResolvers()
     // and returns its DataNodeId as an opaque handle to the client.
     // The DataNodeId is enforced per-session by the DataManager and does NOT
     // expose any internal SlotRegistry registry index to user space.
-    m_resource_resolvers[static_cast<uint8_t>(RT::kKeySlot)] =
+    if (m_km_service)
+    {
+        m_resource_resolvers[static_cast<uint8_t>(RT::kKeySlot)] =
+            [this](uint64_t client_id,
+                   uint64_t /*session_id*/,
+                   const std::string& resource_name,
+                   const common::OperationIdentifier& op_id,
+                   control_plane::protocol::OperationResponseBuilder& responseBuilder) -> bool {
+            if (!m_km_service)
+            {
+                responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+                return false;
+            }
+
+            auto node_id_result = m_km_service->ResolveKeySlot(resource_name, client_id);
+            if (!node_id_result.has_value())
+            {
+                responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInternalError);
+                return false;
+            }
+
+            // TODO: How to get the primary provider ?
+            // For now just return 0
+            responseBuilder.operation(op_id)
+                .return_value_uint64(static_cast<uint64_t>(node_id_result.value()))
+                .return_value_uint8(static_cast<uint8_t>(RT::kKeySlot))
+                .return_value_bool(true)  // KeySlots are always persistent
+                .return_value_uint16(0)
+                .return_success();
+            return true;
+        };
+    }
+
+    // --- kProvider ----------------------------------------------------------
+    // Resolves an application-scoped provider resource name (issue #290) for the
+    // calling uid to a session-scoped ProviderDataNode. The reply carries only the
+    // node's DataNodeId; primary_provider is kInvalidProviderId, so neither the
+    // provider id nor its configured name reaches the client. Configured provider
+    // names resolve only if a mapping uses them as its app_resource_id. Unknown,
+    // unmapped and unavailable names fail with the same error.
+    m_resource_resolvers[static_cast<uint8_t>(RT::kProvider)] =
         [this](uint64_t client_id,
                uint64_t /*session_id*/,
                const std::string& resource_name,
                const common::OperationIdentifier& op_id,
                control_plane::protocol::OperationResponseBuilder& responseBuilder) -> bool {
-        if (!m_km_service)
+        const auto provider = (m_provider_manager != nullptr)
+                                  ? m_provider_manager->ResolveAppProvider(
+                                        control_plane::protocol::GetUidFromClientId(client_id), resource_name)
+                                  : nullptr;
+        if ((provider == nullptr) || (m_data_manager == nullptr))
         {
-            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            score::mw::log::LogError() << "[SCORE_API_MED] RESOLVE_RESOURCE: provider resource '" << resource_name
+                                       << "' is not available to uid "
+                                       << control_plane::protocol::GetUidFromClientId(client_id);
+            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInvalidResourceId);
             return false;
         }
 
-        auto node_id_result = m_km_service->ResolveKeySlot(resource_name, client_id);
-        if (!node_id_result.has_value())
+        auto node_id =
+            m_data_manager->addNode(client_id, std::make_shared<ProviderDataNode>(provider->GetProviderId()));
+        if (!node_id.has_value())
         {
             responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInternalError);
             return false;
         }
 
-        // TODO: How to get the primary provider ?
-        // For now just return 0
         responseBuilder.operation(op_id)
-            .return_value_uint64(static_cast<uint64_t>(node_id_result.value()))
-            .return_value_uint8(static_cast<uint8_t>(RT::kKeySlot))
-            .return_value_bool(true)  // KeySlots are always persistent
-            .return_value_uint16(0)
+            .return_value_uint64(static_cast<uint64_t>(node_id.value()))
+            .return_value_uint8(static_cast<uint8_t>(RT::kProvider))
+            .return_value_bool(true)
+            .return_value_uint16(common::kInvalidProviderId)
             .return_success();
         return true;
     };
 
-    // Additional resource types (kProvider, kCertSlot, kTrustAnchor, …) are
+    // Additional resource types (kCertSlot, kTrustAnchor, …) are
     // registered here as those subsystems are implemented. Each entry is
     // self-contained; no existing resolvers are modified.
 }

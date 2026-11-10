@@ -160,6 +160,42 @@ TEST_F(CapabilitiesTest, ProviderInfoForAResourceUsesItsPrimaryProvider)
     EXPECT_EQ(std::string_view{info->name}, std::string_view{listed.name});
 }
 
+// Provider resources are mapped per uid in provider_config of integration_test_config.json.
+void ExpectProviderResourceResolvesTo(ICryptoContext& ctx, std::string_view resource_name, std::string_view provider)
+{
+    const auto handle = ctx.ResolveResource(ResourceId{resource_name}, ResourceType::kProvider);
+    ASSERT_TRUE(handle.has_value()) << resource_name << ": " << handle.error().Message();
+    EXPECT_EQ(handle->type, ResourceType::kProvider);
+    EXPECT_EQ(handle->primary_provider, 0xFFFFU);  // the provider id is not exposed in the handle
+
+    const auto info = ctx.GetProviderInfo(handle.value());
+    ASSERT_TRUE(info.has_value()) << info.error().Message();
+    EXPECT_EQ(std::string_view{info->name}, provider);
+}
+
+#ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
+TEST_F(CapabilitiesTest, SoftwareProviderResourceResolvesToOpaqueHandle)
+{
+    ExpectProviderResourceResolvesTo(*m_ctx, "IntegrationTest_SoftwareProvider", "OPENSSL");
+}
+#endif
+
+#ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
+TEST_F(CapabilitiesTest, HardwareProviderResourceResolvesToOpaqueHandle)
+{
+    ExpectProviderResourceResolvesTo(*m_ctx, "IntegrationTest_HardwareProvider", "PKCS11_ENGINE");
+}
+#endif
+
+TEST_F(CapabilitiesTest, ProviderNamesAndUnmappedNamesAreNotProviderResources)
+{
+    for (const char* name : {"OPENSSL", "PKCS11_ENGINE", "IntegrationTest_UnknownProvider"})
+    {
+        const auto handle = m_ctx->ResolveResource(ResourceId{name}, ResourceType::kProvider);
+        EXPECT_FALSE(handle.has_value()) << name;
+    }
+}
+
 TEST_F(CapabilitiesTest, HashIsReported)
 {
     const auto caps = m_ctx->QueryCapabilities(AlgorithmId{"SHA256"});

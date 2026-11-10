@@ -165,7 +165,8 @@ class MediatorImpl : public IMediator
     bool HandleMediatorOperation(const control_plane::ControlRequest& request,
                                  const control_plane::SingleOperationRequest& operation,
                                  control_plane::protocol::OperationResponseBuilder& responseBuilder);
-    bool HandleProviderInfoOperation(const control_plane::SingleOperationRequest& operation,
+    bool HandleProviderInfoOperation(uint64_t client_id,
+                                     const control_plane::SingleOperationRequest& operation,
                                      control_plane::protocol::OperationResponseBuilder& responseBuilder);
     bool HandleQueryCapabilitiesOperation(const control_plane::SingleOperationRequest& operation,
                                           control_plane::protocol::OperationResponseBuilder& responseBuilder);
@@ -176,6 +177,10 @@ class MediatorImpl : public IMediator
     [[nodiscard]] static std::uint8_t CollectCapabilities(
         const std::vector<std::shared_ptr<provider::IProvider>>& providers,
         const AlgorithmDescriptor& algorithm);
+
+    /// Provider behind a ProviderDataNode owned by @p client_id, or nullopt if
+    /// @p node_id is not such a node for that client.
+    [[nodiscard]] std::optional<common::ProviderId> ResolvedProviderId(uint64_t client_id, uint64_t node_id) const;
 
     /// Initialized providers, ordered by id.
     [[nodiscard]] std::vector<std::shared_ptr<provider::IProvider>> InitializedProviders() const;

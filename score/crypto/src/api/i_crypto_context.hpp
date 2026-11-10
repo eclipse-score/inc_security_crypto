@@ -120,6 +120,11 @@ class ICryptoContext
     /// @return CryptoResourceId handle for use in configs and operations
     /// @note Called once per resource; result should be cached by the application.
     ///       Access control (uid) is enforced during resolution.
+    /// @note For ResourceType::kProvider, @p resource_id is an application-scoped
+    ///       name that the deployment maps to a provider for the calling uid
+    ///       (provider_config.app_provider_mappings). Configured provider names
+    ///       are not accepted unless mapped. The handle is valid for this
+    ///       connection only.
     virtual score::Result<CryptoResourceId> ResolveResource(const ResourceId& resource_id, ResourceType type) = 0;
 
     // ---- Context Factory ----
@@ -197,7 +202,11 @@ class ICryptoContext
     // virtual score::Result<ProviderCompatibilityInfo> QueryProviderCompatibility(const CryptoResourceId& resource) =
     // 0;
 
-    /// @brief Gets provider information for the primary provider in CryptoResourceId.
+    /// @brief Gets provider information for a resource.
+    ///
+    /// For a kProvider handle from ResolveResource(name, ResourceType::kProvider),
+    /// the daemon maps the handle to the provider configured for the calling
+    /// application. For all other resource types, the primary provider is used.
     /// @param resourceId CryptoResourceId
     /// @return Provider info with type and name
     virtual score::Result<ProviderInfo> GetProviderInfo(const CryptoResourceId& resourceId) = 0;

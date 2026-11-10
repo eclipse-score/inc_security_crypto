@@ -642,14 +642,24 @@ score::Result<SystemCapabilities> CryptoContextImpl::QueryCapabilities()
 
 score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(uint16_t provider_id)
 {
+    return RequestProviderInfo(provider_id, false);
+}
+
+score::Result<ProviderInfo> CryptoContextImpl::RequestProviderInfo(std::uint64_t provider_or_handle,
+                                                                   bool by_provider_handle)
+{
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
     namespace med_ops = ::score::crypto::daemon::mediator::operations;
 
-    auto control_req_result = proto::ControlRequestBuilder()
-                                  .forDataNodeId(m_connection->GetConnectionNodeId())
-                                  .operation(med_ops::GetProviderInfo())
-                                  .with_in_val_uint64(provider_id)
-                                  .build();
+    proto::ControlRequestBuilder builder;
+    builder.forDataNodeId(m_connection->GetConnectionNodeId())
+        .operation(med_ops::GetProviderInfo())
+        .with_in_val_uint64(provider_or_handle);
+    if (by_provider_handle)
+    {
+        builder.with_in_val_uint64(static_cast<std::uint64_t>(ResourceType::kProvider));
+    }
+    auto control_req_result = builder.build();
     if (!control_req_result.has_value())
     {
         return score::Result<ProviderInfo>{
@@ -680,6 +690,10 @@ score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(uint16_t provider
 
 score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(const CryptoResourceId& resourceId)
 {
+    if (resourceId.type == ResourceType::kProvider)
+    {
+        return RequestProviderInfo(resourceId.id, true);
+    }
     return GetProviderInfo(resourceId.primary_provider);
 }
 

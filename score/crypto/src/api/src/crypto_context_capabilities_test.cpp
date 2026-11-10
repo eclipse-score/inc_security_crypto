@@ -151,7 +151,28 @@ TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoByResourceAsksForItsPrimary
 
     ASSERT_TRUE(info.has_value());
     EXPECT_EQ(info->type, ProviderType::kSoftware);
+    ASSERT_EQ(m_connection->LastOperation().parameters.size(), 1U);
     EXPECT_EQ(std::get<std::uint64_t>(m_connection->LastOperation().parameters[0]), 3U);
+}
+
+TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoByProviderHandleSendsHandleAndType)
+{
+    m_connection->Reply(med_ops::GetProviderInfo(), {std::uint16_t{1U}, std::uint8_t{1U}, Bytes("PKCS11_ENGINE")});
+    CryptoResourceId handle{};
+    handle.id = 7U;
+    handle.type = ResourceType::kProvider;
+    handle.persistence = ResourcePersistence::kPersistent;
+    handle.primary_provider = 0xFFFFU;
+
+    const auto info = m_context.GetProviderInfo(handle);
+
+    ASSERT_TRUE(info.has_value());
+    EXPECT_EQ(info->id, 1U);
+    EXPECT_EQ(View(info->name), "PKCS11_ENGINE");
+    const auto& sent = m_connection->LastOperation();
+    ASSERT_EQ(sent.parameters.size(), 2U);
+    EXPECT_EQ(std::get<std::uint64_t>(sent.parameters[0]), 7U);
+    EXPECT_EQ(std::get<std::uint64_t>(sent.parameters[1]), static_cast<std::uint64_t>(ResourceType::kProvider));
 }
 
 TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoMapsUnknownWireTypeToDefault)
