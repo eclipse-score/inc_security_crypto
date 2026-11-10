@@ -255,24 +255,4 @@ void ClientSession::WaitForStopped() noexcept
     });
 }
 
-bool ClientSession::CreateAndSendCancelRequest(const protocol::RequestId request_id) noexcept
-{
-    protocol::ControlRequest cancellation{};
-    cancellation.request_id = request_id;
-    cancellation.kind = protocol::ControlRequestKind::kCancel;
-    cancellation.deadline = std::chrono::steady_clock::now() + ipc::kMaximumRequestTimeout;
-
-    const auto serialized = m_codec.SerializeRequest(cancellation);
-    if (!serialized.has_value())
-    {
-        return false;
-    }
-    const auto bytes = std::move(serialized).value();
-    if (bytes.size() > ipc::kMaxPayloadBytes)
-    {
-        return false;
-    }
-    return TransferRequestBytes(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()}).has_value();
-}
-
 }  // namespace score::crypto::ipc::message_passing

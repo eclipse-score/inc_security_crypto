@@ -51,7 +51,6 @@ using ClientId = common::ClientId;
 using common::DATA_NODE_ID_RESERVED_BITS;
 using common::DATA_NODE_ID_VALUE_BITS;
 using RequestId = common::RequestId;
-using ControlRequestKind = common::ControlRequestKind;
 
 using OperationIdentifier = common::OperationIdentifier;
 using common::GetUidFromClientId;
@@ -124,7 +123,6 @@ struct ExecutionPolicy
 struct ControlRequest
 {
     RequestId request_id;
-    ControlRequestKind kind{ControlRequestKind::kOperation};
     ClientId client_id{0U};
     ExecutionPolicy execution_policy;
     union

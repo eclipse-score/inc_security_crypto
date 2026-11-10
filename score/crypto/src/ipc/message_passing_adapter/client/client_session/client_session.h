@@ -76,7 +76,6 @@ class ClientSession final : public std::enable_shared_from_this<ClientSession>
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> WaitForConnectionReady(
         std::chrono::steady_clock::time_point deadline) noexcept;
     void WaitForStopped() noexcept;
-    bool CreateAndSendCancelRequest(daemon::control_plane::protocol::RequestId request_id) noexcept;
     void HandleTransportState(LifecycleState state) noexcept;
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> TransferRequestBytes(
         score::cpp::span<const std::uint8_t> bytes) noexcept;

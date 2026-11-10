@@ -16,7 +16,6 @@
 #include "score/crypto/src/ipc/message_passing_adapter/client/message_passing_control_client.h"
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/message_passing_control_server.h"
-#include "score/crypto/src/ipc/message_passing_adapter/server/session/work_item.h"
 
 #include <gtest/gtest.h>
 
@@ -83,8 +82,7 @@ class RequestConcurrencyGate final
     std::size_t m_active_requests{0U};
 };
 
-// Helper to block execution of the Server Side request handler
-// to e.g simulate long-running operations or test cancellation scenarios
+// Helper to block execution of the server-side request handler for long-running request tests.
 class HandlerBlocker final
 {
   public:
@@ -457,15 +455,6 @@ TEST(MessagePassingAdapterIntegrationTest, OneClientOneServerEchoesValue)
 
     auto response = response_future.get();
     ExpectEchoResponse(response, kPayload);
-}
-
-TEST(MessagePassingAdapterIntegrationTest, QueuedWorkItemCancellationPreventsExecution)
-{
-    detail::WorkItem item{};
-
-    EXPECT_TRUE(item.TryRequestCancellation());
-    EXPECT_TRUE(item.IsCancellationRequested());
-    EXPECT_EQ(item.PrepareForExecution(), detail::WorkItemState::kCancelled);
 }
 
 TEST(MessagePassingAdapterIntegrationTest, FreshClientConnectsAfterServerBecomesAvailable)
@@ -1037,48 +1026,6 @@ TEST(MessagePassingAdapterIntegrationTest, LateResponseDoesNotCompleteNextReques
     ASSERT_TRUE(follow_up_call_finished) << "The follow-up request did not finish after release";
     const auto follow_up_result = follow_up_future.get();
     ExpectEchoResponse(follow_up_result, kLateResponseGuardPayload);
-}
-
-TEST(MessagePassingAdapterIntegrationTest, ClientForwardsServerOperationTimeoutResponse)
-{
-    RunningServer server;
-    ASSERT_TRUE(server.Start());
-
-    std::promise<ClientResult> response_promise;
-    auto response_future = response_promise.get_future();
-    const auto service_identifier = server.service_identifier();
-    std::thread client_thread([service_identifier, &response_promise] {
-        auto created_client = MessagePassingControlClient::Create(service_identifier);
-        if (!created_client.has_value())
-        {
-            response_promise.set_value(score::crypto::make_unexpected(created_client.error()));
-            return;
-        }
-        auto client = std::move(created_client).value();
-        auto request = MakeEchoRequest(kServerTimeoutPayload);
-        response_promise.set_value(client->SendRequest(request, std::chrono::milliseconds{2000}));
-    });
-
-    const bool response_ready = response_future.wait_for(std::chrono::seconds{5}) == std::future_status::ready;
-    if (!response_ready)
-    {
-        ADD_FAILURE() << "The server timeout response did not arrive before the client deadline";
-    }
-    client_thread.join();
-    if (!response_ready)
-    {
-        return;
-    }
-
-    const auto response = response_future.get();
-    ASSERT_TRUE(response.has_value()) << "A server operation timeout must be forwarded as a response";
-    ASSERT_EQ(response->operations.size(), 1U);
-    const auto& operation = response->operations.front();
-    EXPECT_EQ(operation.operationId.operationActor, kEchoOperationId.operationActor);
-    EXPECT_EQ(operation.operationId.operationAction, kEchoOperationId.operationAction);
-    EXPECT_EQ(operation.result,
-              static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kOperationTimedOut));
-    EXPECT_TRUE(operation.parameters.empty());
 }
 
 TEST(MessagePassingAdapterIntegrationTest, ParallelClientsCompleteAllRequests)

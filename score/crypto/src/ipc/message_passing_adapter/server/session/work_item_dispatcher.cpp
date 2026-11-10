@@ -106,13 +106,6 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Han
     const std::shared_ptr<detail::Session>& session,
     std::shared_ptr<WorkItem> item) noexcept
 {
-    if (item->GetKind() == protocol::ControlRequestKind::kCancel)
-    {
-        // Nothing we can do if the cancellation request fails
-        static_cast<void>(session->RequestCancellationByRequestId(item->GetRequestId()));
-        return {};
-    }
-
     const auto admission_result = session->TryAdmitWorkItem(item);
     if (!admission_result.has_value())
     {
@@ -174,10 +167,6 @@ WorkItemDispatcher::RunAcceptedWorkItem(const std::shared_ptr<detail::Session>& 
             {
                 auto response = handler.processRequest(item->GetRequest());
                 return RespondAndCompleteWorkItem(session, item, {std::move(response)});
-            }
-            case detail::WorkItemState::kCancelled:
-            {
-                return RespondWithEnvelopeError(session, item, DaemonErrorCode::kOperationCancelled);
             }
             case detail::WorkItemState::kDeadlineExpired:
             {

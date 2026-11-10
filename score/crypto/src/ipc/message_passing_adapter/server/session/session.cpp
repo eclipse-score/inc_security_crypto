@@ -21,7 +21,6 @@
 #include "score/os/errno.h"
 
 #include <algorithm>
-#include <array>
 #include <cerrno>
 #include <new>
 #include <utility>
@@ -115,46 +114,6 @@ Session::TryAdmitWorkItem(std::shared_ptr<WorkItem> item) noexcept
     return item;
 }
 
-score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-Session::RequestCancellationByRequestId(const daemon::control_plane::protocol::RequestId cancel_request_id) noexcept
-{
-    std::shared_ptr<WorkItem> item;
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        const auto iterator = m_work_items.find(cancel_request_id);
-        if (iterator != m_work_items.end())
-        {
-            item = iterator->second;
-        }
-    }
-    if (item == nullptr)
-    {
-        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidState);
-    }
-
-    item->TryRequestCancellation();
-    return {};
-}
-
-void Session::CancelAllPendingWorkItems() noexcept
-{
-    std::array<std::shared_ptr<WorkItem>, ipc::kMaxOutstandingOperationsPerConnection> to_cancel{};
-    std::size_t cancellation_count{0U};
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        for (auto& entry : m_work_items)
-        {
-            to_cancel[cancellation_count] = entry.second;
-            ++cancellation_count;
-        }
-    }
-
-    for (std::size_t index = 0U; index < cancellation_count; ++index)
-    {
-        static_cast<void>(to_cancel[index]->TryRequestCancellation());
-    }
-}
-
 void Session::OnWorkItemCompleted(const WorkItem& item) noexcept
 {
     bool cleanup_ready{false};
@@ -229,8 +188,6 @@ void Session::Disconnect() noexcept
             m_state = SessionState::kDrainingWork;
         }
     }
-
-    CancelAllPendingWorkItems();
 
     bool cleanup_ready{false};
     {

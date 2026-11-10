@@ -53,8 +53,8 @@ struct WorkItem;
 /**
  * @brief
  * Routes decoded requests to per-connection sessions and worker execution.
- * Dispatches operation admission and cancellation, then coordinates response delivery. Per-request
- * state is owned by Session rather than by the dispatcher.
+ * Dispatches operation admission and coordinates response delivery. Per-request state is owned by
+ * Session rather than by the dispatcher.
  * @endrst
  */
 class WorkItemDispatcher final
@@ -71,9 +71,6 @@ class WorkItemDispatcher final
   private:
     using WorkItem = detail::WorkItem;
 
-    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> HandleCancellationRequest(
-        const std::shared_ptr<detail::Session>& session,
-        daemon::control_plane::protocol::RequestId request_id) noexcept;
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> HandleWorkItem(
         const std::shared_ptr<detail::Session>& session,
         std::shared_ptr<WorkItem> item) noexcept;

@@ -51,44 +51,6 @@ score::crypto::daemon::common::DaemonErrorCode MapCodecError(const score::crypto
 
 }  // namespace
 
-bool WorkItem::TryRequestCancellation() noexcept
-{
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-
-        if (m_lifecycle == WorkItemState::kCancellationRequested || m_lifecycle == WorkItemState::kCancelled)
-        {
-            return true;
-        }
-        if (m_lifecycle == WorkItemState::kQueued)
-        {
-            m_lifecycle = WorkItemState::kCancellationRequested;
-            return true;
-        }
-        if (m_lifecycle != WorkItemState::kRunning)
-        {
-            return false;
-        }
-
-        m_lifecycle = WorkItemState::kCancellationRequested;
-    }
-
-    CancelRunningWorkItem();
-    return true;
-}
-
-void WorkItem::CancelRunningWorkItem() noexcept
-{
-    // TODO: Cancellation of running work items is not yet implemented.
-    // For now it is an no-op.
-}
-
-bool WorkItem::IsCancellationRequested() const noexcept
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    return (m_lifecycle == WorkItemState::kCancellationRequested) || (m_lifecycle == WorkItemState::kCancelled);
-}
-
 void WorkItem::Complete() noexcept
 {
     std::shared_ptr<Session> session;
@@ -117,11 +79,6 @@ protocol::ClientId WorkItem::GetClientId() const noexcept
     return client_id;
 }
 
-protocol::ControlRequestKind WorkItem::GetKind() const noexcept
-{
-    return kind;
-}
-
 protocol::ControlRequest& WorkItem::GetRequest() noexcept
 {
     return request;
@@ -131,14 +88,9 @@ WorkItemState WorkItem::PrepareForExecution() noexcept
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    if ((m_lifecycle == WorkItemState::kCompleted) || (m_lifecycle == WorkItemState::kCancelled) ||
-        (m_lifecycle == WorkItemState::kDeadlineExpired) || (m_lifecycle == WorkItemState::kRunning))
+    if ((m_lifecycle == WorkItemState::kCompleted) || (m_lifecycle == WorkItemState::kDeadlineExpired) ||
+        (m_lifecycle == WorkItemState::kRunning))
     {
-        return m_lifecycle;
-    }
-    if (m_lifecycle == WorkItemState::kCancellationRequested)
-    {
-        m_lifecycle = WorkItemState::kCancelled;
         return m_lifecycle;
     }
     if (m_lifecycle == WorkItemState::kQueued && std::chrono::steady_clock::now() >= request.deadline)
@@ -203,7 +155,6 @@ score::crypto::Expected<std::shared_ptr<WorkItem>, score::crypto::daemon::common
         item->deadline = deadline;
         item->m_session = session;
         item->client_id = session->client_id();
-        item->kind = metadata.kind;
         item->request_id = metadata.request_id;
         item->execution_policy = metadata.execution_policy;
         item->serialized_request.assign(serialized_request.begin(), serialized_request.end());

@@ -51,8 +51,7 @@ enum class CryptoErrorCode : score::result::ErrorCode
     kInvalidOperation = 0x01020002,           ///< Operation not valid in current state
     kOperationFailed = 0x01020003,            ///< Operation execution failed
     kOperationTimedOut = 0x01020004,          ///< Operation exceeded configured timeout deadline
-    kOperationCancelled = 0x01020005,         ///< Operation was cancelled before execution
-    kOperationResponseTimedOut = 0x01020006,  ///< No terminal response arrived before cancellation grace expired
+    kOperationResponseTimedOut = 0x01020006,  ///< No terminal response arrived before timeout and grace expired
 
     // ---- Parameter / validation errors (0x01030000) ----
     kInvalidArgument = 0x01030001,      ///< Invalid argument provided

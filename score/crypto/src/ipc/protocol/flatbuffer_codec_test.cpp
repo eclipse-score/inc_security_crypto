@@ -51,8 +51,7 @@ std::vector<std::uint8_t> BuildRequestWithMissingParameterVector()
         {});
     const auto operations = builder.CreateVector({operation});
     const auto policy = flatbuffer_protocol::CreateExecutionPolicy(builder);
-    const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(
-        builder, 1U, 0U, 0U, flatbuffer_protocol::ControlRequestKind::Operation, 0U, policy);
+    const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(builder, 1U, 0U, policy, 0U, 0U);
     builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlRequest(builder, meta_data, operations),
                                flatbuffer_protocol::ControlRequestIdentifier());
     return {builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
@@ -74,12 +73,11 @@ std::vector<std::uint8_t> BuildResponseWithMismatchedParameterVectors()
     return {builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
 }
 
-std::vector<std::uint8_t> BuildCancelRequestWithTimeout(const std::uint32_t timeout_ms)
+std::vector<std::uint8_t> BuildRequestWithoutOperations()
 {
     flatbuffers::FlatBufferBuilder builder{128U};
     const auto policy = flatbuffer_protocol::CreateExecutionPolicy(builder);
-    const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(
-        builder, 83U, 0U, 0U, flatbuffer_protocol::ControlRequestKind::Cancel, timeout_ms, policy);
+    const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(builder, 84U, 0U, policy, 0U, 0U);
     builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlRequest(builder, meta_data, {}),
                                flatbuffer_protocol::ControlRequestIdentifier());
     return {builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
@@ -129,21 +127,11 @@ TEST(FlatBufferCodecTest, EnvelopeOperationIdentifierIsPassedThrough)
     EXPECT_TRUE(protocol::IsEnvelopeErrorOperation(decoded.operations.front().operationId));
 }
 
-TEST(FlatBufferCodecTest, RejectsUnknownRequestKind)
-{
-    protocol::ControlRequest request{};
-    SetFutureDeadline(request);
-    request.request_id = 19U;
-    request.kind = static_cast<protocol::ControlRequestKind>(255U);
-    EXPECT_FALSE(codec.SerializeRequest(request).has_value());
-}
-
 TEST(FlatBufferCodecTest, AllowsEmptyOperationVector)
 {
     protocol::ControlRequest request{};
     SetFutureDeadline(request);
     request.request_id = 24U;
-    request.kind = protocol::ControlRequestKind::kOperation;
 
     const auto serialized = codec.SerializeRequest(request);
     ASSERT_TRUE(serialized.has_value());
@@ -153,7 +141,6 @@ TEST(FlatBufferCodecTest, AllowsEmptyOperationVector)
     ASSERT_TRUE(codec.DeserializeRequest(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()}, decoded)
                     .has_value());
     EXPECT_EQ(decoded.request_id, request.request_id);
-    EXPECT_EQ(decoded.kind, protocol::ControlRequestKind::kOperation);
     EXPECT_TRUE(decoded.operations.empty());
 }
 
@@ -214,25 +201,6 @@ TEST(FlatBufferCodecTest, EnvelopeOperationIdentifierInRequestPassesThroughCodec
     EXPECT_TRUE(protocol::IsEnvelopeErrorOperation(decoded.operations.front().operationId));
 }
 
-TEST(FlatBufferCodecTest, CancellationRequestRoundTrips)
-{
-    protocol::ControlRequest request{};
-    SetFutureDeadline(request);
-    request.request_id = 17U;
-    request.kind = protocol::ControlRequestKind::kCancel;
-
-    const auto serialized = codec.SerializeRequest(request);
-    ASSERT_TRUE(serialized.has_value());
-    const auto bytes = std::move(serialized).value();
-    protocol::ControlRequest decoded{};
-
-    ASSERT_TRUE(codec.DeserializeRequest(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()}, decoded)
-                    .has_value());
-    EXPECT_EQ(decoded.kind, protocol::ControlRequestKind::kCancel);
-    EXPECT_EQ(decoded.request_id, request.request_id);
-    EXPECT_TRUE(decoded.operations.empty());
-}
-
 TEST(FlatBufferCodecTest, RequestTimeoutBudgetRoundTrips)
 {
     protocol::ControlRequest request{};
@@ -253,7 +221,6 @@ TEST(FlatBufferCodecTest, RequestTimeoutBudgetRoundTrips)
     EXPECT_EQ(metadata->data_node_id, request.data_node_id);
     EXPECT_GT(metadata->timeout_ms, 10U * 60U * 1000U);
     EXPECT_LE(metadata->timeout_ms, 20U * 60U * 1000U);
-    EXPECT_EQ(metadata->kind, protocol::ControlRequestKind::kOperation);
 
     protocol::ControlRequest decoded{};
     const auto deserialize_started_at = std::chrono::steady_clock::now();
@@ -295,8 +262,7 @@ TEST(FlatBufferCodecTest, MetadataDefaultTimeoutIsZero)
     const auto policy = flatbuffer_protocol::CreateExecutionPolicy(builder);
     const std::vector<flatbuffers::Offset<flatbuffer_protocol::SingleOperationRequest>> no_operations{};
     const auto operations = builder.CreateVector(no_operations);
-    const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(
-        builder, 82U, 0U, 0U, flatbuffer_protocol::ControlRequestKind::Operation, 0U, policy);
+    const auto meta_data = flatbuffer_protocol::CreateControlRequestMetaData(builder, 82U, 0U, policy, 0U, 0U);
     builder.FinishSizePrefixed(flatbuffer_protocol::CreateControlRequest(builder, meta_data, operations),
                                flatbuffer_protocol::ControlRequestIdentifier());
     const std::vector<std::uint8_t> bytes{builder.GetBufferPointer(), builder.GetBufferPointer() + builder.GetSize()};
@@ -306,44 +272,14 @@ TEST(FlatBufferCodecTest, MetadataDefaultTimeoutIsZero)
     EXPECT_EQ(metadata->timeout_ms, 0U);
 }
 
-TEST(FlatBufferCodecTest, CancelWithZeroRequestIdPassesThroughCodec)
+TEST(FlatBufferCodecTest, RejectsRequestWithoutOperations)
 {
-    protocol::ControlRequest request{};
-    SetFutureDeadline(request);
-    request.request_id = 0U;
-    request.kind = protocol::ControlRequestKind::kCancel;
-    const auto serialized = codec.SerializeRequest(request);
-    ASSERT_TRUE(serialized.has_value());
-    const auto bytes = std::move(serialized).value();
+    const auto bytes = BuildRequestWithoutOperations();
+    const score::cpp::span<const std::uint8_t> message{bytes.data(), bytes.size()};
     protocol::ControlRequest decoded{};
-    ASSERT_TRUE(codec.DeserializeRequest(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()}, decoded)
-                    .has_value());
-    EXPECT_EQ(decoded.request_id, 0U);
-}
 
-TEST(FlatBufferCodecTest, CancelWithNonzeroTimeoutIsAcceptedByDecoder)
-{
-    const auto bytes = BuildCancelRequestWithTimeout(250U);
-    protocol::ControlRequest decoded{};
-    const auto deserialize_started_at = std::chrono::steady_clock::now();
-
-    EXPECT_TRUE(codec.DeserializeRequest(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()}, decoded)
-                    .has_value());
-    EXPECT_GE(decoded.deadline, deserialize_started_at + std::chrono::milliseconds{250});
-    const auto metadata = codec.PeekRequestMetadata(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()});
-    ASSERT_TRUE(metadata.has_value());
-    EXPECT_EQ(metadata->timeout_ms, 250U);
-}
-
-TEST(FlatBufferCodecTest, RejectsCancellationWithOperations)
-{
-    protocol::ControlRequest request{};
-    SetFutureDeadline(request);
-    request.request_id = 18U;
-    request.kind = protocol::ControlRequestKind::kCancel;
-    request.operations.push_back(
-        protocol::SingleOperationRequest{protocol::OperationIdentifier{1U, 1U}, {protocol::NoParam{}}});
-    EXPECT_FALSE(codec.SerializeRequest(request).has_value());
+    EXPECT_FALSE(codec.PeekRequestMetadata(message).has_value());
+    EXPECT_FALSE(codec.DeserializeRequest(message, decoded).has_value());
 }
 
 TEST(FlatBufferCodecTest, RejectsRequestWithMissingParameterVector)

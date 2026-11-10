@@ -87,13 +87,6 @@ using AlgorithmId = std::string;
 // TODO: MediatorId shall use numeric type
 using MediatorId = std::string;
 
-/// @brief Identifies whether a control request invokes an operation or cancels another request.
-enum class ControlRequestKind : std::uint8_t
-{
-    kOperation = 0U,  ///< Request an operation.
-    kCancel = 1U,     ///< Cancel the request identified by request_id.
-};
-
 // ============================================================================
 // Provider Identity Types
 // ============================================================================

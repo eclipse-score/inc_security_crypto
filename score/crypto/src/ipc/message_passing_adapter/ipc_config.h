@@ -51,13 +51,9 @@ static_assert(kMaxConnectionsPerUid <= kMaxTotalConnections,
 // the number of outstanding operations per connection must be limited.
 // This does also defines the buffer requirements for the client and server-side
 inline constexpr std::uint32_t kMaxOutstandingOperationsPerConnection = 31U;
-// Reserve one additional slot for a cancellation message while all operation slots are occupied.
-// No need for an additional Notification slot on server-side, since cancellation is fire-and-forget
-inline constexpr std::uint32_t kClientAdditionalCancelCapacity = 1U;
-inline constexpr std::uint32_t kClientQueuedSendCapacity =
-    kMaxOutstandingOperationsPerConnection + kClientAdditionalCancelCapacity;
+// The client can queue one send for each outstanding operation.
+inline constexpr std::uint32_t kClientQueuedSendCapacity = kMaxOutstandingOperationsPerConnection;
 
-// No need for additional slot for the cancellation on the server side, since cancellation is fire-and-forget
 inline constexpr std::uint32_t kServerNotificationCapacityPerConnection = kMaxOutstandingOperationsPerConnection;
 
 static_assert(kServerNotificationCapacityPerConnection == kMaxOutstandingOperationsPerConnection,

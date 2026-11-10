@@ -43,8 +43,6 @@ enum class WorkItemState : std::uint8_t
 {
     kQueued,
     kRunning,
-    kCancellationRequested,
-    kCancelled,
     kDeadlineExpired,
     kCompleted,
 };
@@ -52,7 +50,7 @@ enum class WorkItemState : std::uint8_t
 /**
  * @brief
  * Owns the server-side state and backing bytes for one received request.
- * Tracks request identity, deadline, and cancellation state from admission through completion.
+ * Tracks request identity and deadline from admission through completion.
  * @endrst
  */
 struct WorkItem final
@@ -67,18 +65,13 @@ struct WorkItem final
         const score::crypto::ipc::protocol::IControlCodec& codec) noexcept;
 
     WorkItemState PrepareForExecution() noexcept;
-    bool TryRequestCancellation() noexcept;
-    bool IsCancellationRequested() const noexcept;
     void Complete() noexcept;
     protocol::RequestId GetRequestId() const noexcept;
     protocol::ClientId GetClientId() const noexcept;
-    protocol::ControlRequestKind GetKind() const noexcept;
     protocol::ControlRequest& GetRequest() noexcept;
 
   private:
     friend class Session;
-
-    void CancelRunningWorkItem() noexcept;
 
     mutable std::mutex m_mutex{};
     std::weak_ptr<Session> m_session{};
@@ -93,7 +86,6 @@ struct WorkItem final
     protocol::RequestId request_id{0U};
     protocol::ClientId client_id{0U};
     std::chrono::steady_clock::time_point deadline{};
-    protocol::ControlRequestKind kind{protocol::ControlRequestKind::kOperation};
     protocol::ExecutionPolicy execution_policy{};
 };
 

@@ -52,8 +52,7 @@ enum class SessionState : std::uint8_t
 /**
  * @brief
  * Owns the request and disconnect-cleanup state for one server connection.
- * Tracks admitted work items by request ID, coordinates cancellation, and delivers responses on
- * the associated server connection.
+ * Tracks admitted work items by request ID and delivers responses on the associated server connection.
  * @endrst
  */
 class Session final : public std::enable_shared_from_this<Session>
@@ -72,15 +71,6 @@ class Session final : public std::enable_shared_from_this<Session>
     /// @return An expected containing the admitted work item on success, or an error on failure.
     score::crypto::Expected<std::shared_ptr<WorkItem>, score::crypto::daemon::common::DaemonErrorCode> TryAdmitWorkItem(
         std::shared_ptr<WorkItem> item) noexcept;
-
-    /// @brief Requests cancellation of the work item identified by the given request ID.
-    /// @param cancel_request_id The unique request ID of the work item to cancel.
-    /// @return An expected indicating success or failure of the cancellation request.
-    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    RequestCancellationByRequestId(daemon::common::RequestId cancel_request_id) noexcept;
-
-    /// @brief Requests cancellation of all pending work items in this session.
-    void CancelAllPendingWorkItems() noexcept;
 
     /// @brief Initiates the disconnection process for this session, triggering cleanup if necessary.
     void Disconnect() noexcept;

@@ -48,7 +48,6 @@ enum class DaemonErrorCode : std::uint32_t
     kInvalidOperation = 0x0202,      ///< Operation not valid in the current context state
     kOperationFailed = 0x0203,       ///< Operation execution failed
     kOperationTimedOut = 0x0204,     ///< Operation exceeded its deadline
-    kOperationCancelled = 0x0205,    ///< Operation was cancelled
 
     // ---- Parameter / validation ----
     kInvalidArgument = 0x0301,         ///< Argument value is out of range or malformed
@@ -157,8 +156,6 @@ inline score::crypto::CryptoErrorCode ToCryptoErrorCode(DaemonErrorCode code) no
             return C::kOperationFailed;
         case DaemonErrorCode::kOperationTimedOut:
             return C::kOperationTimedOut;
-        case DaemonErrorCode::kOperationCancelled:
-            return C::kOperationCancelled;
         // ---- Parameter ----
         case DaemonErrorCode::kInvalidArgument:
             return C::kInvalidArgument;

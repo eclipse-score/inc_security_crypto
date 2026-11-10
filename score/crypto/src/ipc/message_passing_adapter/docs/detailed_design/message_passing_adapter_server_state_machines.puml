@@ -99,7 +99,7 @@ state "Session\n(one per connection)" as SE {
   SE_Running -[#red]-> SE_Failed : cleanup_callback failed\nor threw
 
   SE_Active : do / **R5** connection.Notify(response bytes) [IServerConnection]
-  SE_Draining : entry / **D3** TryRequestCancellation() for every pending [WorkItem]
+  SE_Draining : do / wait for admitted [WorkItem]s to complete
   SE_Ready : entry / **D5** TrySubmitCleanup(RunCleanup) [Executor]
   SE_Finished : entry / **D7** OnCleanupFinished(client_id, true) [SessionRegistry]
   SE_Failed : entry / **D7** OnCleanupFinished(client_id, false) [SessionRegistry]
@@ -108,21 +108,14 @@ state "Session\n(one per connection)" as SE {
 state "WorkItem\n(one per request)" as WI {
   state "kQueued" as WI_Queued
   state "kRunning" as WI_Running
-  state "kCancellationRequested" as WI_CancelReq
-  state "kCancelled" as WI_Cancelled
   state "kDeadlineExpired" as WI_Expired
   state "kCompleted" as WI_Completed
 
   [*] -[#green]-> WI_Queued : WorkItem::Create()\n[OnRequest]
   WI_Queued -[#green]-> WI_Running : PrepareForExecution()\n[deadline not reached]
   WI_Queued -[#green]-> WI_Expired : PrepareForExecution()\n[deadline reached]
-  WI_Queued -[#red]-> WI_CancelReq : TryRequestCancellation()
   WI_Queued -[#green]-> WI_Completed : Complete()\n[admission / submit /\ndeserialize failed]
-  WI_Running -[#red]-> WI_CancelReq : TryRequestCancellation()\n[CancelRunningWorkItem(): no-op]
   WI_Running -[#green]-> WI_Completed : Complete()\n[handler done, response sent attempted]
-  WI_CancelReq -[#green]-> WI_Cancelled : PrepareForExecution()\n[cancellation requested while still queued]
-  WI_CancelReq -[#green]-> WI_Completed : Complete()
-  WI_Cancelled -[#green]-> WI_Completed : Complete()\n[kOperationCancelled response]
   WI_Expired -[#green]-> WI_Completed : Complete()\n[kOperationTimedOut response]
   WI_Completed -[#red]-> [*] : erased from Session::m_work_items
 
@@ -141,11 +134,6 @@ note right of EX
   Work: kProviderBusy if no idle worker.
   Cleanup: queued if no idle worker,
   kResourceBusy if queue is full.
-end note
-
-note right of WI
-  Cancellation is not fully supported yet. A queued item can be stopped before
-  execution; but CancelRunningWorkItem() is currently a no-op.
 end note
 
 ' ---- Independent roots: callbacks registered on the SCORE message-passing server ----
@@ -171,7 +159,7 @@ RC -[dashed,#purple]-> SE : **C2** SessionFactory creates Session
 
 ' Flow R (green): request handling
 ROOT_R -[dashed,#green]-> WI : **R1** WorkItem::Create() [Session must be kActive]\n**R6** Complete() [after Respond(), also on error]
-ROOT_R -[dashed,#green]-> SE : **R2** TryAdmitWorkItem() [only while kActive]\nor RequestCancellationByRequestId() for kCancel\n**R5** Respond(response bytes) [only while kActive]\n[worker thread after R4, or directly on R2 / R3 error]
+ROOT_R -[dashed,#green]-> SE : **R2** TryAdmitWorkItem() [only while kActive]\n**R5** Respond(response bytes) [only while kActive]\n[worker thread after R4, or directly on R2 / R3 error]
 ROOT_R -[dashed,#green]-> EX : **R3** TrySubmitWorkItem(session, item, job)
 EX -[dashed,#green]-> WI : **R4** worker runs job:\nPrepareForExecution(), processRequest()
 SE -[dashed,#green]-> TP : **R5** connection.Notify(response bytes)
@@ -179,7 +167,7 @@ SE -[dashed,#green]-> TP : **R5** connection.Notify(response bytes)
 ' Flow D (red): disconnect and cleanup
 ROOT_D -[dashed,#red]-> RC : **D1** DetachConnection()
 RC -[dashed,#red]-> SE : **D2** Session::Disconnect()
-SE -[dashed,#red]-> WI : **D3** CancelAllPendingWorkItems()\ncalls TryRequestCancellation()
+SE -[dashed,#red]-> WI : **D3** admitted work items drain before cleanup
 WI -[dashed,#red]-> SE : **R7** / **D4** Complete() calls OnWorkItemCompleted()\n[Session draining and last item: kReadyForCleanup]
 SE -[dashed,#red]-> EX : **D5** TrySubmitCleanup(RunCleanup)
 EX -[dashed,#red]-> SE : **D6** worker runs RunCleanup()
@@ -195,8 +183,7 @@ SSM -[dashed,#orange]-> EX : **S6** WaitForTermination(): Shutdown() + Join()\n[
 legend right
   Solid arrows: state transitions (label = trigger [action / guard]),
   drawn in the colour of the flow whose call triggers them.
-  TryRequestCancellation() is red (D3 / S4); a kCancel request (R2)
-  can trigger it too. Black: no cross-machine trigger (initial state).
+  Black: no cross-machine trigger (initial state).
   Yellow boxes: independent roots (callbacks of the SCORE message-passing
   server), not state machines.
   Dashed arrows: cross-machine interactions, one arrow per source,
