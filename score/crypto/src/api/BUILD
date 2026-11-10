@@ -46,6 +46,19 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "crypto_context_capabilities_test",
+    srcs = ["src/crypto_context_capabilities_test.cpp"],
+    deps = [
+        ":crypto_stack",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/api/types:common_types",
+        "//score/crypto/src/daemon/mediator:mediator_operations",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "crypto_stack",
     srcs = [
