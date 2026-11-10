@@ -159,7 +159,7 @@ bool OpenSslCipherHandler::GetBoundKeyMaterial(const std::uint8_t*& key_bytes, s
         score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: key length" << key_len
                                    << "does not match algorithm requirement" << expected_key_size;
         m_init_params = {};
-        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmMismatch);
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }
 
     m_state = StreamOperationState::IDLE;
