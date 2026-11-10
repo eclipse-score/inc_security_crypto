@@ -23,10 +23,10 @@ Detailed Design
    But the inspection checklist for the implementation is mandatory.
 
 
-Detail design example
----------------------
+IAV Primula Detailed Design
+---------------------------
 
-An example of documenting detailed design can be found in:
+The detailed design of the IAV Primula integration is documented in:
 
    .. toctree::
 

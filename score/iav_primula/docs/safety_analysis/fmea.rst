@@ -26,9 +26,9 @@ FMEA (Failure Modes and Effects Analysis)
    :tags: iav_primula
 
 .. note::
-   Current component scope is ``QM`` and contains only deterministic in-process
-   string return behavior. The generic fault model is recorded as not applicable
-   for this baseline.
+   The component is classified ``QM``. This analysis covers failure modes of the
+   current provider registration, routing, key-management, and C/Rust FFI
+   skeleton. No functional PQC backend is connected.
 
 Failure Mode List
 -----------------
@@ -42,68 +42,89 @@ Failure Mode List
       - Applicability
       - Rationale
     * - MF_01_01
-      - message is not received (is a subset/more precise description of MF_01_05)
-      - no
-      - No inter-component messaging in current scope.
+      - request is not received
+      - yes
+      - Registration or routing failure can prevent a request from reaching the
+        Primula handler. The operation must fail without producing output.
     * - MF_01_02
-      - message received too late (only relevant if delay is a realistic fault)
+      - request is received too late
       - no
-      - No timing-critical communication path in current scope.
+      - No timing requirement is allocated to the current ``QM`` component.
     * - MF_01_03
-      - message received too early (usually not a problem)
+      - request is received too early
       - no
-      - No timing-dependent message protocol is implemented.
+      - The current interfaces use synchronous calls without an early-arrival
+        protocol state.
     * - MF_01_04
-      - message not received correctly by all recipients (different messages or messages partly lost). Only relevant if the same message goes to multiple recipients.
+      - request is not received correctly by all recipients
       - no
-      - No fan-out message distribution exists.
+      - A Primula operation is routed to one handler; no fan-out distribution is
+        implemented.
     * - MF_01_05
-      - message is corrupted
-      - no
-      - No message transport layer in current scope.
+      - request data is corrupted
+      - yes
+      - Invalid algorithms, keys, pointers, or lengths can cross the integration
+        boundary. Validation and non-success status values prevent their results
+        from being accepted.
     * - MF_01_06
-      - message is not sent
-      - no
-      - No send operation is implemented.
+      - result is not returned
+      - yes
+      - Handler or FFI failure can prevent completion. The caller must treat an
+        absent result as an operation failure.
     * - MF_01_07
-      - message is unintended sent
+      - result is returned unintentionally
       - no
-      - Component does not emit external messages.
+      - The component does not autonomously initiate operations or emit
+        cryptographic results.
     * - CO_01_01
-      - minimum constraint boundary is violated
-      - no
-      - No numerical safety boundary handling in current scope.
+      - minimum size or capacity boundary is violated
+      - yes
+      - Undersized algorithm data or output capacity can make an operation
+        invalid. Handlers validate fixed algorithm sizes, and the FFI contract
+        provides ``IavStatusBufferTooSmall``.
     * - CO_01_02
-      - maximum constraint boundary is violated
-      - no
-      - No numerical safety boundary handling in current scope.
+      - maximum size or capacity boundary is violated
+      - yes
+      - Oversized or inconsistent key, signature, ciphertext, and output lengths
+        must be rejected before a result is accepted.
     * - EX_01_01
-      - Process calculates wrong result(s) (subset of data corruption faults)
-      - no
-      - Function returns a fixed literal without algorithmic processing.
+      - processing produces an incorrect result
+      - yes
+      - Incorrect routing, status mapping, or output-length handling could make a
+        failed operation appear successful. Callers accept output only after
+        checking ``IavStatusOk`` and the expected length.
     * - EX_01_02
-      - processing too slow (only relevant if timing is considered)
+      - processing is too slow
       - no
-      - No timing requirement allocated to current baseline function.
+      - No execution-time requirement is allocated to the current ``QM``
+        component.
     * - EX_01_03
-      - processing too fast (only relevant if timing is considered)
+      - processing is too fast
       - no
-      - No minimum timing constraint allocated.
+      - No minimum execution-time constraint is allocated.
     * - EX_01_04
       - loss of execution
-      - no
-      - Not safety-relevant in current ``QM`` scope.
+      - yes
+      - Provider, handler, or FFI failure can prevent an operation from
+        completing. The failure must be reported without usable output.
     * - EX_01_05
-      - processing changes to arbitrary process
+      - processing changes to an arbitrary process
       - no
-      - No process control behavior is implemented.
+      - The component has no process-control mode or autonomous state transition.
     * - EX_01_06
-      - processing is not complete (infinite loop)
+      - processing does not complete
       - no
-      - Function body is finite and constant.
+      - Current Rust placeholders return immediately and the C++ routing paths
+        contain no unbounded loop. Reassess when a PQC backend is connected.
 
 FMEA
 ----
 
-No ``comp_saf_fmea`` entries are required for the current baseline.
-Re-evaluate this document once safety-relevant behavior is introduced.
+No formal ``comp_saf_fmea`` entries are required because no safety requirements
+are allocated to this ``QM`` component. The table records applicable integration
+failure modes and the current error-handling measures.
+
+The placeholder backend fails operations with
+``IavStatusUnsupportedAlgorithm`` and produces no cryptographic output.
+Re-evaluate the failure modes and add formal entries when a functional PQC
+backend or safety-relevant requirements are introduced.

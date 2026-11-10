@@ -26,12 +26,26 @@ DFA (Dependent Failure Analysis)
    :tags: iav_primula
 
 .. note::
-   Current component scope is ``QM`` and contains only a deterministic pure
-   function returning a constant string. No dependent-failure initiators are
-   identified for this baseline.
+   The component is classified ``QM``. This analysis covers the current provider
+   registration, request routing, key-management integration, and C/Rust FFI
+   skeleton. No functional PQC backend is connected.
 
 Dependent Failure Initiators
 ----------------------------
 
-No ``comp_saf_dfa`` entries are required for the current baseline implementation.
-Re-evaluate and add entries once safety-relevant behavior is introduced.
+No safety requirements are allocated to this ``QM`` component, so no formal
+``comp_saf_dfa`` entries are required. The following shared dependencies are
+nevertheless relevant to integration:
+
+- ``ProviderManager`` and score-provider configuration are shared by provider
+  registration and routing. Their failure can make all Primula operations
+  unavailable or route requests to another provider.
+- The C ABI and its buffers are shared by SIGN, VERIFY, and KEM paths. Invalid
+  boundary data can affect multiple operations; callers and handlers must
+  validate status values and output lengths before using results.
+- The Rust FFI library is common to all Primula cryptographic operations. In the
+  current placeholder implementation, it consistently reports
+  ``IavStatusUnsupportedAlgorithm`` and produces no cryptographic output.
+
+Re-evaluate dependent failures when a functional PQC backend or safety-relevant
+requirements are introduced.

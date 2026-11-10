@@ -12,31 +12,31 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-AoU Component Requirements Snippets
-===================================
+IAV Primula Component Assumptions of Use
+========================================
 
-This page contains the current Assumptions of Use snippets used by IAV Primula.
+
+.. document:: IAV Primula Component AoU
+   :id: doc__iav_primula_comp_aou
+   :version: 1
+   :status: draft
+   :safety: QM
+   :security: YES
+   :realizes: wp__requirements_comp_aou
+   :tags: iav_primula
+
+This page summarizes the current Assumptions of Use. Their canonical
+requirements and traceability are maintained in the component requirements
+document.
 
 Component AoU
 -------------
 
-.. code-block:: rst
+- :need:`aou_req__iav_primula__c_abi_integration`
+- :need:`aou_req__iav_primula__check_operation_status`
+- :need:`aou_req__iav_primula__key_handle_ownership`
+- :need:`aou_req__iav_primula__rust2021_build_env`
 
-   .. aou_req:: Integrate as Rust library API
-      :id: aou_req__iav_primula__integrate_as_rust_library_api
-      :reqtype: Process
-      :security: YES
-      :safety: QM
-      :status: valid
-
-      The component user shall link the crate ``iav_primula`` and call the public API from Rust code.
-
-   .. aou_req:: Build environment supports Rust 2021
-      :id: aou_req__iav_primula__build_env_supports_rust_2021
-      :reqtype: Process
-      :security: YES
-      :safety: QM
-      :status: valid
-      :tags: environment
-
-      The component shall be built in an environment that supports Rust edition 2021.
+These assumptions require integrators to use the C-compatible interface, check
+operation status before using outputs, preserve opaque key-handle ownership, and
+build the Rust library with Rust 2021 support.

@@ -28,7 +28,7 @@ Component Classification
 
 | Classification of ``iav_primula``
 |
-| GitHub: ``https://github.com/eclipse-score/inc_security_crypto/tree/main/score/t.b.d``
+| GitHub: ``https://github.com/eclipse-score/inc_security_crypto/tree/main/score/iav_primula``
 |
 | Additional documentation considered:
 | - ``docs/index.rst``
@@ -56,7 +56,8 @@ Step 1: Determine (P): the uncertainty of the Processes applied
         * - 1
           - Are rules, state-of-the art processes applied for the design, implementation and verification?
           - HE
-          - Basic project rules are applied (Rust 2021 crate, tests, standard docs structure).
+          - Project rules are applied to the C++ provider integration, Rust 2021
+            FFI library, Bazel targets, tests, and documentation structure.
 
         * - 2
           - Are requirements available?
@@ -71,7 +72,8 @@ Step 1: Determine (P): the uncertainty of the Processes applied
         * - 4
           - Are design specifications available?
           - HE
-          - Detailed design baseline exists for current low complexity scope.
+          - Detailed design covers the current provider and FFI integration
+            skeleton.
 
         * - 5
           - Are configuration specification and data available, if applicable?
@@ -81,7 +83,9 @@ Step 1: Determine (P): the uncertainty of the Processes applied
         * - 6
           - Are verification measures including tests and reports available?
           - HE
-          - Hello-world test exists and verifies expected output.
+          - FFI tests and C++ provider tests cover enumeration values, registration,
+            routing, validation, error mapping, and placeholder behavior. They do
+            not verify cryptographic correctness.
 
 
 | (P=1) shall be selected when none of the determined process measures indicate PE or NE.
@@ -101,9 +105,9 @@ Step 2: Determine (C): the uncertainty of finding systematic faults based on the
 | - HM: High but Manageable
 | - NM: high and Not Manageable
 |
-| **Complexity measure for programming language: RUST**
+| **Complexity measure for programming languages: C++ and RUST**
 
-.. list-table:: Determine (C) for RUST
+.. list-table:: Determine (C) for C++ and RUST
     :header-rows: 1
 
     * - Id
@@ -114,36 +118,37 @@ Step 2: Determine (C): the uncertainty of finding systematic faults based on the
 
     * - 1
       - High amount of Lines of Code
-      - Lines of Code (without comments) (generated code is excluded, e.g. ProtoCmpl)
+      - Physical source-line count across the production Rust, C++, and header
+        units; comments and header lines are included as a conservative upper
+        bound.
       - NH
-      - 1 function
+      - 17 production units with 1,642 physical lines.
 
     * - 2
-      - Unsafe code used / total unsafe code
-      - Count:
-            * LoUC+N: lines of unsafe code with safety note
-            * LoUC  : lines of unsafe code, no safety note
+      - Unsafe Rust or unchecked FFI memory access
+      - Search for Rust ``unsafe`` blocks and review raw-pointer use at the C ABI.
       - NH
-      - 0
+      - 0 Rust ``unsafe`` blocks; the placeholder entry points do not dereference
+        their raw-pointer parameters.
 
     * - 3
-      - | Test exists / Coverage (Function, Line)
-        | (maybe better: testability, but how to measure?)
-      - Existing Tests Coverage
+      - Tests exist for the implemented integration behavior
+      - Count Rust ``#[test]`` cases and C++ ``TEST`` cases; review their scope.
       - NH
-      - 1 test present
+      - 36 tests: 2 Rust FFI tests and 34 C++ provider/integration tests. They
+        cover the skeleton but not cryptographic correctness.
 
     * - 4
       - High amount of public function interfaces
-      - Number of public function interfaces
+      - Count exported ``extern "C"`` entry points.
       - NH
-      - 1 public function
+      - 9 C ABI functions.
 
     * - 5
       - High amount of function parameters
-      - Number of parameters
+      - Maximum parameter count among C ABI entry points.
       - NH
-      - 0 parameters for public API
+      - 7 parameters for ``iav_kem_encapsulate()``.
 
 
 | (C=1) shall be selected when none of the determined complexity measures indicate HM or NM.

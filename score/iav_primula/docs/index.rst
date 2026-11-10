@@ -31,36 +31,30 @@ IAV Primula Component
 Abstract
 ========
 
-IAV_Primula is a cryptographic driver in Rust focused on integrating
-post-quantum (PQ) algorithms and establishing a future-ready foundation for
-cryptographic processing in the S-CORE context. The component emphasizes a
-clear, robust, and maintainable architecture that provides safe and structured
-integration paths for quantum-resistant methods. At the current planning stage,
-integrating classical cryptographic algorithms is not intended; the initial
-scope is fully focused on PQ-based capabilities and their clean technical
-embedding.
+IAV Primula is a post-quantum provider integration skeleton for the S-CORE
+crypto daemon. Its C++ implementation registers the Primula backend, creates
+the provider and handler factories, routes SIGN and VERIFY requests, and
+integrates key generation and KEM operations with key management.
 
-The cryptodriver is designed around a consistent job-processing model. The
-offered processing jobs include, among others, Signature Generate, Signature
-Verification, Key Generate, and Key Exchange. Processing is intended to follow
-clearly defined interfaces and traceable request/response flows, enabling
-integrators to use cryptographic operations and key-related processes in a
-uniform way. Extensibility is also considered from the beginning so that
-additional PQ algorithms and operations can be added in a controlled manner.
+A stable C-compatible interface separates the C++ provider from the Rust
+library. The interface defines ML-DSA-44/65/87 and ML-KEM-512/768/1024
+identifiers, opaque key handles, status values, and entry points for signatures,
+key management, and KEM operations.
 
-By being implemented in Rust, IAV_Primula benefits from strong memory-safety
-properties and improved robustness against common implementation errors.
-Overall, the component addresses the need for a modern, integration-friendly,
-and post-quantum-focused cryptographic driver baseline designed for long-term
-security and structured evolution.
+The current Rust entry points are placeholders that return
+``IavStatusUnsupportedAlgorithm``. Therefore, the implementation establishes
+the provider architecture and API boundary but does not yet generate keys,
+signatures, ciphertexts, or shared secrets.
 
 
 Rationale
 =========
 
-The initial implementation is intentionally minimal. A deterministic and
-side-effect-free function allows us to validate repository setup, Rust crate
-integration, and first test execution with very low complexity.
+The implementation separates crypto-daemon integration from the future PQC
+backend. Provider registration, routing, key ownership, error translation, and
+the C ABI can therefore be reviewed and tested before cryptographic processing
+is connected. Returning an explicit unsupported status prevents placeholder
+operations from being mistaken for successful cryptographic results.
 
 .. note::
    The rationale should provide evidence of consensus within the community and discuss important objections or concerns raised during discussion.
@@ -69,12 +63,17 @@ integration, and first test execution with very low complexity.
 Specification
 =============
 
-The component currently provides a single public interface:
+The component currently provides:
 
-- ``get_hello_message() -> &'static str``
+- backend registration as implementation ``primula``, name ``PRIMULA``, and
+  provider type ``SPECIALIZED``;
+- provider and handler factories for PQC request routing;
+- SIGN and VERIFY handlers for ML-DSA algorithms;
+- key-generation and KEM routing through key management; and
+- the C-compatible interface declared in ``iav_primula_ffi.h``.
 
-The requirement, architecture, and implementation inspection preparation are
-documented in the linked sub-documents.
+The detailed requirements, architecture, design, manual, and safety analysis
+are documented in the linked sub-documents.
 
 
 Backwards Compatibility
@@ -87,8 +86,12 @@ new and currently has no consumers with compatibility constraints.
 Security Impact
 ===============
 
-No relevant security impact is identified for the current scope. The API
-returns a constant string and performs no external interaction.
+The component is security-relevant because it defines PQC operation routing,
+key-handle ownership, and a C/Rust FFI boundary. The current placeholder does
+not produce cryptographic output, but callers must reject every non-success
+status and must not use output buffers after a failed operation. Pointer,
+length, algorithm, and ownership validation remain security concerns at the
+integration boundary.
 
 .. note::
    If there are security concerns in relation to the CR, those concerns should be explicitly written out to make sure reviewers of the CR are aware of them.
@@ -107,8 +110,10 @@ If applicable, which additional security measures must be implemented to mitigat
 Safety Impact
 =============
 
-No safety impact is identified for the current scope. The component is
-classified as ``QM`` and currently does not implement safety mechanisms.
+No safety requirements are allocated to the current ``QM`` component, and it
+does not implement safety mechanisms. The DFA and FMEA nevertheless record
+shared integration dependencies and applicable failure modes. Reassessment is
+required when functional cryptographic processing is connected.
 
 .. note::
    If there are safety concerns in relation to the CR, those concerns should be explicitly written out to make sure reviewers of the CR are aware of them.
@@ -139,8 +144,10 @@ project code under Apache-2.0.
 How to Teach This
 =================
 
-Use the component as a simple Rust library baseline and reference the test
-``returns_expected_message`` as a minimal example for unit/integration flow.
+Use the integration manual to explain provider registration, algorithm routing,
+the C-compatible interface, and the expected unsupported result from the
+placeholder backend. The component must not be presented as a functional PQC
+implementation.
 
 .. note::
    For a CR that adds new functionality or changes behaviour, it is helpful to include a section on how to teach users, new and experienced, how to apply the CR to their work.
@@ -161,9 +168,11 @@ No alternatives were evaluated yet due to the intentionally small first scope.
 Open Issues
 ===========
 
-- Extend API beyond baseline hello message.
-- Decide whether detailed design document remains needed after growth.
-- Confirm if safety analysis artifacts are required once safety-relevant
+- Connect an approved PQC backend and replace the unsupported FFI placeholders.
+- Define how public API clients select the ``SPECIALIZED`` Primula provider.
+- Add cryptographic conformance and failure-path tests when processing is
+  implemented.
+- Re-evaluate the security and safety analyses when functional cryptographic
   behavior is introduced.
 
 .. note::
@@ -189,6 +198,7 @@ Component Detail Information
 
    architecture/index
    detailed_design/index
+   manuals/index
    requirements/index
    safety_analysis/dfa
    safety_analysis/fmea
