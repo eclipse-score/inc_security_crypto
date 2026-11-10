@@ -131,13 +131,6 @@ class KeyManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCallb
 
     score::Result<std::monostate> ReleaseResource(const CryptoResourceId& id) noexcept override
     {
-        if (id.GetConnection() != m_connection)
-        {
-            return score::Result<std::monostate>{
-                score::unexpect,
-                MakeError(CryptoErrorCode::kInvalidResourceId, "Key belongs to a different connection")};
-        }
-
         auto control_req_result = proto::ControlRequestBuilder()
                                       .forDataNodeId(m_context_id)
                                       .operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_RELEASE})
@@ -246,33 +239,23 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::GenerateKey(const G
             MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
+    CryptoResourceId resource_id{};
+    resource_id.id = resource_id_result.value();
+    resource_id.type = ResourceType::kKey;
+    resource_id.persistence = ResourcePersistence::kEphemeral;
+
     // Extract optional provider id from response (param 0, index 1)
     auto provider_result = validator.getParameterAt<std::uint16_t>(0, 1);
-    uint16_t provider_id{0U};
     if (provider_result.has_value())
     {
-        provider_id = provider_result.value();
+        resource_id.primary_provider = provider_result.value();
     }
 
-    auto resource_id = CryptoResourceId::Create(
-        m_connection, resource_id_result.value(), ResourceType::kKey, ResourcePersistence::kEphemeral, provider_id);
-    if (!resource_id.has_value())
-    {
-        return score::Result<CryptoResourceGuard>{
-            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "Cannot create key ID without a connection")};
-    }
-    return CryptoResourceGuardFactory::Make(m_release_callback, std::move(resource_id).value());
+    return CryptoResourceGuardFactory::Make(m_release_callback, resource_id);
 }
 
 score::Result<CryptoResourceGuard> KeyManagementContextImpl::LoadKey(const CryptoResourceId& slot)
 {
-    if (slot.GetConnection() != m_connection)
-    {
-        return score::Result<CryptoResourceGuard>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kInvalidResourceId, "Key slot belongs to a different connection")};
-    }
-
     if (slot.type != ResourceType::kKeySlot)
     {
         score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: LoadKey called with invalid slot resource type";
@@ -317,22 +300,19 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::LoadKey(const Crypt
             MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
+    CryptoResourceId resource_id{};
+    resource_id.id = resource_id_result.value();
+    resource_id.type = ResourceType::kKey;
+    resource_id.persistence = ResourcePersistence::kEphemeral;
+
     // Extract optional provider id from response (param 0, index 1)
     auto provider_result = validator.getParameterAt<std::uint16_t>(0, 1);
-    uint16_t provider_id{0U};
     if (provider_result.has_value())
     {
-        provider_id = provider_result.value();
+        resource_id.primary_provider = provider_result.value();
     }
 
-    auto resource_id = CryptoResourceId::Create(
-        m_connection, resource_id_result.value(), ResourceType::kKey, ResourcePersistence::kEphemeral, provider_id);
-    if (!resource_id.has_value())
-    {
-        return score::Result<CryptoResourceGuard>{
-            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "Cannot load key ID without a connection")};
-    }
-    return CryptoResourceGuardFactory::Make(m_release_callback, std::move(resource_id).value());
+    return CryptoResourceGuardFactory::Make(m_release_callback, resource_id);
 }
 
 // ---------------------------------------------------------------------------

@@ -92,12 +92,10 @@ TEST(CryptoContextImplTest, RejectsExplicitHashProviderInsteadOfIgnoringIt)
     auto connection = std::make_shared<ErrorConnection>(CryptoErrorCode::kInternalError);
     CryptoContextImpl context{connection, nullptr};
 
-    const auto provider =
-        CryptoResourceId::Create(connection, 42U, ResourceType::kProvider, ResourcePersistence::kEphemeral, 0U);
-    ASSERT_TRUE(provider.has_value());
+    const CryptoResourceId provider{42U, ResourceType::kProvider, ResourcePersistence::kEphemeral, 0U};
 
     HashContextConfig config;
-    config.SetAlgorithm("SHA256").SetProvider(provider.value());
+    config.SetAlgorithm("SHA256").SetProvider(provider);
     const auto result = context.CreateHashContext(config);
 
     ASSERT_FALSE(result.has_value());

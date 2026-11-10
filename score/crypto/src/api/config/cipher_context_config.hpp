@@ -18,8 +18,6 @@
 #include "score/crypto/src/api/config/base_context_config.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 
-#include <optional>
-
 namespace score
 {
 
@@ -54,7 +52,7 @@ struct CipherContextConfig : public BaseContextConfig
 {
     /// @brief Handle to the cipher key (required).
     /// Must be a CryptoResourceId with type == kKey.
-    std::optional<CryptoResourceId> key{};
+    CryptoResourceId key{};
 
     /// @brief Cipher direction: encrypt or decrypt (required).
     CipherDirection direction{CipherDirection::kEncrypt};

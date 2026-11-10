@@ -34,31 +34,21 @@ The API uses a two-phase resource identification model:
 2. **Operation phase**: All operation contexts, configs, and queries accept only
    ``CryptoResourceId`` — no strings cross into operation contexts.
 
-``CryptoResourceId`` carries the daemon-assigned identity and a shared
-reference to the connection that owns its ID mapping:
+``CryptoResourceId`` is a compact ~16-byte struct:
 
 .. code-block:: cpp
 
-      struct CryptoResourceId {
-         static std::optional<CryptoResourceId> Create(
-            std::shared_ptr<api::control_plane::IConnection> connection,
-            uint64_t id, ResourceType type,
-            ResourcePersistence persistence,
-            uint16_t primary_provider);
-      uint64_t id;
-      ResourceType type;
-      ResourcePersistence persistence;
-      uint16_t primary_provider;
-   private:
-      std::shared_ptr<api::control_plane::IConnection> connection_;
+   struct CryptoResourceId {
+       uint64_t id;                    // daemon-assigned, unique per session
+       ResourceType type;              // kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,
+                                       // kKey, kCertificate, kSecureObject, kDataObject
+       ResourcePersistence persistence; // kPersistent or kEphemeral
+       uint16_t primary_provider;      // owning device/provider index (0 = unbound)
    };
 
-There is no public constructor or default constructor. ``Create`` returns an
-empty optional for a null connection, so an ID cannot exist without its
-connection anchor. Copies retain the connection and its daemon-side ID mapping.
-Equality and ``std::hash`` include connection identity, in addition to the
-numeric resource fields. API operations reject a resource ID when it belongs
-to a different connection from the context or allocator receiving it.
+The struct is fully numeric, cheap to copy and hash, and includes
+``operator==``, ``operator!=``, and ``std::hash`` specialization for use
+in unordered containers.
 
 ``CryptoResourceId`` unifies persistent and ephemeral resources via the
 ``ResourcePersistence`` field. Keys are ephemeral by default when

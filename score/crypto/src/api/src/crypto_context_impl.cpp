@@ -197,32 +197,16 @@ score::Result<std::uint64_t> CreateDaemonContext(
 }
 
 /// @brief Rejects a key handle that cannot drive a keyed operation context.
-score::Result<std::monostate> ValidateOperationKey(const std::optional<CryptoResourceId>& key,
-                                                   std::string_view context_type)
+score::Result<std::monostate> ValidateOperationKey(const CryptoResourceId& key, std::string_view context_type)
 {
-    if (!key.has_value())
-    {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: " << context_type << " key is missing";
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kContextCreationFailed, "key is missing")};
-    }
-
-    if (key.value().GetConnection() == nullptr)
-    {
-        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: " << context_type
-                                   << " key has no associated connection";
-        return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kContextCreationFailed, "key has no associated connection")};
-    }
-
-    if (key.value().id == 0U)
+    if (key.id == 0U)
     {
         score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: " << context_type << " invalid / missing key id";
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kContextCreationFailed, "invalid / missing key id")};
     }
 
-    if ((key.value().type != ResourceType::kKey) && (key.value().type != ResourceType::kKeySlot))
+    if ((key.type != ResourceType::kKey) && (key.type != ResourceType::kKeySlot))
     {
         score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: " << context_type << " invalid key type";
         return score::Result<std::monostate>{
@@ -344,19 +328,13 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
             MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
-    auto resolved = CryptoResourceId::Create(
-        m_connection,
-        id_result.value(),
-        static_cast<ResourceType>(type_result.value()),
-        persistence_result.value() ? ResourcePersistence::kPersistent : ResourcePersistence::kEphemeral,
-        primary_provider.value());
-    if (!resolved.has_value())
-    {
-        return score::Result<CryptoResourceId>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kInternalError, "Cannot resolve resource without a connection")};
-    }
-    return std::move(resolved).value();
+    CryptoResourceId resolved{};
+    resolved.id = id_result.value();
+    resolved.type = static_cast<ResourceType>(type_result.value());
+    resolved.persistence =
+        persistence_result.value() ? ResourcePersistence::kPersistent : ResourcePersistence::kEphemeral;
+    resolved.primary_provider = primary_provider.value();
+    return resolved;
 }
 
 // ---------------------------------------------------------------------------
@@ -375,7 +353,7 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
     request.context_type = daemon_common::context_types::kMac;
     request.algorithm = &config.algorithm;
     request.provider_type = config.provider_type;
-    request.key_node_id = config.key->id;
+    request.key_node_id = config.key.id;
     request.mode = daemon_common::ToContextMode(config.operation_mode);
 
     const auto operation_timeout =
@@ -426,7 +404,7 @@ score::Result<std::unique_ptr<ICipherContext>> CryptoContextImpl::CreateCipherCo
     request.context_type = daemon_common::context_types::kCipher;
     request.algorithm = &config.algorithm;
     request.provider_type = config.provider_type;
-    request.key_node_id = config.key->id;
+    request.key_node_id = config.key.id;
     request.mode = daemon_common::ToContextMode(config.direction);
     request.padding = config.padding;
 
@@ -454,7 +432,7 @@ score::Result<std::unique_ptr<ISignContext>> CryptoContextImpl::CreateSignContex
     request.context_type = daemon_common::context_types::kSign;
     request.algorithm = &config.algorithm;
     request.provider_type = config.provider_type;
-    request.key_node_id = config.key->id;
+    request.key_node_id = config.key.id;
     // A signing context always uses the private half of the key pair, regardless
     // of what the caller left in BaseContextConfig::operation_mode.
     request.mode = daemon_common::ToContextMode(OperationMode::kGenerate);
@@ -485,7 +463,7 @@ score::Result<std::unique_ptr<IVerifySignatureContext>> CryptoContextImpl::Creat
     request.context_type = daemon_common::context_types::kVerify;
     request.algorithm = &config.algorithm;
     request.provider_type = config.provider_type;
-    request.key_node_id = config.key->id;
+    request.key_node_id = config.key.id;
     // Signals the daemon to bind the public half of the key pair.
     request.mode = daemon_common::ToContextMode(OperationMode::kVerify);
     request.signature_input_mode = config.input_mode;

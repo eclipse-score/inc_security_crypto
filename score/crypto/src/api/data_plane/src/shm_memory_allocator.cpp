@@ -89,13 +89,6 @@ score::Result<IReadWriteMemory::Uptr> ShmMemoryAllocator::Allocate(std::size_t s
 
 score::Result<IReadWriteMemory::Uptr> ShmMemoryAllocator::Allocate(std::size_t size, const CryptoResourceId& provider)
 {
-    if (provider.GetConnection() != m_connection_ptr)
-    {
-        return score::Result<IReadWriteMemory::Uptr>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kInvalidResourceId, "Provider belongs to a different connection")};
-    }
-
     const std::optional<std::uint16_t> provider_id =
         (provider.primary_provider != med_ops::SHM_WIRE_PROVIDER_ID_UNBOUND)
             ? std::optional<std::uint16_t>{provider.primary_provider}

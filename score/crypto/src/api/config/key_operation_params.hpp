@@ -228,7 +228,7 @@ struct GenerateKeyParams
 struct DeriveKeyParams
 {
     /// @brief Handle to the source key (required). CryptoResourceId with type = kKey.
-    std::optional<CryptoResourceId> source_key{};
+    CryptoResourceId source_key{};
 
     /// @brief Algorithm identifier for the derived key (required).
     /// Determines the type and length of the output key.
@@ -268,15 +268,10 @@ struct DeriveKeyParams
 
     /// @brief Validates these parameters.
     ///
-    /// Checks that the source key is set and propagates KdfParameters::Validate(),
-    /// including its salt and seed truncation checks.
+    /// Propagates KdfParameters::Validate() — in particular, catches truncation
+    /// that occurred in SetSalt() or SetSeed().
     score::Result<std::monostate> Validate() const noexcept
     {
-        if (!source_key.has_value())
-        {
-            return score::Result<std::monostate>{
-                score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Source key is required")};
-        }
         return kdf.Validate();
     }
 };
@@ -288,7 +283,7 @@ struct DeriveKeyParams
 struct AgreeKeyParams
 {
     /// @brief Handle to this party's private key (required).
-    std::optional<CryptoResourceId> private_key{};
+    CryptoResourceId private_key{};
 
     /// @brief The other party's public key data (required).
     /// Points to caller-owned memory — must remain valid until the call returns.
@@ -360,15 +355,10 @@ struct AgreeKeyParams
 
     /// @brief Validates these parameters before dispatch to the daemon.
     ///
-    /// Checks that the private key is set and, when kdf is set, propagates
-    /// KdfParameters::Validate() to catch salt or seed truncation.
+    /// When kdf is set, propagates KdfParameters::Validate() to catch truncation
+    /// that occurred in SetSalt() or SetSeed().
     score::Result<std::monostate> Validate() const noexcept
     {
-        if (!private_key.has_value())
-        {
-            return score::Result<std::monostate>{
-                score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Private key is required")};
-        }
         if (kdf.has_value())
         {
             return kdf->Validate();
@@ -381,10 +371,10 @@ struct AgreeKeyParams
 struct WrapKeyParams
 {
     /// @brief Handle to the key to wrap (required).
-    std::optional<CryptoResourceId> key_to_wrap{};
+    CryptoResourceId key_to_wrap{};
 
     /// @brief Handle to the wrapping key / KEK (required).
-    std::optional<CryptoResourceId> wrapping_key{};
+    CryptoResourceId wrapping_key{};
 
     /// @brief Wrapping algorithm (optional). When omitted, the daemon selects
     /// based on the wrapping key's algorithm (e.g., AES-KEYWRAP for AES keys).
@@ -450,7 +440,7 @@ struct UnwrapKeyParams
     score::cpp::span<const uint8_t> wrapped_data{};
 
     /// @brief Handle to the wrapping key / KEK (required).
-    std::optional<CryptoResourceId> wrapping_key{};
+    CryptoResourceId wrapping_key{};
 
     /// @brief Algorithm of the inner (unwrapped) key (required).
     AlgorithmId inner_key_algorithm{};

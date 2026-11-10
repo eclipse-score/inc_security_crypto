@@ -16,8 +16,6 @@
 
 #include "score/crypto/src/api/config/base_context_config.hpp"
 
-#include <optional>
-
 namespace score
 {
 
@@ -39,7 +37,7 @@ struct MacContextConfig : public BaseContextConfig
 {
     /// @brief Handle to the MAC key (required).
     /// Must be a CryptoResourceId with type == kKey.
-    std::optional<CryptoResourceId> key{};
+    CryptoResourceId key{};
 
     // -- Fluent builder --
 

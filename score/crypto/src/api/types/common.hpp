@@ -20,14 +20,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <memory>
-#include <optional>
-#include <utility>
-
-namespace score::crypto::api::control_plane
-{
-class IConnection;
-}
 
 namespace score::crypto
 {
@@ -59,71 +51,27 @@ enum class ResourcePersistence : uint8_t
 
 /// @brief Typed handle to a daemon-managed crypto resource.
 ///
-/// The id is interpreted together with its resource type, persistence,
-/// primary provider, and originating connection. Handles are resolved and
-/// authorized by the daemon.
+/// The id is interpreted together with its resource type, persistence, and
+/// primary provider. Handles are resolved and authorized by the daemon.
 struct CryptoResourceId
 {
-    CryptoResourceId() = delete;
-
-    static auto Create(std::shared_ptr<api::control_plane::IConnection> connection,
-                       uint64_t resource_id,
-                       ResourceType resource_type,
-                       ResourcePersistence resource_persistence,
-                       uint16_t provider_id) noexcept
-    {
-        if (connection == nullptr)
-        {
-            return std::optional<CryptoResourceId>{};
-        }
-        return std::optional<CryptoResourceId>{
-            CryptoResourceId{std::move(connection), resource_id, resource_type, resource_persistence, provider_id}};
-    }
-
-    CryptoResourceId(const CryptoResourceId&) = default;
-    CryptoResourceId& operator=(const CryptoResourceId&) = default;
-    CryptoResourceId(CryptoResourceId&&) noexcept = default;
-    CryptoResourceId& operator=(CryptoResourceId&&) noexcept = default;
-
-    uint64_t id;                      ///< Daemon-assigned resource identifier.
-    ResourceType type;                ///< Kind of resource referenced by id.
-    ResourcePersistence persistence;  ///< Resource lifetime category.
-    uint16_t primary_provider;        ///< Owning provider id, or zero when unbound.
-
-    /// @brief Returns the shared connection that owns this resource ID mapping.
-    const std::shared_ptr<api::control_plane::IConnection>& GetConnection() const noexcept
-    {
-        return connection_;
-    }
+    uint64_t id{0U};                                                   ///< Daemon-assigned resource identifier.
+    ResourceType type{ResourceType::kKeySlot};                         ///< Kind of resource referenced by id.
+    ResourcePersistence persistence{ResourcePersistence::kEphemeral};  ///< Resource lifetime category.
+    uint16_t primary_provider{0U};                                     ///< Owning provider id, or zero when unbound.
 
     /// @brief Tests whether all resource identity fields match.
-    bool operator==(const CryptoResourceId& other) const noexcept
+    constexpr bool operator==(const CryptoResourceId& other) const noexcept
     {
         return (id == other.id) && (type == other.type) && (persistence == other.persistence) &&
-               (primary_provider == other.primary_provider) && (connection_ == other.connection_);
+               (primary_provider == other.primary_provider);
     }
 
     /// @brief Tests whether any resource identity field differs.
-    bool operator!=(const CryptoResourceId& other) const noexcept
+    constexpr bool operator!=(const CryptoResourceId& other) const noexcept
     {
         return !(*this == other);
     }
-
-  private:
-    explicit CryptoResourceId(std::shared_ptr<api::control_plane::IConnection> connection,
-                              uint64_t resource_id,
-                              ResourceType resource_type,
-                              ResourcePersistence resource_persistence,
-                              uint16_t provider_id) noexcept
-        : id(resource_id),
-          type(resource_type),
-          persistence(resource_persistence),
-          primary_provider(provider_id),
-          connection_(std::move(connection))
-    {
-    }
-
-    std::shared_ptr<api::control_plane::IConnection> connection_;
 };
 
 /// @brief Provider category requested when creating a crypto context.
@@ -191,12 +139,7 @@ struct ProviderInfo
 /// @brief Provider compatibility information for one resource.
 struct ProviderCompatibilityInfo
 {
-    ProviderCompatibilityInfo(CryptoResourceId resource_id, uint16_t provider_id)
-        : resource(std::move(resource_id)), primary_provider(provider_id)
-    {
-    }
-
-    CryptoResourceId resource;      ///< Resource whose provider compatibility is reported.
+    CryptoResourceId resource{};    ///< Resource whose provider compatibility is reported.
     uint16_t primary_provider{0U};  ///< Provider that owns the resource.
     static constexpr std::size_t kMaxSecondaryProviders = 8U;
     std::array<uint16_t, kMaxSecondaryProviders> secondary_providers{};  ///< Providers that can also use it.
@@ -251,7 +194,6 @@ struct std::hash<score::crypto::CryptoResourceId>
         h ^= std::hash<uint8_t>{}(static_cast<uint8_t>(rid.type)) << 1U;
         h ^= std::hash<uint8_t>{}(static_cast<uint8_t>(rid.persistence)) << 2U;
         h ^= std::hash<uint16_t>{}(rid.primary_provider) << 3U;
-        h ^= std::hash<const void*>{}(rid.GetConnection().get()) << 4U;
         return h;
     }
 };
