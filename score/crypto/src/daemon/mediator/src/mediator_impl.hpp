@@ -172,8 +172,10 @@ class MediatorImpl : public IMediator
     bool HandleSystemCapabilitiesOperation(const control_plane::SingleOperationRequest& operation,
                                            control_plane::protocol::OperationResponseBuilder& responseBuilder);
 
-    /// Operations (capability_flags) that at least one provider accepts for @p algorithm.
-    [[nodiscard]] std::uint8_t CollectCapabilities(const AlgorithmDescriptor& algorithm) const;
+    /// Operations (capability_flags) that at least one of @p providers accepts for @p algorithm.
+    [[nodiscard]] static std::uint8_t CollectCapabilities(
+        const std::vector<std::shared_ptr<provider::IProvider>>& providers,
+        const AlgorithmDescriptor& algorithm);
 
     /// Initialized providers, ordered by id.
     [[nodiscard]] std::vector<std::shared_ptr<provider::IProvider>> InitializedProviders() const;
