@@ -616,6 +616,42 @@ class CertificateConfig
 };
 
 /**
+ * @brief Provider resource configuration section
+ *
+ * Maps application-local provider resource names to configured provider names,
+ * per uid. The ProviderManager stores these mappings and resolves them during
+ * ResolveResource(name, kProvider), so applications never handle provider names.
+ */
+class ProviderResourceConfig
+{
+  public:
+    /// @brief Per-application resource ID to provider name mapping.
+    struct AppProviderMapping
+    {
+        uint32_t uid;                 ///< UID of the application that owns this mapping
+        std::string app_resource_id;  ///< Application-local resource name
+        std::string provider_name;    ///< Name of the provider registered in the daemon
+    };
+
+    /// @brief Add an application provider mapping (called by parser).
+    /// @param entry Application-to-provider mapping to add.
+    void AddAppProviderMapping(AppProviderMapping entry)
+    {
+        m_app_provider_mappings.push_back(std::move(entry));
+    }
+
+    /// @brief Get all per-application provider mappings.
+    /// @return The configured application-to-provider mappings.
+    const std::vector<AppProviderMapping>& GetAppProviderMappings() const noexcept
+    {
+        return m_app_provider_mappings;
+    }
+
+  private:
+    std::vector<AppProviderMapping> m_app_provider_mappings;
+};
+
+/**
  * @brief Top-level configuration class
  *
  * Aggregates all configuration sections and provides access to them.
@@ -712,6 +748,12 @@ class Config
     {
         return m_certificate;
     }
+    /// @brief Return the provider resource configuration (read-only).
+    /// @return The provider resource configuration section.
+    const ProviderResourceConfig& GetProviderResourceConfig() const noexcept
+    {
+        return m_provider_resources;
+    }
     /// @brief Whether the key management section was present in the configuration file.
     /// @return true if the section was present and loaded.
     bool IsKeyManagementEnabled() const noexcept
@@ -774,6 +816,12 @@ class Config
     {
         return m_certificate;
     }
+    /// @brief Return mutable access to the provider resource configuration.
+    /// @return The provider resource configuration section.
+    ProviderResourceConfig& GetProviderResourceConfig()
+    {
+        return m_provider_resources;
+    }
 
 #ifdef SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
     /// @brief Return mutable access to the PKCS#11 provider configuration.
@@ -800,6 +848,7 @@ class Config
     GeneralConfig m_general;
     KeyConfig m_key;
     CertificateConfig m_certificate;
+    ProviderResourceConfig m_provider_resources;
     bool m_key_management_enabled{false};
     bool m_cert_management_enabled{false};
 #ifdef SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
@@ -826,6 +875,9 @@ class Config
 
     /// Populate m_certificate from the cert_slot_config section; sets m_cert_management_enabled.
     bool ParseCertManagementSection(const ConfigFile& file);
+
+    /// Populate m_provider_resources from the provider_config section.
+    bool ParseProviderResourceSection(const ConfigFile& file);
 
     // ---------------------------------------------------------------------------
     // Low-level argument / environment helpers

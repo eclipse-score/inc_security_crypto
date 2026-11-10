@@ -1,0 +1,8 @@
+{
+  "provider_config": {
+    "app_provider_mappings": [
+      { "uid": 1000, "app_resource_id": "app/sw", "provider_name": "OPENSSL" },
+      { "uid": 1000, "app_resource_id": "", "provider_name": "PKCS11_ENGINE" }
+    ]
+  }
+}
