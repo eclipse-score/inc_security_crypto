@@ -283,7 +283,7 @@ single_version_override(
 )
 
 # score communication
-bazel_dep(name = "score_communication", version = "0.5.0")
+bazel_dep(name = "score_communication", version = "0.6.0")
 
 # score logging
 bazel_dep(name = "score_logging", version = "0.2.4")

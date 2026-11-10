@@ -34,6 +34,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -150,6 +151,17 @@ score::crypto::Expected<ShmSetupResponse, score::result::Error> SetupDataPlane(
 }
 
 }  // namespace
+CryptoStackConfig& CryptoStackConfig::SetConnectionEndpoint(const std::string_view endpoint)
+{
+    connection_endpoint = std::string{endpoint};
+    return *this;
+}
+
+CryptoStackConfig& CryptoStackConfig::SetDefaultOperationTimeout(const std::chrono::milliseconds timeout)
+{
+    default_operation_timeout = timeout > std::chrono::milliseconds::zero() ? timeout : std::chrono::milliseconds{1};
+    return *this;
+}
 
 score::Result<ICryptoStack::Uptr> CreateCryptoStack()
 {

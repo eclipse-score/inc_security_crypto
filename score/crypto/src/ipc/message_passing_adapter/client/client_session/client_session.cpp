@@ -73,7 +73,7 @@ score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCod
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kOperationTimedOut);
     }
 
-    auto registration_result = m_pending_call_registry.Register();
+    auto registration_result = m_pending_call_registry.BeginCall();
     if (!registration_result.has_value())
     {
         return score::crypto::make_unexpected(registration_result.error());
@@ -85,24 +85,24 @@ score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCod
     const auto serialized = m_codec.SerializeRequest(request);
     if (!serialized.has_value())
     {
-        m_pending_call_registry.Fail(request_id, call, serialized.error());
+        m_pending_call_registry.FailCall(request_id, call, serialized.error());
         return score::crypto::make_unexpected(serialized.error());
     }
 
     const auto bytes = std::move(serialized).value();
     if (bytes.size() > ipc::kMaxPayloadBytes)
     {
-        m_pending_call_registry.Fail(request_id, call, score::crypto::CryptoErrorCode::kInvalidArgument);
+        m_pending_call_registry.FailCall(request_id, call, score::crypto::CryptoErrorCode::kInvalidArgument);
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
     }
 
     const auto send_result = TransferRequestBytes(score::cpp::span<const std::uint8_t>{bytes.data(), bytes.size()});
     if (!send_result.has_value())
     {
-        m_pending_call_registry.Fail(request_id, call, send_result.error());
+        m_pending_call_registry.FailCall(request_id, call, send_result.error());
         return score::crypto::make_unexpected(send_result.error());
     }
-    return m_pending_call_registry.WaitForResponse(request_id, call, deadline + ipc::kTimeoutGracePeriod);
+    return m_pending_call_registry.WaitForCallResponse(request_id, call, deadline + ipc::kTimeoutGracePeriod);
 }
 
 score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSession::WaitForConnectionReady(
@@ -232,7 +232,7 @@ void ClientSession::OnResponseBytes(const score::cpp::span<const std::uint8_t> m
         return;
     }
     const auto request_id = response.request_id;
-    m_pending_call_registry.Complete(request_id, std::move(response));
+    m_pending_call_registry.CompleteCall(request_id, std::move(response));
 }
 
 void ClientSession::Shutdown() noexcept

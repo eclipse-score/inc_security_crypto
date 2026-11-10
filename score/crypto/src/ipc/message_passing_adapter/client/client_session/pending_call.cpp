@@ -61,8 +61,6 @@ PendingCall::WaitForResponse(const std::chrono::steady_clock::time_point deadlin
         return std::move(result);
     }
 
-    // TODO: Log RequstId
-    // score::mw::log::LogError() << "PendingCall::WaitForResponse timed out for requestId: " << request_id;
     return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kOperationResponseTimedOut);
 }
 

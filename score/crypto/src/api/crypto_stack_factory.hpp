@@ -51,21 +51,14 @@ struct CryptoStackConfig
     std::optional<std::chrono::milliseconds> default_operation_timeout{std::nullopt};
 
     /// @brief Set connection endpoint
-    CryptoStackConfig& SetConnectionEndpoint(std::string_view endpoint)
-    {
-        connection_endpoint = std::string{endpoint};
-        return *this;
-    }
+    CryptoStackConfig& SetConnectionEndpoint(std::string_view endpoint);
 
     /// @brief Sets the stack-wide default operation timeout.
     /// @param timeout Requested maximum duration for any single IPC call.
     ///        The transport caps it at 10 minutes. Operations exceeding the
     ///        effective timeout return kOperationTimedOut.
-    CryptoStackConfig& SetDefaultOperationTimeout(std::chrono::milliseconds timeout)
-    {
-        default_operation_timeout = timeout;
-        return *this;
-    }
+    ///        Values below 1 ms are clamped to 1 ms.
+    CryptoStackConfig& SetDefaultOperationTimeout(std::chrono::milliseconds timeout);
 
     // Future extensible fields:
     // std::optional<std::chrono::milliseconds> connection_timeout{std::nullopt};

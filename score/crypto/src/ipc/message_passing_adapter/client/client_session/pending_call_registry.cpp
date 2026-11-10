@@ -29,7 +29,7 @@ namespace score::crypto::ipc::message_passing
 PendingCallRegistry::PendingCallRegistry() = default;
 
 score::crypto::Expected<PendingCallRegistry::RegisteredPendingCall, score::crypto::CryptoErrorCode>
-PendingCallRegistry::Register() noexcept
+PendingCallRegistry::BeginCall() noexcept
 {
     std::lock_guard<std::mutex> lock(m_pending_calls_mutex);
     if (m_pending_calls.size() >= ipc::kMaxOutstandingOperationsPerConnection)
@@ -108,8 +108,8 @@ PendingCallRegistry::GenerateRequestId(const std::lock_guard<std::mutex>& lock)
     return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
 }
 
-void PendingCallRegistry::Complete(const daemon::control_plane::protocol::RequestId request_id,
-                                   daemon::control_plane::protocol::ControlResponse response) noexcept
+void PendingCallRegistry::CompleteCall(const daemon::control_plane::protocol::RequestId request_id,
+                                       daemon::control_plane::protocol::ControlResponse response) noexcept
 {
     std::lock_guard<std::mutex> lock(m_pending_calls_mutex);
     const auto iterator = m_pending_calls.find(request_id);
@@ -124,9 +124,9 @@ void PendingCallRegistry::Complete(const daemon::control_plane::protocol::Reques
     m_pending_calls.erase(iterator);
 }
 
-void PendingCallRegistry::Fail(const daemon::control_plane::protocol::RequestId request_id,
-                               const PendingCallHandle& expected_call,
-                               const score::crypto::CryptoErrorCode error) noexcept
+void PendingCallRegistry::FailCall(const daemon::control_plane::protocol::RequestId request_id,
+                                   const PendingCallHandle& expected_call,
+                                   const score::crypto::CryptoErrorCode error) noexcept
 {
     std::lock_guard<std::mutex> lock(m_pending_calls_mutex);
     const auto iterator = m_pending_calls.find(request_id);
@@ -147,9 +147,9 @@ void PendingCallRegistry::Fail(const daemon::control_plane::protocol::RequestId 
 }
 
 score::crypto::Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
-PendingCallRegistry::WaitForResponse(const daemon::control_plane::protocol::RequestId request_id,
-                                     const PendingCallHandle& call,
-                                     const std::chrono::steady_clock::time_point deadline) noexcept
+PendingCallRegistry::WaitForCallResponse(const daemon::control_plane::protocol::RequestId request_id,
+                                         const PendingCallHandle& call,
+                                         const std::chrono::steady_clock::time_point deadline) noexcept
 {
     if (call == nullptr)
     {
@@ -159,7 +159,7 @@ PendingCallRegistry::WaitForResponse(const daemon::control_plane::protocol::Requ
     auto result = call->WaitForResponse(deadline);
     if (!result.has_value() && (result.error() == score::crypto::CryptoErrorCode::kOperationResponseTimedOut))
     {
-        static_cast<void>(Fail(request_id, call, score::crypto::CryptoErrorCode::kOperationResponseTimedOut));
+        static_cast<void>(FailCall(request_id, call, score::crypto::CryptoErrorCode::kOperationResponseTimedOut));
         result = call->WaitForResponse(std::chrono::steady_clock::now());
         if (!result.has_value() && (result.error() == score::crypto::CryptoErrorCode::kOperationResponseTimedOut))
         {

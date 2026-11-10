@@ -200,11 +200,24 @@ inline std::chrono::milliseconds ResolveOperationTimeout(
     {
         return std::chrono::milliseconds::max();
     }
+
+    auto effective_timeout = std::chrono::milliseconds::max();
     if (operation_timeout.has_value())
     {
-        return operation_timeout.value();
+        effective_timeout = operation_timeout.value();
     }
-    return stack_default.value_or(std::chrono::milliseconds::max());
+    if (stack_default.has_value())
+    {
+        effective_timeout = stack_default.value();
+    }
+
+    // Ensure the effective timeout is at least 1 millisecond.
+    if (effective_timeout < std::chrono::milliseconds{1})
+    {
+        effective_timeout = std::chrono::milliseconds{1};
+    }
+
+    return effective_timeout;
 }
 
 }  // namespace crypto

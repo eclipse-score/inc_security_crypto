@@ -44,16 +44,16 @@ class PendingCallRegistry final
 
     using RegisteredPendingCall = std::pair<daemon::control_plane::protocol::RequestId, PendingCallHandle>;
 
-    score::crypto::Expected<RegisteredPendingCall, score::crypto::CryptoErrorCode> Register() noexcept;
-    void Complete(daemon::control_plane::protocol::RequestId request_id,
-                  daemon::control_plane::protocol::ControlResponse response) noexcept;
-    void Fail(daemon::control_plane::protocol::RequestId request_id,
-              const PendingCallHandle& expected_call,
-              score::crypto::CryptoErrorCode error) noexcept;
+    score::crypto::Expected<RegisteredPendingCall, score::crypto::CryptoErrorCode> BeginCall() noexcept;
+    void CompleteCall(daemon::control_plane::protocol::RequestId request_id,
+                      daemon::control_plane::protocol::ControlResponse response) noexcept;
+    void FailCall(daemon::control_plane::protocol::RequestId request_id,
+                  const PendingCallHandle& expected_call,
+                  score::crypto::CryptoErrorCode error) noexcept;
     score::crypto::Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
-    WaitForResponse(daemon::control_plane::protocol::RequestId request_id,
-                    const PendingCallHandle& call,
-                    std::chrono::steady_clock::time_point deadline) noexcept;
+    WaitForCallResponse(daemon::control_plane::protocol::RequestId request_id,
+                        const PendingCallHandle& call,
+                        std::chrono::steady_clock::time_point deadline) noexcept;
     void FailAllPendingCalls(score::crypto::CryptoErrorCode error) noexcept;
 
   private:

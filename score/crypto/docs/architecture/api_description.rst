@@ -549,6 +549,7 @@ even when the daemon runs at a lower safety integrity level.
       → transport default (``kMaximumRequestTimeout``)
 
    Any explicit timeout greater than the transport maximum is capped at ``kMaximumRequestTimeout``.
+   A stack-level default below 1 ms is clamped to 1 ms, including a value assigned directly to ``default_operation_timeout``.
 
 **Timeout semantics:**
 

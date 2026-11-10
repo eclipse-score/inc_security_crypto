@@ -32,21 +32,23 @@ state "ServerStateMachine\n(one per server)" as SSM {
   state "kStarting" as SSM_Starting
   state "kStarted" as SSM_Started
   state "kStopping" as SSM_Stopping
+  state "kTerminating" as SSM_Terminating
   state "kStopped" as SSM_Stopped
 
   [*] --> SSM_Stopped
   SSM_Stopped -[#blue]-> SSM_Starting : Start()\n[TryBeginStart]
   SSM_Starting -[#blue]-> SSM_Started : Start() succeeded\n[MarkStarted]
-  SSM_Starting -[#blue]-> SSM_Stopped : Start() failed\n[RollbackStartup; MarkStopped]
+  SSM_Starting -[#blue]-> SSM_Stopped : Start() failed\n[RollbackStartup; MarkStartupFailed]
   SSM_Started -[#orange]-> SSM_Stopping : Stop()\n[BeginStopping]
-  SSM_Stopping -[#orange]-> SSM_Stopped : WaitForTermination()\n[MarkStopped]
+  SSM_Stopping -[#orange]-> SSM_Terminating : WaitForTermination()\n[BeginTermination]
+  SSM_Terminating -[#orange]-> SSM_Stopped : termination complete\n[MarkStopped]
 
   SSM_Starting : do / **S1** Start(handler_factory) [Executor]
   SSM_Starting : do / **S2** StartAcceptConnections() [SessionRegistry]
   SSM_Stopping : entry / **S3** StopAcceptConnections(), DrainConnections() [SessionRegistry]
   SSM_Stopping : entry / **S4** Disconnect() for each detached [Session]
-  SSM_Stopping : do / **S5** WaitForAllConnectionsClosed() [SessionRegistry]
-  SSM_Stopping : exit / **S6** Shutdown() + Join() [Executor]
+  SSM_Terminating : do / **S5** WaitForAllConnectionsClosed() [SessionRegistry]
+  SSM_Terminating : exit / **S6** Shutdown() + Join() [Executor]
 }
 
 state "FixedWorkerWorkItemExecutor\nimplements IWorkItemSubmitter:\nTrySubmitWorkItem() / TrySubmitCleanup()\n(implicit state: m_started / m_stopping)" as EX {

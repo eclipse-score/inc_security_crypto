@@ -468,7 +468,7 @@ TEST(MessagePassingAdapterIntegrationTest, QueuedWorkItemCancellationPreventsExe
     EXPECT_EQ(item.PrepareForExecution(), detail::WorkItemState::kCancelled);
 }
 
-TEST(MessagePassingAdapterIntegrationTest, FreshClientRecoversAfterServerBecomesAvailable)
+TEST(MessagePassingAdapterIntegrationTest, FreshClientConnectsAfterServerBecomesAvailable)
 {
     RunningServer server;
 

@@ -149,72 +149,77 @@ MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
     {
         return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kAlreadyInitialized);
     }
-    auto startup_error = daemon::common::DaemonErrorCode::kInternalError;
     // Startup spans several resources; exceptions must trigger rollback before returning failure.
     try
     {
         m_message_server = m_server_factory->Create(BuildProtocolConfig(service_identifier), BuildServerConfig());
-        auto startup_failed = m_message_server == nullptr;
-        if (startup_failed)
+        if (m_message_server == nullptr)
         {
-            startup_error = daemon::common::DaemonErrorCode::kConnectionFailed;
             score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Server factory returned no server instance";
+            RollbackStartup();
+            return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kConnectionFailed);
         }
 
-        if (!startup_failed)
+        auto executor_started = m_work_item_executor.Start([this] {
+            return m_handler_chain_factory->CreateRequestHandler();
+        });
+        if (!executor_started)
         {
-            startup_failed = !m_work_item_executor.Start([this] {
-                return m_handler_chain_factory->CreateRequestHandler();
+            score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to start work item executor";
+            RollbackStartup();
+            return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kInternalError);
+        }
+
+        m_session_manager.StartAcceptConnections();
+
+        auto message_passing_server_started = m_message_server->StartListening(
+            [this](score::message_passing::IServerConnection& connection) {
+                return OnConnect(connection);
+            },
+            [this](score::message_passing::IServerConnection& connection) {
+                OnDisconnect(connection);
+            },
+            [this](score::message_passing::IServerConnection& connection,
+                   score::cpp::span<const std::uint8_t> message) {
+                return OnRequest(connection, message);
+            },
+            [](score::message_passing::IServerConnection&,
+               score::cpp::span<const std::uint8_t>) -> score::cpp::expected_blank<score::os::Error> {
+                return score::cpp::make_unexpected(score::os::Error::createFromErrno(ENOTSUP));
             });
+
+        if (!message_passing_server_started.has_value())
+        {
+            score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to start listening on service="
+                                       << service_identifier;
+            RollbackStartup();
+            return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kConnectionFailed);
         }
 
-        if (!startup_failed)
+        auto marked_started = m_server_state_machine.MarkStarted();
+        if (!marked_started.has_value())
         {
-            m_session_manager.StartAcceptConnections();
-            const auto listening_result = m_message_server->StartListening(
-                [this](score::message_passing::IServerConnection& connection) {
-                    return OnConnect(connection);
-                },
-                [this](score::message_passing::IServerConnection& connection) {
-                    OnDisconnect(connection);
-                },
-                [this](score::message_passing::IServerConnection& connection,
-                       score::cpp::span<const std::uint8_t> message) {
-                    return OnRequest(connection, message);
-                },
-                [](score::message_passing::IServerConnection&,
-                   score::cpp::span<const std::uint8_t>) -> score::cpp::expected_blank<score::os::Error> {
-                    return score::cpp::make_unexpected(score::os::Error::createFromErrno(ENOTSUP));
-                });
-            startup_failed = !listening_result.has_value();
-            if (startup_failed)
-            {
-                startup_error = daemon::common::DaemonErrorCode::kConnectionFailed;
-                score::mw::log::LogError()
-                    << "[MESSAGE_PASSING_SERVER] Failed to start listening on service=" << service_identifier;
-            }
+            score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to mark server as started";
+            RollbackStartup();
+            return score::crypto::make_unexpected(marked_started.error());
         }
 
-        if (!startup_failed)
-        {
-            static_cast<void>(m_server_state_machine.MarkStarted());
-            return std::monostate{};
-        }
+        return std::monostate{};
     }
     catch (const std::bad_alloc&)
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Allocation failed during startup for service="
                                    << service_identifier;
-        startup_error = daemon::common::DaemonErrorCode::kAllocationFailed;
+        RollbackStartup();
+        return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Unexpected exception during startup for service="
                                    << service_identifier;
-        startup_error = daemon::common::DaemonErrorCode::kInternalError;
+        RollbackStartup();
+        return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kInternalError);
     }
-    RollbackStartup();
-    return score::crypto::make_unexpected(startup_error);
 }
 
 score::cpp::expected<score::message_passing::UserData, score::os::Error> MessagePassingControlServer::OnConnect(
