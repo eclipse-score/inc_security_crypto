@@ -23,10 +23,12 @@
 namespace score::crypto::daemon::provider::score_provider::iav_primula
 {
 
+class IavPrimulaKeyHandler;
+
 /// @brief IAV-Primula implementation of the provider-neutral verification handler.
 ///
 /// Supports ML-DSA signature verification through the IAV-Primula backend.
-/// The handler binds a non-owning native key handle and performs single-shot
+/// The handler binds a non-owning key handler and performs single-shot
 /// verification.
 class IavPrimulaVerifyHandler final : public operations::verify::ScoreVerifyHandler
 {
@@ -50,7 +52,7 @@ class IavPrimulaVerifyHandler final : public operations::verify::ScoreVerifyHand
     /// @brief Validate the algorithm and bind the verification key.
     ///
     /// The bound key must contain public or private signature material for the
-    /// configured algorithm and have a valid IAV-Primula native handle.
+    /// configured algorithm and have a valid native handle or imported public key.
     ///
     /// @param init_params Context initialization parameters containing the
     ///                    bound verification key.
@@ -73,7 +75,7 @@ class IavPrimulaVerifyHandler final : public operations::verify::ScoreVerifyHand
   private:
     /// @brief Validate that the configured algorithm is a supported ML-DSA algorithm.
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> ValidateAlgorithm() const;
-    iav_primula_key_handle* m_key{nullptr};  ///< Non-owning handle borrowed from the bound key handler.
+    const IavPrimulaKeyHandler* m_key{nullptr};  ///< Non-owning pointer to the bound key handler.
 };
 }  // namespace score::crypto::daemon::provider::score_provider::iav_primula
 

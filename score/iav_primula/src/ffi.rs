@@ -157,6 +157,23 @@ pub extern "C" fn iav_verify(
     unsupported()
 }
 
+/// Verify a message signature using an imported public key.
+///
+/// This entry point is currently a placeholder and returns
+/// `IavStatusUnsupportedAlgorithm`.
+#[no_mangle]
+pub extern "C" fn iav_verify_public_key(
+    _algorithm: iav_algorithm,
+    _public_key: *const u8,
+    _public_key_len: usize,
+    _message: *const u8,
+    _message_len: usize,
+    _signature: *const u8,
+    _signature_len: usize,
+) -> iav_status {
+    unsupported()
+}
+
 // ---------------------------------------------------------------------------
 // KEM operations
 // ---------------------------------------------------------------------------

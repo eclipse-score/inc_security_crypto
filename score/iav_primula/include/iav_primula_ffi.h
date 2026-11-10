@@ -112,6 +112,25 @@ iav_status iav_verify(const iav_primula_key_handle* key,
                       const uint8_t* signature,
                       size_t signature_len);
 
+/// @brief Verify a message signature using an imported public key.
+///
+/// @param algorithm Signature algorithm to use.
+/// @param public_key Raw public key used for verification.
+/// @param public_key_len Number of bytes in public_key.
+/// @param message Message data to verify.
+/// @param message_len Number of bytes in message.
+/// @param signature Signature to verify.
+/// @param signature_len Number of bytes in signature.
+/// @return IavStatusOk for a valid signature, IavStatusVerificationFailed
+///         for an invalid signature, or an error status.
+iav_status iav_verify_public_key(iav_algorithm algorithm,
+                                 const uint8_t* public_key,
+                                 size_t public_key_len,
+                                 const uint8_t* message,
+                                 size_t message_len,
+                                 const uint8_t* signature,
+                                 size_t signature_len);
+
 // ---------------------------------------------------------------------------
 // KEM key management
 // ---------------------------------------------------------------------------
