@@ -945,7 +945,8 @@ std::vector<std::shared_ptr<provider::IProvider>> MediatorImpl::InitializedProvi
     return providers;
 }
 
-std::uint8_t MediatorImpl::CollectCapabilities(const AlgorithmDescriptor& algorithm) const
+std::uint8_t MediatorImpl::CollectCapabilities(const std::vector<std::shared_ptr<provider::IProvider>>& providers,
+                                               const AlgorithmDescriptor& algorithm)
 {
     namespace flags = operations::capability_flags;
     struct ContextFlag
@@ -963,7 +964,7 @@ std::uint8_t MediatorImpl::CollectCapabilities(const AlgorithmDescriptor& algori
     };
 
     std::uint8_t result = 0U;
-    for (const auto& provider : InitializedProviders())
+    for (const auto& provider : providers)
     {
         if (const auto factory = provider->GetCryptoHandlerFactory())
         {
@@ -1030,7 +1031,8 @@ bool MediatorImpl::HandleQueryCapabilitiesOperation(const control_plane::SingleO
                                ? score::crypto::GetAlgorithmDescriptor(score::crypto::Algorithm::kCtrDrbg)
                                : score::crypto::GetAlgorithmDescriptor(*name_param);
     responseBuilder.operation(operation.operationId)
-        .return_value_uint8(algorithm.has_value() ? CollectCapabilities(algorithm.value()) : std::uint8_t{0U})
+        .return_value_uint8(algorithm.has_value() ? CollectCapabilities(InitializedProviders(), algorithm.value())
+                                                  : std::uint8_t{0U})
         .return_success();
     return true;
 }
@@ -1053,7 +1055,7 @@ bool MediatorImpl::HandleSystemCapabilitiesOperation(const control_plane::Single
     std::vector<std::pair<std::string_view, std::uint8_t>> supported;
     for (const auto& row : score::crypto::kAlgorithmCatalog)
     {
-        const auto ops = CollectCapabilities(row);
+        const auto ops = CollectCapabilities(providers, row);
         if (ops != 0U)
         {
             supported.emplace_back(row.name, ops);
