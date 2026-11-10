@@ -709,9 +709,6 @@ to detect that the resource is still referenced by an active context — call
 <h2>Provider and Capability Discovery<a class="headerlink" href="#provider-and-capability-discovery" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">ICryptoContext</span></code> answers which providers exist and what they can do:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">ResolveResource(name,</span> <span class="pre">ResourceType::kProvider)</span></code> turns a configured
-provider name into a <code class="docutils literal notranslate"><span class="pre">CryptoResourceId</span></code> whose <code class="docutils literal notranslate"><span class="pre">id</span></code> and
-<code class="docutils literal notranslate"><span class="pre">primary_provider</span></code> are the provider id. Unknown names fail.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">GetProviderInfo(provider_id)</span></code> returns id, <code class="docutils literal notranslate"><span class="pre">ProviderType</span></code>
 (<code class="docutils literal notranslate"><span class="pre">kHardware</span></code> or <code class="docutils literal notranslate"><span class="pre">kSoftware</span></code> as configured) and name.
 <code class="docutils literal notranslate"><span class="pre">GetProviderInfo(resource)</span></code> does the same for the resource’s
