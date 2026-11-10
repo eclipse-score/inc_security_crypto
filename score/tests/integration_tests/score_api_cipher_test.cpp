@@ -743,6 +743,37 @@ INSTANTIATE_TEST_SUITE_P(NistVectorsOnSoftwareProvider,
                              return info.param.test_case_name;
                          });
 
+/// A cipher context bound straight to a key slot, without LoadKey, is checked
+/// against the key the slot holds. The slot below is labelled AES-256 but holds
+/// a 16-byte key: its label and its material disagree, so it serves neither
+/// AES-256-CBC nor AES-128-CBC.
+TEST(KeySlotBindingTest, SlotWhoseKeyLengthDiffersFromItsLabelIsRefused)
+{
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    auto& ctx = ctx_result.value();
+
+    auto slot = ctx->ResolveResource("AES256_Labelled_AES128_Material_OpenSSL", ResourceType::kKeySlot);
+    ASSERT_TRUE(slot.has_value()) << "Failed to resolve key slot";
+
+    for (const auto algorithm : {"AES-256-CBC", "AES-128-CBC"})
+    {
+        CipherContextConfig config;
+        config.SetAlgorithm(algorithm)
+            .SetKey(slot.value())
+            .SetDirection(CipherDirection::kEncrypt)
+            .SetProviderType(ProviderType::kSoftware);
+        const auto refused = ctx->CreateCipherContext(config);
+        ASSERT_FALSE(refused.has_value()) << "A 16-byte key labelled AES-256 must not serve " << algorithm;
+        EXPECT_EQ(*refused.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kIncompatibleKeyType))
+            << algorithm << ": " << refused.error().Message();
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv)
