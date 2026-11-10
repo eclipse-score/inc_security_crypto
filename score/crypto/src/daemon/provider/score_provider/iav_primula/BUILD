@@ -25,6 +25,7 @@ cc_library(
         "operations/verify/iav_primula_verify_handler.cpp",
     ],
     hdrs = [
+        "iav_primula_algorithm.hpp",
         "iav_primula_provider.hpp",
         "operations/factory/iav_primula_handler_factory.hpp",
         "key_management/iav_primula_key_factory.hpp",

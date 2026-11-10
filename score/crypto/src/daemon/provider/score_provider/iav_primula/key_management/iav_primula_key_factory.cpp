@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_key_factory.hpp"
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/iav_primula/iav_primula_algorithm.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_key_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_shared_secret_handler.hpp"
 #include "score/iav_primula/include/iav_primula_ffi.h"
@@ -24,31 +25,6 @@ namespace score::crypto::daemon::provider::score_provider::iav_primula
 {
 namespace
 {
-/// @brief Map a PQC algorithm identifier to the IAV-Primula enum value.
-///
-/// @return The corresponding IAV-Primula algorithm, or
-///         kUnsupportedAlgorithm if the identifier is unknown.
-Expected<iav_algorithm, common::DaemonErrorCode> Algorithm(const AlgorithmDescriptor& algorithm)
-{
-    switch (algorithm.id)
-    {
-        case ::score::crypto::Algorithm::kMlDsa44:
-            return IavAlgorithmMlDsa44;
-        case ::score::crypto::Algorithm::kMlDsa65:
-            return IavAlgorithmMlDsa65;
-        case ::score::crypto::Algorithm::kMlDsa87:
-            return IavAlgorithmMlDsa87;
-        case ::score::crypto::Algorithm::kMlKem512:
-            return IavAlgorithmMlKem512;
-        case ::score::crypto::Algorithm::kMlKem768:
-            return IavAlgorithmMlKem768;
-        case ::score::crypto::Algorithm::kMlKem1024:
-            return IavAlgorithmMlKem1024;
-        default:
-            return make_unexpected(common::DaemonErrorCode::kUnsupportedAlgorithm);
-    }
-}
-
 Expected<const IavPrimulaKeyHandler*, common::DaemonErrorCode> ValidateKemKey(
     const key_management::IKeyHandler& handler,
     common::ProviderId provider_id,

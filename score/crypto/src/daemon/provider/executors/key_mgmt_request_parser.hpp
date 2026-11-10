@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_REQUEST_PARSER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_EXECUTORS_KEY_MGMT_REQUEST_PARSER_HPP
 
+#include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -71,35 +72,37 @@ namespace key_mgmt_request_parser
     return *val;
 }
 
-/// Try to extract an optional permission bitmask at the given index.
+/// Extract an optional permission bitmask at the given index.
 ///
 /// KeyOperationPermission is a uint32_t enum and the API serialises it with
 /// with_in_val_uint32(), so uint32_t is the alternative to look for. The
 /// variant keeps uint32_t and uint64_t distinct and the flatbuffers transport
-/// preserves that distinction, so reading the wrong width yields nullopt —
-/// silently downgrading a restricted key to the kAll default.
+/// preserves that distinction, so a different variant type is invalid.
 ///
-/// Returns std::nullopt when the index is out of range or the parameter is not
-/// a uint32_t (both mean "caller did not specify permissions").
-[[nodiscard]] inline std::optional<score::crypto::KeyOperationPermission> ExtractOptionalPermissions(
-    const common::RequestParameters& request,
-    std::size_t index)
+/// An absent parameter yields an empty optional. A present parameter with the
+/// wrong type or unknown permission bits yields kInvalidArgument, so malformed
+/// input cannot fall back to unrestricted permissions.
+[[nodiscard]] inline Expected<std::optional<score::crypto::KeyOperationPermission>,
+                              score::crypto::daemon::common::DaemonErrorCode>
+ExtractOptionalPermissions(const common::RequestParameters& request, std::size_t index)
 {
     if (request.size() <= index)
     {
-        return std::nullopt;
+        return std::optional<score::crypto::KeyOperationPermission>{};
     }
     const auto* val = std::get_if<std::uint32_t>(&request[index]);
     if (val == nullptr)
     {
-        return std::nullopt;
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
-    if (*val > static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kAll))
+    constexpr auto kValidBits = static_cast<std::uint32_t>(score::crypto::KeyOperationPermission::kAll);
+    if ((*val & ~kValidBits) != 0U)
     {
-        return std::nullopt;
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
-    return static_cast<score::crypto::KeyOperationPermission>(*val);
+    return std::optional<score::crypto::KeyOperationPermission>{
+        static_cast<score::crypto::KeyOperationPermission>(*val)};
 }
 
 /// Extract a non-empty data buffer parameter at the given index.
@@ -205,9 +208,13 @@ BuildImportRequest(const common::RequestParameters& request)
     req.format = format.value();
 
     const auto perm = ExtractOptionalPermissions(request, 1U);
-    if (perm.has_value())
+    if (!perm.has_value())
     {
-        req.permissions = perm.value();
+        return score::crypto::make_unexpected(perm.error());
+    }
+    if (perm.value().has_value())
+    {
+        req.permissions = perm.value().value();
     }
 
     return req;
@@ -239,16 +246,25 @@ BuildGenerationRequest(const common::RequestParameters& request)
     req.algorithm = descriptor.value();
 
     const auto perm = ExtractOptionalPermissions(request, 1U);
-    if (perm.has_value())
+    if (!perm.has_value())
     {
-        req.permissions = perm.value();
+        return score::crypto::make_unexpected(perm.error());
+    }
+    if (perm.value().has_value())
+    {
+        req.permissions = perm.value().value();
     }
 
     // Left as nullopt when absent, which the key factory reads as "public half
     // unrestricted" — the contract documented on GenerateKeyParams. The public
     // half of a key pair is public information, so withholding kVerify/kEncrypt
     // by default would cost compatibility without buying confidentiality.
-    req.public_key_permissions = ExtractOptionalPermissions(request, 2U);
+    const auto public_perm = ExtractOptionalPermissions(request, 2U);
+    if (!public_perm.has_value())
+    {
+        return score::crypto::make_unexpected(public_perm.error());
+    }
+    req.public_key_permissions = public_perm.value();
 
     return req;
 }

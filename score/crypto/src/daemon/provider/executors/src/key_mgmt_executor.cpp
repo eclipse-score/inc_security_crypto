@@ -547,12 +547,6 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleImport(
     {
         return make_unexpected(Error::kInvalidArgument);
     }
-    // Reject malformed permissions before the parser applies its optional default.
-    const auto permissions = km_parse::ExtractOptionalPermissions(request, 1U);
-    if (!permissions.has_value())
-    {
-        return make_unexpected(Error::kInvalidArgument);
-    }
     const auto import_request = km_parse::BuildImportRequest(request);
     if (!import_request.has_value())
     {

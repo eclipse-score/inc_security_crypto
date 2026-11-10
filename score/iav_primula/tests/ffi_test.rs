@@ -14,7 +14,7 @@
 use iav_primula::{
     iav_algorithm, iav_key_destroy, iav_keypair_generate, iav_kem_decapsulate,
     iav_kem_encapsulate, iav_kem_keypair_generate, iav_kem_public_key_export,
-    iav_public_key_export, iav_sign, iav_status, iav_verify,
+    iav_public_key_export, iav_sign, iav_status, iav_verify, iav_verify_public_key,
     iav_primula_key_handle,
 };
 
@@ -56,6 +56,18 @@ fn exported_operations_report_unsupported_until_backend_is_connected() {
     );
     assert_eq!(
         iav_verify(key, &byte, 0, &byte, 0),
+        iav_status::IavStatusUnsupportedAlgorithm
+    );
+    assert_eq!(
+        iav_verify_public_key(
+            iav_algorithm::IavAlgorithmMlDsa44,
+            &byte,
+            0,
+            &byte,
+            0,
+            &byte,
+            0,
+        ),
         iav_status::IavStatusUnsupportedAlgorithm
     );
 
