@@ -96,6 +96,11 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
     constexpr OperationAction kMediatorCtxCreate = 1;
     constexpr OperationAction kMediatorCtxClose = 2;
     constexpr OperationAction kMediatorResolveResource = 3;
+    constexpr OperationAction kMediatorShmSetup = 4;
+    constexpr OperationAction kMediatorShmDestroyObject = 5;
+    constexpr OperationAction kMediatorProviderInfo = 6;
+    constexpr OperationAction kMediatorQueryCapabilities = 7;
+    constexpr OperationAction kMediatorSystemCapabilities = 8;
 
     namespace hash_ops = provider::handler::hash_handler_operations;
     namespace mac_ops = provider::handler::mac_handler_operations;
@@ -116,6 +121,16 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
                     return "CTX_CLOSE";
                 case kMediatorResolveResource:
                     return "RESOLVE_RESOURCE";
+                case kMediatorShmSetup:
+                    return "SHM_SETUP";
+                case kMediatorShmDestroyObject:
+                    return "SHM_DESTROY_OBJECT";
+                case kMediatorProviderInfo:
+                    return "PROVIDER_INFO";
+                case kMediatorQueryCapabilities:
+                    return "QUERY_CAPABILITIES";
+                case kMediatorSystemCapabilities:
+                    return "SYSTEM_CAPABILITIES";
                 default:
                     return "<unknown_mediator_op>";
             }

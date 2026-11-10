@@ -49,6 +49,7 @@ cc_test(
     srcs = ["mediator_operations_test.cpp"],
     deps = [
         ":mediator_operations",
+        "//score/crypto/src/daemon/common:operation_names",
         "@googletest//:gtest_main",
     ],
 )
