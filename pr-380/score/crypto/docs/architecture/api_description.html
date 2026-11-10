@@ -929,6 +929,31 @@ AgreeKey()                             → kAgree
 daemon returns <code class="docutils literal notranslate"><span class="pre">CryptoErrorCode::kKeyOperationNotPermitted</span></code> and the
 context is not created. This is a fail-fast check — no resources are
 allocated on permission violation.</p>
+<p><strong>Key/algorithm fit:</strong></p>
+<p>After the permission check, the daemon compares the key’s algorithm with
+the context algorithm, using the algorithm catalog
+(<code class="docutils literal notranslate"><span class="pre">score/crypto/src/daemon/common/algorithm_catalog.hpp</span></code>). A key labelled
+with a key row names key material only and serves every operation of its
+family:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>ECDSA-P&lt;n&gt;   → ECDSA-P&lt;n&gt;-&lt;hash&gt;       (any hash)
+RSA-&lt;bits&gt;   → RSA-PSS-&lt;bits&gt;-&lt;hash&gt;   (any hash)
+AES-&lt;n&gt;      → AES-&lt;n&gt;-CBC, AES-&lt;n&gt;-GCM, AES-&lt;n&gt;-CMAC
+</pre></div>
+</div>
+<p>A key labelled with any other row (<code class="docutils literal notranslate"><span class="pre">AES-256-GCM</span></code>, <code class="docutils literal notranslate"><span class="pre">HMAC-SHA256</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ECDSA-P256-SHA256</span></code>, <code class="docutils literal notranslate"><span class="pre">Ed25519</span></code>) names an operation and serves that
+operation only. HMAC keys have no key row, so <code class="docutils literal notranslate"><span class="pre">HMAC-&lt;hash&gt;</span></code> takes only a
+key labelled <code class="docutils literal notranslate"><span class="pre">HMAC-&lt;hash&gt;</span></code>, never an AES key; its length is free. An AES
+key must hold as many bytes as its label states: a key labelled <code class="docutils literal notranslate"><span class="pre">AES-256</span></code>
+that holds 16 bytes fits no operation. A key slot that is not loaded yet is
+checked by its label first and by the length of its key after binding.</p>
+<p>Both algorithms are catalog rows (<code class="docutils literal notranslate"><span class="pre">IsKeyCompatible()</span></code> in
+<code class="docutils literal notranslate"><span class="pre">daemon/common/key_compatibility.hpp</span></code>); hash, random and key rows name no
+keyed operation, so no key fits them. A key that does not fit returns
+<code class="docutils literal notranslate"><span class="pre">CryptoErrorCode::kIncompatibleKeyType</span></code> and the context is not created. A
+context algorithm that the catalog does not know never gets this far: it is
+refused with <code class="docutils literal notranslate"><span class="pre">CryptoErrorCode::kUnsupportedAlgorithm</span></code> (see “Algorithm
+Catalog Alongside <code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code>” in <a class="reference internal" href="design_decisions.html#crypto-design-decisions"><span class="std std-ref">Design Decisions</span></a>).</p>
 <p><strong>Querying permissions:</strong></p>
 <p>Permissions can be queried at runtime via:</p>
 <ul class="simple">
