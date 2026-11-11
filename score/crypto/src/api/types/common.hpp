@@ -136,7 +136,10 @@ struct ProviderInfo
 {
     uint16_t id{0U};                            ///< Daemon-assigned provider id.
     ProviderType type{ProviderType::kDefault};  ///< Provider category.
-    FixedCapacityString<32> name{};             ///< Human-readable provider name.
+    /// Application-scoped name: the app_resource_id the caller resolved, for
+    /// GetProviderInfo() on a kProvider handle; empty otherwise. Configured
+    /// provider names are not exposed to applications.
+    FixedCapacityString<64> name{};
 };
 
 /// @brief Provider compatibility information for one resource.

@@ -434,30 +434,14 @@ MediatorImpl::ResolveProviderAndCreateHandler(const std::uint64_t client_id,
         }
         previous_provider_id = candidate->GetProviderId();
 
-        if ((required_capability != common::ProviderCapability::kNone) &&
-            !common::HasCapability(candidate->GetProviderCapabilities(), required_capability))
-        {
-            last_error = score::crypto::CryptoErrorCode::kUnsupportedOperation;
-            continue;
-        }
-
-        const auto crypto_ops = candidate->GetCryptoHandlerFactory();
-        if (!crypto_ops)
-        {
-            last_error = score::crypto::CryptoErrorCode::kUnsupportedOperation;
-            continue;
-        }
-
-        auto create_result = algorithm.has_value()
-                                 ? crypto_ops->CreateHandler(std::string(context_type), algorithm.value())
-                                 : crypto_ops->CreateKeyManagementHandler();
+        auto create_result = CreateHandlerOn(*candidate, context_type, algorithm, required_capability);
         if (create_result.has_value())
         {
             return ProviderHandlerSelection{
                 std::move(candidate), std::move(create_result).value(), candidate_index > 0U};
         }
 
-        last_error = static_cast<score::crypto::CryptoErrorCode>(*create_result.error());
+        last_error = create_result.error();
         if (!IsFallbackEligible(last_error))
         {
             break;
@@ -465,6 +449,71 @@ MediatorImpl::ResolveProviderAndCreateHandler(const std::uint64_t client_id,
     }
 
     return score::crypto::make_unexpected(last_error);
+}
+
+score::crypto::Expected<provider::handler::Handler::Sptr, score::crypto::CryptoErrorCode> MediatorImpl::CreateHandlerOn(
+    provider::IProvider& provider,
+    const std::string_view context_type,
+    const std::optional<AlgorithmDescriptor>& algorithm,
+    const common::ProviderCapability required_capability)
+{
+    if ((required_capability != common::ProviderCapability::kNone) &&
+        !common::HasCapability(provider.GetProviderCapabilities(), required_capability))
+    {
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+    }
+
+    const auto crypto_ops = provider.GetCryptoHandlerFactory();
+    if (!crypto_ops)
+    {
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+    }
+
+    auto create_result = algorithm.has_value() ? crypto_ops->CreateHandler(std::string(context_type), algorithm.value())
+                                               : crypto_ops->CreateKeyManagementHandler();
+    if (!create_result.has_value())
+    {
+        return score::crypto::make_unexpected(static_cast<score::crypto::CryptoErrorCode>(*create_result.error()));
+    }
+    return std::move(create_result).value();
+}
+
+score::crypto::Expected<MediatorImpl::ProviderHandlerSelection, score::crypto::CryptoErrorCode>
+MediatorImpl::CreateHandlerOnSelectedProvider(const std::uint64_t client_id,
+                                              const common::ProviderId provider_id,
+                                              const std::optional<data_manager::DataNodeId>& key_node_id,
+                                              const std::string_view context_type,
+                                              const std::optional<AlgorithmDescriptor>& algorithm,
+                                              const common::ProviderCapability required_capability)
+{
+    auto provider = m_provider_manager->GetProvider(provider_id);
+    if (!provider)
+    {
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kProviderNotAvailable);
+    }
+
+    // A key lives on one provider. Report a key on another provider as such
+    // here rather than as the generic binding failure BindKeyToContext gives.
+    if (m_km_service && key_node_id.has_value())
+    {
+        const auto key_provider_id =
+            m_km_service->ResolveTargetProvider(client_id, common::CryptoProviderType::DEFAULT, key_node_id);
+        if (!key_provider_id.has_value())
+        {
+            return score::crypto::make_unexpected(common::ToCryptoErrorCode(key_provider_id.error()));
+        }
+        if (key_provider_id.value() != provider_id)
+        {
+            return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kCrossProviderIncompatible);
+        }
+    }
+
+    auto create_result = CreateHandlerOn(*provider, context_type, algorithm, required_capability);
+    if (!create_result.has_value())
+    {
+        return score::crypto::make_unexpected(create_result.error());
+    }
+    return ProviderHandlerSelection{std::move(provider), std::move(create_result).value(), false};
 }
 
 bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::control_plane::ControlRequest& request,
@@ -496,8 +545,26 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     }
     auto algorithm = algorithm_res.value();
 
+    // param[2] is either a provider-type preference (uint8) or the handle of a
+    // provider resource this client resolved (uint64). A handle pins the
+    // context to that provider.
     operations::ProviderTypePreference provider_preference{common::CryptoProviderType::DEFAULT, std::nullopt};
-    if (IsContextParameterPresent(operation, operations::CTX_PARAM_PROVIDER_TYPE))
+    std::optional<common::ProviderId> selected_provider{};
+    const auto provider_handle = operation.getParameter<std::uint64_t>(operations::CTX_PARAM_PROVIDER_TYPE);
+    if (provider_handle.has_value())
+    {
+        const auto resolved = ResolvedProviderResource(request.client_id, provider_handle.value());
+        if (!resolved.has_value())
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - CTX_CREATE provider handle "
+                                       << provider_handle.value() << " is not a provider resource of this client";
+            responseBuilder.operation(operation.operationId)
+                .return_error(score::crypto::CryptoErrorCode::kInvalidResourceId);
+            return false;
+        }
+        selected_provider = resolved.value().provider_id;
+    }
+    else if (IsContextParameterPresent(operation, operations::CTX_PARAM_PROVIDER_TYPE))
     {
         const auto provider_type_res = operation.getParameter<std::uint8_t>(operations::CTX_PARAM_PROVIDER_TYPE);
         if (!provider_type_res.has_value())
@@ -575,14 +642,21 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         }
     }
 
-    const auto provider_handler = ResolveProviderAndCreateHandler(
-        request.client_id,
-        has_key_binding ? std::optional<data_manager::DataNodeId>{key_node_id} : std::nullopt,
-        context_type,
-        algorithm_descriptor,
-        provider_preference.primary,
-        provider_preference.fallback,
-        required_capability);
+    const auto bound_key_node = has_key_binding ? std::optional<data_manager::DataNodeId>{key_node_id} : std::nullopt;
+    const auto provider_handler = selected_provider.has_value()
+                                      ? CreateHandlerOnSelectedProvider(request.client_id,
+                                                                        selected_provider.value(),
+                                                                        bound_key_node,
+                                                                        context_type,
+                                                                        algorithm_descriptor,
+                                                                        required_capability)
+                                      : ResolveProviderAndCreateHandler(request.client_id,
+                                                                        bound_key_node,
+                                                                        context_type,
+                                                                        algorithm_descriptor,
+                                                                        provider_preference.primary,
+                                                                        provider_preference.fallback,
+                                                                        required_capability);
     if (!provider_handler.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No compatible provider/handler for: " << context_type
@@ -664,6 +738,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
 
     const std::string_view provider_selection =
         provider_handler.value().used_fallback                     ? " (preferred-provider fallback)"
+        : selected_provider.has_value()                            ? " (provider resource selected)"
         : has_key_binding                                          ? " (key-affinity resolved)"
         : required_capability != common::ProviderCapability::kNone ? " (capability-based selection)"
                                                                    : " (type-based selection)";
@@ -1003,17 +1078,22 @@ bool MediatorImpl::HandleProviderInfoOperation(uint64_t client_id,
         return false;
     }
 
+    // Configured provider names stay inside the daemon (#290). A resolved
+    // provider resource is reported under the application's own name for it;
+    // a lookup by provider id carries no name.
     std::shared_ptr<provider::IProvider> provider;
+    std::string reported_name{};
     if (by_handle)
     {
-        const auto provider_id = ResolvedProviderId(client_id, *id_param);
-        if (!provider_id.has_value())
+        auto resolved = ResolvedProviderResource(client_id, *id_param);
+        if (!resolved.has_value())
         {
             responseBuilder.operation(operation.operationId)
                 .return_error(score::crypto::CryptoErrorCode::kInvalidResourceId);
             return false;
         }
-        provider = m_provider_manager->GetProvider(provider_id.value());
+        provider = m_provider_manager->GetProvider(resolved.value().provider_id);
+        reported_name = std::move(resolved.value().app_resource_id);
     }
     else if (*id_param < common::kInvalidProviderId)
     {
@@ -1026,16 +1106,16 @@ bool MediatorImpl::HandleProviderInfoOperation(uint64_t client_id,
         return false;
     }
 
-    const auto& name = provider->GetProviderName();
     responseBuilder.operation(operation.operationId)
         .return_value_uint16(provider->GetProviderId())
-        .return_value_uint8(ToWireProviderType(m_provider_manager->GetProviderType(name)))
-        .return_value_data_buffer_out(ToBytes(name))
+        .return_value_uint8(ToWireProviderType(m_provider_manager->GetProviderType(provider->GetProviderName())))
+        .return_value_data_buffer_out(ToBytes(reported_name))
         .return_success();
     return true;
 }
 
-std::optional<common::ProviderId> MediatorImpl::ResolvedProviderId(uint64_t client_id, uint64_t node_id) const
+std::optional<MediatorImpl::ResolvedProvider> MediatorImpl::ResolvedProviderResource(uint64_t client_id,
+                                                                                     uint64_t node_id) const
 {
     if (m_data_manager == nullptr)
     {
@@ -1051,7 +1131,7 @@ std::optional<common::ProviderId> MediatorImpl::ResolvedProviderId(uint64_t clie
     {
         return std::nullopt;
     }
-    return provider_node.value()->GetProviderId();
+    return ResolvedProvider{provider_node.value()->GetProviderId(), provider_node.value()->GetAppResourceId()};
 }
 
 bool MediatorImpl::HandleQueryCapabilitiesOperation(const control_plane::SingleOperationRequest& operation,
@@ -1083,13 +1163,14 @@ bool MediatorImpl::HandleSystemCapabilitiesOperation(const control_plane::Single
     const auto providers = InitializedProviders();
     auto& response = responseBuilder.operation(operation.operationId);
 
+    // Provider entries carry id and type but no name: configured provider
+    // names are not exposed to applications (#290).
     response.return_value_uint16(static_cast<std::uint16_t>(providers.size()));
     for (const auto& provider : providers)
     {
-        const auto& name = provider->GetProviderName();
         response.return_value_uint16(provider->GetProviderId())
-            .return_value_uint8(ToWireProviderType(m_provider_manager->GetProviderType(name)))
-            .return_value_data_buffer_out(ToBytes(name));
+            .return_value_uint8(ToWireProviderType(m_provider_manager->GetProviderType(provider->GetProviderName())))
+            .return_value_data_buffer_out(ToBytes(std::string_view{}));
     }
 
     std::vector<std::pair<std::string_view, std::uint8_t>> supported;
@@ -1183,8 +1264,8 @@ void MediatorImpl::RegisterResourceResolvers()
             return false;
         }
 
-        auto node_id =
-            m_data_manager->addNode(client_id, std::make_shared<ProviderDataNode>(provider->GetProviderId()));
+        auto node_id = m_data_manager->addNode(
+            client_id, std::make_shared<ProviderDataNode>(provider->GetProviderId(), resource_name));
         if (!node_id.has_value())
         {
             responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInternalError);

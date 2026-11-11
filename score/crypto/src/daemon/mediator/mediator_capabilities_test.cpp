@@ -12,7 +12,8 @@
  ********************************************************************************/
 
 // Unit tests for the PROVIDER_INFO, QUERY_CAPABILITIES and SYSTEM_CAPABILITIES
-// mediator operations, driven through processRequest() with stub providers.
+// mediator operations, and for CTX_CREATE on a resolved provider resource,
+// driven through processRequest() with stub providers.
 
 #include "score/crypto/src/daemon/mediator/src/mediator_impl.hpp"
 
@@ -21,7 +22,11 @@
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"
+#include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
+#include "score/crypto/src/daemon/key_management/nodes/key_slot_data_node.hpp"
+#include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
@@ -50,6 +55,10 @@ using score::crypto::Algorithm;
 
 constexpr auto kInvalidArgument = static_cast<protocol::OperationResult>(CryptoErrorCode::kInvalidArgument);
 constexpr auto kInvalidResourceId = static_cast<protocol::OperationResult>(CryptoErrorCode::kInvalidResourceId);
+constexpr auto kUnsupportedOperation = static_cast<protocol::OperationResult>(CryptoErrorCode::kUnsupportedOperation);
+constexpr auto kUnsupportedAlgorithm = static_cast<protocol::OperationResult>(CryptoErrorCode::kUnsupportedAlgorithm);
+constexpr auto kCrossProviderIncompatible =
+    static_cast<protocol::OperationResult>(CryptoErrorCode::kCrossProviderIncompatible);
 constexpr auto kProviderType = static_cast<std::uint64_t>(score::crypto::ResourceType::kProvider);
 
 /// Reports support for a fixed set of (context type, algorithm) pairs.
@@ -81,6 +90,61 @@ class FakeHandlerFactory final : public provider::handler::ICryptoHandlerFactory
 
   private:
     std::set<std::pair<std::string, Algorithm>> m_supported;
+};
+
+/// Handler that accepts initialization and does nothing else.
+class StubHandler final : public provider::handler::Handler
+{
+  public:
+    Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
+        const provider::handler::InitializationParams& /*params*/) override
+    {
+        return std::monostate{};
+    }
+
+    Expected<common::ResponseParameters, common::DaemonErrorCode> Execute(
+        const common::OperationIdentifier& /*operation*/,
+        common::RequestParameters& /*parameters*/) override
+    {
+        return common::ResponseParameters{};
+    }
+
+    Expected<std::monostate, common::DaemonErrorCode> Reset() override
+    {
+        return std::monostate{};
+    }
+};
+
+/// Creates handlers for the context types it is told to serve and counts every request.
+class CountingHandlerFactory final : public provider::handler::ICryptoHandlerFactory
+{
+  public:
+    ::score::Result<provider::handler::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
+                                                                    const AlgorithmDescriptor& /*algorithm*/) override
+    {
+        ++create_calls;
+        if (served.count(std::string{handlerId}) == 0U)
+        {
+            return ::score::Result<provider::handler::Handler::Sptr>{::score::unexpect,
+                                                                     MakeError(CryptoErrorCode::kUnsupportedAlgorithm)};
+        }
+        return provider::handler::Handler::Sptr{std::make_shared<StubHandler>()};
+    }
+
+    ::score::Result<provider::handler::Handler::Sptr> CreateKeyManagementHandler() override
+    {
+        ++create_calls;
+        return provider::handler::Handler::Sptr{std::make_shared<StubHandler>()};
+    }
+
+    bool IsAlgorithmSupported(const common::HandlerId& /*handlerId*/,
+                              const AlgorithmDescriptor& /*algorithm*/) const override
+    {
+        return false;
+    }
+
+    std::set<std::string> served{};
+    int create_calls{0};
 };
 
 /// Reports key generation support for a fixed set of algorithms.
@@ -249,8 +313,8 @@ class MediatorProviderResourceTest : public MediatorCapabilitiesTest
 
     void SetUp() override
     {
-        Register("OPENSSL", common::CryptoProviderType::SOFTWARE, nullptr);
-        Register("PKCS11_ENGINE", common::CryptoProviderType::HARDWARE, nullptr);
+        Register("OPENSSL", common::CryptoProviderType::SOFTWARE, m_sw_factory);
+        Register("PKCS11_ENGINE", common::CryptoProviderType::HARDWARE, m_hw_factory);
         (void)m_manager->Initialize();
         ASSERT_TRUE(m_manager->RegisterAppProvider(kAppUid, "app/sw", "OPENSSL"));
         ASSERT_TRUE(m_manager->RegisterAppProvider(kAppUid, "app/hw", "PKCS11_ENGINE"));
@@ -259,7 +323,67 @@ class MediatorProviderResourceTest : public MediatorCapabilitiesTest
 
     MediatorImpl MakeResourceMediator(bool with_manager = true)
     {
-        return MediatorImpl{MediatorDependencies{m_data_manager, with_manager ? m_manager : nullptr, nullptr, nullptr}};
+        return MediatorImpl{
+            MediatorDependencies{m_data_manager, with_manager ? m_manager : nullptr, m_km_service, nullptr}};
+    }
+
+    /// Adds the connection node a CTX_CREATE of @p client_id is parented under.
+    data_manager::DataNodeId Connect(std::uint64_t client_id)
+    {
+        const auto node = m_data_manager->addNode(client_id, std::make_shared<data_manager::DataNode>(false));
+        EXPECT_TRUE(node.has_value());
+        return node.has_value() ? node.value() : 0U;
+    }
+
+    /// Adds a key slot owned by provider @p provider_id to @p client_id's tree.
+    data_manager::DataNodeId AddKeySlot(std::uint64_t client_id, common::ProviderId provider_id)
+    {
+        key_management::KeySlotConfig config{};
+        config.slot_name = "test/hmac";
+        config.provider_ids = {provider_id};
+        const auto handle = m_slot_registry->RegisterSlot(std::move(config));
+        const auto node = m_data_manager->addNode(
+            client_id, std::make_shared<key_management::KeySlotDataNode>(handle, m_slot_registry));
+        EXPECT_TRUE(node.has_value());
+        return node.has_value() ? node.value() : 0U;
+    }
+
+    /// Sends CTX_CREATE; @p provider is written to param[2] as given.
+    template <typename AddProvider>
+    static protocol::ControlResponse CreateContext(MediatorImpl& mediator,
+                                                   std::uint64_t client_id,
+                                                   data_manager::DataNodeId connection,
+                                                   std::string_view context_type,
+                                                   std::string_view algorithm,
+                                                   AddProvider&& add_provider,
+                                                   std::optional<std::uint64_t> key = std::nullopt)
+    {
+        protocol::ControlRequestBuilder builder;
+        builder.forDataNodeId(connection).operation(operations::CreateContext()).with_in_string(context_type);
+        builder.with_in_string(algorithm);
+        add_provider(builder);
+        if (key.has_value())
+        {
+            builder.with_in_val_uint64(key.value()).with_in_val_uint8(0U);
+        }
+        auto request = builder.build();
+        EXPECT_TRUE(request.has_value());
+        request.value().client_id = client_id;
+        return mediator.processRequest(request.value());
+    }
+
+    static auto Handle(std::uint64_t handle)
+    {
+        return [handle](protocol::ControlRequestBuilder& b) {
+            b.with_in_val_uint64(handle);
+        };
+    }
+
+    static auto Preference(std::uint8_t wire_type)
+    {
+        return [wire_type](protocol::ControlRequestBuilder& b) {
+            b.with_in_val_uint8(wire_type);
+        };
     }
 
     static std::uint64_t ClientOf(std::uint32_t uid, std::uint32_t pid = 42U)
@@ -307,13 +431,18 @@ class MediatorProviderResourceTest : public MediatorCapabilitiesTest
     }
 
     std::shared_ptr<data_manager::DataManager> m_data_manager{std::make_shared<data_manager::DataManager>()};
+    std::shared_ptr<CountingHandlerFactory> m_sw_factory{std::make_shared<CountingHandlerFactory>()};
+    std::shared_ptr<CountingHandlerFactory> m_hw_factory{std::make_shared<CountingHandlerFactory>()};
+    std::shared_ptr<key_management::SlotRegistry> m_slot_registry{std::make_shared<key_management::SlotRegistry>()};
+    std::shared_ptr<key_management::KeyManagementService> m_km_service{
+        std::make_shared<key_management::KeyManagementService>(m_data_manager, m_manager, m_slot_registry)};
 };
 
 // ---------------------------------------------------------------------------
 // PROVIDER_INFO
 // ---------------------------------------------------------------------------
 
-TEST_F(MediatorCapabilitiesTest, ProviderInfoReportsIdWireTypeAndName)
+TEST_F(MediatorCapabilitiesTest, ProviderInfoByIdReportsIdAndWireTypeButNoName)
 {
     Register("SW_PROV", common::CryptoProviderType::SOFTWARE, nullptr);
     Register("HW_PROV", common::CryptoProviderType::HARDWARE, nullptr);
@@ -330,7 +459,7 @@ TEST_F(MediatorCapabilitiesTest, ProviderInfoReportsIdWireTypeAndName)
         ASSERT_EQ(op.parameters.size(), 3U);
         EXPECT_EQ(std::get<std::uint16_t>(op.parameters[0]), id);
         EXPECT_EQ(std::get<std::uint8_t>(op.parameters[1]), wire_type);
-        EXPECT_EQ(ToString(op.parameters[2]), name);
+        EXPECT_EQ(ToString(op.parameters[2]), "") << name;
     }
 }
 
@@ -536,7 +665,7 @@ TEST_F(MediatorCapabilitiesTest, SystemCapabilitiesListsProvidersByIdThenSupport
     {
         EXPECT_EQ(std::get<std::uint16_t>(op.parameters[i++]), id);
         EXPECT_EQ(std::get<std::uint8_t>(op.parameters[i++]), wire_type);
-        EXPECT_EQ(ToString(op.parameters[i++]), name);
+        EXPECT_EQ(ToString(op.parameters[i++]), "") << name;
     }
 
     // Catalog order; rows no provider serves are omitted.
@@ -566,7 +695,7 @@ TEST_F(MediatorCapabilitiesTest, SystemCapabilitiesLeavesOutProviderThatFailedTo
     ASSERT_EQ(op.result, protocol::OPERATION_RESULT_SUCCESS);
     ASSERT_EQ(op.parameters.size(), 1U + 3U + 1U);
     EXPECT_EQ(std::get<std::uint16_t>(op.parameters[0]), 1U);
-    EXPECT_EQ(ToString(op.parameters[3]), "SW_PROV");
+    EXPECT_EQ(std::get<std::uint16_t>(op.parameters[1]), 0U);  // SW_PROV's id
     EXPECT_EQ(std::get<std::uint16_t>(op.parameters[4]), 0U);
 }
 
@@ -631,8 +760,10 @@ TEST_F(MediatorProviderResourceTest, SameNameResolvesPerUid)
     const auto other_info = ProviderInfoByHandle(mediator, ClientOf(kOtherUid), other_handle);
     ASSERT_EQ(OnlyOperation(app_info).result, protocol::OPERATION_RESULT_SUCCESS);
     ASSERT_EQ(OnlyOperation(other_info).result, protocol::OPERATION_RESULT_SUCCESS);
-    EXPECT_EQ(ToString(OnlyOperation(app_info).parameters[2]), "PKCS11_ENGINE");
-    EXPECT_EQ(ToString(OnlyOperation(other_info).parameters[2]), "OPENSSL");
+    EXPECT_EQ(std::get<std::uint16_t>(OnlyOperation(app_info).parameters[0]), 1U);
+    EXPECT_EQ(std::get<std::uint16_t>(OnlyOperation(other_info).parameters[0]), 0U);
+    EXPECT_EQ(ToString(OnlyOperation(app_info).parameters[2]), "app/hw");
+    EXPECT_EQ(ToString(OnlyOperation(other_info).parameters[2]), "app/hw");
 }
 
 TEST_F(MediatorProviderResourceTest, ResolutionFailsWithoutProviderManager)
@@ -649,7 +780,7 @@ TEST_F(MediatorProviderResourceTest, ResolutionFailsWithoutDataManager)
     EXPECT_EQ(OnlyOperation(response).result, kInvalidResourceId);
 }
 
-TEST_F(MediatorProviderResourceTest, ProviderInfoByHandleReportsMappedProvider)
+TEST_F(MediatorProviderResourceTest, ProviderInfoByHandleReportsMappedProviderUnderAppName)
 {
     auto mediator = MakeResourceMediator();
     const auto handle = ResolveHandle(mediator, ClientOf(kAppUid), "app/hw");
@@ -660,7 +791,7 @@ TEST_F(MediatorProviderResourceTest, ProviderInfoByHandleReportsMappedProvider)
     ASSERT_EQ(op.parameters.size(), 3U);
     EXPECT_EQ(std::get<std::uint16_t>(op.parameters[0]), 1U);
     EXPECT_EQ(std::get<std::uint8_t>(op.parameters[1]), 1U);
-    EXPECT_EQ(ToString(op.parameters[2]), "PKCS11_ENGINE");
+    EXPECT_EQ(ToString(op.parameters[2]), "app/hw");
 }
 
 TEST_F(MediatorProviderResourceTest, ProviderInfoByHandleRejectsHandleOfAnotherClient)
@@ -719,6 +850,117 @@ TEST_F(MediatorProviderResourceTest, ProviderInfoByHandleWithoutDataManagerIsRej
     auto mediator = MakeMediator();
     const auto response = ProviderInfoByHandle(mediator, ClientOf(kAppUid), 1U);
     EXPECT_EQ(OnlyOperation(response).result, kInvalidResourceId);
+}
+
+// ---------------------------------------------------------------------------
+// CTX_CREATE with a provider resource (#290 DoD 4 and 5)
+// ---------------------------------------------------------------------------
+
+TEST_F(MediatorProviderResourceTest, ContextCreationRunsOnTheResolvedProvider)
+{
+    m_sw_factory->served = {"HASH"};
+    m_hw_factory->served = {"HASH"};
+    auto mediator = MakeResourceMediator();
+    const auto client = ClientOf(kAppUid);
+    const auto connection = Connect(client);
+
+    for (const auto& [name, chosen, other] :
+         {std::make_tuple("app/hw", m_hw_factory, m_sw_factory), std::make_tuple("app/sw", m_sw_factory, m_hw_factory)})
+    {
+        const auto handle = ResolveHandle(mediator, client, name);
+        const int chosen_before = chosen->create_calls;
+        const int other_before = other->create_calls;
+
+        const auto response = CreateContext(mediator, client, connection, "HASH", "SHA256", Handle(handle));
+        const auto& op = OnlyOperation(response);
+        ASSERT_EQ(op.result, protocol::OPERATION_RESULT_SUCCESS) << name;
+        EXPECT_NE(std::get<std::uint64_t>(op.parameters[0]), 0U) << name;
+        EXPECT_EQ(chosen->create_calls, chosen_before + 1) << name;
+        EXPECT_EQ(other->create_calls, other_before) << name;
+    }
+}
+
+TEST_F(MediatorProviderResourceTest, ContextCreationOnResolvedProviderNeverFallsBack)
+{
+    // Only PKCS11_ENGINE serves HASH. A software-preferred type preference
+    // falls back to it; the handle of the software provider must not.
+    m_hw_factory->served = {"HASH"};
+    auto mediator = MakeResourceMediator();
+    const auto client = ClientOf(kAppUid);
+    const auto connection = Connect(client);
+    constexpr std::uint8_t kSoftwarePreferredWire{4U};
+
+    const auto preferred =
+        CreateContext(mediator, client, connection, "HASH", "SHA256", Preference(kSoftwarePreferredWire));
+    ASSERT_EQ(OnlyOperation(preferred).result, protocol::OPERATION_RESULT_SUCCESS);
+    ASSERT_EQ(m_hw_factory->create_calls, 1);
+
+    const auto handle = ResolveHandle(mediator, client, "app/sw");
+    const auto pinned = CreateContext(mediator, client, connection, "HASH", "SHA256", Handle(handle));
+    const auto& op = OnlyOperation(pinned);
+    EXPECT_EQ(op.result, kUnsupportedAlgorithm);
+    EXPECT_TRUE(op.parameters.empty());
+    EXPECT_EQ(m_hw_factory->create_calls, 1);
+}
+
+TEST_F(MediatorProviderResourceTest, ContextCreationOnResolvedProviderChecksItsCapability)
+{
+    // KEY:MANAGEMENT needs kKeyManagement, which the stub providers lack. The
+    // request fails without asking either provider for a handler.
+    auto mediator = MakeResourceMediator();
+    const auto client = ClientOf(kAppUid);
+    const auto connection = Connect(client);
+    const auto handle = ResolveHandle(mediator, client, "app/hw");
+
+    const auto response = CreateContext(mediator, client, connection, "KEY:MANAGEMENT", "", Handle(handle));
+    EXPECT_EQ(OnlyOperation(response).result, kUnsupportedOperation);
+    EXPECT_EQ(m_sw_factory->create_calls + m_hw_factory->create_calls, 0);
+}
+
+TEST_F(MediatorProviderResourceTest, ContextCreationRejectsKeyOfAnotherProvider)
+{
+    m_sw_factory->served = {"MAC"};
+    m_hw_factory->served = {"MAC"};
+    auto mediator = MakeResourceMediator();
+    const auto client = ClientOf(kAppUid);
+    const auto connection = Connect(client);
+    const auto key_on_hw = AddKeySlot(client, 1U);
+    const auto sw_handle = ResolveHandle(mediator, client, "app/sw");
+
+    const auto response =
+        CreateContext(mediator, client, connection, "MAC", "HMAC-SHA256", Handle(sw_handle), key_on_hw);
+    EXPECT_EQ(OnlyOperation(response).result, kCrossProviderIncompatible);
+    EXPECT_EQ(m_sw_factory->create_calls + m_hw_factory->create_calls, 0);
+}
+
+TEST_F(MediatorProviderResourceTest, ContextCreationRejectsHandleThatIsNotThisClientsProviderResource)
+{
+    m_sw_factory->served = {"HASH"};
+    m_hw_factory->served = {"HASH"};
+    auto mediator = MakeResourceMediator();
+    const auto client = ClientOf(kAppUid);
+    const auto connection = Connect(client);
+    const auto handle = ResolveHandle(mediator, client, "app/hw");
+    const auto key_slot = AddKeySlot(client, 1U);
+
+    // Another uid, another process of the same uid, an unknown id, and a node
+    // that is not a provider resource.
+    const auto other_client = ClientOf(kOtherUid);
+    const auto other_connection = Connect(other_client);
+    const auto same_uid_client = ClientOf(kAppUid, 43U);
+    const auto same_uid_connection = Connect(same_uid_client);
+    const std::vector<std::tuple<std::uint64_t, data_manager::DataNodeId, std::uint64_t>> cases{
+        {other_client, other_connection, handle},
+        {same_uid_client, same_uid_connection, handle},
+        {client, connection, handle + 100U},
+        {client, connection, key_slot},
+    };
+    for (const auto& [caller, caller_connection, id] : cases)
+    {
+        const auto response = CreateContext(mediator, caller, caller_connection, "HASH", "SHA256", Handle(id));
+        EXPECT_EQ(OnlyOperation(response).result, kInvalidResourceId) << caller << "/" << id;
+    }
+    EXPECT_EQ(m_sw_factory->create_calls + m_hw_factory->create_calls, 0);
 }
 
 }  // namespace

@@ -171,10 +171,17 @@ Provider and Capability Discovery
 
 ``ICryptoContext`` answers which providers exist and what they can do:
 
-- ``GetProviderInfo(provider_id)`` returns id, ``ProviderType``
-  (``kHardware`` or ``kSoftware`` as configured) and name.
+- ``GetProviderInfo(provider_id)`` returns id and ``ProviderType``
+  (``kHardware`` or ``kSoftware`` as configured).
   ``GetProviderInfo(resource)`` does the same for the resource's
   ``primary_provider``. Unknown ids return ``kInvalidArgument``.
+- ``GetProviderInfo(provider)`` for a ``kProvider`` handle from
+  ``ResolveResource(name, ResourceType::kProvider)`` reports the provider the
+  daemon mapped that name to for the calling app, under the app's own name.
+  Handles the caller did not resolve return ``kInvalidResourceId``.
+- Configured provider names (e.g. ``OPENSSL``) never reach the app: the
+  ``name`` of a ``ProviderInfo`` is the app's resource name for a
+  ``kProvider`` handle and empty otherwise.
 - ``QueryCapabilities(algorithm)`` reports the operations that at least one
   provider accepts for that name, as entries in ``modes``:
   ``HASH``, ``MAC``, ``CIPHER``, ``SIGN``, ``VERIFY``, ``RANDOM`` and
@@ -192,8 +199,18 @@ descriptor. These are the same checks that context creation and key
 generation apply, so a reported operation is one that
 ``Create[Op]Context()`` or ``GenerateKey()`` would accept for that algorithm
 on at least one provider. It does not check key slots, permissions or
-memory. The answer is the union over providers; to target one provider, set
-``ProviderType`` on the context config.
+memory. The answer is the union over providers.
+
+To target a provider, either set ``ProviderType`` on the context config, which
+may fall back to another provider (``kHardwarePreferred``,
+``kSoftwarePreferred``), or set ``provider`` to a resolved ``kProvider``
+handle. A context on a provider handle is created on that provider only, and
+``provider_type`` is then ignored. If that provider cannot serve the context,
+creation fails with the provider's error (e.g. ``kUnsupportedAlgorithm``)
+instead of moving to another provider. A key on a different provider fails
+with ``kCrossProviderIncompatible``. A ``provider`` that is not a ``kProvider``
+resource fails with ``kInvalidResourceType`` before any daemon call, and a
+handle the app did not resolve fails with ``kInvalidResourceId``.
 
 Memory and Data Plane Model
 ---------------------------

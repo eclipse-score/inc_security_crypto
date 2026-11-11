@@ -16,9 +16,19 @@
 ///
 /// Expectations follow the providers configured for the integration daemon:
 /// "OPENSSL" (software) and "PKCS11_ENGINE" (hardware, SoftHSM), each only when
-/// its backend is part of the build.
+/// its backend is part of the build. Those configured names never reach the
+/// app: providers are listed by id and type, and a provider resource reports
+/// the app-scoped name it was resolved by.
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/config/hash_context_config.hpp"
+#include "score/crypto/src/api/config/key_management_context_config.hpp"
+#include "score/crypto/src/api/config/mac_context_config.hpp"
+#include "score/crypto/src/api/config/random_context_config.hpp"
+#include "score/crypto/src/api/contexts/i_hash_context.hpp"
+#include "score/crypto/src/api/contexts/i_key_management_context.hpp"
+#include "score/crypto/src/api/contexts/i_mac_context.hpp"
+#include "score/crypto/src/api/contexts/i_random_context.hpp"
 #include "score/crypto/src/api/crypto_stack_factory.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
 #include "score/crypto/src/api/i_crypto_stack.hpp"
@@ -27,6 +37,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -54,16 +65,21 @@ bool HasMode(const AlgorithmCapabilities& caps, std::string_view mode)
     });
 }
 
-const ProviderInfo* FindProvider(const SystemCapabilities& caps, std::string_view name)
+const ProviderInfo* FindProvider(const SystemCapabilities& caps, ProviderType type)
 {
     for (std::size_t i = 0U; i < caps.provider_count; ++i)
     {
-        if (std::string_view{caps.providers[i].name} == name)
+        if (caps.providers[i].type == type)
         {
             return &caps.providers[i];
         }
     }
     return nullptr;
+}
+
+score::result::ErrorCode Code(CryptoErrorCode code)
+{
+    return static_cast<score::result::ErrorCode>(code);
 }
 
 class CapabilitiesTest : public ::testing::Test
@@ -92,15 +108,26 @@ TEST_F(CapabilitiesTest, SystemCapabilitiesListConfiguredProviders)
     ASSERT_TRUE(caps.has_value()) << caps.error().Message();
 
 #ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
-    const auto* openssl = FindProvider(caps.value(), "OPENSSL");
-    ASSERT_NE(openssl, nullptr);
-    EXPECT_EQ(openssl->type, ProviderType::kSoftware);
+    EXPECT_NE(FindProvider(caps.value(), ProviderType::kSoftware), nullptr);
 #endif
 #ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
-    const auto* pkcs11 = FindProvider(caps.value(), "PKCS11_ENGINE");
-    ASSERT_NE(pkcs11, nullptr);
-    EXPECT_EQ(pkcs11->type, ProviderType::kHardware);
+    EXPECT_NE(FindProvider(caps.value(), ProviderType::kHardware), nullptr);
 #endif
+}
+
+TEST_F(CapabilitiesTest, SystemCapabilitiesDoNotExposeProviderNames)
+{
+    const auto caps = m_ctx->QueryCapabilities();
+    ASSERT_TRUE(caps.has_value()) << caps.error().Message();
+    ASSERT_GT(caps->provider_count, 0U);
+
+    for (std::size_t i = 0U; i < caps->provider_count; ++i)
+    {
+        EXPECT_EQ(std::string_view{caps->providers[i].name}, "") << caps->providers[i].id;
+        const auto info = m_ctx->GetProviderInfo(caps->providers[i].id);
+        ASSERT_TRUE(info.has_value()) << info.error().Message();
+        EXPECT_EQ(std::string_view{info->name}, "") << caps->providers[i].id;
+    }
 }
 
 TEST_F(CapabilitiesTest, SystemCapabilitiesListOnlySupportedAlgorithms)
@@ -133,7 +160,6 @@ TEST_F(CapabilitiesTest, ProviderInfoMatchesSystemCapabilities)
         ASSERT_TRUE(info.has_value()) << info.error().Message();
         EXPECT_EQ(info->id, listed.id);
         EXPECT_EQ(info->type, listed.type);
-        EXPECT_EQ(std::string_view{info->name}, std::string_view{listed.name});
     }
 }
 
@@ -157,11 +183,14 @@ TEST_F(CapabilitiesTest, ProviderInfoForAResourceUsesItsPrimaryProvider)
     const auto info = m_ctx->GetProviderInfo(resource);
     ASSERT_TRUE(info.has_value()) << info.error().Message();
     EXPECT_EQ(info->id, listed.id);
-    EXPECT_EQ(std::string_view{info->name}, std::string_view{listed.name});
+    EXPECT_EQ(info->type, listed.type);
 }
 
 // Provider resources are mapped per uid in provider_config of integration_test_config.json.
-void ExpectProviderResourceResolvesTo(ICryptoContext& ctx, std::string_view resource_name, std::string_view provider)
+constexpr auto kSoftwareProvider = "IntegrationTest_SoftwareProvider";
+constexpr auto kHardwareProvider = "IntegrationTest_HardwareProvider";
+
+void ExpectProviderResourceResolvesTo(ICryptoContext& ctx, std::string_view resource_name, ProviderType type)
 {
     const auto handle = ctx.ResolveResource(ResourceId{resource_name}, ResourceType::kProvider);
     ASSERT_TRUE(handle.has_value()) << resource_name << ": " << handle.error().Message();
@@ -170,22 +199,143 @@ void ExpectProviderResourceResolvesTo(ICryptoContext& ctx, std::string_view reso
 
     const auto info = ctx.GetProviderInfo(handle.value());
     ASSERT_TRUE(info.has_value()) << info.error().Message();
-    EXPECT_EQ(std::string_view{info->name}, provider);
+    EXPECT_EQ(info->type, type);
+    // The app's own name for the provider, not the configured provider name.
+    EXPECT_EQ(std::string_view{info->name}, resource_name);
+}
+
+CryptoResourceId ProviderResource(ICryptoContext& ctx, std::string_view resource_name)
+{
+    const auto handle = ctx.ResolveResource(ResourceId{resource_name}, ResourceType::kProvider);
+    EXPECT_TRUE(handle.has_value()) << resource_name << ": " << handle.error().Message();
+    return handle.value_or(CryptoResourceId{});
+}
+
+// SHA-256("abc"), FIPS 180-2 Appendix B.1.
+constexpr std::array<std::uint8_t, 32U> kSha256Abc{
+    0xBAU, 0x78U, 0x16U, 0xBFU, 0x8FU, 0x01U, 0xCFU, 0xEAU, 0x41U, 0x41U, 0x40U, 0xDEU, 0x5DU, 0xAEU, 0x22U, 0x23U,
+    0xB0U, 0x03U, 0x61U, 0xA3U, 0x96U, 0x17U, 0x7AU, 0x9CU, 0xB4U, 0x10U, 0xFFU, 0x61U, 0xF2U, 0x00U, 0x15U, 0xADU};
+
+void ExpectHashOnProviderResource(ICryptoContext& ctx, std::string_view resource_name)
+{
+    HashContextConfig config;
+    config.SetAlgorithm("SHA256");
+    config.SetProvider(ProviderResource(ctx, resource_name));
+    auto hash = ctx.CreateHashContext(config);
+    ASSERT_TRUE(hash.has_value()) << resource_name << ": " << hash.error().Message();
+
+    constexpr std::array<std::uint8_t, 3U> input{'a', 'b', 'c'};
+    std::array<std::uint8_t, 32U> digest{};
+    const auto written = hash.value()->SingleShot({input.data(), input.size()}, {digest.data(), digest.size()});
+    ASSERT_TRUE(written.has_value()) << resource_name << ": " << written.error().Message();
+    EXPECT_EQ(written.value(), digest.size());
+    EXPECT_EQ(digest, kSha256Abc) << resource_name;
 }
 
 #ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
 TEST_F(CapabilitiesTest, SoftwareProviderResourceResolvesToOpaqueHandle)
 {
-    ExpectProviderResourceResolvesTo(*m_ctx, "IntegrationTest_SoftwareProvider", "OPENSSL");
+    ExpectProviderResourceResolvesTo(*m_ctx, kSoftwareProvider, ProviderType::kSoftware);
+}
+
+TEST_F(CapabilitiesTest, HashContextRunsOnTheSoftwareProviderResource)
+{
+    ExpectHashOnProviderResource(*m_ctx, kSoftwareProvider);
 }
 #endif
 
 #ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
 TEST_F(CapabilitiesTest, HardwareProviderResourceResolvesToOpaqueHandle)
 {
-    ExpectProviderResourceResolvesTo(*m_ctx, "IntegrationTest_HardwareProvider", "PKCS11_ENGINE");
+    ExpectProviderResourceResolvesTo(*m_ctx, kHardwareProvider, ProviderType::kHardware);
+}
+
+TEST_F(CapabilitiesTest, HashContextRunsOnTheHardwareProviderResource)
+{
+    ExpectHashOnProviderResource(*m_ctx, kHardwareProvider);
+}
+
+// Only the software provider serves random generation. A context pinned to the
+// hardware provider resource reports that instead of silently moving to software.
+TEST_F(CapabilitiesTest, ContextOnAProviderResourceDoesNotFallBack)
+{
+    RandomContextConfig pinned;
+    pinned.SetProvider(ProviderResource(*m_ctx, kHardwareProvider));
+    const auto random = m_ctx->CreateRandomContext(pinned);
+    ASSERT_FALSE(random.has_value());
+    EXPECT_EQ(*random.error(), Code(CryptoErrorCode::kUnsupportedOperation)) << random.error().Message();
+
+#ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
+    // The same request by provider type still falls back to software.
+    RandomContextConfig preferred;
+    preferred.SetProviderType(ProviderType::kHardwarePreferred);
+    const auto fallback = m_ctx->CreateRandomContext(preferred);
+    EXPECT_TRUE(fallback.has_value()) << fallback.error().Message();
+#endif
+}
+
+#ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
+// The key of HMAC_SHA256_IntegrationTestKey lives on the hardware provider.
+TEST_F(CapabilitiesTest, KeyedContextRunsOnlyOnTheProviderOfItsKey)
+{
+    KeyManagementContextConfig key_mgmt_config;
+    key_mgmt_config.SetProviderType(ProviderType::kHardware);
+    auto key_mgmt = m_ctx->CreateKeyManagementContext(key_mgmt_config);
+    ASSERT_TRUE(key_mgmt.has_value()) << key_mgmt.error().Message();
+    const auto slot = m_ctx->ResolveResource(ResourceId{"HMAC_SHA256_IntegrationTestKey"}, ResourceType::kKeySlot);
+    ASSERT_TRUE(slot.has_value()) << slot.error().Message();
+    auto key = key_mgmt.value()->LoadKey(slot.value());
+    ASSERT_TRUE(key.has_value()) << key.error().Message();
+
+    MacContextConfig on_software;
+    on_software.SetAlgorithm("HMAC-SHA256");
+    on_software.SetKey(key.value());
+    on_software.SetProvider(ProviderResource(*m_ctx, kSoftwareProvider));
+    const auto mismatch = m_ctx->CreateMacContext(on_software);
+    ASSERT_FALSE(mismatch.has_value());
+    EXPECT_EQ(*mismatch.error(), Code(CryptoErrorCode::kCrossProviderIncompatible)) << mismatch.error().Message();
+
+    MacContextConfig on_hardware;
+    on_hardware.SetAlgorithm("HMAC-SHA256");
+    on_hardware.SetKey(key.value());
+    on_hardware.SetProvider(ProviderResource(*m_ctx, kHardwareProvider));
+    const auto match = m_ctx->CreateMacContext(on_hardware);
+    EXPECT_TRUE(match.has_value()) << match.error().Message();
 }
 #endif
+#endif
+
+TEST_F(CapabilitiesTest, ContextRejectsAProviderThatIsNotAProviderResource)
+{
+    CryptoResourceId not_a_provider{};
+    not_a_provider.id = 1U;
+    not_a_provider.type = ResourceType::kKeySlot;
+    HashContextConfig config;
+    config.SetAlgorithm("SHA256");
+    config.SetProvider(not_a_provider);
+
+    const auto hash = m_ctx->CreateHashContext(config);
+    ASSERT_FALSE(hash.has_value());
+    EXPECT_EQ(*hash.error(), Code(CryptoErrorCode::kInvalidResourceType)) << hash.error().Message();
+}
+
+TEST_F(CapabilitiesTest, ContextRejectsAProviderHandleThatWasNotResolved)
+{
+    CryptoResourceId forged{};
+    forged.id = 0xDEADU;
+    forged.type = ResourceType::kProvider;
+    HashContextConfig config;
+    config.SetAlgorithm("SHA256");
+    config.SetProvider(forged);
+
+    const auto hash = m_ctx->CreateHashContext(config);
+    ASSERT_FALSE(hash.has_value());
+    EXPECT_EQ(*hash.error(), Code(CryptoErrorCode::kInvalidResourceId)) << hash.error().Message();
+
+    const auto info = m_ctx->GetProviderInfo(forged);
+    ASSERT_FALSE(info.has_value());
+    EXPECT_EQ(*info.error(), Code(CryptoErrorCode::kInvalidResourceId)) << info.error().Message();
+}
 
 TEST_F(CapabilitiesTest, ProviderNamesAndUnmappedNamesAreNotProviderResources)
 {

@@ -14,6 +14,7 @@
 #include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/config/base_context_config.hpp"
 #include "score/crypto/src/api/config/cipher_context_config.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
@@ -77,7 +78,8 @@ namespace
 /// @brief Describes one CTX_CREATE call on the wire.
 ///
 /// Wire layout is positional and shared by every context type:
-///   [0] context_type, [1] algorithm, [2] provider_type (or no-param),
+///   [0] context_type, [1] algorithm, [2] provider handle (uint64) or
+///   provider_type (uint8) or no-param,
 ///   [3] key_node_id (keyed contexts only), [4] daemon_common::ContextMode,
 ///   [5] CipherPadding (cipher contexts only; no-param for signature contexts),
 ///   [6] SignatureInputMode (signature contexts only).
@@ -88,6 +90,8 @@ struct ContextCreationRequest
     /// as the empty string in slot [1]. KEY:MANAGEMENT is the only such type.
     const AlgorithmId* algorithm{nullptr};
     std::optional<ProviderType> provider_type{std::nullopt};
+    /// Resolved kProvider resource. Takes slot [2] instead of provider_type.
+    std::optional<std::uint64_t> provider_handle{std::nullopt};
     std::optional<std::uint64_t> key_node_id{std::nullopt};
     std::optional<daemon_common::ContextMode> mode{std::nullopt};
     std::optional<CipherPadding> padding{std::nullopt};
@@ -157,7 +161,11 @@ score::Result<std::uint64_t> CreateDaemonContext(
             .with_in_string(request.context_type)
             .with_in_string(request.algorithm != nullptr ? std::string_view{*request.algorithm} : std::string_view{});
 
-    if (request.provider_type.has_value())
+    if (request.provider_handle.has_value())
+    {
+        builder = builder.with_in_val_uint64(request.provider_handle.value());
+    }
+    else if (request.provider_type.has_value())
     {
         builder = builder.with_in_val_uint8(ProviderTypeConverter::ToWireValue(request.provider_type.value()));
     }
@@ -260,6 +268,34 @@ score::Result<std::monostate> ValidateOperationKey(const CryptoResourceId& key, 
     return std::monostate{};
 }
 
+/// @brief Fills the provider slot of @p request from @p config.
+///
+/// An explicit provider resource wins over provider_type and pins the context
+/// to that provider; the daemon never falls back to another one. Only a
+/// resource resolved as ResourceType::kProvider is accepted.
+score::Result<std::monostate> SelectProvider(const BaseContextConfig& config,
+                                             ContextCreationRequest& request,
+                                             std::string_view context_type)
+{
+    if (!config.provider.has_value())
+    {
+        request.provider_type = config.provider_type;
+        return std::monostate{};
+    }
+
+    if ((config.provider->type != ResourceType::kProvider) || (config.provider->id == 0U))
+    {
+        score::mw::log::LogError() << "[API][CryptoContextImpl] ERROR: " << context_type
+                                   << " provider is not a resolved kProvider resource";
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kInvalidResourceType, "provider is not a resolved kProvider resource")};
+    }
+
+    request.provider_handle = config.provider->id;
+    return std::monostate{};
+}
+
 }  // namespace
 
 CryptoContextImpl::CryptoContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
@@ -276,20 +312,14 @@ CryptoContextImpl::~CryptoContextImpl() {}
 
 score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContext(const HashContextConfig& config)
 {
-    if (config.provider.has_value())
-    {
-        score::mw::log::LogError()
-            << "[API][CryptoContextImpl] ERROR: Explicit provider resources are not supported for hash contexts";
-        return score::Result<std::unique_ptr<IHashContext>>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kUnsupportedOperation,
-                      "Explicit provider resource selection is not supported for hash contexts")};
-    }
-
     ContextCreationRequest request{};
     request.context_type = daemon_common::context_types::kHash;
     request.algorithm = &config.algorithm;
-    request.provider_type = config.provider_type;
+    auto provider_check = SelectProvider(config, request, "CreateHashContext");
+    if (!provider_check.has_value())
+    {
+        return score::Result<std::unique_ptr<IHashContext>>{score::unexpect, provider_check.error()};
+    }
 
     auto context_id = CreateDaemonContext(m_connection, request);
     if (!context_id.has_value())
@@ -388,7 +418,11 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
     ContextCreationRequest request{};
     request.context_type = daemon_common::context_types::kMac;
     request.algorithm = &config.algorithm;
-    request.provider_type = config.provider_type;
+    auto provider_check = SelectProvider(config, request, "CreateMacContext");
+    if (!provider_check.has_value())
+    {
+        return score::Result<std::unique_ptr<IMacContext>>{score::unexpect, provider_check.error()};
+    }
     request.key_node_id = config.key.id;
     request.mode = daemon_common::ToContextMode(config.operation_mode);
 
@@ -408,7 +442,11 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
     // bound at creation either — its operations carry their own key references.
     ContextCreationRequest request{};
     request.context_type = daemon_common::context_types::kKeyManagement;
-    request.provider_type = config.provider_type;
+    auto provider_check = SelectProvider(config, request, "CreateKeyManagementContext");
+    if (!provider_check.has_value())
+    {
+        return score::Result<std::unique_ptr<IKeyManagementContext>>{score::unexpect, provider_check.error()};
+    }
 
     auto context_id = CreateDaemonContext(m_connection, request);
     if (!context_id.has_value())
@@ -434,7 +472,11 @@ score::Result<std::unique_ptr<ICipherContext>> CryptoContextImpl::CreateCipherCo
     ContextCreationRequest request{};
     request.context_type = daemon_common::context_types::kCipher;
     request.algorithm = &config.algorithm;
-    request.provider_type = config.provider_type;
+    auto provider_check = SelectProvider(config, request, "CreateCipherContext");
+    if (!provider_check.has_value())
+    {
+        return score::Result<std::unique_ptr<ICipherContext>>{score::unexpect, provider_check.error()};
+    }
     request.key_node_id = config.key.id;
     request.mode = daemon_common::ToContextMode(config.direction);
     request.padding = config.padding;
@@ -459,7 +501,11 @@ score::Result<std::unique_ptr<ISignContext>> CryptoContextImpl::CreateSignContex
     ContextCreationRequest request{};
     request.context_type = daemon_common::context_types::kSign;
     request.algorithm = &config.algorithm;
-    request.provider_type = config.provider_type;
+    auto provider_check = SelectProvider(config, request, "CreateSignContext");
+    if (!provider_check.has_value())
+    {
+        return score::Result<std::unique_ptr<ISignContext>>{score::unexpect, provider_check.error()};
+    }
     request.key_node_id = config.key.id;
     // A signing context always uses the private half of the key pair, regardless
     // of what the caller left in BaseContextConfig::operation_mode.
@@ -487,7 +533,11 @@ score::Result<std::unique_ptr<IVerifySignatureContext>> CryptoContextImpl::Creat
     ContextCreationRequest request{};
     request.context_type = daemon_common::context_types::kVerify;
     request.algorithm = &config.algorithm;
-    request.provider_type = config.provider_type;
+    auto provider_check = SelectProvider(config, request, "CreateVerifySignatureContext");
+    if (!provider_check.has_value())
+    {
+        return score::Result<std::unique_ptr<IVerifySignatureContext>>{score::unexpect, provider_check.error()};
+    }
     request.key_node_id = config.key.id;
     // Signals the daemon to bind the public half of the key pair.
     request.mode = daemon_common::ToContextMode(OperationMode::kVerify);
@@ -510,7 +560,11 @@ score::Result<std::unique_ptr<IRandomContext>> CryptoContextImpl::CreateRandomCo
     ContextCreationRequest request{};
     request.context_type = daemon_common::context_types::kRandom;
     request.algorithm = &config.algorithm;
-    request.provider_type = config.provider_type;
+    auto provider_check = SelectProvider(config, request, "CreateRandomContext");
+    if (!provider_check.has_value())
+    {
+        return score::Result<std::unique_ptr<IRandomContext>>{score::unexpect, provider_check.error()};
+    }
 
     auto context_id = CreateDaemonContext(m_connection, request);
     if (!context_id.has_value())

@@ -125,7 +125,8 @@ struct ProviderTypePreference final
 // Request:  data_node_id = connection_id (parent node),
 //           param[0]: string — handler context type (e.g. "HASH" or "CERT:...")
 //           param[1]: string — algorithm name (e.g. "SHA256", "SHA512")
-//           param[2]: optional uint8 — provider type preference (defaults to DEFAULT)
+//           param[2]: optional — either uint8 provider type preference (defaults to DEFAULT)
+//                     or uint64 handle of a kProvider resource resolved by this client
 //           param[3]: optional uint64_t — node_id of key resource (CryptoResourceId.id)
 //           param[4]: optional uint8 — common::ContextMode (keyed contexts)
 //           param[5]: optional uint8 — CipherPadding (cipher contexts)
@@ -135,6 +136,10 @@ struct ProviderTypePreference final
 // checked against the scope's required capability. Unrecognized or absent scopes add no
 // capability constraint and follow existing provider selection rules (provider-type
 // preference or key affinity). The full context type is passed to the handler factory unchanged.
+// Provider handle: the context is created on that provider only, with no fallback.
+// A handle that is not a kProvider resource of this client fails with kInvalidResourceId,
+// a bound key on another provider with kCrossProviderIncompatible, and a provider that
+// cannot serve the request with its own error (e.g. kUnsupportedOperation).
 // Response: status_code (SUCCESS/error)
 //           uint64_t — daemon-assigned context_id (DataNodeId)
 // Effect:   Creates cryptographic context, initializes handler with specified algorithm
@@ -244,7 +249,9 @@ inline control_plane::protocol::OperationIdentifier DestroyShmObject()
 //           kInvalidResourceId for a handle not owned by this client)
 //           param[0]: uint16     — provider id
 //           param[1]: uint8      — wire ProviderType (0 = default, 1 = hardware, 2 = software)
-//           param[2]: DataBuffer — provider name (UTF-8, not NUL-terminated)
+//           param[2]: DataBuffer — the app_resource_id the client resolved, for the
+//                                  handle form; empty for a lookup by provider id.
+//                                  Configured provider names are never sent (#290).
 inline constexpr OperationAction PROVIDER_INFO = 6;
 
 // QUERY_CAPABILITIES
@@ -259,6 +266,7 @@ inline constexpr OperationAction QUERY_CAPABILITIES = 7;
 // Response: status_code (SUCCESS)
 //           param[0]: uint16 — provider count P
 //           P times:  uint16 provider id, uint8 wire ProviderType, DataBuffer name
+//                     (always empty: configured provider names are never sent, #290)
 //           then:     uint16 — algorithm count A
 //           A times:  DataBuffer algorithm name (UTF-8, not NUL-terminated),
 //                     uint8 CapabilityFlags (never 0)

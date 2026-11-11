@@ -125,14 +125,15 @@ class CryptoContextCapabilitiesTest : public ::testing::Test
 
 TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoSendsIdAndDecodesReply)
 {
-    m_connection->Reply(med_ops::GetProviderInfo(), {std::uint16_t{1U}, std::uint8_t{1U}, Bytes("PKCS11_ENGINE")});
+    // The daemon sends no name for a lookup by id.
+    m_connection->Reply(med_ops::GetProviderInfo(), {std::uint16_t{1U}, std::uint8_t{1U}, Bytes("")});
 
     const auto info = m_context.GetProviderInfo(std::uint16_t{1U});
 
     ASSERT_TRUE(info.has_value());
     EXPECT_EQ(info->id, 1U);
     EXPECT_EQ(info->type, ProviderType::kHardware);
-    EXPECT_EQ(View(info->name), "PKCS11_ENGINE");
+    EXPECT_EQ(View(info->name), "");
 
     const auto& sent = m_connection->LastOperation();
     EXPECT_TRUE(IsOperation(sent.operationId, med_ops::GetProviderInfo()));
@@ -142,7 +143,7 @@ TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoSendsIdAndDecodesReply)
 
 TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoByResourceAsksForItsPrimaryProvider)
 {
-    m_connection->Reply(med_ops::GetProviderInfo(), {std::uint16_t{3U}, std::uint8_t{2U}, Bytes("OPENSSL")});
+    m_connection->Reply(med_ops::GetProviderInfo(), {std::uint16_t{3U}, std::uint8_t{2U}, Bytes("")});
     CryptoResourceId resource{};
     resource.id = 99U;
     resource.primary_provider = 3U;
@@ -157,7 +158,7 @@ TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoByResourceAsksForItsPrimary
 
 TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoByProviderHandleSendsHandleAndType)
 {
-    m_connection->Reply(med_ops::GetProviderInfo(), {std::uint16_t{1U}, std::uint8_t{1U}, Bytes("PKCS11_ENGINE")});
+    m_connection->Reply(med_ops::GetProviderInfo(), {std::uint16_t{1U}, std::uint8_t{1U}, Bytes("app/hw")});
     CryptoResourceId handle{};
     handle.id = 7U;
     handle.type = ResourceType::kProvider;
@@ -168,11 +169,27 @@ TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoByProviderHandleSendsHandle
 
     ASSERT_TRUE(info.has_value());
     EXPECT_EQ(info->id, 1U);
-    EXPECT_EQ(View(info->name), "PKCS11_ENGINE");
+    EXPECT_EQ(View(info->name), "app/hw");
     const auto& sent = m_connection->LastOperation();
     ASSERT_EQ(sent.parameters.size(), 2U);
     EXPECT_EQ(std::get<std::uint64_t>(sent.parameters[0]), 7U);
     EXPECT_EQ(std::get<std::uint64_t>(sent.parameters[1]), static_cast<std::uint64_t>(ResourceType::kProvider));
+}
+
+TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoKeepsAnAppNameAsLongAsAResourceId)
+{
+    // The name of a provider resource is the app_resource_id it was resolved by.
+    const std::string longest(ResourceId{}.capacity(), 'n');
+    m_connection->Reply(med_ops::GetProviderInfo(), {std::uint16_t{1U}, std::uint8_t{1U}, Bytes(longest)});
+    CryptoResourceId handle{};
+    handle.id = 7U;
+    handle.type = ResourceType::kProvider;
+
+    const auto info = m_context.GetProviderInfo(handle);
+
+    ASSERT_TRUE(info.has_value());
+    EXPECT_EQ(View(info->name), longest);
+    EXPECT_FALSE(info->name.truncated());
 }
 
 TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoMapsUnknownWireTypeToDefault)
@@ -288,10 +305,10 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesDecodesProvidersAndAlgor
                         {std::uint16_t{2U},
                          std::uint16_t{0U},
                          std::uint8_t{2U},
-                         Bytes("OPENSSL"),
+                         Bytes(""),
                          std::uint16_t{1U},
                          std::uint8_t{1U},
-                         Bytes("PKCS11_ENGINE"),
+                         Bytes(""),
                          std::uint16_t{2U},
                          Bytes("HMAC-SHA256"),
                          std::uint8_t{flags::kMac | flags::kGenerateKey},
@@ -307,10 +324,10 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesDecodesProvidersAndAlgor
     ASSERT_EQ(caps->provider_count, 2U);
     EXPECT_EQ(caps->providers[0].id, 0U);
     EXPECT_EQ(caps->providers[0].type, ProviderType::kSoftware);
-    EXPECT_EQ(View(caps->providers[0].name), "OPENSSL");
+    EXPECT_EQ(View(caps->providers[0].name), "");
     EXPECT_EQ(caps->providers[1].id, 1U);
     EXPECT_EQ(caps->providers[1].type, ProviderType::kHardware);
-    EXPECT_EQ(View(caps->providers[1].name), "PKCS11_ENGINE");
+    EXPECT_EQ(View(caps->providers[1].name), "");
 
     ASSERT_EQ(caps->algorithm_count, 2U);
     EXPECT_EQ(View(caps->algorithms[0].id), "HMAC-SHA256");
@@ -330,7 +347,7 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesKeepsTheFirstEntriesThat
     {
         reply.emplace_back(static_cast<std::uint16_t>(i));
         reply.emplace_back(std::uint8_t{2U});
-        reply.emplace_back(Bytes("P" + std::to_string(i)));
+        reply.emplace_back(Bytes(""));
     }
     reply.emplace_back(static_cast<std::uint16_t>(algorithms));
     for (std::size_t i = 0U; i < algorithms; ++i)
@@ -344,8 +361,7 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesKeepsTheFirstEntriesThat
 
     ASSERT_TRUE(caps.has_value());
     EXPECT_EQ(caps->provider_count, SystemCapabilities::kMaxProviders);
-    EXPECT_EQ(View(caps->providers[SystemCapabilities::kMaxProviders - 1U].name),
-              "P" + std::to_string(SystemCapabilities::kMaxProviders - 1U));
+    EXPECT_EQ(caps->providers[SystemCapabilities::kMaxProviders - 1U].id, SystemCapabilities::kMaxProviders - 1U);
     EXPECT_EQ(caps->algorithm_count, SystemCapabilities::kMaxAlgorithms);
     EXPECT_EQ(View(caps->algorithms[SystemCapabilities::kMaxAlgorithms - 1U].id),
               "A" + std::to_string(SystemCapabilities::kMaxAlgorithms - 1U));

@@ -98,6 +98,27 @@ class MediatorImpl : public IMediator
         const std::optional<common::CryptoProviderType>& fallback_provider_type,
         common::ProviderCapability required_capability);
 
+    /// @brief Create the handler on one explicitly selected provider, never on another.
+    ///
+    /// Used when CTX_CREATE carries a resolved provider resource. A key bound at
+    /// creation must belong to @p provider_id (kCrossProviderIncompatible
+    /// otherwise), and a provider that cannot serve the request fails the call
+    /// with its own error instead of handing it to a different provider.
+    score::crypto::Expected<ProviderHandlerSelection, score::crypto::CryptoErrorCode> CreateHandlerOnSelectedProvider(
+        std::uint64_t client_id,
+        common::ProviderId provider_id,
+        const std::optional<data_manager::DataNodeId>& key_node_id,
+        std::string_view context_type,
+        const std::optional<AlgorithmDescriptor>& algorithm,
+        common::ProviderCapability required_capability);
+
+    /// @brief Create a handler on @p provider if it has @p required_capability.
+    [[nodiscard]] static score::crypto::Expected<provider::handler::Handler::Sptr, score::crypto::CryptoErrorCode>
+    CreateHandlerOn(provider::IProvider& provider,
+                    std::string_view context_type,
+                    const std::optional<AlgorithmDescriptor>& algorithm,
+                    common::ProviderCapability required_capability);
+
     /// @brief Resolves a client-supplied key reference and authorizes it for the context.
     ///
     /// Performs the two steps that must not be separated: binding the key to the
@@ -178,9 +199,16 @@ class MediatorImpl : public IMediator
         const std::vector<std::shared_ptr<provider::IProvider>>& providers,
         const AlgorithmDescriptor& algorithm);
 
+    /// A provider resource resolved for one client.
+    struct ResolvedProvider
+    {
+        common::ProviderId provider_id{common::kInvalidProviderId};
+        std::string app_resource_id{};
+    };
+
     /// Provider behind a ProviderDataNode owned by @p client_id, or nullopt if
     /// @p node_id is not such a node for that client.
-    [[nodiscard]] std::optional<common::ProviderId> ResolvedProviderId(uint64_t client_id, uint64_t node_id) const;
+    [[nodiscard]] std::optional<ResolvedProvider> ResolvedProviderResource(uint64_t client_id, uint64_t node_id) const;
 
     /// Initialized providers, ordered by id.
     [[nodiscard]] std::vector<std::shared_ptr<provider::IProvider>> InitializedProviders() const;

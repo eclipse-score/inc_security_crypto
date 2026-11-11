@@ -39,6 +39,7 @@ cc_test(
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/config:context_configs",
         "//score/crypto/src/api/contexts:context_bases",
+        "//score/crypto/src/api/contexts:crypto_contexts",
         "//score/crypto/src/api/control_plane",
         "//score/crypto/src/api/types:common_types",
         "//score/crypto/src/daemon/mediator:mediator_operations",

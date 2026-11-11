@@ -188,7 +188,8 @@ class ICryptoContext
 
     /// @brief Queries system-wide capabilities across all providers.
     /// @return Aggregated capabilities including all registered providers and
-    ///         the union of their supported algorithms
+    ///         the union of their supported algorithms. Provider entries carry
+    ///         id and type; their names are empty.
     virtual score::Result<SystemCapabilities> QueryCapabilities() = 0;
 
     // FUTURE: Uncomment when there is potentiant use for this in the future.
@@ -206,15 +207,17 @@ class ICryptoContext
     ///
     /// For a kProvider handle from ResolveResource(name, ResourceType::kProvider),
     /// the daemon maps the handle to the provider configured for the calling
-    /// application. For all other resource types, the primary provider is used.
+    /// application and reports the application's resource name as the name.
+    /// For all other resource types, the primary provider is used.
     /// @param resourceId CryptoResourceId
-    /// @return Provider info with type and name
+    /// @return Provider info with id, type and application-scoped name
     virtual score::Result<ProviderInfo> GetProviderInfo(const CryptoResourceId& resourceId) = 0;
 
     /// @brief Maps a numeric provider ID to human-readable metadata.
     /// @param provider_id Numeric provider ID (from CryptoResourceId::primary_provider
     ///        or KeySlotInfo::compatible_providers)
-    /// @return Provider info with type and name
+    /// @return Provider info with id and type; the name is empty, as configured
+    ///         provider names are not exposed to applications
     virtual score::Result<ProviderInfo> GetProviderInfo(uint16_t provider_id) = 0;
 
     // ---- Typed Object Access ----
