@@ -44,6 +44,30 @@ namespace protocol = score::crypto::daemon::control_plane::protocol;
 using ClientResult = score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode>;
 using ClientResult = score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode>;
 
+class ScopedEffectiveUid final
+{
+  public:
+    ScopedEffectiveUid() noexcept : m_original_effective_uid(::geteuid()) {}
+
+    ~ScopedEffectiveUid() noexcept
+    {
+        static_cast<void>(RestoreOriginal());
+    }
+
+    bool SwitchTo(const uid_t effective_uid) noexcept
+    {
+        return ::seteuid(effective_uid) == 0;
+    }
+
+    bool RestoreOriginal() noexcept
+    {
+        return ::seteuid(m_original_effective_uid) == 0;
+    }
+
+  private:
+    const uid_t m_original_effective_uid;
+};
+
 }  // namespace
 
 TEST(MessagePassingClientProcessTest, CompletesTwoHundredRequestsAcrossFourThreads)
@@ -159,6 +183,76 @@ TEST(MessagePassingClientProcessTest, IsDeniedByServerUidAuthorization)
     EXPECT_EQ(observed_error, score::crypto::CryptoErrorCode::kAccessDenied);
 #else
     EXPECT_EQ(observed_error, score::crypto::CryptoErrorCode::kConnectionFailed);
+#endif
+}
+
+TEST(MessagePassingClientProcessTest, AuthorizationUsesEffectiveUidFromConnectionTime)
+{
+    if (::geteuid() != 0)
+    {
+        GTEST_SKIP() << "Changing effective UID requires a privileged test process";
+    }
+
+    const char* service_identifier_env = std::getenv("MESSAGE_PASSING_SERVICE_ID");
+    const std::string_view service_identifier = (service_identifier_env == nullptr)
+                                                    ? process_test::kServiceIdentifier
+                                                    : std::string_view{service_identifier_env};
+    ASSERT_FALSE(service_identifier.empty());
+
+    // Connecting to the service with the allowed non-root UID
+    ScopedEffectiveUid effective_uid{};
+    ASSERT_TRUE(effective_uid.SwitchTo(static_cast<uid_t>(process_test::kAllowedNonRootUid)))
+        << "Failed to switch to the allowed non-root UID";
+
+    auto client_result = score::crypto::ipc::message_passing::MessagePassingControlClient::Create(service_identifier);
+    ASSERT_TRUE(client_result.has_value()) << "Failed to connect with the initial effective UID";
+    auto client = std::move(client_result).value();
+
+    // Ensure connection is authorized for the allowed non-root UID
+    protocol::ControlRequest allowed_connection_request{};
+    allowed_connection_request.operations.push_back(
+        protocol::SingleOperationRequest{process_test::kEchoOperationId, {process_test::kEchoValue}});
+    const auto allowed_connection_response = client->SendRequest(allowed_connection_request, std::chrono::seconds{5});
+    ASSERT_TRUE(allowed_connection_response.has_value()) << "The server rejected the allowed non-root UID";
+    ASSERT_EQ(allowed_connection_response->operations.size(), 1U);
+    EXPECT_EQ(allowed_connection_response->operations.front().result, protocol::OPERATION_RESULT_SUCCESS);
+
+    // Switching to the denied non-root UID and verifying the existing connection remains authorized
+    ASSERT_TRUE(effective_uid.RestoreOriginal()) << "Failed to restore the privileged effective UID";
+    ASSERT_TRUE(effective_uid.SwitchTo(static_cast<uid_t>(process_test::kDeniedNonRootUid)))
+        << "Failed to switch to the denied non-root UID";
+    protocol::ControlRequest request_after_uid_change{};
+    request_after_uid_change.operations.push_back(
+        protocol::SingleOperationRequest{process_test::kEchoOperationId, {process_test::kEchoValue + 1U}});
+    const auto response_after_uid_change = client->SendRequest(request_after_uid_change, std::chrono::seconds{5});
+    ASSERT_TRUE(response_after_uid_change.has_value())
+        << "The existing connection lost its authorization after the UID change";
+    ASSERT_EQ(response_after_uid_change->operations.size(), 1U);
+    EXPECT_EQ(response_after_uid_change->operations.front().result, protocol::OPERATION_RESULT_SUCCESS);
+
+    // Attempting to establish a new connection with the denied non-root UID
+    auto denied_uid_connection_result =
+        score::crypto::ipc::message_passing::MessagePassingControlClient::Create(service_identifier);
+    auto denied_uid_error = score::crypto::CryptoErrorCode::kInternalError;
+    if (!denied_uid_connection_result.has_value())
+    {
+        denied_uid_error = denied_uid_connection_result.error();
+    }
+    else
+    {
+        auto denied_uid_client = std::move(denied_uid_connection_result).value();
+        protocol::ControlRequest denied_uid_request{};
+        denied_uid_request.operations.push_back(
+            protocol::SingleOperationRequest{process_test::kEchoOperationId, {process_test::kEchoValue + 2U}});
+        const auto denied_uid_response = denied_uid_client->SendRequest(denied_uid_request, std::chrono::seconds{5});
+        ASSERT_FALSE(denied_uid_response.has_value()) << "A new connection with the denied UID was authorized";
+        denied_uid_error = denied_uid_response.error();
+    }
+
+#if defined(__QNX__)
+    EXPECT_EQ(denied_uid_error, score::crypto::CryptoErrorCode::kAccessDenied);
+#else
+    EXPECT_EQ(denied_uid_error, score::crypto::CryptoErrorCode::kConnectionFailed);
 #endif
 }
 

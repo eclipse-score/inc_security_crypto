@@ -11,6 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
+#include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/client/message_passing_control_client.h"
@@ -279,6 +280,7 @@ class RunningServer final
           m_cleanup_observer(std::move(cleanup_observer)),
           m_authorization_callback(std::move(authorization_callback))
     {
+        m_ipc_config.SetEndpoint(m_service_identifier);
     }
 
     ~RunningServer()
@@ -310,6 +312,7 @@ class RunningServer final
         auto created_server = MessagePassingControlServer::Create(
             std::make_unique<EchoHandlerFactory>(
                 m_handler_blocker, m_late_response_blocker, m_handler_invocation_count),
+            m_ipc_config,
             m_authorization_callback,
             std::move(cleanup_callback));
         if (!created_server.has_value())
@@ -321,7 +324,7 @@ class RunningServer final
         std::promise<bool> startup_promise;
         auto startup_future = startup_promise.get_future();
         m_server_thread = std::thread([this, startup_promise = std::move(startup_promise)]() mutable {
-            const auto start_result = m_server->Start(m_service_identifier);
+            const auto start_result = m_server->Start();
             startup_promise.set_value(start_result.has_value());
             if (!start_result.has_value())
             {
@@ -389,6 +392,7 @@ class RunningServer final
 
   private:
     std::string m_service_identifier;
+    score::crypto::daemon::config::IPCConfig m_ipc_config;
     std::shared_ptr<HandlerBlocker> m_handler_blocker;
     std::shared_ptr<HandlerBlocker> m_late_response_blocker;
     std::shared_ptr<std::atomic<std::size_t>> m_handler_invocation_count;
@@ -906,7 +910,7 @@ TEST(MessagePassingAdapterIntegrationTest, CleanupWaitsUntilLastWorkItemComplete
     EXPECT_EQ(cleanup_observer->count(), 1U);
 }
 
-TEST(MessagePassingAdapterIntegrationTest, ServerShutdownWaitsForRunningWorkBeforeCleanup)
+TEST(MessagePassingAdapterIntegrationTest, ServerShutdownDropsNewRequestsWhileDrainingPendingWorkAndWaitsBeforeCleanup)
 {
     auto cleanup_observer = std::make_shared<CleanupObserver>();
     RunningServer server{cleanup_observer};
@@ -917,7 +921,8 @@ TEST(MessagePassingAdapterIntegrationTest, ServerShutdownWaitsForRunningWorkBefo
     auto client = std::move(created_client).value();
     std::promise<ClientResult> response_promise;
     auto response_future = response_promise.get_future();
-    std::thread client_thread([client = std::move(client), &response_promise]() mutable {
+    auto blocked_client = client;
+    std::thread client_thread([client = std::move(blocked_client), &response_promise]() mutable {
         auto request = MakeEchoRequest(kBlockedPayload);
         response_promise.set_value(client->SendRequest(request, std::chrono::milliseconds{5000}));
     });
@@ -925,15 +930,39 @@ TEST(MessagePassingAdapterIntegrationTest, ServerShutdownWaitsForRunningWorkBefo
     const bool handler_entered = server.handler_blocker().WaitUntilEntered(std::chrono::seconds{3});
     server.StopServer();
     const bool cleanup_ran_before_release = cleanup_observer->WaitForCount(1U, std::chrono::milliseconds{100});
+
+    auto existing_client_request = MakeEchoRequest(kPayload + 2U);
+    const auto existing_client_response = client->SendRequest(existing_client_request, std::chrono::milliseconds{250});
+    ASSERT_FALSE(existing_client_response.has_value()) << "A new request on an existing client was not dropped";
+    EXPECT_EQ(existing_client_response.error(), score::crypto::CryptoErrorCode::kConnectionFailed);
+
+    auto new_client_result = MessagePassingControlClient::Create(server.service_identifier());
+    if (new_client_result.has_value())
+    {
+        auto new_client = std::move(new_client_result).value();
+        auto new_client_request = MakeEchoRequest(kPayload + 3U);
+        const auto new_client_response = new_client->SendRequest(new_client_request, std::chrono::milliseconds{250});
+        ASSERT_FALSE(new_client_response.has_value()) << "A new client connected after server shutdown";
+        EXPECT_EQ(new_client_response.error(), score::crypto::CryptoErrorCode::kConnectionFailed);
+    }
+    else
+    {
+        EXPECT_EQ(new_client_result.error(), score::crypto::CryptoErrorCode::kConnectionFailed);
+    }
+    EXPECT_EQ(server.handler_invocation_count(), 1U) << "A request was handled after server shutdown";
+
     server.handler_blocker().Release();
     const bool client_call_finished = response_future.wait_for(std::chrono::seconds{8}) == std::future_status::ready;
-    server.StopAndJoin();
     client_thread.join();
+    client.reset();
+    server.StopAndJoin();
 
     EXPECT_TRUE(handler_entered) << "The active request did not reach the daemon handler";
     EXPECT_FALSE(cleanup_ran_before_release) << "Cleanup ran before the active WorkItem completed";
     ASSERT_TRUE(client_call_finished) << "The client call did not finish after releasing the handler";
-    static_cast<void>(response_future.get());
+    const auto pending_response = response_future.get();
+    ASSERT_FALSE(pending_response.has_value());
+    EXPECT_EQ(pending_response.error(), score::crypto::CryptoErrorCode::kConnectionFailed);
     EXPECT_EQ(cleanup_observer->count(), 1U);
 }
 

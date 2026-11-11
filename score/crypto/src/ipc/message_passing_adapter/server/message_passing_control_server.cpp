@@ -14,6 +14,7 @@
 #include "score/crypto/src/ipc/message_passing_adapter/server/message_passing_control_server.h"
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 #include "score/message_passing/i_server_connection.h"
@@ -63,10 +64,10 @@ score::message_passing::IServerFactory::ServerConfig MessagePassingControlServer
 }
 
 score::message_passing::ServiceProtocolConfig MessagePassingControlServer::BuildProtocolConfig(
-    const std::string_view service_identifier) noexcept
+    const std::string_view endpoint) noexcept
 {
     return score::message_passing::ServiceProtocolConfig{
-        service_identifier,
+        endpoint,
         ipc::kMaxPayloadBytes,
         0U,
         ipc::kMaxPayloadBytes,
@@ -75,6 +76,7 @@ score::message_passing::ServiceProtocolConfig MessagePassingControlServer::Build
 
 score::crypto::Expected<std::unique_ptr<MessagePassingControlServer>, score::crypto::daemon::common::DaemonErrorCode>
 MessagePassingControlServer::Create(std::unique_ptr<daemon::control_plane::IHandlerChainFactory> factory,
+                                    const daemon::config::IPCConfig& config,
                                     AuthorizationCallback authorization,
                                     DisconnectCleanupCallback cleanup_callback) noexcept
 {
@@ -86,8 +88,8 @@ MessagePassingControlServer::Create(std::unique_ptr<daemon::control_plane::IHand
     // Construction allocates server state and maps failures to the public creation error.
     try
     {
-        return std::unique_ptr<MessagePassingControlServer>{
-            new MessagePassingControlServer{std::move(factory), std::move(authorization), std::move(cleanup_callback)}};
+        return std::unique_ptr<MessagePassingControlServer>{new MessagePassingControlServer{
+            std::move(factory), config, std::move(authorization), std::move(cleanup_callback)}};
     }
     catch (const std::bad_alloc&)
     {
@@ -103,10 +105,12 @@ MessagePassingControlServer::Create(std::unique_ptr<daemon::control_plane::IHand
 
 MessagePassingControlServer::MessagePassingControlServer(
     std::unique_ptr<daemon::control_plane::IHandlerChainFactory> factory,
+    const daemon::config::IPCConfig& config,
     AuthorizationCallback authorization,
     DisconnectCleanupCallback cleanup_callback)
     : m_server_factory(std::make_unique<score::message_passing::ServerFactory>()),
       m_handler_chain_factory(std::move(factory)),
+      m_ipc_config(config),
       m_work_item_executor(ipc::kWorkerThreads, ipc::kCleanupQueueCapacity),
       m_codec{},
       m_session_manager(m_work_item_executor, std::move(authorization), std::move(cleanup_callback)),
@@ -143,7 +147,7 @@ void MessagePassingControlServer::RollbackStartup() noexcept
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
+MessagePassingControlServer::Start() noexcept
 {
     if (!m_server_state_machine.TryBeginStart().has_value())
     {
@@ -152,7 +156,8 @@ MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
     // Startup spans several resources; exceptions must trigger rollback before returning failure.
     try
     {
-        m_message_server = m_server_factory->Create(BuildProtocolConfig(service_identifier), BuildServerConfig());
+        m_message_server =
+            m_server_factory->Create(BuildProtocolConfig(m_ipc_config.GetEndpoint()), BuildServerConfig());
         if (m_message_server == nullptr)
         {
             score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Server factory returned no server instance";
@@ -191,7 +196,7 @@ MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
         if (!message_passing_server_started.has_value())
         {
             score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Failed to start listening on service="
-                                       << service_identifier;
+                                       << m_ipc_config.GetEndpoint();
             RollbackStartup();
             return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kConnectionFailed);
         }
@@ -209,14 +214,14 @@ MessagePassingControlServer::Start(std::string_view service_identifier) noexcept
     catch (const std::bad_alloc&)
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Allocation failed during startup for service="
-                                   << service_identifier;
+                                   << m_ipc_config.GetEndpoint();
         RollbackStartup();
         return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Unexpected exception during startup for service="
-                                   << service_identifier;
+                                   << m_ipc_config.GetEndpoint();
         RollbackStartup();
         return score::crypto::make_unexpected(daemon::common::DaemonErrorCode::kInternalError);
     }

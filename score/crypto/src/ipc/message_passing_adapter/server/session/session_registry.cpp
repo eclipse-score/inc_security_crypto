@@ -18,8 +18,9 @@
 
 #include "score/mw/log/logging.h"
 
-#include <array>
 #include <optional>
+#include <memory>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -251,9 +252,8 @@ std::shared_ptr<detail::Session> SessionRegistry::DetachConnection(
     std::lock_guard<std::mutex>& lock,
     const ConnectionMap::iterator connection_iterator) noexcept
 {
-    auto session = std::move(connection_iterator->second);
-    m_connections.erase(connection_iterator);
-
+    static_cast<void>(lock);
+    auto session = connection_iterator->second;
     const auto iterator = m_client_states.find(session->client_id());
     if ((iterator == m_client_states.end()) || (iterator->second.lifecycle != ClientLifecycleState::kConnectionActive))
     {
@@ -264,6 +264,10 @@ std::shared_ptr<detail::Session> SessionRegistry::DetachConnection(
 
     iterator->second.lifecycle = ClientLifecycleState::kCleanupPending;
     ++m_pending_disconnect_count;
+
+    // Close session admission and responses before removing its transport mapping.
+    session->BeginDisconnect();
+    m_connections.erase(connection_iterator);
 
     return session;
 }

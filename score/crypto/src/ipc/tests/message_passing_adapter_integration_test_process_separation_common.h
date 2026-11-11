@@ -28,6 +28,8 @@ inline constexpr std::string_view kServiceIdentifier{"crypto_adapter_process_sep
 inline constexpr common::OperationIdentifier kEchoOperationId{17U, 3U};
 inline constexpr std::uint64_t kEchoValue{0xA1B2C3D4E5F60718ULL};
 inline constexpr std::uint64_t kLongRunningOperationValue{0xF1E2D3C4B5A69788ULL};
+inline constexpr std::uint32_t kAllowedNonRootUid{1001U};
+inline constexpr std::uint32_t kDeniedNonRootUid{1002U};
 
 }  // namespace score::crypto::ipc::message_passing::process_test
 

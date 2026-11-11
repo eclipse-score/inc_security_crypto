@@ -78,7 +78,7 @@ state "SessionRegistry\nClientLifecycleState\n(one per client_id)" as RC {
   RC_Pending -[#red]-> RC_Quar : OnCleanupFinished(client_id, false)\nor UID reservation missing
 
   RC_Active : entry / **C2** SessionFactory creates [Session]
-  RC_Pending : entry / **D2** Disconnect() [Session]
+  RC_Pending : entry / **D2** BeginDisconnect() [Session]
 }
 
 state "Session\n(one per connection)" as SE {
@@ -90,19 +90,19 @@ state "Session\n(one per connection)" as SE {
   state "kCleanupFailed" as SE_Failed
 
   [*] -[#purple]-> SE_Active : SessionFactory (on connect)
-  SE_Active -[#red]-> SE_Draining : Disconnect()
-  SE_Draining -[#red]-> SE_Ready : ClaimCleanupIfReady()\n[m_work_items empty]\nfrom Disconnect() or OnWorkItemCompleted()
+  SE_Active -[#red]-> SE_Draining : BeginDisconnect()
+  SE_Draining -[#red]-> SE_Ready : MarkReadyForCleanupIfDrained()\n[m_work_items empty]\nfrom Disconnect() or OnWorkItemCompleted()
   SE_Ready -[#red]-> SE_Running : RunCleanup()\n[BeginCleanup, on worker]
-  SE_Ready -[#red]-> SE_Finished : ScheduleCleanupJob()\n[no cleanup_callback]
+  SE_Ready -[#red]-> SE_Finished : StartCleanupJob()\n[no cleanup_callback]
   SE_Ready -[#red]-> SE_Failed : TrySubmitCleanup() failed\nor threw
   SE_Running -[#red]-> SE_Finished : cleanup_callback OK
   SE_Running -[#red]-> SE_Failed : cleanup_callback failed\nor threw
 
   SE_Active : do / **R5** connection.Notify(response bytes) [IServerConnection]
   SE_Draining : do / wait for admitted [WorkItem]s to complete
-  SE_Ready : entry / **D5** TrySubmitCleanup(RunCleanup) [Executor]
-  SE_Finished : entry / **D7** OnCleanupFinished(client_id, true) [SessionRegistry]
-  SE_Failed : entry / **D7** OnCleanupFinished(client_id, false) [SessionRegistry]
+  SE_Ready : entry / **D6** TrySubmitCleanup(RunCleanup) [Executor]
+  SE_Finished : entry / **D8** OnCleanupFinished(client_id, true) [SessionRegistry]
+  SE_Failed : entry / **D8** OnCleanupFinished(client_id, false) [SessionRegistry]
 }
 
 state "WorkItem\n(one per request)" as WI {
@@ -166,18 +166,19 @@ SE -[dashed,#green]-> TP : **R5** connection.Notify(response bytes)
 
 ' Flow D (red): disconnect and cleanup
 ROOT_D -[dashed,#red]-> RC : **D1** DetachConnection()
-RC -[dashed,#red]-> SE : **D2** Session::Disconnect()
-SE -[dashed,#red]-> WI : **D3** admitted work items drain before cleanup
-WI -[dashed,#red]-> SE : **R7** / **D4** Complete() calls OnWorkItemCompleted()\n[Session draining and last item: kReadyForCleanup]
-SE -[dashed,#red]-> EX : **D5** TrySubmitCleanup(RunCleanup)
-EX -[dashed,#red]-> SE : **D6** worker runs RunCleanup()
-SE -[dashed,#red]-> RC : **D7** FinishCleanup() calls\nOnCleanupFinished()
+RC -[dashed,#red]-> SE : **D2** Session::BeginDisconnect()\n[before erasing the connection mapping]
+ROOT_D -[dashed,#red]-> SE : **D3** Session::Disconnect()\n[after registry lock release; starts cleanup if ready]
+SE -[dashed,#red]-> WI : **D4** admitted work items drain before cleanup
+WI -[dashed,#red]-> SE : **R7** / **D5** Complete() calls OnWorkItemCompleted()\n[Session draining and last item: kReadyForCleanup]
+SE -[dashed,#red]-> EX : **D6** TrySubmitCleanup(RunCleanup)
+EX -[dashed,#red]-> SE : **D7** worker runs RunCleanup()
+SE -[dashed,#red]-> RC : **D8** FinishCleanup() calls\nOnCleanupFinished()
 
 ' Flow S (blue): server start / stop
 SSM -[dashed,#blue]-> EX : **S1** Start(): executor Start(handler_factory)
 SSM -[dashed,#blue]-> RC : **S2** Start(): StartAcceptConnections()
-SSM -[dashed,#orange]-> RC : **S3** Stop(): StopAcceptConnections(), then DrainConnections()\ncalls DetachAllConnections() [every client: kCleanupPending, like D1]\n**S5** WaitForTermination(): WaitForAllConnectionsClosed()\n[blocks until D7 completed for all clients]
-SSM -[dashed,#orange]-> SE : **S4** DrainConnections() calls Session::Disconnect()\nfor every detached Session, continues as D3 to D7
+SSM -[dashed,#orange]-> RC : **S3** Stop(): StopAcceptConnections(), then DrainConnections()\ncalls DetachAllConnections() [every client is marked kCleanupPending, begins session draining, then loses its mapping]\n**S5** WaitForTermination(): WaitForAllConnectionsClosed()\n[blocks until D8 completed for all clients]
+SSM -[dashed,#orange]-> SE : **S4** DrainConnections() calls Session::Disconnect()\nfor every detached Session after registry unlock, continues as D4 to D8
 SSM -[dashed,#orange]-> EX : **S6** WaitForTermination(): Shutdown() + Join()\n[only after S5, so cleanup jobs (D5) can still be submitted]
 
 legend right
@@ -193,7 +194,7 @@ legend right
   target machine is given in square brackets.
     C1-C2 (purple): OnConnect, connection establishment.
     R1-R7 (green): OnRequest, admission, submission, execution, response.
-    D1-D7 (red): OnDisconnect, draining and cleanup.
+    D1-D8 (red): OnDisconnect, draining and cleanup.
     S1-S2 (blue): ServerStateMachine Start() from kStopped through kStarting.
     S3-S6 (orange): ServerStateMachine Stop() / WaitForTermination() from kStopping.
   Session::Respond() is only allowed while the Session is kActive.

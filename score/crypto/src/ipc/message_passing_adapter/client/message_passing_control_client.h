@@ -63,6 +63,7 @@ class MessagePassingControlClient final
     MessagePassingControlClient(std::unique_ptr<score::message_passing::ClientFactory> factory,
                                 score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection);
 
+    // The score::message_passing client-factory contract requires it to outlive every connection it creates.
     std::unique_ptr<score::message_passing::ClientFactory> m_factory;
     score::crypto::ipc::protocol::FlatBufferCodec m_codec;
     ClientSession m_session;

@@ -29,11 +29,15 @@ participant "DisconnectCleanupCallback" as Cleanup
 Transport -> Server: **OnDisconnect(connection)** callback
 Server -> SessionManager: OnDisconnect(connection)
 SessionManager -> Registry: DetachConnection(connection)
+Registry -> Registry: Mark cleanup pending; increment pending count
+Registry -> Session: BeginDisconnect()
+Registry -> Registry: Erase connection mapping
 Registry --> SessionManager: Detached session
-SessionManager -> Session: Disconnect()
-Session -> Session: Stop admission; drain admitted work
+SessionManager -> Session: Disconnect() [after registry lock release]
+Session -> Session: Drain admitted work; schedule cleanup when ready
 
 note right of Session
+	BeginDisconnect() blocks new work and responses before the registry drops the connection mapping.
 	Admitted operations run to completion before disconnect cleanup starts.
 end note
 

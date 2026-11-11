@@ -160,6 +160,8 @@ PendingCallRegistry::WaitForCallResponse(const daemon::control_plane::protocol::
     if (!result.has_value() && (result.error() == score::crypto::CryptoErrorCode::kOperationResponseTimedOut))
     {
         static_cast<void>(FailCall(request_id, call, score::crypto::CryptoErrorCode::kOperationResponseTimedOut));
+        // The call may finished just after we return from WaitForResponse and before we call FailCall.
+        // A subsequent call to WaitForResponse with zero timeout ensures we get the proper response in that situation.
         result = call->WaitForResponse(std::chrono::steady_clock::now());
         if (!result.has_value() && (result.error() == score::crypto::CryptoErrorCode::kOperationResponseTimedOut))
         {

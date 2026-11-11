@@ -124,6 +124,8 @@ struct ControlRequest
 {
     RequestId request_id;
     ClientId client_id{0U};
+    // ExecutionPolicy is an extension point to provide information to the daemon, how the operation should be executed
+    // A primary use case for ExecutionPolicy could be to specify the priority of the operation.
     ExecutionPolicy execution_policy;
     union
     {
@@ -435,13 +437,14 @@ class OperationResponseBuilder
 /**
  * @brief Validates operation results and parameters in a control response.
  *
- * The validator does not own the operations it examines. The referenced operations response must
- * outlive the validator.
+ * @note The validator does not own the operations it examines. The referenced operations response must outlive the
+ * validator.
  */
 class ControlResponseValidator
 {
   public:
     /// @brief Constructs a validator over caller-owned response operations.
+    /// @note The caller must keep the response alive for the lifetime of the returned validator.
     /// @param response Operations to validate; the vector must outlive this validator.
     /// @param logErrors Whether validation failures should be logged.
     explicit ControlResponseValidator(const std::vector<SingleOperationResponse>& response, bool logErrors = false)
@@ -455,7 +458,7 @@ class ControlResponseValidator
     /// @brief Creates a validator from a Result/Expected-like object.
     ///
     /// Checks has_value() and uses the contained ControlResponse's operations when present.
-    /// The caller must keep the result alive for the lifetime of the returned validator.
+    /// @note The caller must keep the result alive for the lifetime of the returned validator.
     /// @param result Result-like object containing a ControlResponse.
     /// @param logErrors Whether validation failures should be logged.
     template <typename T>

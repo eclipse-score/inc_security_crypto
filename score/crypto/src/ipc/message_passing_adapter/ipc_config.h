@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_IPC_CONFIG_H
 #define SCORE_CRYPTO_IPC_MESSAGE_PASSING_ADAPTER_IPC_CONFIG_H
 
+#include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/ipc/protocol/protocol_config.h"
 
 #include <chrono>
@@ -30,7 +31,7 @@ constexpr std::string_view kScoreConnectionEndpointPrefix = "score://";
 // Shared control endpoint identifier. On Linux, the message-passing transport uses this as an
 // abstract Unix-domain socket name, so no filesystem socket is created. On QNX, the dispatch
 // transport maps the identifier below /mw_com/message_passing/.
-constexpr std::string_view kControlServiceIdentifier = "crypto_daemon.sock";
+constexpr std::string_view kControlServiceIdentifier = score::crypto::daemon::config::IPCConfig::kDefaultEndpoint;
 
 // Total maximum of concurrently active connections
 inline constexpr std::uint32_t kMaxTotalConnections = 128U;

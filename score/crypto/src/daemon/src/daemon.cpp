@@ -30,7 +30,6 @@
 #include "score/crypto/src/daemon/key_management/key_management_module.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager_factory.hpp"
 #include "score/crypto/src/daemon/src/disconnect_cleanup_callback.hpp"
-#include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/message_passing_control_server.h"
 
 namespace score::crypto::daemon
@@ -106,8 +105,8 @@ int main(int argc, char** argv)
     auto cleanup_callback =
         score::crypto::daemon::detail::MakeDisconnectCleanupCallback(data_manager, key_management_service);
 
-    auto server_result =
-        MessagePassingServer::Create(std::move(handler_factory), std::move(authorization), std::move(cleanup_callback));
+    auto server_result = MessagePassingServer::Create(
+        std::move(handler_factory), config.GetIPCConfig(), std::move(authorization), std::move(cleanup_callback));
     if (!server_result.has_value())
     {
         score::mw::log::LogError() << "Failed to create crypto control server";
@@ -118,7 +117,7 @@ int main(int argc, char** argv)
     score::crypto::daemon::SetupSignalHandlers();
 
     // Start is synchronous: a successful result means that the server is listening.
-    const auto start_result = server->Start(score::crypto::ipc::kControlServiceIdentifier);
+    const auto start_result = server->Start();
     if (!start_result.has_value())
     {
         score::mw::log::LogError() << "Failed to start crypto control server"

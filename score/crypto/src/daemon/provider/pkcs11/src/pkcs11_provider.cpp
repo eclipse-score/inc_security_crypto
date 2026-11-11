@@ -157,7 +157,7 @@ bool Pkcs11Provider::QuerySessionLimits() noexcept
     // In both cases cap at a safe default so the pool has a finite upper bound.
     constexpr CK_ULONG kNoLimit{0xFFFFFFFFUL};
     constexpr CK_ULONG kEffectivelyInfinite{0U};
-    constexpr CK_ULONG kDefaultMaxSessions{64UL};
+    constexpr CK_ULONG kDefaultMaxSessions{32UL};
 
     CK_TOKEN_INFO tokenInfo{};
     const CK_RV rv = m_module->GetFunctionList()->C_GetTokenInfo(m_config.slotId, &tokenInfo);

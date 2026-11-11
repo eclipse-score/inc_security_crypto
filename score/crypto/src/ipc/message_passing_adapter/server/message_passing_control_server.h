@@ -13,6 +13,7 @@
 #ifndef SCORE_CRYPTO_IPC_MESSAGE_PASSING_CONTROL_SERVER_H
 #define SCORE_CRYPTO_IPC_MESSAGE_PASSING_CONTROL_SERVER_H
 
+#include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/i_control_server.h"
 #include "score/crypto/src/ipc/message_passing_adapter/server/server_callbacks.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/server/server_state_machine.h"
@@ -60,6 +61,7 @@ class MessagePassingControlServer final : public daemon::control_plane::IControl
     static score::crypto::Expected<std::unique_ptr<MessagePassingControlServer>,
                                    score::crypto::daemon::common::DaemonErrorCode>
     Create(std::unique_ptr<daemon::control_plane::IHandlerChainFactory> factory,
+           const daemon::config::IPCConfig& config,
            AuthorizationCallback authorization = {},
            DisconnectCleanupCallback cleanup_callback = {}) noexcept;
     ~MessagePassingControlServer() noexcept override;
@@ -69,19 +71,19 @@ class MessagePassingControlServer final : public daemon::control_plane::IControl
     MessagePassingControlServer(MessagePassingControlServer&&) = delete;
     MessagePassingControlServer& operator=(MessagePassingControlServer&&) = delete;
 
-    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Start(
-        std::string_view service_identifier) noexcept override;
+    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+    Start() noexcept override;
     void Stop() noexcept override;
     void WaitForTermination() noexcept override;
 
   private:
     MessagePassingControlServer(std::unique_ptr<daemon::control_plane::IHandlerChainFactory> factory,
+                                const daemon::config::IPCConfig& config,
                                 AuthorizationCallback authorization,
                                 DisconnectCleanupCallback cleanup_callback);
 
     static score::message_passing::IServerFactory::ServerConfig BuildServerConfig() noexcept;
-    static score::message_passing::ServiceProtocolConfig BuildProtocolConfig(
-        std::string_view service_identifier) noexcept;
+    static score::message_passing::ServiceProtocolConfig BuildProtocolConfig(std::string_view endpoint) noexcept;
 
     score::cpp::expected<score::message_passing::UserData, score::os::Error> OnConnect(
         score::message_passing::IServerConnection& connection) noexcept;
@@ -90,9 +92,12 @@ class MessagePassingControlServer final : public daemon::control_plane::IControl
                                                            score::cpp::span<const std::uint8_t> message) noexcept;
     void RollbackStartup() noexcept;
 
+    // The score::message_passing server-factory holds the memory resources for the server.
+    // Keep the factory alive until m_message_server is destroyed.
     std::unique_ptr<score::message_passing::ServerFactory> m_server_factory;
     score::cpp::pmr::unique_ptr<score::message_passing::IServer> m_message_server;
     std::unique_ptr<daemon::control_plane::IHandlerChainFactory> m_handler_chain_factory;
+    daemon::config::IPCConfig m_ipc_config;
 
     FixedWorkerWorkItemExecutor m_work_item_executor;
     score::crypto::ipc::protocol::FlatBufferCodec m_codec;

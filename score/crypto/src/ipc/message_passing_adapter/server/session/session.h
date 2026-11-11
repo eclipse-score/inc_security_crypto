@@ -72,7 +72,11 @@ class Session final : public std::enable_shared_from_this<Session>
     score::crypto::Expected<std::shared_ptr<WorkItem>, score::crypto::daemon::common::DaemonErrorCode> TryAdmitWorkItem(
         std::shared_ptr<WorkItem> item) noexcept;
 
-    /// @brief Initiates the disconnection process for this session, triggering cleanup if necessary.
+    /// @brief Stops admission and response sending without scheduling cleanup.
+    /// @note Used by the registry before removing the connection mapping.
+    void BeginDisconnect() noexcept;
+
+    /// @brief Continues disconnection and schedules cleanup when the work queue is drained.
     void Disconnect() noexcept;
 
     /// @brief Checks if the session is currently active.
@@ -99,13 +103,13 @@ class Session final : public std::enable_shared_from_this<Session>
     /// @param item The work item that has completed.
     void OnWorkItemCompleted(const WorkItem& item) noexcept;
 
-    /// @brief Attempts to claim cleanup responsibility if the session is ready for cleanup.
+    /// @brief Marks the session ready for cleanup when draining has completed.
     /// @param lock A lock guard for the session's mutex.
-    /// @return True if cleanup was successfully claimed, false otherwise.
-    bool ClaimCleanupIfReady(std::lock_guard<std::mutex>& lock) noexcept;
+    /// @return True if the state transitioned to ready-for-cleanup, false otherwise.
+    bool MarkReadyForCleanupIfDrained(std::lock_guard<std::mutex>& lock) noexcept;
 
-    /// @brief Schedules a cleanup job for this session.
-    void ScheduleCleanupJob() noexcept;
+    /// @brief Starts the cleanup stage for this session.
+    void StartCleanupJob() noexcept;
 
     /// @brief Submitted function at cleanup.
     /// @return The result of the cleanup job.

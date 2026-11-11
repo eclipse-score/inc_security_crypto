@@ -69,6 +69,8 @@ table ValueUint64 { val: uint64; }
 table String { val: string; }
 table DataBufferInBand { val: [uint8]; }
 
+// ExecutionPolicy is an extension point to provide information to the daemon, how the operation should be executed
+// A primary use case for ExecutionPolicy could be to specify the priority of the operation.
 table ExecutionPolicy {
 }
 

@@ -18,7 +18,10 @@ cc_library(
     hdrs = ["ipc_config.h"],
     linkstatic = True,
     visibility = ["//:__subpackages__"],
-    deps = ["//score/crypto/src/ipc/protocol:protocol_config"],
+    deps = [
+        "//score/crypto/src/daemon/config:config_types",
+        "//score/crypto/src/ipc/protocol:protocol_config",
+    ],
 )
 
 cc_library(
@@ -79,6 +82,7 @@ cc_library(
     deps = [
         "//score/crypto/src/ipc/protocol:protocol",
         "//score/crypto/src/daemon/control_plane",
+        "//score/crypto/src/daemon/config",
         ":ipc_config",
         "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/mw/log",

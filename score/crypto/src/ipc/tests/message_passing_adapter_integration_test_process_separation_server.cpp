@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/ipc/tests/message_passing_adapter_integration_test_process_separation_common.h"
 
+#include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
@@ -41,6 +42,13 @@ namespace
 namespace process_test = score::crypto::ipc::message_passing::process_test;
 namespace protocol = score::crypto::daemon::control_plane::protocol;
 using DaemonErrorCode = score::crypto::daemon::common::DaemonErrorCode;
+
+score::crypto::daemon::config::IPCConfig MakeIPCConfig(const std::string_view endpoint)
+{
+    score::crypto::daemon::config::IPCConfig config{};
+    config.SetEndpoint(endpoint);
+    return config;
+}
 
 class DisconnectCleanupObserver final
 {
@@ -138,14 +146,16 @@ TEST(MessagePassingServerProcessTest, StopsAfterTerminationSignal)
     const auto signal_mask_result = ::pthread_sigmask(SIG_BLOCK, &shutdown_signals, nullptr);
     ASSERT_EQ(signal_mask_result, 0) << "Failed to block shutdown signals";
 
+    const auto ipc_config = MakeIPCConfig(service_identifier);
     auto server_result = score::crypto::ipc::message_passing::MessagePassingControlServer::Create(
         std::make_unique<EchoHandlerFactory>(),
+        ipc_config,
         [](const auto, const auto) -> score::crypto::Expected<bool, DaemonErrorCode> {
             return score::crypto::Expected<bool, DaemonErrorCode>{true};
         });
     ASSERT_TRUE(server_result.has_value()) << "Failed to create message-passing server";
     auto server = std::move(server_result).value();
-    const auto start_result = server->Start(service_identifier);
+    const auto start_result = server->Start();
     ASSERT_TRUE(start_result.has_value()) << "Failed to start message-passing server";
 
     std::cout << "SERVER_READY\n" << std::flush;
@@ -182,11 +192,12 @@ TEST(MessagePassingServerProcessTest, DeniesClientMatchingServerUid)
         return score::crypto::Expected<bool, DaemonErrorCode>{client_uid != server_uid};
     };
 
+    const auto ipc_config = MakeIPCConfig(service_identifier);
     auto server_result = score::crypto::ipc::message_passing::MessagePassingControlServer::Create(
-        std::make_unique<EchoHandlerFactory>(), authorization_callback);
+        std::make_unique<EchoHandlerFactory>(), ipc_config, authorization_callback);
     ASSERT_TRUE(server_result.has_value()) << "Failed to create message-passing server";
     auto server = std::move(server_result).value();
-    const auto start_result = server->Start(service_identifier);
+    const auto start_result = server->Start();
     ASSERT_TRUE(start_result.has_value()) << "Failed to start message-passing server";
 
     std::cout << "SERVER_READY\n" << std::flush;
@@ -198,6 +209,58 @@ TEST(MessagePassingServerProcessTest, DeniesClientMatchingServerUid)
     ASSERT_TRUE(authorization_callback_invoked.load(std::memory_order_acquire))
         << "Authorization callback was not invoked";
     EXPECT_EQ(observed_client_uid.load(std::memory_order_relaxed), server_uid);
+    EXPECT_EQ(received_signal, SIGTERM);
+}
+
+TEST(MessagePassingServerProcessTest, AuthorizesConnectionsByEffectiveUid)
+{
+    const char* service_identifier_env = std::getenv("MESSAGE_PASSING_SERVICE_ID");
+    const std::string_view service_identifier = (service_identifier_env == nullptr)
+                                                    ? process_test::kServiceIdentifier
+                                                    : std::string_view{service_identifier_env};
+    ASSERT_FALSE(service_identifier.empty());
+
+    sigset_t shutdown_signals{};
+    ASSERT_EQ(::sigemptyset(&shutdown_signals), 0);
+    ASSERT_EQ(::sigaddset(&shutdown_signals, SIGINT), 0);
+    ASSERT_EQ(::sigaddset(&shutdown_signals, SIGTERM), 0);
+    const auto signal_mask_result = ::pthread_sigmask(SIG_BLOCK, &shutdown_signals, nullptr);
+    ASSERT_EQ(signal_mask_result, 0) << "Failed to block shutdown signals";
+
+    std::atomic<bool> allowed_uid_observed{false};
+    std::atomic<bool> denied_uid_observed{false};
+    const auto authorization_callback = [&allowed_uid_observed, &denied_uid_observed](const uid_t client_uid,
+                                                                                      const gid_t) {
+        if (client_uid == static_cast<uid_t>(process_test::kAllowedNonRootUid))
+        {
+            allowed_uid_observed.store(true, std::memory_order_release);
+            return score::crypto::Expected<bool, DaemonErrorCode>{true};
+        }
+        if (client_uid == static_cast<uid_t>(process_test::kDeniedNonRootUid))
+        {
+            denied_uid_observed.store(true, std::memory_order_release);
+        }
+        return score::crypto::Expected<bool, DaemonErrorCode>{false};
+    };
+
+    const auto ipc_config = MakeIPCConfig(service_identifier);
+    auto server_result = score::crypto::ipc::message_passing::MessagePassingControlServer::Create(
+        std::make_unique<EchoHandlerFactory>(), ipc_config, authorization_callback);
+    ASSERT_TRUE(server_result.has_value()) << "Failed to create message-passing server";
+    auto server = std::move(server_result).value();
+    const auto start_result = server->Start();
+    ASSERT_TRUE(start_result.has_value()) << "Failed to start message-passing server";
+
+    std::cout << "SERVER_READY\n" << std::flush;
+    int received_signal{0};
+    const auto wait_result = ::sigwait(&shutdown_signals, &received_signal);
+    server->Stop();
+    server->WaitForTermination();
+    ASSERT_EQ(wait_result, 0) << "Failed while waiting for shutdown signal";
+    EXPECT_TRUE(allowed_uid_observed.load(std::memory_order_acquire))
+        << "The server did not observe the allowed non-root UID";
+    EXPECT_TRUE(denied_uid_observed.load(std::memory_order_acquire))
+        << "The server did not observe the denied non-root UID on the new connection";
     EXPECT_EQ(received_signal, SIGTERM);
 }
 
@@ -217,8 +280,10 @@ TEST(MessagePassingServerProcessTest, RunsCleanupAfterClientProcessDisconnects)
     ASSERT_EQ(signal_mask_result, 0) << "Failed to block shutdown signals";
 
     const auto cleanup_observer = std::make_shared<DisconnectCleanupObserver>();
+    const auto ipc_config = MakeIPCConfig(service_identifier);
     auto server_result = score::crypto::ipc::message_passing::MessagePassingControlServer::Create(
         std::make_unique<EchoHandlerFactory>(),
+        ipc_config,
         [](const auto, const auto) -> score::crypto::Expected<bool, DaemonErrorCode> {
             return score::crypto::Expected<bool, DaemonErrorCode>{true};
         },
@@ -228,7 +293,7 @@ TEST(MessagePassingServerProcessTest, RunsCleanupAfterClientProcessDisconnects)
         });
     ASSERT_TRUE(server_result.has_value()) << "Failed to create message-passing server";
     auto server = std::move(server_result).value();
-    const auto start_result = server->Start(service_identifier);
+    const auto start_result = server->Start();
     ASSERT_TRUE(start_result.has_value()) << "Failed to start message-passing server";
 
     std::cout << "SERVER_READY\n" << std::flush;

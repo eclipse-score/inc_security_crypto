@@ -28,6 +28,7 @@ cc_binary(
         ":message_passing_adapter_integration_test_process_separatio_common",
         "//score/crypto/src/ipc/message_passing_adapter:message_passing_server",
         "//score/crypto/src/daemon/control_plane",
+        "//score/crypto/src/daemon/config",
         "@googletest//:gtest_main",
     ],
     testonly = True,
@@ -52,6 +53,7 @@ cc_test(
         "//score/crypto/src/ipc/message_passing_adapter:message_passing_client",
         "//score/crypto/src/ipc/message_passing_adapter:message_passing_server",
         "//score/crypto/src/ipc/message_passing_adapter:ipc_config",
+        "//score/crypto/src/daemon/config",
         "@googletest//:gtest_main",
     ],
 )

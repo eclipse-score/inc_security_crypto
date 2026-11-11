@@ -125,15 +125,15 @@ void Session::OnWorkItemCompleted(const WorkItem& item) noexcept
             return;
         }
         m_work_items.erase(iterator);
-        cleanup_ready = ClaimCleanupIfReady(lock);
+        cleanup_ready = MarkReadyForCleanupIfDrained(lock);
     }
     if (cleanup_ready)
     {
-        ScheduleCleanupJob();
+        StartCleanupJob();
     }
 }
 
-bool Session::ClaimCleanupIfReady(std::lock_guard<std::mutex>& lock) noexcept
+bool Session::MarkReadyForCleanupIfDrained(std::lock_guard<std::mutex>& lock) noexcept
 {
     static_cast<void>(lock);
     if ((m_state != SessionState::kDrainingWork) || !m_work_items.empty())
@@ -144,7 +144,7 @@ bool Session::ClaimCleanupIfReady(std::lock_guard<std::mutex>& lock) noexcept
     return true;
 }
 
-void Session::ScheduleCleanupJob() noexcept
+void Session::StartCleanupJob() noexcept
 {
     if (!m_cleanup_callback)
     {
@@ -175,31 +175,29 @@ void Session::ScheduleCleanupJob() noexcept
     }
 }
 
+void Session::BeginDisconnect() noexcept
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_state == SessionState::kActive)
+    {
+        m_state = SessionState::kDrainingWork;
+    }
+}
+
 void Session::Disconnect() noexcept
 {
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_state == SessionState::kCleanupFinished || m_state == SessionState::kCleanupFailed)
-        {
-            return;
-        }
-        if (m_state == SessionState::kActive)
-        {
-            m_state = SessionState::kDrainingWork;
-        }
-    }
-
+    BeginDisconnect();
     bool cleanup_ready{false};
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        cleanup_ready = ClaimCleanupIfReady(lock);
+        cleanup_ready = MarkReadyForCleanupIfDrained(lock);
     }
 
     // If cleanup is ready, schedule the cleanup job.
     // Otherwise, cleanup will be scheduled later when the last work item completes.
     if (cleanup_ready)
     {
-        ScheduleCleanupJob();
+        StartCleanupJob();
     }
 }
 

@@ -109,6 +109,9 @@ class TestMessagePassingAdapterProcesses:
     def test_server_denies_client_matching_its_uid(
         self, target: Target, target_os: str, install_dir: str, deploy: None
     ):
+        # Basic tests to check working of UID retrieval and authorization
+        # Can be executed without the need for root privileges
+
         service_identifier = f"mp_uid_deny_{uuid.uuid4().hex}"
         logger.info(f"Starting UID-authorization process test for service {service_identifier}")
         process_env = {
@@ -173,6 +176,85 @@ class TestMessagePassingAdapterProcesses:
         assert "[  PASSED  ] 1 test." in client_log, f"UID-denied client GTest failed:\n{client_log}"
         assert server_stopped, f"UID-denying server did not stop after SIGTERM:\n{server_log}"
         assert "[  PASSED  ] 1 test." in server_log, f"UID-denying server GTest failed:\n{server_log}"
+
+    def test_client_identification_and_access_control(
+        self, target: Target, target_os: str, install_dir: str, deploy: None
+    ):
+        # Extended test to verify client identification and access control based on effective UID
+        # This test requires the target process to have root privileges to manipulate effective UIDs for testing access control
+
+        uid_exit_code, uid_output = target.execute("id -u")
+        if uid_exit_code != 0 or uid_output.decode().strip() != "0":
+            pytest.skip("Effective-UID identity test requires a privileged target process")
+
+        service_identifier = f"mp_client_access_{uuid.uuid4().hex}"
+        process_env = {
+            "LD_LIBRARY_PATH": f"{install_dir}/lib:$LD_LIBRARY_PATH",
+            "MW_LOG_CONFIG_FILE": f"{install_dir}/etc/logging.json",
+            "MESSAGE_PASSING_SERVICE_ID": service_identifier,
+        }
+        server_process = ProcessRunner(
+            target,
+            Path(f"{install_dir}/bin/message_passing_adapter_integration_test_process_separation_server"),
+            Path(f"/tmp/{service_identifier}_server.log"),
+            target_os=target_os,
+            env=process_env,
+            args=["--gtest_filter=MessagePassingServerProcessTest.AuthorizesConnectionsByEffectiveUid"],
+        )
+        client_executable = Path(
+            f"{install_dir}/bin/message_passing_adapter_integration_test_process_separation_client"
+        )
+        if target_os == "QNX":
+            on_exit_code, on_output = target.execute("command -v on")
+            if on_exit_code != 0 or not on_output.decode().strip():
+                pytest.skip("QNX effective-UID test requires the on launcher")
+            client_executable = Path(on_output.decode().strip())
+            client_arguments = [
+                "-u",
+                "0",
+                f"{install_dir}/bin/message_passing_adapter_integration_test_process_separation_client",
+                "--gtest_filter=MessagePassingClientProcessTest.AuthorizationUsesEffectiveUidFromConnectionTime",
+            ]
+        else:
+            client_arguments = [
+                "--gtest_filter=MessagePassingClientProcessTest.AuthorizationUsesEffectiveUidFromConnectionTime"
+            ]
+        client_process = ProcessRunner(
+            target,
+            client_executable,
+            Path(f"/tmp/{service_identifier}_client.log"),
+            target_os=target_os,
+            env=process_env,
+            args=client_arguments,
+        )
+
+        assert server_process.start(), server_process.get_log_contents()
+        server_ready = False
+        client_exit_code = None
+        server_stopped = False
+        server_log = ""
+        client_log = ""
+        try:
+            for attempt in range(50):
+                server_log = server_process.get_log_contents()
+                if "SERVER_READY" in server_log:
+                    server_ready = True
+                    break
+                time.sleep(0.1)
+
+            if server_ready:
+                client_exit_code = client_process.run()
+        finally:
+            server_stopped = server_process.terminate(timeout=5)
+            server_log = server_process.get_log_contents()
+            if client_exit_code is not None:
+                client_log = client_process.get_log_contents()
+
+        assert server_ready, f"UID-snapshot server did not become ready:\n{server_log}"
+        assert client_exit_code == 0, f"Client access-control GTest failed:\n{client_log}"
+        assert "[  PASSED  ] 1 test." in client_log, f"Client access-control GTest failed:\n{client_log}"
+        assert server_stopped, f"Access-control server did not stop after SIGTERM:\n{server_log}"
+        assert "[  PASSED  ] 1 test." in server_log, f"Server access-control GTest failed:\n{server_log}"
 
     def test_client_unblocks_after_timeout_plus_grace(
         self, target: Target, target_os: str, install_dir: str, deploy: None
