@@ -298,10 +298,15 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0], true);
     if (!inputSpan.has_value())
     {
         return make_unexpected(inputSpan.error());
+    }
+    // An empty chunk adds nothing to the MAC; skipping it spares the token a null pPart.
+    if (inputSpan.value().empty())
+    {
+        return std::monostate{};
     }
 
     // MISRA C++:2023 Rule 8.2.3 deviation — C_SignUpdate requires non-const pPart;
@@ -493,10 +498,15 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11M
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInsufficientParameters);
     }
 
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0]);
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(request[0], true);
     if (!inputSpan.has_value())
     {
         return make_unexpected(inputSpan.error());
+    }
+    // An empty chunk adds nothing to the MAC; skipping it spares the token a null pPart.
+    if (inputSpan.value().empty())
+    {
+        return std::monostate{};
     }
 
     // MISRA C++:2023 Rule 8.2.3 deviation — C_VerifyUpdate requires non-const pPart;

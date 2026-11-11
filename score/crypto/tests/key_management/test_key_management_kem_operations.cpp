@@ -778,7 +778,7 @@ TEST(KeyManagementContextTest, GenerateKeyMapsTransportFailureToKeyGenerationFai
     EXPECT_EQ(result.error(), score::crypto::MakeError(score::crypto::CryptoErrorCode::kKeyGenerationFailed));
 }
 
-TEST(KeyManagementContextTest, GenerateKeyMapsDaemonFailureToKeyGenerationFailed)
+TEST(KeyManagementContextTest, GenerateKeyForwardsDaemonErrorCode)
 {
     auto connection = std::make_shared<RecordingConnection>();
     score::crypto::KeyManagementContextImpl context{connection, 44U};
@@ -793,7 +793,7 @@ TEST(KeyManagementContextTest, GenerateKeyMapsDaemonFailureToKeyGenerationFailed
     auto result = context.GenerateKey(params);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), score::crypto::MakeError(score::crypto::CryptoErrorCode::kKeyGenerationFailed));
+    EXPECT_EQ(result.error(), score::crypto::MakeError(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm));
 }
 
 TEST(KeyManagementContextTest, GenerateKeyRejectsMissingOrMistypedResourceIds)
