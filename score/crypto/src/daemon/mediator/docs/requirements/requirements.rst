@@ -37,7 +37,7 @@ restated here.
 Functional requirements
 -----------------------
 
-.. comp_req:: Validate context-creation requests before selecting a provider
+.. comp_req:: Validate context-creation requests before selecting a handler
    :id: comp_req__crypto_mediator__decode_validate
    :version: 1
    :reqtype: Functional
@@ -47,7 +47,7 @@ Functional requirements
    :satisfied_by: comp__crypto_mediator
 
    The mediator shall refuse a context-creation request that fails validation
-   without selecting a provider or creating a data node. Checks shall run in a
+   without selecting a handler or creating a data node. Checks shall run in a
    fixed order and the first failure shall be the error the client receives:
    parameter count, context type, algorithm, provider preference, key reference,
    key requirement of the context type, algorithm catalog lookup.
@@ -191,7 +191,7 @@ Functional requirements
    through that factory, without selecting a provider, and shall create and
    initialize the context node as it does for any other context. The factory
    shall receive the validated request. A factory error shall be returned to the
-   client and no node shall remain. A request for such a type that references a
+   client as a public error code and no node shall remain. A request for such a type that references a
    key shall be refused as not permitted, and the factory shall not be called.
 
 .. comp_req:: Dispatch an operation without a built-in handler to its registered query
