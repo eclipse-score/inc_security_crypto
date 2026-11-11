@@ -119,3 +119,15 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "context_operation_error_code_test",
+    srcs = ["src/context_operation_error_code_test.cpp"],
+    deps = [
+        ":crypto_contexts_impl",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/api/data_plane:data_plane_client",
+        "//score/crypto/src/daemon/common",
+        "@googletest//:gtest_main",
+    ],
+)
