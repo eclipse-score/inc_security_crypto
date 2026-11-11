@@ -25,7 +25,7 @@ Mediator
 
 The mediator is the daemon subcomponent that routes client operations to the
 subsystem that serves them. For context creation it decodes the request,
-arbitrates a provider, and assembles the context node; the other operations it
+selects the handler, through a registered factory or a provider, and assembles the context node; the other operations it
 handles itself or forwards to the context's handler.
 
 .. toctree::

@@ -23,6 +23,7 @@ skinparam sequenceMessageAlign center
 actor Client
 participant "MediatorImpl" as Mediator
 participant "Decoder" as Decoder
+participant "HandlerSelector" as Selector
 participant "Context factory\n(registered)" as Factory
 participant "ProviderArbiter" as Arbiter
 participant "ContextAssembler" as Assembler
@@ -38,34 +39,40 @@ alt validation fails
   note right: No provider is asked.\nNo node is created.
 else valid
   Decoder --> Mediator : ContextCreationRequest
+  Mediator -> Selector : Select(client, request)
   alt a factory is registered for the context type
     alt the request references a key
-      Mediator --> Client : kKeyOperationNotPermitted
-      note right: The factory is not called.
+      note right of Selector: The factory is not called;\nthe error is kKeyOperationNotPermitted.
     else
-      Mediator -> Factory : Create(request)
-      Factory --> Mediator : handler, or error (returned to the client)
+      Selector -> Factory : Create(request)
+      Factory --> Selector : handler, or error
     end
   else provider-served type
-    Mediator -> Arbiter : Select(request)
+    Selector -> Arbiter : Select(request)
     opt key referenced
       Arbiter -> KeyMgmt : ResolveTargetProvider
     end
-    Arbiter --> Mediator : provider + handler, or error
+    Arbiter --> Selector : provider + handler, or error
   end
-  Mediator -> Assembler : Assemble(request, handler)
-  Assembler -> DataMgr : add context node under connection
-  opt key referenced
-    Assembler -> KeyMgmt : BindAndAuthorize
-  end
-  Assembler -> Handler : InitializeContext(identity, bound key,\nunchanged creation parameters)
-  alt bind or initialization fails
-    Assembler -> DataMgr : remove context node
-    Assembler --> Mediator : error
-    Mediator --> Client : error as public code
-  else
-    Assembler --> Mediator : context node id
-    Mediator --> Client : context node id
+  alt selection failed
+    Selector --> Mediator : error as public code
+    Mediator --> Client : error
+  else handler chosen
+    Selector --> Mediator : handler, and the provider if there is one
+    Mediator -> Assembler : Assemble(request, handler)
+    Assembler -> DataMgr : add context node under connection
+    opt key referenced
+      Assembler -> KeyMgmt : BindAndAuthorize
+    end
+    Assembler -> Handler : InitializeContext(identity, bound key,\nunchanged creation parameters)
+    alt bind or initialization fails
+      Assembler -> DataMgr : remove context node
+      Assembler --> Mediator : error
+      Mediator --> Client : error as public code
+    else
+      Assembler --> Mediator : context node id
+      Mediator --> Client : context node id
+    end
   end
 end
 @enduml

@@ -23,9 +23,10 @@ skinparam ArrowColor #46535E
 package "mediator" {
   [MediatorImpl\n<size:9>dispatch, forwarding, close</size>] as Mediator #DCEFE2
   [DecodeContextCreationRequest] as Decoder
+  [HandlerSelector] as Selector
   [ProviderArbiter] as Arbiter
   [ContextAssembler] as Assembler
-  [MediatorFactory\n<size:9>builds registries, arbiter, assembler</size>] as Factory #DCEFE2
+  [MediatorFactory\n<size:9>builds registries, selector, assembler</size>] as Factory #DCEFE2
 }
 
 package "daemon/common/context" {
@@ -53,7 +54,7 @@ package "daemon/data_manager" {
 }
 
 Mediator --> Decoder : CTX_CREATE parameters
-Mediator --> Arbiter
+Mediator --> Selector
 Mediator --> Assembler
 Mediator --> IDataManager : forwarding, close
 Mediator --> Registries : looks up, read-only
@@ -61,6 +62,7 @@ Mediator --> Registries : looks up, read-only
 Factory ..> Mediator : creates
 Factory --> Registries : builds
 Factory --> IMediatorRegistrar : calls Register
+Factory ..> Selector : builds once
 Factory ..> Arbiter : builds once
 Factory ..> Assembler : builds once
 KeyModule ..|> IMediatorRegistrar
@@ -68,6 +70,8 @@ KeyModule --> KeyMgmt
 
 Decoder ..> Selection
 
+Selector --> Registries : factory lookup
+Selector --> Arbiter : provider-served types
 Arbiter --> Providers
 Arbiter --> KeyMgmt : key affinity
 Arbiter ..> ICryptoHandlerFactory : creates handler

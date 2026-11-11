@@ -28,11 +28,11 @@ namespace score::crypto::daemon::common
 /// @brief Validated CTX_CREATE request. Views point into the operation's parameters.
 struct ContextCreationRequest final
 {
-    std::string_view context_type;             ///< Context type from the CTX_CREATE request.
-    std::string_view algorithm;                ///< Requested algorithm name; may be empty.
+    std::string_view context_type;                    ///< Context type from the CTX_CREATE request.
+    std::string_view algorithm;                       ///< Requested algorithm name; may be empty.
     ProviderTypePreference provider_type_preference;  ///< Primary provider type and optional fallback.
-    std::optional<std::uint64_t> key_node_id;  ///< Optional key or key-slot node to bind.
-    std::optional<ContextMode> mode;           ///< Optional mode used to determine key permission.
+    std::optional<std::uint64_t> key_node_id;         ///< Optional key or key-slot node to bind.
+    std::optional<ContextMode> mode;                  ///< Optional mode used to determine key permission.
     ProviderCapability required_capability{ProviderCapability::kNone};  ///< Capability required by the context scope.
     std::optional<AlgorithmDescriptor> algorithm_descriptor;  ///< Catalog entry, absent when no algorithm is required.
 };

@@ -13,8 +13,8 @@
 
 #include "score/crypto/src/daemon/mediator/src/handler_selector.hpp"
 
-#include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/context/i_context_factory.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 
 #include "score/mw/log/logging.h"
 
@@ -53,12 +53,13 @@ score::crypto::Expected<HandlerSelection, score::crypto::CryptoErrorCode> Handle
         return HandlerSelection{std::move(created).value(), nullptr, false};
     }
 
-    auto selection = m_arbiter->Select(ProviderSelectionRequest{.client_id = client_id,
-                                                                .key_node_id = request.key_node_id,
-                                                                .context_type = request.context_type,
-                                                                .algorithm = request.algorithm_descriptor,
-                                                                .provider_type_preference = request.provider_type_preference,
-                                                                .required_capability = request.required_capability});
+    auto selection =
+        m_arbiter->Select(ProviderSelectionRequest{.client_id = client_id,
+                                                   .key_node_id = request.key_node_id,
+                                                   .context_type = request.context_type,
+                                                   .algorithm = request.algorithm_descriptor,
+                                                   .provider_type_preference = request.provider_type_preference,
+                                                   .required_capability = request.required_capability});
     if (!selection.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No compatible provider/handler for: "
