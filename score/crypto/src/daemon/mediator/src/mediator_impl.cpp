@@ -50,7 +50,7 @@
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/crypto/src/daemon/mediator/src/context_assembler.hpp"
 #include "score/crypto/src/daemon/mediator/src/context_creation_decoder.hpp"
-#include "score/crypto/src/daemon/mediator/src/provider_arbiter.hpp"
+#include "score/crypto/src/daemon/mediator/src/handler_selector.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
@@ -243,52 +243,6 @@ bool MediatorImpl::ForwardSingleOperation(const control_plane::ControlRequest& r
     return ExecuteOperation(exec_ctx, handler, responseBuilder);
 }
 
-bool MediatorImpl::CreateContextFromFactory(const control_plane::ControlRequest& request,
-                                            const control_plane::SingleOperationRequest& operation,
-                                            const common::ContextCreationRequest& decoded,
-                                            common::IContextFactory& factory,
-                                            control_plane::protocol::OperationResponseBuilder& responseBuilder)
-{
-    if (decoded.key_node_id.has_value())
-    {
-        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Context type " << decoded.context_type
-                                   << " is served by a subsystem and does not accept a key reference";
-        responseBuilder.operation(operation.operationId)
-            .return_error(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
-        return false;
-    }
-
-    auto handler = factory.Create(decoded);
-    if (!handler.has_value())
-    {
-        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Context factory failed for: " << decoded.context_type;
-        responseBuilder.operation(operation.operationId).return_error(handler.error());
-        return false;
-    }
-
-    // A context created by a factory is not bound to a provider, so no provider identifier is recorded.
-    const auto context_node_id = m_assembler->Assemble(ContextAssemblyRequest{.client_id = request.client_id,
-                                                                              .connection_id = request.data_node_id,
-                                                                              .provider_id = common::kInvalidProviderId,
-                                                                              .algorithm = decoded.algorithm_descriptor,
-                                                                              .context_type = decoded.context_type,
-                                                                              .key_node_id = std::nullopt,
-                                                                              .mode = decoded.mode,
-                                                                              .raw_parameters = operation.parameters},
-                                                       handler.value());
-    if (!context_node_id.has_value())
-    {
-        responseBuilder.operation(operation.operationId).return_error(context_node_id.error());
-        return false;
-    }
-
-    score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << decoded.context_type
-                                 << "] created by registered factory, context_id=" << context_node_id.value();
-
-    responseBuilder.operation(operation.operationId).return_success().return_value_uint64(context_node_id.value());
-    return true;
-}
-
 bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::control_plane::ControlRequest& request,
                                                   const control_plane::SingleOperationRequest& operation,
                                                   control_plane::protocol::OperationResponseBuilder& responseBuilder)
@@ -302,19 +256,8 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     }
     const auto& req = decoded.value();
 
-    // A context type with a registered factory is created by that factory and skips provider selection.
-    if (const auto factory = m_context_factories->Find(req.context_type); factory)
-    {
-        return CreateContextFromFactory(request, operation, req, *factory, responseBuilder);
-    }
-
-    // Provider and handler selection.
-    const auto selection = m_arbiter->Select(ProviderSelectionRequest{.client_id = request.client_id,
-                                                                      .key_node_id = req.key_node_id,
-                                                                      .context_type = req.context_type,
-                                                                      .algorithm = req.algorithm_descriptor,
-                                                                      .provider = req.provider,
-                                                                      .required_capability = req.required_capability});
+    // Subsystem-served types are created by their factory; every other type is served by a provider.
+    const auto selection = m_handler_selector->Select(request.client_id, req);
     if (!selection.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - No compatible provider/handler for: " << req.context_type
@@ -323,12 +266,13 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         return false;
     }
     const auto& chosen = selection.value();
+    const auto provider_id = chosen.provider ? chosen.provider->GetProviderId() : common::kInvalidProviderId;
 
     // Context node creation, optional key binding, and handler initialization.
     const auto context_node_id =
         m_assembler->Assemble(ContextAssemblyRequest{.client_id = request.client_id,
                                                      .connection_id = request.data_node_id,
-                                                     .provider_id = chosen.provider->GetProviderId(),
+                                                     .provider_id = provider_id,
                                                      .algorithm = req.algorithm_descriptor,
                                                      .context_type = req.context_type,
                                                      .key_node_id = req.key_node_id,
@@ -341,15 +285,23 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         return false;
     }
 
-    const std::string_view provider_selection = chosen.used_fallback          ? " (preferred-provider fallback)"
-                                                : req.key_node_id.has_value() ? " (key-affinity resolved)"
-                                                : req.required_capability != common::ProviderCapability::kNone
-                                                    ? " (capability-based selection)"
-                                                    : " (type-based selection)";
-    score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << req.context_type << "/" << req.algorithm
-                                 << "] selected provider: name='" << chosen.provider->GetProviderName()
-                                 << "' id=" << chosen.provider->GetProviderId() << provider_selection
-                                 << ", context_id=" << context_node_id.value();
+    if (chosen.provider)
+    {
+        const std::string_view provider_selection = chosen.used_fallback          ? " (preferred-provider fallback)"
+                                                    : req.key_node_id.has_value() ? " (key-affinity resolved)"
+                                                    : req.required_capability != common::ProviderCapability::kNone
+                                                        ? " (capability-based selection)"
+                                                        : " (type-based selection)";
+        score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << req.context_type << "/" << req.algorithm
+                                     << "] selected provider: name='" << chosen.provider->GetProviderName()
+                                     << "' id=" << chosen.provider->GetProviderId() << provider_selection
+                                     << ", context_id=" << context_node_id.value();
+    }
+    else
+    {
+        score::mw::log::LogVerbose() << "[SCORE_API_MED] CTX_CREATE [" << req.context_type
+                                     << "] created by subsystem factory, context_id=" << context_node_id.value();
+    }
 
     // Return context_id in response (no return_result for CTX_* operations)
     responseBuilder.operation(operation.operationId).return_success().return_value_uint64(context_node_id.value());
@@ -472,8 +424,8 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
                 return false;
             }
 
-            const auto provider_preference = DecodeProviderTypePreference(static_cast<std::uint8_t>(type_hint.value()));
-            if (!provider_preference.has_value())
+            const auto provider_type_preference = DecodeProviderTypePreference(static_cast<std::uint8_t>(type_hint.value()));
+            if (!provider_type_preference.has_value())
             {
                 score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] Unknown provider type hint";
                 responseBuilder.operation(operation.operationId)
@@ -481,10 +433,10 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
                 return false;
             }
 
-            provider = m_provider_manager->GetProvider(provider_preference.value().primary);
-            if (!provider && provider_preference.value().fallback.has_value())
+            provider = m_provider_manager->GetProvider(provider_type_preference.value().primary);
+            if (!provider && provider_type_preference.value().fallback.has_value())
             {
-                provider = m_provider_manager->GetProvider(provider_preference.value().fallback.value());
+                provider = m_provider_manager->GetProvider(provider_type_preference.value().fallback.value());
             }
         }
         else
