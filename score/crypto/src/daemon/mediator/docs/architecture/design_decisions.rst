@@ -15,15 +15,15 @@
 Mediator Design Decisions
 =========================
 
-Context Creation Is Decoded, Arbitrated and Assembled by Separate Units
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Context Creation Is Decoded, Selected and Assembled by Separate Units
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. dec_rec:: Context Creation Is Decoded, Arbitrated and Assembled by Separate Units
+.. dec_rec:: Context Creation Is Decoded, Selected and Assembled by Separate Units
    :id: dec_rec__crypto_mediator__ctx_create_split
    :version: 1
    :status: accepted
    :context: doc__crypto_mediator_architecture
-   :decision: Context creation is split into a decoder that produces a typed request, a provider arbiter that returns a provider and handler, and one context assembler that builds the node for every context type. The units exchange values and do not call one another.
+   :decision: Context creation is split into a decoder that produces a typed request, a handler selector that returns the handler, and one context assembler that builds the node for every context type. The selector uses a registered factory if there is one and otherwise a provider chosen by the provider arbiter. The units exchange values, and the mediator sequences them.
    :affects: comp__crypto_mediator
 
 Context
@@ -45,15 +45,16 @@ Three structures were considered:
    decode, create its node and roll back. Node creation, key binding and
    rollback would then exist once per subsystem and drift apart.
 
-3. **Three units, with assembly shared.** Decoding and arbitration are separate
-   from assembly, and assembly is implemented once.
+3. **Three units, with assembly shared.** Decoding and handler selection are
+   separate from assembly, and assembly is implemented once.
 
 Decision
 --------
 
 Option 3. The decoder is the only unit that knows the parameter layout, so a change to the
-parameter layout touches the decoder and nothing else. The arbiter is the only
-unit that varies by how a handler is obtained. The assembler holds the steps that are
+parameter layout touches the decoder and nothing else. The selector is the only
+unit that varies by how a handler is obtained: it applies the rule of a registered
+factory first and a provider otherwise, in one place. The assembler holds the steps that are
 identical for every context type, which is why handler sources return a handler
 only and never touch the data manager.
 
@@ -61,7 +62,8 @@ Consequences
 ------------
 
 * Each unit is testable without the other two: the decoder with a parameter
-  list, the arbiter with a provider manager, the assembler with a data manager.
+  list, the selector with a factory registry and an arbiter, the arbiter with a
+  provider manager, the assembler with a data manager.
 * Node creation, key binding and rollback have one implementation.
 * The mediator's context-creation entry point reduces to sequencing the units
   and writing the response.
@@ -199,7 +201,8 @@ Consequences
   as const.
 * The mediator factory still receives the key-management service directly,
   because the arbiter and the assembler call it. That is a collaborator of those
-  two units, not a registration.
+  two units, not a registration. The mediator factory builds the arbiter and the
+  selector over it.
 
 Subsystem-Served Context Types Are Selected by Exact Type Before Provider Arbitration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -209,7 +212,7 @@ Subsystem-Served Context Types Are Selected by Exact Type Before Provider Arbitr
    :version: 1
    :status: accepted
    :context: doc__crypto_mediator_architecture
-   :decision: The context-factory registry is consulted first for every context creation, by exact match on the full context type. A match is created by that factory and skips provider selection. Any other type goes through provider arbitration.
+   :decision: The context-factory registry is consulted first for every context creation, by exact match on the full context type. A match is created by that factory and skips provider selection. Any other type goes through provider arbitration. The handler selector applies this rule.
    :affects: comp__crypto_mediator
 
 Context
@@ -244,5 +247,5 @@ Consequences
 * The mediator does not bind a key for a factory-served context, because key
   authorization is decided per context type and such a type defines no required
   permission. A keyed request for one is refused before the factory is called.
-* A context that is given a key after creation holds the key reference, and each
-  internal context it opens binds and authorizes the key itself.
+* A context that is given a key after creation holds only the key reference; no key is
+  bound at creation.

@@ -269,16 +269,15 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     const auto provider_id = chosen.provider ? chosen.provider->GetProviderId() : common::kInvalidProviderId;
 
     // Context node creation, optional key binding, and handler initialization.
-    const auto context_node_id =
-        m_assembler->Assemble(ContextAssemblyRequest{.client_id = request.client_id,
-                                                     .connection_id = request.data_node_id,
-                                                     .provider_id = provider_id,
-                                                     .algorithm = req.algorithm_descriptor,
-                                                     .context_type = req.context_type,
-                                                     .key_node_id = req.key_node_id,
-                                                     .mode = req.mode,
-                                                     .raw_parameters = operation.parameters},
-                              chosen.handler);
+    const auto context_node_id = m_assembler->Assemble(ContextAssemblyRequest{.client_id = request.client_id,
+                                                                              .connection_id = request.data_node_id,
+                                                                              .provider_id = provider_id,
+                                                                              .algorithm = req.algorithm_descriptor,
+                                                                              .context_type = req.context_type,
+                                                                              .key_node_id = req.key_node_id,
+                                                                              .mode = req.mode,
+                                                                              .raw_parameters = operation.parameters},
+                                                       chosen.handler);
     if (!context_node_id.has_value())
     {
         responseBuilder.operation(operation.operationId).return_error(context_node_id.error());
@@ -424,7 +423,8 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
                 return false;
             }
 
-            const auto provider_type_preference = DecodeProviderTypePreference(static_cast<std::uint8_t>(type_hint.value()));
+            const auto provider_type_preference =
+                DecodeProviderTypePreference(static_cast<std::uint8_t>(type_hint.value()));
             if (!provider_type_preference.has_value())
             {
                 score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] Unknown provider type hint";

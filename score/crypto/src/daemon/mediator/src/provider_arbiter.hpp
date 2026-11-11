@@ -40,7 +40,7 @@ struct ProviderSelectionRequest final
     std::optional<common::ContextMode> mode{};   ///< Operation mode; selects the key permission of a cipher context.
     std::optional<AlgorithmDescriptor> algorithm{};  ///< Algorithm descriptor; absent for key-management contexts.
     common::ProviderTypePreference provider_type_preference{common::CryptoProviderType::DEFAULT,
-                                            std::nullopt};  ///< Primary provider and optional fallback.
+                                                            std::nullopt};  ///< Primary provider and optional fallback.
     common::ProviderCapability required_capability{
         common::ProviderCapability::kNone};  ///< Capability the selected provider must support.
 };

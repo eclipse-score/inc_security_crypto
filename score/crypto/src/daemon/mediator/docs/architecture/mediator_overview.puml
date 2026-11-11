@@ -20,9 +20,11 @@ skinparam componentStyle rectangle
 skinparam ArrowColor #46535E
 
 component "Control Plane" as CP
+component "Registries\n(factories, resolvers, queries)" as REG
 package "Mediator" {
   component "MediatorImpl\n(dispatch)" as MED
   component "Decoder" as DEC
+  component "HandlerSelector" as SEL
   component "ProviderArbiter" as ARB
   component "ContextAssembler" as ASM
 }
@@ -33,8 +35,10 @@ component "Context handler" as H
 
 CP --> MED : operation request
 MED --> DEC : CTX_CREATE parameters
-MED --> ARB : decoded request
+MED --> SEL : decoded request
+SEL --> ARB : provider-served types
 MED --> ASM : handler + provider id
+SEL --> REG : registered factory
 ARB --> PM : provider, handler factory
 ARB --> KM : key affinity
 ASM --> DM : context node

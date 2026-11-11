@@ -513,7 +513,7 @@ package "Mediator" <<Rectangle>> #F8F0FF {
         - m_data_manager : IDataManager::Sptr
         - m_provider_manager : ProviderManager::Sptr
         - m_resource_resolvers : const registry of IResourceResolver
-        - m_arbiter : ProviderArbiter
+        - m_handler_selector : HandlerSelector
         - m_assembler : ContextAssembler
         --
         + processRequest(ControlRequest) : ControlResponse
@@ -523,7 +523,7 @@ package "Mediator" <<Rectangle>> #F8F0FF {
         .. CTX_CLOSE → deleteNode cascade ..
         .. RESOLVE_RESOURCE → KeySlotResourceResolver ..
         - HandleContextCreationOperation(...)
-        .. ProviderArbiter::Select → ResolveTargetProvider ..
+        .. HandlerSelector::Select → ProviderArbiter::Select → ResolveTargetProvider ..
         .. ContextAssembler::Assemble → BindAndAuthorize → InitializeContext ..
         - ForwardSingleOperation(...)
         .. look up ContextDataNode → handler->Execute() ..
