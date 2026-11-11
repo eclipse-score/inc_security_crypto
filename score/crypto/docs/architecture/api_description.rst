@@ -311,6 +311,34 @@ data while preserving:
 **Error code**: ``kContextResetFailed`` is returned
 when the daemon cannot clear the context's internal state.
 
+Signature Input Mode
+--------------------
+
+``SignContextConfig::SetInputMode()`` and
+``VerifySignatureContextConfig::SetInputMode()`` choose what the bytes passed
+to ``Update()`` or ``SingleShot()`` are:
+
+- ``SignatureInputMode::kMessage`` (default): the message. The provider hashes
+  it with the hash named in the algorithm, e.g. SHA-384 for
+  ``ECDSA-P256-SHA384``.
+- ``SignatureInputMode::kPrehashed``: the digest of the message, already
+  computed by the caller with that same hash.
+
+A signature does not record which mode produced it: one made over a message
+verifies over that message's digest, and the other way round.
+
+**Digest length**: in ``kPrehashed`` mode the input must be exactly as long as
+the output of the algorithm's hash, e.g. 28 bytes for ``ECDSA-P521-SHA224``,
+64 bytes for ``ECDSA-P256-SHA512``. A digest of any other length is refused
+with an error, not a signature or a ``false`` verdict: an over-long one at the
+``Update()`` that exceeds the length, a short one at ``SignFinalize()`` /
+``VerifyFinalize()``, and either at ``SingleShot()``. The input is never
+truncated or padded, so a caller holding a digest from a different hash must
+re-hash the message.
+
+ECDSA and RSA-PSS accept both modes. Ed25519 hashes internally as part of the
+signature scheme and refuses ``kPrehashed`` when the context is created.
+
 Device Binding
 --------------
 

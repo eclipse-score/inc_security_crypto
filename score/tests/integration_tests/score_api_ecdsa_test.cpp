@@ -26,6 +26,10 @@
 ///   - Rejection of a tampered signature and of a tampered message
 ///   - Verification of the NIST FIPS 186-4 CAVP signatures, including a record
 ///     NIST authored to be rejected
+///   - Every NIST SigVer record of the twelve catalog curve/digest pairs, over
+///     the message and over its digest (SignatureInputMode::kPrehashed)
+///   - Signatures over a message and over its digest being interchangeable,
+///     and a digest of the wrong length being refused
 ///   - Context reuse via Reset()
 ///
 /// One generated key resource represents the whole pair: a sign context binds
@@ -58,6 +62,7 @@
 #include "score/crypto/src/api/i_crypto_stack.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/result/result.h"
+#include "score/serialization/strategies/hex_string_to_bytes.h"
 #include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>
@@ -65,6 +70,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -701,6 +707,409 @@ TEST_P(EcdsaPrehashedTest, UsesProvisionedNistVectorDigest)
 }
 
 // =========================================================================
+// Test 4: every NIST SigVer record of every catalog curve/digest pair
+// =========================================================================
+//
+// SigVer.rsp holds, per pair, 15 records NIST authored for verifiers: 3 valid
+// signatures and 12 that must be rejected because the message, R, S or Q was
+// changed. Each public key is imported at runtime as a raw SEC1 point, so no
+// key slot is needed per record.
+
+/// @brief Parameters for one curve/digest pair of the catalog.
+struct EcdsaPairTestData
+{
+    std::string test_case_name;
+    std::string section;              ///< SigVer.rsp header, e.g. "[P-256,SHA-224]"
+    std::string key_algorithm;        ///< e.g. "ECDSA-P256"
+    std::string signature_algorithm;  ///< e.g. "ECDSA-P256-SHA224"
+    std::string hash_algorithm;       ///< e.g. "SHA224"
+    std::size_t field_size;           ///< 32, 48 or 66 bytes
+};
+
+struct SigVerRecord
+{
+    std::vector<std::uint8_t> message;
+    std::vector<std::uint8_t> public_point;  ///< 0x04 || Qx || Qy
+    std::vector<std::uint8_t> signature;     ///< R || S in P1363 form
+    bool expected_valid{false};
+    bool public_key_changed{false};  ///< "F (4 - Q changed)": Q may lie off the curve
+    std::string result;              ///< NIST's Result line, e.g. "F (2 - R changed)"
+};
+
+/// Decodes @p hex, left-padding to @p size bytes; P-521 values are listed with
+/// an odd number of digits. An empty result means the value does not fit.
+std::vector<std::uint8_t> HexToBytes(std::string_view hex, std::size_t size)
+{
+    std::string digits(hex);
+    if (size != 0U)
+    {
+        if (digits.size() > (2U * size))
+        {
+            return {};
+        }
+        digits.insert(0U, (2U * size) - digits.size(), '0');
+    }
+    else if ((digits.size() % 2U) != 0U)
+    {
+        digits.insert(0U, 1U, '0');
+    }
+
+    const auto bytes = score::serialization::HexStringToBytes(digits);
+    return {bytes.begin(), bytes.end()};
+}
+
+/// Reads the records of one section of the deployed SigVer.rsp.
+std::vector<SigVerRecord> LoadSigVerSection(const std::string& section, std::size_t field_size)
+{
+    std::ifstream file(GetTestVectorPath("/ecdsa/SigVer/SigVer.rsp"));
+    EXPECT_TRUE(file.is_open()) << "missing ecdsa/SigVer/SigVer.rsp";
+
+    std::vector<SigVerRecord> records;
+    SigVerRecord current;
+    std::vector<std::uint8_t> qx;
+    std::vector<std::uint8_t> qy;
+    std::vector<std::uint8_t> r;
+    bool in_section = false;
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (!line.empty() && line.back() == '\r')
+        {
+            line.pop_back();
+        }
+        if (!line.empty() && line.front() == '[')
+        {
+            in_section = (line == section);
+            continue;
+        }
+        const auto separator = line.find(" = ");
+        if (!in_section || (separator == std::string::npos))
+        {
+            continue;
+        }
+        const std::string key = line.substr(0U, separator);
+        const std::string value = line.substr(separator + 3U);
+        if (key == "Msg")
+        {
+            current = SigVerRecord{};
+            current.message = HexToBytes(value, 0U);
+        }
+        else if (key == "Qx")
+        {
+            qx = HexToBytes(value, field_size);
+        }
+        else if (key == "Qy")
+        {
+            qy = HexToBytes(value, field_size);
+        }
+        else if (key == "R")
+        {
+            r = HexToBytes(value, field_size);
+        }
+        else if (key == "S")
+        {
+            const auto s = HexToBytes(value, field_size);
+            current.signature = r;
+            current.signature.insert(current.signature.end(), s.begin(), s.end());
+        }
+        else if (key == "Result")
+        {
+            current.public_point.assign(1U, 0x04U);
+            current.public_point.insert(current.public_point.end(), qx.begin(), qx.end());
+            current.public_point.insert(current.public_point.end(), qy.begin(), qy.end());
+            current.expected_valid = (value.front() == 'P');
+            current.public_key_changed = (value.find("Q changed") != std::string::npos);
+            current.result = value;
+            records.push_back(current);
+        }
+    }
+    return records;
+}
+
+/// A crypto context with a software-provider key-management context.
+struct SoftwareSession
+{
+    ICryptoStack::Uptr stack;
+    ICryptoContext::Uptr ctx;
+    std::unique_ptr<IKeyManagementContext> key_mgmt;
+};
+
+void OpenSoftwareSession(SoftwareSession& session)
+{
+    CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
+    auto stack_result = CreateCryptoStack(stack_config);
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    session.stack = std::move(stack_result.value());
+
+    auto ctx_result = session.stack->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    session.ctx = std::move(ctx_result.value());
+
+    KeyManagementContextConfig key_mgmt_config;
+    key_mgmt_config.SetProviderType(ProviderType::kSoftware);
+    auto key_mgmt_result = session.ctx->CreateKeyManagementContext(key_mgmt_config);
+    ASSERT_TRUE(key_mgmt_result.has_value()) << "Failed to create key management context";
+    session.key_mgmt = std::move(key_mgmt_result.value());
+}
+
+void Digest(ICryptoContext& ctx,
+            const std::string& hash_algorithm,
+            const std::vector<std::uint8_t>& message,
+            std::vector<std::uint8_t>& digest)
+{
+    HashContextConfig config;
+    config.SetAlgorithm(hash_algorithm).SetProviderType(ProviderType::kSoftware);
+    auto hash_result = ctx.CreateHashContext(config);
+    ASSERT_TRUE(hash_result.has_value()) << "Failed to create hash context for " << hash_algorithm;
+    auto& hash = hash_result.value();
+
+    digest.assign(hash->GetDigestSize(), 0U);
+    auto written = hash->SingleShot({message.data(), message.size()}, {digest.data(), digest.size()});
+    ASSERT_TRUE(written.has_value()) << "Hashing failed";
+    ASSERT_EQ(written.value(), digest.size());
+}
+
+std::unique_ptr<ISignContext> MakeModeSignContext(ICryptoContext& ctx,
+                                                  const std::string& algorithm,
+                                                  SignatureInputMode mode,
+                                                  const CryptoResourceGuard& key)
+{
+    SignContextConfig config;
+    config.SetAlgorithm(algorithm).SetKey(key).SetInputMode(mode).SetProviderType(ProviderType::kSoftware);
+    auto result = ctx.CreateSignContext(config);
+    EXPECT_TRUE(result.has_value()) << "Failed to create sign context for " << algorithm;
+    return result.has_value() ? std::move(result.value()) : nullptr;
+}
+
+std::unique_ptr<IVerifySignatureContext> MakeModeVerifyContext(ICryptoContext& ctx,
+                                                               const std::string& algorithm,
+                                                               SignatureInputMode mode,
+                                                               const CryptoResourceGuard& key)
+{
+    VerifySignatureContextConfig config;
+    config.SetAlgorithm(algorithm).SetKey(key).SetInputMode(mode).SetProviderType(ProviderType::kSoftware);
+    auto result = ctx.CreateVerifySignatureContext(config);
+    EXPECT_TRUE(result.has_value()) << "Failed to create verify context for " << algorithm;
+    return result.has_value() ? std::move(result.value()) : nullptr;
+}
+
+/// A refused call returns an error, never a signature or a verdict.
+template <typename T>
+void ExpectRefused(const score::Result<T>& result)
+{
+    EXPECT_FALSE(result.has_value()) << "call succeeded but should have been refused";
+}
+
+/// Single-shot verification; a call error fails the test.
+void SingleShotVerify(IVerifySignatureContext& verify,
+                      const std::vector<std::uint8_t>& data,
+                      const std::vector<std::uint8_t>& signature,
+                      bool expected_valid)
+{
+    ASSERT_TRUE(verify.Reset()) << "Reset before SingleShot verify failed";
+    auto result = verify.SingleShot({data.data(), data.size()}, {signature.data(), signature.size()});
+    ASSERT_TRUE(result.has_value()) << "SingleShot verification call failed";
+    EXPECT_EQ(result.value(), expected_valid);
+}
+
+class EcdsaNistSigVerTest : public ::testing::TestWithParam<EcdsaPairTestData>
+{
+};
+
+TEST_P(EcdsaNistSigVerTest, VerdictMatchesEveryRecordInBothInputModes)
+{
+    const auto test_data = GetParam();
+    const auto records = LoadSigVerSection(test_data.section, test_data.field_size);
+    ASSERT_EQ(records.size(), 15U) << "SigVer.rsp holds 15 records per section";
+
+    SoftwareSession session;
+    ASSERT_NO_FATAL_FAILURE(OpenSoftwareSession(session));
+    auto& ctx = *session.ctx;
+
+    std::size_t valid_records = 0U;
+    for (std::size_t i = 0U; i < records.size(); ++i)
+    {
+        const auto& record = records[i];
+        SCOPED_TRACE(test_data.section + " record " + std::to_string(i) + ": Result = " + record.result);
+        ASSERT_EQ(record.signature.size(), 2U * test_data.field_size);
+        ASSERT_EQ(record.public_point.size(), 1U + (2U * test_data.field_size));
+
+        ImportKeyParams import_params;
+        import_params.SetKeyData(record.public_point.data(), record.public_point.size())
+            .SetFormat(FormatType::kRaw)
+            .SetAlgorithm(test_data.signature_algorithm)
+            .SetPermissions(KeyOperationPermission::kVerify);
+        auto key_result = session.key_mgmt->ImportKey(import_params);
+        if (!key_result.has_value())
+        {
+            // Only a changed Q may leave the curve; every other record carries a valid public key.
+            EXPECT_TRUE(record.public_key_changed) << "a valid public key was refused";
+            continue;
+        }
+        auto key = std::move(key_result.value());
+        valid_records += record.expected_valid ? 1U : 0U;
+
+        auto message_verify =
+            MakeModeVerifyContext(ctx, test_data.signature_algorithm, SignatureInputMode::kMessage, key);
+        ASSERT_NE(message_verify, nullptr);
+        ASSERT_NO_FATAL_FAILURE(
+            StreamingVerify(*message_verify, record.message, record.signature, record.expected_valid));
+        ASSERT_NO_FATAL_FAILURE(
+            SingleShotVerify(*message_verify, record.message, record.signature, record.expected_valid));
+
+        std::vector<std::uint8_t> digest;
+        ASSERT_NO_FATAL_FAILURE(Digest(ctx, test_data.hash_algorithm, record.message, digest));
+        auto digest_verify =
+            MakeModeVerifyContext(ctx, test_data.signature_algorithm, SignatureInputMode::kPrehashed, key);
+        ASSERT_NE(digest_verify, nullptr);
+        ASSERT_NO_FATAL_FAILURE(StreamingVerify(*digest_verify, digest, record.signature, record.expected_valid));
+        ASSERT_NO_FATAL_FAILURE(SingleShotVerify(*digest_verify, digest, record.signature, record.expected_valid));
+    }
+    EXPECT_EQ(valid_records, 3U) << "SigVer.rsp holds 3 valid records per section";
+}
+
+// =========================================================================
+// Test 5: signatures carry across input modes; digest length is enforced
+// =========================================================================
+
+class EcdsaInputModeTest : public ::testing::TestWithParam<EcdsaPairTestData>
+{
+  protected:
+    void SetUp() override
+    {
+        const auto& test_data = GetParam();
+        ASSERT_NO_FATAL_FAILURE(OpenSoftwareSession(session_));
+
+        GenerateKeyParams key_gen_params;
+        key_gen_params.SetAlgorithm(test_data.key_algorithm)
+            .SetPermissions(KeyOperationPermission::kSign)
+            .SetPublicKeyPermissions(KeyOperationPermission::kVerify);
+        auto key_result = session_.key_mgmt->GenerateKey(key_gen_params);
+        ASSERT_TRUE(key_result.has_value()) << "Failed to generate " << test_data.key_algorithm;
+        key_.emplace(std::move(key_result.value()));
+
+        const auto records = LoadSigVerSection(test_data.section, test_data.field_size);
+        ASSERT_FALSE(records.empty());
+        message_ = records.front().message;
+        ASSERT_NO_FATAL_FAILURE(Digest(*session_.ctx, test_data.hash_algorithm, message_, digest_));
+    }
+
+    SoftwareSession session_;
+    std::optional<CryptoResourceGuard> key_;
+    std::vector<std::uint8_t> message_;
+    std::vector<std::uint8_t> digest_;
+};
+
+TEST_P(EcdsaInputModeTest, SignatureOverMessageAndOverItsDigestAreInterchangeable)
+{
+    const auto test_data = GetParam();
+    auto& ctx = *session_.ctx;
+    const std::size_t signature_size = 2U * test_data.field_size;
+
+    auto message_sign = MakeModeSignContext(ctx, test_data.signature_algorithm, SignatureInputMode::kMessage, *key_);
+    ASSERT_NE(message_sign, nullptr);
+    auto digest_sign = MakeModeSignContext(ctx, test_data.signature_algorithm, SignatureInputMode::kPrehashed, *key_);
+    ASSERT_NE(digest_sign, nullptr);
+    auto message_verify =
+        MakeModeVerifyContext(ctx, test_data.signature_algorithm, SignatureInputMode::kMessage, *key_);
+    ASSERT_NE(message_verify, nullptr);
+    auto digest_verify =
+        MakeModeVerifyContext(ctx, test_data.signature_algorithm, SignatureInputMode::kPrehashed, *key_);
+    ASSERT_NE(digest_verify, nullptr);
+
+    std::vector<std::uint8_t> over_message;
+    ASSERT_NO_FATAL_FAILURE(StreamingSign(*message_sign, message_, signature_size, over_message));
+
+    std::vector<std::uint8_t> over_digest(signature_size, 0U);
+    ASSERT_TRUE(digest_sign->Reset());
+    auto written = digest_sign->SingleShot({digest_.data(), digest_.size()}, {over_digest.data(), over_digest.size()});
+    ASSERT_TRUE(written.has_value()) << "SingleShot signing of a digest failed";
+    ASSERT_EQ(written.value(), signature_size);
+
+    // Signing a digest is signing the message it was taken from.
+    for (const auto* signature : {&over_message, &over_digest})
+    {
+        ASSERT_NO_FATAL_FAILURE(StreamingVerify(*message_verify, message_, *signature, true));
+        ASSERT_NO_FATAL_FAILURE(SingleShotVerify(*digest_verify, digest_, *signature, true));
+    }
+
+    std::vector<std::uint8_t> tampered = digest_;
+    tampered[0] ^= 0x01U;
+    ASSERT_NO_FATAL_FAILURE(SingleShotVerify(*digest_verify, tampered, over_message, false));
+    ASSERT_NO_FATAL_FAILURE(StreamingVerify(*digest_verify, tampered, over_digest, false));
+}
+
+TEST_P(EcdsaInputModeTest, DigestOfAnyOtherLengthIsRefused)
+{
+    const auto test_data = GetParam();
+    auto& ctx = *session_.ctx;
+    const std::size_t signature_size = 2U * test_data.field_size;
+
+    auto digest_sign = MakeModeSignContext(ctx, test_data.signature_algorithm, SignatureInputMode::kPrehashed, *key_);
+    ASSERT_NE(digest_sign, nullptr);
+    auto digest_verify =
+        MakeModeVerifyContext(ctx, test_data.signature_algorithm, SignatureInputMode::kPrehashed, *key_);
+    ASSERT_NE(digest_verify, nullptr);
+
+    std::vector<std::uint8_t> valid_signature(signature_size, 0U);
+    ASSERT_TRUE(digest_sign->Reset());
+    auto signed_digest =
+        digest_sign->SingleShot({digest_.data(), digest_.size()}, {valid_signature.data(), valid_signature.size()});
+    ASSERT_TRUE(signed_digest.has_value());
+
+    std::vector<std::uint8_t> longer = digest_;
+    longer.push_back(0x00U);
+    const std::vector<std::vector<std::uint8_t>> wrong_lengths = {
+        std::vector<std::uint8_t>(digest_.begin(), digest_.end() - 1),
+        longer,
+        std::vector<std::uint8_t>{},
+    };
+
+    for (const auto& input : wrong_lengths)
+    {
+        SCOPED_TRACE("digest of " + std::to_string(input.size()) + " bytes, expected " +
+                     std::to_string(digest_.size()));
+        std::vector<std::uint8_t> signature(signature_size, 0U);
+
+        // Single-shot: an error, never a signature or a verdict.
+        ASSERT_TRUE(digest_sign->Reset());
+        ExpectRefused(digest_sign->SingleShot({input.data(), input.size()}, {signature.data(), signature.size()}));
+        ASSERT_TRUE(digest_verify->Reset());
+        ExpectRefused(
+            digest_verify->SingleShot({input.data(), input.size()}, {valid_signature.data(), valid_signature.size()}));
+
+        // Streaming: an overlong digest fails at Update, a short one at Finalize.
+        const bool overlong = input.size() > digest_.size();
+        ASSERT_TRUE(digest_sign->Reset());
+        ASSERT_TRUE(digest_sign->Init());
+        auto sign_update = digest_sign->Update({input.data(), input.size()});
+        if (overlong)
+        {
+            ExpectRefused(sign_update);
+        }
+        else
+        {
+            ASSERT_TRUE(sign_update.has_value());
+            ExpectRefused(digest_sign->SignFinalize({signature.data(), signature.size()}));
+        }
+
+        ASSERT_TRUE(digest_verify->Reset());
+        ASSERT_TRUE(digest_verify->Init());
+        auto verify_update = digest_verify->Update({input.data(), input.size()});
+        if (overlong)
+        {
+            ExpectRefused(verify_update);
+        }
+        else
+        {
+            ASSERT_TRUE(verify_update.has_value());
+            ExpectRefused(digest_verify->VerifyFinalize({valid_signature.data(), valid_signature.size()}));
+        }
+    }
+}
+
+// =========================================================================
 // Test Vector Constants
 // =========================================================================
 
@@ -710,7 +1119,7 @@ constexpr std::size_t kP384SignatureSize = 96U;
 constexpr std::size_t kP521SignatureSize = 132U;
 
 // =========================================================================
-// Test 3: a key is refused for an ECDSA algorithm on another curve
+// Test 6: a key is refused for an ECDSA algorithm on another curve
 // =========================================================================
 
 struct CurveMismatchTestData
@@ -942,6 +1351,29 @@ INSTANTIATE_TEST_SUITE_P(CurveMismatchOnSoftwareProvider,
                          [](const testing::TestParamInfo<EcdsaCurveMismatchTest::ParamType>& info) {
                              return info.param.test_case_name;
                          });
+
+/// The twelve ECDSA rows of the algorithm catalog: P-256, P-384 and P-521, each
+/// with SHA-224, SHA-256, SHA-384 and SHA-512.
+const auto kCatalogEcdsaPairs = ::testing::Values(
+    EcdsaPairTestData{"P256_SHA224", "[P-256,SHA-224]", "ECDSA-P256", "ECDSA-P256-SHA224", "SHA224", 32U},
+    EcdsaPairTestData{"P256_SHA256", "[P-256,SHA-256]", "ECDSA-P256", "ECDSA-P256-SHA256", "SHA256", 32U},
+    EcdsaPairTestData{"P256_SHA384", "[P-256,SHA-384]", "ECDSA-P256", "ECDSA-P256-SHA384", "SHA384", 32U},
+    EcdsaPairTestData{"P256_SHA512", "[P-256,SHA-512]", "ECDSA-P256", "ECDSA-P256-SHA512", "SHA512", 32U},
+    EcdsaPairTestData{"P384_SHA224", "[P-384,SHA-224]", "ECDSA-P384", "ECDSA-P384-SHA224", "SHA224", 48U},
+    EcdsaPairTestData{"P384_SHA256", "[P-384,SHA-256]", "ECDSA-P384", "ECDSA-P384-SHA256", "SHA256", 48U},
+    EcdsaPairTestData{"P384_SHA384", "[P-384,SHA-384]", "ECDSA-P384", "ECDSA-P384-SHA384", "SHA384", 48U},
+    EcdsaPairTestData{"P384_SHA512", "[P-384,SHA-512]", "ECDSA-P384", "ECDSA-P384-SHA512", "SHA512", 48U},
+    EcdsaPairTestData{"P521_SHA224", "[P-521,SHA-224]", "ECDSA-P521", "ECDSA-P521-SHA224", "SHA224", 66U},
+    EcdsaPairTestData{"P521_SHA256", "[P-521,SHA-256]", "ECDSA-P521", "ECDSA-P521-SHA256", "SHA256", 66U},
+    EcdsaPairTestData{"P521_SHA384", "[P-521,SHA-384]", "ECDSA-P521", "ECDSA-P521-SHA384", "SHA384", 66U},
+    EcdsaPairTestData{"P521_SHA512", "[P-521,SHA-512]", "ECDSA-P521", "ECDSA-P521-SHA512", "SHA512", 66U});
+
+const auto kPairName = [](const testing::TestParamInfo<EcdsaPairTestData>& info) {
+    return info.param.test_case_name;
+};
+
+INSTANTIATE_TEST_SUITE_P(CatalogPairsOnSoftwareProvider, EcdsaNistSigVerTest, kCatalogEcdsaPairs, kPairName);
+INSTANTIATE_TEST_SUITE_P(CatalogPairsOnSoftwareProvider, EcdsaInputModeTest, kCatalogEcdsaPairs, kPairName);
 
 }  // namespace
 

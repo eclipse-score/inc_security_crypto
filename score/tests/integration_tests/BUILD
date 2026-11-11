@@ -139,6 +139,7 @@ cc_binary(
         "//score/crypto/src/api:crypto_stack",
         "//score/tests/utility",
         "@googletest//:gtest",
+        "@score_baselibs//score/serialization/strategies:hex_string_to_bytes",
     ],
 )
 
