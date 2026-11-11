@@ -64,8 +64,8 @@ package "mediator" as Mediator  #FFF0FF {
         # m_data_manager : IDataManager::Sptr
         # m_provider_manager : ProviderManager::Sptr
         # m_shm_registry : IShmRegistry::Sptr
-        # m_context_factories, m_resource_resolvers, m_mediator_queries : const registries
-        # m_arbiter : ProviderArbiter, m_assembler : ContextAssembler
+        # m_resource_resolvers, m_mediator_queries : const registries
+        # m_handler_selector : HandlerSelector, m_assembler : ContextAssembler
         --
         + processRequest(req) : ControlResponse
     }

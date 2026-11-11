@@ -38,7 +38,7 @@ struct ProviderSelectionRequest final
     std::string_view context_type{};             ///< Context type passed to the handler factory.
     std::optional<AlgorithmDescriptor> algorithm{};  ///< Algorithm descriptor; absent for key-management contexts.
     common::ProviderTypePreference provider_type_preference{common::CryptoProviderType::DEFAULT,
-                                            std::nullopt};  ///< Primary provider and optional fallback.
+                                                            std::nullopt};  ///< Primary provider and optional fallback.
     common::ProviderCapability required_capability{
         common::ProviderCapability::kNone};  ///< Capability the selected provider must support.
 };

@@ -29,9 +29,10 @@ namespace score::crypto::daemon::mediator
 /// @brief Handler chosen for a validated context request.
 struct HandlerSelection final
 {
-    common::Handler::Sptr handler;                  ///< Handler of the new context.
-    std::shared_ptr<provider::IProvider> provider;  ///< Provider that created the handler; null for a subsystem-served context.
-    bool used_fallback{false};                      ///< True when the fallback provider served the request.
+    common::Handler::Sptr handler;  ///< Handler of the new context.
+    std::shared_ptr<provider::IProvider>
+        provider;               ///< Provider that created the handler; null for a subsystem-served context.
+    bool used_fallback{false};  ///< True when the fallback provider served the request.
 };
 
 /// @brief Chooses the handler for a context request.
