@@ -19,8 +19,9 @@
 namespace score::crypto::ipc::protocol_config
 {
 
-// Define the maximum serialized message size for the protocol / codec
-// HINT: This is currently limited by a limit imposed by the underlying score message_passing implementation
+/// @brief Maximum serialized control message size in bytes.
+/// @details Must not exceed the payload limit of the transport.
+/// @note This is currently limited by a limit imposed by the underlying score message_passing implementation
 // See: score/crypto/src/ipc/message_passing_adapter/ipc_config.h
 inline constexpr std::uint16_t kMaxSerializedBytes = 2U * 1024U;
 

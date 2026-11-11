@@ -42,8 +42,12 @@ namespace score::crypto::ipc::message_passing
 class MessagePassingControlClient final
 {
   public:
+    /// @brief Creates a client connection to a message-passing service.
+    /// @param service_identifier Endpoint identifier of the daemon service.
+    /// @return A client facade, or an error if creation or callback startup fails.
     static Expected<std::shared_ptr<MessagePassingControlClient>, score::crypto::CryptoErrorCode> Create(
         std::string_view service_identifier) noexcept;
+    /// @brief Stops the client session and releases its transport resources.
     ~MessagePassingControlClient() noexcept;
 
     MessagePassingControlClient(const MessagePassingControlClient&) = delete;
@@ -51,15 +55,25 @@ class MessagePassingControlClient final
     MessagePassingControlClient(MessagePassingControlClient&&) = delete;
     MessagePassingControlClient& operator=(MessagePassingControlClient&&) = delete;
 
-    // Assigns the transport request ID and deadline to request before serialization.
+    /// @brief Sends a control request using the default maximum timeout.
+    /// @param request Request to send; request ID and deadline are assigned before serialization.
+    /// @return The correlated response, or an error if sending or completion fails.
     Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
         daemon::control_plane::protocol::ControlRequest& request) noexcept;
 
+    /// @brief Sends a control request and waits up to the supplied timeout.
+    /// @param request Request to send; request ID and deadline are assigned before serialization.
+    /// @param timeout Maximum time to wait for the terminal response.
+    /// @return The correlated response, or an error if sending or completion fails.
     Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
         daemon::control_plane::protocol::ControlRequest& request,
         std::chrono::milliseconds timeout) noexcept;
 
   private:
+    /// @brief Constructs the MessagePassingControlClient from an owned factory and created connection.
+    /// used by static Create method.
+    /// @param factory Transport factory retained for the connection lifetime.
+    /// @param connection Client transport connection transferred to the session.
     MessagePassingControlClient(std::unique_ptr<score::message_passing::ClientFactory> factory,
                                 score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection);
 

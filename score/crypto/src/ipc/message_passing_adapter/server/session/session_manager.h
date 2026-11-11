@@ -42,24 +42,52 @@ class IWorkItemSubmitter;
 class SessionManager final
 {
   public:
+    /// @brief Creates a manager for authorizing and tracking server sessions.
+    /// @param submitter Executor that accepts request and cleanup jobs.
+    /// @param authorization Callback that decides whether a peer UID/GID may connect.
+    /// @param cleanup_callback Callback invoked after a session drains.
     SessionManager(IWorkItemSubmitter& submitter,
                    AuthorizationCallback authorization,
                    DisconnectCleanupCallback cleanup_callback);
 
+    /// @brief Authorizes and registers an incoming transport connection.
+    /// @param connection Connection requesting admission.
+    /// @return Success when registered, or an authorization/admission error.
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> OnConnect(
         score::message_passing::IServerConnection& connection) noexcept;
+
+    /// @brief Detaches a disconnected connection and starts its cleanup lifecycle.
+    /// @param connection Connection reported by the transport as disconnected.
     void OnDisconnect(score::message_passing::IServerConnection& connection) noexcept;
+
+    /// @brief Finds the session associated with a connection for request dispatch.
+    /// @param connection Transport connection that sent the request.
+    /// @return The matching session, or null if the connection is not registered.
     std::shared_ptr<detail::Session> FindSessionForRequest(
         score::message_passing::IServerConnection& connection) const noexcept;
 
+    /// @brief Enables admission of authorized connections.
     void StartAcceptConnections() noexcept;
+    /// @brief Disables admission of new connections.
     void StopAcceptConnections() noexcept;
+
+    /// @brief Detaches every registered connection and starts session cleanup.
+    /// @return Success when draining begins, or an error if the registry cannot snapshot connections.
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DrainConnections() noexcept;
+
+    /// @brief Waits until all detached sessions finish cleanup.
     void WaitForAllConnectionsClosed() noexcept;
 
   private:
+    /// @brief Invokes and validates the configured authorization callback.
+    /// @param uid Peer user ID reported by the transport.
+    /// @param gid Peer group ID reported by the transport.
+    /// @return True when authorized, false when denied, or an error if the callback fails.
     score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> IsAuthorizedToConnect(uid_t uid,
                                                                                                         gid_t gid);
+
+    /// @brief Creates the registry callback used to instantiate sessions.
+    /// @return A factory that binds new sessions to this manager's submitter and cleanup callback.
     SessionRegistry::SessionFactory CreateSessionFactory();
 
     IWorkItemSubmitter& m_submitter;

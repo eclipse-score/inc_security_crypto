@@ -35,6 +35,7 @@ class Session;
 struct WorkItem;
 }  // namespace detail
 
+/// @brief Session and request state retained by an executor for an admitted operation.
 struct WorkItemSubmission final
 {
     std::shared_ptr<detail::Session> session{};
@@ -62,10 +63,17 @@ class IWorkItemSubmitter
     IWorkItemSubmitter(IWorkItemSubmitter&&) = delete;
     IWorkItemSubmitter& operator=(IWorkItemSubmitter&&) = delete;
 
-    // An accepted submission keeps both the session and item alive through worker completion.
+    /// @brief Attempts to submit an operation for execution.
+    /// @param submission Session and work item retained while the job runs.
+    /// @param job Operation to execute with a worker-owned request handler.
+    /// @return Success if accepted, or an error when the executor is stopped, saturated, or fails.
     virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TrySubmitWorkItem(
         WorkItemSubmission submission,
         WorkItemJob job) noexcept = 0;
+
+    /// @brief Attempts to submit a disconnect-cleanup operation.
+    /// @param job Cleanup callback to execute.
+    /// @return Success if accepted, or an error when the executor is stopped or cleanup capacity is exhausted.
     virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TrySubmitCleanup(
         CleanupJob job) noexcept = 0;
 

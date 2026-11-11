@@ -41,12 +41,12 @@ struct WorkItem;
 
 enum class SessionState : std::uint8_t
 {
-    kActive,
-    kDrainingWork,
-    kReadyForCleanup,
-    kCleanupRunning,
-    kCleanupFinished,
-    kCleanupFailed,
+    kActive,           ///< Accepts new work and may send responses.
+    kDrainingWork,     ///< Rejects new work while admitted work completes.
+    kReadyForCleanup,  ///< All admitted work is complete and cleanup may start.
+    kCleanupRunning,   ///< The disconnect cleanup callback is executing.
+    kCleanupFinished,  ///< Disconnect cleanup completed successfully.
+    kCleanupFailed,    ///< Disconnect cleanup failed; the reservation is retained.
 };
 
 /**
@@ -60,6 +60,12 @@ class Session final : public std::enable_shared_from_this<Session>
   public:
     using CleanupFinishedCallback = std::function<void(daemon::common::ClientId, bool)>;
 
+    /// @brief Creates a session bound to one transport connection and client ID.
+    /// @param connection Transport connection owned by the message-passing server.
+    /// @param client_id Server-assigned identity for this connection.
+    /// @param cleanup_submitter Executor used to schedule disconnect cleanup.
+    /// @param cleanup_callback Optional callback that releases client-owned resources.
+    /// @param cleanup_finished_callback Notifies the registry when cleanup completes.
     Session(score::message_passing::IServerConnection& connection,
             daemon::common::ClientId client_id,
             IWorkItemSubmitter& cleanup_submitter,
@@ -126,16 +132,17 @@ class Session final : public std::enable_shared_from_this<Session>
     SessionState m_state{SessionState::kActive};
     const daemon::common::ClientId m_client_id;
     score::message_passing::IServerConnection& m_connection;
-    // Workitem of this session, keyed by their unique request IDs.
+    /// Admitted work items indexed by their unique request IDs.
     std::unordered_map<daemon::common::RequestId, std::shared_ptr<WorkItem>> m_work_items{};
 
-    // Function to schedule when connection is closed / lost
+    /// Cleanup operation run after disconnect work has drained.
     DisconnectCleanupCallback m_cleanup_callback;
     IWorkItemSubmitter& m_cleanup_submitter;
 
     // Hint:
     // This shall only be called without the mutex being held, to avoid lock ordering issues.
     // The call is going up to the Registry, which may hold its lock internally.
+    /// Reports cleanup completion to the owning registry.
     CleanupFinishedCallback m_cleanup_finished_callback;
 };
 

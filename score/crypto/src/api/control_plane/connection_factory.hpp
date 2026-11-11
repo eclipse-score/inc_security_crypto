@@ -31,7 +31,9 @@ namespace score::crypto::api::control_plane
 class ConnectionFactory
 {
   public:
+    /// @brief Creates a factory for shared control-plane connections.
     ConnectionFactory() = default;
+    /// @brief Releases this factory without closing connections still held by callers.
     ~ConnectionFactory() = default;
 
     // Disable copy, allow move
@@ -40,8 +42,9 @@ class ConnectionFactory
     ConnectionFactory(ConnectionFactory&&) = default;
     ConnectionFactory& operator=(ConnectionFactory&&) = default;
 
-    /// Establish a shared connection for the given endpoint.
-    /// If a live connection to the same endpoint already exists, it will be reused.
+    /// @brief Establishes or reuses the shared connection for an endpoint.
+    /// @param endpoint Service endpoint identifying the daemon.
+    /// @return The shared connection, or the error that prevented establishment.
     Expected<std::shared_ptr<IConnection>, score::crypto::CryptoErrorCode> EstablishConnection(
         std::string_view endpoint);
 };

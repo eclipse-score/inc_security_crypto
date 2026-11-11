@@ -35,6 +35,8 @@ namespace
 {
 namespace protocol = daemon::control_plane::protocol;
 
+/// @brief Builds the transport queueing and ordering policy for control clients.
+/// @return Client configuration sized for the maximum outstanding operation count.
 score::message_passing::IClientFactory::ClientConfig BuildClientConfig() noexcept
 {
     score::message_passing::IClientFactory::ClientConfig config{};
@@ -46,6 +48,10 @@ score::message_passing::IClientFactory::ClientConfig BuildClientConfig() noexcep
     return config;
 }
 
+/// @brief Creates a message-passing connection for a service endpoint.
+/// @param factory Transport factory that creates the connection.
+/// @param service_identifier Endpoint identifier of the daemon service.
+/// @return PMR-owned client connection, or null if the transport cannot create one.
 score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> CreateConnection(
     score::message_passing::ClientFactory& factory,
     const std::string_view service_identifier)

@@ -32,6 +32,9 @@ namespace score::crypto::ipc::message_passing
 namespace
 {
 
+/// @brief Maps a crypto error to the OS error returned by message-passing callbacks.
+/// @param error Crypto error to translate.
+/// @return Corresponding OS error, using EIO for unmapped errors.
 score::os::Error MapCryptoErrorToOsError(const score::crypto::CryptoErrorCode error) noexcept
 {
     switch (error)

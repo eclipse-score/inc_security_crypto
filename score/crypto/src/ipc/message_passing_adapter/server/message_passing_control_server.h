@@ -58,12 +58,20 @@ class MessagePassingControlServer final : public daemon::control_plane::IControl
     using AuthorizationCallback = ::score::crypto::ipc::message_passing::AuthorizationCallback;
     using DisconnectCleanupCallback = ::score::crypto::ipc::message_passing::DisconnectCleanupCallback;
 
+    /// @brief Creates a message-passing server with the supplied control-plane dependencies.
+    /// @param factory Factory that creates one request-handler chain per worker.
+    /// @param config IPC endpoint and transport configuration retained by the server.
+    /// @param authorization Optional callback deciding whether peers may connect; defaults to deny.
+    /// @param cleanup_callback Optional callback invoked after each client session drains.
+    /// @return The server, or an error if arguments or allocation are invalid.
     static score::crypto::Expected<std::unique_ptr<MessagePassingControlServer>,
                                    score::crypto::daemon::common::DaemonErrorCode>
     Create(std::unique_ptr<daemon::control_plane::IHandlerChainFactory> factory,
            const daemon::config::IPCConfig& config,
            AuthorizationCallback authorization = {},
            DisconnectCleanupCallback cleanup_callback = {}) noexcept;
+
+    /// @brief Stops the transport and joins worker threads before releasing owned resources.
     ~MessagePassingControlServer() noexcept override;
 
     MessagePassingControlServer(const MessagePassingControlServer&) = delete;
@@ -71,25 +79,55 @@ class MessagePassingControlServer final : public daemon::control_plane::IControl
     MessagePassingControlServer(MessagePassingControlServer&&) = delete;
     MessagePassingControlServer& operator=(MessagePassingControlServer&&) = delete;
 
+    /// @brief Starts workers and begins listening for control connections.
+    /// @return Success when listening starts, or the startup error.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     Start() noexcept override;
+
+    /// @brief Stops new connection admission and drains registered sessions.
     void Stop() noexcept override;
+
+    /// @brief Waits for session cleanup, stops workers, and releases the transport server.
     void WaitForTermination() noexcept override;
 
   private:
+    /// @brief Constructs the server and its worker/session components.
+    /// @param factory Factory that creates request-handler chains.
+    /// @param config IPC endpoint and transport configuration copied into the server.
+    /// @param authorization Peer authorization policy.
+    /// @param cleanup_callback Session disconnect cleanup action.
     MessagePassingControlServer(std::unique_ptr<daemon::control_plane::IHandlerChainFactory> factory,
                                 const daemon::config::IPCConfig& config,
                                 AuthorizationCallback authorization,
                                 DisconnectCleanupCallback cleanup_callback);
 
+    /// @brief Builds message-passing queue and connection capacities from IPC policy.
+    /// @return Transport server configuration used when creating the listener.
     static score::message_passing::IServerFactory::ServerConfig BuildServerConfig() noexcept;
+
+    /// @brief Builds the transport protocol limits for the configured endpoint.
+    /// @param endpoint Service endpoint identifier.
+    /// @return Protocol configuration passed to the message-passing factory.
     static score::message_passing::ServiceProtocolConfig BuildProtocolConfig(std::string_view endpoint) noexcept;
 
+    /// @brief Authorizes and registers a newly connected peer.
+    /// @param connection Transport connection being opened.
+    /// @return User data for the connection, or an OS error if authorization/registration fails.
     score::cpp::expected<score::message_passing::UserData, score::os::Error> OnConnect(
         score::message_passing::IServerConnection& connection) noexcept;
+
+    /// @brief Detaches a closed transport connection and starts session cleanup.
+    /// @param connection Connection reported as disconnected.
     void OnDisconnect(score::message_passing::IServerConnection& connection) noexcept;
+
+    /// @brief Dispatches a serialized request to its registered session.
+    /// @param connection Connection that sent the request.
+    /// @param message Serialized control request bytes.
+    /// @return Success if dispatched or dropped, or an OS error for transport reporting.
     score::cpp::expected_blank<score::os::Error> OnRequest(score::message_passing::IServerConnection& connection,
                                                            score::cpp::span<const std::uint8_t> message) noexcept;
+
+    /// @brief Stops partially created startup resources after a startup failure.
     void RollbackStartup() noexcept;
 
     // The score::message_passing server-factory holds the memory resources for the server.

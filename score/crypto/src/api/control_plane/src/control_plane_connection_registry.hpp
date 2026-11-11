@@ -25,17 +25,27 @@
 namespace score::crypto::api::control_plane
 {
 
+/// @brief Shares established daemon connections among API control-plane callers.
+/// @details Entries are weakly owned so unused endpoint connections can be released.
 class ControlPlaneConnectionRegistry final
 {
   public:
     using Connection = std::shared_ptr<ControlPlaneConnection>;
     using Result = score::crypto::Expected<Connection, score::crypto::CryptoErrorCode>;
 
+    /// @brief Returns the process-wide connection registry.
+    /// @return The singleton registry instance.
     static ControlPlaneConnectionRegistry& Instance() noexcept;
+
+    /// @brief Reuses or establishes a connection to a daemon endpoint.
+    /// @param service_identifier Endpoint identifying the daemon service.
+    /// @return A shared connection, or an error if establishment fails.
     Result EstablishConnection(std::string_view service_identifier);
 
   private:
+    /// Constructs the process-wide registry on first access.
     ControlPlaneConnectionRegistry() = default;
+    /// Releases the registry when the process shuts down.
     ~ControlPlaneConnectionRegistry() = default;
 
     ControlPlaneConnectionRegistry(const ControlPlaneConnectionRegistry&) = delete;

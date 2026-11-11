@@ -49,34 +49,71 @@ namespace score::crypto::ipc::message_passing
 class ClientSession final : public std::enable_shared_from_this<ClientSession>
 {
   public:
+    /// @brief Creates a session around the codec and transport connection.
+    /// @param codec Codec used to serialize requests and decode responses.
+    /// @param connection message-passing connection.
     explicit ClientSession(const score::crypto::ipc::protocol::IControlCodec& codec,
                            score::cpp::pmr::unique_ptr<score::message_passing::IClientConnection> connection);
+    /// @brief Stops the transport and fails outstanding calls.
     ~ClientSession() noexcept;
 
+    /// @brief Sends a request and waits up to the supplied timeout.
+    /// @param request Request whose ID and deadline are assigned by the session.
+    /// @param timeout Maximum duration to await the response, subject to the configured cap.
+    /// @return The response or the corresponding serialization, transport, or timeout error.
     score::crypto::Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
     SendRequest(daemon::control_plane::protocol::ControlRequest& request, std::chrono::milliseconds timeout) noexcept;
+
+    /// @brief Sends a request using the maximum configured request timeout.
+    /// @param request Request whose ID and deadline are assigned by the session.
+    /// @return The response or the corresponding serialization, transport, or timeout error.
     score::crypto::Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
     SendRequest(daemon::control_plane::protocol::ControlRequest& request) noexcept;
 
+    /// @brief Starts transport callbacks and begins tracking connection readiness.
+    /// @return Success if callbacks start, or an error if setup fails.
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> StartCallbacks() noexcept;
+
+    /// @brief Fails outstanding calls, stops the transport, and waits for it to stop.
     void Shutdown() noexcept;
 
   private:
     enum class LifecycleState : std::uint8_t
     {
-        kStarting,
-        kReady,
-        kStopping,
-        kStopped,
+        kStarting,  ///< The transport is attempting to connect.
+        kReady,     ///< The transport can send requests.
+        kStopping,  ///< The transport is shutting down.
+        kStopped,   ///< The transport has stopped and can be destroyed.
     };
 
+    /// @brief Fails all calls currently registered with the pending-call registry.
+    /// @param error Error to deliver to each waiter.
     void FailAllPendingCalls(score::crypto::CryptoErrorCode error) noexcept;
+
+    /// @brief Processes a transport lifecycle callback and fails calls on shutdown.
+    /// @param state New client-session lifecycle state.
     void OnTransportStateChanged(LifecycleState state) noexcept;
+
+    /// @brief Decodes a notification and completes its matching pending call.
+    /// @param message Serialized response bytes received from the transport.
     void OnResponseBytes(score::cpp::span<const std::uint8_t> message) noexcept;
+
+    /// @brief Waits for the transport to become ready or stop before a deadline.
+    /// @param deadline Latest time to wait for readiness.
+    /// @return Success when ready, or a connection error if it stops or times out.
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> WaitForConnectionReady(
         std::chrono::steady_clock::time_point deadline) noexcept;
+
+    /// @brief Waits until the transport reports its stopped state.
     void WaitForStopped() noexcept;
+
+    /// @brief Updates the lifecycle state and wakes readiness waiters.
+    /// @param state New lifecycle state.
     void HandleTransportState(LifecycleState state) noexcept;
+
+    /// @brief Sends already-serialized request bytes when the connection is ready.
+    /// @param bytes Serialized request data.
+    /// @return Success if submitted, or a connection error if sending fails.
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> TransferRequestBytes(
         score::cpp::span<const std::uint8_t> bytes) noexcept;
 

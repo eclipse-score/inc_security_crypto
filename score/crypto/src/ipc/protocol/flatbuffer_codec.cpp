@@ -38,12 +38,20 @@ namespace fb = score::crypto::ipc::control;
 
 using EncodedParameterVectors = std::pair<std::vector<fb::OperationParameter>, std::vector<flatbuffers::Offset<void>>>;
 
+/// @brief Checks that FlatBuffers parameter type and value vectors are present and aligned.
+/// @param types Encoded parameter type vector.
+/// @param values Encoded parameter value vector.
+/// @return True when both vectors exist and have equal lengths.
 bool HasValidParameterVectors(const flatbuffers::Vector<fb::OperationParameter>* types,
                               const flatbuffers::Vector<flatbuffers::Offset<void>>* values) noexcept
 {
     return (types != nullptr) && (values != nullptr) && (types->size() == values->size());
 }
 
+/// @brief Encodes typed request parameters into FlatBuffers type and value vectors.
+/// @param parameters Request parameters to encode.
+/// @param builder FlatBufferBuilder that owns the encoded values.
+/// @return Encoded vectors, or an error for an unsupported parameter type.
 score::crypto::Expected<EncodedParameterVectors, score::crypto::CryptoErrorCode> BuildRequestParameters(
     const common::RequestParameters& parameters,
     flatbuffers::FlatBufferBuilder& builder)
@@ -123,6 +131,10 @@ score::crypto::Expected<EncodedParameterVectors, score::crypto::CryptoErrorCode>
     return EncodedParameterVectors{std::move(types), std::move(values)};
 }
 
+/// @brief Encodes typed response parameters into FlatBuffers type and value vectors.
+/// @param parameters Response parameters to encode.
+/// @param builder FlatBufferBuilder that owns the encoded values.
+/// @return Encoded vectors, or an error for an unsupported parameter type.
 score::crypto::Expected<EncodedParameterVectors, score::crypto::CryptoErrorCode> BuildResponseParameters(
     const common::ResponseParameters& parameters,
     flatbuffers::FlatBufferBuilder& builder)
@@ -192,6 +204,10 @@ score::crypto::Expected<EncodedParameterVectors, score::crypto::CryptoErrorCode>
     return EncodedParameterVectors{std::move(types), std::move(values)};
 }
 
+/// @brief Decodes request parameter vectors into owned protocol parameters.
+/// @param types Encoded parameter type vector.
+/// @param values Encoded parameter value vector.
+/// @return Decoded parameters, or an error if the vectors are malformed or unsupported.
 score::crypto::Expected<common::RequestParameters, score::crypto::CryptoErrorCode> ExtractRequestParameters(
     const flatbuffers::Vector<fb::OperationParameter>* types,
     const flatbuffers::Vector<flatbuffers::Offset<void>>* values)
@@ -272,6 +288,10 @@ score::crypto::Expected<common::RequestParameters, score::crypto::CryptoErrorCod
     return parameters;
 }
 
+/// @brief Decodes response parameter vectors into owned protocol parameters.
+/// @param types Encoded parameter type vector.
+/// @param values Encoded parameter value vector.
+/// @return Decoded parameters, or an error if the vectors are malformed or unsupported.
 score::crypto::Expected<common::ResponseParameters, score::crypto::CryptoErrorCode> ExtractResponseParameters(
     const flatbuffers::Vector<fb::OperationParameter>* types,
     const flatbuffers::Vector<flatbuffers::Offset<void>>* values)
@@ -340,9 +360,9 @@ score::crypto::Expected<common::ResponseParameters, score::crypto::CryptoErrorCo
     return parameters;
 }
 
-// The codec may be used in the context of cross machine / VM use-cases.
-// In such cases, we cannot rely on transferring as absolute time points without requiring synchronized clocks.
-// Thus we convert deadlines to relative timeouts, and transfer them.
+/// @brief Converts an absolute deadline into a relative, serialized timeout.
+/// @param deadline Absolute steady-clock deadline.
+/// @return Remaining time rounded up to milliseconds, or an error if already expired.
 score::crypto::Expected<std::uint32_t, score::crypto::CryptoErrorCode> DeadlineToTimeoutMs(
     const std::chrono::steady_clock::time_point deadline) noexcept
 {
@@ -355,6 +375,9 @@ score::crypto::Expected<std::uint32_t, score::crypto::CryptoErrorCode> DeadlineT
     return static_cast<std::uint32_t>(remaining_ms.count());
 }
 
+/// @brief Converts a serialized relative timeout into a local absolute deadline.
+/// @param timeout_ms Timeout duration in milliseconds.
+/// @return Deadline based on the local steady clock.
 std::chrono::steady_clock::time_point TimeoutMsToDeadline(const std::uint32_t timeout_ms) noexcept
 {
     return std::chrono::steady_clock::now() + std::chrono::milliseconds{timeout_ms};

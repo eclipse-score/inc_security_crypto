@@ -30,6 +30,7 @@ namespace score::crypto::api::control_plane
 class IConnection
 {
   protected:
+    /// @brief Constructs the control-plane connection interface base.
     IConnection() = default;
 
     IConnection& operator=(const IConnection&) = delete;
@@ -43,9 +44,16 @@ class IConnection
     /// daemon-side connection is closed.
     virtual ~IConnection() = default;
 
+    /// @brief Sends a control request using the connection's default timeout.
+    /// @param request Request to send; the implementation assigns transport metadata as needed.
+    /// @return The response, or an error if sending, processing, or waiting fails.
     virtual Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
         daemon::control_plane::protocol::ControlRequest& request) = 0;
 
+    /// @brief Sends a control request with a caller-specified timeout.
+    /// @param request Request to send; the implementation assigns transport metadata as needed.
+    /// @param timeout Maximum duration to wait for the response.
+    /// @return The response, or an error if sending, processing, or waiting fails.
     virtual Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
         daemon::control_plane::protocol::ControlRequest& request,
         std::chrono::milliseconds timeout) = 0;

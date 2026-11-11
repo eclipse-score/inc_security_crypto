@@ -25,18 +25,16 @@
 namespace score::crypto::ipc::message_passing
 {
 
-/**
- * @brief AuthorizationCallback:
- * Decides whether a peer identified by user and group ID may connect.
- * @endrst
- */
+/// @brief Decides whether a peer may establish a server connection.
+/// @param uid Peer user ID reported by the transport.
+/// @param gid Peer group ID reported by the transport.
+/// @return True to authorize, false to deny, or a daemon error if authorization fails.
 using AuthorizationCallback =
     std::function<score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode>(uid_t uid, gid_t gid)>;
-/**
- * @brief DisconnectCleanupCallback:
- * Releases application-owned resources after a client's session disconnects.
- * @endrst
- */
+
+/// @brief Releases application-owned resources after a client session disconnects.
+/// @param client_id Server-assigned identity of the disconnected client.
+/// @return Success when cleanup completes, or the daemon error that caused it to fail.
 using DisconnectCleanupCallback =
     std::function<score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>(
         score::crypto::daemon::common::ClientId client_id)>;

@@ -30,6 +30,9 @@ namespace score::crypto::ipc::message_passing::detail
 namespace
 {
 
+/// @brief Maps a message-passing transport failure to a daemon error.
+/// @param error OS error reported by the transport.
+/// @return Corresponding daemon error code.
 score::crypto::daemon::common::DaemonErrorCode MapTransportError(const score::os::Error& error) noexcept
 {
     const auto os_error = error.GetOsDependentErrorCode();

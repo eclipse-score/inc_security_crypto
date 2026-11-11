@@ -37,16 +37,27 @@ class PendingCall final
   private:
     enum class State : std::uint8_t
     {
-        kPending,
-        kFailed,
-        kCompleted,
+        kPending,    ///< No terminal result has been stored.
+        kFailed,     ///< The call completed with a transport or operation error.
+        kCompleted,  ///< The call completed with a response.
     };
 
   private:
     friend class PendingCallRegistry;
 
+    /// @brief Stores a response if the call is still pending.
+    /// @param response Response received for this call.
+    /// @return True if the response completed the call; false if it was already terminal.
     bool Complete(daemon::control_plane::protocol::ControlResponse&& response) noexcept;
+
+    /// @brief Stores an error if the call is still pending.
+    /// @param error Terminal error to deliver to the waiter.
+    /// @return True if the error failed the call; false if it was already terminal.
     bool Fail(score::crypto::CryptoErrorCode error) noexcept;
+
+    /// @brief Waits for a terminal result until the deadline.
+    /// @param deadline Latest time to wait.
+    /// @return The stored response or error, or a timeout error if still pending.
     score::crypto::Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
     WaitForResponse(std::chrono::steady_clock::time_point deadline) noexcept;
 

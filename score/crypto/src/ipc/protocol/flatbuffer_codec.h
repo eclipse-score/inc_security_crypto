@@ -26,15 +26,20 @@ namespace score::crypto::ipc::protocol
 class FlatBufferCodec final : public IControlCodec
 {
   public:
+    /// @copydoc IControlCodec::SerializeRequest
     score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::CryptoErrorCode> SerializeRequest(
         const daemon::control_plane::protocol::ControlRequest& request) const noexcept override;
+    /// @copydoc IControlCodec::SerializeResponse
     score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::CryptoErrorCode> SerializeResponse(
         const daemon::control_plane::protocol::ControlResponse& response) const noexcept override;
+    /// @copydoc IControlCodec::PeekRequestMetadata
     score::crypto::Expected<RequestMetadata, score::crypto::CryptoErrorCode> PeekRequestMetadata(
         score::cpp::span<const std::uint8_t> bytes) const noexcept override;
+    /// @copydoc IControlCodec::DeserializeRequest
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> DeserializeRequest(
         score::cpp::span<const std::uint8_t> bytes,
         daemon::control_plane::protocol::ControlRequest& request) const noexcept override;
+    /// @copydoc IControlCodec::DeserializeResponse
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> DeserializeResponse(
         score::cpp::span<const std::uint8_t> bytes,
         daemon::control_plane::protocol::ControlResponse& response) const noexcept override;

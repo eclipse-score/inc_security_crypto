@@ -38,6 +38,9 @@ namespace protocol = daemon::control_plane::protocol;
 
 namespace
 {
+/// @brief Maps a codec failure to the daemon error domain.
+/// @param error Crypto error reported by the codec.
+/// @return Corresponding daemon error code.
 DaemonErrorCode MapCodecError(const score::crypto::CryptoErrorCode error) noexcept
 {
     switch (error)

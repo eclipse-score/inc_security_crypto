@@ -36,6 +36,9 @@ namespace score::crypto::ipc::message_passing::detail
 namespace
 {
 
+/// @brief Maps a codec failure to the daemon error domain.
+/// @param error Crypto error reported by the codec.
+/// @return Corresponding daemon error code.
 score::crypto::daemon::common::DaemonErrorCode MapCodecError(const score::crypto::CryptoErrorCode error) noexcept
 {
     switch (error)

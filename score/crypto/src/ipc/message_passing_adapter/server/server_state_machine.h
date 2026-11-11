@@ -33,15 +33,26 @@ class ServerStateMachine final
   public:
     enum class State : std::uint8_t
     {
-        kStarting,
-        kStarted,
-        kStopping,
-        kStopped,
+        kStarting,  ///< Startup is in progress.
+        kStarted,   ///< The server is listening.
+        kStopping,  ///< Shutdown has begun.
+        kStopped,   ///< The server has completed shutdown.
     };
 
+    /// @brief Atomically starts a transition from stopped to starting.
+    /// @return Success if startup may proceed, or an invalid-state error.
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TryBeginStart() noexcept;
+
+    /// @brief Commits a successful startup transition to started.
+    /// @return Success if the current state is starting, or an invalid-state error.
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> MarkStarted() noexcept;
+
+    /// @brief Begins shutdown from the started state.
+    /// @return Success if shutdown may proceed, or an invalid-state error.
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> BeginStopping() noexcept;
+
+    /// @brief Marks shutdown complete and returns the server to stopped.
+    /// @return Success if the current state permits stopping, or an invalid-state error.
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> MarkStopped() noexcept;
 
   private:

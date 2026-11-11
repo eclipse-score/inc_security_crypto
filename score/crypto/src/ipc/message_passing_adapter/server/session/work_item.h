@@ -41,10 +41,10 @@ class Session;
 
 enum class WorkItemState : std::uint8_t
 {
-    kQueued,
-    kRunning,
-    kDeadlineExpired,
-    kCompleted,
+    kQueued,           ///< Admitted and waiting to execute.
+    kRunning,          ///< Being processed by a worker.
+    kDeadlineExpired,  ///< Its deadline passed before execution began.
+    kCompleted,        ///< Reached a terminal response or error path.
 };
 
 /**
@@ -55,19 +55,41 @@ enum class WorkItemState : std::uint8_t
  */
 struct WorkItem final
 {
+    /// @brief Creates an owned work item from serialized request bytes.
+    /// @param serialized_request Request bytes to copy into item-owned storage.
+    /// @param session Session that admitted the request.
+    /// @param codec Codec used to inspect request metadata.
+    /// @param received_at Time the server received the request.
+    /// @return The work item, or an error if validation or allocation fails.
     static score::crypto::Expected<std::shared_ptr<WorkItem>, score::crypto::daemon::common::DaemonErrorCode> Create(
         score::cpp::span<const std::uint8_t> serialized_request,
         const std::shared_ptr<Session>& session,
         const score::crypto::ipc::protocol::IControlCodec& codec,
         std::chrono::steady_clock::time_point received_at) noexcept;
 
+    /// @brief Fully decodes the owned request bytes.
+    /// @param codec Codec used to decode the request.
+    /// @return Success, or an error if decoding fails.
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DeserializeRequest(
         const score::crypto::ipc::protocol::IControlCodec& codec) noexcept;
 
+    /// @brief Moves a queued item to running or marks it expired.
+    /// @return The resulting work-item state.
     WorkItemState PrepareForExecution() noexcept;
+
+    /// @brief Marks the item complete and notifies its session.
     void Complete() noexcept;
+
+    /// @brief Returns this item's request ID.
+    /// @return The protocol request identifier.
     protocol::RequestId GetRequestId() const noexcept;
+
+    /// @brief Returns the client ID assigned to the owning session.
+    /// @return The server-assigned client identifier.
     protocol::ClientId GetClientId() const noexcept;
+
+    /// @brief Returns the decoded request for handler processing.
+    /// @return Mutable reference to the owned request.
     protocol::ControlRequest& GetRequest() noexcept;
 
   private:
