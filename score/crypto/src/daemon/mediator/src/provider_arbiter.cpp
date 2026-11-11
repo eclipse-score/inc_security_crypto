@@ -84,8 +84,8 @@ ProviderArbiter::ResolveProvider(const ProviderSelectionRequest& request,
 score::crypto::Expected<ProviderHandlerSelection, score::crypto::CryptoErrorCode> ProviderArbiter::Select(
     const ProviderSelectionRequest& request) const
 {
-    const std::array<std::optional<common::CryptoProviderType>, 2U> candidates{request.provider.primary,
-                                                                               request.provider.fallback};
+    const std::array<std::optional<common::CryptoProviderType>, 2U> candidates{request.provider_type_preference.primary,
+                                                                               request.provider_type_preference.fallback};
     std::optional<common::ProviderId> previous_provider_id{};
     auto last_error = score::crypto::CryptoErrorCode::kProviderNotAvailable;
 

@@ -30,7 +30,7 @@ struct ContextCreationRequest final
 {
     std::string_view context_type;             ///< Context type from the CTX_CREATE request.
     std::string_view algorithm;                ///< Requested algorithm name; may be empty.
-    ProviderTypePreference provider;           ///< Primary provider preference and optional fallback.
+    ProviderTypePreference provider_type_preference;  ///< Primary provider type and optional fallback.
     std::optional<std::uint64_t> key_node_id;  ///< Optional key or key-slot node to bind.
     std::optional<ContextMode> mode;           ///< Optional mode used to determine key permission.
     ProviderCapability required_capability{ProviderCapability::kNone};  ///< Capability required by the context scope.

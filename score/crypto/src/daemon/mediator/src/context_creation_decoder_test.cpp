@@ -167,9 +167,9 @@ TEST(ContextCreationDecoderTest, DecodesProviderPreferenceWithFallback)
     const auto decoded = DecodeContextCreationRequest(operation);
 
     ASSERT_TRUE(decoded.has_value());
-    EXPECT_EQ(decoded.value().provider.primary, CryptoProviderType::HARDWARE);
-    ASSERT_TRUE(decoded.value().provider.fallback.has_value());
-    EXPECT_EQ(decoded.value().provider.fallback.value(), CryptoProviderType::SOFTWARE);
+    EXPECT_EQ(decoded.value().provider_type_preference.primary, CryptoProviderType::HARDWARE);
+    ASSERT_TRUE(decoded.value().provider_type_preference.fallback.has_value());
+    EXPECT_EQ(decoded.value().provider_type_preference.fallback.value(), CryptoProviderType::SOFTWARE);
 }
 
 TEST(ContextCreationDecoderTest, AbsentProviderPreferenceDefaultsToDefaultWithoutFallback)
@@ -185,8 +185,8 @@ TEST(ContextCreationDecoderTest, AbsentProviderPreferenceDefaultsToDefaultWithou
     const auto decoded = DecodeContextCreationRequest(operation);
 
     ASSERT_TRUE(decoded.has_value());
-    EXPECT_EQ(decoded.value().provider.primary, CryptoProviderType::DEFAULT);
-    EXPECT_FALSE(decoded.value().provider.fallback.has_value());
+    EXPECT_EQ(decoded.value().provider_type_preference.primary, CryptoProviderType::DEFAULT);
+    EXPECT_FALSE(decoded.value().provider_type_preference.fallback.has_value());
 }
 
 TEST(ContextCreationDecoderTest, CarriesKeyNodeIdThroughUnchanged)

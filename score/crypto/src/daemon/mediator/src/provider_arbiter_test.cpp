@@ -71,7 +71,7 @@ class ProviderArbiterTest : public ::testing::Test
         request.context_type = context_type;
         // Supplying an algorithm exercises CreateHandler rather than the key-management factory path.
         request.algorithm = operations::ResolveContextAlgorithm(common::context_types::kHash, "SHA256");
-        request.provider = preference;
+        request.provider_type_preference = preference;
         request.required_capability = required;
         return request;
     }

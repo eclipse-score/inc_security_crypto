@@ -33,7 +33,7 @@
 namespace score::crypto::daemon::mediator
 {
 
-class ProviderArbiter;
+class HandlerSelector;
 class ContextAssembler;
 
 using common::ContextFactoryRegistry;
@@ -42,18 +42,17 @@ using common::ResourceResolverRegistry;
 
 /// @brief Collaborators a mediator is built from.
 ///
-/// The registries, arbiter and assembler are shared by every caller of the mediator. The registries
+/// The registries, selector and assembler are shared by every caller of the mediator. The registries
 /// are passed as const because they are not changed once the daemon starts. A registry left null is
-/// treated as empty. The arbiter and assembler are required for context creation.
+/// treated as empty. The selector and assembler are required for context creation.
 struct MediatorDependencies
 {
     daemon::data_manager::IDataManager::Sptr data_manager;
     daemon::provider::ProviderManager::Sptr provider_manager;
     daemon::data_plane::IShmRegistry::Sptr shm_registry;
-    std::shared_ptr<const ContextFactoryRegistry> context_factories;
     std::shared_ptr<const ResourceResolverRegistry> resource_resolvers;
     std::shared_ptr<const MediatorQueryRegistry> mediator_queries;
-    std::shared_ptr<const ProviderArbiter> arbiter;
+    std::shared_ptr<const HandlerSelector> handler_selector;
     std::shared_ptr<const ContextAssembler> assembler;
 };
 
@@ -85,10 +84,9 @@ class IMediator : public score::crypto::daemon::control_plane::IRequestHandler
         : m_data_manager(std::move(deps.data_manager)),
           m_provider_manager(std::move(deps.provider_manager)),
           m_shm_registry(std::move(deps.shm_registry)),
-          m_context_factories(detail::OrEmpty(std::move(deps.context_factories))),
           m_resource_resolvers(detail::OrEmpty(std::move(deps.resource_resolvers))),
           m_mediator_queries(detail::OrEmpty(std::move(deps.mediator_queries))),
-          m_arbiter(std::move(deps.arbiter)),
+          m_handler_selector(std::move(deps.handler_selector)),
           m_assembler(std::move(deps.assembler))
     {
     }
@@ -121,10 +119,9 @@ class IMediator : public score::crypto::daemon::control_plane::IRequestHandler
     daemon::data_manager::IDataManager::Sptr m_data_manager;
     daemon::provider::ProviderManager::Sptr m_provider_manager;
     daemon::data_plane::IShmRegistry::Sptr m_shm_registry;
-    std::shared_ptr<const ContextFactoryRegistry> m_context_factories;
     std::shared_ptr<const ResourceResolverRegistry> m_resource_resolvers;
     std::shared_ptr<const MediatorQueryRegistry> m_mediator_queries;
-    std::shared_ptr<const ProviderArbiter> m_arbiter;
+    std::shared_ptr<const HandlerSelector> m_handler_selector;
     std::shared_ptr<const ContextAssembler> m_assembler;
 };
 
