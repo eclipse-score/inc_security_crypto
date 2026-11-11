@@ -89,22 +89,6 @@ class MediatorImpl : public IMediator
         const control_plane::SingleOperationRequest& operation,
         score::crypto::daemon::control_plane::protocol::OperationResponseBuilder& responseBuilder);
 
-    /// @brief Create a context through the factory registered for its context type.
-    ///
-    /// A context created this way is not bound to a provider. A request that references a key is
-    /// refused before the factory is called.
-    /// @param request Control-plane request containing the client and connection identifiers.
-    /// @param operation CTX_CREATE operation the request was decoded from.
-    /// @param decoded Validated CTX_CREATE request.
-    /// @param factory Factory registered for the request's context type.
-    /// @param responseBuilder Builder receiving the context identifier or an error.
-    /// @return True if the context was created successfully.
-    bool CreateContextFromFactory(const control_plane::ControlRequest& request,
-                                  const control_plane::SingleOperationRequest& operation,
-                                  const common::ContextCreationRequest& decoded,
-                                  common::IContextFactory& factory,
-                                  control_plane::protocol::OperationResponseBuilder& responseBuilder);
-
     /// @brief Execute a provider handler and append its result to the response.
     /// @param exec_ctx Operation identifier, context identifier, and request parameters.
     /// @param handler Handler that executes the operation.

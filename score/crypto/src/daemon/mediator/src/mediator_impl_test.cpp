@@ -19,6 +19,7 @@
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/crypto/src/daemon/mediator/src/context_assembler.hpp"
+#include "score/crypto/src/daemon/mediator/src/handler_selector.hpp"
 #include "score/crypto/src/daemon/mediator/src/mediator_test_doubles.hpp"
 #include "score/crypto/src/daemon/mediator/src/provider_arbiter.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
@@ -83,9 +84,10 @@ class MediatorContextCreationTest : public ::testing::Test
         MediatorDependencies deps;
         deps.data_manager = m_data_manager;
         deps.provider_manager = m_provider_manager;
-        deps.arbiter = std::make_shared<ProviderArbiter>(m_provider_manager, nullptr);
+        auto arbiter = std::make_shared<ProviderArbiter>(m_provider_manager, nullptr);
+        auto handler_selector = std::make_shared<HandlerSelector>(arbiter, m_context_factories);
+        deps.handler_selector = handler_selector;
         deps.assembler = std::make_shared<ContextAssembler>(m_data_manager, nullptr);
-        deps.context_factories = m_context_factories;
         deps.resource_resolvers = m_resource_resolvers;
         deps.mediator_queries = m_mediator_queries;
         m_mediator = std::make_unique<MediatorImpl>(std::move(deps));

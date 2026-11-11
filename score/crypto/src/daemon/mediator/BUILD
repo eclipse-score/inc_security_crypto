@@ -109,6 +109,20 @@ cc_test(
 )
 
 cc_test(
+    name = "handler_selector_test",
+    srcs = ["src/handler_selector_test.cpp"],
+    deps = [
+        ":mediator",
+        ":mediator_test_doubles",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common/context:context_registration",
+        "//score/crypto/src/daemon/config",
+        "//score/crypto/src/daemon/provider:provider_manager",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "mediator_factory_test",
     srcs = ["src/mediator_factory_test.cpp"],
     deps = [
@@ -144,6 +158,7 @@ cc_library(
     srcs = [
         "src/context_assembler.cpp",
         "src/context_creation_decoder.cpp",
+        "src/handler_selector.cpp",
         "src/mediator_factory.cpp",
         "src/mediator_impl.cpp",
         "src/provider_arbiter.cpp",
@@ -154,6 +169,7 @@ cc_library(
         "mediator_impl.hpp",
         "src/context_assembler.hpp",
         "src/context_creation_decoder.hpp",
+        "src/handler_selector.hpp",
         "src/provider_arbiter.hpp",
     ],
     visibility = ["//:__subpackages__"],

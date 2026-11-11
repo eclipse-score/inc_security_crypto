@@ -18,6 +18,7 @@
 #include "score/crypto/src/daemon/mediator/mediator_impl.hpp"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/crypto/src/daemon/mediator/src/context_assembler.hpp"
+#include "score/crypto/src/daemon/mediator/src/handler_selector.hpp"
 #include "score/crypto/src/daemon/mediator/src/provider_arbiter.hpp"
 
 #include "score/mw/log/logging.h"
@@ -59,15 +60,18 @@ score::crypto::Expected<std::shared_ptr<IMediator>, common::DaemonErrorCode> Med
         }
     }
 
+    // The selector chooses the handler of every context the mediator creates.
+    auto arbiter = std::make_shared<ProviderArbiter>(provider_manager, km_service);
+    auto handler_selector = std::make_shared<HandlerSelector>(arbiter, context_factories);
+
     MediatorDependencies deps;
-    deps.arbiter = std::make_shared<ProviderArbiter>(provider_manager, km_service);
+    deps.handler_selector = handler_selector;
     deps.assembler = std::make_shared<ContextAssembler>(data_manager, km_service);
     deps.data_manager = std::move(data_manager);
     deps.provider_manager = std::move(provider_manager);
     // The shared-memory registry is shared by every connection so that ShmDataNodes can release
     // quota regardless of which thread destroys them.
     deps.shm_registry = std::make_shared<data_plane::ShmRegistry>();
-    deps.context_factories = std::move(context_factories);
     deps.resource_resolvers = std::move(resource_resolvers);
     deps.mediator_queries = std::move(mediator_queries);
 
