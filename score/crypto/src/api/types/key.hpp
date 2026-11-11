@@ -102,7 +102,7 @@ struct KeySlotInfo
 {
     KeySlotState state{KeySlotState::kEmpty};  ///< Current slot state.
     AlgorithmId algorithm{};                   ///< Required algorithm, or empty when unconstrained.
-    uint16_t primary_provider{0U};             ///< Owning provider id.
+    uint16_t primary_provider{kUnboundProviderId};  ///< Owning provider id, or unbound sentinel.
     static constexpr std::size_t kMaxCompatibleProviders = 8U;
     std::array<uint16_t, kMaxCompatibleProviders> compatible_providers{};  ///< Other permitted providers.
     std::size_t compatible_provider_count{0U};  ///< Number of valid entries in compatible_providers.

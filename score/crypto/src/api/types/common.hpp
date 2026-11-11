@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <limits>
 
 namespace score::crypto
 {
@@ -28,6 +29,8 @@ namespace score::crypto
 using ResourceId = FixedCapacityString<64>;
 /// @brief Algorithm name or identifier accepted by a crypto operation.
 using AlgorithmId = FixedCapacityString<64>;
+/// @brief Sentinel used when a public resource is not bound to a provider.
+inline constexpr uint16_t kUnboundProviderId = std::numeric_limits<uint16_t>::max();
 
 /// @brief Kind of resource identified by a CryptoResourceId.
 enum class ResourceType : uint8_t
@@ -58,7 +61,7 @@ struct CryptoResourceId
     uint64_t id{0U};                                                   ///< Daemon-assigned resource identifier.
     ResourceType type{ResourceType::kKeySlot};                         ///< Kind of resource referenced by id.
     ResourcePersistence persistence{ResourcePersistence::kEphemeral};  ///< Resource lifetime category.
-    uint16_t primary_provider{0U};                                     ///< Owning provider id, or zero when unbound.
+    uint16_t primary_provider{kUnboundProviderId};                     ///< Owning provider id, or unbound sentinel.
 
     /// @brief Tests whether all resource identity fields match.
     constexpr bool operator==(const CryptoResourceId& other) const noexcept
@@ -140,8 +143,8 @@ struct ProviderInfo
 /// @brief Provider compatibility information for one resource.
 struct ProviderCompatibilityInfo
 {
-    CryptoResourceId resource{};    ///< Resource whose provider compatibility is reported.
-    uint16_t primary_provider{0U};  ///< Provider that owns the resource.
+    CryptoResourceId resource{};                              ///< Resource whose provider compatibility is reported.
+    uint16_t primary_provider{kUnboundProviderId};            ///< Owning provider id, or unbound sentinel.
     static constexpr std::size_t kMaxSecondaryProviders = 8U;
     std::array<uint16_t, kMaxSecondaryProviders> secondary_providers{};  ///< Providers that can also use it.
     std::size_t secondary_provider_count{0U};  ///< Number of valid entries in secondary_providers.
