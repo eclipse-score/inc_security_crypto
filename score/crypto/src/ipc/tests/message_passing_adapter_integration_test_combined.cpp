@@ -931,12 +931,19 @@ TEST(MessagePassingAdapterIntegrationTest, ServerShutdownDropsNewRequestsWhileDr
     server.StopServer();
     const bool cleanup_ran_before_release = cleanup_observer->WaitForCount(1U, std::chrono::milliseconds{100});
 
+    // Requests from existing clients should be dropped after server shutdown
     auto existing_client_request = MakeEchoRequest(kPayload + 2U);
     const auto existing_client_response = client->SendRequest(existing_client_request, std::chrono::milliseconds{250});
     ASSERT_FALSE(existing_client_response.has_value()) << "A new request on an existing client was not dropped";
     EXPECT_EQ(existing_client_response.error(), score::crypto::CryptoErrorCode::kConnectionFailed);
 
+    // Requests connection attempts from new clients should be dropped,
     auto new_client_result = MessagePassingControlClient::Create(server.service_identifier());
+#if defined(__QNX__)
+    EXPECT_EQ(new_client_result.error(), score::crypto::CryptoErrorCode::kConnectionFailed);
+#else
+    // On Linux, due to the underlying message passing, a new client may still be able to connect
+    // briefly after server shutdown, but any requests it sends should fail.
     if (new_client_result.has_value())
     {
         auto new_client = std::move(new_client_result).value();
@@ -948,7 +955,10 @@ TEST(MessagePassingAdapterIntegrationTest, ServerShutdownDropsNewRequestsWhileDr
     else
     {
         EXPECT_EQ(new_client_result.error(), score::crypto::CryptoErrorCode::kConnectionFailed);
-    }
+    };
+#endif
+
+    // Ensure, that only one request was handled before server shutdown
     EXPECT_EQ(server.handler_invocation_count(), 1U) << "A request was handled after server shutdown";
 
     server.handler_blocker().Release();

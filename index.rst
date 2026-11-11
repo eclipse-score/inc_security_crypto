@@ -62,7 +62,6 @@ For documentation of individual components within this module:
    :maxdepth: 1
 
    score/crypto/docs/index
-   score/crypto/src/ipc/docs/index
    score/iav_primula/docs/index
 
 Architecture Modeling Reference

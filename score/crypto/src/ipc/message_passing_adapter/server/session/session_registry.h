@@ -77,6 +77,7 @@ class SessionRegistry final
         uid_t uid{0U};
         ClientLifecycleState lifecycle{ClientLifecycleState::kConnectionActive};
     };
+    using ClientStateMap = std::unordered_map<ClientId, ClientState>;
     using ConnectionMap =
         std::unordered_map<score::message_passing::IServerConnection*, std::shared_ptr<detail::Session>>;
 
@@ -92,6 +93,19 @@ class SessionRegistry final
         score::message_passing::IServerConnection& connection,
         uid_t uid,
         SessionFactory& session_factory) noexcept;
+    score::crypto::Expected<std::shared_ptr<detail::Session>, score::crypto::daemon::common::DaemonErrorCode>
+    CreateSession(score::message_passing::IServerConnection& connection,
+                  ClientId client_id,
+                  SessionFactory& session_factory) noexcept;
+    score::crypto::Expected<ConnectionMap::iterator, score::crypto::daemon::common::DaemonErrorCode> RegisterConnection(
+        std::lock_guard<std::mutex>& lock,
+        score::message_passing::IServerConnection& connection,
+        const std::shared_ptr<detail::Session>& session,
+        ClientId client_id) noexcept;
+    score::crypto::Expected<ClientStateMap::iterator, score::crypto::daemon::common::DaemonErrorCode>
+    RegisterClientState(std::lock_guard<std::mutex>& lock, ClientId client_id, uid_t uid) noexcept;
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+    ReserveConnectionForUid(std::lock_guard<std::mutex>& lock, uid_t uid, ClientId client_id) noexcept;
     std::shared_ptr<detail::Session> DetachConnection(std::lock_guard<std::mutex>& lock,
                                                       ConnectionMap::iterator connection_iterator) noexcept;
 
@@ -101,7 +115,7 @@ class SessionRegistry final
     std::condition_variable m_all_connections_cleaned_up;
     std::size_t m_pending_disconnect_count{0U};
     bool m_accept_connections{false};
-    std::unordered_map<ClientId, ClientState> m_client_states{};
+    ClientStateMap m_client_states{};
     std::unordered_map<uid_t, std::size_t> m_reserved_connections_by_uid{};
     ConnectionMap m_connections{};
     std::uint32_t m_next_connection_generation{1U};

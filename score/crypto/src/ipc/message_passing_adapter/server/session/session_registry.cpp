@@ -18,9 +18,9 @@
 
 #include "score/mw/log/logging.h"
 
-#include <optional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -79,7 +79,6 @@ SessionRegistry::TryReserveClient(std::lock_guard<std::mutex>& lock,
                                   const uid_t uid,
                                   SessionFactory& session_factory) noexcept
 {
-
     const auto client_id = GenerateClientId(lock, uid);
     if (!client_id.has_value())
     {
@@ -88,6 +87,44 @@ SessionRegistry::TryReserveClient(std::lock_guard<std::mutex>& lock,
         return score::crypto::make_unexpected(client_id.error());
     }
 
+    auto session_result = CreateSession(connection, client_id.value(), session_factory);
+    if (!session_result.has_value())
+    {
+        return score::crypto::make_unexpected(session_result.error());
+    }
+
+    auto connection_result = RegisterConnection(lock, connection, *session_result, client_id.value());
+    if (!connection_result.has_value())
+    {
+        return score::crypto::make_unexpected(connection_result.error());
+    }
+    const auto connection_iterator = connection_result.value();
+
+    auto client_state_result = RegisterClientState(lock, client_id.value(), uid);
+    if (!client_state_result.has_value())
+    {
+        m_connections.erase(connection_iterator);
+        return score::crypto::make_unexpected(client_state_result.error());
+    }
+    const auto client_iterator = client_state_result.value();
+
+    const auto uid_reservation_result = ReserveConnectionForUid(lock, uid, client_id.value());
+    if (!uid_reservation_result.has_value())
+    {
+        m_connections.erase(connection_iterator);
+        m_client_states.erase(client_iterator);
+        return score::crypto::make_unexpected(uid_reservation_result.error());
+    }
+
+    CommitClientId(lock, client_id.value());
+    return {};
+}
+
+score::crypto::Expected<std::shared_ptr<detail::Session>, score::crypto::daemon::common::DaemonErrorCode>
+SessionRegistry::CreateSession(score::message_passing::IServerConnection& connection,
+                               const ClientId client_id,
+                               SessionFactory& session_factory) noexcept
+{
     std::shared_ptr<detail::Session> session;
     // Creating a session allocates the object and its shared ownership state.
     try
@@ -96,109 +133,117 @@ SessionRegistry::TryReserveClient(std::lock_guard<std::mutex>& lock,
             [this](const ClientId completed_client_id, const bool cleanup_succeeded) noexcept {
                 OnCleanupFinished(completed_client_id, cleanup_succeeded);
             };
-        session = session_factory(connection, client_id.value(), std::move(cleanup_finished_callback));
+        session = session_factory(connection, client_id, std::move(cleanup_finished_callback));
         if (session == nullptr)
         {
             score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Session factory returned null for client_id="
-                                       << client_id.value();
+                                       << client_id;
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
         }
+        return session;
     }
     catch (const std::bad_alloc&)
     {
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Allocation failed while creating session for client_id="
-                                   << client_id.value();
+                                   << client_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
         score::mw::log::LogError()
-            << "[MESSAGE_PASSING_SERVER] Unexpected failure while creating session for client_id=" << client_id.value();
+            << "[MESSAGE_PASSING_SERVER] Unexpected failure while creating session for client_id=" << client_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
+}
 
-    decltype(m_connections)::iterator connection_iterator;
+score::crypto::Expected<SessionRegistry::ConnectionMap::iterator, score::crypto::daemon::common::DaemonErrorCode>
+SessionRegistry::RegisterConnection(std::lock_guard<std::mutex>& lock,
+                                    score::message_passing::IServerConnection& connection,
+                                    const std::shared_ptr<detail::Session>& session,
+                                    const ClientId client_id) noexcept
+{
+    static_cast<void>(lock);
     // The connection registry insertion may allocate before the admission gate is committed.
     try
     {
         const auto insertion = m_connections.try_emplace(&connection, session);
-        connection_iterator = insertion.first;
         if (!insertion.second)
         {
             score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Duplicate connection while registering client_id="
-                                       << client_id.value();
+                                       << client_id;
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
         }
+        return insertion.first;
     }
     catch (const std::bad_alloc&)
     {
         score::mw::log::LogError()
-            << "[MESSAGE_PASSING_SERVER] Allocation failed while registering connection for client_id="
-            << client_id.value();
+            << "[MESSAGE_PASSING_SERVER] Allocation failed while registering connection for client_id=" << client_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
         score::mw::log::LogError()
-            << "[MESSAGE_PASSING_SERVER] Unexpected failure while registering connection for client_id="
-            << client_id.value();
+            << "[MESSAGE_PASSING_SERVER] Unexpected failure while registering connection for client_id=" << client_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
+}
 
-    decltype(m_client_states)::iterator client_iterator;
+score::crypto::Expected<SessionRegistry::ClientStateMap::iterator, score::crypto::daemon::common::DaemonErrorCode>
+SessionRegistry::RegisterClientState(std::lock_guard<std::mutex>& lock,
+                                     const ClientId client_id,
+                                     const uid_t uid) noexcept
+{
+    static_cast<void>(lock);
     try
     {
         const auto client_result =
-            m_client_states.try_emplace(client_id.value(), ClientState{uid, ClientLifecycleState::kConnectionActive});
+            m_client_states.try_emplace(client_id, ClientState{uid, ClientLifecycleState::kConnectionActive});
         if (!client_result.second)
         {
-            m_connections.erase(connection_iterator);
-            score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Duplicate generated client_id="
-                                       << client_id.value();
+            score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Duplicate generated client_id=" << client_id;
             return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
         }
-        client_iterator = client_result.first;
+        return client_result.first;
     }
     catch (const std::bad_alloc&)
     {
-        m_connections.erase(connection_iterator);
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Allocation failed while reserving client_id="
-                                   << client_id.value();
+                                   << client_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
-        m_connections.erase(connection_iterator);
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Unexpected failure while reserving client_id="
-                                   << client_id.value();
+                                   << client_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
+}
 
+score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+SessionRegistry::ReserveConnectionForUid(std::lock_guard<std::mutex>& lock,
+                                         const uid_t uid,
+                                         const ClientId client_id) noexcept
+{
+    static_cast<void>(lock);
     try
     {
         const auto uid_result = m_reserved_connections_by_uid.try_emplace(uid, 0U);
         ++uid_result.first->second;
+        return {};
     }
     catch (const std::bad_alloc&)
     {
-        m_connections.erase(connection_iterator);
-        m_client_states.erase(client_iterator);
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Allocation failed while reserving UID for client_id="
-                                   << client_id.value();
+                                   << client_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kAllocationFailed);
     }
     catch (...)
     {
-        m_connections.erase(connection_iterator);
-        m_client_states.erase(client_iterator);
         score::mw::log::LogError() << "[MESSAGE_PASSING_SERVER] Unexpected failure while reserving UID for client_id="
-                                   << client_id.value();
+                                   << client_id;
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
     }
-
-    CommitClientId(lock, client_id.value());
-
-    return {};
 }
 
 auto SessionRegistry::GenerateClientId(std::lock_guard<std::mutex>& lock, const uid_t uid) const noexcept

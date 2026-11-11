@@ -76,6 +76,7 @@ Requirements Linked to Component Architecture
    chklst_arc_inspection
    design_decisions
    data_plane_architecture
+   ../../src/ipc/docs/index
 
 
 Static Architecture

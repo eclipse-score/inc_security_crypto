@@ -29,6 +29,10 @@ namespace score::crypto::ipc::protocol
  * Converts typed control requests and responses to and from serialized bytes.
  * Implementations provide the wire-format boundary between the crypto control plane and IPC
  * transports. Request metadata can be inspected before full request deserialization.
+ * @note SerializeRequest will take a request with an absolute deadline. Internally, the Codec
+ * will convert this absolute timeout into a relative one. During DeserializeRequest, the Codec
+ * will interpret the relative timeout and convert it back to an absolute deadline.
+ * This does allow communication between parties without the need for synchronized clocks.
  * @endrst
  */
 class IControlCodec

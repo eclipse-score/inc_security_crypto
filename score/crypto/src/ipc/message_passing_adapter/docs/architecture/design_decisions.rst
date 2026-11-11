@@ -154,3 +154,104 @@ client thread out of the IPC library's blocking path, enables an explicit
 application timeout, and preserves one connection per client process. A
 negative ``Notify`` communicates server-side submission failure when the
 request ID is available.
+
+
+.. dec_rec:: Request Work Is Not Queued
+  :id: dec_rec__crypto__ipc_request_work_admission
+  :version: 1
+  :status: accepted
+  :context: doc__crypto_architecture
+  :decision: Do not queue request operations in the daemon. Return kProviderBusy when no worker is idle, and let the Crypto API handle it.
+  :affects: comp__ipc_message_passing_adapter
+
+Request Work Admission and API Retry
+*************************************
+Context
+^^^^^^^
+The asynchronous request path admits work before execution. Queueing a request
+in the daemon when all workers are busy would retain pending request state,
+delay overload feedback, and require a queue capacity and adjustments to the timeout policy.
+Returning ``kProviderBusy`` immediately keeps daemon-side request work bounded.
+
+Decision
+^^^^^^^^
+``TrySubmitWorkItem`` assigns a request only to an idle worker. When all workers
+are busy, it returns ``kProviderBusy`` and the dispatcher sends that result to
+the client; request operations are never queued in the daemon.
+
+The Crypto API can then implement a retry strategy for ``kProviderBusy`` responses.
+
+Consequences
+^^^^^^^^^^^^
+The daemon retains no request backlog, and executing or assigned request work
+remains bounded by the worker count.
+
+Implementation of a retry mechanism needs to be handled separately e.g. in the API.
+
+Alternatives Considered
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Daemon-side queue or retry
+--------------------------
+
+Queueing or retrying inside the daemon would retain requests and require
+decisions about queue size, whether it is provider-specific or daemon-wide,
+whether capacity is configurable, and what happens when the queue fills. It
+would also complicate the ASIL operation-timeout behavior and require a policy
+for the delay between retries. A queue cannot eliminate overload rejection:
+once full, the daemon still needs to return ``kProviderBusy``.
+
+
+.. dec_rec:: Purpose-built Worker Executor
+  :id: dec_rec__crypto__ipc_fixed_worker_executor
+  :version: 1
+  :status: accepted
+  :context: doc__crypto_architecture
+  :decision: Use a purpose-built FixedWorkerWorkItemExecutor to implement the adapter's admission, worker initialization, startup reporting, and restart requirements without an additional scheduler around a generic thread pool.
+  :affects: comp__ipc_message_passing_adapter
+
+Custom Worker Executor Instead of Baselibs ThreadPool
+*****************************************************
+
+Context
+^^^^^^^
+
+The executor must satisfy several independent requirements:
+
+* Request admission follows :need:`dec_rec__crypto__ipc_request_work_admission`;
+  request operations are rejected at saturation instead of queued.
+* Cleanup work has its own admission policy and bounded queue.
+* Each worker has a preconstructed request-handler chain that it reuses.
+* Startup reports thread or handler initialization failures before the server
+  starts listening.
+
+Decision
+^^^^^^^^
+
+Use a purpose-built worker executor to accept work into a thread pool instead of adapting an
+existing generic thread pool. Owning the executor lets the adapter implement its request and
+cleanup admission policies directly, construct and retain one handler chain per
+worker and report worker initialization failures before listening starts.
+Reusing a generic pool would require additional coordination around these policies
+and lifecycle requirements.
+
+Consequences
+^^^^^^^^^^^^
+
+A custom worker executor will be implemented satisfying the requirements outlined above.
+
+Alternatives Considered
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Baselibs ``score::concurrency::ThreadPool``
+-------------------------------------------
+
+The Baselibs thread pool queues submitted tasks when workers are busy and does
+not provide the admission control required by
+:need:`dec_rec__crypto__ipc_request_work_admission`. Using it would require an
+additional scheduler to reject request work at saturation and to give cleanup
+work its separate bounded queue. Coordinating preconstructed per-worker handler
+chains, reporting initialization failures before listening starts, and
+supporting a stopped-to-started lifecycle would also require additional
+orchestration. The custom executor keeps these admission and lifecycle policies
+together, at the cost of owning their synchronization.
