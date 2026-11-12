@@ -18,9 +18,9 @@ Crypto Documentation
 This repository provides the cryptographic services of the Eclipse S-CORE
 :need:`feat__security_crypto`.
 The Crypto module offers applications a common interface for key management,
-symmetric and asymmetric cryptography, hashing, digital signatures, and
-certificate handling, and post-quantum cryptography, with support for software
-and hardware-backed cryptographic providers. Its scope is cryptographic services,
+symmetric and asymmetric cryptography, hashing, digital signatures, certificate
+handling, and post-quantum cryptography, with support for software and
+hardware-backed cryptographic providers. Its scope is cryptographic services,
 rather than all use cases covered by Security & Crypto.
 
 Feature Documentation
@@ -74,7 +74,7 @@ and analyses for the individual components of the Crypto module.
    /docs/components/index
 
 .. needtable::
-   :filter: docname is not None and docname.startswith(("score/crypto/", "score/cryptoki/", "score/iav_primula/"))
+   :filter: docname is not None and docname.startswith("crypto/components/")
    :style: table
    :types: document
    :columns: title;id;safety;security;status

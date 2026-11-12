@@ -37,6 +37,7 @@ include_patterns = [
     "docs/**",
     "score/**",
     "examples/**",
+    "crypto/**",
 ]
 
 exclude_patterns = [

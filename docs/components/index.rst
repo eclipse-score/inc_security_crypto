@@ -24,6 +24,6 @@ The Crypto module contains the following documented components:
 .. toctree::
    :maxdepth: 1
 
-   /score/crypto/docs/index
-   /score/cryptoki/docs/index
-   /score/iav_primula/docs/index
+   /crypto/components/crypto/index
+   /crypto/components/cryptoki/index
+   /crypto/components/primula/index
