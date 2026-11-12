@@ -14,11 +14,19 @@
 
 .. _features_template:
 
-Features
-========
+Crypto
+#######
+
+Feature descirption can be found here :need:`feat__security_crypto`.
 
 .. toctree::
    :maxdepth: 1
-   :glob:
 
-   */index
+   architecture/index.rst
+   architecture/chklst_arc_inspection.rst
+   safety_analysis/fmea.rst
+   safety_analysis/dfa.rst
+   safety_analysis/aou_requirements.rst
+   safety_planning/index.rst
+   security_analysis/aou_requirements.rst
+   security_planning/index.rst
