@@ -159,8 +159,9 @@ score::Result<std::monostate> CipherContextImpl::Init(std::optional<score::cpp::
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
@@ -205,8 +206,9 @@ score::Result<std::size_t> CipherContextImpl::Update(score::cpp::span<const uint
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(output_tspan, validator);
@@ -242,8 +244,9 @@ score::Result<std::size_t> CipherContextImpl::Finalize(score::cpp::span<uint8_t>
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(output_tspan, validator);
@@ -299,8 +302,9 @@ score::Result<std::size_t> CipherContextImpl::SingleShot(std::optional<score::cp
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(output_tspan, validator);
@@ -325,8 +329,9 @@ score::Result<std::monostate> CipherContextImpl::Reset()
 
     if (!validator.isValid())
     {
-        return score::Result<std::monostate>{score::unexpect,
-                                             MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::monostate>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
@@ -354,8 +359,9 @@ score::Result<std::size_t> CipherContextImpl::GetMaximumOutputSize(std::size_t i
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     auto size_result = validator.getParameterAt<std::uint64_t>(0, 0);

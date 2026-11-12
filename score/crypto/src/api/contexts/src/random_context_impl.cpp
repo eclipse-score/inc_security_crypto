@@ -155,8 +155,9 @@ score::Result<std::size_t> RandomContextImpl::Generate(score::cpp::span<uint8_t>
 
     if (!validator.isValid())
     {
-        return score::Result<std::size_t>{score::unexpect,
-                                          MakeError(CryptoErrorCode::kOperationFailed, validator.getError())};
+        return score::Result<std::size_t>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     auto written = m_transcoder->ExtractOutputBuffer(tspan, validator);
