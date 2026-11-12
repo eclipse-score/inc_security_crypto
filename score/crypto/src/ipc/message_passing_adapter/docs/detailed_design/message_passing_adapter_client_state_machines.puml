@@ -1,0 +1,115 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml message_passing_adapter_client_state_machines
+!theme plain
+skinparam shadowing false
+skinparam state {
+  BackgroundColor White
+  BorderColor Black
+}
+skinparam state<<root>> {
+  BackgroundColor LightYellow
+  BorderColor DarkGoldenRod
+}
+skinparam ArrowFontSize 11
+top to bottom direction
+
+title Client-Side State Machines and Their Interactions
+
+state "API calls\n(MessagePassingControlClient)" as APP <<root>>
+state "IClientConnection\n(Stop and callbacks)" as TP <<root>> {
+  state "StateCallback(state)" as TP_State <<root>>
+  state "NotifyCallback(bytes)" as TP_Notify <<root>>
+}
+
+state "ClientSession\n(one per client)" as CS {
+  state "kStarting" as CS_Starting
+  state "kReady" as CS_Ready
+  state "kStopping" as CS_Stopping
+  state "kStopped" as CS_Stopped
+
+  [*] --> CS_Starting
+  CS_Starting -[#blue]-> CS_Ready : StateCallback(kReady)
+  CS_Starting -[#blue]-> CS_Stopping : StateCallback(kStopping)
+  CS_Ready -[#blue]-> CS_Stopping : StateCallback(kStopping)
+  CS_Stopping -[#blue]-> CS_Stopped : StateCallback(kStopped)
+
+  CS_Starting : do / **R2** WaitForConnectionReady(deadline) [SendRequest]
+  CS_Ready : do / **R4** SerializeRequest(), Send(bytes) [Codec, IClientConnection]
+  CS_Ready : do / **R5** WaitForResponse(deadline + grace) [PendingCall]
+  CS_Ready : do / **F2** DeserializeResponse(), CompleteCall(request_id) [Codec, PendingCallRegistry]
+  CS_Ready : do / **F5** Return or Error [PendingCallRegistry]
+  CS_Stopping : entry / **C2** FailAllPendingCalls(kConnectionFailed) [PendingCallRegistry]
+}
+
+state "PendingCall\n(one per request_id)" as PC {
+  state "kPending" as PC_Pending
+  state "kCompleted" as PC_Completed
+  state "kFailed" as PC_Failed
+
+  [*] -[#purple]-> PC_Pending : BeginCall()\n[registered by request_id]
+  PC_Pending -[#green]-> PC_Completed : **F3** Complete(response)\n[matching request_id]
+  PC_Pending -[#blue]-> PC_Failed : **C3** Fail(connection error)
+  PC_Pending -[#orange]-> PC_Failed : **T1** Fail at timeout
+
+  PC_Completed : entry / **F4** Wake waiter with response
+  PC_Failed : entry / **T2** Wake waiter with error
+}
+
+' Keep both roots on the first row, above ClientSession and PendingCall.
+APP -[hidden]right-> TP
+APP -[hidden]down-> CS
+TP -[hidden]down-> PC
+CS -[hidden]right-> PC
+
+' Flow C (blue): transport StateCallback
+TP_State -[dashed,#blue]-> CS : **C1** StateCallback(kStarting, kReady, kStopping, kStopped)
+CS -[dashed,#blue]-> PC : **C3** Fail all pending calls
+
+' Flow R (orange): send request
+APP -[dashed,#orange]-> CS : **R1** SendRequest(request, timeout)
+CS -[dashed,#orange]-> PC : **R3** BeginCall(); register request_id
+
+' Flow N(green): notify and response handling
+TP_Notify -[dashed,#green]-> CS : **F1** NotifyCallback(response bytes)
+CS -[dashed,#green]-> PC : **F3** CompleteCall(request_id)
+PC_Completed -[dashed,#green]-> CS : **F4** Wake waiter with response
+CS -[dashed,#green]-> APP : **F5** Return response
+
+' Flow T (red): timeout and result arbitration
+PC_Failed -[dashed,#red]-> CS : **T2** Return kOperationResponseTimedOut\n[timeout won the race]
+CS -[dashed,#red]-> APP : **T3** Return timeout
+
+note left of CS
+  PendingCallRegistry is omitted from the flow arrows for readability and since it is not a state machine.
+  It maps request_id to PendingCall, enforces the outstanding-call limit, and
+  mediates completion, failure, and timeout operations.
+end note
+
+legend right
+  Solid arrows: state transitions within a client state machine.
+  Dashed arrows: interactions between the application, session,
+  individual pending calls, and transport callbacks.
+  C1-C3 (blue): transport StateCallback and pending-call failure.
+  R1-R5 (orange): request creation/send.
+  F1-F5 (green): NotifyCallback and response return.
+  T1-T3 (red): timeout and response-race resolution.
+  Related triggers on one dashed arrow share the same source and target;
+  each trigger ID identifies a separate interaction in that grouped flow.
+  SendRequest waits for kReady before registering a pending call.
+  A connection that stops fails all registered calls. A response without a
+  matching request_id is discarded by the omitted registry mediator.
+endlegend
+
+@enduml

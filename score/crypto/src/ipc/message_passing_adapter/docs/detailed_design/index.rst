@@ -19,4 +19,5 @@ Message-Passing Adapter Detailed Design
    :maxdepth: 1
 
    message_passing_adapter_overview
+   message_passing_adapter_client
    message_passing_adapter_server
