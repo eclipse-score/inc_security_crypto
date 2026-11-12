@@ -156,14 +156,13 @@ class ControlPlaneTest : public ::testing::Test
         // Create gRPC server with factory (server will create ConnectionHandler wrappers per thread)
         _server = std::make_unique<ipc::GrpcControlServer>(std::move(test_factory));
 
-        // Start gRPC server in background thread
+        // Start() returns after gRPC has created the listening socket. Run only
+        // the blocking termination wait in the background to avoid racing the
+        // first client request against server startup.
+        _server->Start(_socket_path);
         _server_thread = std::thread([this]() {
-            _server->Start(_socket_path);
             _server->WaitForTermination();
         });
-
-        // Give server time to start
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     void TearDown() override
