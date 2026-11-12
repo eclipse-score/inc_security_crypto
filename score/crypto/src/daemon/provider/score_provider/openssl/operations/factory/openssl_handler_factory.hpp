@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_FACTORY_OPENSSL_HANDLER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_FACTORY_OPENSSL_HANDLER_FACTORY_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
@@ -36,21 +37,22 @@ class OpenSslHandlerFactory final
 
     ~OpenSslHandlerFactory() override = default;
 
-  protected:
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateHashHandler(
-        const common::AlgorithmId& algorithm) override;
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateMacHandler(
-        const common::AlgorithmId& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
     CreateKeyManagementHandler() override;
+
+  protected:
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateHashHandler(
+        const AlgorithmDescriptor& algorithm) override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateMacHandler(
+        const AlgorithmDescriptor& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateCipherHandler(
-        const common::AlgorithmId& algorithm) override;
+        const AlgorithmDescriptor& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateSignHandler(
-        const common::AlgorithmId& algorithm) override;
+        const AlgorithmDescriptor& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateVerifyHandler(
-        const common::AlgorithmId& algorithm) override;
+        const AlgorithmDescriptor& algorithm) override;
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateRandomHandler(
-        const common::AlgorithmId& algorithm) override;
+        const AlgorithmDescriptor& algorithm) override;
 };
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler

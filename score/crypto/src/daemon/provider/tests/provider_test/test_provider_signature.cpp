@@ -22,6 +22,7 @@
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
@@ -43,6 +44,14 @@ namespace verify_ops = handler::verify_handler_operations;
 
 namespace
 {
+
+/// Catalog row of @p name; the daemon resolves names before a provider sees them.
+score::crypto::AlgorithmDescriptor Row(std::string_view name)
+{
+    const auto row = score::crypto::GetAlgorithmDescriptor(name);
+    EXPECT_TRUE(row.has_value()) << "not in the catalog: " << name;
+    return row.value_or(score::crypto::AlgorithmDescriptor{});
+}
 
 using SignatureInputMode = score::crypto::SignatureInputMode;
 using Permission = score::crypto::KeyOperationPermission;
@@ -159,7 +168,7 @@ class ProviderSignatureTest : public ::testing::TestWithParam<SignatureCase>
              {"ECDSA-P256", "ECDSA-P384", "ECDSA-P521", "RSA-2048", "RSA-3072", "RSA-4096", "Ed25519"})
         {
             key_management::KeyGenerationRequest request;
-            request.algorithm = algorithm;
+            request.algorithm = Row(algorithm);
             request.permissions = Permission::kSign;
             request.public_key_permissions = Permission::kVerify;
             auto result = key_factory_->GenerateKey(request);
@@ -183,7 +192,7 @@ class ProviderSignatureTest : public ::testing::TestWithParam<SignatureCase>
     {
         auto factory = provider_->GetCryptoHandlerFactory();
         EXPECT_NE(factory, nullptr);
-        auto result = factory->CreateHandler(type, test_case.signature_algorithm);
+        auto result = factory->CreateHandler(type, Row(test_case.signature_algorithm));
         EXPECT_TRUE(result.has_value()) << test_case.name;
         return result.has_value() ? result.value() : nullptr;
     }

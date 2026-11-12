@@ -12,7 +12,6 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
-#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
@@ -34,21 +33,11 @@ using ::score::crypto::daemon::common::DaemonErrorCode;
 using ::score::crypto::daemon::provider::handler::handler_utils::CheckAndGetSpan;
 
 // ---------------------------------------------------------------------------
-// Supported algorithms
-// ---------------------------------------------------------------------------
-
-static constexpr const char* kSupportedAlgorithms[] = {
-    "HMAC-SHA256",
-    "HMAC-SHA384",
-    "HMAC-SHA512",
-};
-
-// ---------------------------------------------------------------------------
 // Construction / destruction
 // ---------------------------------------------------------------------------
 
 OpenSslHmacHandler::OpenSslHmacHandler(std::unique_ptr<operations::mac::MacExecutor> executor,
-                                       const common::AlgorithmId& algorithm)
+                                       const AlgorithmDescriptor& algorithm)
     : ScoreMacHandler{std::move(executor), algorithm}
 {
 }
@@ -80,38 +69,21 @@ void OpenSslHmacHandler::CleanupContext() noexcept
 
 const char* OpenSslHmacHandler::GetDigestName() const noexcept
 {
-    const std::string_view algo{m_algorithm.data(), m_algorithm.size()};
-    if (algo == "HMAC-SHA256")
+    if (!IsAlgorithmSupported(m_algorithm))
     {
-        return "SHA256";
+        return nullptr;
     }
-    if (algo == "HMAC-SHA384")
-    {
-        return "SHA384";
-    }
-    if (algo == "HMAC-SHA512")
-    {
-        return "SHA512";
-    }
-    return nullptr;
+    return ::score::crypto::daemon::provider::openssl::detail::ToOpenSslDigestName(m_algorithm.hash);
 }
 
-bool OpenSslHmacHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool OpenSslHmacHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    for (const char* supported : kSupportedAlgorithms)
-    {
-        if (algorithm == supported)
-        {
-            return true;
-        }
-    }
-    return false;
+    return ::score::crypto::daemon::provider::openssl::detail::IsHmacSupported(algorithm);
 }
 
 std::size_t OpenSslHmacHandler::GetMacSize() const noexcept
 {
-    return ::score::crypto::daemon::common::LookupMacSize(std::string_view{m_algorithm.data(), m_algorithm.size()})
-        .value_or(0U);
+    return IsAlgorithmSupported(m_algorithm) ? m_algorithm.output_size : 0U;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,16 +95,7 @@ OpenSslHmacHandler::InitializeContext(
     const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
 {
     // Validate algorithm (m_algorithm is set at construction).
-    bool found{false};
-    for (const char* algo : kSupportedAlgorithms)
-    {
-        if (m_algorithm == algo)
-        {
-            found = true;
-            break;
-        }
-    }
-    if (!found)
+    if (!IsAlgorithmSupported(m_algorithm))
     {
         return ::score::crypto::make_unexpected(
             ::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedAlgorithm);
@@ -256,7 +219,8 @@ OpenSslHmacHandler::UpdateMac(const common::RequestParameter& dataToMac)
             ::score::crypto::daemon::common::DaemonErrorCode::kStreamNotInitialized);
     }
 
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(dataToMac);
+    // An empty chunk is valid input, and the MAC of an empty message is defined.
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(dataToMac, true);
     if (!inputSpan.has_value())
     {
         return ::score::crypto::make_unexpected(inputSpan.error());

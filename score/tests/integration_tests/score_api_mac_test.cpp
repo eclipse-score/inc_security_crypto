@@ -521,6 +521,77 @@ TEST_P(KeySlotMacTest, MacWithKeySlotTest)
     ASSERT_NO_FATAL_FAILURE(ReleaseAndAssertKey(key));
 }
 
+TEST_P(KeySlotMacTest, AcceptsEmptyMessageAndEmptyChunks)
+{
+    const auto test_data = GetParam();
+
+    // HMAC of the empty message under the slot's key; see test_vectors/mac/reference.md.
+    const auto expected_empty_mac = tests::utility::read_bin(GetTestVectorPath("/mac/hmac_sha256_empty.bin"));
+    ASSERT_EQ(expected_empty_mac.size(), test_data.expected_mac_size);
+    const auto input = tests::utility::read_bin(GetTestVectorPath(test_data.in_data_relative_path));
+    const auto expected_mac = tests::utility::read_bin(GetTestVectorPath(test_data.expected_mac_data_relative_path));
+    ASSERT_FALSE(input.empty());
+
+    auto stack_result = CreateCryptoStack();
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    auto& ctx = ctx_result.value();
+
+    KeyManagementContextConfig key_mgmt_config;
+    MacContextConfig mac_config;
+    if (test_data.provider_type.has_value())
+    {
+        key_mgmt_config.SetProviderType(test_data.provider_type.value());
+        mac_config.SetProviderType(test_data.provider_type.value());
+    }
+    auto key_mgmt_result = ctx->CreateKeyManagementContext(key_mgmt_config);
+    ASSERT_TRUE(key_mgmt_result.has_value()) << "Failed to create key management context";
+    auto slot_result = ctx->ResolveResource(std::string{test_data.key_slot_name}, ResourceType::kKeySlot);
+    ASSERT_TRUE(slot_result.has_value()) << "Failed to resolve key slot: " << test_data.key_slot_name;
+    auto key_result = key_mgmt_result.value()->LoadKey(slot_result.value());
+    ASSERT_TRUE(key_result.has_value()) << "Failed to load key from slot: " << test_data.key_slot_name;
+    auto key = std::move(key_result.value());
+
+    mac_config.SetAlgorithm(std::string{test_data.mac_algorithm}).SetKey(key);
+    auto mac_result = ctx->CreateMacContext(mac_config);
+    ASSERT_TRUE(mac_result.has_value()) << "Failed to create MAC context";
+    auto& mac = *mac_result.value();
+
+    const score::cpp::span<const std::uint8_t> empty{};
+    std::vector<std::uint8_t> output(test_data.expected_mac_size);
+
+    // The empty message, with and without an explicit empty Update.
+    ASSERT_TRUE(mac.Init());
+    auto finalize = mac.Finalize({output.data(), output.size()});
+    ASSERT_TRUE(finalize.has_value()) << "Finalize without Update failed";
+    EXPECT_EQ(output, expected_empty_mac) << "MAC of the empty message (no Update) does not match";
+
+    ASSERT_TRUE(mac.Init());
+    ASSERT_TRUE(mac.Update(empty)) << "Update with an empty chunk was refused";
+    finalize = mac.Finalize({output.data(), output.size()});
+    ASSERT_TRUE(finalize.has_value()) << "Finalize after an empty Update failed";
+    EXPECT_EQ(output, expected_empty_mac) << "MAC of the empty message (empty Update) does not match";
+
+    ASSERT_TRUE(mac.Init());
+    ASSERT_TRUE(mac.Update(empty));
+    auto verify = mac.Verify({expected_empty_mac.data(), expected_empty_mac.size()});
+    ASSERT_TRUE(verify.has_value()) << "Verify of the empty message failed";
+    EXPECT_TRUE(verify.value()) << "The empty message's MAC must verify";
+
+    // Empty chunks around and inside a message do not change its MAC.
+    const auto split = static_cast<std::ptrdiff_t>(input.size() / 2U);
+    ASSERT_TRUE(mac.Init());
+    ASSERT_TRUE(mac.Update(empty));
+    ASSERT_TRUE(mac.Update({input.data(), static_cast<std::size_t>(split)}));
+    ASSERT_TRUE(mac.Update(empty));
+    ASSERT_TRUE(mac.Update({input.data() + split, input.size() - static_cast<std::size_t>(split)}));
+    ASSERT_TRUE(mac.Update(empty));
+    finalize = mac.Finalize({output.data(), output.size()});
+    ASSERT_TRUE(finalize.has_value()) << "Finalize after interleaved empty chunks failed";
+    EXPECT_EQ(output, expected_mac) << "Empty chunks changed the MAC";
+}
+
 // =========================================================================
 // Test Vector Constants
 // =========================================================================
@@ -655,6 +726,33 @@ INSTANTIATE_TEST_SUITE_P(KeySlotProviderType,
                          [](const testing::TestParamInfo<KeySlotMacTest::ParamType>& info) {
                              return std::string{info.param.test_case_name};
                          });
+
+/// An HMAC takes only a key labelled with that HMAC: an AES key, even one with
+/// MAC permission and of the HMAC's digest length, is refused.
+TEST(MacKeyFitTest, HmacRefusesAnAesKey)
+{
+    auto stack_result = CreateCryptoStack();
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    auto& ctx = ctx_result.value();
+
+    auto key_mgmt_result = ctx->CreateKeyManagementContext(KeyManagementContextConfig{});
+    ASSERT_TRUE(key_mgmt_result.has_value()) << "Failed to create key management context";
+
+    GenerateKeyParams key_gen_params;
+    key_gen_params.SetAlgorithm("AES-256").SetPermissions(KeyOperationPermission::kMac);
+    auto key_result = key_mgmt_result.value()->GenerateKey(key_gen_params);
+    ASSERT_TRUE(key_result.has_value()) << "Failed to generate AES-256 key";
+    auto key = std::move(key_result.value());
+
+    MacContextConfig mac_config;
+    mac_config.SetAlgorithm(std::string{kAlgHmacSha256}).SetKey(key);
+    const auto refused = ctx->CreateMacContext(mac_config);
+    ASSERT_FALSE(refused.has_value()) << "An AES-256 key must not serve HMAC-SHA256";
+    EXPECT_EQ(*refused.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kIncompatibleKeyType))
+        << refused.error().Message();
+}
 
 }  // namespace
 

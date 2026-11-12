@@ -228,8 +228,9 @@ KMS --> Med : resolved_provider_id = "openssl"
 Med -> PM : GetProvider("openssl")
 PM --> Med : provider (IProvider*)
 
-Med -> Factory : CreateHandler("MAC", "HMAC-SHA256")
-Factory -> Mac ** : make_shared<MacHandler>(MacExecutor, "HMAC-SHA256")
+Med -> Med : GetAlgorithmDescriptor("HMAC-SHA256")\n(unknown name → kUnsupportedAlgorithm)
+Med -> Factory : CreateHandler("MAC", <HMAC-SHA256 row>)
+Factory -> Mac ** : make_shared<MacHandler>(MacExecutor, <HMAC-SHA256 row>)
 Factory --> Med : MacHandler::Sptr
 
 Med -> DM : addChildNode(client_id, session_id, ContextDataNode(mac_handler))

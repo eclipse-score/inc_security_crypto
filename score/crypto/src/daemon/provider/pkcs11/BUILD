@@ -44,6 +44,7 @@ cc_library(
         "//:__subpackages__",
     ],
     deps = [
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_info",
     ],
@@ -141,6 +142,20 @@ cc_test(
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
         "//score/crypto/tests/softhsm:softhsm_test_fixture",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "pkcs11_algorithm_info_test",
+    srcs = ["detail/pkcs11_algorithm_info_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":provider_pkcs11_library",
+        "//score/crypto/src/backend:active_pkcs11_backend",
         "@googletest//:gtest_main",
     ],
 )

@@ -35,11 +35,29 @@ cc_library(
     ],
 )
 
-# Header-only utility: algorithm sizing tables for hash, MAC, and key algorithms.
+# Header-only algorithm catalog. Internal to the daemon: clients name algorithms
+# by string, so score/crypto/src/api must not depend on it.
+cc_library(
+    name = "algorithm_catalog",
+    hdrs = ["algorithm_catalog.hpp"],
+    visibility = ["//:__subpackages__"],
+)
+
+cc_test(
+    name = "algorithm_catalog_test",
+    srcs = ["algorithm_catalog_test.cpp"],
+    deps = [
+        ":algorithm_catalog",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Header-only utility: algorithm properties for the daemon, resolved through the algorithm catalog.
 cc_library(
     name = "algorithm_info",
     hdrs = ["algorithm_info.hpp"],
     visibility = ["//:__subpackages__"],
+    deps = [":algorithm_catalog"],
 )
 
 cc_test(
@@ -47,6 +65,23 @@ cc_test(
     srcs = ["algorithm_info_test.cpp"],
     deps = [
         ":algorithm_info",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Header-only utility: decides whether a key's algorithm fits an operation algorithm.
+cc_library(
+    name = "key_compatibility",
+    hdrs = ["key_compatibility.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = [":algorithm_catalog"],
+)
+
+cc_test(
+    name = "key_compatibility_test",
+    srcs = ["key_compatibility_test.cpp"],
+    deps = [
+        ":key_compatibility",
         "@googletest//:gtest_main",
     ],
 )

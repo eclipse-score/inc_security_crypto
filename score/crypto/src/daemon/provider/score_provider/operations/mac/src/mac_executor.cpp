@@ -244,7 +244,9 @@ Expected<std::monostate, DaemonErrorCode> MacExecutor::ValidateStreamTransition(
     {
         return make_unexpected(DaemonErrorCode::kInvalidOperation);
     }
-    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());
+    // Finalize may follow Init directly: the empty message has a MAC.
+    const auto result = handler::handler_utils::ValidateStreamOperationSequence(
+        currentState, op.value(), true, DaemonErrorCode::kInvalidStreamOperation);
     if (!result.has_value())
     {
         return make_unexpected(result.error());

@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_DETAIL_SIGNATURE_COMMON_HPP
 
 #include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/context_mode.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
@@ -55,7 +56,7 @@ class Stream final
     ///        Reset() can rebuild the context from them.
     [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> Bind(
         const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
-        const common::AlgorithmId& algorithm);
+        const AlgorithmDescriptor& algorithm);
 
     /// @brief Replaces the digest context with a fresh one.
     ///
@@ -112,7 +113,7 @@ P1363ToDer(const std::uint8_t* raw, std::size_t raw_len, std::size_t field_size)
 ///        for verification, so signatures using any legal salt length are accepted.
 /// @return an initialization error if the context or any RSA-PSS parameter could not be configured.
 [[nodiscard]] Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
-ConfigureRsaPssContext(EVP_MD_CTX* context, std::string_view algorithm, int salt_length) noexcept;
+ConfigureRsaPssContext(EVP_MD_CTX* context, const AlgorithmDescriptor& algorithm, int salt_length) noexcept;
 
 }  // namespace score::crypto::daemon::provider::score_provider::openssl::handler::signature
 

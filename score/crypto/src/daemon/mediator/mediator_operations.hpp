@@ -22,6 +22,7 @@
 #include <string_view>
 
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
@@ -60,12 +61,34 @@ struct ContextScopeCapability final
 
 /// @brief Scope prefixes recognized by CTX_CREATE for capability-based provider routing.
 ///
-/// The scope is the case-sensitive substring before the first ':' in the context type.
-/// Context types without a recognized scope add no capability constraint.
+/// The scope is the case-sensitive substring before the first ':' in the context type
+/// (common::context_types::ScopeOf). Context types without a recognized scope add no
+/// capability constraint.
 inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities{{
-    {"CERT", common::ProviderCapability::kCertManagement},
-    {"KEY", common::ProviderCapability::kKeyManagement},
+    {common::context_types::kCertScope, common::ProviderCapability::kCertManagement},
+    {common::context_types::kKeyScope, common::ProviderCapability::kKeyManagement},
 }};
+
+/// @brief The provider capability a CTX_CREATE of @p context_type requires.
+/// @return the capability mapped to the type's scope, or kNone if the type is
+///         unscoped or its scope is not in kContextScopeCapabilities.
+[[nodiscard]] inline constexpr common::ProviderCapability RequiredProviderCapability(
+    const std::string_view context_type) noexcept
+{
+    const auto scope = common::context_types::ScopeOf(context_type);
+    if (scope.empty())
+    {
+        return common::ProviderCapability::kNone;
+    }
+    for (const auto& scope_capability : kContextScopeCapabilities)
+    {
+        if (scope == scope_capability.scope)
+        {
+            return scope_capability.capability;
+        }
+    }
+    return common::ProviderCapability::kNone;
+}
 
 /// @brief Daemon-side interpretation of a public ProviderType wire value.
 struct ProviderTypePreference final

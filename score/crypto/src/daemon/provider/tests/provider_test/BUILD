@@ -23,6 +23,7 @@ cc_test(
     }),
     deps = [
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_library",
@@ -41,6 +42,7 @@ cc_test(
     }),
     deps = [
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
@@ -62,6 +64,7 @@ cc_test(
     deps = [
         "//score/crypto/src/backend:active_pkcs11_backend",  # Selected PKCS#11 backend
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_library",

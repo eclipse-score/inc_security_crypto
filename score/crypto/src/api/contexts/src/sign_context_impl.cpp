@@ -154,7 +154,9 @@ score::Result<std::monostate> SignContextImpl::Init(std::optional<score::cpp::sp
     {
         score::mw::log::LogError() << kLogPrefix << validator.getError();
         return score::Result<std::monostate>{
-            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "SIGN_INIT daemon response invalid")};
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed),
+                      "SIGN_INIT daemon response invalid")};
     }
 
     return std::monostate{};
@@ -192,7 +194,7 @@ score::Result<std::monostate> SignContextImpl::Update(score::cpp::span<const uin
     {
         return score::Result<std::monostate>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
@@ -230,7 +232,7 @@ score::Result<std::size_t> SignContextImpl::SignFinalize(score::cpp::span<uint8_
     {
         return score::Result<std::size_t>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(tspan, validator);
@@ -277,7 +279,7 @@ score::Result<std::size_t> SignContextImpl::SingleShot(score::cpp::span<const ui
     {
         return score::Result<std::size_t>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return m_transcoder->ExtractOutputBuffer(sig_tspan, validator);
@@ -306,7 +308,8 @@ score::Result<std::monostate> SignContextImpl::Reset()
         score::mw::log::LogError() << kLogPrefix << validator.getError();
         return score::Result<std::monostate>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed),
+                      "SIGN_RESET daemon response invalid")};
     }
 
     return std::monostate{};

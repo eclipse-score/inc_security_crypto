@@ -157,7 +157,8 @@ score::Result<std::monostate> VerifySignatureContextImpl::Init(std::optional<sco
         score::mw::log::LogError() << kLogPrefix << validator.getError();
         return score::Result<std::monostate>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed),
+                      "VERIFY_INIT daemon response invalid")};
     }
 
     return std::monostate{};
@@ -195,7 +196,7 @@ score::Result<std::monostate> VerifySignatureContextImpl::Update(score::cpp::spa
     {
         return score::Result<std::monostate>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};
@@ -233,7 +234,7 @@ score::Result<bool> VerifySignatureContextImpl::VerifyFinalize(score::cpp::span<
     {
         return score::Result<bool>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     auto verify_result = validator.getParameterAt<bool>(0, 0);
@@ -289,7 +290,7 @@ score::Result<bool> VerifySignatureContextImpl::SingleShot(score::cpp::span<cons
     {
         return score::Result<bool>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     auto verify_result = validator.getParameterAt<bool>(0, 0);
@@ -327,7 +328,7 @@ score::Result<std::monostate> VerifySignatureContextImpl::Reset()
         score::mw::log::LogError() << kLogPrefix << validator.getError();
         return score::Result<std::monostate>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError),
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed),
                       "VERIFY_RESET daemon response invalid")};
     }
 

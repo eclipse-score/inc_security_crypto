@@ -203,8 +203,8 @@ void StreamingTransform(ICipherContext& cipher,
 
     // Split mid-message rather than on a block boundary: that leaves a partial
     // block for the cipher to buffer across the two Update calls, which is the
-    // interesting path. Both chunks must be non-empty — an Update with no data
-    // is not a meaningful request and the daemon rejects it.
+    // interesting path. Both chunks are non-empty so each Update carries data;
+    // KeySlotCipherTest.AcceptsEmptyInput covers empty chunks.
     ASSERT_GE(input.size(), 2U) << "Test input must be at least two bytes";
     const auto split = static_cast<std::ptrdiff_t>(input.size() / 2U);
     const std::vector<std::uint8_t> chunk1(input.begin(), input.begin() + split);
@@ -657,6 +657,139 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
     ASSERT_NO_FATAL_FAILURE(ReleaseAndAssertKey(key));
 }
 
+TEST_P(KeySlotCipherTest, AcceptsEmptyInput)
+{
+    const auto test_data = GetParam();
+
+    NistCbcVector vector;
+    ASSERT_TRUE(LoadNistCbcVector(test_data.vector_dir, test_data.vector_prefix, vector));
+
+    auto stack_result = CreateCryptoStack();
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    auto& ctx = ctx_result.value();
+
+    KeyManagementContextConfig key_mgmt_config;
+    if (test_data.provider_type.has_value())
+    {
+        key_mgmt_config.SetProviderType(test_data.provider_type.value());
+    }
+    auto key_mgmt_result = ctx->CreateKeyManagementContext(key_mgmt_config);
+    ASSERT_TRUE(key_mgmt_result.has_value()) << "Failed to create key management context";
+    auto slot_result = ctx->ResolveResource(test_data.key_slot_name, ResourceType::kKeySlot);
+    ASSERT_TRUE(slot_result.has_value()) << "Failed to resolve key slot: " << test_data.key_slot_name;
+    auto key_result = key_mgmt_result.value()->LoadKey(slot_result.value());
+    ASSERT_TRUE(key_result.has_value()) << "Failed to load key from slot: " << test_data.key_slot_name;
+    auto key = std::move(key_result.value());
+
+    const std::vector<std::uint8_t> empty;
+    const score::cpp::span<const std::uint8_t> iv{vector.iv.data(), vector.iv.size()};
+
+    auto encrypt =
+        MakeCipherContext(*ctx, test_data.cipher_algorithm, test_data.provider_type, key, CipherDirection::kEncrypt);
+    auto decrypt =
+        MakeCipherContext(*ctx, test_data.cipher_algorithm, test_data.provider_type, key, CipherDirection::kDecrypt);
+    auto raw_encrypt = MakeCipherContext(*ctx,
+                                         test_data.cipher_algorithm,
+                                         test_data.provider_type,
+                                         key,
+                                         CipherDirection::kEncrypt,
+                                         CipherPadding::kNone);
+    auto raw_decrypt = MakeCipherContext(*ctx,
+                                         test_data.cipher_algorithm,
+                                         test_data.provider_type,
+                                         key,
+                                         CipherDirection::kDecrypt,
+                                         CipherPadding::kNone);
+    ASSERT_TRUE(encrypt && decrypt && raw_encrypt && raw_decrypt);
+
+    std::size_t block_size = 0U;
+    ASSERT_NO_FATAL_FAILURE(QueryBlockSize(*encrypt, block_size));
+
+    // With PKCS#7 the empty plaintext encrypts to one block: the padding block.
+    std::vector<std::uint8_t> padding_block;
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*encrypt, vector.iv, empty, padding_block));
+    ASSERT_EQ(padding_block.size(), block_size) << "An empty plaintext must give one padding block";
+
+    std::vector<std::uint8_t> unpadded;
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*raw_decrypt, vector.iv, padding_block, unpadded));
+    EXPECT_EQ(unpadded, std::vector<std::uint8_t>(block_size, static_cast<std::uint8_t>(block_size)))
+        << "The block must decrypt to a full PKCS#7 padding block";
+
+    std::vector<std::uint8_t> recovered;
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*decrypt, vector.iv, padding_block, recovered));
+    EXPECT_TRUE(recovered.empty()) << "Decrypting the padding block must give the empty plaintext";
+
+    // Streaming: Init, an empty Update, Finalize gives the same block.
+    {
+        ASSERT_TRUE(encrypt->Reset());
+        ASSERT_TRUE(encrypt->Init(iv));
+        std::vector<std::uint8_t> out(block_size);
+        auto n = encrypt->Update({empty.data(), empty.size()}, {out.data(), out.size()});
+        ASSERT_TRUE(n.has_value()) << "Update with an empty chunk was refused";
+        EXPECT_EQ(n.value(), 0U);
+        auto tail = encrypt->Finalize({out.data(), out.size()});
+        ASSERT_TRUE(tail.has_value()) << "Finalize after an empty Update failed";
+        out.resize(tail.value());
+        EXPECT_EQ(out, padding_block) << "Streaming and single-shot must agree on the empty plaintext";
+
+        // Init followed directly by Finalize is the same empty plaintext.
+        ASSERT_TRUE(encrypt->Init(iv));
+        out.assign(block_size, 0U);
+        tail = encrypt->Finalize({out.data(), out.size()});
+        ASSERT_TRUE(tail.has_value()) << "Finalize directly after Init failed";
+        out.resize(tail.value());
+        EXPECT_EQ(out, padding_block) << "Init then Finalize must give the padding block";
+
+        // An empty ciphertext is not valid PKCS#7: it holds no padding block.
+        ASSERT_TRUE(decrypt->Reset());
+        ASSERT_TRUE(decrypt->Init(iv));
+        out.assign(block_size, 0U);
+        EXPECT_FALSE(decrypt->Finalize({out.data(), out.size()}).has_value())
+            << "Decrypting an empty ciphertext with padding must fail";
+    }
+
+    // Without padding the empty plaintext is zero blocks.
+    std::vector<std::uint8_t> nothing;
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*raw_encrypt, vector.iv, empty, nothing));
+    EXPECT_TRUE(nothing.empty()) << "Without padding an empty plaintext must give no ciphertext";
+
+    // Empty chunks inside a message change neither the ciphertext nor the plaintext.
+    std::vector<std::uint8_t> expected_ciphertext;
+    ASSERT_NO_FATAL_FAILURE(SingleShotTransform(*encrypt, vector.iv, vector.plaintext, expected_ciphertext));
+    for (auto* cipher : {encrypt.get(), decrypt.get()})
+    {
+        const auto& input = (cipher == encrypt.get()) ? vector.plaintext : expected_ciphertext;
+        const auto& expected = (cipher == encrypt.get()) ? expected_ciphertext : vector.plaintext;
+        const auto bound = cipher->GetMaximumOutputSize(input.size());
+        ASSERT_TRUE(bound.has_value());
+        std::vector<std::uint8_t> scratch(bound.value());
+        std::vector<std::uint8_t> produced;
+        const auto append = [&](std::size_t n) {
+            produced.insert(produced.end(), scratch.begin(), scratch.begin() + static_cast<std::ptrdiff_t>(n));
+        };
+        const auto split = input.size() / 2U;
+
+        ASSERT_TRUE(cipher->Reset());
+        ASSERT_TRUE(cipher->Init(iv));
+        for (const auto chunk : {score::cpp::span<const std::uint8_t>{empty.data(), empty.size()},
+                                 score::cpp::span<const std::uint8_t>{input.data(), split},
+                                 score::cpp::span<const std::uint8_t>{empty.data(), empty.size()},
+                                 score::cpp::span<const std::uint8_t>{input.data() + split, input.size() - split},
+                                 score::cpp::span<const std::uint8_t>{empty.data(), empty.size()}})
+        {
+            auto n = cipher->Update(chunk, {scratch.data(), scratch.size()});
+            ASSERT_TRUE(n.has_value()) << "Update failed on a chunk of " << chunk.size() << " bytes";
+            append(n.value());
+        }
+        auto tail = cipher->Finalize({scratch.data(), scratch.size()});
+        ASSERT_TRUE(tail.has_value()) << "Finalize after interleaved empty chunks failed";
+        append(tail.value());
+        EXPECT_EQ(produced, expected) << "Empty chunks changed the result";
+    }
+}
+
 // =========================================================================
 // Test Vector Constants
 // =========================================================================
@@ -730,6 +863,35 @@ INSTANTIATE_TEST_SUITE_P(NistVectorsOnSoftwareProvider,
                          [](const testing::TestParamInfo<KeySlotCipherTest::ParamType>& info) {
                              return info.param.test_case_name;
                          });
+
+/// A cipher context bound straight to a key slot, without LoadKey, is checked
+/// against the key the slot holds. The slot below is labelled AES-256 but holds
+/// a 16-byte key: its label and its material disagree, so it serves neither
+/// AES-256-CBC nor AES-128-CBC.
+TEST(KeySlotBindingTest, SlotWhoseKeyLengthDiffersFromItsLabelIsRefused)
+{
+    auto stack_result = CreateCryptoStack();
+    ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
+    auto ctx_result = stack_result.value()->CreateCryptoContext();
+    ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
+    auto& ctx = ctx_result.value();
+
+    auto slot = ctx->ResolveResource("AES256_Labelled_AES128_Material_OpenSSL", ResourceType::kKeySlot);
+    ASSERT_TRUE(slot.has_value()) << "Failed to resolve key slot";
+
+    for (const auto algorithm : {"AES-256-CBC", "AES-128-CBC"})
+    {
+        CipherContextConfig config;
+        config.SetAlgorithm(algorithm)
+            .SetKey(slot.value())
+            .SetDirection(CipherDirection::kEncrypt)
+            .SetProviderType(ProviderType::kSoftware);
+        const auto refused = ctx->CreateCipherContext(config);
+        ASSERT_FALSE(refused.has_value()) << "A 16-byte key labelled AES-256 must not serve " << algorithm;
+        EXPECT_EQ(*refused.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kIncompatibleKeyType))
+            << algorithm << ": " << refused.error().Message();
+    }
+}
 
 }  // namespace
 

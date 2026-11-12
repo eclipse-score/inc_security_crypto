@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_SIGN_OPENSSL_RSA_PSS_SIGN_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_SIGN_OPENSSL_RSA_PSS_SIGN_HANDLER_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/score_sign_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/sign_executor.hpp"
@@ -33,7 +34,7 @@ class OpenSslRsaPssSignHandler final : public operations::sign::ScoreSignHandler
 {
   public:
     explicit OpenSslRsaPssSignHandler(std::unique_ptr<operations::sign::SignExecutor> executor,
-                                      const common::AlgorithmId& algorithm);
+                                      const AlgorithmDescriptor& algorithm);
     ~OpenSslRsaPssSignHandler() override;
     OpenSslRsaPssSignHandler(const OpenSslRsaPssSignHandler&) = delete;
     OpenSslRsaPssSignHandler& operator=(const OpenSslRsaPssSignHandler&) = delete;
@@ -54,7 +55,7 @@ class OpenSslRsaPssSignHandler final : public operations::sign::ScoreSignHandler
                                                                   score::cpp::span<std::uint8_t> signature) override;
 
     /// @brief Check if the given algorithm is supported by this handler.
-    static bool IsAlgorithmSupported(const common::AlgorithmId&) noexcept;
+    static bool IsAlgorithmSupported(const AlgorithmDescriptor&) noexcept;
 
   private:
     /// @brief Creates a fresh OpenSSL context and, in message mode, initializes

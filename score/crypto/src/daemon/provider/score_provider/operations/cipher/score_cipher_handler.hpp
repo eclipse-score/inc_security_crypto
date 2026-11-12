@@ -16,6 +16,7 @@
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
@@ -55,7 +56,7 @@ class ScoreCipherHandler : public handler::Handler
 
     /// @param executor   Cipher executor injected by the handler factory.
     /// @param algorithm  Algorithm identifier (e.g. "AES-256-CBC").
-    explicit ScoreCipherHandler(std::unique_ptr<CipherExecutor> executor, const common::AlgorithmId& algorithm);
+    explicit ScoreCipherHandler(std::unique_ptr<CipherExecutor> executor, const AlgorithmDescriptor& algorithm);
 
     ~ScoreCipherHandler() override = default;
 
@@ -86,7 +87,7 @@ class ScoreCipherHandler : public handler::Handler
         m_state = state;
     }
 
-    [[nodiscard]] const common::AlgorithmId& GetAlgorithm() const noexcept
+    [[nodiscard]] const AlgorithmDescriptor& GetAlgorithm() const noexcept
     {
         return m_algorithm;
     }
@@ -152,7 +153,7 @@ class ScoreCipherHandler : public handler::Handler
         score::cpp::span<std::uint8_t> output);
 
   protected:
-    common::AlgorithmId m_algorithm;
+    AlgorithmDescriptor m_algorithm;
     common::StreamOperationState m_state{common::StreamOperationState::IDLE};
     score::crypto::CipherDirection m_direction{score::crypto::CipherDirection::kEncrypt};
     score::crypto::CipherPadding m_padding{score::crypto::CipherPadding::kPkcs7};

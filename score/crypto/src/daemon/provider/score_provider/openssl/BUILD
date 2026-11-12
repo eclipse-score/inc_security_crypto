@@ -26,6 +26,7 @@ cc_library(
     }),
     visibility = ["//:__subpackages__"],
     deps = [
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/key_management:key_management_headers",
     ],
 )
@@ -107,7 +108,7 @@ cc_library(
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     visibility = ["//:__subpackages__"],
-    deps = ["//score/crypto/src/daemon/common:algorithm_info"],
+    deps = ["//score/crypto/src/daemon/common:algorithm_catalog"],
 )
 
 cc_library(
@@ -137,6 +138,7 @@ cc_library(
     deps = [
         ":openssl_cert_management_headers",
         ":openssl_key_management_headers",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
         "//score/crypto/src/daemon/provider/score_provider",
@@ -189,6 +191,7 @@ cc_library(
         ":provider_openssl_headers",
         "//score/crypto/src/daemon/cert_management",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/data_plane",
@@ -209,6 +212,7 @@ cc_test(
         ":openssl_detail_headers",
         ":provider_openssl_headers",
         ":provider_openssl_library",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/common:algorithm_info",
         "//third_party/openssl:openssl_shared",
         "@googletest//:gtest_main",
@@ -218,13 +222,16 @@ cc_test(
 cc_test(
     name = "openssl_key_handler_test",
     srcs = ["key_management/openssl_key_handler_test.cpp"],
+    data = ["//score/tests/test_vectors/ecdsa:ecdsa_test_vectors"],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     deps = [
         ":provider_openssl_library",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/tests/utility",
         "@googletest//:gtest_main",
     ],
 )

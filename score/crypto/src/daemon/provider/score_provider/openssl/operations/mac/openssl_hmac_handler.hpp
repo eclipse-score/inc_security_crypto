@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPENSSL_OPERATIONS_MAC_OPENSSL_HMAC_HANDLER_HPP
 
 #include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
@@ -39,7 +40,7 @@ class OpenSslHmacHandler final
     using Sptr = std::shared_ptr<OpenSslHmacHandler>;
 
     explicit OpenSslHmacHandler(std::unique_ptr<operations::mac::MacExecutor> executor,
-                                const common::AlgorithmId& algorithm);
+                                const AlgorithmDescriptor& algorithm);
     ~OpenSslHmacHandler() override;
 
     OpenSslHmacHandler(const OpenSslHmacHandler&) = delete;
@@ -78,7 +79,7 @@ class OpenSslHmacHandler final
     [[nodiscard]] std::size_t GetMacSize() const noexcept override;
 
     /// @brief Check if the given algorithm is supported by this handler.
-    [[nodiscard]] static bool IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept;
+    [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
 
   private:
     /// @brief Map HMAC algorithm string (e.g. "HMAC-SHA256") to the underlying digest name

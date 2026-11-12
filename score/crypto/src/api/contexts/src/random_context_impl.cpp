@@ -161,7 +161,7 @@ score::Result<std::size_t> RandomContextImpl::Generate(score::cpp::span<uint8_t>
     {
         return score::Result<std::size_t>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     auto written = m_transcoder->ExtractOutputBuffer(tspan, validator);
@@ -221,7 +221,7 @@ score::Result<std::monostate> RandomContextImpl::Seed(score::cpp::span<const uin
         // seeding.
         return score::Result<std::monostate>{
             score::unexpect,
-            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
     }
 
     return std::monostate{};

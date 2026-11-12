@@ -21,7 +21,7 @@ using common::DaemonErrorCode;
 using common::ResponseParameters;
 using common::StreamOperationState;
 
-ScoreHashHandler::ScoreHashHandler(std::unique_ptr<HashExecutor> executor, const common::AlgorithmId& algorithm)
+ScoreHashHandler::ScoreHashHandler(std::unique_ptr<HashExecutor> executor, const AlgorithmDescriptor& algorithm)
     : m_algorithm{algorithm}, m_state{StreamOperationState::IDLE}, m_executor{std::move(executor)}
 {
 }
@@ -75,14 +75,13 @@ Expected<ResponseParameters, DaemonErrorCode> ScoreHashHandler::SingleShotHash(
 
 Expected<ResponseParameters, DaemonErrorCode> ScoreHashHandler::GetDigestSize() const
 {
-    const auto size = common::LookupDigestSize(std::string_view{m_algorithm.data(), m_algorithm.size()});
-    if (!size.has_value())
+    if (m_algorithm.category != AlgorithmCategory::kHash)
     {
         return make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
     ResponseParameters response;
-    response.push_back(static_cast<std::uint64_t>(size.value()));
+    response.push_back(static_cast<std::uint64_t>(m_algorithm.output_size));
     return response;
 }
 

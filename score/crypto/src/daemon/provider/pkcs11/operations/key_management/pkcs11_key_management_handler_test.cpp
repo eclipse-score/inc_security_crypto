@@ -117,10 +117,8 @@ class Pkcs11KeyHandlerTest : public tests::softhsm::SofthsmTestFixture
         auto factory = m_provider->GetCryptoHandlerFactory();
         ASSERT_NE(factory, nullptr);
 
-        // HandlerId is a std::string, and the shared context-type ids are
-        // string_views, which do not convert implicitly.
-        auto handler_result =
-            factory->CreateHandler(std::string{score::crypto::daemon::common::context_types::kKeyManagement}, "");
+        // KEY:MANAGEMENT handlers are bound to no algorithm.
+        auto handler_result = factory->CreateKeyManagementHandler();
         ASSERT_TRUE(handler_result.has_value()) << "CreateHandler failed for key management";
         auto handler = handler_result.value();
         m_km_handler = std::dynamic_pointer_cast<pkcs11_ns::Pkcs11KeyManagementHandler>(handler);

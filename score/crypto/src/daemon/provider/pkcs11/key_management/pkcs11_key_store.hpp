@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_KEY_MANAGEMENT_PKCS11_KEY_STORE_HPP
 
 #include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/resolved_key.hpp"
@@ -99,7 +100,7 @@ class Pkcs11KeyStore
     [[nodiscard]] key_management::ProviderKeyHandle Register(
         CK_SESSION_HANDLE session,
         CK_OBJECT_HANDLE object,
-        const std::string& algorithm,
+        const ::score::crypto::AlgorithmDescriptor& algorithm,
         std::size_t key_size,
         // Deliberately has no default: a key registered with kNone serves no
         // context, so the grant must be a decision at every call site.
@@ -116,7 +117,7 @@ class Pkcs11KeyStore
     ///        checks when a context asks to bind this key.
     [[nodiscard]] key_management::ProviderKeyHandle RegisterTokenObject(
         const SearchTemplate& search_template,
-        const std::string& algorithm,
+        const ::score::crypto::AlgorithmDescriptor& algorithm,
         std::size_t key_size,
         score::crypto::KeyOperationPermission permissions) noexcept;
 

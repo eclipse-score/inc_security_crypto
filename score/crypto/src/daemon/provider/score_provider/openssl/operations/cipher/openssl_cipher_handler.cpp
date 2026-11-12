@@ -35,14 +35,13 @@ namespace score::crypto::daemon::provider::score_provider::openssl::handler
 using common::ResponseParameters;
 using common::StreamOperationState;
 using ::score::crypto::daemon::common::DaemonErrorCode;
-namespace algo_info = ::score::crypto::daemon::common;
 
 // ---------------------------------------------------------------------------
 // Construction / destruction
 // ---------------------------------------------------------------------------
 
 OpenSslCipherHandler::OpenSslCipherHandler(std::unique_ptr<operations::cipher::CipherExecutor> executor,
-                                           const common::AlgorithmId& algorithm)
+                                           const AlgorithmDescriptor& algorithm)
     : ScoreCipherHandler{std::move(executor), algorithm}
 {
 }
@@ -70,13 +69,9 @@ void OpenSslCipherHandler::CleanupContext() noexcept
 // Static helpers
 // ---------------------------------------------------------------------------
 
-bool OpenSslCipherHandler::IsAlgorithmSupported(const common::AlgorithmId& algorithm) noexcept
+bool OpenSslCipherHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
 {
-    // The provider list is the gate; the common table must also know the
-    // algorithm because the handler base reads its block and IV sizes there.
-    const std::string_view name{algorithm.data(), algorithm.size()};
-    return ::score::crypto::daemon::provider::openssl::detail::IsCipherSupported(name) &&
-           algo_info::LookupCipher(name).has_value();
+    return ::score::crypto::daemon::provider::openssl::detail::ToEvpCipherName(algorithm) != nullptr;
 }
 
 bool OpenSslCipherHandler::GetBoundKeyMaterial(const std::uint8_t*& key_bytes, std::size_t& key_len) const noexcept
@@ -99,10 +94,10 @@ bool OpenSslCipherHandler::GetBoundKeyMaterial(const std::uint8_t*& key_bytes, s
 ::score::crypto::Expected<std::monostate, DaemonErrorCode> OpenSslCipherHandler::InitializeContext(
     const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
 {
-    const auto info = algo_info::LookupCipher(m_algorithm);
-    if (!info.has_value())
+    const char* const cipher_name = ::score::crypto::daemon::provider::openssl::detail::ToEvpCipherName(m_algorithm);
+    if (cipher_name == nullptr)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "Unsupported algorithm:" << m_algorithm;
+        score::mw::log::LogError() << LOG_PREFIX << "Unsupported algorithm:" << m_algorithm.name;
         return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
@@ -115,13 +110,10 @@ bool OpenSslCipherHandler::GetBoundKeyMaterial(const std::uint8_t*& key_bytes, s
 
     CleanupContext();
 
-    // OpenSSL's algorithm names match the identifiers used by this stack
-    // ("AES-256-CBC", "AES-128-CTR", ...), so no translation table is needed.
-    const std::string algorithm_name{m_algorithm.data(), m_algorithm.size()};
-    m_cipher = EVP_CIPHER_fetch(nullptr, algorithm_name.c_str(), nullptr);
+    m_cipher = EVP_CIPHER_fetch(nullptr, cipher_name, nullptr);
     if (m_cipher == nullptr)
     {
-        score::mw::log::LogError() << LOG_PREFIX << "EVP_CIPHER_fetch failed for" << m_algorithm;
+        score::mw::log::LogError() << LOG_PREFIX << "EVP_CIPHER_fetch failed for" << m_algorithm.name;
         return ::score::crypto::make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
@@ -161,12 +153,13 @@ bool OpenSslCipherHandler::GetBoundKeyMaterial(const std::uint8_t*& key_bytes, s
 
     // Catch a key/algorithm length mismatch here rather than letting OpenSSL
     // silently accept a short key later.
-    if (key_len != info->key_size)
+    const std::size_t expected_key_size = ::score::crypto::daemon::common::LookupKeySize(m_algorithm).value_or(0U);
+    if (key_len != expected_key_size)
     {
         score::mw::log::LogError() << LOG_PREFIX << "InitializeContext: key length" << key_len
-                                   << "does not match algorithm requirement" << info->key_size;
+                                   << "does not match algorithm requirement" << expected_key_size;
         m_init_params = {};
-        return ::score::crypto::make_unexpected(DaemonErrorCode::kAlgorithmMismatch);
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kIncompatibleKeyType);
     }
 
     m_state = StreamOperationState::IDLE;

@@ -16,6 +16,7 @@
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
@@ -54,7 +55,7 @@ class ScoreSignHandler : public handler::Handler
 
     /// @param executor   Sign executor injected by the handler factory.
     /// @param algorithm  Algorithm identifier (e.g. "ECDSA-P256-SHA256").
-    explicit ScoreSignHandler(std::unique_ptr<SignExecutor> executor, const common::AlgorithmId& algorithm);
+    explicit ScoreSignHandler(std::unique_ptr<SignExecutor> executor, const AlgorithmDescriptor& algorithm);
 
     ~ScoreSignHandler() override;
 
@@ -85,7 +86,7 @@ class ScoreSignHandler : public handler::Handler
         m_state = state;
     }
 
-    [[nodiscard]] const common::AlgorithmId& GetAlgorithm() const noexcept
+    [[nodiscard]] const AlgorithmDescriptor& GetAlgorithm() const noexcept
     {
         return m_algorithm;
     }
@@ -124,7 +125,7 @@ class ScoreSignHandler : public handler::Handler
         score::cpp::span<std::uint8_t> signature);
 
   protected:
-    common::AlgorithmId m_algorithm;
+    AlgorithmDescriptor m_algorithm;
     common::StreamOperationState m_state{common::StreamOperationState::IDLE};
 
   private:

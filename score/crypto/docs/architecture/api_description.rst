@@ -297,6 +297,34 @@ data while preserving:
 **Error code**: ``kContextResetFailed`` is returned
 when the daemon cannot clear the context's internal state.
 
+Signature Input Mode
+--------------------
+
+``SignContextConfig::SetInputMode()`` and
+``VerifySignatureContextConfig::SetInputMode()`` choose what the bytes passed
+to ``Update()`` or ``SingleShot()`` are:
+
+- ``SignatureInputMode::kMessage`` (default): the message. The provider hashes
+  it with the hash named in the algorithm, e.g. SHA-384 for
+  ``ECDSA-P256-SHA384``.
+- ``SignatureInputMode::kPrehashed``: the digest of the message, already
+  computed by the caller with that same hash.
+
+A signature does not record which mode produced it: one made over a message
+verifies over that message's digest, and the other way round.
+
+**Digest length**: in ``kPrehashed`` mode the input must be exactly as long as
+the output of the algorithm's hash, e.g. 28 bytes for ``ECDSA-P521-SHA224``,
+64 bytes for ``ECDSA-P256-SHA512``. A digest of any other length is refused
+with an error, not a signature or a ``false`` verdict: an over-long one at the
+``Update()`` that exceeds the length, a short one at ``SignFinalize()`` /
+``VerifyFinalize()``, and either at ``SingleShot()``. The input is never
+truncated or padded, so a caller holding a digest from a different hash must
+re-hash the message.
+
+ECDSA and RSA-PSS accept both modes. Ed25519 hashes internally as part of the
+signature scheme and refuses ``kPrehashed`` when the context is created.
+
 Device Binding
 --------------
 
@@ -386,6 +414,36 @@ If the key's permissions do not include the required operation, the
 daemon returns ``CryptoErrorCode::kKeyOperationNotPermitted`` and the
 context is not created. This is a fail-fast check — no resources are
 allocated on permission violation.
+
+**Key/algorithm fit:**
+
+After the permission check, the daemon compares the key's algorithm with
+the context algorithm, using the algorithm catalog
+(``score/crypto/src/daemon/common/algorithm_catalog.hpp``). A key labelled
+with a key row names key material only and serves every operation of its
+family:
+
+.. code-block:: none
+
+   ECDSA-P<n>   → ECDSA-P<n>-<hash>       (any hash)
+   RSA-<bits>   → RSA-PSS-<bits>-<hash>   (any hash)
+   AES-<n>      → AES-<n>-CBC, AES-<n>-GCM, AES-<n>-CMAC
+
+A key labelled with any other row (``AES-256-GCM``, ``HMAC-SHA256``,
+``ECDSA-P256-SHA256``, ``Ed25519``) names an operation and serves that
+operation only. HMAC keys have no key row, so ``HMAC-<hash>`` takes only a
+key labelled ``HMAC-<hash>``, never an AES key; its length is free. An AES
+key must hold as many bytes as its label states: a key labelled ``AES-256``
+that holds 16 bytes fits no operation. A key slot that is not loaded yet is
+checked by its label first and by the length of its key after binding.
+
+Both algorithms are catalog rows (``IsKeyCompatible()`` in
+``daemon/common/key_compatibility.hpp``); hash, random and key rows name no
+keyed operation, so no key fits them. A key that does not fit returns
+``CryptoErrorCode::kIncompatibleKeyType`` and the context is not created. A
+context algorithm that the catalog does not know never gets this far: it is
+refused with ``CryptoErrorCode::kUnsupportedAlgorithm`` (see "Algorithm
+Catalog Alongside ``AlgorithmId``" in :ref:`crypto_design_decisions`).
 
 **Querying permissions:**
 
