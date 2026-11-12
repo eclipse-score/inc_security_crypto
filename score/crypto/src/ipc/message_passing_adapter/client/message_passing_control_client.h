@@ -47,6 +47,7 @@ class MessagePassingControlClient final
     /// @return A client facade, or an error if creation or callback startup fails.
     static Expected<std::shared_ptr<MessagePassingControlClient>, score::crypto::CryptoErrorCode> Create(
         std::string_view service_identifier) noexcept;
+
     /// @brief Stops the client session and releases its transport resources.
     ~MessagePassingControlClient() noexcept;
 
