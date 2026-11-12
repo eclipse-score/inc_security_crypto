@@ -23,7 +23,7 @@
 project = "Crypto Project"
 project_url = "https://eclipse-score.github.io/inc_security_crypto"
 version = "0.1"
-root_doc = "docs/index"
+root_doc = "index"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -34,6 +34,7 @@ extensions = [
 ]
 
 include_patterns = [
+    "index.rst",
     "docs/**",
     "score/**",
     "examples/**",
