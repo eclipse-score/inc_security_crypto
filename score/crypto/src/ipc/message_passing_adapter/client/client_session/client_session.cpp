@@ -228,7 +228,6 @@ void ClientSession::OnResponseBytes(const score::cpp::span<const std::uint8_t> m
         const auto error = deserialize_result.error();
         score::mw::log::LogError() << "[IPC][MESSAGE_PASSING_CLIENT] Dropped malformed response notification (size="
                                    << message.size() << ", error=" << static_cast<int>(error) << ")";
-        m_pending_call_registry.FailAllPendingCalls(error);
         return;
     }
     const auto request_id = response.request_id;
