@@ -21,7 +21,7 @@ local_path_override(
 
 # The integration configuration sets a public score_communication build flag,
 # so the dependency must also be directly visible to this root module.
-bazel_dep(name = "score_communication", version = "0.5.0")
+bazel_dep(name = "score_communication", version = "0.6.0")
 bazel_dep(name = "rules_cc", version = "0.2.25")
 
 # Keep the consumer's Python rules compatible with score_tooling until the
