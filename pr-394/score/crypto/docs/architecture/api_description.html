@@ -828,6 +828,31 @@ destroy and recreate the context via the factory.</p></li>
 when the daemon cannot clear the context’s internal state.</p>
 </section>
 </section>
+<section id="signature-input-mode">
+<h2>Signature Input Mode<a class="headerlink" href="#signature-input-mode" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SignContextConfig::SetInputMode()</span></code> and
+<code class="docutils literal notranslate"><span class="pre">VerifySignatureContextConfig::SetInputMode()</span></code> choose what the bytes passed
+to <code class="docutils literal notranslate"><span class="pre">Update()</span></code> or <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code> are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">SignatureInputMode::kMessage</span></code> (default): the message. The provider hashes
+it with the hash named in the algorithm, e.g. SHA-384 for
+<code class="docutils literal notranslate"><span class="pre">ECDSA-P256-SHA384</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SignatureInputMode::kPrehashed</span></code>: the digest of the message, already
+computed by the caller with that same hash.</p></li>
+</ul>
+<p>A signature does not record which mode produced it: one made over a message
+verifies over that message’s digest, and the other way round.</p>
+<p><strong>Digest length</strong>: in <code class="docutils literal notranslate"><span class="pre">kPrehashed</span></code> mode the input must be exactly as long as
+the output of the algorithm’s hash, e.g. 28 bytes for <code class="docutils literal notranslate"><span class="pre">ECDSA-P521-SHA224</span></code>,
+64 bytes for <code class="docutils literal notranslate"><span class="pre">ECDSA-P256-SHA512</span></code>. A digest of any other length is refused
+with an error, not a signature or a <code class="docutils literal notranslate"><span class="pre">false</span></code> verdict: an over-long one at the
+<code class="docutils literal notranslate"><span class="pre">Update()</span></code> that exceeds the length, a short one at <code class="docutils literal notranslate"><span class="pre">SignFinalize()</span></code> /
+<code class="docutils literal notranslate"><span class="pre">VerifyFinalize()</span></code>, and either at <code class="docutils literal notranslate"><span class="pre">SingleShot()</span></code>. The input is never
+truncated or padded, so a caller holding a digest from a different hash must
+re-hash the message.</p>
+<p>ECDSA and RSA-PSS accept both modes. Ed25519 hashes internally as part of the
+signature scheme and refuses <code class="docutils literal notranslate"><span class="pre">kPrehashed</span></code> when the context is created.</p>
+</section>
 <section id="device-binding">
 <h2>Device Binding<a class="headerlink" href="#device-binding" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">CryptoResourceId::primary_provider</span></code> (<code class="docutils literal notranslate"><span class="pre">uint16_t</span></code>) identifies the owning
@@ -1240,6 +1265,7 @@ to decouple configuration from the interfaces they parameterize.</p></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#context-reuse-via-reset">Context Reuse via Reset()</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signature-input-mode">Signature Input Mode</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#device-binding">Device Binding</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#access-control">Access Control</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-operation-permission-model">Key Operation Permission Model</a></li>

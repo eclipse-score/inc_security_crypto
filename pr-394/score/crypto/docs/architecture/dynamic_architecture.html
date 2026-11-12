@@ -636,7 +636,7 @@ use <code class="docutils literal notranslate"><span class="pre">LoadKey()</span
 
 <span class="c1">// 2. Query key slot metadata</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">key_mgmt</span><span class="o">-&gt;</span><span class="n">GetKeySlotInfo</span><span class="p">(</span><span class="n">slot</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
-<span class="c1">// info == {kOccupied, "AES-256", primary_provider=2, compatible_providers=[5]}</span>
+<span class="c1">// info == {kOccupied, "AES-256", provider=2, compatible=[2,5]}</span>
 
 <span class="c1">// 3. Use the same loaded key in two contexts — implicit conversion</span>
 <span class="n">CipherContextConfig</span><span class="w"> </span><span class="n">enc_config</span><span class="p">;</span>
