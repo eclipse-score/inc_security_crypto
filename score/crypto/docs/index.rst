@@ -19,31 +19,27 @@ Crypto
 
 .. note:: Document header
 
-.. document:: Crypto
-   :id: doc__mod_temp_crypto
+.. document:: Crypto Component
+   :id: doc__crypto
    :version: 1
    :status: draft
    :safety: ASIL_B
    :security: YES
    :realizes: wp__cmpt_request
 
-.. code-block:: rst
-
-   .. comp:: Component Name
-      :id: comp__mod_temp_crypto
-      :security: YES
-      :safety: ASIL_B
-      :status: invalid
-      :implements: logic_arc_int__feature_name__interface_name1
-      :consists_of: comp__crypto_internal_1, comp__crypto_internal_2, comp__crypto_internal_3
-      :belongs_to: feat__feature_name
-
-
 Abstract
 ========
 
-[A short (~200 word) description of the component.]
+The Crypto component provides a provider-agnostic C++ client library
+(``score::crypto``) and a separate crypto daemon for cryptographic services.
+Together, they support key management, symmetric and asymmetric cryptography,
+hashing, signing, certificate handling, and secure memory allocation through
+software and hardware-backed providers.
 
+Applications use the client library to request cryptographic operations; the
+daemon hosts cryptographic state, applies access-control and per-key operation
+permissions, and routes requests to configured providers such as OpenSSL or
+PKCS#11.
 
 Rationale
 =========
@@ -165,6 +161,7 @@ subcomponents. Their documentation is grouped under the daemon architecture.
 .. toctree::
    :maxdepth: 1
 
+   architecture/index
    architecture/daemon_architecture
    ../src/ipc/message_passing_adapter/docs/index
 

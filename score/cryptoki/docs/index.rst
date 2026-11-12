@@ -12,24 +12,21 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-Crypto
-#######
-
-Abstract
+Cryptoki
 ========
 
-[A short (~200 word) description of the feature.]
+.. document:: Cryptoki Component
+   :id: doc__cryptoki
+   :version: 1
+   :status: draft
+   :safety: QM
+   :security: YES
+   :realizes: wp__cmpt_request
 
-For the main feature description and requirements, see the belonging `Feature <https://eclipse-score.github.io/score/main/features/index.html#features>`_ in the project repository.
-
-.. toctree::
-   :hidden:
-
-   architecture/index.rst
-   architecture/chklst_arc_inspection.rst
-   safety_analysis/fmea.rst
-   safety_analysis/dfa.rst
-   safety_analysis/aou_requirements.rst
-   safety_planning/index.rst
-   security_analysis/aou_requirements.rst
-   security_planning/index.rst
+.. comp:: Cryptoki
+   :id: comp__cryptoki
+   :version: 1
+   :status: invalid
+   :safety: QM
+   :security: YES
+   :belongs_to: feat__security_crypto

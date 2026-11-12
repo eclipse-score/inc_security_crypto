@@ -15,84 +15,98 @@
 Crypto Documentation
 ====================
 
-This documentation covers the **Crypto** module — a cryptographic
-middleware stack for automotive ECUs. The module
-provides a C++ client library (``score::crypto``) and an accompanying
-crypto daemon that together deliver key management, symmetric and asymmetric
-cryptography, hashing, signing, certificate handling, and secure memory
-allocation.
+This repository provides the cryptographic services of the Eclipse S-CORE
+:need:`feat__security_crypto`.
+The Crypto module offers applications a common interface for key management,
+symmetric and asymmetric cryptography, hashing, digital signatures, and
+certificate handling, and post-quantum cryptography, with support for software
+and hardware-backed cryptographic providers. Its scope is cryptographic services,
+rather than all use cases covered by Security & Crypto.
 
-.. contents:: Table of Contents
-   :depth: 2
-   :local:
+Feature Documentation
+---------------------
 
-Overview
---------
-
-The ``score::crypto`` module follows a **daemon-based client–server**
-architecture:
-
-- **Client library** (``//score/crypto/src/api/...``) — a pure C++ interface layer
-  that applications link against. All operations are expressed through
-  factory-created context objects (``IHashContext``, ``IMacContext``, etc.)
-  following an ``Init()`` → ``Update()`` → ``Finalize()`` streaming pattern.
-
-- **Crypto daemon** (``//score/crypto/src/daemon:crypto_daemon``) — a separate process that
-  hosts all cryptographic state, enforces per-application Access Control
-  List (ACL) and per-key operation permissions (``KeyOperationPermission``
-  bitmask), and drives the underlying provider (OpenSSL, SoftHSM / PKCS#11,
-  or future HSM/TEE backends).
-
-- **IPC transport** — gRPC over a Unix domain socket (Temporary solution).
-  ABI compatibility between library and daemon shall be guarenteed.
-
-Requirements
-------------
-..
-    TODO: write comp_requirements.
-
-Functional requirements are captured implicitly via the public interface
-specifications in :ref:`crypto_interfaces` and the design decisions in
-:ref:`crypto_design_decisions`.
-
-Architecture
-------------
+The feature documentation describes Crypto's architecture, safety and security
+planning, and analyses.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   ../score/crypto/docs/architecture/index
+   /docs/features/index
 
+.. needtable::
+   :filter: docname is not None and docname.startswith("docs/features/")
+   :style: table
+   :types: document
+   :columns: title;id;safety;security;status
+   :colwidths: 25,35,15,15,15
+   :sort: title
 
-Project Layout
---------------
+Module Documentation
+--------------------
 
-The module template includes the following top-level structure:
+The module documentation covers the implementation overview, manuals, safety and
+security management, and verification report.
 
-- `.github/workflows/`: CI pipelines for Bazel build, unit tests, and documentation generation
-- `docs/`: Documentation using `docs-as-code`
-- `examples/`: Usage examples for each context type (hash, encrypt, sign, key management, certificates)
-- `tests/`: Unit tests, integration tests, provider tests, and test vectors
-- `third_party/`: Patches for third-party dependencies (if any)
+.. toctree::
+   :maxdepth: 1
 
-Quick Start
------------
+   /docs/module/index
+   /docs/verification_report/module_verification_report
 
-To build documentation:
+.. needtable::
+   :filter: docname is not None and docname.startswith(("docs/module/", "docs/verification_report/"))
+   :style: table
+   :types: document
+   :columns: title;id;safety;security;status
+   :colwidths: 25,35,15,15,15
+   :sort: title
 
-.. code-block:: bash
+Component Documentation
+-----------------------
 
-   bazel run //:docs
+The component documentation provides requirements, architecture, detailed design,
+and analyses for the individual components of the Crypto module.
 
-To build the module:
+.. toctree::
+   :maxdepth: 1
+
+   /docs/components/index
+
+.. needtable::
+   :filter: docname is not None and docname.startswith(("score/crypto/", "score/cryptoki/", "score/iav_primula/"))
+   :style: table
+   :types: document
+   :columns: title;id;safety;security;status
+   :colwidths: 25,35,15,15,15
+   :sort: title
+
+.. _quick-start-building-testing:
+
+Quick Start - Building and Testing
+-----------------------------------
+
+To build the entire module:
 
 .. code-block:: bash
 
    bazel build //score/...
 
-To run tests:
+To run all tests:
 
 .. code-block:: bash
 
-   # Execute tests
    bazel test //score/...
+
+Module Build Configuration
+--------------------------
+
+The ``project_config.bzl`` file at the root of the module defines metadata used by Bazel macros.
+This file controls build behavior and project-specific settings. It should follow the S-CORE definition.
+See `S-CORE user guide for project_config.bzl <https://eclipse-score.github.io/score/main/users_guide/building_simple_application/first_score_module.html#project-config-bzl>`_ for details.
+
+The configuration enables conditional build behavior:
+
+* **Language-specific tools**: For C++ code, tools like ``clang-tidy`` are used; for Rust code, ``clippy`` is used
+* **Safety level**: The ASIL level affects safety-related build settings and validation
+* **Source code languages**: The build system optimizes for the configured languages
