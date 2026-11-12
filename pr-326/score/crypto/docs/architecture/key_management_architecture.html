@@ -582,7 +582,7 @@
                   
   <section id="key-management-architecture">
 <span id="crypto-key-management-architecture"></span><h1>Key Management Architecture<a class="headerlink" href="#key-management-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-7c822383">
+<div class="need_container docutils container" id="SNCB-07b20b50">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto_key_management">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -722,7 +722,7 @@ injects the shared <code class="docutils literal notranslate"><span class="pre">
 <p>The following diagram shows the key class relationships:</p>
 <figure class="align-center" id="id4">
 <p class="plantuml">
-<object data="../../../../_images/plantuml-3a14f02f58991267bae36ac1bb8490f386592df8.svg" type="image/svg+xml" style="width:7629px;height:2838px;background:#FFFFFF;"></object></p>
+<object data="../../../../_images/plantuml-6924b6173ff304117af5b720a4ed17bb6cbc2201.svg" type="image/svg+xml" style="width:7531px;height:2838px;background:#FFFFFF;"></object></p>
 <figcaption>
 <p><span class="caption-number">Fig. 11 </span><span class="caption-text">Key Management — Class Diagram</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
 </figcaption>
@@ -735,7 +735,7 @@ key generation, key load with deduplication, MAC context creation with key
 binding, MAC streaming, and crash cleanup:</p>
 <figure class="align-center" id="id5">
 <p class="plantuml">
-<object data="../../../../_images/plantuml-e03a6bcbc2f5d723dda5c1af613fc8ed122cb047.svg" type="image/svg+xml" style="width:5105px;height:792px;background:#FFFFFF;"></object></p>
+<object data="../../../../_images/plantuml-e9df05e85942d04778776d51bfa26647a7fba577.svg" type="image/svg+xml" style="width:5115px;height:792px;background:#FFFFFF;"></object></p>
 <figcaption>
 <p><span class="caption-number">Fig. 12 </span><span class="caption-text">Key Management — Sequence Diagrams</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
 </figcaption>
@@ -910,9 +910,11 @@ and sets <code class="docutils literal notranslate"><span class="pre">ref_count<
 <span class="pre">client_id,</span> <span class="pre">SOFTWARE,</span> <span class="pre">key_ref_node_id)</span></code> examines the <code class="docutils literal notranslate"><span class="pre">KeyEntry</span></code>’s
 <code class="docutils literal notranslate"><span class="pre">provider_id</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;openssl&quot;</span></code>). Since the key lives in OpenSSL and the
 requested type is <code class="docutils literal notranslate"><span class="pre">SOFTWARE</span></code>, the resolved provider is <code class="docutils literal notranslate"><span class="pre">&quot;openssl&quot;</span></code>.</p></li>
-<li><p><strong>Handler creation</strong>: <code class="docutils literal notranslate"><span class="pre">ProviderManager::GetProvider(&quot;openssl&quot;)</span></code> →
-<code class="docutils literal notranslate"><span class="pre">ICryptoHandlerFactory::CreateHandler(&quot;MAC&quot;,</span> <span class="pre">&quot;HMAC-SHA256&quot;)</span></code> → <code class="docutils literal notranslate"><span class="pre">new</span>
-<span class="pre">MacHandler(MacExecutor,</span> <span class="pre">&quot;HMAC-SHA256&quot;)</span></code>.</p></li>
+<li><p><strong>Handler creation</strong>: the mediator resolves <code class="docutils literal notranslate"><span class="pre">&quot;HMAC-SHA256&quot;</span></code> to its
+catalog row once (an unknown name is refused with
+<code class="docutils literal notranslate"><span class="pre">kUnsupportedAlgorithm</span></code>), then <code class="docutils literal notranslate"><span class="pre">ProviderManager::GetProvider(&quot;openssl&quot;)</span></code>
+→ <code class="docutils literal notranslate"><span class="pre">ICryptoHandlerFactory::CreateHandler(&quot;MAC&quot;,</span> <span class="pre">&lt;HMAC-SHA256</span> <span class="pre">row&gt;)</span></code> →
+<code class="docutils literal notranslate"><span class="pre">new</span> <span class="pre">OpenSslHmacHandler(MacExecutor,</span> <span class="pre">&lt;HMAC-SHA256</span> <span class="pre">row&gt;)</span></code>.</p></li>
 <li><p><strong>Context node</strong>: <code class="docutils literal notranslate"><span class="pre">DataManager::addChildNode</span></code> creates a <code class="docutils literal notranslate"><span class="pre">ContextDataNode</span></code>
 wrapping the <code class="docutils literal notranslate"><span class="pre">MacHandlerImpl</span></code>; the <code class="docutils literal notranslate"><span class="pre">DataNodeId</span></code> becomes
 <code class="docutils literal notranslate"><span class="pre">context_node_id</span></code>.</p></li>
@@ -941,7 +943,7 @@ its constructor calls <code class="docutils literal notranslate"><span class="pr
 </li>
 <li><p><strong>Handler initialization</strong> (<code class="docutils literal notranslate"><span class="pre">OpenSslHmacHandler::InitializeContext</span></code>):</p>
 <ul class="simple">
-<li><p>Validates <code class="docutils literal notranslate"><span class="pre">m_algorithm</span> <span class="pre">==</span> <span class="pre">&quot;HMAC-SHA256&quot;</span></code>.</p></li>
+<li><p>Validates that the row <code class="docutils literal notranslate"><span class="pre">m_algorithm</span></code> is an HMAC the provider serves.</p></li>
 <li><p>Calls <code class="docutils literal notranslate"><span class="pre">EVP_MAC_fetch(NULL,</span> <span class="pre">&quot;HMAC&quot;,</span> <span class="pre">NULL)</span></code> to obtain an <code class="docutils literal notranslate"><span class="pre">EVP_MAC*</span></code>
 object, then <code class="docutils literal notranslate"><span class="pre">EVP_MAC_CTX_new(m_mac)</span></code> to allocate the <code class="docutils literal notranslate"><span class="pre">EVP_MAC_CTX</span></code>.</p></li>
 <li><p>Checks <code class="docutils literal notranslate"><span class="pre">params.bound_key_handler</span> <span class="pre">!=</span> <span class="pre">nullptr</span></code>.</p></li>
