@@ -68,6 +68,7 @@ cc_test(
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_library",
+        "//score/crypto/tests/pkcs11:pkcs11_test_env_setup",
         "//score/tests/utility",
         "@googletest//:gtest",
     ],
@@ -86,6 +87,7 @@ cc_test(
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",
         "//score/crypto/src/daemon/provider/pkcs11:provider_pkcs11_library",
+        "//score/crypto/tests/pkcs11:pkcs11_test_env_setup",
         "@googletest//:gtest",
     ],
 )

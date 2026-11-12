@@ -33,6 +33,7 @@
 #include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
+#include "score/crypto/tests/pkcs11/pkcs11_test_env_setup.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
 namespace common = score::crypto::daemon::common;
@@ -488,34 +489,9 @@ class Pkcs11ProviderHashTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        const char* tmpDir = std::getenv("TEST_TMPDIR");
-        const std::string baseDir = (tmpDir != nullptr) ? tmpDir : "/tmp";
-
-        // Create a unique token directory for each test to avoid state conflicts.
-        static unsigned int testCounter = 0;
-        const std::string testId = std::to_string(++testCounter);
-        const std::string tokenDir = baseDir + "/softhsm_pkcs11_tokens_" + testId;
-        // NOLINTNEXTLINE(cert-env33-c) -- test-only; safe in test sandbox
-        system(("rm -rf " + tokenDir).c_str());  // Clean up any prior state
-        system(("mkdir -p " + tokenDir).c_str());
-
-        const std::string configPath = baseDir + "/softhsm2_pkcs11_" + testId + ".conf";
-        {
-            std::ofstream config(configPath);
-            config << "directories.tokendir = " << tokenDir << "\n";
-            config << "objectstore.backend = file\n";
-            config << "log.level = INFO\n";
-        }
-        // NOLINTNEXTLINE(concurrency-mt-unsafe) -- test-only
-        setenv("SOFTHSM2_CONF", configPath.c_str(), 1);
-
-        // -- Rust Cryptoki environment setup ---------------------------------
-        const std::string cryptokiTokenDir = baseDir + "/cryptoki_tokens_" + testId;
-        const std::string cryptokiStorePath = cryptokiTokenDir + "/token.json";
-        system(("rm -rf " + cryptokiTokenDir).c_str());
-        system(("mkdir -p " + cryptokiTokenDir).c_str());
-        // NOLINTNEXTLINE(concurrency-mt-unsafe) -- test-only
-        setenv("CRYPTOKI_STORE", cryptokiStorePath.c_str(), 1);
+        // Create an isolated token directory and set up backend environments.
+        const std::string testDir = tests::pkcs11::env::UniqueTestDirectory("pkcs11_provider_test");
+        tests::pkcs11::env::PrepareBackendEnvironments(testDir);
 
         // -- Raw PKCS#11 bootstrap to create a token with a user PIN ----------
         CK_FUNCTION_LIST_PTR fl{nullptr};
@@ -605,8 +581,7 @@ class Pkcs11ProviderHashTest : public ::testing::Test
             provider_->Shutdown();
             provider_.reset();
         }
-        unsetenv("SOFTHSM2_CONF");
-        unsetenv("CRYPTOKI_STORE");
+        tests::pkcs11::env::CleanupBackendEnvironments();
     }
 
     CK_SLOT_ID slotId_{0U};

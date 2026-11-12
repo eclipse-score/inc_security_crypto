@@ -62,12 +62,14 @@ namespace handler = score::crypto::daemon::provider::handler;
 // ---------------------------------------------------------------------------
 // Helper: build a Pkcs11Provider that is already Initialize()'d.
 // ---------------------------------------------------------------------------
-static std::shared_ptr<pkcs11_ns::Pkcs11Provider> MakeProvider(const std::string& label, const std::string& pin)
+static std::shared_ptr<pkcs11_ns::Pkcs11Provider> MakeProvider(const std::string& label,
+                                                               const std::string& pin,
+                                                               const std::string& provider_name)
 {
     pkcs11_ns::Pkcs11ProviderConfig cfg{};
     cfg.tokenLabel = label;
     cfg.userPin = pin;
-    cfg.providerName = "PKCS11_TEST";
+    cfg.providerName = provider_name;
 
     auto provider = std::make_shared<pkcs11_ns::Pkcs11Provider>(std::move(cfg));
     return provider;
@@ -96,8 +98,8 @@ class Pkcs11KeyHandlerTest : public tests::pkcs11::Pkcs11TestFixture
             return;
         }
 
-        m_provider = MakeProvider("TestToken", "1234");
-        ASSERT_TRUE(m_provider->Initialize(provider::ProviderInitContext{1, "PKCS11_TEST"}))
+        m_provider = MakeProvider(GetTokenLabel(), GetUserPin(), GetProviderName());
+        ASSERT_TRUE(m_provider->Initialize(provider::ProviderInitContext{GetProviderId(), GetProviderName()}))
             << "Pkcs11Provider::Initialize() failed";
 
         m_data_manager = std::make_shared<dm::DataManager>();
@@ -238,8 +240,8 @@ TEST_F(Pkcs11KeyHandlerTest, LoadKey_ByLabel_ReturnsHandle)
     slot.slot_name = "test/hmac_slot";
     slot.algorithm = "HMAC-SHA256";
     // Config-time: populate provider names; runtime would populate provider_ids via ResolveProviderIds
-    slot.provider_names = {"PKCS11_TEST"};
-    slot.provider_ids = {1};  // 1 = Active PKCS#11 provider (assuming default registration order)
+    slot.provider_names = {GetProviderName()};
+    slot.provider_ids = {GetProviderId()};  // Active PKCS#11 provider from test fixture
     slot.allowed_operations = score::crypto::KeyOperationPermission::kMac;
     slot.access_policy.allowed_uids.push_back(static_cast<uint32_t>(kClient & 0xFFFFFFFFU));
     // Write a temporary deployment descriptor containing the PKCS#11 label.
@@ -286,8 +288,8 @@ TEST_F(Pkcs11KeyHandlerTest, LoadKey_ExtractableKey_ReturnsNativeHandle)
     slot.slot_name = "test/hmac_extract_slot";
     slot.algorithm = "HMAC-SHA256";
     // Config-time: populate provider names; runtime would populate provider_ids via ResolveProviderIds
-    slot.provider_names = {"PKCS11_TEST"};
-    slot.provider_ids = {1};  // 1 = Active PKCS#11 provider (assuming default registration order)
+    slot.provider_names = {GetProviderName()};
+    slot.provider_ids = {GetProviderId()};  // Active PKCS#11 provider from test fixture
     slot.allowed_operations = score::crypto::KeyOperationPermission::kMac;
     slot.access_policy.allowed_uids.push_back(static_cast<uint32_t>(kClient & 0xFFFFFFFFU));
     // Write a temporary deployment descriptor containing the PKCS#11 label.
