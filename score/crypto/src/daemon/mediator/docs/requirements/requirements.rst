@@ -50,7 +50,8 @@ Functional requirements
    without selecting a handler or creating a data node. Checks shall run in a
    fixed order and the first failure shall be the error the client receives:
    parameter count, context type, algorithm, provider preference, key reference,
-   key requirement of the context type, algorithm catalog lookup.
+   key requirement of the context type, and algorithm catalog lookup for a context
+   type that takes an algorithm.
 
 .. comp_req:: Deliver creation parameters to the handler unchanged
    :id: comp_req__crypto_mediator__handler_semantics

@@ -100,6 +100,8 @@ cert::CertObject MakeSyntheticCert(const CertObjectResponseCase& test_case)
     meta.skid = test_case.skid;
     meta.akid = test_case.akid;
     meta.fingerprint.fill(0x5AU);
+    meta.public_key_der = {0x30U, 0x82U, 0x01U};
+    meta.public_key_algorithm = "ECDSA-P256";
 
     // Raw bytes not exercised by serializer — single placeholder byte is sufficient.
     return cert::CertObject{std::move(meta), {0x30}, score::crypto::FormatType::kDer};
@@ -124,6 +126,8 @@ common::ResponseParameters ExpectedCertObjectResponse(const CertObjectResponseCa
         static_cast<std::uint64_t>(crl.this_update),
         static_cast<std::uint64_t>(crl.next_update),
         static_cast<std::uint64_t>(crl.crl_number),
+        std::uint64_t{3U},
+        common::OwnedString{"ECDSA-P256"},
     };
 }
 
@@ -281,7 +285,7 @@ TEST(BuildCertObjectResponse, PreEpochTimesEncodeAsTwosComplementBits)
     const auto result = query::BuildCertObjectResponse(cert, crl);
     ASSERT_TRUE(result.has_value());
     const auto& params = result.value();
-    ASSERT_EQ(params.size(), 15U);
+    ASSERT_EQ(params.size(), 17U);
 
     const auto* not_before = ParamAt<std::uint64_t>(params, 2U);
     const auto* not_after = ParamAt<std::uint64_t>(params, 3U);

@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "score/crypto/src/daemon/cert_management/cert_management_module.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/basic_handler_chain_factory.hpp"
 #include "score/crypto/src/daemon/control_plane/i_control_server.h"
@@ -86,16 +87,29 @@ int main(int argc, char** argv)
     // config; the module decides what that means for its operations.
     auto key_mgmt_module = score::crypto::daemon::key_management::KeyManagementModule::Create(
         data_manager, provider_manager, config.GetKeyConfig());
+    if (!key_mgmt_module)
+    {
+        score::mw::log::LogError() << "Failed to initialize key management";
+        return 1;
+    }
+
+    // Initialize certificate management. A named parser provider must resolve during startup; otherwise the parser
+    // is resolved on first use.
+    auto cert_mgmt_module = score::crypto::daemon::cert_management::CertManagementModule::Create(
+        data_manager, provider_manager, config.GetCertificateConfig());
+    if (!cert_mgmt_module)
+    {
+        score::mw::log::LogError() << "Failed to initialize certificate management";
+        return 1;
+    }
 
     // Create the mediator. Each subsystem that takes part registers its entries during creation;
     // a rejected registration is a startup failure.
     std::vector<score::crypto::daemon::common::IMediatorRegistrar::Sptr> mediator_registrars;
-    if (key_mgmt_module)
-    {
-        mediator_registrars.push_back(key_mgmt_module);
-    }
+    mediator_registrars.push_back(key_mgmt_module);
+    mediator_registrars.push_back(cert_mgmt_module);
     auto mediator_result = score::crypto::daemon::mediator::MediatorFactory::Create(
-        data_manager, provider_manager, key_mgmt_module ? key_mgmt_module->GetService() : nullptr, mediator_registrars);
+        data_manager, provider_manager, key_mgmt_module->GetService(), mediator_registrars);
     if (!mediator_result.has_value())
     {
         score::mw::log::LogError() << "Failed to create mediator"

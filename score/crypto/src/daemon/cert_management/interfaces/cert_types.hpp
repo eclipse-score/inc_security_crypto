@@ -132,6 +132,12 @@ struct CertChainMetadata
 
     /// True when the BasicConstraints extension marks this as a CA certificate.
     bool is_ca{false};
+
+    /// DER-encoded SubjectPublicKeyInfo of the certificate's public key.
+    std::vector<uint8_t> public_key_der;
+
+    /// Key algorithm name derived from the public key (e.g., "RSA-2048", "ECDSA-P256"); empty when no name is mapped.
+    std::string public_key_algorithm;
 };
 
 /// @brief Encoded CRL data and associated metadata.

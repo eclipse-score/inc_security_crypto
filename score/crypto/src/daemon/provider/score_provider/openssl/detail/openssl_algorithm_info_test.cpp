@@ -168,4 +168,17 @@ TEST(OpenSslAlgorithmInfoTest, RandomHandlerServesCtrDrbg)
     EXPECT_EQ(ServedRows(handler::OpenSslRandomHandler::IsAlgorithmSupported), expected);
 }
 
+TEST(OpenSslAlgorithmInfoTest, GroupNamesRoundTripThroughCurves)
+{
+    for (const auto curve :
+         {score::crypto::EccCurve::kP256, score::crypto::EccCurve::kP384, score::crypto::EccCurve::kP521})
+    {
+        const char* group = detail::ToOpenSslGroupName(curve);
+        ASSERT_NE(group, nullptr);
+        EXPECT_EQ(detail::FromOpenSslGroupName(group), curve);
+    }
+    EXPECT_EQ(detail::FromOpenSslGroupName("secp256k1"), score::crypto::EccCurve::kNone);
+    EXPECT_EQ(detail::FromOpenSslGroupName(""), score::crypto::EccCurve::kNone);
+}
+
 }  // namespace

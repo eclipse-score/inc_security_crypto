@@ -1142,3 +1142,52 @@ Return Type of IMemoryAllocator::Allocate()
 Bulk-allocated memory is intended for large inputs and/or outputs of cryptographic operations.
 The data does not require type interpretation — it is treated as a raw byte sequence,
 accessible via ``IReadWriteMemory::AsWritableSpan()`` or ``IReadWriteMemory::data()``.
+
+---
+
+Subsystem Startup Stops Only for Configured Dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. dec_rec:: Subsystem Startup Stops Only for Configured Dependencies
+   :id: dec_rec__crypto__module_startup_policy
+   :version: 1
+   :status: accepted
+   :context: doc__crypto_daemon_architecture
+   :decision: A subsystem's ``Create`` returns no module only when a dependency named by its configuration cannot be honoured at startup. The daemon stops startup when a subsystem returns no module. A dependency that the configuration does not name is resolved on first use, and its failure is reported to the operation that needs it.
+
+Context
+-------
+
+A daemon that starts without a dependency the deployment relies on fails later and less clearly: a
+client receives a missing context type or a per-operation error rather than a configuration error at
+startup. Stopping whenever any subsystem is unavailable has the opposite cost, because a deployment
+that does not use the subsystem cannot start. Subsystems differ in whether their configuration is
+optional, so the rule applies to each named dependency. A provider can also be unavailable at
+startup and become available later, so a dependency that the configuration does not name is not
+required during startup.
+
+Decision
+--------
+
+Each subsystem's ``Create`` follows this rule:
+
+* A dependency named in the configuration must resolve during ``Create``. If it does not, ``Create``
+  returns no module and the daemon stops.
+* A dependency the configuration does not name is resolved on first use. The operation that needs it
+  receives the resolution error, and the subsystem serves the operations that do not need it.
+
+Each subsystem's design record states which named dependencies must resolve during ``Create``. The
+certificate subsystem's rule is recorded in ``dec_rec__crypto_cert_mgmt__parser_authority``. Key
+management has optional configuration, and its ``Create`` never returns no module.
+
+Consequences
+------------
+
+* A configuration error for a named dependency is reported at startup, not to the first client that
+  needs it.
+* A deployment that names no provider needs none at startup. A provider that becomes available later
+  serves the operations that need it.
+* Naming a dependency changes startup behaviour, so each subsystem's record lists which named
+  dependencies must resolve during ``Create``.
+* A default dependency that is unavailable is reported to the first operation that needs it, not at
+  startup.
