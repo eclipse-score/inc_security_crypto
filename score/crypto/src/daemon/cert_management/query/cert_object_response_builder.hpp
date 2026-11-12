@@ -36,7 +36,7 @@ namespace score::crypto::daemon::cert_management::query
 
 /// @brief Build a CertObject's chain metadata into an IPC response payload.
 ///
-/// Wire layout (15 params, indices 0–14):
+/// Wire layout (17 params, indices 0–16):
 ///   [0]  subject (OwnedString)
 ///   [1]  issuer (OwnedString)
 ///   [2]  not_before_epoch_s (int64 as uint64 bits)
@@ -52,6 +52,8 @@ namespace score::crypto::daemon::cert_management::query
 ///   [12] thisUpdate (int64 as uint64 bits)
 ///   [13] nextUpdate (int64 as uint64 bits)
 ///   [14] cRLNumber (uint64)
+///   [15] SubjectPublicKeyInfo length in bytes (uint64); the bytes come from GET_CERTIFICATE_PUBLIC_KEY
+///   [16] public key algorithm name (OwnedString); empty when no name is mapped
 ///
 /// Epoch fields are signed seconds since the Unix epoch. Times before 1970
 /// are negative and are carried as two's-complement bits in the uint64 slot;

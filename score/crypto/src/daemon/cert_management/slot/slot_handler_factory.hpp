@@ -58,6 +58,12 @@ class SlotHandlerFactory final
     /// @return Success, or the error from the parser resolution.
     [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> Initialize() const;
 
+    /// @brief Return the canonical certificate parser, resolving it if it is not yet cached.
+    /// @return The parser shared by every handler and context of the certificate subsystem, or the error from
+    ///         the parser resolution. A failure is not cached.
+    [[nodiscard]] score::crypto::Expected<provider::cert_management::ICertParser::Sptr, common::DaemonErrorCode>
+    GetCertParser() const;
+
     /// @brief Create a slot handler for the given slot configuration.
     ///
     /// Resolves the canonical parser before creating the handler. Failed resolution can be retried.
