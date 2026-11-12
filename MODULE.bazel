@@ -332,7 +332,7 @@ bazel_dep(name = "score_process_description", version = "2.2.2")
 bazel_dep(name = "score_platform", version = "0.7.4")
 
 # score baselibs
-bazel_dep(name = "score_baselibs", version = "0.2.17")
+bazel_dep(name = "score_baselibs", version = "0.2.18")
 
 # score communication
 bazel_dep(name = "score_communication", version = "0.6.0")
@@ -368,4 +368,4 @@ git_override(
 bazel_dep(name = "score_itf", version = "0.7.0", dev_dependency = True)
 
 # Provide the tools from the devcontainer to Bazel
-bazel_dep(name = "score_devcontainer", version = "1.11.4")
+bazel_dep(name = "score_devcontainer", version = "1.12.0")
