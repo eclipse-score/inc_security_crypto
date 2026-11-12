@@ -444,7 +444,7 @@ Algorithm Catalog Alongside ``AlgorithmId``
    :version: 1
    :status: proposed
    :context: doc__crypto_architecture
-   :decision: ``AlgorithmId`` stays the string on the wire, in the configs and in stored key metadata. A constexpr catalog (``score/crypto/src/api/types/algorithm.hpp``) maps every known name, by exact match, to an ``Algorithm`` enumerator and an ``AlgorithmDescriptor`` holding category, key type, key length, hash, curve, mode and fixed output size. The daemon resolves each name to its catalog row once, where the request enters it, and refuses a name the catalog does not know; providers receive the row, never the name, and decide support from its typed fields.
+   :decision: ``AlgorithmId`` stays the string on the wire, in the configs and in stored key metadata. A constexpr catalog (``score/crypto/src/daemon/common/algorithm_catalog.hpp``) maps every known name, by exact match, to an ``Algorithm`` enumerator and an ``AlgorithmDescriptor`` holding category, key type, key length, hash, curve, mode and fixed output size. The daemon resolves each name to its catalog row once, where the request enters it, and refuses a name the catalog does not know; providers receive the row, never the name, and decide support from its typed fields.
 
    .. :affects: comp__crypto
 
@@ -472,7 +472,10 @@ and the IPC protocol is unchanged. On top of it:
 * ``FromAlgorithmName()`` / ``ToAlgorithmName()`` convert between the string and
   the ``Algorithm`` enumerator by exact, case-sensitive match;
   ``GetAlgorithmDescriptor()`` and ``GetAlgorithmCategory()`` expose the
-  properties of a known algorithm. The client library uses the same catalog.
+  properties of a known algorithm. The catalog is internal to the daemon
+  (``//score/crypto/src/daemon/common:algorithm_catalog``; nothing under
+  ``score/crypto/src/api`` depends on it): clients only send names, so adding
+  a row rebuilds the daemon and its providers, not the applications.
 * Every algorithm the daemon accepts is a catalog row. ECDSA has one row per
   curve (P-256, P-384, P-521) and SHA-2 digest (SHA-224 to SHA-512), twelve in
   all, whose key length, digest and IEEE P1363 signature size (64, 96, 132
@@ -484,7 +487,7 @@ and the IPC protocol is unchanged. On top of it:
 * The mediator resolves the algorithm of ``CTX_CREATE`` once, before any
   provider is asked; a name without a row is refused with
   ``kUnsupportedAlgorithm``. A ``RANDOM`` context without an algorithm selects
-  the ``"CTR-DRBG"`` row. A ``KEY_MANAGEMENT`` context is bound to no
+  the ``"CTR-DRBG"`` row. A ``KEY:MANAGEMENT`` context is bound to no
   algorithm and is created through the separate factory entry point
   ``ICryptoHandlerFactory::CreateKeyManagementHandler()``; all other contexts
   go through ``CreateHandler(handler_id, const AlgorithmDescriptor&)``.
@@ -513,7 +516,8 @@ Consequences
 
 **Positive:**
 
-* One table holds the properties of every known algorithm, available to client and daemon.
+* One table in the daemon holds the properties of every known algorithm; the
+  daemon alone decides which names it knows.
 * No identifier is accepted because it contains another identifier, and an
   unknown identifier fails at context creation rather than inside a provider.
 * Providers keep no lists of names; a new value of a catalog enumeration forces
@@ -524,6 +528,8 @@ Consequences
 
 * A new algorithm needs a catalog row before any provider can serve it, and
   a new enumerator value needs a case in every provider switch.
+* A client learns that a name is unknown only from the daemon, after one
+  request.
 * A configured or stored name that a later catalog no longer knows makes the
   slot or key unusable until the configuration is migrated.
 

@@ -25,12 +25,12 @@ namespace crypto
 /// @brief Configuration for signature verification context creation.
 ///
 /// Requires an algorithm and a public key. Supports classical
-/// algorithms (RSA-PSS, ECDSA) and PQC algorithms (ML-DSA-65, SLH-DSA-SHA2-128s).
+/// algorithms (RSA-PSS, ECDSA, Ed25519), e.g. "ECDSA-P256-SHA256".
 ///
 /// @par Example
 /// @code
 ///   VerifySignatureContextConfig config;
-///   config.SetAlgorithm("ML-DSA-65").SetKey(public_key);
+///   config.SetAlgorithm("ECDSA-P256-SHA256").SetKey(public_key);
 ///   auto ctx = crypto_context->CreateVerifySignatureContext(config);
 /// @endcode
 struct VerifySignatureContextConfig : public BaseContextConfig
@@ -77,9 +77,9 @@ struct VerifySignatureContextConfig : public BaseContextConfig
         return *this;
     }
 
-    VerifySignatureContextConfig& SetExtendedParameter(const std::string& key, const std::string& value)
+    VerifySignatureContextConfig& SetExtendedParameter(const std::string& parameter_key, const std::string& value)
     {
-        BaseContextConfig::SetExtendedParameter(key, value);
+        BaseContextConfig::SetExtendedParameter(parameter_key, value);
         return *this;
     }
 };

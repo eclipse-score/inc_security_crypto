@@ -25,6 +25,7 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
         "@score_baselibs//score/result",

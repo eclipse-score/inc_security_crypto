@@ -219,7 +219,8 @@ OpenSslHmacHandler::UpdateMac(const common::RequestParameter& dataToMac)
             ::score::crypto::daemon::common::DaemonErrorCode::kStreamNotInitialized);
     }
 
-    const auto inputSpan = CheckAndGetSpan<const uint8_t>(dataToMac);
+    // An empty chunk is valid input, and the MAC of an empty message is defined.
+    const auto inputSpan = CheckAndGetSpan<const uint8_t>(dataToMac, true);
     if (!inputSpan.has_value())
     {
         return ::score::crypto::make_unexpected(inputSpan.error());

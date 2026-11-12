@@ -16,7 +16,7 @@
 
 #include "score/crypto/src/daemon/mediator/i_mediator.hpp"
 
-#include "score/crypto/src/api/types/algorithm.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
@@ -82,7 +82,7 @@ class MediatorImpl : public IMediator
     /// @brief Resolve a provider and create a compatible handler.
     ///
     /// @p algorithm is the resolved catalog row of the requested algorithm, or
-    /// std::nullopt for a KEY_MANAGEMENT context, which names no algorithm.
+    /// std::nullopt for a KEY:MANAGEMENT context, which names no algorithm.
     ///
     /// Preferred-provider fallback is attempted only when the primary provider
     /// is unavailable or rejects the requested context/algorithm. Exact provider
@@ -122,6 +122,7 @@ class MediatorImpl : public IMediator
         std::uint64_t& key_node_id,
         const common::ProviderId& provider_id,
         std::string_view context_type,
+        const std::optional<AlgorithmDescriptor>& algorithm,
         const common::RequestParameters& params);
 
     // Private helpers
