@@ -173,6 +173,47 @@ inline control_plane::protocol::OperationIdentifier DestroyShmObject()
                                                         .operationAction = operations::SHM_DESTROY_OBJECT};
 }
 
+// Subsystem-served operations. Not built-in actions: each is handled by the
+// IMediatorQuery registered for its code (see kBuiltInActions above).
+
+// GET_CERTIFICATE_OBJECT
+// Request:  param[0]: uint64 — certificate or certificate-slot data node id
+// Response: status_code (SUCCESS/error)
+//           17 parameters; layout is defined by BuildCertObjectResponse in
+//           cert_management/query/cert_object_response_builder.hpp
+inline constexpr OperationAction GET_CERTIFICATE_OBJECT = 6;
+
+// GET_CERT_SLOT_OBJECT
+// Request:  param[0]: uint64 — certificate-slot data node id
+// Response: status_code (SUCCESS/error)
+//           2 parameters; layout is defined by BuildCertSlotInfoResponse in
+//           cert_management/query/cert_object_response_builder.hpp
+inline constexpr OperationAction GET_CERT_SLOT_OBJECT = 7;
+
+// GET_CERTIFICATE_PUBLIC_KEY
+// Request:  param[0]: uint64 — certificate or certificate-slot data node id
+//           param[1]: span<const uint8_t> — SHA-256 fingerprint of the certificate the caller expects (32 bytes)
+//           param[2]: span<uint8_t> — caller's output buffer for the SubjectPublicKeyInfo
+// Response: status_code (SUCCESS/error)
+//           [0] uint64 — number of bytes written to param[2]
+inline constexpr OperationAction GET_CERTIFICATE_PUBLIC_KEY = 8;
+
+inline control_plane::protocol::OperationIdentifier GetCertificateObject()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::GET_CERTIFICATE_OBJECT};
+}
+inline control_plane::protocol::OperationIdentifier GetCertSlotObject()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::GET_CERT_SLOT_OBJECT};
+}
+inline control_plane::protocol::OperationIdentifier GetCertificatePublicKey()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::GET_CERTIFICATE_PUBLIC_KEY};
+}
+
 // Starting point for custom OPs
 inline constexpr OperationAction CUSTOM_OP_START = 1 << (std::numeric_limits<OperationAction>::digits - 1);
 

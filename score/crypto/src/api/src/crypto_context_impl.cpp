@@ -14,6 +14,7 @@
 #include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/config/certificate_context_config.hpp"
 #include "score/crypto/src/api/config/cipher_context_config.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
@@ -21,6 +22,7 @@
 #include "score/crypto/src/api/config/random_context_config.hpp"
 #include "score/crypto/src/api/config/sign_context_config.hpp"
 #include "score/crypto/src/api/config/verify_signature_context_config.hpp"
+#include "score/crypto/src/api/contexts/src/cert_management_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/cipher_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/hash_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/key_management_context_impl.hpp"
@@ -28,6 +30,8 @@
 #include "score/crypto/src/api/contexts/src/random_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/sign_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/verify_signature_context_impl.hpp"
+#include "score/crypto/src/api/objects/src/cert_slot_object_impl.hpp"
+#include "score/crypto/src/api/objects/src/certificate_object_impl.hpp"
 #include "score/crypto/src/api/src/provider_type_converter.hpp"
 #include "score/crypto/src/api/types/certificate.hpp"
 #include "score/crypto/src/api/types/common.hpp"
@@ -47,6 +51,7 @@
 #include <utility>
 
 // Full definitions needed for Result<unique_ptr<T>> return types
+#include "score/crypto/src/api/contexts/i_certificate_management_context.hpp"
 #include "score/crypto/src/api/contexts/i_cipher_context.hpp"
 #include "score/crypto/src/api/contexts/i_hash_context.hpp"
 #include "score/crypto/src/api/contexts/i_key_management_context.hpp"
@@ -54,12 +59,18 @@
 #include "score/crypto/src/api/contexts/i_random_context.hpp"
 #include "score/crypto/src/api/contexts/i_sign_context.hpp"
 #include "score/crypto/src/api/contexts/i_verify_signature_context.hpp"
+#include "score/crypto/src/api/objects/i_cert_slot_object.hpp"
+#include "score/crypto/src/api/objects/i_certificate_object.hpp"
 #include "score/crypto/src/api/objects/i_key_object.hpp"
 #include "score/crypto/src/api/objects/i_key_slot_object.hpp"
 
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace score
@@ -476,6 +487,24 @@ score::Result<std::unique_ptr<IRandomContext>> CryptoContextImpl::CreateRandomCo
     return std::make_unique<RandomContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
 }
 
+score::Result<std::unique_ptr<ICertificateManagementContext>> CryptoContextImpl::CreateCertificateManagementContext(
+    const CertificateContextConfig& config)
+{
+    // No algorithm: certificate management contexts are not bound to one. The null pointer is sent as an
+    // empty string, which the daemon accepts for the CERT scope.
+    ContextCreationRequest request{};
+    request.context_type = daemon_common::context_types::kCertManagement;
+    request.provider_type = config.provider_type;
+
+    auto context_id = CreateDaemonContext(m_connection, request);
+    if (!context_id.has_value())
+    {
+        return score::Result<std::unique_ptr<ICertificateManagementContext>>{score::unexpect, context_id.error()};
+    }
+
+    return std::make_unique<CertManagementContextImpl>(m_connection, context_id.value(), m_transcoder);
+}
+
 // ---------------------------------------------------------------------------
 // Queries (TODO)
 // ---------------------------------------------------------------------------
@@ -525,6 +554,195 @@ score::Result<std::unique_ptr<IKeySlotObject>> CryptoContextImpl::GetKeySlotObje
     // TODO: Implement key slot object retrieval via daemon IPC
     return score::Result<std::unique_ptr<IKeySlotObject>>{
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "GetKeySlotObject not yet implemented")};
+}
+
+// ---------------------------------------------------------------------------
+// Certificate Object Access
+// ---------------------------------------------------------------------------
+
+namespace
+{
+
+// Parameter indices of the GET_CERTIFICATE_OBJECT response. The daemon defines the layout in
+// BuildCertObjectResponse; these constants must stay in step with it.
+inline constexpr std::size_t kCertSubjectIdx = 0U;
+inline constexpr std::size_t kCertIssuerIdx = 1U;
+inline constexpr std::size_t kCertNotBeforeIdx = 2U;
+inline constexpr std::size_t kCertNotAfterIdx = 3U;
+inline constexpr std::size_t kCertSerialIdx = 7U;
+inline constexpr std::size_t kCertFingerprintIdx = 8U;
+inline constexpr std::size_t kCertHasCrlIdx = 9U;
+inline constexpr std::size_t kCertCrlFingerprintIdx = 10U;
+inline constexpr std::size_t kCertCrlIssuerFingerprintIdx = 11U;
+inline constexpr std::size_t kCertCrlThisUpdateIdx = 12U;
+inline constexpr std::size_t kCertCrlNextUpdateIdx = 13U;
+inline constexpr std::size_t kCertCrlNumberIdx = 14U;
+inline constexpr std::size_t kCertSpkiSizeIdx = 15U;
+inline constexpr std::size_t kCertPublicKeyAlgorithmIdx = 16U;
+
+// Parameter indices of the GET_CERT_SLOT_OBJECT response (BuildCertSlotInfoResponse on the daemon).
+inline constexpr std::size_t kSlotStateIdx = 0U;
+inline constexpr std::size_t kSlotHasCrlIdx = 1U;
+
+/// @brief Reads a SHA-256 field. Fails when the parameter is absent, mistyped, or not 32 bytes.
+template <typename Validator>
+bool ReadFingerprint(Validator& validator, std::size_t idx, std::array<std::uint8_t, kSha256FingerprintSize>& out)
+{
+    auto buffer = validator.template getParameterAt<daemon_common::OwnedBuffer>(0U, idx);
+    if (!buffer.has_value() || buffer.value().size() != kSha256FingerprintSize)
+    {
+        return false;
+    }
+    std::copy(buffer.value().begin(), buffer.value().end(), out.begin());
+    return true;
+}
+
+/// @brief Reads the CRL fields of a GET_CERTIFICATE_OBJECT response. Called only when has_crl is set.
+template <typename Validator>
+std::optional<CrlMetadata> ReadCrlMetadata(Validator& validator)
+{
+    CrlMetadata metadata{};
+    auto this_update = validator.template getParameterAt<std::uint64_t>(0U, kCertCrlThisUpdateIdx);
+    auto next_update = validator.template getParameterAt<std::uint64_t>(0U, kCertCrlNextUpdateIdx);
+    auto crl_number = validator.template getParameterAt<std::uint64_t>(0U, kCertCrlNumberIdx);
+    const bool fingerprints_ok = ReadFingerprint(validator, kCertCrlFingerprintIdx, metadata.fingerprint) &&
+                                 ReadFingerprint(validator, kCertCrlIssuerFingerprintIdx, metadata.issuer_fingerprint);
+    if (!fingerprints_ok || !this_update.has_value() || !next_update.has_value() || !crl_number.has_value())
+    {
+        return std::nullopt;
+    }
+    metadata.this_update = static_cast<std::int64_t>(this_update.value());
+    metadata.next_update = static_cast<std::int64_t>(next_update.value());
+    metadata.crl_number = crl_number.value();
+    return metadata;
+}
+
+}  // namespace
+
+score::Result<std::unique_ptr<ICertificateObject>> CryptoContextImpl::GetCertificateObject(const CryptoResourceId& id)
+{
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+    namespace med_ops = ::score::crypto::daemon::mediator::operations;
+    using ResultType = score::Result<std::unique_ptr<ICertificateObject>>;
+
+    if ((id.type != ResourceType::kCertificate) && (id.type != ResourceType::kCertSlot))
+    {
+        return ResultType{score::unexpect,
+                          MakeError(CryptoErrorCode::kInvalidArgument,
+                                    "GetCertificateObject requires a certificate or certificate slot")};
+    }
+
+    auto req = proto::ControlRequestBuilder()
+                   .forDataNodeId(m_connection->GetConnectionNodeId())
+                   .operation(med_ops::GetCertificateObject())
+                   .with_in_val_uint64(id.id)
+                   .build();
+    if (!req.has_value())
+    {
+        return ResultType{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kOperationFailed, "GetCertificateObject: failed to build request")};
+    }
+
+    auto resp = m_connection->SendRequest(req.value());
+    auto validator = proto::ControlResponseValidator::FromResult(resp);
+    validator.expectOperation(med_ops::GetCertificateObject()).expectSuccess();
+    if (!validator.isValid())
+    {
+        return ResultType{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
+    }
+
+    auto subject = validator.getParameterAt<daemon_common::OwnedString>(0U, kCertSubjectIdx);
+    auto issuer = validator.getParameterAt<daemon_common::OwnedString>(0U, kCertIssuerIdx);
+    auto serial = validator.getParameterAt<daemon_common::OwnedString>(0U, kCertSerialIdx);
+    auto not_before = validator.getParameterAt<std::uint64_t>(0U, kCertNotBeforeIdx);
+    auto not_after = validator.getParameterAt<std::uint64_t>(0U, kCertNotAfterIdx);
+    auto has_crl = validator.getParameterAt<std::uint8_t>(0U, kCertHasCrlIdx);
+    auto spki_size = validator.getParameterAt<std::uint64_t>(0U, kCertSpkiSizeIdx);
+    auto spki_algorithm = validator.getParameterAt<daemon_common::OwnedString>(0U, kCertPublicKeyAlgorithmIdx);
+    std::array<std::uint8_t, kSha256FingerprintSize> fingerprint{};
+    const bool fingerprint_ok = ReadFingerprint(validator, kCertFingerprintIdx, fingerprint);
+    if (!subject.has_value() || !issuer.has_value() || !serial.has_value() || !not_before.has_value() ||
+        !not_after.has_value() || !has_crl.has_value() || has_crl.value() > 1U || !fingerprint_ok ||
+        !spki_size.has_value() || !spki_algorithm.has_value())
+    {
+        return ResultType{score::unexpect,
+                          MakeError(CryptoErrorCode::kOperationFailed, "GetCertificateObject: response incomplete")};
+    }
+
+    std::optional<CrlMetadata> crl_metadata{};
+    if (has_crl.value() == 1U)
+    {
+        crl_metadata = ReadCrlMetadata(validator);
+        if (!crl_metadata.has_value())
+        {
+            return ResultType{
+                score::unexpect,
+                MakeError(CryptoErrorCode::kOperationFailed, "GetCertificateObject: CRL metadata incomplete")};
+        }
+    }
+
+    return std::make_unique<CertificateObjectImpl>(id,
+                                                   std::move(subject.value()),
+                                                   std::move(issuer.value()),
+                                                   std::move(serial.value()),
+                                                   fingerprint,
+                                                   static_cast<std::int64_t>(not_before.value()),
+                                                   static_cast<std::int64_t>(not_after.value()),
+                                                   crl_metadata,
+                                                   m_connection,
+                                                   m_transcoder,
+                                                   static_cast<std::size_t>(spki_size.value()),
+                                                   std::move(spki_algorithm.value()));
+}
+
+score::Result<std::unique_ptr<ICertSlotObject>> CryptoContextImpl::GetCertSlotObject(const CryptoResourceId& id)
+{
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+    namespace med_ops = ::score::crypto::daemon::mediator::operations;
+    using ResultType = score::Result<std::unique_ptr<ICertSlotObject>>;
+
+    if (id.type != ResourceType::kCertSlot)
+    {
+        return ResultType{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kInvalidArgument, "GetCertSlotObject requires a certificate slot")};
+    }
+
+    auto req = proto::ControlRequestBuilder()
+                   .forDataNodeId(m_connection->GetConnectionNodeId())
+                   .operation(med_ops::GetCertSlotObject())
+                   .with_in_val_uint64(id.id)
+                   .build();
+    if (!req.has_value())
+    {
+        return ResultType{score::unexpect,
+                          MakeError(CryptoErrorCode::kOperationFailed, "GetCertSlotObject: failed to build request")};
+    }
+
+    auto resp = m_connection->SendRequest(req.value());
+    auto validator = proto::ControlResponseValidator::FromResult(resp);
+    validator.expectOperation(med_ops::GetCertSlotObject()).expectSuccess();
+    if (!validator.isValid())
+    {
+        return ResultType{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed), validator.getError())};
+    }
+
+    auto state = validator.getParameterAt<std::uint8_t>(0U, kSlotStateIdx);
+    auto has_crl = validator.getParameterAt<std::uint8_t>(0U, kSlotHasCrlIdx);
+    constexpr auto kMaxState = static_cast<std::uint8_t>(CertificateSlotState::kLocked);
+    if (!state.has_value() || !has_crl.has_value() || state.value() > kMaxState || has_crl.value() > 1U)
+    {
+        return ResultType{score::unexpect,
+                          MakeError(CryptoErrorCode::kOperationFailed, "GetCertSlotObject: invalid slot info")};
+    }
+
+    const CertificateSlotInfo info{static_cast<CertificateSlotState>(state.value()), has_crl.value() == 1U};
+    return std::make_unique<CertSlotObjectImpl>(id, info);
 }
 
 }  // namespace crypto

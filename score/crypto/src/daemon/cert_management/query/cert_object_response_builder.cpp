@@ -77,6 +77,9 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     out.push_back(static_cast<std::uint64_t>(crl.this_update));
     out.push_back(static_cast<std::uint64_t>(crl.next_update));
     out.push_back(crl.crl_number);
+    // The key bytes are not part of this response; the caller fetches them through GET_CERTIFICATE_PUBLIC_KEY.
+    out.push_back(static_cast<std::uint64_t>(meta.public_key_der.size()));
+    out.push_back(common::OwnedString{meta.public_key_algorithm});
     return ResponseWithinBudget(std::move(out));
 }
 

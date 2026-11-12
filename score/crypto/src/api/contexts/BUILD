@@ -78,6 +78,7 @@ cc_library(
 cc_library(
     name = "crypto_contexts_impl",
     srcs = [
+        "src/cert_management_context_impl.cpp",
         "src/cipher_context_impl.cpp",
         "src/hash_context_impl.cpp",
         "src/key_management_context_impl.cpp",
@@ -87,6 +88,7 @@ cc_library(
         "src/verify_signature_context_impl.cpp",
     ],
     hdrs = [
+        "src/cert_management_context_impl.hpp",
         "src/cipher_context_impl.hpp",
         "src/hash_context_impl.hpp",
         "src/key_management_context_impl.hpp",
@@ -98,6 +100,7 @@ cc_library(
     includes = ["."],
     visibility = ["//:__subpackages__"],
     deps = [
+        ":cert_contexts",
         ":crypto_contexts",
         "//score/crypto/src/api:operations",
         "//score/crypto/src/api/common:crypto_common",
@@ -105,6 +108,10 @@ cc_library(
         "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/control_plane",
         "//score/crypto/src/api/data_plane:data_plane_client",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/cert_management:cert_management_operations",
+        "@score_baselibs//score/mw/log",
+        "@score_baselibs//score/result",
     ],
 )
 

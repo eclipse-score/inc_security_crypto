@@ -66,6 +66,8 @@ cc_library(
     srcs = ["cert_management/openssl_cert_parser.cpp"],
     implementation_deps = [
         ":openssl_cert_utils",
+        ":openssl_detail_headers",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//third_party/openssl:openssl_shared",
     ],
     target_compatible_with = select({

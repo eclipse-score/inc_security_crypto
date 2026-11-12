@@ -27,6 +27,7 @@
 #include <ctime>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -67,6 +68,38 @@ TEST(OpenSslCertParserTest, ParsesPemCertificateAndExtractsMetadata)
     EXPECT_EQ((*result)->GetSkid().size(), 20U);
     EXPECT_EQ((*result)->GetFingerprint().size(), score::crypto::kSha256FingerprintSize);
     EXPECT_EQ((*result)->GetRawBytes().size(), pem.size());
+}
+
+std::string ReadVector(const std::string& relative_path)
+{
+    std::ifstream input{"score/tests/test_vectors/certificate/" + relative_path};
+    return {std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
+}
+
+TEST(OpenSslCertParserTest, PublicKeyAlgorithmNameComesFromTheCatalog)
+{
+    // Names are the catalog spellings. Ed448 has no key row in the catalog, so its name is empty.
+    const std::map<std::string, std::string> expected{
+        {"basic/certificate.pem", "RSA-2048"},
+        {"algorithm_variety/rsa_3072.pem", "RSA-3072"},
+        {"algorithm_variety/rsa_4096.pem", "RSA-4096"},
+        {"algorithm_variety/ec_p256.pem", "ECDSA-P256"},
+        {"algorithm_variety/ec_p384.pem", "ECDSA-P384"},
+        {"algorithm_variety/ec_p521.pem", "ECDSA-P521"},
+        {"algorithm_variety/ed25519.pem", "Ed25519"},
+        {"algorithm_variety/ed448.pem", ""},
+    };
+    for (const auto& [path, name] : expected)
+    {
+        const auto pem = ReadVector(path);
+        ASSERT_FALSE(pem.empty()) << path;
+        OpenSslCertParser parser{ProviderId{1U}};
+        const auto result =
+            parser.ParseCertificate(reinterpret_cast<const std::uint8_t*>(pem.data()), pem.size(), FormatType::kPem);
+        ASSERT_TRUE(result.has_value()) << path;
+        EXPECT_EQ((*result)->GetChainMetadata().public_key_algorithm, name) << path;
+        EXPECT_FALSE((*result)->GetChainMetadata().public_key_der.empty()) << path;
+    }
 }
 
 TEST(OpenSslCertParserTest, ParsesPemBundleIntoSeparateCertificateObjects)

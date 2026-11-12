@@ -16,6 +16,9 @@
 #include "score/crypto/src/daemon/cert_management/cert_management_module.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
+#include "score/crypto/src/daemon/common/context/context_creation_request.hpp"
+#include "score/crypto/src/daemon/common/context/context_types.hpp"
+#include "score/crypto/src/daemon/common/context/i_mediator_registrar.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
@@ -516,6 +519,35 @@ TEST(SlotHandlerFactoryTest, SlotManagerRetriesFailedCreationAndCachesSuccessful
     ASSERT_TRUE(cached_handler.has_value());
     EXPECT_EQ(cached_handler.value(), fake_handler);
     EXPECT_EQ(cert_provider->m_get_cert_parser_calls, 4);
+}
+
+TEST(CertManagementModuleTest, ConfiguredContentDoesNotRequireAnUnnamedParserAtStartup)
+{
+    score::crypto::daemon::config::CertificateConfig config;
+    score::crypto::daemon::config::CertificateConfig::CertSlotEntry slot;
+    slot.slot_name = "deferred_parser_slot";
+    config.AddSlotEntry(slot);
+
+    EXPECT_NE(cert::CertManagementModule::Create(nullptr, MakeProviderManager(), config), nullptr);
+}
+
+TEST(CertManagementModuleTest, CertManagementContextCreationFailsWhileNoParserIsAvailable)
+{
+    const score::crypto::daemon::config::CertificateConfig config;
+    const auto module = cert::CertManagementModule::Create(nullptr, MakeProviderManager(), config);
+    ASSERT_NE(module, nullptr);
+
+    common::ContextFactoryRegistry context_factories;
+    common::ResourceResolverRegistry resource_resolvers;
+    common::MediatorQueryRegistry mediator_queries;
+    common::MediatorRegistries registries{context_factories, resource_resolvers, mediator_queries};
+    ASSERT_TRUE(module->Register(registries));
+
+    const auto factory = context_factories.Find(std::string{common::context_types::kCertManagement});
+    ASSERT_NE(factory, nullptr);
+    const auto handler = factory->Create(common::ContextCreationRequest{});
+    ASSERT_FALSE(handler.has_value());
+    EXPECT_EQ(handler.error(), Error::kUnsupportedOperation);
 }
 
 }  // namespace
