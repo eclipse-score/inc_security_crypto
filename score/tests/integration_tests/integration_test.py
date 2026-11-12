@@ -33,8 +33,10 @@ logger = logging.getLogger(__name__)
 class TestCryptoDaemon:
     """Test suite for crypto_daemon Docker container."""
 
-    # Shared between init_pkcs11_token and daemon fixtures.
-    SOFTHSM_CONF_PATH = "/tmp/softhsm2.conf"
+    # Unified token storage directory inside the container.
+    TOKEN_DIR = "/opt/crypto/share/tmp_token"
+    SOFTHSM_CONF_PATH = f"{TOKEN_DIR}/softhsm2.conf"
+    CRYPTOKI_STORE_PATH = f"{TOKEN_DIR}/token.json"
 
     @pytest.fixture(autouse=True, scope="class")
     def init_pkcs11_token(self, request: pytest.FixtureRequest, target: Target, target_os: str, deploy: None, install_dir: str):
@@ -42,23 +44,34 @@ class TestCryptoDaemon:
             yield
             return
 
-        token_dir = Path(f"{install_dir}/share/tmp_token")
-        token_label = "SoftHSM"
+        token_label = "PKCS11_TOKEN"
         so_pin = "12345678"
         user_pin = "1234"
 
-        logger.info("Initialising SoftHSM token via init_pkcs11_token")
+        # Prepare unified token storage directory and SoftHSM configuration file
+        exit_code, output = target.execute(f"mkdir -p {self.TOKEN_DIR}")
+        assert exit_code == 0, f"Failed to create token directory {self.TOKEN_DIR}: {output.decode()}"
+
+        softhsm_conf = (
+            f"directories.tokendir = {self.TOKEN_DIR}\n"
+            f"objectstore.backend = file\n"
+            f"log.level = INFO\n"
+        )
+        exit_code, output = target.execute(f"printf '{softhsm_conf}' > {self.SOFTHSM_CONF_PATH}")
+        assert exit_code == 0, f"Failed to write SoftHSM config {self.SOFTHSM_CONF_PATH}: {output.decode()}"
+
+        logger.info("Initialising PKCS#11 token via init_pkcs11_token")
         handler = ProcessRunner(
             target,
             Path(f"{install_dir}/bin/init_pkcs11_token"),
             Path("/tmp/init_pkcs11_token.log"),
             target_os=target_os,
-            env={"LD_LIBRARY_PATH": f"{install_dir}/lib"},
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "SOFTHSM2_CONF": self.SOFTHSM_CONF_PATH,
+                "CRYPTOKI_STORE": self.CRYPTOKI_STORE_PATH,
+            },
             args=[
-                "--token-dir",
-                str(token_dir),
-                "--config-path",
-                self.SOFTHSM_CONF_PATH,
                 "--token-label",
                 token_label,
                 "--so-pin",
@@ -80,11 +93,11 @@ class TestCryptoDaemon:
 
         yield
 
-        logger.info(f"Cleaning up {token_dir} pkcs11 token directory.")
-        exit_code, output = target.execute(f"rm -rf {token_dir}")
+        logger.info(f"Cleaning up {self.TOKEN_DIR} pkcs11 token directory.")
+        exit_code, output = target.execute(f"rm -rf {self.TOKEN_DIR}")
         if exit_code != 0:
             logger.error(
-                f"Failed to clean up {token_dir} pkcs11 token directory: "
+                f"Failed to clean up {self.TOKEN_DIR} pkcs11 token directory: "
                 f"{output.decode()}"
             )
 
@@ -104,6 +117,7 @@ class TestCryptoDaemon:
             target_os=target_os,
             env={
                 "SOFTHSM2_CONF": self.SOFTHSM_CONF_PATH,
+                "CRYPTOKI_STORE": self.CRYPTOKI_STORE_PATH,
                 "CRYPTO_CONFIG_FILE": f"{install_dir}/etc/integration_test_config.bin",
                 "MW_LOG_CONFIG_FILE": f"{install_dir}/etc/logging.json",
                 "LD_LIBRARY_PATH": f"{install_dir}/lib:$LD_LIBRARY_PATH",

@@ -11,23 +11,24 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-/// @brief Standalone helper binary that initialises a SoftHSM2 token via the raw
+/// @brief Standalone helper binary that initialises a PKCS#11 token via the raw
 /// PKCS#11 C API.
 ///
 /// Usage:
-///   init_softhsm_token --token-dir <dir> --config-path <path>
-///                      --token-label <label> --so-pin <pin> --user-pin <pin>
+///   init_pkcs11_token --token-label <label> --so-pin <pin> --user-pin <pin>
+///                     [--import-key-file <path> --import-key-label <label> [--import-key-type <type>]]
 ///
 /// The binary:
-///   1. Creates the token directory (mkdir -p).
-///   2. Writes a minimal softhsm2.conf pointing at that directory.
-///   3. Sets SOFTHSM2_CONF in the process environment so that the linked
-///      libsofthsm2.so picks it up.
-///   4. Calls C_Initialize, C_GetSlotList, C_InitToken, C_InitPIN, C_Finalize.
-///   5. Exits 0 on success, non-zero on any failure.
+///   1. Calls C_Initialize and queries available uninitialised slots.
+///   2. Calls C_InitToken to format the token with the given label and SO PIN.
+///   3. Logs in as Security Officer (SO) and sets the User PIN (C_InitPIN).
+///   4. Imports initial test keys into the token (C_CreateObject).
+///   5. Calls C_Finalize and exits 0 on success, non-zero on any failure.
 ///
-/// Designed to run inside a Docker container as part of integration-test setup,
-/// avoiding any dependency on the host-side `softhsm2-util` package.
+/// Designed as a pure OASIS PKCS#11 provisioning CLI tool to run inside target
+/// integration test containers, supporting both SoftHSM2 and Rust Cryptoki backends.
+/// Target filesystem directories and backend environment variables (SOFTHSM2_CONF,
+/// CRYPTOKI_STORE) are prepared externally by the test orchestrator prior to invocation.
 
 #include <pkcs11.h>
 
@@ -53,9 +54,7 @@ std::string FormatRv(CK_RV rv)
 
 struct Args
 {
-    std::string tokenDir;
-    std::string configPath;
-    std::string tokenLabel{"SoftHSM"};
+    std::string tokenLabel{"PKCS11_TOKEN"};
     std::string soPin{"12345678"};
     std::string userPin{"1234"};
     /// Key import entries: each triplet is (file_path, label, key_type).
@@ -70,17 +69,7 @@ Args ParseArgs(int argc, char** argv)
     {
         const std::string flag{argv[i]};
         const std::string value{argv[i + 1]};
-        if (flag == "--token-dir")
-        {
-            args.tokenDir = value;
-            ++i;
-        }
-        else if (flag == "--config-path")
-        {
-            args.configPath = value;
-            ++i;
-        }
-        else if (flag == "--token-label")
+        if (flag == "--token-label")
         {
             args.tokenLabel = value;
             ++i;
@@ -127,42 +116,6 @@ Args ParseArgs(int argc, char** argv)
         }
     }
     return args;
-}
-
-void ValidateArgs(const Args& args)
-{
-    if (args.tokenDir.empty())
-    {
-        throw std::runtime_error("--token-dir is required");
-    }
-    if (args.configPath.empty())
-    {
-        throw std::runtime_error("--config-path is required");
-    }
-}
-
-void WriteConfig(const Args& args)
-{
-    std::filesystem::create_directories(args.tokenDir);
-
-    std::ofstream conf(args.configPath, std::ios::trunc);
-    if (!conf)
-    {
-        throw std::runtime_error("Cannot write config to " + args.configPath);
-    }
-    conf << "directories.tokendir = " << args.tokenDir << "\n";
-    conf << "objectstore.backend = file\n";
-    conf << "log.level = INFO\n";
-    conf.close();
-
-    // Tell the already-linked libsofthsm2.so where to look.
-    // NOLINTNEXTLINE(concurrency-mt-unsafe) -- single-threaded setup binary
-    if (setenv("SOFTHSM2_CONF", args.configPath.c_str(), 1) != 0)
-    {
-        throw std::runtime_error("setenv(SOFTHSM2_CONF) failed");
-    }
-    std::cout << "[init_softhsm_token] Config written to " << args.configPath << "\n";
-    std::cout << "[init_softhsm_token] Token directory: " << args.tokenDir << "\n";
 }
 
 /// @brief Obtain the PKCS#11 function list and initialise the library.
@@ -276,7 +229,7 @@ CK_SLOT_ID InitialiseTokenAndPin(CK_FUNCTION_LIST_PTR fl, CK_SLOT_ID slot, const
     fl->C_Logout(session);
     fl->C_CloseSession(session);
 
-    std::cout << "[init_softhsm_token] Token '" << args.tokenLabel << "' initialised successfully (slot " << tokenSlot
+    std::cout << "[init_pkcs11_token] Token '" << args.tokenLabel << "' initialised successfully (slot " << tokenSlot
               << ")\n";
     return tokenSlot;
 }
@@ -357,7 +310,7 @@ void ImportKeys(CK_FUNCTION_LIST_PTR fl, CK_SLOT_ID tokenSlot, const Args& args)
             fl->C_Finalize(nullptr);
             throw std::runtime_error("C_CreateObject failed for key '" + keyLabel + "': " + FormatRv(importRv));
         }
-        std::cout << "[init_softhsm_token] Imported key '" << keyLabel << "' from " << keyFile << " (object=" << obj
+        std::cout << "[init_pkcs11_token] Imported key '" << keyLabel << "' from " << keyFile << " (object=" << obj
                   << ")\n";
     }
 
@@ -382,14 +335,12 @@ int main(int argc, char** argv)
     try
     {
         const Args args = ParseArgs(argc, argv);
-        ValidateArgs(args);
-        WriteConfig(args);
         InitToken(args);
         return 0;
     }
     catch (const std::exception& ex)
     {
-        std::cerr << "[init_softhsm_token] ERROR: " << ex.what() << "\n";
+        std::cerr << "[init_pkcs11_token] ERROR: " << ex.what() << "\n";
         return 1;
     }
 }
