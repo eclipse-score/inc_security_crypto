@@ -38,13 +38,13 @@
 #ifndef SCORE_CRYPTO_TESTS_PKCS11_PKCS11_TEST_FIXTURE_HPP
 #define SCORE_CRYPTO_TESTS_PKCS11_PKCS11_TEST_FIXTURE_HPP
 
+#include "score/crypto/tests/pkcs11/pkcs11_test_env_setup.hpp"
+
 #include <gtest/gtest.h>
 #include <pkcs11.h>
 
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
 #include <string>
 #include <vector>
 
@@ -143,31 +143,10 @@ class Pkcs11TestFixture : public ::testing::Test
 
     void SetUp() override
     {
-        const char* tmpdir = std::getenv("TEST_TMPDIR");
-        std::string base = (tmpdir != nullptr) ? tmpdir : "/tmp";
+        const std::string test_dir = env::UniqueTestDirectory("pkcs11_fixture");
 
-        static unsigned int s_test_count = 0;
-        std::string test_id = std::to_string(++s_test_count);
-        std::string test_dir = base + "/pkcs11_fixture_" + test_id;
-
-        // --- Prepare SoftHSM2 configuration ---
-        std::string softhsm_token_dir = test_dir + "/softhsm_tokens";
-        std::string softhsm_conf_path = test_dir + "/softhsm2.conf";
-        std::filesystem::create_directories(softhsm_token_dir);
-
-        {
-            std::ofstream cfg(softhsm_conf_path);
-            cfg << "directories.tokendir = " << softhsm_token_dir << "\n";
-            cfg << "objectstore.backend = file\n";
-            cfg << "log.level = INFO\n";
-        }
-        ::setenv("SOFTHSM2_CONF", softhsm_conf_path.c_str(), 1);
-
-        // --- Prepare Rust Cryptoki storage ---
-        std::string cryptoki_token_dir = test_dir + "/cryptoki_tokens";
-        std::string cryptoki_store_path = cryptoki_token_dir + "/token.json";
-        std::filesystem::create_directories(cryptoki_token_dir);
-        ::setenv("CRYPTOKI_STORE", cryptoki_store_path.c_str(), 1);
+        // Abstracted backend-specific filesystem and environment setup
+        env::PrepareBackendEnvironments(test_dir);
 
         // --- C_GetFunctionList ---
         CK_RV rv = C_GetFunctionList(&function_list);
@@ -241,8 +220,7 @@ class Pkcs11TestFixture : public ::testing::Test
             function_list->C_Finalize(nullptr);
             function_list = nullptr;
         }
-        ::unsetenv("SOFTHSM2_CONF");
-        ::unsetenv("CRYPTOKI_STORE");
+        env::CleanupBackendEnvironments();
     }
 
   private:

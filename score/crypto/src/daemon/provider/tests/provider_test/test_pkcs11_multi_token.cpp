@@ -29,6 +29,7 @@
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
+#include "score/crypto/tests/pkcs11/pkcs11_test_env_setup.hpp"
 
 namespace pkcs11 = score::crypto::daemon::provider::pkcs11;
 namespace provider = score::crypto::daemon::provider;
@@ -43,37 +44,11 @@ class Pkcs11MultiTokenTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        const char* tmpdir = std::getenv("TEST_TMPDIR");
-        if (tmpdir == nullptr)
-        {
-            tmpdir = "/tmp";
-        }
         // Unique directory per test to avoid state conflicts
-        static unsigned int testCounter = 0;
-        const std::string testId = std::to_string(++testCounter);
-        m_baseDir = std::string(tmpdir) + "/multi_token_test_" + testId;
-        m_tokenDir = m_baseDir + "/tokens";
-        std::filesystem::create_directories(m_tokenDir);
+        m_baseDir = tests::pkcs11::env::UniqueTestDirectory("multi_token_test");
 
-        m_confPath = m_baseDir + "/softhsm2.conf";
-        {
-            std::ofstream conf(m_confPath, std::ios::trunc);
-            conf << "directories.tokendir = " << m_tokenDir << "/\n";
-            conf << "objectstore.backend = file\n";
-            // SoftHSM2 creates slots dynamically; set library options to allow multislot
-            conf << "log.level = ERROR\n";
-            // Enable multislot operation if available
-            conf << "slots.num_of_slots = 10\n";
-        }
-        // NOLINTNEXTLINE(concurrency-mt-unsafe) — test setup, single-threaded
-        setenv("SOFTHSM2_CONF", m_confPath.c_str(), 1);
-
-        // -- Rust Cryptoki environment setup ---------------------------------
-        const std::string cryptokiStorePath = m_tokenDir + "/token.json";
-        // NOLINTNEXTLINE(concurrency-mt-unsafe) — test setup, single-threaded
-        setenv("CRYPTOKI_STORE", cryptokiStorePath.c_str(), 1);
-        // Expose 2 slots so TokenA and TokenB live in independent slots
-        setenv("CRYPTOKI_NUM_SLOTS", "2", 1);
+        // Set up isolated backend environments with 2 slots
+        tests::pkcs11::env::PrepareBackendEnvironments(m_baseDir, /*num_slots=*/2U);
 
         // Reset slot counter for each test
         m_nextSlotId = 0U;
@@ -103,10 +78,10 @@ class Pkcs11MultiTokenTest : public ::testing::Test
         m_providerA.reset();
         m_providerB.reset();
         m_module.reset();  // C_Finalize
-        std::filesystem::remove_all(m_baseDir);
-        unsetenv("SOFTHSM2_CONF");
-        unsetenv("CRYPTOKI_STORE");
-        unsetenv("CRYPTOKI_NUM_SLOTS");
+        std::error_code ec;
+        std::filesystem::remove_all(m_baseDir, ec);
+        ASSERT_FALSE(ec) << ec.message();
+        tests::pkcs11::env::CleanupBackendEnvironments();
     }
 
     void InitToken(const std::string& label, CK_SLOT_ID& outSlot)
@@ -182,8 +157,6 @@ class Pkcs11MultiTokenTest : public ::testing::Test
     CK_SLOT_ID m_slotB{CK_INVALID_HANDLE};
     CK_ULONG m_nextSlotId{0U};
     std::string m_baseDir;
-    std::string m_tokenDir;
-    std::string m_confPath;
 };
 
 TEST_F(Pkcs11MultiTokenTest, IndependentSessionPools)
