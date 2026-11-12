@@ -57,6 +57,7 @@ cc_test(
         ":cert_management_headers",
         ":cert_management_internal_headers",
         "//score/crypto/src/daemon/cert_management/tests:test_environment",
+        "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "@googletest//:gtest_main",
     ],

@@ -157,6 +157,16 @@ class IBufferTranscoder
     virtual score::crypto::Expected<TranscoderSpan, score::result::Error> Acquire(score::cpp::span<const uint8_t> data,
                                                                                   bool is_output = false) = 0;
 
+    /// Require SHM for an input, including buffers below the in-band threshold.
+    /// Acquire's true flag controls reservation only; AppendInputBuffer still
+    /// attaches a read-only DataShm(In) descriptor. Existing routing is unchanged.
+    /// In-process test doubles may override this to emulate resolved spans.
+    virtual score::crypto::Expected<TranscoderSpan, score::result::Error> AcquireInputShm(
+        score::cpp::span<const uint8_t> data)
+    {
+        return Acquire(data, true);
+    }
+
     /// @brief attach a pre-acquired input span to @p builder.
     ///
     /// For kPool: copies heap->slot (the slot reserved by Acquire() is otherwise

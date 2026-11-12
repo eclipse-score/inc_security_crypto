@@ -27,6 +27,7 @@
 
 #include <unistd.h>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
@@ -150,6 +151,37 @@ TEST_F(CertificateManagementIntegrationTest, ParsesAndInspectsCertificate)
     EXPECT_EQ((*certificate_view)->GetFingerprint().size(), 32U);
 }
 
+TEST_F(CertificateManagementIntegrationTest, InvalidCertificateInputDoesNotBreakSubsequentParsing)
+{
+    // Source invalid-input/recovery cases, adapted to the current management fixture.
+    const std::vector<std::uint8_t> invalid{0x30U, 0x01U, 0x00U};
+    const score::cpp::span<const std::uint8_t> bytes{invalid.data(), invalid.size()};
+    EXPECT_FALSE(m_management->ParseCertificate({}, score::crypto::FormatType::kDer).has_value());
+    EXPECT_FALSE(m_management->ParseCertificate(bytes, score::crypto::FormatType::kRaw).has_value());
+    EXPECT_FALSE(m_management->ParseCertificate(bytes, static_cast<score::crypto::FormatType>(0xFFU)).has_value());
+    EXPECT_FALSE(m_management->ParseCertificate(bytes, score::crypto::FormatType::kDer).has_value());
+    EXPECT_FALSE(m_management->ParseCertificate(bytes, score::crypto::FormatType::kPem).has_value());
+
+    auto valid = ParseBasicCertificate();
+    ASSERT_TRUE(valid.has_value());
+    EXPECT_TRUE(valid->Release().has_value());
+}
+
+TEST_F(CertificateManagementIntegrationTest, RejectsOversizedSingleCertificateInput)
+{
+    constexpr std::size_t kSingleCertificateInputLimit = 8192U;
+    auto pem = ReadFile(VectorPath("certificate/basic/certificate.pem"));
+    ASSERT_FALSE(pem.empty());
+    ASSERT_LE(pem.size(), kSingleCertificateInputLimit);
+    // A valid certificate plus whitespace exceeds the source single-input budget.
+    pem.resize(kSingleCertificateInputLimit + 1U, static_cast<std::uint8_t>('\n'));
+    EXPECT_FALSE(m_management->ParseCertificate({pem.data(), pem.size()}, score::crypto::FormatType::kPem).has_value());
+
+    const std::vector<std::uint8_t> der(kSingleCertificateInputLimit + 1U, 0x30U);
+    EXPECT_FALSE(m_management->ParseCertificate({der.data(), der.size()}, score::crypto::FormatType::kDer).has_value());
+    ASSERT_TRUE(ParseBasicCertificate().has_value());
+}
+
 TEST_F(CertificateManagementIntegrationTest, ParsesPemBundle)
 {
     const auto certificate = ReadFile(VectorPath("certificate/basic/certificate.pem"));
@@ -221,20 +253,32 @@ TEST_F(CertificateManagementIntegrationTest, LoadsCertificateSlotIntoReusableGua
 
 TEST_F(CertificateManagementIntegrationTest, TrustStoreObjectFindsAndTogglesMember)
 {
+    auto certificate = ParseBasicCertificate();
+    ASSERT_TRUE(certificate.has_value());
     auto trust_store = m_context->GetTrustStoreObject(m_trust_store);
     ASSERT_TRUE(trust_store.has_value());
     ASSERT_FALSE((*trust_store)->GetMembers().empty());
 
-    const auto& member = (*trust_store)->GetMembers().front();
+    const auto member = (*trust_store)->GetMembers().front();
     const auto* found_by_slot = (*trust_store)->FindMember(member.slot_id);
     ASSERT_NE(found_by_slot, nullptr);
     EXPECT_NE((*trust_store)->FindMemberByFingerprint(member.sha256_fingerprint), nullptr);
+
+    // Ordinary saves must fail even for an unchanged certificate in an enabled shared-static slot.
+    EXPECT_FALSE(m_management->SaveCertificate(*certificate, member.slot_id).has_value());
+    EXPECT_FALSE(m_management->SaveCertificateWithCrl(*certificate, member.slot_id).has_value());
 
     ASSERT_TRUE(m_trust_store_mgmt->DisableTrustStoreMember(m_trust_store, member.slot_id).has_value());
     auto disabled = m_context->GetTrustStoreObject(m_trust_store);
     ASSERT_TRUE(disabled.has_value());
     EXPECT_FALSE((*disabled)->GetDisabledMemberSlotIds().empty());
+    EXPECT_FALSE(m_management->SaveCertificate(*certificate, member.slot_id).has_value());
+    EXPECT_FALSE(m_management->SaveCertificateWithCrl(*certificate, member.slot_id).has_value());
     ASSERT_TRUE(m_trust_store_mgmt->EnableTrustStoreMember(m_trust_store, member.slot_id).has_value());
+
+    auto unchanged = m_context->GetCertificateObject(member.slot_id);
+    ASSERT_TRUE(unchanged.has_value());
+    EXPECT_EQ((*unchanged)->GetFingerprint(), member.sha256_fingerprint);
 }
 
 TEST_F(CertificateManagementIntegrationTest, AddsCertificateParsedByManagementContextToTrustStoreViaTrustStoreContext)
@@ -318,12 +362,16 @@ TEST_F(CertificateManagementIntegrationTest, EnablesAndDisablesExclusiveTrustSto
     ASSERT_NE(member, nullptr);
     const auto slot_id = member->slot_id;
 
+    EXPECT_FALSE(m_management->SaveCertificate(*certificate, slot_id).has_value());
+    EXPECT_FALSE(m_management->SaveCertificateWithCrl(*certificate, slot_id).has_value());
     ASSERT_TRUE(m_trust_store_mgmt->DisableTrustStoreMember(m_mutable_trust_store, slot_id).has_value());
     auto disabled = m_context->GetTrustStoreObject(m_mutable_trust_store);
     ASSERT_TRUE(disabled.has_value());
     const auto* disabled_member = (*disabled)->FindMember(slot_id);
     ASSERT_NE(disabled_member, nullptr);
     EXPECT_EQ(disabled_member->status, score::crypto::MemberStatus::kDisabled);
+    EXPECT_FALSE(m_management->SaveCertificate(*certificate, slot_id).has_value());
+    EXPECT_FALSE(m_management->SaveCertificateWithCrl(*certificate, slot_id).has_value());
 
     ASSERT_TRUE(m_trust_store_mgmt->EnableTrustStoreMember(m_mutable_trust_store, slot_id).has_value());
     auto enabled = m_context->GetTrustStoreObject(m_mutable_trust_store);

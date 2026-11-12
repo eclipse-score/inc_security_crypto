@@ -15,6 +15,9 @@
 #include "score/crypto/src/daemon/common/storage/deployment_descriptor.hpp"
 #include "score/crypto/src/daemon/common/storage/file_io.hpp"
 
+#include <cstddef>
+#include <string>
+
 namespace score::crypto::daemon::cert_management
 {
 namespace
@@ -46,6 +49,52 @@ score::crypto::FormatType ParseFormat(const std::string& value, score::crypto::F
         return score::crypto::FormatType::kPem;
     return fallback;
 }
+
+// cert_hash is exactly 64 hexadecimal characters encoding the parser's SHA-256
+// fingerprint of the certificate's canonical DER encoding, not the raw PEM file
+// (headers, whitespace and line endings are not hashed). This detects a changed
+// certificate relative to the descriptor; it does not authenticate the descriptor
+// or establish certificate trust.
+score::crypto::Expected<std::string, Error> CertificateHash(const CertObject& cert)
+{
+    const auto fingerprint = cert.GetFingerprint();
+    if (fingerprint.size() != score::crypto::kSha256FingerprintSize)
+    {
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+    }
+    constexpr char kHex[] = "0123456789abcdef";
+    std::string hash;
+    hash.reserve(2U * fingerprint.size());
+    for (const auto byte : fingerprint)
+    {
+        hash.push_back(kHex[byte >> 4U]);
+        hash.push_back(kHex[byte & 0x0FU]);
+    }
+    return hash;
+}
+
+bool MatchesCertificateHash(const std::string& descriptor_hash, const std::string& canonical_hash)
+{
+    if (descriptor_hash.size() != canonical_hash.size())
+    {
+        return false;
+    }
+    for (std::size_t i = 0U; i < descriptor_hash.size(); ++i)
+    {
+        auto digit = descriptor_hash[i];
+        if (digit >= 'A' && digit <= 'F')
+        {
+            digit = static_cast<char>(digit - 'A' + 'a');
+        }
+        // Comparison with the generated lowercase hex also rejects non-hex
+        // characters, prefixes, separators and embedded whitespace.
+        if (digit != canonical_hash[i])
+        {
+            return false;
+        }
+    }
+    return true;
+}
 }  // namespace
 
 score::crypto::Expected<CertObject::Sptr, Error> FileBackedSlotHandler::LoadCertificate(const CertSlotConfig& slot)
@@ -60,18 +109,28 @@ score::crypto::Expected<CertObject::Sptr, Error> FileBackedSlotHandler::LoadCert
     if (!bytes)
         return score::crypto::make_unexpected(bytes.error());
 
-    if (slot.integrity_policy == IntegrityPolicy::kRequired)
-    {
-        const auto hash = descriptor->Get("certificate", "cert_hash");
-        if (hash.empty())
-            return score::crypto::make_unexpected(Error::kInvalidArgument);
-        // The descriptor hash is validated by the certificate verification layer.
-    }
-
     const auto format = ParseFormat(descriptor->Get("certificate", "cert_format"), score::crypto::FormatType::kPem);
     if (!m_parser)
         return score::crypto::make_unexpected(Error::kUnsupportedOperation);
-    return m_parser->ParseCertificate(bytes->data(), bytes->size(), format);
+    auto certificate = m_parser->ParseCertificate(bytes->data(), bytes->size(), format);
+    if (!certificate)
+    {
+        return score::crypto::make_unexpected(certificate.error());
+    }
+    if (!*certificate)
+    {
+        return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
+    }
+    if (slot.integrity_policy == IntegrityPolicy::kRequired)
+    {
+        // Only use metadata derived by parsing the bytes just read from disk.
+        const auto hash = CertificateHash(**certificate);
+        if (!hash || !MatchesCertificateHash(descriptor->Get("certificate", "cert_hash"), *hash))
+        {
+            return score::crypto::make_unexpected(Error::kInvalidArgument);
+        }
+    }
+    return certificate;
 }
 
 score::crypto::Expected<score::crypto::CertificateSlotState, Error> FileBackedSlotHandler::GetSlotState(
@@ -123,6 +182,18 @@ score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCerti
     // the object's format. Callers needing a specific on-disk encoding convert
     // via the provider's ConvertFormat before storing.
     const auto bytes = cert.GetRawBytes();
+    if (bytes.size() > kMaxCertSize)
+    {
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+    }
+    // CertObject carries the fingerprint computed by its parser. Validate its
+    // size before any write and keep the descriptor current even when integrity
+    // enforcement is disabled, so later policy enablement needs no re-save.
+    const auto hash = CertificateHash(cert);
+    if (!hash)
+    {
+        return score::crypto::make_unexpected(hash.error());
+    }
     auto result = file_io::WriteFile(path, bytes);
     if (!result)
         return result;
@@ -141,7 +212,10 @@ score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreCerti
         descriptor->Set("crl", "crl_path", old_crl_path);
         static_cast<void>(file_io::RemoveFile(old_crl_path));
     }
+    // Record the path actually written, so that loads and state queries find the certificate.
+    descriptor->Set("certificate", "cert_path", path);
     descriptor->Set("certificate", "cert_format", cert.GetFormat() == score::crypto::FormatType::kDer ? "der" : "pem");
+    descriptor->Set("certificate", "cert_hash", *hash);
     descriptor->Set("certificate_metadata", "subject", std::string(cert.GetSubject()));
     descriptor->Set("certificate_metadata", "issuer", std::string(cert.GetIssuer()));
     descriptor->Set("certificate_metadata", "not_before", std::to_string(cert.GetNotBefore()));

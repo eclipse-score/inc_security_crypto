@@ -46,7 +46,7 @@ table KeySlotEntry {
 /// Per-application resource ID to key slot name mapping
 /// Applications reference keys by portable application-local names
 /// (e.g., "signing_key")
-table AppKeySlotEntry {
+table AppKeySlotMapping {
   /// UID of the application that owns this mapping
   uid: uint32;
   /// Application-local resource name
@@ -60,7 +60,7 @@ table KeySlotConfig {
   /// All key slot definitions
   slot_entries: [KeySlotEntry] (required);
   /// All per-app key slot mappings
-  app_key_slot_entries: [AppKeySlotEntry] (required);
+  app_key_slot_mappings: [AppKeySlotMapping] (required);
 }
 
 // ---------------------------------------------------------------------------

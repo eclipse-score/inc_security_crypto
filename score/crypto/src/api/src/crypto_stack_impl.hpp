@@ -60,6 +60,7 @@ class CryptoStackImpl final : public ICryptoStack
 
     // -- ICryptoStack --
     score::Result<ICryptoContext::Uptr> CreateCryptoContext() override;
+    score::Result<std::unique_ptr<ICsrProcessingService>> CreateCsrProcessingService() override;
     score::Result<IMemoryAllocator::Uptr> GetMemoryAllocator() override;
 
   private:

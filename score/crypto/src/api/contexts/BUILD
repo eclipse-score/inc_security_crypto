@@ -13,6 +13,21 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
+cc_test(
+    name = "csr_generation_context_impl_test",
+    srcs = ["src/csr_generation_context_impl_test.cpp"],
+    deps = [
+        ":crypto_contexts_impl",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:csr_processing",
+        "//score/crypto/src/api:crypto_stack",
+        "//score/crypto/src/common:csr_der",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/provider/handler:csr_handler_operations",
+        "//third_party/openssl:openssl_shared",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "context_bases",
     hdrs = [
@@ -33,6 +48,7 @@ cc_library(
     name = "crypto_contexts",
     hdrs = [
         "i_cipher_context.hpp",
+        "i_csr_generation_context.hpp",
         "i_hash_context.hpp",
         "i_key_management_context.hpp",
         "i_mac_context.hpp",
@@ -44,6 +60,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":context_bases",
+        "//score/crypto/src/api/certificate:csr_export",
+        "//score/crypto/src/api/csr:csr_request",
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/config:context_configs",
@@ -79,6 +97,7 @@ cc_library(
     name = "crypto_contexts_impl",
     srcs = [
         "src/cipher_context_impl.cpp",
+        "src/csr_generation_context_impl.cpp",
         "src/hash_context_impl.cpp",
         "src/key_management_context_impl.cpp",
         "src/mac_context_impl.cpp",
@@ -91,6 +110,7 @@ cc_library(
     ],
     hdrs = [
         "src/cipher_context_impl.hpp",
+        "src/csr_generation_context_impl.hpp",
         "src/hash_context_impl.hpp",
         "src/key_management_context_impl.hpp",
         "src/mac_context_impl.hpp",
@@ -107,6 +127,7 @@ cc_library(
         ":cert_contexts",
         ":crypto_contexts",
         "//score/crypto/src/api:operations",
+        "//score/crypto/src/api/csr:csr_processing_client",
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/common:release_callback_iface",
         "//score/crypto/src/api/types:types",
@@ -124,6 +145,18 @@ cc_test(
         "//score/crypto/src/api/control_plane",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "cert_management_context_impl_test",
+    srcs = ["src/cert_management_context_impl_test.cpp"],
+    deps = [
+        ":crypto_contexts_impl",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/api/data_plane:data_plane_client",
+        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
         "@googletest//:gtest_main",
     ],
 )

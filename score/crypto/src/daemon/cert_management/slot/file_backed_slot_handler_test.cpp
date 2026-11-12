@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/tests/test_environment.hpp"
+#include "score/crypto/src/daemon/common/storage/file_io.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
 
 #include <gtest/gtest.h>
@@ -74,6 +75,22 @@ class FakeParser final : public provider::ICertParser
     }
 };
 
+std::vector<std::uint8_t> ReadBytes(const std::filesystem::path& path)
+{
+    auto bytes = storage::ReadFile(path.string(), 1024U * 1024U);
+    EXPECT_TRUE(bytes.has_value());
+    return bytes.has_value() ? bytes.value() : std::vector<std::uint8_t>{};
+}
+
+std::shared_ptr<cert::CertObject> MakeCertificate(std::vector<std::uint8_t> bytes, score::crypto::FormatType format)
+{
+    cert::CertChainMetadata metadata;
+    metadata.subject_canonical = "CN=file-test";
+    metadata.issuer_canonical = "CN=file-test";
+    metadata.fingerprint = std::vector<std::uint8_t>(score::crypto::kSha256FingerprintSize, 0x11U);
+    return std::make_shared<cert::CertObject>(std::move(metadata), std::move(bytes), format);
+}
+
 class FileBackedSlotHandlerTest : public ::testing::Test
 {
   protected:
@@ -115,6 +132,7 @@ TEST_F(FileBackedSlotHandlerTest, StoresLoadsAndClearsCertificate)
     cert::CertChainMetadata metadata;
     metadata.subject_canonical = "CN=file-test";
     metadata.issuer_canonical = "CN=file-test";
+    metadata.fingerprint = std::vector<std::uint8_t>(score::crypto::kSha256FingerprintSize, 0x11U);
     auto certificate = std::make_shared<cert::CertObject>(
         std::move(metadata), std::vector<std::uint8_t>{1U, 2U, 3U}, score::crypto::FormatType::kDer);
 
@@ -147,6 +165,7 @@ TEST_F(FileBackedSlotHandlerTest, DerivesMetadataForPreconfiguredCrlWithoutCache
     cert::CertChainMetadata certificate_metadata;
     certificate_metadata.subject_canonical = "CN=file-test";
     certificate_metadata.issuer_canonical = "CN=file-test";
+    certificate_metadata.fingerprint = std::vector<std::uint8_t>(score::crypto::kSha256FingerprintSize, 0x11U);
     auto certificate = std::make_shared<cert::CertObject>(
         std::move(certificate_metadata), std::vector<std::uint8_t>{1U, 2U, 3U}, score::crypto::FormatType::kDer);
     ASSERT_TRUE(m_handler->StoreCertificate(m_slot, *certificate).has_value());
@@ -174,6 +193,7 @@ TEST_F(FileBackedSlotHandlerTest, StoreCertificate_ClearsExistingCrl)
     cert::CertChainMetadata metadata;
     metadata.subject_canonical = "CN=file-test";
     metadata.issuer_canonical = "CN=file-test";
+    metadata.fingerprint = std::vector<std::uint8_t>(score::crypto::kSha256FingerprintSize, 0x11U);
     auto certificate = std::make_shared<cert::CertObject>(
         std::move(metadata), std::vector<std::uint8_t>{1U, 2U, 3U}, score::crypto::FormatType::kDer);
 
@@ -255,6 +275,7 @@ TEST_F(FileBackedSlotHandlerTest, ClearSlot_IsIdempotent)
     cert::CertChainMetadata metadata;
     metadata.subject_canonical = "CN=file-test";
     metadata.issuer_canonical = "CN=file-test";
+    metadata.fingerprint = std::vector<std::uint8_t>(score::crypto::kSha256FingerprintSize, 0x11U);
     auto certificate = std::make_shared<cert::CertObject>(
         std::move(metadata), std::vector<std::uint8_t>{1U, 2U, 3U}, score::crypto::FormatType::kDer);
 
@@ -335,6 +356,56 @@ TEST_F(FileBackedSlotHandlerTest, GetCrlNextUpdate_MalformedValue_ReturnsInvalid
     const auto nu = m_handler->GetCrlNextUpdate(m_slot);
     EXPECT_FALSE(nu.has_value());
     EXPECT_EQ(nu.error(), Error::kInvalidArgument);
+}
+
+// A certificate over the size limit is refused before the certificate file or the descriptor is written.
+TEST_F(FileBackedSlotHandlerTest, StoreCertificate_OversizedCertificate_IsRejectedWithoutWriting)
+{
+    const auto descriptor_before = ReadBytes(m_descriptor);
+    const std::vector<std::uint8_t> bytes(cert::FileBackedSlotHandler::kMaxCertSize + 1U, 0x01U);
+    const auto oversized = MakeCertificate(bytes, score::crypto::FormatType::kDer);
+
+    const auto result = m_handler->StoreCertificate(m_slot, *oversized);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Error::kInvalidArgument);
+    EXPECT_FALSE(std::filesystem::exists(m_certificate));
+    EXPECT_EQ(ReadBytes(m_descriptor), descriptor_before);
+}
+
+// A certificate of exactly the size limit is stored and loaded.
+TEST_F(FileBackedSlotHandlerTest, StoreCertificate_MaxSizeCertificate_RoundTrips)
+{
+    const std::vector<std::uint8_t> bytes(cert::FileBackedSlotHandler::kMaxCertSize, 0x01U);
+    const auto certificate = MakeCertificate(bytes, score::crypto::FormatType::kDer);
+
+    ASSERT_TRUE(m_handler->StoreCertificate(m_slot, *certificate).has_value());
+    const auto loaded = m_handler->LoadCertificate(m_slot);
+    ASSERT_TRUE(loaded.has_value());
+    EXPECT_EQ(loaded.value()->GetRawBytes().size(), cert::FileBackedSlotHandler::kMaxCertSize);
+}
+
+// A slot whose descriptor names no certificate file gets the fallback path recorded on store, so
+// later loads and state queries find the certificate.
+TEST_F(FileBackedSlotHandlerTest, StoreCertificate_WithoutConfiguredPath_RecordsPathInDescriptor)
+{
+    const auto slot_descriptor = m_directory / "unbound_slot.kv";
+    const storage::DeploymentDescriptor descriptor;
+    ASSERT_TRUE(storage::KvDeploymentWriter{}.Write(slot_descriptor.string(), descriptor).has_value());
+
+    auto slot = m_slot;
+    slot.deployment_path = slot_descriptor.string();
+    const auto certificate = MakeCertificate({1U, 2U, 3U}, score::crypto::FormatType::kDer);
+
+    cert::FileBackedSlotHandler handler{std::make_shared<FakeParser>()};
+    ASSERT_TRUE(handler.StoreCertificate(slot, *certificate).has_value());
+    EXPECT_TRUE(std::filesystem::exists(slot_descriptor.string() + ".pem"));
+    const auto saved = cert::DeploymentLoader::Load(slot_descriptor.string(), "kv");
+    ASSERT_TRUE(saved.has_value());
+    EXPECT_EQ(saved->Get("certificate", "cert_path"), slot_descriptor.string() + ".pem");
+
+    cert::FileBackedSlotHandler fresh_handler{std::make_shared<FakeParser>()};
+    EXPECT_EQ(fresh_handler.GetSlotState(slot).value(), score::crypto::CertificateSlotState::kOccupied);
+    EXPECT_TRUE(fresh_handler.LoadCertificate(slot).has_value());
 }
 
 }  // namespace

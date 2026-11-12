@@ -11,7 +11,21 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+cc_test(
+    name = "buffer_shm_transcoder_test",
+    srcs = [
+        "src/buffer_shm_transcoder.hpp",
+        "src/buffer_shm_transcoder_test.cpp",
+    ],
+    deps = [
+        ":data_plane_client",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/provider/handler:csr_handler_operations",
+        "@googletest//:gtest_main",
+    ],
+)
 
 cc_library(
     name = "data_plane_client",

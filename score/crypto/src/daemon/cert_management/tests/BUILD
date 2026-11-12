@@ -29,6 +29,7 @@ cc_test(
         "//score/crypto/src/daemon/cert_management",
         "//score/crypto/src/daemon/cert_management:cert_management_headers",
         "//score/crypto/src/daemon/cert_management:cert_management_internal_headers",
+        "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_cert_management_headers",
         "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_cert_parser_library",

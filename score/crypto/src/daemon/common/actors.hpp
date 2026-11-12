@@ -33,6 +33,7 @@ inline constexpr OperationActor OP_ACTOR_VERIFY_HANDLER = 9;
 inline constexpr OperationActor OP_ACTOR_RANDOM_HANDLER = 10;
 inline constexpr OperationActor OP_ACTOR_CERT_MANAGEMENT = 11;
 inline constexpr OperationActor OP_ACTOR_CERT_VERIFICATION = 12;
+inline constexpr OperationActor OP_ACTOR_CSR_HANDLER = 13;
 
 // Starting point for custom actors
 inline constexpr OperationActor CUSTOM_ACTOR_START = 1 << (std::numeric_limits<OperationActor>::digits - 1);

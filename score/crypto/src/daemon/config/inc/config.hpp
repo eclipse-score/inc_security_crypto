@@ -278,7 +278,7 @@ class KeyConfig
     ///
     /// The daemon's SlotRegistry stores these mappings and resolves them
     /// transparently during ResolveResource IPC calls.
-    struct AppKeySlotEntry
+    struct AppKeySlotMapping
     {
         uint32_t uid;                 ///< UID of the application that owns this mapping
         std::string app_resource_id;  ///< Application-local resource name
@@ -300,15 +300,15 @@ class KeyConfig
     }
 
     /// @brief Add an application resource mapping entry (called by parser).
-    void AddAppKeySlotEntry(AppKeySlotEntry entry)
+    void AddAppKeySlotMapping(AppKeySlotMapping entry)
     {
-        m_app_key_slot_entries.push_back(std::move(entry));
+        m_app_key_slot_mappings.push_back(std::move(entry));
     }
 
     /// @brief Get all per-application key slot resource ID mappings.
-    const std::vector<AppKeySlotEntry>& GetAppKeySlotEntries() const
+    const std::vector<AppKeySlotMapping>& GetAppKeySlotMappings() const noexcept
     {
-        return m_app_key_slot_entries;
+        return m_app_key_slot_mappings;
     }
 
     /// @brief Path to an optional key slot manifest used by catalog tooling.
@@ -327,7 +327,7 @@ class KeyConfig
 
   private:
     std::vector<KeySlotEntry> m_slot_entries;
-    std::vector<AppKeySlotEntry> m_app_key_slot_entries;
+        std::vector<AppKeySlotMapping> m_app_key_slot_mappings;
     std::string m_manifest_path;
 };
 

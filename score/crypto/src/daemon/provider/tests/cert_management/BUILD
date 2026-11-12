@@ -14,6 +14,21 @@
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_test(
+    name = "test_cert_mgmt_executor",
+    srcs = ["test_cert_mgmt_executor.cpp"],
+    deps = [
+        "//score/crypto/src/daemon/cert_management:cert_management",
+        "//score/crypto/src/daemon/cert_management:cert_management_daemon_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_runtime_headers",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
+        "//score/crypto/src/daemon/provider/executors:cert_mgmt_executor",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "test_openssl_cert_parser",
     srcs = ["test_openssl_cert_parser.cpp"],
     data = [

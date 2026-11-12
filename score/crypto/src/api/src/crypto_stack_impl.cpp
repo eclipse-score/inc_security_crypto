@@ -69,6 +69,15 @@ score::Result<ICryptoContext::Uptr> CryptoStackImpl::CreateCryptoContext()
     return ctx;
 }
 
+score::Result<std::unique_ptr<ICsrProcessingService>> CryptoStackImpl::CreateCsrProcessingService()
+{
+    if (!m_connection || !m_transcoder || m_connection->GetConnectionNodeId() == 0U)
+    {
+        return score::Unexpected{MakeError(CryptoErrorCode::kConnectionFailed, "CSR processing connection unavailable")};
+    }
+    return std::make_unique<CsrProcessingClient>(m_connection, m_transcoder);
+}
+
 score::Result<IMemoryAllocator::Uptr> CryptoStackImpl::GetMemoryAllocator()
 {
     if (!m_connection)

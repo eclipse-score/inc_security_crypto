@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_FACTORY_SCORE_HANDLER_FACTORY_HPP
 
 #include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/context_types.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
@@ -51,41 +52,44 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
 
     ~ScoreHandlerFactory() override = default;
 
-    /// Routes to CreateHashHandler, CreateMacHandler, or CreateKeyManagementHandler.
+    /// Routes to the Create*Handler hook of the handler type.
     ::score::Result<handler::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
-                                                          const common::AlgorithmId& algorithm) override;
+                                                          const AlgorithmDescriptor& algorithm) override;
+
+    /// Override in concrete provider to create a key management handler. Default returns unsupported.
+    [[nodiscard]] ::score::Result<handler::Handler::Sptr> CreateKeyManagementHandler() override;
 
   protected:
+    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateCsrHandler(
+        const AlgorithmDescriptor& algorithm);
+
     /// Override in concrete provider to create a hash handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateHashHandler(
-        const common::AlgorithmId& algorithm);
+        const AlgorithmDescriptor& algorithm);
 
     /// Override in concrete provider to create a MAC handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateMacHandler(
-        const common::AlgorithmId& algorithm);
-
-    /// Override in concrete provider to create a key management handler. Default returns unsupported.
-    [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateKeyManagementHandler();
+        const AlgorithmDescriptor& algorithm);
 
     /// Override in concrete provider to create a symmetric cipher handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateCipherHandler(
-        const common::AlgorithmId& algorithm);
+        const AlgorithmDescriptor& algorithm);
 
     /// Override in concrete provider to create a signature generation handler.
     /// Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateSignHandler(
-        const common::AlgorithmId& algorithm);
+        const AlgorithmDescriptor& algorithm);
 
     /// Override in concrete provider to create a signature verification handler.
     ///
     /// A VERIFY context binds the public half of the key pair, so it is a
     /// distinct hook from CreateSignHandler(). Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateVerifyHandler(
-        const common::AlgorithmId& algorithm);
+        const AlgorithmDescriptor& algorithm);
 
     /// Override in concrete provider to create a random handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateRandomHandler(
-        const common::AlgorithmId& algorithm);
+        const AlgorithmDescriptor& algorithm);
     /// Override in concrete provider to create a CERT:MANAGEMENT handler. Default returns unsupported.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateCertManagementHandler();
 

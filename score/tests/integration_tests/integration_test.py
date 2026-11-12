@@ -242,6 +242,7 @@ class TestCryptoDaemon:
             },
         )
 
+    # Source: fea_um_crypto_1 ancestor 5e8664e37, same harness method.
     def test_score_api_key_import_export(
         self, target: Target, target_os: str, install_dir: str, openssl_backend: None
     ):
@@ -255,6 +256,128 @@ class TestCryptoDaemon:
                 "TEST_VECTORS_DIR": f"{install_dir}/share/test_vectors",
             },
         )
+
+    # Harness hook from fea_um_crypto_1 1f4b0daa5919e9d354b53a565e7febbd28a34546;
+    # the C++ tests are from 5e8664e37, whose peer process needs /proc/self/exe.
+    def test_score_api_csr(
+        self, target: Target, target_os: str, install_dir: str, openssl_backend: None
+    ):
+        """Run generated-key CSR coverage over the real daemon connection."""
+        if target_os != "Linux":
+            pytest.skip("CSR peer-process coverage requires Linux /proc/self/exe")
+
+        self.test_daemon_control_socket_creation(target, target_os)
+        socket_dir = "/opt" if target_os == "QNX" else "/tmp"
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_api_csr_test"),
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "CSR_TEST_ENDPOINT": f"unix://{socket_dir}/crypto_daemon.sock",
+            },
+        )
+
+    def test_score_api_csr_subject_key_identifier_hash(
+        self, target: Target, target_os: str, install_dir: str, openssl_backend: None
+    ):
+        """Exercise the public-SPKI DER encoding fallback over gRPC/SHM."""
+        if target_os != "Linux":
+            pytest.skip("CSR transport integration coverage currently targets Linux")
+
+        self.test_daemon_control_socket_creation(target, target_os)
+        run_test_app(
+            target,
+            target_os,
+            Path(f"{install_dir}/bin/score_api_csr_test"),
+            env={
+                "LD_LIBRARY_PATH": f"{install_dir}/lib",
+                "CSR_TEST_ENDPOINT": "unix:///tmp/crypto_daemon.sock",
+            },
+            args=[
+                "--gtest_filter=CsrTransport."
+                "SubjectKeyIdentifierHashUsesBoundDaemonPublicKeyAfterKeyHandleRelease"
+            ],
+        )
+
+    def test_score_api_key_persistence(
+        self,
+        target: Target,
+        target_os: str,
+        install_dir: str,
+        openssl_backend: None,
+        daemon: ProcessRunner,
+    ):
+        """Reload the same generated key after graceful and forced daemon restarts.
+
+        The phased binary extends fea_um_crypto_1's persistent-slot enrollment
+        flow. Killing a daemon does not power off storage: this is explicitly
+        process-restart coverage, not an ECU power-loss durability claim.
+        """
+        if target_os != "Linux":
+            pytest.skip("Forced daemon-restart coverage uses Linux pkill")
+
+        self.test_daemon_control_socket_creation(target, target_os)
+        state_dir = f"{install_dir}/etc/csr-slots"
+        exit_code, output = target.execute(
+            f"mkdir -p {state_dir} && chmod 700 {state_dir} && "
+            f"test ! -e {state_dir}/device_key.der && "
+            f"test ! -e {state_dir}/reference.csr.der"
+        )
+        assert exit_code == 0, (
+            "Persistence test requires an empty, private test slot directory; "
+            f"existing key material is never removed: {output.decode()}"
+        )
+
+        binary = Path(f"{install_dir}/bin/score_api_key_persistence_test")
+        env = {
+            "LD_LIBRARY_PATH": f"{install_dir}/lib",
+            "CSR_TEST_ENDPOINT": "unix:///tmp/crypto_daemon.sock",
+            "CSR_TEST_REFERENCE_CSR": f"{state_dir}/reference.csr.der",
+        }
+        run_test_app(
+            target,
+            target_os,
+            binary,
+            env=env | {
+                "GTEST_FILTER": "KeyPersistenceIntegration.GenerateAndPersistDeviceKey",
+            },
+        )
+        exit_code, output = target.execute(
+            f"test -s {state_dir}/device_key.der && "
+            f"test -s {state_dir}/reference.csr.der"
+        )
+        assert exit_code == 0, f"Key/reference CSR was not stored: {output.decode()}"
+
+        for restart in ("graceful", "forced"):
+            exit_code, before_pid = target.execute("pgrep -x crypto_daemon")
+            assert exit_code == 0 and len(before_pid.splitlines()) == 1, (
+                "Expected exactly one running test daemon before restart"
+            )
+            if restart == "graceful":
+                assert daemon.terminate(timeout=3), "Daemon did not terminate gracefully"
+            else:
+                # No sync or storage reset: exercise loss of all daemon memory,
+                # without pretending that the operating system lost power.
+                exit_code, output = target.execute("pkill -KILL -x crypto_daemon")
+                assert exit_code == 0, f"Failed to kill daemon: {output.decode()}"
+
+            logger.info("Daemon log before %s restart:\n%s", restart, daemon.get_log_contents())
+            assert daemon.start(), f"Daemon failed to start after {restart} shutdown"
+            exit_code, after_pid = target.execute("pgrep -x crypto_daemon")
+            assert exit_code == 0 and len(after_pid.splitlines()) == 1, (
+                "Expected exactly one running test daemon after restart"
+            )
+            assert after_pid.strip() != before_pid.strip(), "Daemon process did not change"
+            self.test_daemon_control_socket_creation(target, target_os)
+            run_test_app(
+                target,
+                target_os,
+                binary,
+                env=env | {
+                    "GTEST_FILTER": "KeyPersistenceIntegration.ReloadPersistedDeviceKeyAndSignCsr",
+                },
+            )
 
     def test_hash_performance_test(self, target: Target, target_os: str, install_dir: str):
         """Test concurrent and sequential hash operations."""

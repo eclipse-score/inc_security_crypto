@@ -20,7 +20,6 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <thread>
 #include <utility>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
@@ -145,26 +144,19 @@ class ControlPlaneTest : public ::testing::Test
         _socket_path = "/tmp/test_crypto_" + std::to_string(getpid()) + "_" +
                        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".sock";
 
-        // Create default config for testing
-        score::crypto::daemon::config::Config config;
-
         // Create data manager
         auto data_manager = std::make_shared<score::crypto::daemon::data_manager::DataManager>();
 
         // Create test factory that produces ConnectionHandler wrappers with fresh dummy nodes per thread
-        auto test_factory = std::make_unique<score::crypto::test::TestRequestHandlerFactory>(data_manager, config);
+        auto test_factory = std::make_unique<score::crypto::test::TestRequestHandlerFactory>(data_manager, _config);
 
         // Create gRPC server with factory (server will create ConnectionHandler wrappers per thread)
         _server = std::make_unique<ipc::GrpcControlServer>(std::move(test_factory));
 
-        // Start gRPC server in background thread
-        _server_thread = std::thread([this]() {
-            _server->Start(_socket_path);
-            _server->WaitForTermination();
-        });
-
-        // Give server time to start
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // Start returns after creating the socket and setting its permissions;
+        // gRPC owns the worker threads. Avoid racing Stop() against startup or
+        // destroying the server while a separate thread is waiting on it.
+        ASSERT_NO_THROW(_server->Start(_socket_path));
     }
 
     void TearDown() override
@@ -173,16 +165,12 @@ class ControlPlaneTest : public ::testing::Test
         {
             _server->Stop();
         }
-
-        if (_server_thread.joinable())
-        {
-            _server_thread.join();
-        }
     }
 
+    // The factory retains a reference, so configuration must outlive the server.
+    score::crypto::daemon::config::Config _config;
     std::string _socket_path;
     std::unique_ptr<score::crypto::ipc::GrpcControlServer> _server;
-    std::thread _server_thread;
 };
 
 TEST_F(ControlPlaneTest, SocketIsAccessibleToUnprivilegedClients)

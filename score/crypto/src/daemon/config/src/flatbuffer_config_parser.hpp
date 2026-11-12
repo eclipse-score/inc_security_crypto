@@ -138,7 +138,8 @@ class FlatBufferConfigParser
 
   private:
     static constexpr std::string_view LOG_PREFIX = "[FLATBUFFER_PARSER] ";
-    static constexpr size_t kMinBufferSize = 4U;
+        // Four-byte root offset followed by the four-byte file identifier.
+        static constexpr size_t kMinBufferSize = 8U;
 
     // -----------------------------------------------------------------------
     // ParseAll helpers

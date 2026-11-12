@@ -40,14 +40,23 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::Valida
     if (!data || size < kMinBufferSize)
     {
         score::mw::log::LogError() << LOG_PREFIX
-                                   << "Buffer too small or null pointer. Required: >=4 bytes, Got:" << size;
+                                   << "Buffer too small or null pointer. Required: >=8 bytes, Got:" << size;
         return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
     }
 
     if (!CryptoConfigBufferHasIdentifier(data))
     {
         score::mw::log::LogError() << LOG_PREFIX << "Buffer does not have expected file identifier";
-        return make_unexpected(common::DaemonErrorCode::kInternalError);
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+    }
+
+    // Validate every offset/table before GetRoot or field access. The file
+    // identifier alone does not establish that the root points inside data.
+    flatbuffers::Verifier verifier{data, size};
+    if (!VerifyCryptoConfigBuffer(verifier))
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "Malformed FlatBuffers configuration";
+        return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
     }
 
     return std::monostate{};
@@ -80,7 +89,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseK
 
     score::mw::log::LogDebug() << LOG_PREFIX << "Successfully parsed key config. Loaded "
                                << out_config.GetSlotEntries().size() << " slot(s) and "
-                               << out_config.GetAppKeySlotEntries().size() << " app key slot mapping(s).";
+                               << out_config.GetAppKeySlotMappings().size() << " app key slot mapping(s).";
     return std::monostate{};
 }
 
@@ -176,7 +185,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseA
     const KeySlotConfig* key_slot_config,
     KeyConfig& out_config)
 {
-    const auto* app_key_slot_entries = key_slot_config->app_key_slot_entries();
+    const auto* app_key_slot_entries = key_slot_config->app_key_slot_mappings();
     if (!app_key_slot_entries)
         return std::monostate{};
 
@@ -188,7 +197,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseA
             return make_unexpected(common::DaemonErrorCode::kInternalError);
         }
 
-        KeyConfig::AppKeySlotEntry key_slot_entry;
+        KeyConfig::AppKeySlotMapping key_slot_entry;
         key_slot_entry.uid = entry->uid();
 
         if (!entry->app_resource_id())
@@ -205,7 +214,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseA
         }
         key_slot_entry.slot_name = entry->slot_name()->str();
 
-        out_config.AddAppKeySlotEntry(std::move(key_slot_entry));
+        out_config.AddAppKeySlotMapping(std::move(key_slot_entry));
     }
 
     return std::monostate{};

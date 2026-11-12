@@ -37,6 +37,7 @@ class KeyManagementContextConfig;
 class MacContextConfig;
 class RandomContextConfig;
 class SignContextConfig;
+struct CsrGenerationContextConfig;
 class VerifySignatureContextConfig;
 class CertificateContextConfig;
 class CertificateVerificationContextConfig;
@@ -49,6 +50,7 @@ class IKeyManagementContext;
 class IMacContext;
 class IRandomContext;
 class ISignContext;
+class ICsrGenerationContext;
 class IVerifySignatureContext;
 class ICertificateManagementContext;
 class ICertificateVerificationContext;
@@ -63,9 +65,7 @@ class ITrustStoreObject;
 
 // The following forward declarations are for contexts not yet active (IPC implementation pending).
 // class AeadContextConfig;
-// class CsrGenerationContextConfig;
 // class IAeadContext;
-// class ICsrGenerationContext;
 // class IProviderObject;
 
 // TODO: Consider splitting this interface into multiple smaller interfaces (e.g. IContextFactory, ICapabilityQuerier).
@@ -150,6 +150,10 @@ class ICryptoContext
     /// @param config Sign configuration (algorithm + private key required)
     virtual score::Result<std::unique_ptr<ISignContext>> CreateSignContext(const SignContextConfig& config) = 0;
 
+    /// Creates a CSR context bound to the configured key and signature algorithm.
+    virtual score::Result<std::unique_ptr<ICsrGenerationContext>> CreateCsrGenerationContext(
+        const CsrGenerationContextConfig& config) = 0;
+
     /// @brief Creates a signature verification context.
     /// @param config Verification configuration (algorithm + key required)
     /// @note The key handle is the same one returned by GenerateKey() for an
@@ -186,9 +190,6 @@ class ICryptoContext
 
     // virtual score::Result<std::unique_ptr<IAeadContext>> CreateAeadContext(
     //     const AeadContextConfig& config) = 0;
-
-    // virtual score::Result<std::unique_ptr<ICsrGenerationContext>> CreateCsrGenerationContext(
-    //     const CsrGenerationContextConfig& config) = 0;
 
     // ---- Queries ----
 

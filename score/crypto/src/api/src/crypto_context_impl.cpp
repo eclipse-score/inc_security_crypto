@@ -15,6 +15,7 @@
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/config/cipher_context_config.hpp"
+#include "score/crypto/src/api/config/csr_generation_context_config.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
 #include "score/crypto/src/api/config/mac_context_config.hpp"
@@ -22,6 +23,7 @@
 #include "score/crypto/src/api/config/sign_context_config.hpp"
 #include "score/crypto/src/api/config/verify_signature_context_config.hpp"
 #include "score/crypto/src/api/contexts/src/cipher_context_impl.hpp"
+#include "score/crypto/src/api/contexts/src/csr_generation_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/hash_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/key_management_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/mac_context_impl.hpp"
@@ -442,6 +444,40 @@ score::Result<std::unique_ptr<ISignContext>> CryptoContextImpl::CreateSignContex
     }
 
     return std::make_unique<SignContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
+}
+
+score::Result<std::unique_ptr<ICsrGenerationContext>> CryptoContextImpl::CreateCsrGenerationContext(
+    const CsrGenerationContextConfig& config)
+{
+    const std::string_view algorithm = config.algorithm;
+    if (!m_connection || !m_transcoder || config.key.id == 0U ||
+        (config.key.type != ResourceType::kKey && config.key.type != ResourceType::kKeySlot) ||
+        algorithm.empty() || config.algorithm.truncated() || algorithm.find('\0') != std::string_view::npos ||
+        config.submission_url.size() > 2048U || config.submission_url.find('\0') != std::string::npos)
+    {
+        return score::Unexpected{MakeError(CryptoErrorCode::kInvalidArgument, "Invalid CSR configuration")};
+    }
+    // These controls are not represented in the existing CTX_CREATE protocol.
+    // Do not silently downgrade an explicit policy requested by the caller.
+    if (config.provider.has_value() || config.extended_parameters.entry_count != 0U ||
+        config.operation_timeout.has_value() || !config.timeout_enabled ||
+        config.operation_mode != OperationMode::kGenerate)
+    {
+        return score::Unexpected{MakeError(CryptoErrorCode::kUnsupportedOperation, "Unsupported CSR configuration")};
+    }
+    ContextCreationRequest request{};
+    request.context_type = daemon_common::context_types::kCsrGeneration;
+    request.algorithm = &config.algorithm;
+    request.provider_type = config.provider_type;
+    request.key_node_id = config.key.id;
+    request.mode = daemon_common::ToContextMode(OperationMode::kGenerate);
+    auto context_id = CreateDaemonContext(m_connection, request);
+    if (!context_id.has_value()) { return score::Unexpected{context_id.error()}; }
+    if (context_id.value() == 0U)
+    {
+        return score::Unexpected{MakeError(CryptoErrorCode::kContextCreationFailed, "Invalid CSR context id")};
+    }
+    return std::make_unique<CsrGenerationContextImpl>(m_connection, context_id.value(), config, m_transcoder);
 }
 
 score::Result<std::unique_ptr<IVerifySignatureContext>> CryptoContextImpl::CreateVerifySignatureContext(

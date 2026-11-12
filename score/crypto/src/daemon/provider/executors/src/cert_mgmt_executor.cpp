@@ -148,6 +148,12 @@ Expected<common::ResponseParameters, Error> CertManagementExecutor::HandleParse(
     const auto format = static_cast<score::crypto::FormatType>(fmt_res.value());
     const auto& bytes = bytes_res.value();
 
+    if (bytes.data() == nullptr || bytes.empty() || bytes.size() > cm_ops::kMaxCertificateInputBytes ||
+        (format != score::crypto::FormatType::kDer && format != score::crypto::FormatType::kPem))
+    {
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+    }
+
     auto parse_res = m_cert_parser->ParseCertificate(bytes.data(), bytes.size(), format);
     if (!parse_res.has_value())
     {
@@ -263,6 +269,11 @@ Expected<common::ResponseParameters, Error> CertManagementExecutor::HandleSave(c
     auto slot_res = m_service->ResolveSlotForOperation(ctx.client_id, slot_nid_res.value());
     if (!slot_res.has_value())
         return score::crypto::make_unexpected(Error::kInvalidArgument);
+
+    // Protect every configured member, including disabled members, before resolving the source or writing.
+    const auto trust_store_manager = m_service->GetTrustStoreManager();
+    if (trust_store_manager && !trust_store_manager->GetMembershipsForSlot(slot_res.value().handle).empty())
+        return score::crypto::make_unexpected(Error::kAccessDenied);
 
     auto cert_res = m_service->ResolveCertForOperation(ctx.client_id, cert_nid_res.value());
     if (!cert_res.has_value())

@@ -25,6 +25,7 @@ cc_library(
         "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
         "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
         "//score/crypto/src/daemon/provider/handler:cert_verification_operations",
+        "//score/crypto/src/daemon/provider/handler:csr_handler_operations",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/handler:mac_handler_operations",
         "//score/crypto/src/daemon/provider/handler:random_handler_operations",
@@ -67,6 +68,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api:operations",
+        "//score/crypto/src/api/csr:csr_processing_client",
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/config:cert_context_configs",
         "//score/crypto/src/api/config:context_configs",

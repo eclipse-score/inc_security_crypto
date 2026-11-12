@@ -64,6 +64,8 @@ class CryptoContextImpl final : public ICryptoContext
         const KeyManagementContextConfig& config) override;
     score::Result<std::unique_ptr<ICipherContext>> CreateCipherContext(const CipherContextConfig& config) override;
     score::Result<std::unique_ptr<ISignContext>> CreateSignContext(const SignContextConfig& config) override;
+    score::Result<std::unique_ptr<ICsrGenerationContext>> CreateCsrGenerationContext(
+        const CsrGenerationContextConfig& config) override;
     score::Result<std::unique_ptr<IVerifySignatureContext>> CreateVerifySignatureContext(
         const VerifySignatureContextConfig& config) override;
     score::Result<std::unique_ptr<IRandomContext>> CreateRandomContext(const RandomContextConfig& config) override;

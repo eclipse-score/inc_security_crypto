@@ -95,7 +95,7 @@ bool Config::ParseKeyManagementSection(std::string_view filepath)
         return false;
     }
     score::mw::log::LogDebug() << "[CONFIG] Key management: " << m_key.GetSlotEntries().size() << " slot(s), "
-                               << m_key.GetAppKeySlotEntries().size() << " app mapping(s).";
+                               << m_key.GetAppKeySlotMappings().size() << " app mapping(s).";
     return true;
 }
 

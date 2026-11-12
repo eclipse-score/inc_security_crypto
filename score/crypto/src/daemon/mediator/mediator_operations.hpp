@@ -176,6 +176,15 @@ inline constexpr OperationAction CTX_CLOSE = 2;
 //           Access control (uid-based) is enforced during resolution.
 inline constexpr OperationAction RESOLVE_RESOURCE = 3;
 
+// Key-less CSR processing on an authenticated connection node. Input and
+// output use SHM; the response contains one written-byte count. Never routes
+// to a keyed handler, creates a key, or accepts a generation action.
+inline constexpr OperationAction CSR_PROCESS = 10U;
+inline control_plane::protocol::OperationIdentifier ProcessCsr()
+{
+    return {common::actors::OP_ACTOR_MEDIATOR, CSR_PROCESS};
+}
+
 inline control_plane::protocol::OperationIdentifier CreateContext()
 {
     return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,

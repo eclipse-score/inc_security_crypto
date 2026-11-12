@@ -296,6 +296,12 @@ score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> Ope
         return score::crypto::make_unexpected(Error::kOperationFailed);
     }
 
+    // Preserve this API's strict CRL time requirement: missing/unparseable
+    // nextUpdate must not be represented as an apparently valid epoch zero.
+    std::int64_t next_update = 0;
+    if (!Asn1TimeToEpoch(X509_CRL_get0_nextUpdate(crl.get()), next_update))
+        return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
+
     score::crypto::CrlMetadata metadata;
     if (!openssl_detail::ReadCrlMetadata(crl.get(), metadata) ||
         !openssl_detail::ComputeSha256(issuer_x509.get(), metadata.issuer_fingerprint))

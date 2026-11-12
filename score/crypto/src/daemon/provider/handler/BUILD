@@ -14,6 +14,13 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
+    name = "csr_handler_operations",
+    hdrs = ["operations/csr_handler_operations.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = ["//score/crypto/src/daemon/common"],
+)
+
+cc_library(
     name = "handler_headers",
     hdrs = [
         "handler_init_params.hpp",
@@ -54,6 +61,7 @@ cc_library(
     name = "handler_utils_hdr",
     hdrs = ["src/handler_utils.hpp"],
     visibility = [
+        "//score/crypto/src/daemon/mediator:__pkg__",
         "//score/crypto/src/daemon/provider:__subpackages__",
         "//score/crypto/src/daemon/src/provider:__subpackages__",
     ],

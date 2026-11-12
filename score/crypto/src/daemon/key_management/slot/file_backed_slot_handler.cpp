@@ -103,4 +103,52 @@ score::crypto::Expected<score::crypto::KeySlotInfo, Error> FileBackedSlotHandler
     return detail::BuildKeySlotInfo(slot, state_result.value());
 }
 
+score::crypto::Expected<std::monostate, Error> FileBackedSlotHandler::StoreKey(const KeySlotConfig& slot,
+                                                                               IKeyHandler& handler)
+{
+    // Never silently overwrite an occupied slot — ClearSlot() must run first.
+    auto state_result = GetSlotState(slot);
+    if (state_result.has_value() && (state_result.value() == score::crypto::KeySlotState::kOccupied))
+        return score::crypto::make_unexpected(Error::kKeySlotOccupied);
+
+    auto deploy_result = DeploymentLoader::Load(slot.deployment_path, slot.deployment_format);
+    if (!deploy_result.has_value())
+        return score::crypto::make_unexpected(deploy_result.error());
+
+    const auto& deploy_info = deploy_result.value();
+    const auto path_it = deploy_info.key_properties.find(std::string{deployment_keys::kKeyPath});
+    if (path_it == deploy_info.key_properties.end() || path_it->second.empty())
+        return score::crypto::make_unexpected(Error::kInvalidArgument);
+
+    // Asymmetric keys have no raw-byte form: IKeyHandler::Export() refuses them.
+    // Persist their private half as DER via the provider's internal persistence
+    // path (not gated by the user-facing kExport permission), so a later
+    // LoadKey() can re-import it. Symmetric keys keep the raw Export() path.
+    if (handler.GetHandle().is_asymmetric)
+    {
+        auto der_result = m_factory->SerializePrivateKeyForPersistence(handler.GetHandle());
+        if (!der_result.has_value())
+            return score::crypto::make_unexpected(der_result.error());
+
+        // SecureKeyBytes self-zeroizes on scope exit (even on write failure).
+        auto write_result = file_io::WriteFile(path_it->second, der_result.value().bytes);
+        if (!write_result.has_value())
+            return score::crypto::make_unexpected(write_result.error());
+
+        return std::monostate{};
+    }
+
+    auto export_result = handler.Export();
+    if (!export_result.has_value())
+        return score::crypto::make_unexpected(export_result.error());
+
+    // SecureKeyBytes self-zeroizes on scope exit (even on write failure).
+    const auto& secure_bytes = export_result.value();
+    auto write_result = file_io::WriteFile(path_it->second, secure_bytes.bytes);
+    if (!write_result.has_value())
+        return score::crypto::make_unexpected(write_result.error());
+
+    return std::monostate{};
+}
+
 }  // namespace score::crypto::daemon::key_management

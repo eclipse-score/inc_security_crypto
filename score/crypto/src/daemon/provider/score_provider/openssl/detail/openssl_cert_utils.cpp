@@ -21,6 +21,7 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
+#include <cerrno>
 #include <ctime>
 #include <memory>
 
@@ -47,13 +48,32 @@ UniqueX509 ParseX509(const std::uint8_t* bytes, std::size_t size, score::crypto:
     if (format == score::crypto::FormatType::kDer)
     {
         const std::uint8_t* cursor = bytes;
-        return UniqueX509{d2i_X509(nullptr, &cursor, static_cast<long>(size))};
+        UniqueX509 certificate{d2i_X509(nullptr, &cursor, static_cast<long>(size))};
+        if (!certificate || cursor != bytes + size)
+            return nullptr;
+        return certificate;
     }
 
     const auto bio = MakeReadOnlyBio(bytes, size);
     if (!bio)
         return nullptr;
-    return UniqueX509{PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr)};
+    UniqueX509 certificate{PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr)};
+    if (!certificate)
+        return nullptr;
+    // Single-certificate parsing allows trailing ASCII whitespace, not a
+    // second object or other payload. ParseCertificates handles bundles.
+    char tail[256];
+    int count = 0;
+    while ((count = BIO_read(bio.get(), tail, sizeof(tail))) > 0)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            const char byte = tail[i];
+            if (byte != ' ' && byte != '\t' && byte != '\r' && byte != '\n' && byte != '\f' && byte != '\v')
+                return nullptr;
+        }
+    }
+    return certificate;
 }
 
 UniqueX509Crl ParseX509Crl(const std::uint8_t* bytes, std::size_t size, score::crypto::FormatType format)
@@ -92,8 +112,10 @@ bool Asn1TimeToEpoch(const ASN1_TIME* value, std::int64_t& result)
     std::tm calendar{};
     if (ASN1_TIME_to_tm(value, &calendar) != 1)
         return false;
+    errno = 0;
     const std::time_t epoch = timegm(&calendar);
-    if (epoch == static_cast<std::time_t>(-1))
+    // -1 is also the valid instant immediately before the Unix epoch.
+    if (epoch == static_cast<std::time_t>(-1) && errno != 0)
         return false;
     result = static_cast<std::int64_t>(epoch);
     return true;

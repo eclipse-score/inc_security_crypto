@@ -35,6 +35,10 @@ ScoreHandlerFactory::ScoreHandlerFactory(
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateHandler(const common::HandlerId& handlerId,
                                                                            const AlgorithmDescriptor& algorithm)
 {
+    if (handlerId == common::context_types::kCsrGeneration)
+    {
+        return CreateCsrHandler(algorithm);
+    }
     if (handlerId == common::context_types::kHash)
     {
         return CreateHashHandler(algorithm);
@@ -86,6 +90,11 @@ ScoreHandlerFactory::ScoreHandlerFactory(
 // ---------------------------------------------------------------------------
 // Default implementations — return unsupported
 // ---------------------------------------------------------------------------
+
+::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateCsrHandler(const AlgorithmDescriptor& /*algorithm*/)
+{
+    return score::MakeUnexpected(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+}
 
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateHashHandler(const AlgorithmDescriptor& /*algorithm*/)
 {

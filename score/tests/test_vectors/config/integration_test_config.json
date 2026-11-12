@@ -231,6 +231,16 @@
         "allowed_write_uids": [0],
         "deployment_path" : "/opt/crypto/etc/integration_openssl_ed25519.kv",
         "deployment_format" : "kv"
+            },
+            {
+        "slot_name": "csr-device-slot",
+        "algorithm": "ECDSA-P256",
+        "provider_names": ["OPENSSL"],
+        "allowed_operations": "SIGN|VERIFY",
+        "allowed_uids": [0],
+        "allowed_write_uids": [0],
+        "deployment_path": "/opt/crypto/etc/csr_device_key.kv",
+        "deployment_format": "kv"
       }
     ],
     "app_key_slot_mappings": [
@@ -453,6 +463,11 @@
         "uid": 1000,
         "app_resource_id": "Ed25519_RFC8032_IntegrationTestKey_OpenSSL",
         "slot_name": "Ed25519_RFC8032_IntegrationTestKey_OpenSSL"
+            },
+            {
+        "uid": 0,
+        "app_resource_id": "csr/device-key",
+        "slot_name": "csr-device-slot"
       }
 
     ]

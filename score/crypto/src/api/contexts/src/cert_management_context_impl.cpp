@@ -188,6 +188,18 @@ score::Result<CryptoResourceGuard> CertManagementContextImpl::ParseCertificate(
     score::cpp::span<const uint8_t> cert_data,
     FormatType format)
 {
+    if (!m_connection || !m_transcoder || m_context_id == 0U)
+    {
+        return score::Result<CryptoResourceGuard>{
+            score::unexpect, MakeError(CryptoErrorCode::kInvalidOperation, "Certificate context unavailable")};
+    }
+    if (cert_data.data() == nullptr || cert_data.empty() || cert_data.size() > cm_ops::kMaxCertificateInputBytes ||
+        (format != FormatType::kDer && format != FormatType::kPem))
+    {
+        return score::Result<CryptoResourceGuard>{
+            score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Invalid certificate input")};
+    }
+
     // Request: [0]=format (uint8), [1]=cert bytes (data buffer)
     const proto::OperationIdentifier op_id{actors::OP_ACTOR_CERT_MANAGEMENT, cm_ops::CERT_PARSE};
     proto::OperationRequestBuilder builder;

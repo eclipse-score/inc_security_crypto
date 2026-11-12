@@ -35,7 +35,6 @@
 namespace
 {
 using score::crypto::FormatType;
-using score::crypto::daemon::cert_management::CrlData;
 using score::crypto::daemon::common::DaemonErrorCode;
 using score::crypto::daemon::common::ProviderId;
 using score::crypto::daemon::provider::score_provider::openssl::OpenSslCertParser;
@@ -379,8 +378,7 @@ class ValidateCrlTest : public ::testing::Test
         FormatType issuer_fmt)
     {
         OpenSslCertParser parser{ProviderId{1U}};
-        const CrlData crl_data{crl, crl_fmt};
-        return parser.ValidateCrl(crl_data, issuer.data(), issuer.size(), issuer_fmt);
+        return parser.ValidateCrl(crl.data(), crl.size(), crl_fmt, issuer.data(), issuer.size(), issuer_fmt);
     }
 
     static CaBundle s_ca_a;
@@ -496,7 +494,8 @@ TEST_F(ValidateCrlTest, MalformedIssuerCertBytes_ReturnsInvalidArgument)
 TEST_F(ValidateCrlTest, EmptyCrlBytes_ReturnsInvalidArgument)
 {
     OpenSslCertParser parser{ProviderId{1U}};
-    const auto result = parser.ValidateCrl(CrlData{}, s_ca_a.cert_der.data(), s_ca_a.cert_der.size(), FormatType::kDer);
+    const auto result = parser.ValidateCrl(
+        nullptr, 0U, FormatType::kDer, s_ca_a.cert_der.data(), s_ca_a.cert_der.size(), FormatType::kDer);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DaemonErrorCode::kInvalidArgument);
 }
@@ -504,8 +503,8 @@ TEST_F(ValidateCrlTest, EmptyCrlBytes_ReturnsInvalidArgument)
 TEST_F(ValidateCrlTest, NullIssuerCertData_ReturnsInvalidArgument)
 {
     OpenSslCertParser parser{ProviderId{1U}};
-    const CrlData crl_data{s_ca_a.crl_der, FormatType::kDer};
-    const auto result = parser.ValidateCrl(crl_data, nullptr, s_ca_a.cert_der.size(), FormatType::kDer);
+    const auto result = parser.ValidateCrl(
+        s_ca_a.crl_der.data(), s_ca_a.crl_der.size(), FormatType::kDer, nullptr, s_ca_a.cert_der.size(), FormatType::kDer);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DaemonErrorCode::kInvalidArgument);
 }
@@ -513,8 +512,8 @@ TEST_F(ValidateCrlTest, NullIssuerCertData_ReturnsInvalidArgument)
 TEST_F(ValidateCrlTest, ZeroIssuerCertSize_ReturnsInvalidArgument)
 {
     OpenSslCertParser parser{ProviderId{1U}};
-    const CrlData crl_data{s_ca_a.crl_der, FormatType::kDer};
-    const auto result = parser.ValidateCrl(crl_data, s_ca_a.cert_der.data(), 0U, FormatType::kDer);
+    const auto result = parser.ValidateCrl(
+        s_ca_a.crl_der.data(), s_ca_a.crl_der.size(), FormatType::kDer, s_ca_a.cert_der.data(), 0U, FormatType::kDer);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DaemonErrorCode::kInvalidArgument);
 }
