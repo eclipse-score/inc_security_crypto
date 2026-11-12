@@ -522,7 +522,7 @@ score::Result<std::unique_ptr<IRandomContext>> CryptoContextImpl::CreateRandomCo
 }
 
 // ---------------------------------------------------------------------------
-// Queries (TODO)
+// Queries
 // ---------------------------------------------------------------------------
 
 score::Result<AlgorithmCapabilities> CryptoContextImpl::QueryCapabilities(const AlgorithmId& algorithm)
