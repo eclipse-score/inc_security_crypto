@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/signature_common.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
@@ -113,7 +114,7 @@ EVP_PKEY* Stream::Key() const noexcept
 }
 
 Expected<std::monostate, DaemonErrorCode> Stream::Bind(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params,
+    const ::score::crypto::daemon::common::InitializationParams& init_params,
     const AlgorithmDescriptor& algorithm)
 {
     Free();

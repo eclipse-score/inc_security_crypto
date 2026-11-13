@@ -16,10 +16,10 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/handler_init_params.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/resolved_key.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/mac/pkcs11_mac_context.hpp"
@@ -56,7 +56,7 @@ class Pkcs11Provider;
 /// Each instance owns a dedicated PKCS#11 session (ReadOnly/User tier) acquired
 /// at construction via the provider's session pool.  The session is returned on
 /// destruction, mirroring the Pkcs11HashHandler lifecycle.
-class Pkcs11MacHandler final : public handler::Handler
+class Pkcs11MacHandler final : public score::crypto::daemon::common::Handler
 {
   public:
     /// @brief Session / auth requirements for MAC operations.
@@ -88,7 +88,7 @@ class Pkcs11MacHandler final : public handler::Handler
     // -----------------------------------------------------------------------
 
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    InitializeContext(const handler::InitializationParams& init_params) override;
+    InitializeContext(const score::crypto::daemon::common::InitializationParams& init_params) override;
 
     [[nodiscard]] score::crypto::Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
     Execute(const common::OperationIdentifier& operationId, common::RequestParameters& request) override;
@@ -120,7 +120,7 @@ class Pkcs11MacHandler final : public handler::Handler
     ResolvedKey m_resolved_key;
     AlgorithmDescriptor m_algorithm;
     common::StreamOperationState m_state{common::StreamOperationState::IDLE};
-    handler::InitializationParams m_init_params;  ///< saved for Reset()
+    score::crypto::daemon::common::InitializationParams m_init_params;  ///< saved for Reset()
 
     static constexpr std::string_view LOG_PREFIX = "[PKCS11_MAC_HANDLER]";
 };

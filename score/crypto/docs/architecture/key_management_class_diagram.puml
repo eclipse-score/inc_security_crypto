@@ -508,19 +508,19 @@ package "Mediator" <<Rectangle>> #F8F0FF {
     class MediatorImpl {
         - m_data_manager : IDataManager::Sptr
         - m_provider_manager : ProviderManager::Sptr
-        - m_km_service : KeyManagementService::Sptr
-        - m_resource_resolvers : map<uint8_t, ResourceResolverFn>
+        - m_resource_resolvers : const registry of IResourceResolver
+        - m_handler_selector : HandlerSelector
+        - m_assembler : ContextAssembler
         --
         + processRequest(ControlRequest) : ControlResponse
         - HandleSingleOperation(...)
         - HandleMediatorOperation(...)
         .. CTX_CREATE → HandleContextCreationOperation ..
         .. CTX_CLOSE → deleteNode cascade ..
-        .. RESOLVE_RESOURCE → slot resolver ..
+        .. RESOLVE_RESOURCE → KeySlotResourceResolver ..
         - HandleContextCreationOperation(...)
-        .. ResolveTargetProvider → GetProvider ..
-        .. CreateHandler → CreateContextDataNode ..
-        .. BindKeyToContext → InitializeContext ..
+        .. HandlerSelector::Select → ProviderArbiter::Select → ResolveTargetProvider ..
+        .. ContextAssembler::Assemble → BindAndAuthorize → InitializeContext ..
         - ForwardSingleOperation(...)
         .. look up ContextDataNode → handler->Execute() ..
     }

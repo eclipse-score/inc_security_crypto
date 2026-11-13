@@ -683,7 +683,7 @@ TEST_P(Pkcs11ProviderHashAlgorithmTest, SupportsSingleShotStreamingResetAndDiges
     ASSERT_TRUE(handlerResult.has_value()) << "Failed to create HASH/" << testData.algorithm;
     auto hashHandler = handlerResult.value();
     ASSERT_NE(hashHandler, nullptr);
-    ASSERT_TRUE(hashHandler->InitializeContext(handler::InitializationParams{}).has_value());
+    ASSERT_TRUE(hashHandler->InitializeContext(score::crypto::daemon::common::InitializationParams{}).has_value());
 
     const std::vector<HashVector> vectors{
         {"score/tests/test_vectors/hash/input_hello_world.bin", testData.hello_digest_path},
@@ -865,7 +865,7 @@ TEST_F(Pkcs11ProviderHashTest, ReportsExecutorUpdateFailure)
     auto handlerResult = cryptoOps->CreateHandler("HASH", Row("SHA256"));
     ASSERT_TRUE(handlerResult.has_value());
     auto hashHandler = handlerResult.value();
-    ASSERT_TRUE(hashHandler->InitializeContext(handler::InitializationParams{}).has_value());
+    ASSERT_TRUE(hashHandler->InitializeContext(score::crypto::daemon::common::InitializationParams{}).has_value());
 
     common::RequestParameters initRequest{};
     ASSERT_TRUE(hashHandler->Execute(MakeHashOp(ops::HASH_INIT), initRequest).has_value());
@@ -888,7 +888,7 @@ TEST_F(Pkcs11ProviderHashTest, StreamStateViolation)
     auto handler = handlerResult.value();
     ASSERT_NE(handler, nullptr);
 
-    auto initCtxResult = handler->InitializeContext(handler::InitializationParams{});
+    auto initCtxResult = handler->InitializeContext(score::crypto::daemon::common::InitializationParams{});
     ASSERT_TRUE(initCtxResult.has_value()) << "InitializeContext failed";
 
     // HASH_UPDATE without prior HASH_INIT should fail.

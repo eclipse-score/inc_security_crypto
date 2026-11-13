@@ -12,6 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/operations/mac/openssl_hmac_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
@@ -91,8 +92,7 @@ std::size_t OpenSslHmacHandler::GetMacSize() const noexcept
 // ---------------------------------------------------------------------------
 
 ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslHmacHandler::InitializeContext(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
+OpenSslHmacHandler::InitializeContext(const ::score::crypto::daemon::common::InitializationParams& init_params)
 {
     // Validate algorithm (m_algorithm is set at construction).
     if (!IsAlgorithmSupported(m_algorithm))

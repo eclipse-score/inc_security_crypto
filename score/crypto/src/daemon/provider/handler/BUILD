@@ -14,28 +14,12 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
-    name = "handler_headers",
-    hdrs = [
-        "handler_init_params.hpp",
-        "i_handler.hpp",
-    ],
-    visibility = ["//:__subpackages__"],
-    deps = [
-        "//score/crypto/src/api/common:crypto_common",
-        "//score/crypto/src/api/types:types",
-        "//score/crypto/src/common:common_types",
-        "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/key_management:key_handler_iface",
-    ],
-)
-
-cc_library(
     name = "crypto_handler_factory_headers",
     hdrs = ["i_crypto_handler_factory.hpp"],
     visibility = ["//visibility:public"],
     deps = [
-        ":handler_headers",
         "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/common/context:handler_headers",
         ":handler_utils_hdr",
         "//score/crypto/src/daemon/common",
         "@score_baselibs//score/result",
@@ -89,19 +73,6 @@ cc_library(
     deps = [
         ":stream_operation",
         "//score/crypto/src/daemon/common",
-    ],
-)
-
-cc_library(
-    name = "context_node",
-    srcs = ["src/context_data_node.cpp"],
-    hdrs = ["context_data_node.hpp"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":handler_headers",
-        "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/data_manager",
-        "//score/crypto/src/daemon/key_management:key_management_headers",
     ],
 )
 

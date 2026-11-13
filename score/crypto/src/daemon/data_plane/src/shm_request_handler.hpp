@@ -32,7 +32,7 @@ class ShmRequestHandler final : public control_plane::IRequestHandler
   public:
     /// @param next_handler   Next handler in the chain (typically the Mediator).
     /// @param data_manager   DataManager for ShmDataNode resolution.
-    ShmRequestHandler(std::unique_ptr<control_plane::IRequestHandler> next_handler,
+    ShmRequestHandler(std::shared_ptr<control_plane::IRequestHandler> next_handler,
                       data_manager::IDataManager::Sptr data_manager);
 
     control_plane::ControlResponse processRequest(control_plane::ControlRequest& request) override;
@@ -40,7 +40,7 @@ class ShmRequestHandler final : public control_plane::IRequestHandler
   private:
     control_plane::ControlResponse ForwardWithResolvedShm(control_plane::ControlRequest& request);
 
-    std::unique_ptr<control_plane::IRequestHandler> m_next_handler;
+    std::shared_ptr<control_plane::IRequestHandler> m_next_handler;
     data_manager::IDataManager::Sptr m_data_manager;
 
     static constexpr std::string_view LOG_PREFIX = "[SHM_REQUEST_HANDLER] ";

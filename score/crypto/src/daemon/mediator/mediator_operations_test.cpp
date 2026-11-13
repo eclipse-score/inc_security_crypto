@@ -20,33 +20,6 @@ namespace score::crypto::daemon::mediator::operations
 namespace
 {
 
-namespace ctx = common::context_types;
-using Capability = common::ProviderCapability;
-
-TEST(RequiredProviderCapabilityTest, ScopedManagementContextsRequireTheirCapability)
-{
-    EXPECT_EQ(RequiredProviderCapability(ctx::kKeyManagement), Capability::kKeyManagement);
-    EXPECT_EQ(RequiredProviderCapability(ctx::kCertManagement), Capability::kCertManagement);
-    EXPECT_EQ(RequiredProviderCapability("CERT:VERIFICATION"), Capability::kCertManagement);
-}
-
-TEST(RequiredProviderCapabilityTest, UnscopedContextsRequireNoCapability)
-{
-    for (const auto type : {ctx::kHash, ctx::kMac, ctx::kCipher, ctx::kSign, ctx::kVerify, ctx::kRandom})
-    {
-        EXPECT_EQ(RequiredProviderCapability(type), Capability::kNone) << type;
-    }
-}
-
-TEST(RequiredProviderCapabilityTest, UnknownOrMalformedScopesRequireNoCapability)
-{
-    EXPECT_EQ(RequiredProviderCapability("KEY_MANAGEMENT"), Capability::kNone);
-    EXPECT_EQ(RequiredProviderCapability("OTHER:MANAGEMENT"), Capability::kNone);
-    EXPECT_EQ(RequiredProviderCapability("key:MANAGEMENT"), Capability::kNone);
-    EXPECT_EQ(RequiredProviderCapability(":MANAGEMENT"), Capability::kNone);
-    EXPECT_EQ(RequiredProviderCapability(""), Capability::kNone);
-}
-
 void ExpectMediatorOperation(const control_plane::protocol::OperationIdentifier& id, const OperationAction action)
 {
     EXPECT_EQ(id.operationActor, common::actors::OP_ACTOR_MEDIATOR);

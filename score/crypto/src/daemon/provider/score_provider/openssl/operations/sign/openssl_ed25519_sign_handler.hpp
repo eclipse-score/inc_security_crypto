@@ -43,7 +43,7 @@ class OpenSslEd25519SignHandler final : public operations::sign::ScoreSignHandle
     OpenSslEd25519SignHandler& operator=(const OpenSslEd25519SignHandler&) = delete;
 
     Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
-        const ::score::crypto::daemon::provider::handler::InitializationParams&) override;
+        const ::score::crypto::daemon::common::InitializationParams&) override;
     Expected<std::monostate, common::DaemonErrorCode> Reset() override;
     std::size_t GetSignatureSize() const noexcept override;
     /// @copydoc ScoreSignHandler::InitSign
