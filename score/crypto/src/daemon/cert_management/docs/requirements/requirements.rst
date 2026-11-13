@@ -147,10 +147,11 @@ Dependency expectations
 -----------------------
 
 The component persists CRL material alongside the issuing certificate's slot
-and exposes it through ``ICertSlotHandler`` / ``ITrustStoreHandler`` for a
-verification provider to consume; CRL-based revocation checking itself is
-performed by that provider's verification context handler, not by this
-component. Certificate signing requests are assembled by a CSR-generation
+and exposes it through ``ICertSlotHandler`` / ``ITrustStoreHandler``. The
+certificate verification context handler is held by this component, which
+supplies the trust anchors and CRLs for a verification request. Path
+validation, including CRL-based revocation checking, is performed by a
+provider. Certificate signing requests are assembled by a CSR-generation
 context handler, which is expected to obtain the issuing signature from an
 exportable software key or, for hardware-bound keys, through a cross-context
 signing capability supplied by key management, without this component ever

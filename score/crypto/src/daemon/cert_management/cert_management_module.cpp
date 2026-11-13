@@ -14,6 +14,7 @@
 
 #include "score/crypto/src/daemon/cert_management/context/management/context_factory.hpp"
 #include "score/crypto/src/daemon/cert_management/context/trust_store/context_factory.hpp"
+#include "score/crypto/src/daemon/cert_management/context/verification/context_factory.hpp"
 #include "score/crypto/src/daemon/cert_management/query/get_cert_slot_object_query.hpp"
 #include "score/crypto/src/daemon/cert_management/query/get_certificate_object_query.hpp"
 #include "score/crypto/src/daemon/cert_management/query/get_certificate_public_key_query.hpp"
@@ -71,6 +72,7 @@ CertManagementModule::Sptr CertManagementModule::Create(data_manager::IDataManag
     module->m_service = std::make_shared<CertManagementService>(
         std::move(data_manager), slot_registry, trust_store_manager, slot_manager);
     module->m_parser_source = std::move(slot_handler_factory);
+    module->m_provider_manager = std::move(provider_manager);
     return module;
 }
 
@@ -86,6 +88,14 @@ bool CertManagementModule::Register(common::MediatorRegistries& registries) cons
     const std::string trust_store_context_type{common::context_types::kCertTrustStore};
     if (!registries.context_factories.Register(
             trust_store_context_type, std::make_shared<TrustStoreManagementContextFactory>(m_parser_source, m_service)))
+    {
+        return false;
+    }
+
+    const std::string verification_context_type{common::context_types::kCertVerification};
+    if (!registries.context_factories.Register(
+            verification_context_type,
+            std::make_shared<CertVerificationContextFactory>(m_parser_source, m_provider_manager, m_service)))
     {
         return false;
     }

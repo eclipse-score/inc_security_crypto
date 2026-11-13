@@ -110,7 +110,7 @@ package "Certificate Verification" {
         + SetCertificateChain(chain) : Result<std::monostate>
         + SetTrustedCertificates(certs : span) : Result<std::monostate>
         + SetVerificationTrustStore(trust_store) : Result<std::monostate>
-        + SetAdditionalCertificates(certificates : span) : Result<std::monostate>
+        + SetUntrustedCertificates(certificates : span) : Result<std::monostate>
         __ Chain Policy __
         + SetChainTerminationPolicy(policy) : Result<std::monostate>
         + SetVerificationTime(epoch_seconds) : Result<std::monostate>

@@ -112,8 +112,8 @@ Safety Impact
 -------------
 
 No runtime safety-relevant behaviour beyond the general daemon isolation
-contract. Certificate validation results (from the provider verification
-handler) are returned to callers without modification; the component does
+contract. Certificate validation results (from the provider's path validation)
+are returned to callers without modification; the component does
 not cache or interpret verification outcomes.
 
 Rejected Ideas

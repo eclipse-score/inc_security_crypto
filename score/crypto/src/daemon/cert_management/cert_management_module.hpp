@@ -51,9 +51,9 @@ class CertManagementModule final : public common::IMediatorRegistrar
         return m_service;
     }
 
-    /// @brief Register the CERT:MANAGEMENT and CERT:TRUST_STORE context factories, the certificate and trust-store
-    ///        object and member queries, and the certificate-slot and trust-store resource resolvers with the mediator
-    ///        registries.
+    /// @brief Register the CERT:MANAGEMENT, CERT:TRUST_STORE, and CERT:VERIFICATION context factories, the certificate
+    ///        and trust-store object and member queries, and the certificate-slot and trust-store resource resolvers
+    ///        with the mediator registries.
     /// @param registries Registries to add to.
     /// @return True if every entry was registered. False if the registries rejected an entry.
     [[nodiscard]] bool Register(common::MediatorRegistries& registries) const override;
@@ -64,6 +64,8 @@ class CertManagementModule final : public common::IMediatorRegistrar
     CertManagementService::Sptr m_service;
     /// Resolves the canonical parser; shared with the slot manager and with every CERT:MANAGEMENT context.
     std::shared_ptr<const SlotHandlerFactory> m_parser_source;
+    /// Selects the provider whose path validator each CERT:VERIFICATION context uses.
+    provider::ProviderManager::Sptr m_provider_manager;
 };
 }  // namespace score::crypto::daemon::cert_management
 #endif
