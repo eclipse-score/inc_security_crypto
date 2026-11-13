@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace score::crypto::daemon::cert_management::query
 {
@@ -66,7 +67,21 @@ bool GetTrustStoreMemberIdListQuery::Handle(const control_plane::protocol::Contr
         return false;
     }
 
-    auto params = BuildTrustStoreMemberIdListResponse(slots.value(), *m_service, request.client_id);
+    std::vector<std::uint64_t> slot_node_ids;
+    slot_node_ids.reserve(slots->size());
+    for (const auto slot : slots.value())
+    {
+        const auto slot_node = m_service->ResolveCertSlotNode(slot, request.client_id);
+        if (!slot_node.has_value())
+        {
+            score::mw::log::LogError() << kLogPrefix << "GET_TRUST_STORE_MEMBER_ID_LIST: member slot resolution failed";
+            responseBuilder.operation(operation.operationId).return_error(slot_node.error());
+            return false;
+        }
+        slot_node_ids.push_back(static_cast<std::uint64_t>(slot_node.value()));
+    }
+
+    auto params = BuildTrustStoreMemberIdListResponse(slot_node_ids);
     if (!params.has_value())
     {
         score::mw::log::LogError() << kLogPrefix << "GET_TRUST_STORE_MEMBER_ID_LIST: response build failed";
