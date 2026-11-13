@@ -248,8 +248,8 @@ inline constexpr OperationAction PROVIDER_INFO = 6;
 // QUERY_CAPABILITIES
 // Request:  string — algorithm name, as in the algorithm catalog
 // Response: status_code (SUCCESS)
-//           param[0]: uint8 — CapabilityFlags of the operations at least one
-//                             provider accepts for this name; 0 if none
+//           param[0]: uint16 — operation count N; 0 if no provider accepts this name
+//           N times:  DataBuffer operation name (see capability_operations)
 inline constexpr OperationAction QUERY_CAPABILITIES = 7;
 
 // SYSTEM_CAPABILITIES
@@ -259,22 +259,23 @@ inline constexpr OperationAction QUERY_CAPABILITIES = 7;
 //           P times:  uint16 provider id, uint8 wire ProviderType, DataBuffer name
 //           then:     uint16 — algorithm count A
 //           A times:  DataBuffer algorithm name (UTF-8, not NUL-terminated),
-//                     uint8 CapabilityFlags (never 0)
+//                     uint16 operation count N (never 0),
+//                     N times DataBuffer operation name (see capability_operations)
 // Effect:   Lists the providers and every catalog algorithm at least one of
 //           them accepts, in catalog order.
 inline constexpr OperationAction SYSTEM_CAPABILITIES = 8;
 
-/// Operation bits reported by QUERY_CAPABILITIES and SYSTEM_CAPABILITIES.
-namespace capability_flags
+/// Operation names reported by QUERY_CAPABILITIES and SYSTEM_CAPABILITIES.
+///
+/// An algorithm reports the context type (common::context_types, e.g. "HASH",
+/// "SIGN") of every context a provider would create for it, followed by
+/// kGenerateKey if a provider generates keys for it. The client passes the
+/// names through to AlgorithmCapabilities::operations unchanged, so a new
+/// operation needs no client change.
+namespace capability_operations
 {
-inline constexpr std::uint8_t kHash = 1U << 0U;
-inline constexpr std::uint8_t kMac = 1U << 1U;
-inline constexpr std::uint8_t kCipher = 1U << 2U;
-inline constexpr std::uint8_t kSign = 1U << 3U;
-inline constexpr std::uint8_t kVerify = 1U << 4U;
-inline constexpr std::uint8_t kRandom = 1U << 5U;
-inline constexpr std::uint8_t kGenerateKey = 1U << 6U;
-}  // namespace capability_flags
+inline constexpr std::string_view kGenerateKey = "GENERATE_KEY";
+}  // namespace capability_operations
 
 inline control_plane::protocol::OperationIdentifier GetProviderInfo()
 {

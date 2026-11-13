@@ -40,7 +40,6 @@ namespace
 
 namespace protocol = daemon::control_plane::protocol;
 namespace med_ops = daemon::mediator::operations;
-namespace flags = med_ops::capability_flags;
 
 /// Replies with a prepared response and records the request it was sent.
 class ScriptedConnection final : public api::control_plane::IConnection
@@ -94,6 +93,23 @@ class ScriptedConnection final : public api::control_plane::IConnection
 daemon::common::OwnedBuffer Bytes(std::string_view text)
 {
     return daemon::common::OwnedBuffer(text.begin(), text.end());
+}
+
+/// Appends an operation count and the operation names, as the daemon sends them.
+void AppendOperations(daemon::common::ResponseParameters& reply, const std::vector<std::string_view>& names)
+{
+    reply.emplace_back(static_cast<std::uint16_t>(names.size()));
+    for (const auto name : names)
+    {
+        reply.emplace_back(Bytes(name));
+    }
+}
+
+daemon::common::ResponseParameters Operations(const std::vector<std::string_view>& names)
+{
+    daemon::common::ResponseParameters reply;
+    AppendOperations(reply, names);
+    return reply;
 }
 
 template <std::size_t N>
@@ -201,20 +217,19 @@ TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoReportsInternalErrorForBrok
 // QueryCapabilities(algorithm)
 // ---------------------------------------------------------------------------
 
-TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesSendsNameAndListsModesInFlagOrder)
+TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesSendsNameAndListsOperationsInDaemonOrder)
 {
-    m_connection->Reply(med_ops::QueryCapabilities(),
-                        {std::uint8_t{flags::kGenerateKey | flags::kVerify | flags::kSign}});
+    m_connection->Reply(med_ops::QueryCapabilities(), Operations({"SIGN", "VERIFY", "GENERATE_KEY"}));
 
     const auto caps = m_context.QueryCapabilities(AlgorithmId{"ECDSA-P256-SHA256"});
 
     ASSERT_TRUE(caps.has_value());
     EXPECT_EQ(View(caps->id), "ECDSA-P256-SHA256");
     EXPECT_TRUE(caps->supported);
-    ASSERT_EQ(caps->mode_count, 3U);
-    EXPECT_EQ(View(caps->modes[0]), "SIGN");
-    EXPECT_EQ(View(caps->modes[1]), "VERIFY");
-    EXPECT_EQ(View(caps->modes[2]), "GENERATE_KEY");
+    ASSERT_EQ(caps->operation_count, 3U);
+    EXPECT_EQ(View(caps->operations[0]), "SIGN");
+    EXPECT_EQ(View(caps->operations[1]), "VERIFY");
+    EXPECT_EQ(View(caps->operations[2]), "GENERATE_KEY");
 
     const auto& sent = m_connection->LastOperation();
     EXPECT_TRUE(IsOperation(sent.operationId, med_ops::QueryCapabilities()));
@@ -222,39 +237,75 @@ TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesSendsNameAndListsModesInF
     EXPECT_EQ(std::get<std::string_view>(sent.parameters[0]), "ECDSA-P256-SHA256");
 }
 
-TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesNamesEveryFlag)
+TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesPassesUnknownOperationNamesThrough)
 {
-    m_connection->Reply(med_ops::QueryCapabilities(), {std::uint8_t{0x7FU}});
+    // A daemon that reports a new operation needs no client change.
+    m_connection->Reply(med_ops::QueryCapabilities(), Operations({"HASH", "KEY_DERIVE"}));
 
     const auto caps = m_context.QueryCapabilities(AlgorithmId{"SHA256"});
 
     ASSERT_TRUE(caps.has_value());
-    const std::vector<std::string_view> expected{"HASH", "MAC", "CIPHER", "SIGN", "VERIFY", "RANDOM", "GENERATE_KEY"};
-    ASSERT_EQ(caps->mode_count, expected.size());
-    for (std::size_t i = 0U; i < expected.size(); ++i)
-    {
-        EXPECT_EQ(View(caps->modes[i]), expected[i]);
-    }
+    ASSERT_EQ(caps->operation_count, 2U);
+    EXPECT_EQ(View(caps->operations[0]), "HASH");
+    EXPECT_EQ(View(caps->operations[1]), "KEY_DERIVE");
 }
 
-TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesReportsUnsupportedForZeroFlags)
+TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesAcceptsAFullOperationList)
 {
-    m_connection->Reply(med_ops::QueryCapabilities(), {std::uint8_t{0U}});
+    std::vector<std::string> storage;
+    for (std::size_t i = 0U; i < AlgorithmCapabilities::kMaxOperations; ++i)
+    {
+        storage.push_back("OP" + std::to_string(i));
+    }
+    const std::vector<std::string_view> names(storage.begin(), storage.end());
+    m_connection->Reply(med_ops::QueryCapabilities(), Operations(names));
+
+    const auto caps = m_context.QueryCapabilities(AlgorithmId{"SHA256"});
+
+    ASSERT_TRUE(caps.has_value());
+    EXPECT_EQ(caps->operation_count, AlgorithmCapabilities::kMaxOperations);
+}
+
+TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesReportsUnsupportedForNoOperations)
+{
+    m_connection->Reply(med_ops::QueryCapabilities(), Operations({}));
 
     const auto caps = m_context.QueryCapabilities(AlgorithmId{"NOT-AN-ALGORITHM"});
 
     ASSERT_TRUE(caps.has_value());
     EXPECT_FALSE(caps->supported);
-    EXPECT_EQ(caps->mode_count, 0U);
+    EXPECT_EQ(caps->operation_count, 0U);
 }
 
-TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesForwardsDaemonErrorAndRejectsMissingFlags)
+TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesForwardsDaemonError)
 {
     m_connection->Fail(med_ops::QueryCapabilities(), CryptoErrorCode::kInvalidArgument);
     EXPECT_EQ(*m_context.QueryCapabilities(AlgorithmId{"SHA256"}).error(), Code(CryptoErrorCode::kInvalidArgument));
+}
 
-    m_connection->Reply(med_ops::QueryCapabilities(), {});
-    EXPECT_EQ(*m_context.QueryCapabilities(AlgorithmId{"SHA256"}).error(), Code(CryptoErrorCode::kInternalError));
+TEST_F(CryptoContextCapabilitiesTest, QueryCapabilitiesRejectsMalformedReplies)
+{
+    const std::string too_long(17U, 'X');
+    daemon::common::ResponseParameters too_many{static_cast<std::uint16_t>(AlgorithmCapabilities::kMaxOperations + 1U)};
+    for (std::size_t i = 0U; i <= AlgorithmCapabilities::kMaxOperations; ++i)
+    {
+        too_many.emplace_back(Bytes("HASH"));
+    }
+    const std::vector<std::pair<std::string, daemon::common::ResponseParameters>> malformed{
+        {"empty", {}},
+        {"count mistyped", {std::uint8_t{1U}, Bytes("HASH")}},
+        {"count larger than entries", {std::uint16_t{2U}, Bytes("HASH")}},
+        {"name mistyped", {std::uint16_t{1U}, std::uint8_t{1U}}},
+        {"name too long", Operations({too_long})},
+        {"more operations than fit", too_many},
+    };
+    for (const auto& [label, reply] : malformed)
+    {
+        m_connection->Reply(med_ops::QueryCapabilities(), reply);
+        const auto caps = m_context.QueryCapabilities(AlgorithmId{"SHA256"});
+        ASSERT_FALSE(caps.has_value()) << label;
+        EXPECT_EQ(*caps.error(), Code(CryptoErrorCode::kInternalError)) << label;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -273,9 +324,12 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesDecodesProvidersAndAlgor
                          Bytes("PKCS11_ENGINE"),
                          std::uint16_t{2U},
                          Bytes("HMAC-SHA256"),
-                         std::uint8_t{flags::kMac | flags::kGenerateKey},
+                         std::uint16_t{2U},
+                         Bytes("MAC"),
+                         Bytes("GENERATE_KEY"),
                          Bytes("CTR-DRBG"),
-                         std::uint8_t{flags::kRandom}});
+                         std::uint16_t{1U},
+                         Bytes("RANDOM")});
 
     const auto caps = m_context.QueryCapabilities();
 
@@ -293,11 +347,13 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesDecodesProvidersAndAlgor
 
     ASSERT_EQ(caps->algorithm_count, 2U);
     EXPECT_EQ(View(caps->algorithms[0].id), "HMAC-SHA256");
-    ASSERT_EQ(caps->algorithms[0].mode_count, 2U);
-    EXPECT_EQ(View(caps->algorithms[0].modes[0]), "MAC");
-    EXPECT_EQ(View(caps->algorithms[0].modes[1]), "GENERATE_KEY");
+    EXPECT_TRUE(caps->algorithms[0].supported);
+    ASSERT_EQ(caps->algorithms[0].operation_count, 2U);
+    EXPECT_EQ(View(caps->algorithms[0].operations[0]), "MAC");
+    EXPECT_EQ(View(caps->algorithms[0].operations[1]), "GENERATE_KEY");
     EXPECT_EQ(View(caps->algorithms[1].id), "CTR-DRBG");
-    EXPECT_EQ(View(caps->algorithms[1].modes[0]), "RANDOM");
+    ASSERT_EQ(caps->algorithms[1].operation_count, 1U);
+    EXPECT_EQ(View(caps->algorithms[1].operations[0]), "RANDOM");
 }
 
 TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesKeepsTheFirstEntriesThatFit)
@@ -315,7 +371,7 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesKeepsTheFirstEntriesThat
     for (std::size_t i = 0U; i < algorithms; ++i)
     {
         reply.emplace_back(Bytes("A" + std::to_string(i)));
-        reply.emplace_back(std::uint8_t{flags::kHash});
+        AppendOperations(reply, {"HASH"});
     }
     m_connection->Reply(med_ops::QuerySystemCapabilities(), std::move(reply));
 
@@ -338,7 +394,11 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesRejectsMalformedReplies)
         {"provider entry mistyped", {std::uint16_t{1U}, std::uint16_t{0U}, std::uint16_t{2U}, Bytes("A")}},
         {"algorithm count missing", {std::uint16_t{0U}}},
         {"algorithm count larger than entries", {std::uint16_t{0U}, std::uint16_t{1U}, Bytes("SHA256")}},
-        {"algorithm flags mistyped", {std::uint16_t{0U}, std::uint16_t{1U}, Bytes("SHA256"), std::uint16_t{1U}}},
+        {"algorithm operation count mistyped",
+         {std::uint16_t{0U}, std::uint16_t{1U}, Bytes("SHA256"), std::uint8_t{1U}, Bytes("HASH")}},
+        {"algorithm with no operations", {std::uint16_t{0U}, std::uint16_t{1U}, Bytes("SHA256"), std::uint16_t{0U}}},
+        {"algorithm operation name missing",
+         {std::uint16_t{0U}, std::uint16_t{1U}, Bytes("SHA256"), std::uint16_t{1U}}},
     };
     for (const auto& [label, reply] : malformed)
     {

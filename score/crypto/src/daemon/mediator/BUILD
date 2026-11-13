@@ -77,6 +77,7 @@ cc_library(
     deps = [
         ":context_algorithm",
         ":mediator_operations",
+        "//score/crypto/src/api/types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/common:key_compatibility",

@@ -94,35 +94,47 @@ struct ContextCreationRequest
     std::optional<SignatureInputMode> signature_input_mode{std::nullopt};
 };
 
-/// @brief Builds the public capability record from the daemon's operation flags.
-AlgorithmCapabilities MakeAlgorithmCapabilities(const AlgorithmId& algorithm, std::uint8_t flags)
+/// @brief Views a wire DataBuffer as UTF-8 text.
+std::string_view AsText(const std::vector<std::uint8_t>& bytes)
 {
-    namespace cap = ::score::crypto::daemon::mediator::operations::capability_flags;
-    struct FlagName
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) bytes are UTF-8 text
+    return std::string_view{reinterpret_cast<const char*>(bytes.data()), bytes.size()};
+}
+
+/// @brief Reads an operation count and that many operation names, starting at @p index.
+///
+/// Advances @p index past what was read. Returns nullopt if the parameters are
+/// missing or mistyped, or if the list does not fit AlgorithmCapabilities: the
+/// daemon guarantees it does, so anything else is a malformed response.
+std::optional<AlgorithmCapabilities> ReadAlgorithmCapabilities(
+    ::score::crypto::daemon::control_plane::protocol::ControlResponseValidator& validator,
+    std::size_t& index,
+    const AlgorithmId& algorithm)
+{
+    namespace proto = ::score::crypto::daemon::control_plane::protocol;
+    const auto count = validator.getParameterAt<std::uint16_t>(0, index++);
+    if (!count.has_value() || (count.value() > AlgorithmCapabilities::kMaxOperations))
     {
-        std::uint8_t flag;
-        std::string_view name;
-    };
-    static constexpr FlagName kFlagNames[] = {
-        {cap::kHash, "HASH"},
-        {cap::kMac, "MAC"},
-        {cap::kCipher, "CIPHER"},
-        {cap::kSign, "SIGN"},
-        {cap::kVerify, "VERIFY"},
-        {cap::kRandom, "RANDOM"},
-        {cap::kGenerateKey, "GENERATE_KEY"},
-    };
+        return std::nullopt;
+    }
 
     AlgorithmCapabilities result{};
     result.id = algorithm;
-    result.supported = (flags != 0U);
-    for (const auto& entry : kFlagNames)
+    for (std::uint16_t i = 0U; i < count.value(); ++i)
     {
-        if (((flags & entry.flag) != 0U) && (result.mode_count < AlgorithmCapabilities::kMaxModes))
+        const auto name = validator.getParameterAt<proto::DataBufferReturn>(0, index++);
+        if (!name.has_value())
         {
-            result.modes[result.mode_count++] = entry.name;
+            return std::nullopt;
+        }
+        auto& operation = result.operations[result.operation_count++];
+        operation = AsText(name.value());
+        if (operation.truncated())
+        {
+            return std::nullopt;
         }
     }
+    result.supported = (result.operation_count > 0U);
     return result;
 }
 
@@ -134,8 +146,7 @@ ProviderInfo MakeProviderInfo(std::uint16_t id, std::uint8_t wire_type, const st
     info.type = (wire_type <= static_cast<std::uint8_t>(ProviderType::kSoftwarePreferred))
                     ? static_cast<ProviderType>(wire_type)
                     : ProviderType::kDefault;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) bytes are UTF-8 text
-    info.name = std::string_view{reinterpret_cast<const char*>(name.data()), name.size()};
+    info.name = AsText(name);
     return info;
 }
 
@@ -552,14 +563,14 @@ score::Result<AlgorithmCapabilities> CryptoContextImpl::QueryCapabilities(const 
                       "QUERY_CAPABILITIES daemon response invalid")};
     }
 
-    auto flags = validator.getParameterAt<std::uint8_t>(0, 0);
-    if (!flags.has_value())
+    std::size_t index = 0U;
+    auto capabilities = ReadAlgorithmCapabilities(validator, index, algorithm);
+    if (!capabilities.has_value())
     {
         return score::Result<AlgorithmCapabilities>{
-            score::unexpect,
-            MakeError(CryptoErrorCode::kInternalError, "QUERY_CAPABILITIES response missing operation flags")};
+            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "QUERY_CAPABILITIES response malformed")};
     }
-    return MakeAlgorithmCapabilities(algorithm, flags.value());
+    return capabilities.value();
 }
 
 score::Result<SystemCapabilities> CryptoContextImpl::QueryCapabilities()
@@ -625,16 +636,18 @@ score::Result<SystemCapabilities> CryptoContextImpl::QueryCapabilities()
     for (std::uint16_t i = 0U; i < algorithm_count.value(); ++i)
     {
         const auto name = validator.getParameterAt<proto::DataBufferReturn>(0, index++);
-        const auto flags = validator.getParameterAt<std::uint8_t>(0, index++);
-        if (!name.has_value() || !flags.has_value())
+        if (!name.has_value())
+        {
+            return malformed();
+        }
+        auto capabilities = ReadAlgorithmCapabilities(validator, index, AlgorithmId{AsText(name.value())});
+        if (!capabilities.has_value() || !capabilities.value().supported)
         {
             return malformed();
         }
         if (result.algorithm_count < SystemCapabilities::kMaxAlgorithms)
         {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) bytes are UTF-8 text
-            const std::string_view text{reinterpret_cast<const char*>(name.value().data()), name.value().size()};
-            result.algorithms[result.algorithm_count++] = MakeAlgorithmCapabilities(AlgorithmId{text}, flags.value());
+            result.algorithms[result.algorithm_count++] = capabilities.value();
         }
     }
     return result;
