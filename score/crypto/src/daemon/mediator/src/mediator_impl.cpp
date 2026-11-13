@@ -15,7 +15,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 
 #include <memory>
 #include <optional>
@@ -26,6 +25,7 @@
 #include <vector>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/daemon/cert_management/query/cert_object_response_builder.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/context_mode.hpp"
@@ -50,6 +50,10 @@
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
+#ifdef SCORE_CSR_PROCESSING_ENABLED
+#include "score/crypto/src/daemon/provider/score_provider/openssl/operations/csr/csr_processing.hpp"
+#include "score/crypto/src/daemon/provider/handler/src/handler_utils.hpp"
+#endif
 
 namespace control_plane = score::crypto::daemon::control_plane;
 
@@ -61,7 +65,6 @@ namespace score::crypto::daemon::mediator
 
 namespace
 {
-
 bool IsContextParameterPresent(const control_plane::SingleOperationRequest& operation,
                                const std::size_t parameter_index) noexcept
 {
@@ -77,14 +80,45 @@ bool IsFallbackEligible(const score::crypto::CryptoErrorCode error) noexcept
            (error == score::crypto::CryptoErrorCode::kIncompatibleKeyType);
 }
 
+// These original target factory modes take no algorithm. CSR_GENERATION is
+// distinct: it is a keyed signature context and must resolve a catalog row.
+bool IsCertificateFactoryContext(const std::string_view context_type) noexcept
+{
+    return context_type == "CERT:MANAGEMENT" || context_type == "CERT:VERIFICATION" ||
+           context_type == "CERT:CSR_GENERATION" || context_type == "CERT:TRUST_STORE";
+}
 }  // namespace
+
+/// @brief Decode a ProviderType wire value (from the IPC protocol) into the
+///        daemon-internal CryptoProviderType capability classification.
+///
+/// The wire encoding is the uint8_t value of the client-side crypto::ProviderType
+/// enumerator (0=kDefault, 1=kHardware, 2=kSoftware, 3=kHardwarePreferred, 4=kSoftwarePreferred).
+/// kHardwarePreferred / kSoftwarePreferred are resolved to their primary type; the
+/// daemon's ProviderManager::GetProvider() handles fallback to SOFTWARE/HARDWARE if
+/// the preferred type is not registered.
+static common::CryptoProviderType FromWireProviderType(std::uint8_t wire_value) noexcept
+{
+    // Wire values match crypto::ProviderType enumerator positions:
+    //   0=kDefault, 1=kHardware, 2=kSoftware, 3=kHardwarePreferred, 4=kSoftwarePreferred
+    switch (wire_value)
+    {
+        case 1:
+            return common::CryptoProviderType::HARDWARE;
+        case 2:
+            return common::CryptoProviderType::SOFTWARE;
+        case 3:
+            return common::CryptoProviderType::HARDWARE;
+        case 4:
+            return common::CryptoProviderType::SOFTWARE;
+        default:
+            return common::CryptoProviderType::DEFAULT;
+    }
+}
 
 MediatorImpl::MediatorImpl(MediatorDependencies deps) : IMediator(std::move(deps))
 {
-    if (m_km_service)
-    {
-        RegisterResourceResolvers();
-    }
+    RegisterResourceResolvers();
 }
 
 control_plane::ControlResponse MediatorImpl::processRequest(control_plane::ControlRequest& request)
@@ -98,8 +132,7 @@ control_plane::ControlResponse MediatorImpl::processRequest(control_plane::Contr
         // Stop processing requests, once one fails. They may depend on each other
         if (!HandleSingleOperation(request, operation, responseBuilder))
         {
-            score::mw::log::LogError() << "[SCORE_API_MED] ERROR at operation index:"
-                                       << static_cast<std::uint64_t>(idx);
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR at operation index:" << idx;
             break;
         }
     }
@@ -111,8 +144,7 @@ control_plane::ControlResponse MediatorImpl::processRequest(control_plane::Contr
     response.request_id = request.request_id;
     response.operation = opResponse;
 
-    score::mw::log::LogVerbose() << "[SCORE_API_MED] Response operations: "
-                                 << static_cast<std::uint64_t>(opResponse.operations.size());
+    score::mw::log::LogVerbose() << "[SCORE_API_MED] Response operations: " << opResponse.operations.size();
 
     return response;
 }
@@ -149,6 +181,11 @@ bool MediatorImpl::HandleMediatorOperation(const control_plane::ControlRequest& 
                                            control_plane::protocol::OperationResponseBuilder& responseBuilder)
 {
     auto operationIdentifier = operation.operationId;
+
+    if (operationIdentifier.operationAction == operations::CSR_PROCESS)
+    {
+        return HandleCsrProcessing(request, operation, responseBuilder);
+    }
 
     if (operationIdentifier.operationAction == operations::CTX_CREATE)
     {
@@ -198,11 +235,90 @@ bool MediatorImpl::HandleMediatorOperation(const control_plane::ControlRequest& 
         }
         return success;
     }
+    else if (operationIdentifier.operationAction == operations::GET_CERTIFICATE_OBJECT)
+    {
+        auto success = HandleGetCertificateObject(request, operation, responseBuilder);
+        if (!success)
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle GET_CERTIFICATE_OBJECT";
+        }
+        return success;
+    }
+    else if (operationIdentifier.operationAction == operations::GET_CERT_SLOT_OBJECT)
+    {
+        auto success = HandleGetCertSlotObject(request, operation, responseBuilder);
+        if (!success)
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle GET_CERT_SLOT_OBJECT";
+        }
+        return success;
+    }
+    else if (operationIdentifier.operationAction == operations::GET_TRUST_STORE_MEMBER_ID_LIST)
+    {
+        auto success = HandleGetTrustStoreMemberIdList(request, operation, responseBuilder);
+        if (!success)
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle GET_TRUST_STORE_MEMBER_ID_LIST";
+        }
+        return success;
+    }
+    else if (operationIdentifier.operationAction == operations::GET_TRUST_STORE_MEMBER_OBJECT)
+    {
+        auto success = HandleGetTrustStoreMemberObject(request, operation, responseBuilder);
+        if (!success)
+        {
+            score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle GET_TRUST_STORE_MEMBER_OBJECT";
+        }
+        return success;
+    }
 
     score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Unknown mediator operation: "
                                << common::OpId{operationIdentifier};
 
     return false;
+}
+
+bool MediatorImpl::HandleCsrProcessing(const control_plane::ControlRequest& request,
+    const control_plane::SingleOperationRequest& operation,
+    control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    const auto fail = [&](CryptoErrorCode error) {
+        responseBuilder.operation(operation.operationId).return_error(error); return false;
+    };
+#ifndef SCORE_CSR_PROCESSING_ENABLED
+    static_cast<void>(request);
+    return fail(CryptoErrorCode::kUnsupportedOperation);
+#else
+    // DataManager authenticates ownership. Require the connection node rather
+    // than a caller-chosen keyed context; processing has no key service access.
+    auto connection = m_data_manager->getNodeAccessor(request.client_id, request.data_node_id);
+    if (!connection.has_value() || operation.parameters.size() != 2U ||
+        connection.value()->GetNodeType() != data_manager::DataNodeType::kGeneric)
+    { return fail(CryptoErrorCode::kInvalidArgument); }
+    namespace utils = provider::handler::handler_utils;
+    auto parameters_copy = operation.parameters;
+    const auto input = utils::CheckAndGetSpan<const uint8_t>(parameters_copy[0]);
+    const auto output = utils::CheckAndGetSpan<uint8_t>(parameters_copy[1]);
+    if (!input.has_value() || !output.has_value()) { return fail(CryptoErrorCode::kInvalidArgument); }
+    auto decoded = score::crypto::csr::wire::Decode(input.value());
+    if (!decoded.has_value()) { return fail(CryptoErrorCode::kInvalidArgument); }
+    NativeCsrProcessing service;
+    auto processed = service.Process(decoded.value());
+    if (!processed.has_value())
+    {
+        return fail(*processed.error() == static_cast<score::result::ErrorCode>(CryptoErrorCode::kAllocationFailed)
+            ? CryptoErrorCode::kAllocationFailed : CryptoErrorCode::kInvalidArgument);
+    }
+    auto encoded = score::crypto::csr::wire::Encode(processed.value());
+    if (!encoded.has_value()) { return fail(CryptoErrorCode::kInvalidArgument); }
+    if (encoded->size() > output->size()) { return fail(CryptoErrorCode::kInsufficientBufferSize); }
+    common::ResponseParameters parameters; parameters.emplace_back(static_cast<uint64_t>(encoded->size()));
+    // Allocation/validation completes before touching the caller's buffer.
+    std::copy(encoded->begin(), encoded->end(), output->begin());
+    responseBuilder.return_crypto_operation_response(operation.operationId,
+        control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(parameters));
+    return true;
+#endif
 }
 
 bool MediatorImpl::ForwardSingleOperation(const control_plane::ControlRequest& request,
@@ -305,14 +421,8 @@ MediatorImpl::BindAndAuthorizeKey(std::uint64_t client_id,
         return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kKeyOperationNotPermitted);
     }
 
-    // The key must also fit the algorithm: an EC key on another curve, an AES
-    // key of another length, or a key labelled for another operation is
-    // refused here for every provider rather than left to each provider to
-    // notice. Only a KEY:MANAGEMENT context has no algorithm, and it binds no
-    // key (refused above).
-    //
-    // A key slot that is not loaded yet has no material size (0). Its label is
-    // checked now and the length of its material after binding.
+    // Refuse incompatible metadata before loading material. Unloaded slots
+    // have size zero; check their material length again after binding.
     const auto& key_algorithm = handle.value().algorithm;
     const std::size_t pre_bind_key_size = handle.value().key_size;
     if (!algorithm.has_value() || !common::IsKeyCompatible(algorithm.value(), key_algorithm, pre_bind_key_size))
@@ -436,7 +546,12 @@ MediatorImpl::ResolveProviderAndCreateHandler(const std::uint64_t client_id,
             continue;
         }
 
-        auto create_result = algorithm.has_value()
+        // Preserve the target's algorithm-free certificate factory dispatch.
+        // Its CERT:* branches ignore the row; no certificate policy is moved
+        // into the mediator, and KEY:MANAGEMENT keeps main's separate hook.
+        auto create_result = IsCertificateFactoryContext(context_type)
+                                 ? crypto_ops->CreateHandler(std::string(context_type), AlgorithmDescriptor{})
+                             : algorithm.has_value()
                                  ? crypto_ops->CreateHandler(std::string(context_type), algorithm.value())
                                  : crypto_ops->CreateKeyManagementHandler();
         if (create_result.has_value())
@@ -532,9 +647,8 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
         has_key_binding = true;
     }
 
-    // Keep the mediator limited to the common context contract: keyed context
-    // families must carry a key reference, while operation-mode semantics stay
-    // with the concrete handler.
+    // Keyed context families require a key; concrete handlers retain their
+    // operation-mode/input-mode validation and the original parameter slots.
     const auto required_key_permission =
         common::RequiredKeyPermission(context_type, common::ExtractContextMode(operation.parameters));
     if (required_key_permission.has_value() && !has_key_binding)
@@ -547,11 +661,10 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
 
     const common::ProviderCapability required_capability = operations::RequiredProviderCapability(context_type);
 
-    // Resolve the algorithm name once, before any provider is asked; a name
-    // the catalog does not know is refused here. std::nullopt is passed on for
-    // a KEY:MANAGEMENT context, which is bound to no algorithm.
+    // Resolve common crypto algorithms exactly once, as in main. The target's
+    // original CERT:* modes are algorithm-free and stay factory-orchestrated.
     std::optional<AlgorithmDescriptor> algorithm_descriptor{};
-    if (operations::ContextTakesAlgorithm(context_type))
+    if (!IsCertificateFactoryContext(context_type) && operations::ContextTakesAlgorithm(context_type))
     {
         algorithm_descriptor = operations::ResolveContextAlgorithm(context_type, algorithm);
         if (!algorithm_descriptor.has_value())
@@ -600,13 +713,9 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     key_management::IKeyHandler::Sptr bound_key_handler;
     if (has_key_binding)
     {
-        auto bind_res = BindAndAuthorizeKey(client_id,
-                                            context_node_id,
-                                            key_node_id,
-                                            provider->GetProviderId(),
-                                            context_type,
-                                            algorithm_descriptor,
-                                            operation.parameters);
+        auto bind_res = BindAndAuthorizeKey(
+            client_id, context_node_id, key_node_id, provider->GetProviderId(), context_type,
+            algorithm_descriptor, operation.parameters);
         if (!bind_res.has_value())
         {
             const auto cleanup_result = m_data_manager->deleteNode(client_id, context_node_id);
@@ -773,29 +882,8 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
         }
         else if (type_hint.has_value() && type_hint.value() != operations::SHM_WIRE_PROVIDER_TYPE_ABSENT)
         {
-            if (type_hint.value() > std::numeric_limits<std::uint8_t>::max())
-            {
-                score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] Invalid provider type hint";
-                responseBuilder.operation(operation.operationId)
-                    .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
-                return false;
-            }
-
-            const auto provider_preference =
-                operations::DecodeProviderTypePreference(static_cast<std::uint8_t>(type_hint.value()));
-            if (!provider_preference.has_value())
-            {
-                score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] Unknown provider type hint";
-                responseBuilder.operation(operation.operationId)
-                    .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
-                return false;
-            }
-
-            provider = m_provider_manager->GetProvider(provider_preference.value().primary);
-            if (!provider && provider_preference.value().fallback.has_value())
-            {
-                provider = m_provider_manager->GetProvider(provider_preference.value().fallback.value());
-            }
+            provider =
+                m_provider_manager->GetProvider(FromWireProviderType(static_cast<std::uint8_t>(type_hint.value())));
         }
         else
         {
@@ -921,9 +1009,63 @@ void MediatorImpl::RegisterResourceResolvers()
         return true;
     };
 
-    // Additional resource types (kProvider, kCertSlot, kTrustAnchor, …) are
-    // registered here as those subsystems are implemented. Each entry is
-    // self-contained; no existing resolvers are modified.
+    // --- kCertSlot -----------------------------------------------------------
+    m_resource_resolvers[static_cast<uint8_t>(RT::kCertSlot)] =
+        [this](uint64_t client_id,
+               uint64_t session_id,
+               const std::string& resource_name,
+               const common::OperationIdentifier& op_id,
+               control_plane::protocol::OperationResponseBuilder& responseBuilder) -> bool {
+        if (!m_cert_service)
+        {
+            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            return false;
+        }
+
+        auto node_id_result = m_cert_service->ResolveCertSlot(resource_name, client_id);
+        if (!node_id_result.has_value())
+        {
+            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            return false;
+        }
+
+        responseBuilder.operation(op_id)
+            .return_value_uint64(static_cast<uint64_t>(node_id_result.value()))
+            .return_value_uint8(static_cast<uint8_t>(RT::kCertSlot))
+            .return_value_bool(true)
+            .return_value_uint16(0)
+            .return_success();
+        return true;
+    };
+
+    // --- kCertificateTrustStore ----------------------------------------------
+    m_resource_resolvers[static_cast<uint8_t>(RT::kCertificateTrustStore)] =
+        [this](uint64_t client_id,
+               uint64_t session_id,
+               const std::string& resource_name,
+               const common::OperationIdentifier& op_id,
+               control_plane::protocol::OperationResponseBuilder& responseBuilder) -> bool {
+        if (!m_cert_service)
+        {
+            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            return false;
+        }
+
+        auto node_id_result = m_cert_service->ResolveTrustStore(resource_name, client_id);
+        if (!node_id_result.has_value())
+        {
+            responseBuilder.operation(op_id).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            return false;
+        }
+
+        responseBuilder.operation(op_id)
+            .return_value_uint64(static_cast<uint64_t>(node_id_result.value()))
+            .return_value_uint8(static_cast<uint8_t>(RT::kCertificateTrustStore))
+            .return_value_bool(true)
+            .return_value_uint16(0)
+            .return_success();
+        return true;
+    };
 }
 
 bool MediatorImpl::HandleResourceResolutionOperation(uint64_t client_id,
@@ -969,6 +1111,206 @@ bool MediatorImpl::HandleResourceResolutionOperation(uint64_t client_id,
     }
 
     return it->second(client_id, session_id, resource_name, operation.operationId, responseBuilder);
+}
+
+// ============================================================================
+// Typed Object Resolution (single-round-trip, no provider context needed)
+// ============================================================================
+
+bool MediatorImpl::HandleGetCertificateObject(const control_plane::ControlRequest& request,
+                                              const control_plane::SingleOperationRequest& operation,
+                                              control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    if (!m_cert_service)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_CERTIFICATE_OBJECT: cert service not available";
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+        return false;
+    }
+
+    auto node_id_res = operation.getParameter<std::uint64_t>(0);
+    if (!node_id_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_CERTIFICATE_OBJECT: missing node_id parameter";
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto resolved_res = m_cert_service->ResolveCertWithCrlMetadataForOperation(request.client_id, node_id_res.value());
+    if (!resolved_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_CERTIFICATE_OBJECT: cert resolution failed for node_id="
+                                   << node_id_res.value();
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    const auto& resolved = resolved_res.value();
+    auto out_res = cert_management::query::BuildCertObjectResponse(*resolved.cert, resolved.crl_metadata);
+    if (!out_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_CERTIFICATE_OBJECT: response build failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(out_res.error()));
+        return false;
+    }
+
+    responseBuilder.return_crypto_operation_response(
+        operation.operationId, control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(out_res.value()));
+    return true;
+}
+
+bool MediatorImpl::HandleGetCertSlotObject(const control_plane::ControlRequest& request,
+                                           const control_plane::SingleOperationRequest& operation,
+                                           control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    if (!m_cert_service)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_CERT_SLOT_OBJECT: cert service not available";
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+        return false;
+    }
+
+    auto node_id_res = operation.getParameter<std::uint64_t>(0);
+    if (!node_id_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_CERT_SLOT_OBJECT: missing node_id parameter";
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto slot_res = m_cert_service->ResolveSlotForOperation(request.client_id, node_id_res.value());
+    if (!slot_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_CERT_SLOT_OBJECT: slot resolution failed for node_id="
+                                   << node_id_res.value();
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto out_res = cert_management::query::BuildCertSlotInfoResponse(
+        *m_cert_service->GetSlotManager(), slot_res.value().handle, request.client_id);
+    if (!out_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_CERT_SLOT_OBJECT: GetSlotInfo failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(out_res.error()));
+        return false;
+    }
+
+    responseBuilder.return_crypto_operation_response(
+        operation.operationId, control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(out_res.value()));
+    return true;
+}
+
+bool MediatorImpl::HandleGetTrustStoreMemberIdList(const control_plane::ControlRequest& request,
+                                                   const control_plane::SingleOperationRequest& operation,
+                                                   control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    if (!m_cert_service)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_ID_LIST: cert service not available";
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+        return false;
+    }
+
+    auto node_id_res = operation.getParameter<std::uint64_t>(0);
+    if (!node_id_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_ID_LIST: missing node_id parameter";
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto ts_handle_res = m_cert_service->ResolveTrustStoreForOperation(request.client_id, node_id_res.value());
+    if (!ts_handle_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_ID_LIST: trust store resolution failed";
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto slots_res = m_cert_service->GetTrustStoreManager()->GetMemberSlotHandles(ts_handle_res.value());
+    if (!slots_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_ID_LIST: member list query failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(slots_res.error()));
+        return false;
+    }
+
+    auto out_res = cert_management::query::BuildTrustStoreMemberIdListResponse(
+        slots_res.value(), *m_cert_service, request.client_id);
+    if (!out_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_ID_LIST: response build failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(out_res.error()));
+        return false;
+    }
+
+    responseBuilder.return_crypto_operation_response(
+        operation.operationId, control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(out_res.value()));
+    return true;
+}
+
+bool MediatorImpl::HandleGetTrustStoreMemberObject(const control_plane::ControlRequest& request,
+                                                   const control_plane::SingleOperationRequest& operation,
+                                                   control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    if (!m_cert_service)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: cert service not available";
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kUnsupportedOperation);
+        return false;
+    }
+
+    auto node_id_res = operation.getParameter<std::uint64_t>(0);
+    auto slot_node_id_res = operation.getParameter<std::uint64_t>(1);
+    if (!node_id_res.has_value() || !slot_node_id_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: missing parameter";
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto ts_handle_res = m_cert_service->ResolveTrustStoreForOperation(request.client_id, node_id_res.value());
+    if (!ts_handle_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: trust store resolution failed";
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto slot_res = m_cert_service->ResolveSlotForOperation(request.client_id, slot_node_id_res.value());
+    if (!slot_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: member slot resolution failed";
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    auto member_res =
+        m_cert_service->GetTrustStoreManager()->GetMemberSnapshot(ts_handle_res.value(), slot_res.value().handle);
+    if (!member_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: member snapshot failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(member_res.error()));
+        return false;
+    }
+
+    auto out_res = cert_management::query::BuildTrustStoreMemberObjectResponse(
+        member_res.value(), *m_cert_service, request.client_id);
+    if (!out_res.has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] GET_TRUST_STORE_MEMBER_OBJECT: response build failed";
+        responseBuilder.operation(operation.operationId).return_error(common::ToCryptoErrorCode(out_res.error()));
+        return false;
+    }
+
+    responseBuilder.return_crypto_operation_response(
+        operation.operationId, control_plane::protocol::OPERATION_RESULT_SUCCESS, std::move(out_res.value()));
+    return true;
 }
 
 }  // namespace score::crypto::daemon::mediator

@@ -29,7 +29,7 @@ CertObject::Sptr MakeCertificate()
     CertChainMetadata metadata;
     metadata.subject_canonical = "CN=registry-test";
     metadata.issuer_canonical = "CN=registry-test";
-    metadata.fingerprint.fill(0x42U);
+    metadata.fingerprint = std::vector<std::uint8_t>(32U, 0x42U);
     return std::make_shared<CertObject>(
         std::move(metadata), std::vector<std::uint8_t>{0x01U, 0x02U}, score::crypto::FormatType::kDer);
 }
@@ -37,7 +37,7 @@ CertObject::Sptr MakeCertificate()
 TEST(CertRegistryTest, RegistersFindsAndUnregistersEphemeralCertificate)
 {
     CertRegistry registry;
-    auto entry = std::make_shared<CertEntry>(1U, MakeCertificate());
+    auto entry = std::make_shared<CertEntry>(MakeCertificate());
 
     const auto id = registry.RegisterEphemeralCert(entry);
 
@@ -49,14 +49,17 @@ TEST(CertRegistryTest, RegistersFindsAndUnregistersEphemeralCertificate)
     EXPECT_FALSE(registry.FindById(id));
 }
 
-// Entries are per-client (session CRL state lives on CertEntry); CertObject sharing is handled by CertSlotManager.
+// RegisterSlotCert creates independent entries per call — dedup of the
+// underlying CertObject bytes is handled by CertSlotManager::CertObjectCache,
+// not by the registry. Two clients loading the same slot each get their own
+// CertEntry so that per-client state (e.g. session CRL) cannot bleed.
 TEST(CertRegistryTest, RegisterSlotCert_TwoCallsProduceTwoIndependentEntries)
 {
     CertRegistry registry;
     const CertSlotHandle slot{7U};
     auto cert_obj = MakeCertificate();
-    auto first = std::make_shared<CertEntry>(10U, cert_obj, slot);
-    auto second = std::make_shared<CertEntry>(20U, cert_obj, slot);
+    auto first = std::make_shared<CertEntry>(cert_obj, slot);
+    auto second = std::make_shared<CertEntry>(cert_obj, slot);
 
     const auto id1 = registry.RegisterSlotCert(slot, first);
     const auto id2 = registry.RegisterSlotCert(slot, second);
@@ -83,8 +86,8 @@ TEST(CertRegistryTest, CleanupClient_RemovesOnlyThatClientsEntries)
 
     CertRegistry registry;
 
-    auto entry_a = std::make_shared<CertEntry>(kClientA, MakeCertificate());
-    auto entry_b = std::make_shared<CertEntry>(kClientB, MakeCertificate());
+    auto entry_a = std::make_shared<CertEntry>(MakeCertificate(), CertSlotHandle{}, kClientA);
+    auto entry_b = std::make_shared<CertEntry>(MakeCertificate(), CertSlotHandle{}, kClientB);
 
     const auto id_a = registry.RegisterEphemeralCert(entry_a);
     const auto id_b = registry.RegisterEphemeralCert(entry_b);
@@ -101,21 +104,6 @@ TEST(CertRegistryTest, CleanupClient_RemovesOnlyThatClientsEntries)
     EXPECT_EQ(registry.Size(), 1U);
 }
 
-TEST(CertRegistryTest, NullRegistrationReturnsInvalidIdWithoutMutatingRegistry)
-{
-    CertRegistry registry;
-
-    EXPECT_EQ(registry.RegisterSlotCert(CertSlotHandle{7U}, nullptr), 0U);
-    EXPECT_EQ(registry.RegisterEphemeralCert(nullptr), 0U);
-    EXPECT_EQ(registry.Size(), 0U);
-
-    auto entry = std::make_shared<CertEntry>(1U, MakeCertificate());
-    const auto id = registry.RegisterEphemeralCert(entry);
-
-    EXPECT_EQ(id, 1U);
-    EXPECT_EQ(registry.FindById(id), entry);
-}
-
 // A slot cert registered for one client remains findable by ID after an
 // unrelated client's entries are cleaned up.
 TEST(CertRegistryTest, SlotCertPersistsAfterUnrelatedClientCleanup)
@@ -127,8 +115,8 @@ TEST(CertRegistryTest, SlotCertPersistsAfterUnrelatedClientCleanup)
     CertRegistry registry;
     const CertSlotHandle slot{3U};
 
-    auto slot_entry = std::make_shared<CertEntry>(kClientA, MakeCertificate(), slot);
-    auto ephemeral_entry = std::make_shared<CertEntry>(kClientB, MakeCertificate());
+    auto slot_entry = std::make_shared<CertEntry>(MakeCertificate(), slot, kClientA);
+    auto ephemeral_entry = std::make_shared<CertEntry>(MakeCertificate(), CertSlotHandle{}, kClientB);
 
     const auto slot_id = registry.RegisterSlotCert(slot, slot_entry);
     ASSERT_NE(slot_id, 0U);

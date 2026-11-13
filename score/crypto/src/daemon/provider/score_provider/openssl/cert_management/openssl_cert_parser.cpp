@@ -12,7 +12,6 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
-#include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_cert_utils.hpp"
 
 #include <openssl/err.h>
@@ -60,35 +59,6 @@ void CopyOpenSslBytes(const T* data, std::size_t size, std::vector<std::uint8_t>
         const auto* first = reinterpret_cast<const std::uint8_t*>(data);
         destination.assign(first, first + size);
     }
-}
-
-// Parses @p bytes as exactly one certificate; returns nullptr on trailing DER data or a second PEM block.
-X509Ptr ParseSingleCertificate(const std::uint8_t* bytes, std::size_t size, score::crypto::FormatType format)
-{
-    if (bytes == nullptr || size == 0U)
-        return nullptr;
-
-    if (format == score::crypto::FormatType::kDer)
-    {
-        const std::uint8_t* cursor = bytes;
-        X509Ptr cert{d2i_X509(nullptr, &cursor, static_cast<long>(size))};
-        if (cursor != bytes + size)
-            return nullptr;
-        return cert;
-    }
-
-    BIO* raw_bio = BIO_new_mem_buf(bytes, static_cast<int>(size));
-    if (raw_bio == nullptr)
-        return nullptr;
-    std::unique_ptr<BIO, decltype(&BIO_free)> bio{raw_bio, &BIO_free};
-    X509Ptr first{PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr)};
-    if (!first)
-        return nullptr;
-    X509Ptr second{PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr)};
-    ERR_clear_error();
-    if (second)
-        return nullptr;
-    return first;
 }
 
 score::crypto::Expected<CertObject::Sptr, Error> BuildObject(X509* certificate,
@@ -152,7 +122,7 @@ score::crypto::Expected<CertObject::Sptr, Error> BuildObject(X509* certificate,
     openssl_detail::Sha256Digest digest{};
     if (!openssl_detail::ComputeSha256(certificate, digest))
         return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
-    metadata.fingerprint = digest;
+    metadata.fingerprint.assign(digest.begin(), digest.end());
 
     BASIC_CONSTRAINTS* constraints =
         static_cast<BASIC_CONSTRAINTS*>(X509_get_ext_d2i(certificate, NID_basic_constraints, nullptr, nullptr));
@@ -170,7 +140,7 @@ score::crypto::Expected<CertObject::Sptr, Error> BuildObject(X509* certificate,
 score::crypto::Expected<::score::crypto::daemon::cert_management::CertObject::Sptr, common::DaemonErrorCode>
 OpenSslCertParser::ParseCertificate(const std::uint8_t* bytes, std::size_t size, score::crypto::FormatType format)
 {
-    auto certificate = ParseSingleCertificate(bytes, size, format);
+    auto certificate = ParseX509(bytes, size, format);
     if (!certificate)
         return score::crypto::make_unexpected(common::DaemonErrorCode::kCertificateParsingFailed);
     return BuildObject(certificate.get(), bytes, size, format);
@@ -286,27 +256,23 @@ score::crypto::Expected<std::vector<std::uint8_t>, common::DaemonErrorCode> Open
 // ---------------------------------------------------------------------------
 
 score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> OpenSslCertParser::ValidateCrl(
-    const ::score::crypto::daemon::cert_management::CrlData& crl,
+    const std::uint8_t* crl_data,
+    std::size_t crl_size,
+    score::crypto::FormatType crl_format,
     const std::uint8_t* issuer_cert_data,
     std::size_t issuer_cert_size,
     score::crypto::FormatType issuer_cert_format)
 {
-    const std::uint8_t* crl_data = crl.bytes.data();
-    const std::size_t crl_size = crl.bytes.size();
-    const score::crypto::FormatType crl_format = crl.format;
-    if (crl_size == 0U || !issuer_cert_data || issuer_cert_size == 0U)
+    if (!crl_data || crl_size == 0U || !issuer_cert_data || issuer_cert_size == 0U)
         return score::crypto::make_unexpected(Error::kInvalidArgument);
 
-    // 1. Parse the CRL. RFC 5280 requires nextUpdate in conforming CRLs, and the metadata reports a missing
-    //    nextUpdate as 0, so a CRL without it is rejected here rather than stored.
-    X509CrlPtr x509_crl = openssl_detail::ParseX509Crl(crl_data, crl_size, crl_format);
-    if (!x509_crl)
+    // 1. Parse the CRL.
+    X509CrlPtr crl = openssl_detail::ParseX509Crl(crl_data, crl_size, crl_format);
+    if (!crl)
     {
         ERR_clear_error();
         return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
     }
-    if (X509_CRL_get0_nextUpdate(x509_crl.get()) == nullptr)
-        return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
 
     // 2. Parse the issuer certificate.
     X509Ptr issuer_x509 = ParseX509(issuer_cert_data, issuer_cert_size, issuer_cert_format);
@@ -317,21 +283,27 @@ score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode> Ope
     }
 
     // 3. Verify CRL issuer DN matches the certificate's subject DN.
-    if (X509_NAME_cmp(X509_CRL_get_issuer(x509_crl.get()), X509_get_subject_name(issuer_x509.get())) != 0)
+    if (X509_NAME_cmp(X509_CRL_get_issuer(crl.get()), X509_get_subject_name(issuer_x509.get())) != 0)
         return score::crypto::make_unexpected(Error::kInvalidArgument);
 
     // 4. Verify the CRL signature using the issuer certificate's public key.
     EVP_PKEY* pkey = X509_get0_pubkey(issuer_x509.get());
     if (!pkey)
         return score::crypto::make_unexpected(Error::kInternalError);
-    if (X509_CRL_verify(x509_crl.get(), pkey) != 1)
+    if (X509_CRL_verify(crl.get(), pkey) != 1)
     {
         ERR_clear_error();
         return score::crypto::make_unexpected(Error::kOperationFailed);
     }
 
+    // Preserve this API's strict CRL time requirement: missing/unparseable
+    // nextUpdate must not be represented as an apparently valid epoch zero.
+    std::int64_t next_update = 0;
+    if (!Asn1TimeToEpoch(X509_CRL_get0_nextUpdate(crl.get()), next_update))
+        return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
+
     score::crypto::CrlMetadata metadata;
-    if (!openssl_detail::ReadCrlMetadata(x509_crl.get(), metadata) ||
+    if (!openssl_detail::ReadCrlMetadata(crl.get(), metadata) ||
         !openssl_detail::ComputeSha256(issuer_x509.get(), metadata.issuer_fingerprint))
         return score::crypto::make_unexpected(Error::kInternalError);
     return metadata;

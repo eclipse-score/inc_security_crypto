@@ -16,7 +16,7 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "cert_parser_headers",
     hdrs = ["i_cert_parser.hpp"],
-    linkstatic = True,
+    includes = ["."],
     visibility = ["//:__subpackages__"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
@@ -26,14 +26,19 @@ cc_library(
     ],
 )
 
-# Certificate operation-code allocation table. Depends only on the daemon common
-# types, so consumers of the op codes do not inherit certificate-management headers.
 cc_library(
-    name = "cert_management_operation_codes",
-    hdrs = ["cert_management_operations.hpp"],
-    linkstatic = True,
+    name = "cert_management_provider_headers",
+    hdrs = [
+        "cert_management_operations.hpp",
+        "cert_types.hpp",
+    ],
+    includes = ["."],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//score/crypto/src/daemon/common",
+        ":cert_parser_headers",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
     ],
 )

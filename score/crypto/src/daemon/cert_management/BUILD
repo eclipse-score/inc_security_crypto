@@ -20,14 +20,9 @@ cc_test(
     deps = [
         ":cert_management",
         ":cert_management_headers",
-        ":cert_management_internal_headers",
         ":cert_management_runtime_headers",
         ":cert_object_response_builder",
         "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/config:config_types",
-        "//score/crypto/src/daemon/provider:provider_headers",
-        "//score/crypto/src/daemon/provider:provider_manager",
-        "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
         "@googletest//:gtest_main",
     ],
 )
@@ -60,25 +55,10 @@ cc_test(
     deps = [
         ":cert_management",
         ":cert_management_headers",
-        ":cert_management_daemon_headers",
         ":cert_management_internal_headers",
+        "//score/crypto/src/daemon/cert_management/tests:test_environment",
         "//score/crypto/src/daemon/common/storage:file_io",
-        "//score/tests/utility:utility",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "file_backed_crl_storage_test",
-    srcs = ["slot/file_backed_crl_storage_test.cpp"],
-    deps = [
-        ":cert_management",
-        ":cert_management_headers",
-        ":cert_management_daemon_headers",
-        ":cert_management_internal_headers",
-        "//score/crypto/src/daemon/common/storage:kv_deployment",
-        "//score/tests/utility:utility",
         "@googletest//:gtest_main",
     ],
 )
@@ -89,10 +69,7 @@ cc_test(
     deps = [
         ":cert_management",
         ":cert_management_headers",
-        ":cert_management_daemon_headers",
         ":cert_management_internal_headers",
-        ":cert_management_runtime_headers",
-        "//score/crypto/src/daemon/config:config_types",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",
         "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
@@ -128,7 +105,6 @@ cc_library(
         "interfaces/cert_slot_config.hpp",
         "interfaces/cert_types.hpp",
         "interfaces/i_cert_slot_handler.hpp",
-        "interfaces/i_cert_slot_manager.hpp",
         "interfaces/i_trust_store_handler.hpp",
     ],
     visibility = [
@@ -177,7 +153,7 @@ cc_library(
 cc_library(
     name = "cert_management_slot_backend_headers",
     hdrs = [
-        "slot/file_backed_crl_storage.hpp",
+        "slot/crl_handler.hpp",
         "slot/deployment_loader.hpp",
         "slot/deployment_writer.hpp",
     ],
@@ -194,7 +170,6 @@ cc_library(
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common/storage:deployment_iface",
-        "//score/crypto/src/daemon/common/storage:file_io",
     ],
 )
 
@@ -219,7 +194,6 @@ cc_library(
         ":cert_management_slot_backend_headers",
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/config:config_types",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
@@ -235,7 +209,6 @@ cc_library(
     visibility = [
         "//score/crypto/src/daemon:__pkg__",
         "//score/crypto/src/daemon:__subpackages__",
-        "//score/crypto/tests/cert_management:__pkg__",
     ],
     linkstatic = True,
     deps = [
@@ -255,14 +228,13 @@ cc_library(
     name = "cert_management",
     srcs = [
         "cert_management_module.cpp",
-        "core/cert_entry.cpp",
         "core/cert_management_service.cpp",
         "core/cert_registry.cpp",
         "interfaces/i_cert_slot_handler.cpp",
         "policy/access_policy_enforcer.cpp",
         "slot/config_driven_slot_catalog.cpp",
         "truststore/config_driven_trust_store_catalog.cpp",
-        "slot/file_backed_crl_storage.cpp",
+        "slot/crl_handler.cpp",
         "slot/deployment_loader.cpp",
         "slot/deployment_writer.cpp",
         "slot/file_backed_slot_handler.cpp",
@@ -288,6 +260,7 @@ cc_library(
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/provider:provider_manager",
+        "//score/crypto/src/daemon/provider/cert_management:cert_management_provider_headers",
         "@score_baselibs//score/mw/log",
     ],
 )

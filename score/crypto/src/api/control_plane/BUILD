@@ -41,7 +41,7 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":control_plane",
-        "//score/crypto/src/daemon/control_plane",
+        "//score/crypto/src/daemon/control_plane:control_operations",
         "//score/crypto/src/ipc:ipc_config",
         "//score/crypto/src/ipc/grpc_adapter:grpc_control_client",
         "@score_baselibs//score/mw/log",

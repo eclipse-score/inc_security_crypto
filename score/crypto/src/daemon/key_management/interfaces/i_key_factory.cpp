@@ -75,6 +75,12 @@ score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorC
     return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
 }
 
+score::crypto::Expected<SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode>
+IKeyFactory::SerializePrivateKeyForPersistence(const ProviderKeyHandle& /*handle*/)
+{
+    return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+}
+
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> IKeyFactory::GenerateKeyToSlot(
     const KeySlotConfig& slot,
     const KeyGenerationRequest& request,

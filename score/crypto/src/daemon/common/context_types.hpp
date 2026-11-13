@@ -43,6 +43,7 @@ inline constexpr std::string_view kHash = "HASH";
 inline constexpr std::string_view kMac = "MAC";
 inline constexpr std::string_view kCipher = "CIPHER";
 inline constexpr std::string_view kSign = "SIGN";
+inline constexpr std::string_view kCsrGeneration = "CSR_GENERATION";
 inline constexpr std::string_view kVerify = "VERIFY";
 inline constexpr std::string_view kRandom = "RANDOM";
 inline constexpr std::string_view kKeyManagement = "KEY:MANAGEMENT";
@@ -92,7 +93,7 @@ static_assert(ScopeOf(kHash).empty(), "unscoped context types carry no scope");
         // recomputing it, so a key that can verify can also generate.
         return Permission::kMac;
     }
-    if (context_type == context_types::kSign)
+    if (context_type == context_types::kSign || context_type == context_types::kCsrGeneration)
     {
         return Permission::kSign;
     }

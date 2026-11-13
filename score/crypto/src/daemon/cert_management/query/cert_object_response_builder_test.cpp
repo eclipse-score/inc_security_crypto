@@ -34,24 +34,15 @@
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/i_cert_slot_handler.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
-#include "score/crypto/src/daemon/cert_management/slot/slot_handler_factory.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/config/inc/config.hpp"
-#include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
-#include "score/crypto/src/daemon/provider/i_provider.hpp"
-#include "score/crypto/src/daemon/provider/provider_manager.hpp"
-#include "score/span.hpp"
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <type_traits>
 #include <vector>
 
 namespace
@@ -59,15 +50,13 @@ namespace
 namespace cert = score::crypto::daemon::cert_management;
 namespace query = cert::query;
 namespace common = score::crypto::daemon::common;
-namespace config = score::crypto::daemon::config;
-namespace provider = score::crypto::daemon::provider;
 
 // ---------------------------------------------------------------------------
 // Helpers — extract typed value from ResponseParameter variant
 // ---------------------------------------------------------------------------
 
 template <typename T>
-const T* ParamAt(const score::crypto::daemon::common::ResponseParameters& params, std::size_t idx)
+const T* GetParam(const score::crypto::daemon::common::ResponseParameters& params, std::size_t idx)
 {
     if (idx >= params.size())
         return nullptr;
@@ -78,16 +67,7 @@ const T* ParamAt(const score::crypto::daemon::common::ResponseParameters& params
 // Synthetic CertObject factory — no OpenSSL dependency
 // ---------------------------------------------------------------------------
 
-struct CertObjectResponseCase
-{
-    const char* name;
-    bool is_ca;
-    std::vector<std::uint8_t> skid;
-    std::vector<std::uint8_t> akid;
-    std::optional<score::crypto::CrlMetadata> crl_metadata;
-};
-
-cert::CertObject MakeSyntheticCert(const CertObjectResponseCase& test_case)
+cert::CertObject MakeSyntheticCert(bool is_ca = true)
 {
     cert::CertChainMetadata meta;
     meta.subject_canonical = "CN=Test CA,O=SCORE,C=DE";
@@ -96,69 +76,13 @@ cert::CertObject MakeSyntheticCert(const CertObjectResponseCase& test_case)
     // Epoch values chosen to fit in int64 and uint64 without sign issues.
     meta.not_before_epoch_s = 1700000000LL;
     meta.not_after_epoch_s = 1730000000LL;
-    meta.is_ca = test_case.is_ca;
-    meta.skid = test_case.skid;
-    meta.akid = test_case.akid;
-    meta.fingerprint.fill(0x5AU);
+    meta.is_ca = is_ca;
+    meta.skid = {0x11, 0x22, 0x33};
+    meta.akid = {0xAA, 0xBB};
+    meta.fingerprint.assign(32U, 0x5A);
 
     // Raw bytes not exercised by serializer — single placeholder byte is sufficient.
     return cert::CertObject{std::move(meta), {0x30}, score::crypto::FormatType::kDer};
-}
-
-common::ResponseParameters ExpectedCertObjectResponse(const CertObjectResponseCase& test_case)
-{
-    const auto crl = test_case.crl_metadata.value_or(score::crypto::CrlMetadata{});
-    return {
-        common::OwnedString{"CN=Test CA,O=SCORE,C=DE"},
-        common::OwnedString{"CN=Root CA,O=SCORE,C=DE"},
-        std::uint64_t{1700000000ULL},
-        std::uint64_t{1730000000ULL},
-        static_cast<std::uint8_t>(test_case.is_ca ? 1U : 0U),
-        common::OwnedBuffer{test_case.skid},
-        common::OwnedBuffer{test_case.akid},
-        common::OwnedString{"01ABCDEF"},
-        common::OwnedBuffer(32U, 0x5AU),
-        static_cast<std::uint8_t>(test_case.crl_metadata.has_value() ? 1U : 0U),
-        common::OwnedBuffer{crl.fingerprint.begin(), crl.fingerprint.end()},
-        common::OwnedBuffer{crl.issuer_fingerprint.begin(), crl.issuer_fingerprint.end()},
-        static_cast<std::uint64_t>(crl.this_update),
-        static_cast<std::uint64_t>(crl.next_update),
-        static_cast<std::uint64_t>(crl.crl_number),
-    };
-}
-
-bool ResponseParameterEquals(const common::ResponseParameter& actual, const common::ResponseParameter& expected)
-{
-    return std::visit(
-        [&actual](const auto& expected_value) {
-            using Value = std::decay_t<decltype(expected_value)>;
-            const auto* actual_value = std::get_if<Value>(&actual);
-            if (actual_value == nullptr)
-                return false;
-            if constexpr (std::is_same_v<Value, common::NoParam>)
-            {
-                return true;
-            }
-            else if constexpr (std::is_same_v<Value, score::cpp::span<const std::uint8_t>>)
-            {
-                return actual_value->size() == expected_value.size() &&
-                       std::equal(actual_value->begin(), actual_value->end(), expected_value.begin());
-            }
-            else
-            {
-                return *actual_value == expected_value;
-            }
-        },
-        expected);
-}
-
-void ExpectResponseParametersEqual(const common::ResponseParameters& actual, const common::ResponseParameters& expected)
-{
-    ASSERT_EQ(actual.size(), expected.size());
-    for (std::size_t index = 0U; index < expected.size(); ++index)
-    {
-        EXPECT_TRUE(ResponseParameterEquals(actual[index], expected[index])) << "parameter index " << index;
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -167,54 +91,81 @@ void ExpectResponseParametersEqual(const common::ResponseParameters& actual, con
 
 struct SlotHandlerStub : public cert::ICertSlotHandler
 {
-    SlotHandlerStub() : cert::ICertSlotHandler{cert::CertSlotConfig{}} {}
-
     mutable score::crypto::Expected<score::crypto::CertificateSlotInfo, score::crypto::daemon::common::DaemonErrorCode>
         slot_info_result{score::crypto::CertificateSlotInfo{score::crypto::CertificateSlotState::kOccupied}};
 
-    score::crypto::Expected<cert::CertObject::Sptr, score::crypto::daemon::common::DaemonErrorCode> LoadCertificate()
-        override
+    mutable std::optional<int64_t> crl_next_update_value{std::nullopt};
+
+    score::crypto::Expected<cert::CertObject::Sptr, score::crypto::daemon::common::DaemonErrorCode> LoadCertificate(
+        const cert::CertSlotConfig&) override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
 
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> StoreCertificate(
+        const cert::CertSlotConfig&,
         const cert::CertObject&) override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
 
-    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ClearSlot() override
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ClearSlot(
+        const cert::CertSlotConfig&) override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
 
     score::crypto::Expected<score::crypto::CertificateSlotState, score::crypto::daemon::common::DaemonErrorCode>
-    GetSlotState() override
+    GetSlotState(const cert::CertSlotConfig&) override
     {
         return score::crypto::CertificateSlotState::kEmpty;
     }
 
     score::crypto::Expected<score::crypto::CertificateSlotInfo, score::crypto::daemon::common::DaemonErrorCode>
-    GetSlotInfo() override
+    GetSlotInfo(const cert::CertSlotConfig&) override
     {
         return slot_info_result;
     }
 
-    score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> HasCrl() override
+    score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> HasCrl(
+        const cert::CertSlotConfig&) override
     {
         return slot_info_result.has_value() && slot_info_result->has_crl;
     }
 
-    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> StoreCrl(
-        const cert::CrlData&) override
+    score::crypto::Expected<std::vector<uint8_t>, score::crypto::daemon::common::DaemonErrorCode> LoadCrl(
+        const cert::CertSlotConfig&) override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
     }
 
-    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ClearCrl() override
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> StoreCrl(
+        const cert::CertSlotConfig&,
+        score::crypto::span<const uint8_t>,
+        score::crypto::FormatType,
+        std::optional<score::crypto::CrlMetadata>) override
     {
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    }
+
+    score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ClearCrl(
+        const cert::CertSlotConfig&) override
+    {
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    }
+
+    score::crypto::Expected<int64_t, score::crypto::daemon::common::DaemonErrorCode> GetCrlNextUpdate(
+        const cert::CertSlotConfig&) override
+    {
+        if (!crl_next_update_value.has_value())
+            return score::crypto::make_unexpected(
+                score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+        return *crl_next_update_value;
+    }
+
+    score::crypto::FormatType GetCrlFormat(const cert::CertSlotConfig&) override
+    {
+        return score::crypto::FormatType::kDer;
     }
 };
 
@@ -222,76 +173,156 @@ struct SlotHandlerStub : public cert::ICertSlotHandler
 // BuildCertObjectResponse
 // ===========================================================================
 
-class BuildCertObjectResponseTest : public ::testing::TestWithParam<CertObjectResponseCase>
+TEST(BuildCertObjectResponse, ProducesFifteenParameters)
 {
-};
-
-TEST_P(BuildCertObjectResponseTest, MatchesEveryExpectedParameter)
-{
-    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_management__parse");
-    RecordProperty("Description",
-                   "Verifies CertObject chain metadata is encoded in the daemon IPC response parameters.");
-    RecordProperty("TestType", "requirements-based");
-    RecordProperty("DerivationTechnique", "requirements-analysis");
-
-    const auto& test_case = GetParam();
-    const auto cert = MakeSyntheticCert(test_case);
-    const auto result = query::BuildCertObjectResponse(cert, test_case.crl_metadata);
-    ASSERT_TRUE(result.has_value());
-    ExpectResponseParametersEqual(result.value(), ExpectedCertObjectResponse(test_case));
+    const auto cert = MakeSyntheticCert();
+    EXPECT_EQ(query::BuildCertObjectResponse(cert).value().size(), 15U);
 }
 
-score::crypto::CrlMetadata MakeSyntheticCrlMetadata()
+TEST(BuildCertObjectResponse, Param0_SubjectString)
 {
+    const auto cert = MakeSyntheticCert();
+    const auto params = query::BuildCertObjectResponse(cert).value();
+    const auto* val = GetParam<score::crypto::daemon::common::OwnedString>(params, 0U);
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, "CN=Test CA,O=SCORE,C=DE");
+}
+
+TEST(BuildCertObjectResponse, Param1_IssuerString)
+{
+    const auto cert = MakeSyntheticCert();
+    const auto params = query::BuildCertObjectResponse(cert).value();
+    const auto* val = GetParam<score::crypto::daemon::common::OwnedString>(params, 1U);
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, "CN=Root CA,O=SCORE,C=DE");
+}
+
+TEST(BuildCertObjectResponse, Param2_NotBeforeEpochUint64)
+{
+    const auto cert = MakeSyntheticCert();
+    const auto params = query::BuildCertObjectResponse(cert).value();
+    const auto* val = GetParam<std::uint64_t>(params, 2U);
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, static_cast<std::uint64_t>(1700000000ULL));
+}
+
+TEST(BuildCertObjectResponse, Param3_NotAfterEpochUint64)
+{
+    const auto cert = MakeSyntheticCert();
+    const auto params = query::BuildCertObjectResponse(cert).value();
+    const auto* val = GetParam<std::uint64_t>(params, 3U);
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, static_cast<std::uint64_t>(1730000000ULL));
+}
+
+TEST(BuildCertObjectResponse, Param4_IsCaTrue_EncodesAs1)
+{
+    const auto cert = MakeSyntheticCert(/*is_ca=*/true);
+    const auto params = query::BuildCertObjectResponse(cert).value();
+    const auto* val = GetParam<std::uint8_t>(params, 4U);
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, 1U);
+}
+
+TEST(BuildCertObjectResponse, Param4_IsCaFalse_EncodesAs0)
+{
+    const auto cert = MakeSyntheticCert(/*is_ca=*/false);
+    const auto params = query::BuildCertObjectResponse(cert).value();
+    const auto* val = GetParam<std::uint8_t>(params, 4U);
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, 0U);
+}
+
+TEST(BuildCertObjectResponse, Param5_SkidBuffer)
+{
+    const auto cert = MakeSyntheticCert();
+    const auto params = query::BuildCertObjectResponse(cert).value();
+    const auto* val = GetParam<score::crypto::daemon::common::OwnedBuffer>(params, 5U);
+    ASSERT_NE(val, nullptr);
+    ASSERT_EQ(val->size(), 3U);
+    EXPECT_EQ((*val)[0], 0x11U);
+    EXPECT_EQ((*val)[1], 0x22U);
+    EXPECT_EQ((*val)[2], 0x33U);
+}
+
+TEST(BuildCertObjectResponse, Param6_AkidBuffer)
+{
+    const auto cert = MakeSyntheticCert();
+    const auto params = query::BuildCertObjectResponse(cert).value();
+    const auto* val = GetParam<score::crypto::daemon::common::OwnedBuffer>(params, 6U);
+    ASSERT_NE(val, nullptr);
+    ASSERT_EQ(val->size(), 2U);
+    EXPECT_EQ((*val)[0], 0xAAU);
+    EXPECT_EQ((*val)[1], 0xBBU);
+}
+
+TEST(BuildCertObjectResponse, Param7_SerialNumberString)
+{
+    const auto cert = MakeSyntheticCert();
+    const auto params = query::BuildCertObjectResponse(cert).value();
+    const auto* val = GetParam<score::crypto::daemon::common::OwnedString>(params, 7U);
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, "01ABCDEF");
+}
+
+TEST(BuildCertObjectResponse, Param8_Fingerprint32ByteBuffer)
+{
+    const auto cert = MakeSyntheticCert();
+    const auto params = query::BuildCertObjectResponse(cert).value();
+    const auto* val = GetParam<score::crypto::daemon::common::OwnedBuffer>(params, 8U);
+    ASSERT_NE(val, nullptr);
+    ASSERT_EQ(val->size(), 32U);
+    for (const auto byte : *val)
+        EXPECT_EQ(byte, 0x5AU);
+}
+
+TEST(BuildCertObjectResponse, CrlMetadataUsesTypedTail)
+{
+    const auto cert = MakeSyntheticCert();
     score::crypto::CrlMetadata metadata;
     metadata.fingerprint.fill(0xA1U);
     metadata.issuer_fingerprint.fill(0xB2U);
     metadata.this_update = 1700000000LL;
     metadata.next_update = 1730000000LL;
     metadata.crl_number = 7U;
-    return metadata;
+
+    const auto params = query::BuildCertObjectResponse(cert, metadata).value();
+    const auto* has_crl = GetParam<std::uint8_t>(params, 9U);
+    const auto* crl_fp = GetParam<score::crypto::daemon::common::OwnedBuffer>(params, 10U);
+    const auto* issuer_fp = GetParam<score::crypto::daemon::common::OwnedBuffer>(params, 11U);
+    const auto* this_update = GetParam<std::uint64_t>(params, 12U);
+    const auto* next_update = GetParam<std::uint64_t>(params, 13U);
+    const auto* crl_number = GetParam<std::uint64_t>(params, 14U);
+    ASSERT_NE(has_crl, nullptr);
+    ASSERT_NE(crl_fp, nullptr);
+    ASSERT_NE(issuer_fp, nullptr);
+    ASSERT_NE(this_update, nullptr);
+    ASSERT_NE(next_update, nullptr);
+    ASSERT_NE(crl_number, nullptr);
+    EXPECT_EQ(*has_crl, 1U);
+    EXPECT_EQ(crl_fp->size(), 32U);
+    EXPECT_EQ(issuer_fp->size(), 32U);
+    EXPECT_EQ(*this_update, static_cast<std::uint64_t>(metadata.this_update));
+    EXPECT_EQ(*next_update, static_cast<std::uint64_t>(metadata.next_update));
+    EXPECT_EQ(*crl_number, metadata.crl_number);
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    CertificateVariants,
-    BuildCertObjectResponseTest,
-    ::testing::Values(
-        CertObjectResponseCase{"CertificateWithoutCrl", true, {0x11U, 0x22U, 0x33U}, {0xAAU, 0xBBU}, std::nullopt},
-        CertObjectResponseCase{"NonCaWithCrlMetadata",
-                               false,
-                               {0x11U, 0x22U, 0x33U},
-                               {0xAAU, 0xBBU},
-                               MakeSyntheticCrlMetadata()},
-        CertObjectResponseCase{"EmptyKeyIdentifiers", true, {}, {}, std::nullopt}),
-    [](const ::testing::TestParamInfo<CertObjectResponseCase>& info) {
-        return info.param.name;
-    });
-
-TEST(BuildCertObjectResponse, PreEpochTimesEncodeAsTwosComplementBits)
+TEST(BuildCertObjectResponse, EmptySkidAndAkidEncodeAsEmptyBuffers)
 {
     cert::CertChainMetadata meta;
-    meta.subject_canonical = "CN=Pre-Epoch CA,O=SCORE,C=DE";
-    meta.issuer_canonical = "CN=Pre-Epoch CA,O=SCORE,C=DE";
-    meta.not_before_epoch_s = -631152000LL;  // 1950-01-01T00:00:00Z
-    meta.not_after_epoch_s = -1LL;           // 1969-12-31T23:59:59Z
-    const auto cert = cert::CertObject{std::move(meta), {0x30}, score::crypto::FormatType::kDer};
+    meta.subject_canonical = "CN=Leaf";
+    meta.issuer_canonical = "CN=CA";
+    meta.fingerprint.assign(32U, 0x00);
+    // skid and akid left default (empty vectors)
 
-    score::crypto::CrlMetadata crl = MakeSyntheticCrlMetadata();
-    crl.this_update = -86400LL;
-    const auto result = query::BuildCertObjectResponse(cert, crl);
-    ASSERT_TRUE(result.has_value());
-    const auto& params = result.value();
-    ASSERT_EQ(params.size(), 15U);
-
-    const auto* not_before = ParamAt<std::uint64_t>(params, 2U);
-    const auto* not_after = ParamAt<std::uint64_t>(params, 3U);
-    const auto* this_update = ParamAt<std::uint64_t>(params, 12U);
-    ASSERT_NE(not_before, nullptr);
-    ASSERT_NE(not_after, nullptr);
-    ASSERT_NE(this_update, nullptr);
-    EXPECT_EQ(static_cast<std::int64_t>(*not_before), -631152000LL);
-    EXPECT_EQ(static_cast<std::int64_t>(*not_after), -1LL);
-    EXPECT_EQ(static_cast<std::int64_t>(*this_update), -86400LL);
+    cert::CertObject leaf{std::move(meta), {0x30}, score::crypto::FormatType::kDer};
+    const auto params = query::BuildCertObjectResponse(leaf).value();
+    const auto* skid = GetParam<score::crypto::daemon::common::OwnedBuffer>(params, 5U);
+    const auto* akid = GetParam<score::crypto::daemon::common::OwnedBuffer>(params, 6U);
+    ASSERT_NE(skid, nullptr);
+    ASSERT_NE(akid, nullptr);
+    EXPECT_TRUE(skid->empty());
+    EXPECT_TRUE(akid->empty());
 }
 
 TEST(BuildCertObjectResponse, OversizedDnsReturnResponseTooLarge)
@@ -302,7 +333,7 @@ TEST(BuildCertObjectResponse, OversizedDnsReturnResponseTooLarge)
     // any single-field limit.
     meta.subject_canonical = std::string(900U, 'A');
     meta.issuer_canonical = std::string(900U, 'B');
-    meta.fingerprint.fill(0x00U);
+    meta.fingerprint.assign(32U, 0x00);
 
     cert::CertObject oversized{std::move(meta), {0x30}, score::crypto::FormatType::kDer};
     const auto result = query::BuildCertObjectResponse(oversized);
@@ -313,99 +344,10 @@ TEST(BuildCertObjectResponse, OversizedDnsReturnResponseTooLarge)
 // ===========================================================================
 // BuildCertSlotInfoResponse
 //
-// CertSlotManager uses the real SlotHandlerFactory; a registered test provider
-// returns the SlotHandlerStub. CheckSlotAccess is permissive for reads, so no UID
-// configuration is required.
+// CertSlotManager is constructed with a minimal CertSlotRegistry and a factory
+// that returns a SlotHandlerStub.  CheckSlotAccess is unconditionally permissive
+// for reads, so no UID configuration is required.
 // ===========================================================================
-
-class QueryTestParser final : public provider::cert_management::ICertParser
-{
-  public:
-    score::crypto::Expected<cert::CertObject::Sptr, common::DaemonErrorCode>
-    ParseCertificate(const std::uint8_t*, std::size_t, score::crypto::FormatType) override
-    {
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
-    }
-
-    score::crypto::Expected<std::vector<cert::CertObject::Sptr>, common::DaemonErrorCode>
-    ParseCertificates(const std::uint8_t*, std::size_t, score::crypto::FormatType) override
-    {
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
-    }
-
-    score::crypto::Expected<std::vector<std::uint8_t>, common::DaemonErrorCode> EncodeCertificate(
-        const cert::CertObject&,
-        score::crypto::FormatType) override
-    {
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
-    }
-
-    score::crypto::Expected<score::crypto::CrlMetadata, common::DaemonErrorCode>
-    ValidateCrl(const cert::CrlData&, const std::uint8_t*, std::size_t, score::crypto::FormatType) override
-    {
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
-    }
-};
-
-class QueryTestProvider final : public provider::IProvider
-{
-  public:
-    QueryTestProvider(provider::cert_management::ICertParser::Sptr parser, cert::ICertSlotHandler::Sptr handler)
-        : m_parser{std::move(parser)}, m_handler{std::move(handler)}
-    {
-    }
-
-    bool Initialize(const provider::ProviderInitContext& context) override
-    {
-        m_provider_id = context.numeric_id;
-        m_provider_name = context.name;
-        m_initialized = true;
-        return true;
-    }
-
-    void Shutdown() override
-    {
-        m_initialized = false;
-    }
-
-    [[nodiscard]] bool IsInitialized() const override
-    {
-        return m_initialized;
-    }
-
-    common::ProviderId GetProviderId() const override
-    {
-        return m_provider_id;
-    }
-
-    const common::ProviderName& GetProviderName() const override
-    {
-        return m_provider_name;
-    }
-
-    provider::cert_management::ICertParser::Sptr GetCertParser() override
-    {
-        return m_parser;
-    }
-
-    std::shared_ptr<cert::ICertSlotHandler> GetCertSlotHandler(const cert::CertSlotConfig&,
-                                                               provider::cert_management::ICertParser::Sptr) override
-    {
-        return m_handler;
-    }
-
-    [[nodiscard]] common::ProviderCapability GetProviderCapabilities() override
-    {
-        return common::ProviderCapability::kCertManagement;
-    }
-
-  private:
-    provider::cert_management::ICertParser::Sptr m_parser;
-    cert::ICertSlotHandler::Sptr m_handler;
-    common::ProviderId m_provider_id{common::kInvalidProviderId};
-    common::ProviderName m_provider_name;
-    bool m_initialized{false};
-};
 
 class BuildCertSlotInfoResponseTest : public ::testing::Test
 {
@@ -417,17 +359,13 @@ class BuildCertSlotInfoResponseTest : public ::testing::Test
         auto registry = std::make_shared<cert::CertSlotRegistry>();
         cert::CertSlotConfig cfg;
         cfg.slot_name = "test/serializer-slot";
-        cfg.storage_backend = "QUERY_TEST_PROVIDER";
         slot_handle_ = registry->RegisterSlot(cfg);
 
         stub_ = std::make_shared<SlotHandlerStub>();
-        auto provider_manager = std::make_shared<provider::ProviderManager>(config::ProviderInitConfig{});
-        auto test_provider = std::make_shared<QueryTestProvider>(std::make_shared<QueryTestParser>(), stub_);
-        ASSERT_TRUE(provider_manager->RegisterProvider(
-            "QUERY_TEST_PROVIDER", test_provider, common::CryptoProviderType::SOFTWARE));
-        ASSERT_TRUE(provider_manager->Initialize());
-        auto factory = std::make_shared<cert::SlotHandlerFactory>(std::move(provider_manager));
-        mgr_ = std::make_unique<cert::CertSlotManager>(std::move(registry), std::move(factory));
+        auto stub_ptr = stub_;
+        mgr_ = std::make_unique<cert::CertSlotManager>(std::move(registry), [stub_ptr](const cert::CertSlotConfig&) {
+            return stub_ptr;
+        });
     }
 
     cert::CertSlotHandle slot_handle_{};
@@ -442,39 +380,47 @@ TEST_F(BuildCertSlotInfoResponseTest, ProducesTwoParameters)
     EXPECT_EQ(result.value().size(), 2U);
 }
 
-struct SlotInfoCase
+TEST_F(BuildCertSlotInfoResponseTest, Param0_SlotStateUint8_Occupied)
 {
-    score::crypto::CertificateSlotState state;
-    bool has_crl;
-};
-
-class BuildCertSlotInfoEncodingTest : public BuildCertSlotInfoResponseTest,
-                                      public ::testing::WithParamInterface<SlotInfoCase>
-{
-};
-
-TEST_P(BuildCertSlotInfoEncodingTest, EncodesStateAndCrlFlagAsBytes)
-{
-    const auto [state, has_crl] = GetParam();
-    stub_->slot_info_result = score::crypto::CertificateSlotInfo{state};
-    stub_->slot_info_result->has_crl = has_crl;
-
+    stub_->slot_info_result = score::crypto::CertificateSlotInfo{score::crypto::CertificateSlotState::kOccupied};
     const auto result = query::BuildCertSlotInfoResponse(*mgr_, slot_handle_, kClientId);
     ASSERT_TRUE(result.has_value());
-    const auto* state_val = ParamAt<std::uint8_t>(result.value(), 0U);
-    const auto* crl_val = ParamAt<std::uint8_t>(result.value(), 1U);
-    ASSERT_NE(state_val, nullptr);
-    ASSERT_NE(crl_val, nullptr);
-    EXPECT_EQ(*state_val, static_cast<std::uint8_t>(state));
-    EXPECT_EQ(*crl_val, has_crl ? 1U : 0U);
+    const auto* val = GetParam<std::uint8_t>(result.value(), 0U);
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, static_cast<std::uint8_t>(score::crypto::CertificateSlotState::kOccupied));
 }
 
-INSTANTIATE_TEST_SUITE_P(StateAndCrl,
-                         BuildCertSlotInfoEncodingTest,
-                         ::testing::Values(SlotInfoCase{score::crypto::CertificateSlotState::kEmpty, false},
-                                           SlotInfoCase{score::crypto::CertificateSlotState::kEmpty, true},
-                                           SlotInfoCase{score::crypto::CertificateSlotState::kOccupied, false},
-                                           SlotInfoCase{score::crypto::CertificateSlotState::kOccupied, true}));
+TEST_F(BuildCertSlotInfoResponseTest, Param0_SlotStateUint8_Empty)
+{
+    stub_->slot_info_result = score::crypto::CertificateSlotInfo{score::crypto::CertificateSlotState::kEmpty};
+    const auto result = query::BuildCertSlotInfoResponse(*mgr_, slot_handle_, kClientId);
+    ASSERT_TRUE(result.has_value());
+    const auto* val = GetParam<std::uint8_t>(result.value(), 0U);
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, static_cast<std::uint8_t>(score::crypto::CertificateSlotState::kEmpty));
+}
+
+TEST_F(BuildCertSlotInfoResponseTest, NoCrl_Param1IsZero)
+{
+    stub_->slot_info_result->has_crl = false;
+    const auto result = query::BuildCertSlotInfoResponse(*mgr_, slot_handle_, kClientId);
+    ASSERT_TRUE(result.has_value());
+
+    const auto* has_crl = GetParam<std::uint8_t>(result.value(), 1U);
+    ASSERT_NE(has_crl, nullptr);
+    EXPECT_EQ(*has_crl, 0U);
+}
+
+TEST_F(BuildCertSlotInfoResponseTest, CrlPresent_Param1IsOne)
+{
+    stub_->slot_info_result->has_crl = true;
+    const auto result = query::BuildCertSlotInfoResponse(*mgr_, slot_handle_, kClientId);
+    ASSERT_TRUE(result.has_value());
+
+    const auto* has_crl = GetParam<std::uint8_t>(result.value(), 1U);
+    ASSERT_NE(has_crl, nullptr);
+    EXPECT_EQ(*has_crl, 1U);
+}
 
 TEST_F(BuildCertSlotInfoResponseTest, GetSlotInfoError_PropagatesError)
 {

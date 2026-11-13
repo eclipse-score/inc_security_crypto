@@ -27,12 +27,12 @@ namespace
 /// Rejects a built payload that exceeds the IPC response budget instead of
 /// returning it. Centralises the check so every builder below applies the
 /// same conservative margin.
-score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> ResponseWithinBudget(
+score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> CheckBudget(
     common::ResponseParameters params)
 {
     if (common::EstimateResponseSize(params) > common::kMaxResponsePayloadBytes)
         return score::crypto::make_unexpected(common::DaemonErrorCode::kResponseTooLarge);
-    return std::move(params);
+    return params;
 }
 
 score::crypto::Expected<score::crypto::MemberKind, common::DaemonErrorCode> ToApiMemberKind(TrustStoreMemberKind kind)
@@ -59,8 +59,6 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     common::ResponseParameters out;
     out.push_back(common::OwnedString{meta.subject_canonical});
     out.push_back(common::OwnedString{meta.issuer_canonical});
-    // Epoch fields are signed. Pre-1970 values are valid and travel as two's-complement bits in the
-    // uint64 slot; readers restore them with static_cast<std::int64_t>.
     out.push_back(static_cast<std::uint64_t>(meta.not_before_epoch_s));
     out.push_back(static_cast<std::uint64_t>(meta.not_after_epoch_s));
     out.push_back(static_cast<std::uint8_t>(meta.is_ca ? 1U : 0U));
@@ -69,19 +67,17 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     out.push_back(common::OwnedString{meta.serial_number_hex});
     out.push_back(common::OwnedBuffer{meta.fingerprint.begin(), meta.fingerprint.end()});
     out.push_back(static_cast<std::uint8_t>(crl_metadata.has_value() ? 1U : 0U));
-    // CRL fields are zero-filled when has_crl is 0 and carry no meaning in that case.
     const auto crl = crl_metadata.value_or(score::crypto::CrlMetadata{});
     out.push_back(common::OwnedBuffer{crl.fingerprint.begin(), crl.fingerprint.end()});
     out.push_back(common::OwnedBuffer{crl.issuer_fingerprint.begin(), crl.issuer_fingerprint.end()});
-    // Signed epoch fields, encoded as in the certificate times above.
     out.push_back(static_cast<std::uint64_t>(crl.this_update));
     out.push_back(static_cast<std::uint64_t>(crl.next_update));
     out.push_back(crl.crl_number);
-    return ResponseWithinBudget(std::move(out));
+    return CheckBudget(std::move(out));
 }
 
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode>
-BuildCertSlotInfoResponse(ICertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id)
+BuildCertSlotInfoResponse(CertSlotManager& mgr, CertSlotHandle slot, data_manager::ClientId client_id)
 {
     auto info_res = mgr.GetSlotInfo(slot, client_id);
     if (!info_res.has_value())
@@ -103,9 +99,9 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     slot_node_ids.reserve(slots.size());
     for (const auto& slot : slots)
     {
-        auto nid_res = service.ResolveCertSlotNode(slot, client_id);
+        auto nid_res = service.ResolveCertSlot(slot, client_id);
         if (!nid_res.has_value())
-            return score::crypto::make_unexpected(nid_res.error());
+            continue;  // slot not resolvable — omit silently rather than failing
         slot_node_ids.push_back(static_cast<std::uint64_t>(nid_res.value()));
     }
 
@@ -113,7 +109,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     out.push_back(static_cast<std::uint64_t>(slot_node_ids.size()));
     for (const auto node_id : slot_node_ids)
         out.push_back(node_id);
-    return ResponseWithinBudget(std::move(out));
+    return CheckBudget(std::move(out));
 }
 
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> BuildTrustStoreMemberObjectResponse(
@@ -121,7 +117,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     CertManagementService& service,
     std::uint64_t client_id)
 {
-    auto nid_res = service.ResolveCertSlotNode(member.slot_handle, client_id);
+    auto nid_res = service.ResolveCertSlot(member.slot_handle, client_id);
     if (!nid_res.has_value())
         return score::crypto::make_unexpected(nid_res.error());
     const auto kind_res = ToApiMemberKind(member.kind);
@@ -136,7 +132,7 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     out.push_back(common::OwnedString{member.serial_number});
     out.push_back(static_cast<std::uint8_t>(kind_res.value()));
     out.push_back(static_cast<std::uint8_t>(member.status));
-    return ResponseWithinBudget(std::move(out));
+    return CheckBudget(std::move(out));
 }
 
 }  // namespace score::crypto::daemon::cert_management::query

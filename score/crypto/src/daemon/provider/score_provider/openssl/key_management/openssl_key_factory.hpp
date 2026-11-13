@@ -88,6 +88,12 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     [[nodiscard]] ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
     GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
 
+    /// Internal private-key serialization for slot persistence; independent of
+    /// the public export permission. DER round-trips through ImportKey().
+    [[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
+                                            ::score::crypto::daemon::common::DaemonErrorCode>
+    SerializePrivateKeyForPersistence(const key_management::ProviderKeyHandle& handle) override;
+
   private:
     /// Result of parsing DER key material.
     struct ParsedDerKey

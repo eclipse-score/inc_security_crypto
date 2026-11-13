@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_NODES_TRUST_STORE_DATA_NODE_HPP
 
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
+#include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
 
 namespace score::crypto::daemon::cert_management
@@ -30,23 +31,34 @@ namespace score::crypto::daemon::cert_management
 class TrustStoreDataNode final : public data_manager::DataNode
 {
   public:
-    /// @param handle Handle of the manager-owned trust store.
-    explicit TrustStoreDataNode(TrustStoreHandle handle) : DataNode(false), m_handle{handle} {}
+    TrustStoreDataNode(TrustStoreHandle handle, TrustStoreManager::Sptr manager)
+        : DataNode(false), m_handle{handle}, m_manager{std::move(manager)}
+    {
+    }
 
-    /// @brief Returns the data manager node type for trust store data.
     data_manager::DataNodeType GetNodeType() const noexcept override
     {
         return data_manager::DataNodeType::kTrustStore;
     }
 
-    /// @brief Handle of the referenced trust store.
     TrustStoreHandle GetTrustStoreHandle() const noexcept
     {
         return m_handle;
     }
 
+    TrustStoreManager::Sptr GetTrustStoreManager() const
+    {
+        return m_manager;
+    }
+
+    ITrustStoreHandler::Sptr GetStore() const
+    {
+        return m_manager ? m_manager->GetStore(m_handle) : nullptr;
+    }
+
   private:
     TrustStoreHandle m_handle;
+    TrustStoreManager::Sptr m_manager;
 };
 
 }  // namespace score::crypto::daemon::cert_management

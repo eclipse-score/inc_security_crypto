@@ -14,7 +14,6 @@
 #include "score/crypto/src/daemon/cert_management/slot/slot_handler_factory.hpp"
 
 #include "score/crypto/src/daemon/cert_management/slot/file_backed_slot_handler.hpp"
-#include "score/crypto/src/daemon/provider/i_provider.hpp"
 #include "score/mw/log/logging.h"
 
 #include <string_view>
@@ -27,117 +26,66 @@ namespace
 constexpr std::string_view kLogPrefix{"[CertMgmt] "};
 }
 
-SlotHandlerFactory::SlotHandlerFactory(provider::ProviderManager::Sptr provider_manager,
-                                       common::ProviderName parser_provider_name)
-    : m_provider_manager{std::move(provider_manager)}, m_parser_provider_name{std::move(parser_provider_name)}
+provider::cert_management::ICertParser::Sptr SlotHandlerFactory::ResolveCertParser(
+    const provider::ProviderManager::Sptr& provider_manager) const
 {
-}
-
-score::crypto::Expected<provider::cert_management::ICertParser::Sptr, common::DaemonErrorCode>
-SlotHandlerFactory::ResolveCertParser() const
-{
-    if (m_parser_cache.resolved.load(std::memory_order_acquire))
     {
-        return m_parser_cache.parser;
-    }
-
-    const std::lock_guard lock{m_parser_cache.mutex};
-    if (m_parser_cache.resolved.load(std::memory_order_relaxed))
-    {
-        return m_parser_cache.parser;
-    }
-
-    const bool parser_provider_is_pinned = !m_parser_provider_name.empty();
-    if (!m_provider_manager)
-    {
-        if (parser_provider_is_pinned)
+        std::lock_guard<std::mutex> lock(m_cache->mutex);
+        if (m_cache->parser)
         {
-            score::mw::log::LogError() << kLogPrefix << "Configured certificate parser provider '"
-                                       << m_parser_provider_name << "' cannot be resolved without a provider manager.";
-            return score::crypto::make_unexpected(common::DaemonErrorCode::kProviderNotAvailable);
+            return m_cache->parser;
         }
-        score::mw::log::LogWarn() << kLogPrefix << "No provider manager is available for certificate parsing.";
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
     }
 
-    auto parser_provider =
-        parser_provider_is_pinned
-            ? m_provider_manager->GetProvider(m_parser_provider_name)
-            : m_provider_manager->GetProviderForCapability(common::ProviderCapability::kCertManagement);
-    if (!parser_provider)
+    if (!provider_manager)
     {
-        if (parser_provider_is_pinned)
-        {
-            score::mw::log::LogError() << kLogPrefix << "Configured certificate parser provider '"
-                                       << m_parser_provider_name << "' is unavailable.";
-            return score::crypto::make_unexpected(common::DaemonErrorCode::kProviderNotAvailable);
-        }
-        score::mw::log::LogWarn() << kLogPrefix
-                                  << "No provider with kCertManagement capability is available; "
-                                     "certificate parsing remains unavailable.";
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+        return nullptr;
     }
 
-    if (!common::HasCapability(parser_provider->GetProviderCapabilities(), common::ProviderCapability::kCertManagement))
+    auto cert_prov = provider_manager->GetProviderForCapability(common::ProviderCapability::kCertManagement);
+    if (!cert_prov)
     {
-        score::mw::log::LogError() << kLogPrefix << "Certificate parser provider '"
-                                   << parser_provider->GetProviderName() << "' does not advertise kCertManagement.";
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+        score::mw::log::LogWarn() << kLogPrefix << "No provider with kCertManagement capability registered."
+                                  << " Certificate slot loads will fail.";
+        return nullptr;
     }
 
-    auto parser = parser_provider->GetCertParser();
-    if (!parser)
+    auto cert_parser = cert_prov->GetCertParser();
+    if (!cert_parser)
     {
-        score::mw::log::LogError() << kLogPrefix << "Provider '" << parser_provider->GetProviderName()
-                                   << "' advertises kCertManagement but returned no certificate parser.";
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+        score::mw::log::LogError() << kLogPrefix << "Provider '" << cert_prov->GetProviderName()
+                                   << "' advertises kCertManagement but GetCertParser() returned null."
+                                   << " Providers claiming kCertManagement must implement GetCertParser()."
+                                   << " Certificate slot loads will fail until this is resolved.";
+        return nullptr;
     }
 
-    m_parser_cache.parser = std::move(parser);
-    m_parser_cache.resolved.store(true, std::memory_order_release);
-    return m_parser_cache.parser;
+    std::lock_guard<std::mutex> lock(m_cache->mutex);
+    m_cache->parser = std::move(cert_parser);
+    return m_cache->parser;
 }
 
-score::crypto::Expected<std::monostate, common::DaemonErrorCode> SlotHandlerFactory::Initialize() const
+ICertSlotHandler::Sptr SlotHandlerFactory::operator()(const CertSlotConfig& slot) const
 {
-    const auto parser_result = ResolveCertParser();
-    if (!parser_result.has_value())
-    {
-        return score::crypto::make_unexpected(parser_result.error());
-    }
-    return std::monostate{};
-}
-
-score::crypto::Expected<ICertSlotHandler::Sptr, common::DaemonErrorCode> SlotHandlerFactory::Create(
-    const CertSlotConfig& slot) const
-{
-    auto parser = ResolveCertParser();
-    if (!parser.has_value())
-    {
-        return score::crypto::make_unexpected(parser.error());
-    }
+    auto provider_manager = m_provider_manager.lock();
+    auto cert_parser = ResolveCertParser(provider_manager);
 
     if (slot.storage_backend == "DEFAULT")
     {
-        return ICertSlotHandler::Sptr{std::make_shared<FileBackedSlotHandler>(slot, parser.value())};
+        return std::make_shared<FileBackedSlotHandler>(std::move(cert_parser));
     }
 
-    if (!m_provider_manager)
+    if (!provider_manager)
     {
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kProviderNotAvailable);
+        return nullptr;
     }
 
-    auto provider = m_provider_manager->GetProvider(slot.storage_backend);
+    auto provider = provider_manager->GetProvider(slot.storage_backend);
     if (!provider)
     {
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kProviderNotAvailable);
+        return nullptr;
     }
-    auto handler = provider->GetCertSlotHandler(slot, parser.value());
-    if (!handler)
-    {
-        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
-    }
-    return handler;
+    return provider->GetCertSlotHandler(slot, std::move(cert_parser));
 }
 
 }  // namespace score::crypto::daemon::cert_management

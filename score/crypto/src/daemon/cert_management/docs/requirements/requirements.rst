@@ -27,7 +27,7 @@ Certificate Management Requirements
 Scope
 -----
 
-The requirements below describe the daemon component boundary. API
+The requirements below describe the current daemon component boundary. API
 context and mediator requirements are included only where they affect the
 component contract.
 
@@ -47,7 +47,7 @@ Functional requirements
    loading, storage, state, metadata, and release operations through a slot
    handler.
 
-.. comp_req:: Represent certificates in a provider-neutral format
+.. comp_req:: Parse provider-neutral certificates
    :id: comp_req__crypto_cert_management__parse
    :version: 1
    :reqtype: Functional
@@ -59,23 +59,6 @@ Functional requirements
    The component shall represent parsed certificate bytes as immutable
    ``CertObject`` values containing raw bytes, format, and chain metadata.
    Parsing shall be supplied through the narrow ``ICertParser`` interface.
-
-.. comp_req:: Use one canonical certificate parser
-   :id: comp_req__crypto_cert_mgmt__parser_authority
-   :version: 1
-   :reqtype: Functional
-   :security: YES
-   :safety: QM
-   :status: valid
-   :satisfied_by: comp__crypto_cert_management
-
-   The component shall parse all certificates through a single ``ICertParser``
-   instance so that a certificate's derived identity does not vary with the
-   caller. The supplying provider shall be the one named in the certificate
-   configuration when a name is configured, and otherwise the provider selected
-   for the certificate-management capability. A configured parser provider that
-   cannot supply a parser shall be reported as a configuration failure rather
-   than replaced by another provider.
 
 .. comp_req:: Manage trust-store membership
    :id: comp_req__crypto_cert_mgmt__trust_stores
@@ -89,19 +72,6 @@ Functional requirements
    The component shall manage named trust stores whose members are typed
    certificate-slot references. Slot changes shall invalidate affected anchor
    caches.
-
-.. comp_req:: Scope trust-store cache refresh to changed members
-   :id: comp_req__crypto_cert_mgmt__tstr_cnsstncy
-   :version: 1
-   :reqtype: Functional
-   :security: YES
-   :safety: QM
-   :status: valid
-   :satisfied_by: comp__crypto_cert_management
-
-   A change to one certificate slot shall refresh only the anchor and CRL cache
-   entries of trust-store members backed by that slot. Concurrent readers of a
-   trust store's anchor and CRL caches shall observe a complete anchor set.
 
 .. comp_req:: Persist certificate and CRL state
    :id: comp_req__crypto_cert_management__persistence

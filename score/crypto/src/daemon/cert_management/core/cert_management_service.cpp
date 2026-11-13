@@ -11,7 +11,6 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 #include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
-#include "score/crypto/src/daemon/cert_management/nodes/cert_data_node.hpp"
 #include "score/crypto/src/daemon/cert_management/nodes/cert_slot_data_node.hpp"
 #include "score/crypto/src/daemon/cert_management/nodes/trust_store_data_node.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
@@ -24,239 +23,119 @@ CertManagementService::CertManagementService(data_manager::IDataManager::Sptr da
                                              CertSlotRegistry::Sptr slot_registry,
                                              TrustStoreManager::Sptr trust_store_manager,
                                              CertSlotManager::Sptr slot_manager)
-    : m_slot_registry{std::move(slot_registry)},
-      m_slot_manager{std::move(slot_manager)},
+    : m_data_manager{std::move(data_manager)},
+      m_slot_registry{std::move(slot_registry)},
       m_trust_store_manager{std::move(trust_store_manager)},
-      m_data_manager{std::move(data_manager)}
+      m_slot_manager{std::move(slot_manager)}
 {
 }
 
-score::crypto::Expected<RegisteredCert, Error> CertManagementService::RegisterCertificate(
+score::crypto::Expected<CertDataNodeResult, Error> CertManagementService::RegisterCertMaterial(
     const CertRegistrationParams& params,
     CertObject::Sptr object)
 {
     if (!object || !m_data_manager)
-    {
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
-    auto instance = std::make_shared<CertEntry>(params.client_id, std::move(object), params.slot_handle);
-    auto id = params.slot_handle.IsValid() ? m_cert_registry->RegisterSlotCert(params.slot_handle, instance)
-                                           : m_cert_registry->RegisterEphemeralCert(instance);
-    if (id == 0U)
-    {
-        return score::crypto::make_unexpected(Error::kInternalError);
-    }
-    auto node = std::make_shared<CertDataNode>(instance, m_cert_registry, id, params.client_id);
+    auto entry = std::make_shared<CertEntry>(std::move(object), params.slot_handle, params.client_id);
+    auto id = params.slot_handle.IsValid() ? m_cert_registry.RegisterSlotCert(params.slot_handle, entry)
+                                           : m_cert_registry.RegisterEphemeralCert(entry);
+    auto node = std::make_shared<CertDataNode>(entry, id, params.client_id, [this](CertRegistryId rid) {
+        m_cert_registry.Unregister(rid);
+    });
     auto node_id = m_data_manager->addChildNode(params.client_id, params.parent_id, node);
-    if (!node_id.has_value())
-    {
+    if (!node_id)
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
-    return RegisteredCert{node_id.value(), std::move(instance)};
+    return CertDataNodeResult{*node_id, std::move(entry)};
 }
 
-score::crypto::Expected<RegisteredCert, Error> CertManagementService::LoadCertificate(
-    const CertRegistrationParams& params)
+score::crypto::Expected<CertDataNodeResult, Error> CertManagementService::Load(const CertRegistrationParams& params)
 {
     if (!m_slot_manager)
-    {
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
     auto loaded = m_slot_manager->LoadCertificate(params.slot_handle, params.client_id);
-    if (!loaded.has_value())
-    {
+    if (!loaded)
         return score::crypto::make_unexpected(loaded.error());
-    }
-    return RegisterCertificate(params, std::move(loaded.value()));
+    return RegisterCertMaterial(params, std::move(*loaded));
 }
 
-score::crypto::Expected<std::monostate, Error> CertManagementService::ReleaseCertificate(
-    data_manager::ClientId client_id,
-    data_manager::DataNodeId node_id)
+score::crypto::Expected<std::monostate, Error> CertManagementService::ReleaseCert(data_manager::ClientId client_id,
+                                                                                  data_manager::DataNodeId node_id)
 {
-    if (!m_data_manager)
-    {
-        return score::crypto::make_unexpected(Error::kInternalError);
-    }
-    const auto delete_result = m_data_manager->deleteNode(client_id, node_id);
-    if (!delete_result.has_value())
-    {
+    if (!m_data_manager->deleteNode(client_id, node_id))
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
-    }
     return std::monostate{};
 }
 
 void CertManagementService::CleanupClient(data_manager::ClientId client_id)
 {
-    {
-        const std::scoped_lock lock{m_cert_slot_dedup_cache_mutex, m_trust_store_dedup_cache_mutex};
-        m_trust_store_dedup_cache.erase(client_id);
-        m_cert_slot_dedup_cache.erase(client_id);
-    }
+    m_cert_registry.CleanupClient(client_id);
+    m_cert_slot_node_cache.erase(client_id);
+    m_trust_store_node_cache.erase(client_id);
     if (m_trust_store_manager)
-    {
         m_trust_store_manager->CleanupClient(client_id);
-    }
-    m_cert_registry->CleanupClient(client_id);
-}
-
-// ---------------------------------------------------------------------------
-// Slot mutation — wraps CertSlotManager and notifies trust stores after each write that reaches the backend
-// ---------------------------------------------------------------------------
-
-score::crypto::Expected<std::monostate, Error> CertManagementService::UpdateSlot(CertSlotHandle slot,
-                                                                                 data_manager::ClientId client_id,
-                                                                                 const CertObject& cert)
-{
-    if (!m_slot_manager)
-    {
-        return score::crypto::make_unexpected(Error::kInternalError);
-    }
-    bool content_may_have_changed{false};
-    auto result = m_slot_manager->StoreCertificate(slot, client_id, cert, &content_may_have_changed);
-    // Refused and handler-less writes leave the stored content unchanged, so trust stores are not reloaded.
-    if (content_may_have_changed)
-    {
-        NotifySlotCertChanged(slot);
-    }
-    return result;
-}
-
-score::crypto::Expected<std::monostate, Error> CertManagementService::ClearSlot(CertSlotHandle slot,
-                                                                                data_manager::ClientId client_id)
-{
-    if (!m_slot_manager)
-    {
-        return score::crypto::make_unexpected(Error::kInternalError);
-    }
-    bool content_may_have_changed{false};
-    auto result = m_slot_manager->ClearSlot(slot, client_id, &content_may_have_changed);
-    // Refused and handler-less writes leave the stored content unchanged, so trust stores are not reloaded.
-    if (content_may_have_changed)
-    {
-        NotifySlotCertChanged(slot);
-    }
-    return result;
-}
-
-score::crypto::Expected<std::monostate, Error> CertManagementService::UpdateSlot(CertSlotHandle slot,
-                                                                                 data_manager::ClientId client_id,
-                                                                                 const CrlData& crl)
-{
-    if (!m_slot_manager)
-    {
-        return score::crypto::make_unexpected(Error::kInternalError);
-    }
-    bool content_may_have_changed{false};
-    auto result = m_slot_manager->StoreCrl(slot, client_id, crl, &content_may_have_changed);
-    // Refused and handler-less writes leave the stored CRL unchanged, so trust stores are not reloaded.
-    if (content_may_have_changed)
-    {
-        NotifySlotCrlChanged(slot);
-    }
-    return result;
-}
-
-score::crypto::Expected<std::monostate, Error> CertManagementService::ClearSlotCrl(CertSlotHandle slot,
-                                                                                   data_manager::ClientId client_id)
-{
-    if (!m_slot_manager)
-    {
-        return score::crypto::make_unexpected(Error::kInternalError);
-    }
-    bool content_may_have_changed{false};
-    auto result = m_slot_manager->ClearCrl(slot, client_id, &content_may_have_changed);
-    // Refused and handler-less writes leave the stored CRL unchanged, so trust stores are not reloaded.
-    if (content_may_have_changed)
-    {
-        NotifySlotCrlChanged(slot);
-    }
-    return result;
 }
 
 // ---------------------------------------------------------------------------
 // Resource resolution — mediator resource resolvers
 // ---------------------------------------------------------------------------
 
-score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::ResolveCertSlotNode(
+score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::ResolveCertSlot(
     const std::string& resource_name,
     data_manager::ClientId client_id)
 {
     if (!m_data_manager || !m_slot_registry)
-    {
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
 
     auto handle_res = m_slot_registry->ResolveAppResource(resource_name, client_id);
     if (!handle_res.has_value())
-    {
         return score::crypto::make_unexpected(handle_res.error());
-    }
 
-    return ResolveCertSlotNode(handle_res.value(), client_id);
+    return ResolveCertSlot(handle_res.value(), client_id);
 }
 
-score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::ResolveCertSlotNode(
+score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::ResolveCertSlot(
     CertSlotHandle slot_handle,
     data_manager::ClientId client_id)
 {
     if (!m_data_manager || !m_slot_registry)
-    {
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
-    if (!m_slot_registry->IsValidHandle(slot_handle))
-    {
+    if (!m_slot_registry->GetConfig(slot_handle).has_value())
         return score::crypto::make_unexpected(Error::kInvalidResourceId);
-    }
 
-    const std::lock_guard lock{m_cert_slot_dedup_cache_mutex};
-    auto& client_cache = m_cert_slot_dedup_cache[client_id];
+    auto& client_cache = m_cert_slot_node_cache[client_id];
     const auto it = client_cache.find(slot_handle.index);
     if (it != client_cache.end())
-    {
         return it->second;
-    }
 
-    auto node = std::make_shared<CertSlotDataNode>(slot_handle);
+    auto node = std::make_shared<CertSlotDataNode>(slot_handle, m_slot_registry);
     auto node_id = m_data_manager->addNode(client_id, std::move(node));
     if (!node_id.has_value())
-    {
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
 
     client_cache[slot_handle.index] = node_id.value();
     return node_id.value();
 }
 
-score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::ResolveTrustStoreNode(
+score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::ResolveTrustStore(
     const std::string& resource_name,
     data_manager::ClientId client_id)
 {
     if (!m_data_manager || !m_trust_store_manager)
-    {
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
 
     auto handle_res = m_trust_store_manager->ResolveAppResource(resource_name, client_id);
     if (!handle_res.has_value())
-    {
         return score::crypto::make_unexpected(handle_res.error());
-    }
 
-    const std::lock_guard lock{m_trust_store_dedup_cache_mutex};
-    auto& client_cache = m_trust_store_dedup_cache[client_id];
+    auto& client_cache = m_trust_store_node_cache[client_id];
     const auto it = client_cache.find(handle_res.value().index);
     if (it != client_cache.end())
-    {
         return it->second;
-    }
 
-    auto node = std::make_shared<TrustStoreDataNode>(handle_res.value());
+    auto node = std::make_shared<TrustStoreDataNode>(handle_res.value(), m_trust_store_manager);
     auto node_id = m_data_manager->addNode(client_id, std::move(node));
     if (!node_id.has_value())
-    {
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
 
     client_cache[handle_res.value().index] = node_id.value();
     return node_id.value();
@@ -266,231 +145,158 @@ score::crypto::Expected<data_manager::DataNodeId, Error> CertManagementService::
 // Operation helpers — executor call sites
 // ---------------------------------------------------------------------------
 
-score::crypto::Expected<CertSlotHandle, Error> CertManagementService::ResolveCertSlotHandle(
+score::crypto::Expected<ResolvedCertSlot, Error> CertManagementService::ResolveSlotForOperation(
     data_manager::ClientId client_id,
     data_manager::DataNodeId slot_node_id)
 {
-    if (!m_data_manager || !m_slot_registry)
-    {
+    if (!m_data_manager)
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
 
     auto acc_res = m_data_manager->getNodeAccessor(client_id, slot_node_id);
     if (!acc_res.has_value())
-    {
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
 
     auto typed_res = std::move(acc_res).value().downCast<CertSlotDataNode>();
     if (!typed_res.has_value())
-    {
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
 
-    const auto handle = typed_res.value()->GetSlotHandle();
-    if (!m_slot_registry->IsValidHandle(handle))
-    {
-        return score::crypto::make_unexpected(Error::kInvalidResourceId);
-    }
-    return handle;
+    auto& slot_node = *typed_res.value();
+    const auto handle = slot_node.GetSlotHandle();
+    auto config_res = m_slot_registry->GetConfig(handle);
+    if (!config_res.has_value())
+        return score::crypto::make_unexpected(config_res.error());
+
+    return ResolvedCertSlot{handle, config_res.value()};
 }
 
-score::crypto::Expected<CertObject::Sptr, Error> CertManagementService::ResolveCertObject(
+score::crypto::Expected<CertObject::Sptr, Error> CertManagementService::ResolveCertForOperation(
     data_manager::ClientId client_id,
     data_manager::DataNodeId cert_node_id)
 {
-    auto res = ResolveCertObjectWithOptionalCrlMetadata(client_id, cert_node_id, /*include_crl_metadata=*/false);
+    auto res = ResolveCertWithCrlMetadataForOperation(client_id, cert_node_id);
     if (!res.has_value())
-    {
         return score::crypto::make_unexpected(res.error());
-    }
     return res.value().cert;
 }
 
-score::crypto::Expected<ResolvedCertObjectWithCrlMetadata, Error>
-CertManagementService::ResolveCertObjectWithCrlMetadata(data_manager::ClientId client_id,
-                                                        data_manager::DataNodeId cert_node_id)
-{
-    return ResolveCertObjectWithOptionalCrlMetadata(client_id, cert_node_id, /*include_crl_metadata=*/true);
-}
-
-score::crypto::Expected<ResolvedCertObjectWithCrlMetadata, Error>
-CertManagementService::ResolveCertObjectWithOptionalCrlMetadata(data_manager::ClientId client_id,
-                                                                data_manager::DataNodeId cert_node_id,
-                                                                bool include_crl_metadata)
+score::crypto::Expected<ResolvedCertWithCrlMetadata, Error>
+CertManagementService::ResolveCertWithCrlMetadataForOperation(data_manager::ClientId client_id,
+                                                              data_manager::DataNodeId cert_node_id)
 {
     if (!m_data_manager)
-    {
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
 
     auto acc_res = m_data_manager->getNodeAccessor(client_id, cert_node_id);
     if (!acc_res.has_value())
-    {
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
 
     auto accessor = std::move(acc_res).value();
     if (accessor->GetNodeType() == data_manager::DataNodeType::kCertData)
     {
         auto typed_res = std::move(accessor).downCast<CertDataNode>();
-        if (!typed_res.has_value() || !typed_res.value()->GetCertInstance())
-        {
+        if (!typed_res.has_value() || !typed_res.value()->GetCertEntry())
             return score::crypto::make_unexpected(Error::kInvalidArgument);
-        }
-        auto& instance = *typed_res.value()->GetCertInstance();
+        auto& entry = *typed_res.value()->GetCertEntry();
 
-        std::optional<score::crypto::CrlMetadata> crl_metadata;
-        if (include_crl_metadata)
-        {
-            if (const auto session_crl = instance.GetSessionCrlSnapshot())
-            {
-                crl_metadata = session_crl->metadata;
-            }
-            if (!crl_metadata.has_value() && instance.GetSlotHandle().IsValid() && m_slot_manager)
-            {
-                const auto metadata = m_slot_manager->GetCrlMetadata(instance.GetSlotHandle(), client_id);
-                if (!metadata.has_value())
-                {
-                    return score::crypto::make_unexpected(metadata.error());
-                }
-                crl_metadata = metadata.value();
-            }
-        }
+        auto crl_metadata = entry.GetSessionCrlMetadata();
+        if (!crl_metadata.has_value() && entry.GetSlotHandle().IsValid() && m_slot_manager)
+            crl_metadata = m_slot_manager->GetCrlMetadata(entry.GetSlotHandle());
 
-        return ResolvedCertObjectWithCrlMetadata{instance.GetCertObject(), crl_metadata};
+        return ResolvedCertWithCrlMetadata{entry.GetCertObject(), crl_metadata};
     }
 
     if (accessor->GetNodeType() != data_manager::DataNodeType::kCertSlot)
-    {
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
     auto slot_res = std::move(accessor).downCast<CertSlotDataNode>();
     if (!slot_res.has_value() || !m_slot_manager)
-    {
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
 
     const auto handle = slot_res.value()->GetSlotHandle();
     auto loaded = m_slot_manager->LoadCertificate(handle, client_id);
     if (!loaded.has_value())
-    {
         return score::crypto::make_unexpected(loaded.error());
-    }
-    std::optional<score::crypto::CrlMetadata> crl_metadata;
-    if (include_crl_metadata)
-    {
-        const auto metadata = m_slot_manager->GetCrlMetadata(handle, client_id);
-        if (!metadata.has_value())
-        {
-            return score::crypto::make_unexpected(metadata.error());
-        }
-        crl_metadata = metadata.value();
-    }
-    return ResolvedCertObjectWithCrlMetadata{std::move(loaded.value()), crl_metadata};
+    return ResolvedCertWithCrlMetadata{std::move(*loaded), m_slot_manager->GetCrlMetadata(handle)};
 }
 
-score::crypto::Expected<std::shared_ptr<CertEntry>, Error> CertManagementService::ResolveCertEntry(
+score::crypto::Expected<std::shared_ptr<CertEntry>, Error> CertManagementService::ResolveCertEntryForOperation(
     data_manager::ClientId client_id,
     data_manager::DataNodeId cert_node_id)
 {
     if (!m_data_manager)
-    {
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
 
     auto acc_res = m_data_manager->getNodeAccessor(client_id, cert_node_id);
     if (!acc_res.has_value())
-    {
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
 
     auto typed_res = std::move(acc_res).value().downCast<CertDataNode>();
     if (!typed_res.has_value())
-    {
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
-    auto instance = typed_res.value()->GetCertInstance();
-    if (!instance)
-    {
+    auto entry = typed_res.value()->GetCertEntry();
+    if (!entry)
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
-    return instance;
+    return entry;
 }
 
-score::crypto::Expected<CrlData::Sptrc, Error> CertManagementService::ResolveCrlData(
+score::crypto::Expected<std::optional<ResolvedCrl>, Error> CertManagementService::ResolveCrlForOperation(
     data_manager::ClientId client_id,
     data_manager::DataNodeId cert_node_id)
 {
     if (!m_slot_manager)
-    {
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
 
     std::optional<CertSlotHandle> source_slot;
-    // The node is recognised when it resolves as a certificate or as a certificate slot.
-    bool recognised = false;
 
-    // A node that is not a certificate is not an error here; it falls through to the slot case below.
-    auto instance_res = ResolveCertEntry(client_id, cert_node_id);
-    if (instance_res.has_value())
+    // Not a CertDataNode is not an error here — falls through to the direct-slot case below.
+    auto entry_res = ResolveCertEntryForOperation(client_id, cert_node_id);
+    if (entry_res.has_value())
     {
-        recognised = true;
-        auto& instance = *instance_res.value();
-        if (auto session_crl = instance.GetSessionCrlSnapshot())
-        {
-            return session_crl;
-        }
-        if (instance.GetSlotHandle().IsValid())
-        {
-            source_slot = instance.GetSlotHandle();
-        }
+        auto& entry = *entry_res.value();
+        auto session_crl = entry.GetSessionCrl();
+        if (session_crl.has_value())
+            return ResolvedCrl{std::move(*session_crl), entry.GetSessionCrlFormat(), entry.GetSessionCrlMetadata()};
+        if (entry.GetSlotHandle().IsValid())
+            source_slot = entry.GetSlotHandle();
     }
 
     if (!source_slot.has_value())
     {
-        auto slot_res = ResolveCertSlotHandle(client_id, cert_node_id);
+        auto slot_res = ResolveSlotForOperation(client_id, cert_node_id);
         if (slot_res.has_value())
-        {
-            recognised = true;
-            source_slot = slot_res.value();
-        }
+            source_slot = slot_res.value().handle;
     }
 
-    if (!recognised)
-    {
-        return score::crypto::make_unexpected(Error::kInvalidResourceId);
-    }
-
-    // A recognised certificate with no session CRL and no slot, such as an ephemeral certificate, has no CRL.
     if (!source_slot.has_value())
-    {
-        return CrlData::Sptrc{};
-    }
+        return std::nullopt;
 
-    return m_slot_manager->LoadCrlData(*source_slot, client_id);
+    const auto has_crl = m_slot_manager->HasCrl(*source_slot);
+    if (!has_crl.has_value())
+        return score::crypto::make_unexpected(has_crl.error());
+    if (!has_crl.value())
+        return std::nullopt;
+
+    auto crl = m_slot_manager->LoadCrl(*source_slot, client_id);
+    if (!crl.has_value())
+        return score::crypto::make_unexpected(crl.error());
+
+    return ResolvedCrl{
+        std::move(*crl), m_slot_manager->GetCrlFormat(*source_slot), m_slot_manager->GetCrlMetadata(*source_slot)};
 }
 
-score::crypto::Expected<TrustStoreHandle, Error> CertManagementService::ResolveTrustStoreHandle(
+score::crypto::Expected<TrustStoreHandle, Error> CertManagementService::ResolveTrustStoreForOperation(
     data_manager::ClientId client_id,
     data_manager::DataNodeId ts_node_id)
 {
     if (!m_data_manager)
-    {
         return score::crypto::make_unexpected(Error::kInternalError);
-    }
 
     auto acc_res = m_data_manager->getNodeAccessor(client_id, ts_node_id);
     if (!acc_res.has_value())
-    {
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
 
     auto typed_res = std::move(acc_res).value().downCast<TrustStoreDataNode>();
     if (!typed_res.has_value())
-    {
         return score::crypto::make_unexpected(Error::kInvalidArgument);
-    }
 
     return typed_res.value()->GetTrustStoreHandle();
 }
@@ -498,19 +304,10 @@ score::crypto::Expected<TrustStoreHandle, Error> CertManagementService::ResolveT
 void CertManagementService::NotifySlotCertChanged(CertSlotHandle slot_handle)
 {
     if (!m_trust_store_manager)
-    {
         return;
-    }
-    m_trust_store_manager->NotifySlotChanged(slot_handle);
-}
-
-void CertManagementService::NotifySlotCrlChanged(CertSlotHandle slot_handle)
-{
-    if (!m_trust_store_manager)
-    {
-        return;
-    }
-    m_trust_store_manager->NotifySlotCrlChanged(slot_handle);
+    const auto memberships = m_trust_store_manager->GetMembershipsForSlot(slot_handle);
+    for (const auto ts_handle : memberships)
+        m_trust_store_manager->NotifySlotChanged(ts_handle, slot_handle);
 }
 
 }  // namespace score::crypto::daemon::cert_management

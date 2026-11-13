@@ -39,29 +39,20 @@ void ConfigDrivenSlotCatalog::Load(CertSlotRegistry& registry)
         config.access_policy.allowed_write_uids = entry.allowed_write_uids;
         config.deployment_path = entry.deployment_path;
         config.deployment_format = entry.deployment_format;
-        switch (entry.integrity_policy)
-        {
-            case config::CertificateConfig::IntegrityPolicy::kDisabled:
-                config.integrity_policy = IntegrityPolicy::kDisabled;
-                break;
-            case config::CertificateConfig::IntegrityPolicy::kRequired:
-                config.integrity_policy = IntegrityPolicy::kRequired;
-                break;
-        }
+        config.integrity_policy =
+            (entry.integrity_policy == "required") ? IntegrityPolicy::kRequired : IntegrityPolicy::kDisabled;
 
         registry.RegisterSlot(std::move(config));
 
-        const std::string integrity_name =
-            entry.integrity_policy == config::CertificateConfig::IntegrityPolicy::kRequired ? "required" : "disabled";
         score::mw::log::LogDebug() << kLogPrefix << "Registered cert slot '" << entry.slot_name
                                    << "' (storage_backend=" << entry.storage_backend
-                                   << ", integrity_policy=" << integrity_name << ")";
+                                   << ", integrity_policy=" << entry.integrity_policy << ")";
     }
 
     score::mw::log::LogDebug() << kLogPrefix << "Loaded " << entries.size() << " cert slot(s) from configuration.";
 
     // Register per-application resource ID mappings.
-    for (const auto& mapping : m_cert_config.GetAppCertSlotMappings())
+    for (const auto& mapping : m_cert_config.GetAppCertSlotEntries())
     {
         registry.RegisterAppResource(mapping.uid, mapping.app_resource_id, mapping.slot_name);
     }

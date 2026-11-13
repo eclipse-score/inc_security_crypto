@@ -20,11 +20,12 @@ namespace score::crypto::daemon::cert_management
 {
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-AccessPolicyEnforcer::CheckSlotAccess([[maybe_unused]] const CertSlotConfig& slot,
-                                      [[maybe_unused]] data_manager::ClientId client_id)
+AccessPolicyEnforcer::CheckSlotAccess(const CertSlotConfig& slot, data_manager::ClientId client_id)
 {
     // Certificate material is public information. Resource resolution still
     // uses the caller UID, but reading a resolved certificate is unrestricted.
+    static_cast<void>(slot);
+    static_cast<void>(client_id);
     return std::monostate{};
 }
 
@@ -44,11 +45,12 @@ AccessPolicyEnforcer::CheckWritePermission(const CertSlotConfig& slot, data_mana
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-AccessPolicyEnforcer::CheckTrustStoreAccess([[maybe_unused]] const TrustStoreConfig& store,
-                                            [[maybe_unused]] data_manager::ClientId client_id)
+AccessPolicyEnforcer::CheckTrustStoreAccess(const TrustStoreConfig& store, data_manager::ClientId client_id)
 {
     // Trust-store reads expose certificates, not private key material. The
     // application-resource mapping has already selected the store for UID.
+    static_cast<void>(store);
+    static_cast<void>(client_id);
     return std::monostate{};
 }
 

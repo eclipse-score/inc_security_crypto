@@ -15,7 +15,9 @@
 #include "score/crypto/src/ipc/grpc_adapter/grpc_control_handler.h"
 #include "score/mw/log/logging.h"
 #include <grpcpp/grpcpp.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <cerrno>
 #include <cstring>
 
 namespace score::crypto::ipc
@@ -62,6 +64,19 @@ void GrpcControlServer::Start(std::string_view socket_path)
     if (!_impl->server)
     {
         throw std::runtime_error("Failed to start gRPC server on unix:" + std::string(socket_path));
+    }
+
+    // The preferred production mode is 0660 with a dedicated socket group. That
+    // requires deployment to provision the group and add every authorized client
+    // user to it; use 0666 until that prerequisite exists for the UID-based API.
+    if (chmod(_impl->socket_path.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0)
+    {
+        const auto error = errno;
+        _impl->server->Shutdown();
+        _impl->server.reset();
+        unlink(_impl->socket_path.c_str());
+        throw std::runtime_error("Failed to set permissions on gRPC socket " + std::string(socket_path) + ": " +
+                                 strerror(error));
     }
 
     score::mw::log::LogWarn() << "[GrpcControlServer] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";

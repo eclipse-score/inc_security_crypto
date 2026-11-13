@@ -63,6 +63,17 @@ class FileBackedSlotHandler final : public IKeySlotHandler
     [[nodiscard]] score::crypto::Expected<score::crypto::KeySlotState, score::crypto::daemon::common::DaemonErrorCode>
     GetSlotState(const KeySlotConfig& slot) override;
 
+    /// Persist key material from an IKeyHandler into the slot's backing file.
+    ///
+    /// Refuses an occupied slot. Resolves key_properties[kKeyPath] from the
+    /// deployment descriptor, then stores asymmetric private-key DER via the
+    /// factory's internal persistence path or symmetric bytes via Export().
+    /// Uses WriteFile; no power-loss durability or file-permission guarantee
+    /// is added by this handler.
+    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> StoreKey(
+      const KeySlotConfig& slot,
+      IKeyHandler& handler) override;
+
     /// Return slot metadata derived from the KeySlotConfig.
     [[nodiscard]] score::crypto::Expected<score::crypto::KeySlotInfo, score::crypto::daemon::common::DaemonErrorCode>
     GetSlotInfo(const KeySlotConfig& slot) override;
