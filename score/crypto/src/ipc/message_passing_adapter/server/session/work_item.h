@@ -51,7 +51,6 @@ enum class WorkItemState : std::uint8_t
  * @brief
  * Owns the server-side state and backing bytes for one received request.
  * Tracks request identity and deadline from admission through completion.
- * @endrst
  */
 struct WorkItem final
 {

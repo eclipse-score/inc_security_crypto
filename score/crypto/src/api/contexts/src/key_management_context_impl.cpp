@@ -432,7 +432,7 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::ImportKey(const Imp
     proto::ControlRequest control_req{};
     control_req.operations = operation_req_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_IMPORT}).expectSuccess();
@@ -542,7 +542,7 @@ score::Result<std::size_t> KeyManagementContextImpl::ExportKey(const CryptoResou
     proto::ControlRequest control_req{};
     control_req.operations = operation_req_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_EXPORT}).expectSuccess();
@@ -585,7 +585,7 @@ score::Result<std::size_t> KeyManagementContextImpl::GetExportKeySize(const Cryp
             MakeError(CryptoErrorCode::kOperationFailed, "Failed to build KEY_GET_EXPORT_SIZE request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_GET_EXPORT_SIZE}).expectSuccess();

@@ -310,8 +310,8 @@ is the anchor for ``kPersistent`` resource IDs:
   namespace — IDs are not globally stable across application restarts or
   across different applications. This preserves the security property:
   IDs are per-application-unique and not externally predictable.
-* Connection ID tracking is managed by the underlying IPC transport layer
-  as an implementation detail, not exposed to library users.
+* The IPC-assigned :term:`ClientId` scopes the connection; its construction and
+  lifecycle are defined in :ref:`ipc_client_id_assignment`.
 
 Lifetime Strategy (Deployment Choice)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

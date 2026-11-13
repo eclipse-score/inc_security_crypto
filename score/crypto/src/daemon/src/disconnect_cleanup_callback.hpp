@@ -30,6 +30,10 @@ class KeyManagementService;
 
 namespace score::crypto::daemon::detail
 {
+/// @brief Creates a callback that releases resources owned by a disconnected client.
+/// @param data_manager Data manager used to delete the client's nodes; may be null.
+/// @param key_management_service Service that cleans up the client's key-management state; may be null.
+/// @return A callback that invokes the available cleanup services and reports data-manager failures.
 score::crypto::ipc::message_passing::DisconnectCleanupCallback MakeDisconnectCleanupCallback(
     std::shared_ptr<data_manager::IDataManager> data_manager,
     std::shared_ptr<key_management::KeyManagementService> key_management_service);

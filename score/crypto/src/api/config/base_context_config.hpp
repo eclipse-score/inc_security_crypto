@@ -202,13 +202,13 @@ inline std::chrono::milliseconds ResolveOperationTimeout(
     }
 
     auto effective_timeout = std::chrono::milliseconds::max();
-    if (operation_timeout.has_value())
-    {
-        effective_timeout = operation_timeout.value();
-    }
     if (stack_default.has_value())
     {
         effective_timeout = stack_default.value();
+    }
+    if (operation_timeout.has_value())
+    {
+        effective_timeout = operation_timeout.value();
     }
 
     // Ensure the effective timeout is at least 1 millisecond.

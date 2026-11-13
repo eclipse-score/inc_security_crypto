@@ -19,6 +19,7 @@ cc_library(
     visibility = [
         "//:__subpackages__",
     ],
+    linkstatic = True,
     deps = ["//score/crypto/src/daemon/common"],
 )
 
@@ -29,6 +30,7 @@ cc_library(
         "i_request_handler.hpp",
     ],
     visibility = ["//:__subpackages__"],
+    linkstatic = True,
     deps = [
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/common:common_types",

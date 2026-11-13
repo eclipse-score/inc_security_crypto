@@ -56,34 +56,28 @@ Client Side
 MessagePassingControlClient
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. literalinclude:: ../../client/message_passing_control_client.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Client-facing synchronous facade for the message-passing control protocol. Owns the transport
+factory and codec; ``ClientSession`` owns the connection and its request and transport lifecycle
+state.
 
 ClientSession
 ^^^^^^^^^^^^^
 
-.. literalinclude:: ../../client/client_session/client_session.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Coordinates request/response calls and transport lifecycle for one client connection. Encoded
+responses are matched to pending calls by request ID. Shutdown terminates outstanding calls and
+waits for the transport to stop.
 
 PendingCallRegistry
 ^^^^^^^^^^^^^^^^^^^
 
-.. literalinclude:: ../../client/client_session/pending_call_registry.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Registers client calls and correlates terminal responses by request ID. Owns the pending-call map
+for a client session and propagates transport failures to all calls.
 
 PendingCall
 ^^^^^^^^^^^
 
-.. literalinclude:: ../../client/client_session/pending_call.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Holds the completion state and result for one client request. Provides synchronized response
+waiting and a single terminal transition to completed or failed.
 
 Transport
 ~~~~~~~~~
@@ -101,58 +95,49 @@ Server Side
 MessagePassingControlServer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. literalinclude:: ../../server/message_passing_control_server.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Hosts the control-plane server over SCORE message passing. It accepts control-plane connections
+and processes requests; lifecycle operations start listening, initiate graceful shutdown, and wait
+for termination. The implementation composes transport callbacks, connection/session management,
+request dispatch, the wire codec, and bounded worker execution.
 
 SessionManager
 ^^^^^^^^^^^^^^
 
-.. literalinclude:: ../../server/session/session_manager.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Authorizes transport connections and routes them to registered server sessions. Coordinates
+admission, disconnect notification, and waiting for connection cleanup through ``SessionRegistry``.
 
 SessionRegistry
 ^^^^^^^^^^^^^^^
 
-.. literalinclude:: ../../server/session/session_registry.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Owns synchronized connection registration, admission reservations, and cleanup accounting. Maps
+transport connections to sessions and releases admission capacity only when disconnect cleanup has
+completed.
 
 Session
 ^^^^^^^
 
-.. literalinclude:: ../../server/session/session.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Owns the request and disconnect-cleanup state for one server connection. Tracks admitted work items
+by request ID and delivers responses on the associated server connection.
 
 WorkItem
 ^^^^^^^^
 
-.. literalinclude:: ../../server/session/work_item.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Owns the server-side state and backing bytes for one received request. Tracks request identity and
+deadline from admission through completion.
 
 WorkItemDispatcher
 ^^^^^^^^^^^^^^^^^^
 
-.. literalinclude:: ../../server/session/work_item_dispatcher.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Routes decoded requests to per-connection sessions and worker execution. Dispatches operation
+admission and coordinates response delivery; per-request state is owned by ``Session`` rather than
+by the dispatcher.
 
 FixedWorkerWorkItemExecutor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. literalinclude:: ../../server/work_item_execution/fixed_worker_work_item_executor.h
-  :language: rst
-  :start-after: @brief
-  :end-before: @endrst
+Executes operation work and disconnect-cleanup jobs using a fixed set of workers. It creates one
+request handler per worker, assigns request jobs only to idle workers, and queues cleanup jobs up to
+the configured capacity.
 
 Detailed Design
 ---------------

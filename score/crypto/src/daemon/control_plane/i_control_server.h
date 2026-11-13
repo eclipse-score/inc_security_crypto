@@ -22,13 +22,20 @@
 namespace score::crypto::daemon::control_plane
 {
 
-/// Abstract interface for control plane server lifecycle management
+/**
+ * @brief Lifecycle interface for a control-plane server.
+ * Implementations accept control-plane connections and process requests. Start begins listening,
+ * Stop initiates graceful shutdown, and WaitForTermination blocks until shutdown completes.
+ */
 class IControlServer
 {
   public:
     virtual ~IControlServer() = default;
 
-    /// Start the server listening
+    /**
+     * @brief Start the server listening
+     * @return Expected<std::monostate, DaemonErrorCode> indicating success or failure
+     */
     [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     Start() = 0;
 

@@ -31,6 +31,10 @@ is managed across multiple clients, and how they are bound to a cryptographic
 operation context.  A MAC operation is used as the running example because it
 touches every layer of the subsystem.
 
+Key-management nodes, caches, and key references are scoped by the IPC
+:term:`ClientId`; its assignment and lifecycle are defined in
+:ref:`ipc_client_id_assignment`.
+
 .. contents::
    :local:
    :depth: 2

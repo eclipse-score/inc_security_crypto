@@ -30,7 +30,6 @@ class PendingCallRegistry;
  * @brief
  * Holds the completion state and result for one client request.
  * Provides synchronized response waiting and a single terminal transition to completed or failed.
- * @endrst
  */
 class PendingCall final
 {

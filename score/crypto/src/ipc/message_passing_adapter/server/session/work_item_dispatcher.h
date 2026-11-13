@@ -55,7 +55,6 @@ struct WorkItem;
  * Routes decoded requests to per-connection sessions and worker execution.
  * Dispatches operation admission and coordinates response delivery. Per-request state is owned by
  * Session rather than by the dispatcher.
- * @endrst
  */
 class WorkItemDispatcher final
 {

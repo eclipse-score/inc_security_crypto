@@ -36,7 +36,6 @@ using PendingCallHandle = std::shared_ptr<PendingCall>;
  * @brief
  * Registers client calls and correlates terminal responses by request ID.
  * Owns the pending-call map for a client session and propagates transport failures to all calls.
- * @endrst
  */
 class PendingCallRegistry final
 {

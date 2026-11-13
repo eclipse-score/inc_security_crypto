@@ -46,11 +46,9 @@ namespace score::crypto::ipc::message_passing
 {
 
 /**
- * @brief
- * Hosts the control protocol over SCORE message passing.
- * Composes transport callbacks, connection/session management, request dispatch, the wire codec,
- * and bounded worker execution behind the daemon's control-server interface.
- * @endrst
+ * @copydoc daemon::control_plane::IControlServer
+ * @note This implementation hosts the control protocol over SCORE message passing, composing transport callbacks,
+ * connection/session management, request dispatch, the wire codec, and bounded worker execution.
  */
 class MessagePassingControlServer final : public daemon::control_plane::IControlServer
 {
@@ -79,15 +77,17 @@ class MessagePassingControlServer final : public daemon::control_plane::IControl
     MessagePassingControlServer(MessagePassingControlServer&&) = delete;
     MessagePassingControlServer& operator=(MessagePassingControlServer&&) = delete;
 
-    /// @brief Starts workers and begins listening for control connections.
-    /// @return Success when listening starts, or the startup error.
+    /// @copydoc daemon::control_plane::IControlServer::Start
+    /// @note Starts the worker set before accepting control connections.
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     Start() noexcept override;
 
-    /// @brief Stops new connection admission and drains registered sessions.
+    /// @copydoc daemon::control_plane::IControlServer::Stop
+    /// @note Stops new connection admission and drains registered sessions.
     void Stop() noexcept override;
 
-    /// @brief Waits for session cleanup, stops workers, and releases the transport server.
+    /// @copydoc daemon::control_plane::IControlServer::WaitForTermination
+    /// @note Waits for session cleanup, stops workers, and releases the transport server.
     void WaitForTermination() noexcept override;
 
   private:

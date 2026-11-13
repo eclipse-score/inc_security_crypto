@@ -19,8 +19,8 @@ namespace score::crypto::ipc::protocol
 {
 
 /**
- * @brief
- * Implements the control protocol wire format using the FlatBuffers schema.
+ * @copydoc IControlCodec
+ * @note This implementation encodes and decodes the control protocol using the FlatBuffers schema.
  * @endrst
  */
 class FlatBufferCodec final : public IControlCodec

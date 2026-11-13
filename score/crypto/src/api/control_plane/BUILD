@@ -28,6 +28,7 @@ cc_library(
         "//score/crypto/src/daemon/control_plane",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",
     ],
+    linkstatic = True,
 )
 
 cc_library(
@@ -49,4 +50,5 @@ cc_library(
         "//score/crypto/src/ipc/message_passing_adapter:message_passing_client",
         "@score_baselibs//score/mw/log",
     ],
+    linkstatic = True,
 )

@@ -19,6 +19,7 @@ cc_library(
     hdrs = ["message_passing_adapter_integration_test_process_separation_common.h"],
     deps = ["//score/crypto/src/daemon/control_plane"],
     testonly = True,
+    linkstatic = True,
 )
 
 cc_binary(

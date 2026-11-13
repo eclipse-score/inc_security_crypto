@@ -44,7 +44,6 @@ namespace score::crypto::ipc::message_passing
  * Coordinates request/response calls and transport lifecycle for one client connection.
  * Encoded responses are matched to pending calls by request ID. Shutdown terminates outstanding
  * calls and waits for the transport to stop.
- * @endrst
  */
 class ClientSession final : public std::enable_shared_from_this<ClientSession>
 {

@@ -53,7 +53,6 @@ enum class SessionState : std::uint8_t
  * @brief
  * Owns the request and disconnect-cleanup state for one server connection.
  * Tracks admitted work items by request ID and delivers responses on the associated server connection.
- * @endrst
  */
 class Session final : public std::enable_shared_from_this<Session>
 {

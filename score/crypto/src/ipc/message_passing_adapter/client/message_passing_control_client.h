@@ -37,7 +37,6 @@ namespace score::crypto::ipc::message_passing
  * Client-facing synchronous facade for the message-passing control protocol.
  * Owns the transport factory and codec; ClientSession owns the connection and its request and
  * transport lifecycle state.
- * @endrst
  */
 class MessagePassingControlClient final
 {

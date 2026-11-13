@@ -37,7 +37,6 @@ class IWorkItemSubmitter;
  * Authorizes transport connections and routes them to registered server sessions.
  * Coordinates admission, disconnect notification, and waiting for connection cleanup through
  * SessionRegistry.
- * @endrst
  */
 class SessionManager final
 {

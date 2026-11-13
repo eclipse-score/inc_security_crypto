@@ -29,11 +29,9 @@ namespace score::crypto::ipc::message_passing
 {
 
 /**
- * @brief
- * Executes submitted operations on a fixed worker set and schedules cleanup jobs.
- * Each worker obtains a request handler from the configured factory; work and cleanup submission
- * are bounded by the executor's available worker and queue capacity.
- * @endrst
+ * @copydoc IWorkItemSubmitter
+ * @note This implementation creates one request handler per worker. Request jobs are assigned only to idle workers;
+ * cleanup jobs may be queued up to the configured capacity.
  */
 class FixedWorkerWorkItemExecutor final : public IWorkItemSubmitter
 {
@@ -53,17 +51,14 @@ class FixedWorkerWorkItemExecutor final : public IWorkItemSubmitter
     /// @return True if all workers initialize, false if startup fails.
     bool Start(HandlerFactory handler_factory) noexcept;
 
-    /// @brief Assigns a request to an idle worker; request jobs are never queued.
-    /// @param submission Session and item retained for execution.
-    /// @param job Operation to execute.
-    /// @return Success if assigned, or an error if stopped, saturated, or assignment fails.
+    /// @copydoc IWorkItemSubmitter::TrySubmitWorkItem
+    /// @note Request jobs are assigned only to idle workers and are never queued.
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TrySubmitWorkItem(
         WorkItemSubmission submission,
         WorkItemJob job) noexcept override;
 
-    /// @brief Assigns cleanup to an idle worker or queues it within cleanup capacity.
-    /// @param job Cleanup operation to execute.
-    /// @return Success if assigned or queued, or an error if stopped or capacity is exhausted.
+    /// @copydoc IWorkItemSubmitter::TrySubmitCleanup
+    /// @note Cleanup jobs may be queued up to the configured capacity while all workers are busy.
     score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TrySubmitCleanup(
         CleanupJob job) noexcept override;
 

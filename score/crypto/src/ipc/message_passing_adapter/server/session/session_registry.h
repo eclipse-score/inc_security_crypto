@@ -37,7 +37,6 @@ namespace score::crypto::ipc::message_passing
  * Owns synchronized connection registration, admission reservations, and cleanup accounting.
  * Maps transport connections to sessions and releases admission capacity only when disconnect
  * cleanup has completed.
- * @endrst
  */
 class SessionRegistry final
 {

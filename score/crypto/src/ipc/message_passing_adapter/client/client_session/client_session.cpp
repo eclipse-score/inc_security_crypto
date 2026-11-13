@@ -212,11 +212,11 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSe
 
 void ClientSession::OnTransportStateChanged(const LifecycleState state) noexcept
 {
-    HandleTransportState(state);
     if ((state == LifecycleState::kStopping) || (state == LifecycleState::kStopped))
     {
         FailAllPendingCalls(score::crypto::CryptoErrorCode::kConnectionFailed);
     }
+    HandleTransportState(state);
 }
 
 void ClientSession::OnResponseBytes(const score::cpp::span<const std::uint8_t> message) noexcept
