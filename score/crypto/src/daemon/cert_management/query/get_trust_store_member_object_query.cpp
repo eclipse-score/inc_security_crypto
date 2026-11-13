@@ -80,7 +80,7 @@ bool GetTrustStoreMemberObjectQuery::Handle(const control_plane::protocol::Contr
         return false;
     }
 
-    auto params = BuildTrustStoreMemberObjectResponse(member.value(), *m_service, request.client_id);
+    auto params = BuildTrustStoreMemberObjectResponse(member.value(), slot_node.value());
     if (!params.has_value())
     {
         score::mw::log::LogError() << kLogPrefix << "GET_TRUST_STORE_MEMBER_OBJECT: response build failed";
