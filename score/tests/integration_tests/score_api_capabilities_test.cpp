@@ -46,11 +46,11 @@ constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
 static_assert(false, "At least one crypto backend must be enabled for the capability tests");
 #endif
 
-bool HasMode(const AlgorithmCapabilities& caps, std::string_view mode)
+bool HasOperation(const AlgorithmCapabilities& caps, std::string_view operation)
 {
-    const auto end = caps.modes.begin() + static_cast<std::ptrdiff_t>(caps.mode_count);
-    return std::any_of(caps.modes.begin(), end, [mode](const auto& entry) {
-        return std::string_view{entry} == mode;
+    const auto end = caps.operations.begin() + static_cast<std::ptrdiff_t>(caps.operation_count);
+    return std::any_of(caps.operations.begin(), end, [operation](const auto& entry) {
+        return std::string_view{entry} == operation;
     });
 }
 
@@ -114,7 +114,7 @@ TEST_F(CapabilitiesTest, SystemCapabilitiesListOnlySupportedAlgorithms)
     {
         const auto& entry = caps->algorithms[i];
         EXPECT_TRUE(entry.supported) << std::string_view{entry.id};
-        EXPECT_GT(entry.mode_count, 0U) << std::string_view{entry.id};
+        EXPECT_GT(entry.operation_count, 0U) << std::string_view{entry.id};
         found_sha256 = found_sha256 || (std::string_view{entry.id} == "SHA256");
     }
     EXPECT_TRUE(found_sha256);
@@ -165,8 +165,8 @@ TEST_F(CapabilitiesTest, HashIsReported)
     const auto caps = m_ctx->QueryCapabilities(AlgorithmId{"SHA256"});
     ASSERT_TRUE(caps.has_value()) << caps.error().Message();
     EXPECT_TRUE(caps->supported);
-    EXPECT_TRUE(HasMode(caps.value(), "HASH"));
-    EXPECT_FALSE(HasMode(caps.value(), "SIGN"));
+    EXPECT_TRUE(HasOperation(caps.value(), "HASH"));
+    EXPECT_FALSE(HasOperation(caps.value(), "SIGN"));
 }
 
 #ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
@@ -179,9 +179,9 @@ TEST_F(CapabilitiesTest, EmptyNameReportsDefaultRandomGenerator)
     const auto drbg = m_ctx->QueryCapabilities(AlgorithmId{"CTR-DRBG"});
     ASSERT_TRUE(drbg.has_value()) << drbg.error().Message();
     EXPECT_TRUE(empty->supported);
-    EXPECT_TRUE(HasMode(empty.value(), "RANDOM"));
+    EXPECT_TRUE(HasOperation(empty.value(), "RANDOM"));
     EXPECT_EQ(empty->supported, drbg->supported);
-    EXPECT_EQ(empty->mode_count, drbg->mode_count);
+    EXPECT_EQ(empty->operation_count, drbg->operation_count);
 }
 #endif
 
@@ -190,8 +190,8 @@ TEST_F(CapabilitiesTest, HmacReportsMacAndKeyGeneration)
     const auto caps = m_ctx->QueryCapabilities(AlgorithmId{"HMAC-SHA256"});
     ASSERT_TRUE(caps.has_value()) << caps.error().Message();
     EXPECT_TRUE(caps->supported);
-    EXPECT_TRUE(HasMode(caps.value(), "MAC"));
-    EXPECT_TRUE(HasMode(caps.value(), "GENERATE_KEY"));
+    EXPECT_TRUE(HasOperation(caps.value(), "MAC"));
+    EXPECT_TRUE(HasOperation(caps.value(), "GENERATE_KEY"));
 }
 
 #ifdef SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED
@@ -199,17 +199,17 @@ TEST_F(CapabilitiesTest, SoftwareSignatureAndCipherAreReported)
 {
     const auto ecdsa = m_ctx->QueryCapabilities(AlgorithmId{"ECDSA-P256-SHA256"});
     ASSERT_TRUE(ecdsa.has_value()) << ecdsa.error().Message();
-    EXPECT_TRUE(HasMode(ecdsa.value(), "SIGN"));
-    EXPECT_TRUE(HasMode(ecdsa.value(), "VERIFY"));
+    EXPECT_TRUE(HasOperation(ecdsa.value(), "SIGN"));
+    EXPECT_TRUE(HasOperation(ecdsa.value(), "VERIFY"));
 
     const auto ec_key = m_ctx->QueryCapabilities(AlgorithmId{"ECDSA-P256"});
     ASSERT_TRUE(ec_key.has_value()) << ec_key.error().Message();
-    EXPECT_TRUE(HasMode(ec_key.value(), "GENERATE_KEY"));
-    EXPECT_FALSE(HasMode(ec_key.value(), "SIGN"));
+    EXPECT_TRUE(HasOperation(ec_key.value(), "GENERATE_KEY"));
+    EXPECT_FALSE(HasOperation(ec_key.value(), "SIGN"));
 
     const auto cbc = m_ctx->QueryCapabilities(AlgorithmId{"AES-256-CBC"});
     ASSERT_TRUE(cbc.has_value()) << cbc.error().Message();
-    EXPECT_TRUE(HasMode(cbc.value(), "CIPHER"));
+    EXPECT_TRUE(HasOperation(cbc.value(), "CIPHER"));
 }
 
 // Every curve/hash pairing is a catalog row of its own, so the cross pairings
@@ -220,8 +220,8 @@ TEST_F(CapabilitiesTest, EcdsaCrossPairingsAreReported)
     {
         const auto caps = m_ctx->QueryCapabilities(AlgorithmId{name});
         ASSERT_TRUE(caps.has_value()) << name << ": " << caps.error().Message();
-        EXPECT_TRUE(HasMode(caps.value(), "SIGN")) << name;
-        EXPECT_TRUE(HasMode(caps.value(), "VERIFY")) << name;
+        EXPECT_TRUE(HasOperation(caps.value(), "SIGN")) << name;
+        EXPECT_TRUE(HasOperation(caps.value(), "VERIFY")) << name;
     }
 
     const auto system = m_ctx->QueryCapabilities();
@@ -238,20 +238,20 @@ TEST_F(CapabilitiesTest, RsaPssAndEd25519AreReported)
 {
     const auto pss = m_ctx->QueryCapabilities(AlgorithmId{"RSA-PSS-2048-SHA256"});
     ASSERT_TRUE(pss.has_value());
-    EXPECT_TRUE(HasMode(pss.value(), "SIGN"));
-    EXPECT_TRUE(HasMode(pss.value(), "VERIFY"));
-    EXPECT_FALSE(HasMode(pss.value(), "GENERATE_KEY"));
+    EXPECT_TRUE(HasOperation(pss.value(), "SIGN"));
+    EXPECT_TRUE(HasOperation(pss.value(), "VERIFY"));
+    EXPECT_FALSE(HasOperation(pss.value(), "GENERATE_KEY"));
 
     const auto rsa_key = m_ctx->QueryCapabilities(AlgorithmId{"RSA-2048"});
     ASSERT_TRUE(rsa_key.has_value());
-    EXPECT_TRUE(HasMode(rsa_key.value(), "GENERATE_KEY"));
-    EXPECT_FALSE(HasMode(rsa_key.value(), "SIGN"));
+    EXPECT_TRUE(HasOperation(rsa_key.value(), "GENERATE_KEY"));
+    EXPECT_FALSE(HasOperation(rsa_key.value(), "SIGN"));
 
     const auto ed = m_ctx->QueryCapabilities(AlgorithmId{"Ed25519"});
     ASSERT_TRUE(ed.has_value());
-    EXPECT_TRUE(HasMode(ed.value(), "SIGN"));
-    EXPECT_TRUE(HasMode(ed.value(), "VERIFY"));
-    EXPECT_TRUE(HasMode(ed.value(), "GENERATE_KEY"));
+    EXPECT_TRUE(HasOperation(ed.value(), "SIGN"));
+    EXPECT_TRUE(HasOperation(ed.value(), "VERIFY"));
+    EXPECT_TRUE(HasOperation(ed.value(), "GENERATE_KEY"));
 }
 #else
 // The PKCS#11 provider serves hash, HMAC and symmetric key generation only.
@@ -262,14 +262,14 @@ TEST_F(CapabilitiesTest, SoftwareOnlyAlgorithmsAreUnsupportedWithoutTheSoftwareP
         const auto caps = m_ctx->QueryCapabilities(AlgorithmId{name});
         ASSERT_TRUE(caps.has_value()) << name << ": " << caps.error().Message();
         EXPECT_FALSE(caps->supported) << name;
-        EXPECT_EQ(caps->mode_count, 0U) << name;
+        EXPECT_EQ(caps->operation_count, 0U) << name;
     }
 
     // The token generates the AES key, but only the software provider ciphers.
     const auto cbc = m_ctx->QueryCapabilities(AlgorithmId{"AES-256-CBC"});
     ASSERT_TRUE(cbc.has_value()) << cbc.error().Message();
-    EXPECT_FALSE(HasMode(cbc.value(), "CIPHER"));
-    EXPECT_TRUE(HasMode(cbc.value(), "GENERATE_KEY"));
+    EXPECT_FALSE(HasOperation(cbc.value(), "CIPHER"));
+    EXPECT_TRUE(HasOperation(cbc.value(), "GENERATE_KEY"));
 }
 #endif
 
@@ -278,7 +278,7 @@ TEST_F(CapabilitiesTest, UnknownAlgorithmIsUnsupported)
     const auto caps = m_ctx->QueryCapabilities(AlgorithmId{"NOT-AN-ALGORITHM"});
     ASSERT_TRUE(caps.has_value()) << caps.error().Message();
     EXPECT_FALSE(caps->supported);
-    EXPECT_EQ(caps->mode_count, 0U);
+    EXPECT_EQ(caps->operation_count, 0U);
     EXPECT_EQ(std::string_view{caps->id}, "NOT-AN-ALGORITHM");
 }
 

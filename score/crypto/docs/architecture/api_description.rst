@@ -176,10 +176,12 @@ Provider and Capability Discovery
   ``GetProviderInfo(resource)`` does the same for the resource's
   ``primary_provider``. Unknown ids return ``kInvalidArgument``.
 - ``QueryCapabilities(algorithm)`` reports the operations that at least one
-  provider accepts for that name, as entries in ``modes``:
-  ``HASH``, ``MAC``, ``CIPHER``, ``SIGN``, ``VERIFY``, ``RANDOM`` and
-  ``GENERATE_KEY``. ``supported`` is false and ``modes`` empty when no
-  provider accepts it, including for names outside the algorithm catalog.
+  provider accepts for that name, as entries in ``operations``. Today these
+  are ``HASH``, ``MAC``, ``CIPHER``, ``SIGN``, ``VERIFY``, ``RANDOM`` and
+  ``GENERATE_KEY``, in that order. The daemon sends the names and the client
+  passes them through, so new operations reach applications without a client
+  change. ``supported`` is false and ``operations`` empty when no provider
+  accepts it, including for names outside the algorithm catalog.
   An empty name reports the default random generator, CTR-DRBG, the same
   generator a random context created without an algorithm uses.
 - ``QueryCapabilities()`` lists the providers and every catalog algorithm

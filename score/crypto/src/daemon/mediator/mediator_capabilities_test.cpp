@@ -44,7 +44,6 @@ namespace
 {
 
 namespace protocol = control_plane::protocol;
-namespace flags = operations::capability_flags;
 using score::crypto::Algorithm;
 
 constexpr auto kInvalidArgument = static_cast<protocol::OperationResult>(CryptoErrorCode::kInvalidArgument);
@@ -225,6 +224,26 @@ class MediatorCapabilitiesTest : public ::testing::Test
         });
     }
 
+    /// Reads an operation count and that many names, starting at @p index.
+    static std::vector<std::string> ReadOperations(const protocol::SingleOperationResponse& op, std::size_t& index)
+    {
+        std::vector<std::string> names;
+        const auto count = std::get<std::uint16_t>(op.parameters.at(index++));
+        for (std::uint16_t n = 0U; n < count; ++n)
+        {
+            names.push_back(ToString(op.parameters.at(index++)));
+        }
+        return names;
+    }
+
+    static std::vector<std::string> OnlyOperations(const protocol::SingleOperationResponse& op)
+    {
+        std::size_t index = 0U;
+        auto names = ReadOperations(op, index);
+        EXPECT_EQ(index, op.parameters.size());
+        return names;
+    }
+
     static const protocol::SingleOperationResponse& OnlyOperation(const protocol::ControlResponse& response)
     {
         EXPECT_EQ(response.operation.operations.size(), 1U);
@@ -329,7 +348,7 @@ TEST_F(MediatorCapabilitiesTest, FailedProviderInfoStopsTheBatch)
 // QUERY_CAPABILITIES
 // ---------------------------------------------------------------------------
 
-TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesUnionsFlagsAcrossProviders)
+TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesUnionsOperationsAcrossProviders)
 {
     Register("MAC_PROV",
              common::CryptoProviderType::SOFTWARE,
@@ -344,20 +363,14 @@ TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesUnionsFlagsAcrossProviders)
     const auto response = QueryCapabilities(mediator, "HMAC-SHA256");
     const auto& op = OnlyOperation(response);
     ASSERT_EQ(op.result, protocol::OPERATION_RESULT_SUCCESS);
-    ASSERT_EQ(op.parameters.size(), 1U);
-    EXPECT_EQ(std::get<std::uint8_t>(op.parameters[0]), flags::kMac | flags::kGenerateKey);
+    EXPECT_EQ(OnlyOperations(op), (std::vector<std::string>{"MAC", "GENERATE_KEY"}));
 }
 
-TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesMapsEveryContextTypeToItsFlag)
+TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesReportsEveryContextTypeInFixedOrder)
 {
-    const std::vector<std::pair<std::string, std::uint8_t>> context_flags{{"HASH", flags::kHash},
-                                                                          {"MAC", flags::kMac},
-                                                                          {"CIPHER", flags::kCipher},
-                                                                          {"SIGN", flags::kSign},
-                                                                          {"VERIFY", flags::kVerify},
-                                                                          {"RANDOM", flags::kRandom}};
+    const std::vector<std::string> contexts{"HASH", "MAC", "CIPHER", "SIGN", "VERIFY", "RANDOM"};
     std::set<std::pair<std::string, Algorithm>> supported;
-    for (const auto& [context, flag] : context_flags)
+    for (const auto& context : contexts)
     {
         supported.insert({context, Algorithm::kSha256});
     }
@@ -367,8 +380,7 @@ TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesMapsEveryContextTypeToItsFlag)
     const auto response = QueryCapabilities(mediator, "SHA256");
     const auto& op = OnlyOperation(response);
     ASSERT_EQ(op.result, protocol::OPERATION_RESULT_SUCCESS);
-    EXPECT_EQ(std::get<std::uint8_t>(op.parameters[0]),
-              flags::kHash | flags::kMac | flags::kCipher | flags::kSign | flags::kVerify | flags::kRandom);
+    EXPECT_EQ(OnlyOperations(op), contexts);
 }
 
 TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesWithEmptyNameAsksForDefaultGenerator)
@@ -382,10 +394,10 @@ TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesWithEmptyNameAsksForDefaultGen
     const auto response = QueryCapabilities(mediator, "");
     const auto& op = OnlyOperation(response);
     ASSERT_EQ(op.result, protocol::OPERATION_RESULT_SUCCESS);
-    EXPECT_EQ(std::get<std::uint8_t>(op.parameters[0]), flags::kRandom);
+    EXPECT_EQ(OnlyOperations(op), (std::vector<std::string>{"RANDOM"}));
 }
 
-TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesReportsZeroForUnknownOrUnservedAlgorithm)
+TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesReportsNoOperationsForUnknownOrUnservedAlgorithm)
 {
     Register("HASH_PROV",
              common::CryptoProviderType::SOFTWARE,
@@ -398,7 +410,7 @@ TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesReportsZeroForUnknownOrUnserve
         const auto response = QueryCapabilities(mediator, name);
         const auto& op = OnlyOperation(response);
         ASSERT_EQ(op.result, protocol::OPERATION_RESULT_SUCCESS) << name;
-        EXPECT_EQ(std::get<std::uint8_t>(op.parameters[0]), 0U) << name;
+        EXPECT_TRUE(OnlyOperations(op).empty()) << name;
     }
 }
 
@@ -413,7 +425,7 @@ TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesIgnoresProviderThatFailedToIni
     auto mediator = MakeMediator();
 
     const auto response = QueryCapabilities(mediator, "SHA256");
-    EXPECT_EQ(std::get<std::uint8_t>(OnlyOperation(response).parameters[0]), 0U);
+    EXPECT_TRUE(OnlyOperations(OnlyOperation(response)).empty());
 }
 
 TEST_F(MediatorCapabilitiesTest, QueryCapabilitiesRejectsMissingOrMistypedName)
@@ -453,8 +465,6 @@ TEST_F(MediatorCapabilitiesTest, SystemCapabilitiesListsProvidersByIdThenSupport
     const auto& op = OnlyOperation(response);
     ASSERT_EQ(op.result, protocol::OPERATION_RESULT_SUCCESS);
 
-    // 1 count + 3 x (id, type, name) + 1 count + 3 x (name, flags)
-    ASSERT_EQ(op.parameters.size(), 1U + 9U + 1U + 6U);
     std::size_t i = 0U;
     EXPECT_EQ(std::get<std::uint16_t>(op.parameters[i++]), 3U);
     const std::vector<std::tuple<std::uint16_t, std::uint8_t, std::string>> providers{
@@ -468,13 +478,14 @@ TEST_F(MediatorCapabilitiesTest, SystemCapabilitiesListsProvidersByIdThenSupport
 
     // Catalog order; rows no provider serves are omitted.
     EXPECT_EQ(std::get<std::uint16_t>(op.parameters[i++]), 3U);
-    const std::vector<std::pair<std::string, std::uint8_t>> algorithms{
-        {"SHA256", flags::kHash}, {"HMAC-SHA256", flags::kGenerateKey}, {"CTR-DRBG", flags::kRandom}};
+    const std::vector<std::pair<std::string, std::vector<std::string>>> algorithms{
+        {"SHA256", {"HASH"}}, {"HMAC-SHA256", {"GENERATE_KEY"}}, {"CTR-DRBG", {"RANDOM"}}};
     for (const auto& [name, ops] : algorithms)
     {
-        EXPECT_EQ(ToString(op.parameters[i++]), name);
-        EXPECT_EQ(std::get<std::uint8_t>(op.parameters[i++]), ops);
+        EXPECT_EQ(ToString(op.parameters.at(i++)), name);
+        EXPECT_EQ(ReadOperations(op, i), ops) << name;
     }
+    EXPECT_EQ(i, op.parameters.size());
 }
 
 TEST_F(MediatorCapabilitiesTest, SystemCapabilitiesLeavesOutProviderThatFailedToInitialize)

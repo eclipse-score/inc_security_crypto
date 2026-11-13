@@ -147,14 +147,15 @@ struct ProviderCompatibilityInfo
     std::size_t secondary_provider_count{0U};  ///< Number of valid entries in secondary_providers.
 };
 
-/// @brief Support and mode information for one algorithm.
+/// @brief Operations the providers accept for one algorithm.
 struct AlgorithmCapabilities
 {
     AlgorithmId id{};       ///< Algorithm identifier.
-    bool supported{false};  ///< Whether the queried provider supports the algorithm.
-    static constexpr std::size_t kMaxModes = 16U;
-    std::array<FixedCapacityString<16>, kMaxModes> modes{};  ///< Supported modes, when applicable.
-    std::size_t mode_count{0U};                              ///< Number of valid entries in modes.
+    bool supported{false};  ///< Whether at least one provider accepts the algorithm for some operation.
+    static constexpr std::size_t kMaxOperations = 16U;
+    /// Operations at least one provider accepts, e.g. "HASH", "SIGN", "GENERATE_KEY".
+    std::array<FixedCapacityString<16>, kMaxOperations> operations{};
+    std::size_t operation_count{0U};  ///< Number of valid entries in operations.
 };
 
 /// @brief Bounded snapshot of providers and algorithms available in the system.

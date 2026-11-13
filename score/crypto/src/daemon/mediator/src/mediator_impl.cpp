@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/context_mode.hpp"
@@ -918,6 +919,48 @@ std::vector<std::uint8_t> ToBytes(std::string_view text)
     return std::vector<std::uint8_t>(text.begin(), text.end());
 }
 
+/// Context types reported as capability operations, in reporting order.
+constexpr std::array<std::string_view, 6U> kCapabilityContexts{common::context_types::kHash,
+                                                               common::context_types::kMac,
+                                                               common::context_types::kCipher,
+                                                               common::context_types::kSign,
+                                                               common::context_types::kVerify,
+                                                               common::context_types::kRandom};
+
+constexpr bool FitsOperationName(std::string_view name) noexcept
+{
+    return name.size() <= decltype(AlgorithmCapabilities::operations)::value_type::capacity();
+}
+
+constexpr bool AllContextsFitOperationName() noexcept
+{
+    for (const auto name : kCapabilityContexts)
+    {
+        if (!FitsOperationName(name))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// The client copies the names into AlgorithmCapabilities without truncating.
+static_assert(std::size(kCapabilityContexts) + 1U <= AlgorithmCapabilities::kMaxOperations,
+              "AlgorithmCapabilities cannot hold every capability operation");
+static_assert(AllContextsFitOperationName() && FitsOperationName(operations::capability_operations::kGenerateKey),
+              "capability operation name exceeds AlgorithmCapabilities::operations capacity");
+
+/// Appends an operation count and the operation names to @p response.
+void AppendOperations(control_plane::protocol::OperationResponseBuilder& response,
+                      const std::vector<std::string_view>& names)
+{
+    response.return_value_uint16(static_cast<std::uint16_t>(names.size()));
+    for (const auto name : names)
+    {
+        response.return_value_data_buffer_out(ToBytes(name));
+    }
+}
+
 }  // namespace
 
 std::vector<std::shared_ptr<provider::IProvider>> MediatorImpl::InitializedProviders() const
@@ -945,44 +988,39 @@ std::vector<std::shared_ptr<provider::IProvider>> MediatorImpl::InitializedProvi
     return providers;
 }
 
-std::uint8_t MediatorImpl::CollectCapabilities(const std::vector<std::shared_ptr<provider::IProvider>>& providers,
-                                               const AlgorithmDescriptor& algorithm)
+std::vector<std::string_view> MediatorImpl::CollectCapabilities(
+    const std::vector<std::shared_ptr<provider::IProvider>>& providers,
+    const AlgorithmDescriptor& algorithm)
 {
-    namespace flags = operations::capability_flags;
-    struct ContextFlag
-    {
-        std::string_view context_type;
-        std::uint8_t flag;
-    };
-    static constexpr ContextFlag kContextFlags[] = {
-        {common::context_types::kHash, flags::kHash},
-        {common::context_types::kMac, flags::kMac},
-        {common::context_types::kCipher, flags::kCipher},
-        {common::context_types::kSign, flags::kSign},
-        {common::context_types::kVerify, flags::kVerify},
-        {common::context_types::kRandom, flags::kRandom},
-    };
-
-    std::uint8_t result = 0U;
+    std::array<bool, std::size(kCapabilityContexts)> accepted{};
+    bool generates_key = false;
     for (const auto& provider : providers)
     {
         if (const auto factory = provider->GetCryptoHandlerFactory())
         {
-            for (const auto& entry : kContextFlags)
+            for (std::size_t i = 0U; i < std::size(kCapabilityContexts); ++i)
             {
-                if (factory->IsAlgorithmSupported(common::HandlerId{entry.context_type}, algorithm))
-                {
-                    result = static_cast<std::uint8_t>(result | entry.flag);
-                }
+                accepted.at(i) = accepted.at(i) ||
+                                 factory->IsAlgorithmSupported(common::HandlerId{kCapabilityContexts.at(i)}, algorithm);
             }
         }
         if (const auto key_factory = provider->GetKeyFactory())
         {
-            if (key_factory->IsKeyGenerationSupported(algorithm))
-            {
-                result = static_cast<std::uint8_t>(result | flags::kGenerateKey);
-            }
+            generates_key = generates_key || key_factory->IsKeyGenerationSupported(algorithm);
         }
+    }
+
+    std::vector<std::string_view> result;
+    for (std::size_t i = 0U; i < std::size(kCapabilityContexts); ++i)
+    {
+        if (accepted.at(i))
+        {
+            result.push_back(kCapabilityContexts.at(i));
+        }
+    }
+    if (generates_key)
+    {
+        result.push_back(operations::capability_operations::kGenerateKey);
     }
     return result;
 }
@@ -1030,10 +1068,11 @@ bool MediatorImpl::HandleQueryCapabilitiesOperation(const control_plane::SingleO
     const auto algorithm = name_param->empty()
                                ? score::crypto::GetAlgorithmDescriptor(score::crypto::Algorithm::kCtrDrbg)
                                : score::crypto::GetAlgorithmDescriptor(*name_param);
-    responseBuilder.operation(operation.operationId)
-        .return_value_uint8(algorithm.has_value() ? CollectCapabilities(InitializedProviders(), algorithm.value())
-                                                  : std::uint8_t{0U})
-        .return_success();
+    auto& response = responseBuilder.operation(operation.operationId);
+    AppendOperations(response,
+                     algorithm.has_value() ? CollectCapabilities(InitializedProviders(), algorithm.value())
+                                           : std::vector<std::string_view>{});
+    response.return_success();
     return true;
 }
 
@@ -1052,20 +1091,21 @@ bool MediatorImpl::HandleSystemCapabilitiesOperation(const control_plane::Single
             .return_value_data_buffer_out(ToBytes(name));
     }
 
-    std::vector<std::pair<std::string_view, std::uint8_t>> supported;
+    std::vector<std::pair<std::string_view, std::vector<std::string_view>>> supported;
     for (const auto& row : score::crypto::kAlgorithmCatalog)
     {
-        const auto ops = CollectCapabilities(providers, row);
-        if (ops != 0U)
+        auto ops = CollectCapabilities(providers, row);
+        if (!ops.empty())
         {
-            supported.emplace_back(row.name, ops);
+            supported.emplace_back(row.name, std::move(ops));
         }
     }
 
     response.return_value_uint16(static_cast<std::uint16_t>(supported.size()));
     for (const auto& [name, ops] : supported)
     {
-        response.return_value_data_buffer_out(ToBytes(name)).return_value_uint8(ops);
+        response.return_value_data_buffer_out(ToBytes(name));
+        AppendOperations(response, ops);
     }
     response.return_success();
     return true;
