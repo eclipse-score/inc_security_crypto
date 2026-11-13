@@ -376,9 +376,8 @@ bool Pkcs11Provider::ValidateSession(const CK_SESSION_HANDLE session) const noex
     return (rv == CKR_OK);
 }
 
-Expected<bool, score::crypto::daemon::common::DaemonErrorCode> Pkcs11Provider::SupportsMechanism(
-    const CK_MECHANISM_TYPE mechanism,
-    const CK_FLAGS requiredFlags) const noexcept
+Expected<std::optional<CK_MECHANISM_INFO>, score::crypto::daemon::common::DaemonErrorCode>
+Pkcs11Provider::GetMechanismInfo(const CK_MECHANISM_TYPE mechanism) const noexcept
 {
     if (!m_initialized || (m_module == nullptr) || (m_config.slotId == kSlotIdAutoDetect))
     {
@@ -395,13 +394,25 @@ Expected<bool, score::crypto::daemon::common::DaemonErrorCode> Pkcs11Provider::S
     const CK_RV rv = fns->C_GetMechanismInfo(m_config.slotId, mechanism, &mechanism_info);
     if (rv == CKR_OK)
     {
-        return (mechanism_info.flags & requiredFlags) == requiredFlags;
+        return std::optional<CK_MECHANISM_INFO>{mechanism_info};
     }
     if (rv == CKR_MECHANISM_INVALID)
     {
-        return false;
+        return std::optional<CK_MECHANISM_INFO>{};
     }
     return make_unexpected(Pkcs11Module::MapErrorReturn(rv));
+}
+
+Expected<bool, score::crypto::daemon::common::DaemonErrorCode> Pkcs11Provider::SupportsMechanism(
+    const CK_MECHANISM_TYPE mechanism,
+    const CK_FLAGS requiredFlags) const noexcept
+{
+    const auto mechanism_info = GetMechanismInfo(mechanism);
+    if (!mechanism_info.has_value())
+    {
+        return make_unexpected(mechanism_info.error());
+    }
+    return mechanism_info.value().has_value() && ((mechanism_info.value()->flags & requiredFlags) == requiredFlags);
 }
 
 // ============================================================================

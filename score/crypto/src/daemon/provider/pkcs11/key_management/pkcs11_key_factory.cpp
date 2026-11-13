@@ -70,6 +70,20 @@ Pkcs11KeyFactory::Pkcs11KeyFactory(std::weak_ptr<Pkcs11Provider> provider,
 {
 }
 
+bool Pkcs11KeyFactory::IsKeyGenerationSupported(const AlgorithmDescriptor& algorithm) const
+{
+    const auto algo_info = detail::LookupAlgorithm(algorithm);
+    const auto provider = m_provider.lock();
+    if (!algo_info.has_value() || !provider)
+    {
+        return false;
+    }
+    // The selected token must implement the key generation mechanism for this key length.
+    const auto mechanism_info = provider->GetMechanismInfo(algo_info->gen_mechanism);
+    return mechanism_info.has_value() && mechanism_info.value().has_value() &&
+           detail::CanGenerateKey(algo_info.value(), mechanism_info.value().value());
+}
+
 score::crypto::Expected<key_management::IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode>
 Pkcs11KeyFactory::GenerateKey(const key_management::KeyGenerationRequest& request)
 {

@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <limits>
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -26,6 +27,7 @@
 #include <vector>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/context_mode.hpp"
@@ -40,6 +42,7 @@
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/data_plane/src/shm_data_node.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 #include "score/crypto/src/daemon/mediator/context_algorithm.hpp"
@@ -179,6 +182,18 @@ bool MediatorImpl::HandleMediatorOperation(const control_plane::ControlRequest& 
             score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle resource resolution operation";
         }
         return success;
+    }
+    else if (operationIdentifier.operationAction == operations::PROVIDER_INFO)
+    {
+        return HandleProviderInfoOperation(operation, responseBuilder);
+    }
+    else if (operationIdentifier.operationAction == operations::QUERY_CAPABILITIES)
+    {
+        return HandleQueryCapabilitiesOperation(operation, responseBuilder);
+    }
+    else if (operationIdentifier.operationAction == operations::SYSTEM_CAPABILITIES)
+    {
+        return HandleSystemCapabilitiesOperation(operation, responseBuilder);
     }
     else if (operationIdentifier.operationAction == operations::SHM_SETUP)
     {
@@ -875,6 +890,238 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
     }
 
     resp.return_success();
+    return true;
+}
+
+// ============================================================================
+// Provider and Capability Queries
+// ============================================================================
+
+namespace
+{
+
+std::vector<std::uint8_t> ToBytes(std::string_view text)
+{
+    return std::vector<std::uint8_t>(text.begin(), text.end());
+}
+
+// SYSTEM_CAPABILITIES reports a subset of the catalog, and provider names are
+// limited at registration; both must fit the public structs the client fills.
+static_assert(std::size(score::crypto::kAlgorithmCatalog) <= SystemCapabilities::kMaxAlgorithms,
+              "SystemCapabilities cannot hold every catalog algorithm");
+static_assert(common::kMaxProviderNameLength == decltype(ProviderInfo::name)::capacity(),
+              "provider name limit differs from ProviderInfo::name capacity");
+
+constexpr bool AllCatalogNamesFitAlgorithmId() noexcept
+{
+    for (const auto& row : score::crypto::kAlgorithmCatalog)
+    {
+        if (row.name.size() > AlgorithmId::capacity())
+        {
+            return false;
+        }
+    }
+    return true;
+}
+static_assert(AllCatalogNamesFitAlgorithmId(), "catalog algorithm name exceeds AlgorithmId capacity");
+
+/// Context types reported as capability operations, in reporting order.
+constexpr std::array<std::string_view, 6U> kCapabilityContexts{common::context_types::kHash,
+                                                               common::context_types::kMac,
+                                                               common::context_types::kCipher,
+                                                               common::context_types::kSign,
+                                                               common::context_types::kVerify,
+                                                               common::context_types::kRandom};
+
+constexpr bool FitsOperationName(std::string_view name) noexcept
+{
+    return name.size() <= decltype(AlgorithmCapabilities::operations)::value_type::capacity();
+}
+
+constexpr bool AllContextsFitOperationName() noexcept
+{
+    for (const auto name : kCapabilityContexts)
+    {
+        if (!FitsOperationName(name))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// The client copies the names into AlgorithmCapabilities without truncating.
+static_assert(std::size(kCapabilityContexts) + 1U <= AlgorithmCapabilities::kMaxOperations,
+              "AlgorithmCapabilities cannot hold every capability operation");
+static_assert(AllContextsFitOperationName() && FitsOperationName(operations::capability_operations::kGenerateKey),
+              "capability operation name exceeds AlgorithmCapabilities::operations capacity");
+
+/// Appends an operation count and the operation names to @p response.
+void AppendOperations(control_plane::protocol::OperationResponseBuilder& response,
+                      const std::vector<std::string_view>& names)
+{
+    response.return_value_uint16(static_cast<std::uint16_t>(names.size()));
+    for (const auto name : names)
+    {
+        response.return_value_data_buffer_out(ToBytes(name));
+    }
+}
+
+}  // namespace
+
+std::vector<std::shared_ptr<provider::IProvider>> MediatorImpl::InitializedProviders() const
+{
+    std::vector<std::shared_ptr<provider::IProvider>> providers;
+    if (m_provider_manager == nullptr)
+    {
+        return providers;
+    }
+    std::vector<common::ProviderName> names;
+    m_provider_manager->ForEachProvider([&names](const common::ProviderName& name, const auto& /*instance*/) {
+        names.push_back(name);
+    });
+    for (const auto& name : names)
+    {
+        // GetProvider() initializes lazily and returns nullptr if that fails.
+        if (auto provider = m_provider_manager->GetProvider(name))
+        {
+            providers.push_back(std::move(provider));
+        }
+    }
+    std::sort(providers.begin(), providers.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs->GetProviderId() < rhs->GetProviderId();
+    });
+    return providers;
+}
+
+std::vector<std::string_view> MediatorImpl::CollectCapabilities(
+    const std::vector<std::shared_ptr<provider::IProvider>>& providers,
+    const AlgorithmDescriptor& algorithm)
+{
+    std::array<bool, std::size(kCapabilityContexts)> accepted{};
+    bool generates_key = false;
+    for (const auto& provider : providers)
+    {
+        if (const auto factory = provider->GetCryptoHandlerFactory())
+        {
+            for (std::size_t i = 0U; i < std::size(kCapabilityContexts); ++i)
+            {
+                accepted.at(i) = accepted.at(i) ||
+                                 factory->IsAlgorithmSupported(common::HandlerId{kCapabilityContexts.at(i)}, algorithm);
+            }
+        }
+        if (const auto key_factory = provider->GetKeyFactory())
+        {
+            generates_key = generates_key || key_factory->IsKeyGenerationSupported(algorithm);
+        }
+    }
+
+    std::vector<std::string_view> result;
+    for (std::size_t i = 0U; i < std::size(kCapabilityContexts); ++i)
+    {
+        if (accepted.at(i))
+        {
+            result.push_back(kCapabilityContexts.at(i));
+        }
+    }
+    if (generates_key)
+    {
+        result.push_back(operations::capability_operations::kGenerateKey);
+    }
+    return result;
+}
+
+bool MediatorImpl::HandleProviderInfoOperation(const control_plane::SingleOperationRequest& operation,
+                                               control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    const auto* id_param =
+        operation.parameters.empty() ? nullptr : std::get_if<std::uint64_t>(&operation.parameters[0]);
+    if ((id_param == nullptr) || (*id_param >= common::kInvalidProviderId) || (m_provider_manager == nullptr))
+    {
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    const auto provider = m_provider_manager->GetProvider(static_cast<common::ProviderId>(*id_param));
+    if (provider == nullptr)
+    {
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    const auto& name = provider->GetProviderName();
+    responseBuilder.operation(operation.operationId)
+        .return_value_uint16(provider->GetProviderId())
+        .return_value_uint8(operations::EncodeProviderType(m_provider_manager->GetProviderType(name)))
+        .return_value_data_buffer_out(ToBytes(name))
+        .return_success();
+    return true;
+}
+
+bool MediatorImpl::HandleQueryCapabilitiesOperation(const control_plane::SingleOperationRequest& operation,
+                                                    control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    const auto* name_param =
+        operation.parameters.empty() ? nullptr : std::get_if<std::string_view>(&operation.parameters[0]);
+    if (name_param == nullptr)
+    {
+        responseBuilder.operation(operation.operationId).return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+        return false;
+    }
+
+    // An empty name asks for the default generator, as it does when a RANDOM
+    // context is created. A name the catalog does not know is served by no provider.
+    const auto algorithm = name_param->empty()
+                               ? score::crypto::GetAlgorithmDescriptor(score::crypto::Algorithm::kCtrDrbg)
+                               : score::crypto::GetAlgorithmDescriptor(*name_param);
+    auto& response = responseBuilder.operation(operation.operationId);
+    AppendOperations(response,
+                     algorithm.has_value() ? CollectCapabilities(InitializedProviders(), algorithm.value())
+                                           : std::vector<std::string_view>{});
+    response.return_success();
+    return true;
+}
+
+bool MediatorImpl::HandleSystemCapabilitiesOperation(const control_plane::SingleOperationRequest& operation,
+                                                     control_plane::protocol::OperationResponseBuilder& responseBuilder)
+{
+    const auto providers = InitializedProviders();
+    if (providers.size() > SystemCapabilities::kMaxProviders)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] SYSTEM_CAPABILITIES: " << providers.size()
+                                   << " providers exceed the client limit of " << SystemCapabilities::kMaxProviders;
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kInsufficientBufferSize);
+        return false;
+    }
+    auto& response = responseBuilder.operation(operation.operationId);
+
+    response.return_value_uint16(static_cast<std::uint16_t>(providers.size()));
+    for (const auto& provider : providers)
+    {
+        const auto& name = provider->GetProviderName();
+        response.return_value_uint16(provider->GetProviderId())
+            .return_value_uint8(operations::EncodeProviderType(m_provider_manager->GetProviderType(name)))
+            .return_value_data_buffer_out(ToBytes(name));
+    }
+
+    std::vector<std::pair<std::string_view, std::vector<std::string_view>>> supported;
+    for (const auto& row : score::crypto::kAlgorithmCatalog)
+    {
+        auto ops = CollectCapabilities(providers, row);
+        if (!ops.empty())
+        {
+            supported.emplace_back(row.name, std::move(ops));
+        }
+    }
+
+    response.return_value_uint16(static_cast<std::uint16_t>(supported.size()));
+    for (const auto& [name, ops] : supported)
+    {
+        response.return_value_data_buffer_out(ToBytes(name));
+        AppendOperations(response, ops);
+    }
+    response.return_success();
     return true;
 }
 

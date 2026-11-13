@@ -37,6 +37,13 @@ class OpenSslHandlerFactory final
 
     ~OpenSslHandlerFactory() override = default;
 
+    /// @brief Whether a handler of type @p handlerId accepts @p algorithm.
+    ///
+    /// Asks the handler class's static IsAlgorithmSupported(), the same check
+    /// the corresponding Create*Handler() applies. Creates no handler.
+    [[nodiscard]] bool IsAlgorithmSupported(const common::HandlerId& handlerId,
+                                            const AlgorithmDescriptor& algorithm) const override;
+
     [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
     CreateKeyManagementHandler() override;
 

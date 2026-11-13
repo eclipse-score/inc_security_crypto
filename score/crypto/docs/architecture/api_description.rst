@@ -166,6 +166,37 @@ to detect that the resource is still referenced by an active context — call
        // e.g. resource still used by an active context — destroy it first
    }
 
+Provider and Capability Discovery
+---------------------------------
+
+``ICryptoContext`` answers which providers exist and what they can do:
+
+- ``GetProviderInfo(provider_id)`` returns id, ``ProviderType``
+  (``kHardware`` or ``kSoftware`` as configured) and name.
+  ``GetProviderInfo(resource)`` does the same for the resource's
+  ``primary_provider``. Unknown ids return ``kInvalidArgument``.
+- ``QueryCapabilities(algorithm)`` reports the operations that at least one
+  provider accepts for that name, as entries in ``operations``. Today these
+  are ``HASH``, ``MAC``, ``CIPHER``, ``SIGN``, ``VERIFY``, ``RANDOM`` and
+  ``GENERATE_KEY``, in that order. The daemon sends the names and the client
+  passes them through, so new operations reach applications without a client
+  change. ``supported`` is false and ``operations`` empty when no provider
+  accepts it, including for names outside the algorithm catalog.
+  An empty name reports the default random generator, CTR-DRBG, the same
+  generator a random context created without an algorithm uses.
+- ``QueryCapabilities()`` lists the providers and every catalog algorithm
+  with at least one operation, in catalog order. Each ECDSA curve/hash
+  pairing is a row of its own and is listed separately.
+
+The daemon resolves the name to its catalog row and asks each provider's
+``IsAlgorithmSupported()`` and ``IsKeyGenerationSupported()`` with that
+descriptor. These are the same checks that context creation and key
+generation apply, so a reported operation is one that
+``Create[Op]Context()`` or ``GenerateKey()`` would accept for that algorithm
+on at least one provider. It does not check key slots, permissions or
+memory. The answer is the union over providers; to target one provider, set
+``ProviderType`` on the context config.
+
 Memory and Data Plane Model
 ---------------------------
 

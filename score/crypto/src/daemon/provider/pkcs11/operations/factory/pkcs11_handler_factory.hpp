@@ -53,6 +53,14 @@ class Pkcs11HandlerFactory final : public handler::ICryptoHandlerFactory
     Pkcs11HandlerFactory(Pkcs11HandlerFactory&&) = delete;
     Pkcs11HandlerFactory& operator=(Pkcs11HandlerFactory&&) = delete;
 
+    /// @brief Whether CreateHandler() would accept @p handlerId with @p algorithm.
+    ///
+    /// Checks the handler's static algorithm support and that the selected
+    /// token implements the PKCS#11 mechanism with the operation's CKF_* flags.
+    /// Opens no session.
+    [[nodiscard]] bool IsAlgorithmSupported(const common::HandlerId& handlerId,
+                                            const AlgorithmDescriptor& algorithm) const override;
+
     /// @brief Create a handler for the requested handler/algorithm combination.
     ///
     /// Acquires a session from the provider pool using the handler type's
