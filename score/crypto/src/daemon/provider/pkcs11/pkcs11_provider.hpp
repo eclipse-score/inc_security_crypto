@@ -28,6 +28,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -151,6 +152,14 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
     /// invalidated (e.g. after token removal or HSM error).
     /// @return true if the session is valid and open, false otherwise.
     [[nodiscard]] bool ValidateSession(CK_SESSION_HANDLE session) const noexcept;
+
+    /// @brief Read the configured token's C_GetMechanismInfo for a mechanism.
+    /// @param mechanism Mechanism to query.
+    /// @return The token's flags and key-size range, std::nullopt if the token
+    ///         does not implement the mechanism (CKR_MECHANISM_INVALID), or an
+    ///         error if the provider is not ready or the query fails.
+    [[nodiscard]] Expected<std::optional<CK_MECHANISM_INFO>, score::crypto::daemon::common::DaemonErrorCode>
+    GetMechanismInfo(CK_MECHANISM_TYPE mechanism) const noexcept;
 
     /// @brief Query whether the configured token exposes a PKCS#11 mechanism
     ///        with all required capabilities.
