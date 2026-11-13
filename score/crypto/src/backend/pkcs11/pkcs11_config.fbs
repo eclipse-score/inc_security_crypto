@@ -1,0 +1,48 @@
+// *******************************************************************************
+// Copyright (c) 2026 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache License Version 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// SPDX-License-Identifier: Apache-2.0
+// *******************************************************************************
+
+include "buffer_version.fbs";
+
+file_identifier "P11C";
+
+namespace score.crypto.backend.pkcs11.config;
+
+enum ProviderType : byte {
+  HARDWARE = 0,
+  SOFTWARE = 1,
+  SPECIALIZED = 2
+}
+
+enum CleanupStrategy : byte {
+  SOFT = 0,
+  HARD = 1
+}
+
+/// Runtime configuration for one token exposed as one crypto provider.
+table TokenEntry {
+  token_label: string (required, id: 0);
+  token_model: string (id: 1);
+  user_pin: string (id: 2);
+  provider_name: string (required, id: 3);
+  provider_type: ProviderType = HARDWARE (id: 4);
+  cleanup_strategy: CleanupStrategy = HARD (id: 5);
+}
+
+/// PKCS#11-owned configuration root.
+table Pkcs11BackendConfig {
+  /// Standard SCORE buffer version envelope. This must remain at field ID 0.
+  version_info: score.flatbuffers.BufferVersion (id: 0);
+  tokens: [TokenEntry] (required, id: 1);
+}
+
+root_type Pkcs11BackendConfig;

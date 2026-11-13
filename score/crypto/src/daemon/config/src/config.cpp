@@ -14,6 +14,7 @@
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/config/src/flatbuffer_config_parser.hpp"
 
+#include "score/filesystem/filesystem.h"
 #include "score/mw/log/logging.h"
 #include <sys/stat.h>
 #include <cerrno>
@@ -21,7 +22,6 @@
 
 #include <map>
 #include <string>
-#include <system_error>
 #include <vector>
 
 namespace score::crypto::daemon::config
@@ -129,6 +129,44 @@ bool Config::ParseCertManagementSection(const ConfigFile& file)
     return true;
 }
 
+bool Config::ParseBackendConfigSection(const ConfigFile& file, const std::string_view common_config_path)
+{
+    BackendConfigCatalog parsed;
+    auto result = FlatBufferConfigParser::ParseBackendConfigReferences(file, parsed);
+    if (!result.has_value())
+    {
+        score::mw::log::LogError() << "[CONFIG] Backend configuration index parsing failed";
+        return false;
+    }
+    if (!result.value())
+    {
+        m_backend_config = BackendConfigCatalog{};
+        return true;
+    }
+
+    score::filesystem::StandardFilesystem filesystem;
+    const auto absolute_config_path = filesystem.Absolute(score::filesystem::Path{std::string{common_config_path}});
+    if (!absolute_config_path.has_value())
+    {
+        score::mw::log::LogError() << "[CONFIG] Failed to resolve common configuration path";
+        return false;
+    }
+    const score::filesystem::Path config_directory = absolute_config_path.value().ParentPath();
+    std::vector<BackendConfigReference> normalized;
+    normalized.reserve(parsed.GetReferences().size());
+    for (const auto& reference : parsed.GetReferences())
+    {
+        score::filesystem::Path backend_path{reference.configPath};
+        if (backend_path.IsRelative())
+        {
+            backend_path = config_directory / backend_path;
+        }
+        normalized.push_back(BackendConfigReference{reference.backendId, backend_path.LexicallyNormal().Native()});
+    }
+    m_backend_config.SetReferences(std::move(normalized));
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // ParseConfig — orchestrates all component section parsers
 // ---------------------------------------------------------------------------
@@ -211,14 +249,17 @@ bool Config::ParseConfig()
         return false;
     }
 
-    // Future components (uncomment / add when their config sections are ready):
-    //   if (!ParseProviderManagementSection(resolved_path)) return false;
+    if (!ParseBackendConfigSection(file.value(), resolved_path))
+    {
+        return false;
+    }
 
     score::mw::log::LogInfo() << "[CONFIG] Crypto stack config loaded successfully: " << m_key.GetSlotEntries().size()
                               << " key slot(s), " << m_certificate.GetSlotEntries().size() << " cert slot(s), "
                               << m_certificate.GetTrustStoreEntries().size() << " trust store(s), "
                               << m_certificate.GetAppCertSlotMappings().size() << " cert app resource(s), "
-                              << m_certificate.GetAppTrustStoreMappings().size() << " trust store app resource(s).";
+                              << m_certificate.GetAppTrustStoreMappings().size() << " trust store app resource(s), "
+                              << m_backend_config.GetReferences().size() << " backend config reference(s).";
 
     return true;
 }

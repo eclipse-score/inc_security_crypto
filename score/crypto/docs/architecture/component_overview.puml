@@ -175,18 +175,19 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
 
             class "ScoreProviderFactory" as ScoreProviderFactoryNode {
                 +ScoreProviderFactory(config)
-                +CreateAndRegister(manager) : bool
+                +CreateAndRegister(manager) : ProviderFactoryResult
             }
         }
 
         package provider_pkcs11 {
             class "Pkcs11Config" as Pkcs11ConfigNode {
+                +ParseConfig(config_path)
                 +GetConfig()
             }
 
             class "Pkcs11ProviderFactory" as Pkcs11ProviderFactoryNode {
                 +Pkcs11ProviderFactory(config)
-                +CreateAndRegister(manager) : bool
+                +CreateAndRegister(manager) : ProviderFactoryResult
             }
         }
 
