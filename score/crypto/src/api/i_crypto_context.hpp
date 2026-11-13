@@ -38,6 +38,7 @@ class KeyManagementContextConfig;
 class MacContextConfig;
 class RandomContextConfig;
 class SignContextConfig;
+class TrustStoreManagementContextConfig;
 class VerifySignatureContextConfig;
 
 // Operation contexts (returned as std::unique_ptr)
@@ -48,6 +49,7 @@ class IKeyManagementContext;
 class IMacContext;
 class IRandomContext;
 class ISignContext;
+class ITrustStoreManagementContext;
 class IVerifySignatureContext;
 
 // Typed object interfaces (returned as std::unique_ptr)
@@ -55,6 +57,7 @@ class ICertificateObject;
 class ICertSlotObject;
 class IKeyObject;
 class IKeySlotObject;
+class ITrustStoreObject;
 
 // The following forward declarations are for contexts not yet active (IPC implementation pending).
 // class AeadContextConfig;
@@ -164,6 +167,13 @@ class ICryptoContext
     virtual score::Result<std::unique_ptr<ICertificateManagementContext>> CreateCertificateManagementContext(
         const CertificateContextConfig& config) = 0;
 
+    /// @brief Creates a trust-store management context.
+    /// @param config Trust-store management configuration (provider optional)
+    /// @note The context is not bound to an algorithm. Membership and enablement changes apply to the named trust
+    ///       store for every client that uses it.
+    virtual score::Result<std::unique_ptr<ITrustStoreManagementContext>> CreateTrustStoreManagementContext(
+        const TrustStoreManagementContextConfig& config) = 0;
+
     // The following factory methods are declared but not yet active.
     // Each is implemented in score/crypto/src/api/future/contexts/
     // and will be moved here together with its IPC implementation.
@@ -238,6 +248,12 @@ class ICryptoContext
     /// @param id CryptoResourceId whose type must be kCertSlot
     /// @return ICertSlotObject for slot state and CRL presence queries
     virtual score::Result<std::unique_ptr<ICertSlotObject>> GetCertSlotObject(const CryptoResourceId& id) = 0;
+
+    /// @brief Obtains a typed trust-store object for the given resource.
+    /// @param id CryptoResourceId whose type must be kCertificateTrustStore
+    /// @return ITrustStoreObject holding a point-in-time snapshot of the store's members
+    /// @note The snapshot is taken at call time and is not refreshed as membership changes.
+    virtual score::Result<std::unique_ptr<ITrustStoreObject>> GetTrustStoreObject(const CryptoResourceId& id) = 0;
 
     // FUTURE: Uncomment when the corresponding object interface is available.
     // virtual score::Result<std::unique_ptr<IProviderObject>> GetProviderObject(

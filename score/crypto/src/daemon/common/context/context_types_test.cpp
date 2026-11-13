@@ -51,6 +51,7 @@ constexpr std::string_view kAllContextTypes[] = {
     ctx::kRandom,
     ctx::kKeyManagement,
     ctx::kCertManagement,
+    ctx::kCertTrustStore,
 };
 
 /// Context types that bind no key at CTX_CREATE.
@@ -59,6 +60,7 @@ constexpr std::string_view kKeylessContextTypes[] = {
     ctx::kRandom,
     ctx::kKeyManagement,
     ctx::kCertManagement,
+    ctx::kCertTrustStore,
 };
 
 TEST(ContextTypesTest, ExactlyTheKeyedTypesCarryAPermission)
@@ -148,6 +150,7 @@ TEST(RequiredProviderCapabilityTest, ScopedManagementContextsRequireTheirCapabil
     EXPECT_EQ(common::RequiredProviderCapability(ctx::kKeyManagement), common::ProviderCapability::kKeyManagement);
     EXPECT_EQ(common::RequiredProviderCapability(ctx::kCertManagement), common::ProviderCapability::kCertManagement);
     EXPECT_EQ(common::RequiredProviderCapability("CERT:VERIFICATION"), common::ProviderCapability::kCertManagement);
+    EXPECT_EQ(common::RequiredProviderCapability(ctx::kCertTrustStore), common::ProviderCapability::kCertManagement);
 }
 
 TEST(RequiredProviderCapabilityTest, UnscopedContextsRequireNoCapability)

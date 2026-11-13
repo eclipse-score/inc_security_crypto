@@ -198,6 +198,25 @@ inline constexpr OperationAction GET_CERT_SLOT_OBJECT = 7;
 //           [0] uint64 — number of bytes written to param[2]
 inline constexpr OperationAction GET_CERTIFICATE_PUBLIC_KEY = 8;
 
+// GET_TRUST_STORE_MEMBER_ID_LIST
+// Returns trust-store member identities only, so each response stays within the IPC payload budget regardless of
+// the size of the trust store. Member detail is fetched per member with GET_TRUST_STORE_MEMBER_OBJECT.
+// Request:  param[0]: uint64 — trust-store data node id
+// Response: status_code (SUCCESS/error)
+//           [0] uint64 — member count N
+//           [1+i] uint64 — client-scoped slot data node id, i = 0..N-1
+// Layout is defined by BuildTrustStoreMemberIdListResponse in cert_management/query/cert_object_response_builder.hpp
+inline constexpr OperationAction GET_TRUST_STORE_MEMBER_ID_LIST = 9;
+
+// GET_TRUST_STORE_MEMBER_OBJECT
+// Returns one trust-store member's detail. The slot identifiers come from GET_TRUST_STORE_MEMBER_ID_LIST.
+// Request:  param[0]: uint64 — trust-store data node id
+//           param[1]: uint64 — member slot data node id, from GET_TRUST_STORE_MEMBER_ID_LIST
+// Response: status_code (SUCCESS/error)
+//           7 parameters; layout is defined by BuildTrustStoreMemberObjectResponse in
+//           cert_management/query/cert_object_response_builder.hpp
+inline constexpr OperationAction GET_TRUST_STORE_MEMBER_OBJECT = 10;
+
 inline control_plane::protocol::OperationIdentifier GetCertificateObject()
 {
     return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
@@ -212,6 +231,16 @@ inline control_plane::protocol::OperationIdentifier GetCertificatePublicKey()
 {
     return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
                                                         .operationAction = operations::GET_CERTIFICATE_PUBLIC_KEY};
+}
+inline control_plane::protocol::OperationIdentifier GetTrustStoreMemberIdList()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::GET_TRUST_STORE_MEMBER_ID_LIST};
+}
+inline control_plane::protocol::OperationIdentifier GetTrustStoreMemberObject()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::GET_TRUST_STORE_MEMBER_OBJECT};
 }
 
 // Starting point for custom OPs

@@ -39,9 +39,9 @@ inline constexpr OperationAction TRUST_STORE_REMOVE_CERT = 0xC1U;
 inline constexpr OperationAction TRUST_STORE_ENABLE_CERT = 0xC2U;
 inline constexpr OperationAction TRUST_STORE_DISABLE_CERT = 0xC3U;
 inline constexpr OperationAction TRUST_STORE_ACK_UPDATE = 0xC4U;
-inline constexpr OperationAction TRUST_STORE_REMOVE_CERT_BY_ID = 0xC5U;      // remove by cert node_id (lib resolves fp)
-inline constexpr OperationAction TRUST_STORE_IMPORT_CRL_FOR_MEMBER = 0xC6U;  // fingerprint + CRL bytes → exclusive slot
-inline constexpr OperationAction TRUST_STORE_DELETE_CRL_FOR_MEMBER = 0xC8U;  // clear CRL from exclusive slot
+inline constexpr OperationAction TRUST_STORE_REMOVE_CERT_BY_ID = 0xC5U;      // remove by certificate node id
+inline constexpr OperationAction TRUST_STORE_IMPORT_CRL_FOR_MEMBER = 0xC6U;  // member CRL: slot node, format, bytes
+inline constexpr OperationAction TRUST_STORE_DELETE_CRL_FOR_MEMBER = 0xC8U;  // clear the CRL of a member slot
 // TRUST_STORE_ENABLE_CERT / TRUST_STORE_DISABLE_CERT: [0]=ts_node_id, [1]=slot_node_id
 
 inline constexpr OperationAction CERT_RELEASE = 0xF0U;

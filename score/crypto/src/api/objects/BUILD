@@ -54,10 +54,12 @@ cc_library(
     srcs = [
         "src/cert_slot_object_impl.cpp",
         "src/certificate_object_impl.cpp",
+        "src/trust_store_object_impl.cpp",
     ],
     hdrs = [
         "src/cert_slot_object_impl.hpp",
         "src/certificate_object_impl.hpp",
+        "src/trust_store_object_impl.hpp",
     ],
     visibility = ["//:__subpackages__"],
     deps = [

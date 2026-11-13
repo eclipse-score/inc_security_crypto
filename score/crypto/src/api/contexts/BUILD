@@ -85,6 +85,7 @@ cc_library(
         "src/mac_context_impl.cpp",
         "src/random_context_impl.cpp",
         "src/sign_context_impl.cpp",
+        "src/trust_store_management_context_impl.cpp",
         "src/verify_signature_context_impl.cpp",
     ],
     hdrs = [
@@ -95,6 +96,7 @@ cc_library(
         "src/mac_context_impl.hpp",
         "src/random_context_impl.hpp",
         "src/sign_context_impl.hpp",
+        "src/trust_store_management_context_impl.hpp",
         "src/verify_signature_context_impl.hpp",
     ],
     includes = ["."],
@@ -110,6 +112,7 @@ cc_library(
         "//score/crypto/src/api/data_plane:data_plane_client",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/cert_management:cert_management_operations",
+        "//score/crypto/src/daemon/mediator:mediator_operations",
         "@score_baselibs//score/mw/log",
         "@score_baselibs//score/result",
     ],

@@ -51,8 +51,9 @@ class CertManagementModule final : public common::IMediatorRegistrar
         return m_service;
     }
 
-    /// @brief Add the CERT:MANAGEMENT context factory, the object queries (operations 6 and 7),
-    ///        and the certificate slot resource resolver to the mediator registries.
+    /// @brief Register the CERT:MANAGEMENT and CERT:TRUST_STORE context factories, the certificate and trust-store
+    ///        object and member queries, and the certificate-slot and trust-store resource resolvers with the mediator
+    ///        registries.
     /// @param registries Registries to add to.
     /// @return True if every entry was registered. False if the registries rejected an entry.
     [[nodiscard]] bool Register(common::MediatorRegistries& registries) const override;
