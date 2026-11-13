@@ -39,7 +39,7 @@ jobs:
             bazel-test-target: >-
               //score/...
             extra-bazel-test-flags: "--test_timeout=180,900,2700,10800" # Increase default test timeout by factor 3
-    uses: eclipse-score/cicd-workflows/.github/workflows/qnx-build.yml@f606cc0c3fccd3e85dcc6d112f3f1f9aed7efdb8
+    uses: eclipse-score/cicd-workflows/.github/workflows/qnx-build.yml@2396c21ed424744a3df4e1d0aa66cd8de9b947e7
     permissions:
       contents: read
       pull-requests: read
