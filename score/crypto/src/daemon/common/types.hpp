@@ -42,6 +42,11 @@ using MediatorId = std::string;
 // ProviderName: Human-readable identifier used at configuration and setup time
 using ProviderName = std::string;
 
+/// Longest ProviderName the ProviderManager registers. Equal to the capacity of
+/// the public ProviderInfo::name, which the mediator static_asserts, so a name
+/// always reaches the client whole.
+inline constexpr std::size_t kMaxProviderNameLength = 32U;
+
 // ProviderId: Numeric identifier assigned at runtime by ProviderManager
 using ProviderId = std::uint16_t;
 

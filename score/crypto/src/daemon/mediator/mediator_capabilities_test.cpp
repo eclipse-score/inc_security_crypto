@@ -17,6 +17,7 @@
 #include "score/crypto/src/daemon/mediator/src/mediator_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
@@ -506,6 +507,20 @@ TEST_F(MediatorCapabilitiesTest, SystemCapabilitiesLeavesOutProviderThatFailedTo
     EXPECT_EQ(std::get<std::uint16_t>(op.parameters[0]), 1U);
     EXPECT_EQ(ToString(op.parameters[3]), "SW_PROV");
     EXPECT_EQ(std::get<std::uint16_t>(op.parameters[4]), 0U);
+}
+
+TEST_F(MediatorCapabilitiesTest, SystemCapabilitiesRefusesMoreProvidersThanTheClientHolds)
+{
+    for (std::size_t i = 0U; i <= ::score::crypto::SystemCapabilities::kMaxProviders; ++i)
+    {
+        Register("P" + std::to_string(i), common::CryptoProviderType::SOFTWARE, nullptr);
+    }
+    auto mediator = MakeMediator();
+
+    const auto response = SystemCapabilities(mediator);
+    const auto& op = OnlyOperation(response);
+    EXPECT_EQ(op.result, static_cast<protocol::OperationResult>(CryptoErrorCode::kInsufficientBufferSize));
+    EXPECT_TRUE(op.parameters.empty());
 }
 
 TEST_F(MediatorCapabilitiesTest, SystemCapabilitiesIsEmptyWithoutProviderManager)

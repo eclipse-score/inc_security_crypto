@@ -213,6 +213,20 @@ TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoReportsInternalErrorForBrok
     EXPECT_EQ(*m_context.GetProviderInfo(std::uint16_t{0U}).error(), Code(CryptoErrorCode::kInternalError));
 }
 
+TEST_F(CryptoContextCapabilitiesTest, GetProviderInfoRejectsNameLongerThanProviderInfoHolds)
+{
+    const std::string longest(32U, 'N');
+    m_connection->Reply(med_ops::GetProviderInfo(), {std::uint16_t{0U}, std::uint8_t{2U}, Bytes(longest)});
+    const auto fits = m_context.GetProviderInfo(std::uint16_t{0U});
+    ASSERT_TRUE(fits.has_value());
+    EXPECT_EQ(View(fits->name), longest);
+
+    m_connection->Reply(med_ops::GetProviderInfo(), {std::uint16_t{0U}, std::uint8_t{2U}, Bytes(longest + "X")});
+    const auto too_long = m_context.GetProviderInfo(std::uint16_t{0U});
+    ASSERT_FALSE(too_long.has_value());
+    EXPECT_EQ(*too_long.error(), Code(CryptoErrorCode::kInternalError));
+}
+
 // ---------------------------------------------------------------------------
 // QueryCapabilities(algorithm)
 // ---------------------------------------------------------------------------
@@ -356,10 +370,9 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesDecodesProvidersAndAlgor
     EXPECT_EQ(View(caps->algorithms[1].operations[0]), "RANDOM");
 }
 
-TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesKeepsTheFirstEntriesThatFit)
+/// A SYSTEM_CAPABILITIES reply with @p providers providers and @p algorithms algorithms.
+daemon::common::ResponseParameters SystemReply(std::size_t providers, std::size_t algorithms)
 {
-    const std::size_t providers = SystemCapabilities::kMaxProviders + 1U;
-    const std::size_t algorithms = SystemCapabilities::kMaxAlgorithms + 1U;
     daemon::common::ResponseParameters reply{static_cast<std::uint16_t>(providers)};
     for (std::size_t i = 0U; i < providers; ++i)
     {
@@ -373,7 +386,13 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesKeepsTheFirstEntriesThat
         reply.emplace_back(Bytes("A" + std::to_string(i)));
         AppendOperations(reply, {"HASH"});
     }
-    m_connection->Reply(med_ops::QuerySystemCapabilities(), std::move(reply));
+    return reply;
+}
+
+TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesAcceptsFullArrays)
+{
+    m_connection->Reply(med_ops::QuerySystemCapabilities(),
+                        SystemReply(SystemCapabilities::kMaxProviders, SystemCapabilities::kMaxAlgorithms));
 
     const auto caps = m_context.QueryCapabilities();
 
@@ -384,6 +403,26 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesKeepsTheFirstEntriesThat
     EXPECT_EQ(caps->algorithm_count, SystemCapabilities::kMaxAlgorithms);
     EXPECT_EQ(View(caps->algorithms[SystemCapabilities::kMaxAlgorithms - 1U].id),
               "A" + std::to_string(SystemCapabilities::kMaxAlgorithms - 1U));
+}
+
+TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesReportsTooManyProvidersInsteadOfDroppingThem)
+{
+    m_connection->Reply(med_ops::QuerySystemCapabilities(), SystemReply(SystemCapabilities::kMaxProviders + 1U, 0U));
+
+    const auto caps = m_context.QueryCapabilities();
+
+    ASSERT_FALSE(caps.has_value());
+    EXPECT_EQ(*caps.error(), Code(CryptoErrorCode::kInsufficientBufferSize));
+}
+
+TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesRejectsMoreAlgorithmsThanTheCatalogHolds)
+{
+    m_connection->Reply(med_ops::QuerySystemCapabilities(), SystemReply(0U, SystemCapabilities::kMaxAlgorithms + 1U));
+
+    const auto caps = m_context.QueryCapabilities();
+
+    ASSERT_FALSE(caps.has_value());
+    EXPECT_EQ(*caps.error(), Code(CryptoErrorCode::kInternalError));
 }
 
 TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesRejectsMalformedReplies)
@@ -399,6 +438,10 @@ TEST_F(CryptoContextCapabilitiesTest, SystemCapabilitiesRejectsMalformedReplies)
         {"algorithm with no operations", {std::uint16_t{0U}, std::uint16_t{1U}, Bytes("SHA256"), std::uint16_t{0U}}},
         {"algorithm operation name missing",
          {std::uint16_t{0U}, std::uint16_t{1U}, Bytes("SHA256"), std::uint16_t{1U}}},
+        {"provider name too long",
+         {std::uint16_t{1U}, std::uint16_t{0U}, std::uint8_t{2U}, Bytes(std::string(33U, 'P')), std::uint16_t{0U}}},
+        {"algorithm name too long",
+         {std::uint16_t{0U}, std::uint16_t{1U}, Bytes(std::string(65U, 'A')), std::uint16_t{1U}, Bytes("HASH")}},
     };
     for (const auto& [label, reply] : malformed)
     {
