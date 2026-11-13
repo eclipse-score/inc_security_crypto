@@ -47,6 +47,14 @@ inline constexpr std::uint8_t ToWireValue(ProviderType api_type) noexcept
     return static_cast<std::uint8_t>(api_type);
 }
 
+/// @brief Decode a ProviderType wire value from a daemon reply.
+/// @return The matching ProviderType, or kDefault for a value this client does not know.
+inline constexpr ProviderType FromWireValue(std::uint8_t wire_value) noexcept
+{
+    return (wire_value <= ToWireValue(ProviderType::kSoftwarePreferred)) ? static_cast<ProviderType>(wire_value)
+                                                                         : ProviderType::kDefault;
+}
+
 static_assert(ToWireValue(ProviderType::kDefault) == 0U, "ProviderType wire value changed");
 static_assert(ToWireValue(ProviderType::kHardware) == 1U, "ProviderType wire value changed");
 static_assert(ToWireValue(ProviderType::kSoftware) == 2U, "ProviderType wire value changed");

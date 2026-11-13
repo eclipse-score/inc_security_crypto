@@ -74,6 +74,16 @@ namespace daemon_common = ::score::crypto::daemon::common;
 namespace
 {
 
+// The client encodes and decodes ProviderType without the daemon headers
+// (ProviderTypeConverter); both sides must agree on the values.
+namespace wire = ::score::crypto::daemon::mediator::operations::provider_type_wire;
+static_assert(ProviderTypeConverter::ToWireValue(ProviderType::kDefault) == wire::kDefault);
+static_assert(ProviderTypeConverter::ToWireValue(ProviderType::kHardware) == wire::kHardware);
+static_assert(ProviderTypeConverter::ToWireValue(ProviderType::kSoftware) == wire::kSoftware);
+static_assert(ProviderTypeConverter::ToWireValue(ProviderType::kHardwarePreferred) == wire::kHardwarePreferred);
+static_assert(ProviderTypeConverter::ToWireValue(ProviderType::kSoftwarePreferred) == wire::kSoftwarePreferred);
+static_assert(ProviderTypeConverter::FromWireValue(wire::kSoftwarePreferred + 1U) == ProviderType::kDefault);
+
 /// @brief Describes one CTX_CREATE call on the wire.
 ///
 /// Wire layout is positional and shared by every context type:
@@ -143,9 +153,7 @@ ProviderInfo MakeProviderInfo(std::uint16_t id, std::uint8_t wire_type, const st
 {
     ProviderInfo info{};
     info.id = id;
-    info.type = (wire_type <= static_cast<std::uint8_t>(ProviderType::kSoftwarePreferred))
-                    ? static_cast<ProviderType>(wire_type)
-                    : ProviderType::kDefault;
+    info.type = ProviderTypeConverter::FromWireValue(wire_type);
     info.name = AsText(name);
     return info;
 }
