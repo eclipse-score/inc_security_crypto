@@ -15,7 +15,7 @@
 #define SCORE_CRYPTO_SRC_DAEMON_MEDIATOR_CONTEXT_ALGORITHM_HPP
 
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
-#include "score/crypto/src/daemon/common/context_types.hpp"
+#include "score/crypto/src/daemon/common/context/context_types.hpp"
 
 #include <optional>
 #include <string_view>

@@ -14,7 +14,10 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_MANAGEMENT_SERVICE_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_MANAGEMENT_SERVICE_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/context_mode.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_registry.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
@@ -29,6 +32,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <variant>
 
@@ -51,6 +55,19 @@ struct KeyBindingResult
     IKeyHandler::Sptr key_handler;              ///< Bound key handler for the provider.
     data_manager::DataNodeId resolved_node_id;  ///< KeyDataNode id (may differ from
                                                 ///< input when slot-direct path was used).
+};
+
+/// Input to a key binding authorized against a context type.
+struct KeyBindRequest final
+{
+    data_manager::ClientId client_id{0U};          ///< Client requesting and owning the context.
+    data_manager::DataNodeId context_node_id{0U};  ///< Context node that will receive the key binding.
+    data_manager::DataNodeId key_node_id{0U};      ///< Key or key-slot node to bind to the context.
+    common::ProviderId provider_id{0U};            ///< Provider selected to own the context.
+    std::string_view context_type{};               ///< Context type used to determine required permission.
+    std::optional<common::ContextMode> mode{};     ///< Optional mode used when determining permission.
+    std::optional<::score::crypto::AlgorithmDescriptor> algorithm{};  ///< Operation algorithm the key must fit;
+                                                                      ///< absent refuses the binding.
 };
 
 /// Internal result of CreateKeyDataNode / RegisterKeyMaterial / LoadOrShare.
@@ -180,6 +197,29 @@ class KeyManagementService final
         data_manager::DataNodeId context_node_id,
         data_manager::DataNodeId key_node_id,
         const common::ProviderId& target_provider_id);
+
+    /// Authorize a key for a context type and mode, then bind it to the context.
+    ///
+    /// A context is bound to one key, one operation and one direction for its
+    /// whole life, so one check here covers every operation that will run on it.
+    /// The check runs before the key is loaded or bound: a request the key does
+    /// not permit is refused from metadata alone.
+    ///
+    /// Check order: the context type must require a key permission; the key's
+    /// granted permissions (PeekKeyHandle) must include the required one; the key
+    /// must fit the algorithm (common::IsKeyCompatible); then BindKeyToContext runs.
+    /// A slot whose material is not loaded yet has size 0 at the metadata check,
+    /// so its material length is checked again after binding.
+    ///
+    /// @param request Client, context, key node, provider, context type, optional mode,
+    ///                and algorithm to authorize and bind.
+    /// @note DataManager serializes individual node accesses; the permission check and binding are separate accesses.
+    /// @return KeyBindingResult on success. kKeyOperationNotPermitted when the
+    ///         context type takes no key or the key does not permit the operation;
+    ///         kIncompatibleKeyType when the key does not fit the algorithm;
+    ///         kInvalidArgument when the key cannot be looked up or bound.
+    [[nodiscard]] Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> BindAndAuthorize(
+        const KeyBindRequest& request);
 
     // ------------------------------------------------------------------
     // Provider resolution for keyed contexts

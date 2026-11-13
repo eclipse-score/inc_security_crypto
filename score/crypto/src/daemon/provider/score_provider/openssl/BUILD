@@ -138,6 +138,7 @@ cc_library(
     deps = [
         ":openssl_cert_management_headers",
         ":openssl_key_management_headers",
+        "//score/crypto/src/daemon/common/context:context_mode",
         "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",

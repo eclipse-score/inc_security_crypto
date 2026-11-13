@@ -95,7 +95,7 @@ using namespace score::crypto::daemon::provider::score_provider::openssl::handle
 
 namespace km = score::crypto::daemon::key_management;
 namespace common = score::crypto::daemon::common;
-using InitializationParams = ::score::crypto::daemon::provider::handler::InitializationParams;
+using InitializationParams = ::score::crypto::daemon::common::InitializationParams;
 
 // ============================================================================
 // Helpers

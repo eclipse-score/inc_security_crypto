@@ -102,7 +102,7 @@ bool Pkcs11HashHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorith
 // --- Handler interface: InitializeContext ---
 
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11HashHandler::InitializeContext(
-    const handler::InitializationParams& /*init_params*/)
+    const score::crypto::daemon::common::InitializationParams& /*init_params*/)
 {
     // Validate algorithm (m_algorithm is set at construction).
     const auto digestSize = GetDigestSize();

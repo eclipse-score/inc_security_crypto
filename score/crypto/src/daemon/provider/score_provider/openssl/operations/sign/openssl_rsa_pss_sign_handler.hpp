@@ -40,7 +40,7 @@ class OpenSslRsaPssSignHandler final : public operations::sign::ScoreSignHandler
     OpenSslRsaPssSignHandler& operator=(const OpenSslRsaPssSignHandler&) = delete;
 
     Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
-        const ::score::crypto::daemon::provider::handler::InitializationParams&) override;
+        const ::score::crypto::daemon::common::InitializationParams&) override;
     Expected<std::monostate, common::DaemonErrorCode> Reset() override;
     std::size_t GetSignatureSize() const noexcept override;
     Expected<std::monostate, common::DaemonErrorCode> InitSign() override;

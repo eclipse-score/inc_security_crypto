@@ -1,0 +1,44 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml mediator_overview
+title Mediator: Component Boundary and Collaborators
+top to bottom direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam componentStyle rectangle
+skinparam ArrowColor #46535E
+
+component "Control Plane" as CP
+package "Mediator" {
+  component "MediatorImpl\n(dispatch)" as MED
+  component "Decoder" as DEC
+  component "ProviderArbiter" as ARB
+  component "ContextAssembler" as ASM
+}
+component "Provider Manager\nand providers" as PM
+component "Key Management" as KM
+component "Data Manager" as DM
+component "Context handler" as H
+
+CP --> MED : operation request
+MED --> DEC : CTX_CREATE parameters
+MED --> ARB : decoded request
+MED --> ASM : handler + provider id
+ARB --> PM : provider, handler factory
+ARB --> KM : key affinity
+ASM --> DM : context node
+ASM --> KM : bind and authorize
+ASM --> H : initialize
+MED --> H : forward operation
+@enduml

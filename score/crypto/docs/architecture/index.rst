@@ -89,7 +89,7 @@ The components are designed to cover the expectations from the feature architect
    :version: 1
    :security: YES
    :safety: QM
-   :status: invalid
+   :status: valid
    :belongs_to: feat__security_crypto
 
 .. image:: component_overview.png
