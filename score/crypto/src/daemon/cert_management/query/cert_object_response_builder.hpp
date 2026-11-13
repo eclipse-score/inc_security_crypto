@@ -25,12 +25,6 @@
 #include <optional>
 #include <vector>
 
-// Forward-declare to avoid pulling in cert_management_service.hpp from the header.
-namespace score::crypto::daemon::cert_management
-{
-class CertManagementService;
-}
-
 namespace score::crypto::daemon::cert_management::query
 {
 
@@ -98,14 +92,9 @@ BuildCertSlotInfoResponse(ICertSlotManager& mgr, CertSlotHandle slot, data_manag
 /// this still returns kResponseTooLarge rather than an oversized payload in
 /// the case of an extremely large trust store.
 ///
-/// @param slots     Occupied member slot handles, e.g. from
-///                  TrustStoreManager::GetMemberSlotHandles.
-/// @param service   Resolves each slot handle to a per-client DataNodeId.
-/// @param client_id Calling client, used for slot resolution.
+/// @param slot_node_ids Resolved member slot node IDs.
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> BuildTrustStoreMemberIdListResponse(
-    const std::vector<CertSlotHandle>& slots,
-    CertManagementService& service,
-    std::uint64_t client_id);
+    const std::vector<std::uint64_t>& slot_node_ids);
 
 /// @brief Build a single trust store member's detail into an IPC response payload.
 ///
@@ -127,12 +116,10 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
 ///
 /// @param member    Snapshot for the single member being queried, e.g. from
 ///                  TrustStoreManager::GetMemberSnapshot.
-/// @param service   Resolves the member's slot handle to a per-client DataNodeId.
-/// @param client_id Calling client, used for slot resolution.
+/// @param slot_node_id Resolved node ID for the member's slot.
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> BuildTrustStoreMemberObjectResponse(
     const TrustStoreManager::MemberSnapshot& member,
-    CertManagementService& service,
-    std::uint64_t client_id);
+    std::uint64_t slot_node_id);
 
 }  // namespace score::crypto::daemon::cert_management::query
 
