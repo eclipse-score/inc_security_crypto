@@ -900,20 +900,6 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
 namespace
 {
 
-/// Wire ProviderType (api ProviderType numbering) for a daemon provider type.
-std::uint8_t ToWireProviderType(std::optional<common::CryptoProviderType> type) noexcept
-{
-    if (type == common::CryptoProviderType::HARDWARE)
-    {
-        return 1U;
-    }
-    if (type == common::CryptoProviderType::SOFTWARE)
-    {
-        return 2U;
-    }
-    return 0U;
-}
-
 std::vector<std::uint8_t> ToBytes(std::string_view text)
 {
     return std::vector<std::uint8_t>(text.begin(), text.end());
@@ -1046,7 +1032,7 @@ bool MediatorImpl::HandleProviderInfoOperation(const control_plane::SingleOperat
     const auto& name = provider->GetProviderName();
     responseBuilder.operation(operation.operationId)
         .return_value_uint16(provider->GetProviderId())
-        .return_value_uint8(ToWireProviderType(m_provider_manager->GetProviderType(name)))
+        .return_value_uint8(operations::EncodeProviderType(m_provider_manager->GetProviderType(name)))
         .return_value_data_buffer_out(ToBytes(name))
         .return_success();
     return true;
@@ -1087,7 +1073,7 @@ bool MediatorImpl::HandleSystemCapabilitiesOperation(const control_plane::Single
     {
         const auto& name = provider->GetProviderName();
         response.return_value_uint16(provider->GetProviderId())
-            .return_value_uint8(ToWireProviderType(m_provider_manager->GetProviderType(name)))
+            .return_value_uint8(operations::EncodeProviderType(m_provider_manager->GetProviderType(name)))
             .return_value_data_buffer_out(ToBytes(name));
     }
 

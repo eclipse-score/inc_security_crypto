@@ -90,6 +90,36 @@ inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities
     return common::ProviderCapability::kNone;
 }
 
+/// @brief ProviderType values on the wire, shared by requests (CTX_CREATE and the
+/// key-management context) and replies (PROVIDER_INFO, SYSTEM_CAPABILITIES).
+///
+/// They equal the public ProviderType enumerator positions; the client checks
+/// that with static_asserts in crypto_context_impl.cpp.
+namespace provider_type_wire
+{
+inline constexpr std::uint8_t kDefault = 0U;
+inline constexpr std::uint8_t kHardware = 1U;
+inline constexpr std::uint8_t kSoftware = 2U;
+inline constexpr std::uint8_t kHardwarePreferred = 3U;
+inline constexpr std::uint8_t kSoftwarePreferred = 4U;
+}  // namespace provider_type_wire
+
+/// @brief Encode a registered provider's classification for PROVIDER_INFO and SYSTEM_CAPABILITIES.
+/// @return kHardware or kSoftware; kDefault for any other or no classification.
+[[nodiscard]] inline constexpr std::uint8_t EncodeProviderType(
+    const std::optional<common::CryptoProviderType> type) noexcept
+{
+    if (type == common::CryptoProviderType::HARDWARE)
+    {
+        return provider_type_wire::kHardware;
+    }
+    if (type == common::CryptoProviderType::SOFTWARE)
+    {
+        return provider_type_wire::kSoftware;
+    }
+    return provider_type_wire::kDefault;
+}
+
 /// @brief Daemon-side interpretation of a public ProviderType wire value.
 struct ProviderTypePreference final
 {
@@ -106,15 +136,15 @@ struct ProviderTypePreference final
 
     switch (wire_value)
     {
-        case 0U:
+        case provider_type_wire::kDefault:
             return ProviderTypePreference{ProviderType::DEFAULT, std::nullopt};
-        case 1U:
+        case provider_type_wire::kHardware:
             return ProviderTypePreference{ProviderType::HARDWARE, std::nullopt};
-        case 2U:
+        case provider_type_wire::kSoftware:
             return ProviderTypePreference{ProviderType::SOFTWARE, std::nullopt};
-        case 3U:
+        case provider_type_wire::kHardwarePreferred:
             return ProviderTypePreference{ProviderType::HARDWARE, ProviderType::SOFTWARE};
-        case 4U:
+        case provider_type_wire::kSoftwarePreferred:
             return ProviderTypePreference{ProviderType::SOFTWARE, ProviderType::HARDWARE};
         default:
             return std::nullopt;
