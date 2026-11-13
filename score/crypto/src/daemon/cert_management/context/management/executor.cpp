@@ -15,6 +15,7 @@
 
 #include "score/crypto/src/daemon/cert_management/context/management/executor.hpp"
 
+#include "score/crypto/src/daemon/cert_management/context/crl_validation.hpp"
 #include "score/crypto/src/daemon/cert_management/core/cert_entry.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_management_operations.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
@@ -76,27 +77,6 @@ common::ResponseParameters OkResponse()
     common::ResponseParameters out;
     out.push_back(static_cast<std::uint64_t>(0U));
     return out;
-}
-
-/// Validate CRL bytes against the issuer certificate and return the CRL with its parsed metadata attached.
-score::crypto::Expected<CrlData, Error> ValidateCrlAgainstIssuer(provider::cert_management::ICertParser& parser,
-                                                                 const CertObject& issuer,
-                                                                 score::crypto::span<const std::uint8_t> crl_bytes,
-                                                                 score::crypto::FormatType crl_format)
-{
-    CrlData crl;
-    crl.bytes.assign(crl_bytes.begin(), crl_bytes.end());
-    crl.format = crl_format;
-
-    const auto issuer_bytes = issuer.GetRawBytes();
-    auto metadata = parser.ValidateCrl(crl, issuer_bytes.data(), issuer_bytes.size(), issuer.GetFormat());
-    if (!metadata.has_value())
-    {
-        score::mw::log::LogError() << kLogPrefix << "CRL validation failed";
-        return score::crypto::make_unexpected(metadata.error());
-    }
-    crl.metadata = metadata.value();
-    return crl;
 }
 
 }  // namespace

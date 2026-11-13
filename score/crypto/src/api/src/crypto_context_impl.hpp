@@ -72,6 +72,8 @@ class CryptoContextImpl final : public ICryptoContext
     score::Result<std::unique_ptr<IRandomContext>> CreateRandomContext(const RandomContextConfig& config) override;
     score::Result<std::unique_ptr<ICertificateManagementContext>> CreateCertificateManagementContext(
         const CertificateContextConfig& config) override;
+    score::Result<std::unique_ptr<ITrustStoreManagementContext>> CreateTrustStoreManagementContext(
+        const TrustStoreManagementContextConfig& config) override;
 
     // -- Queries --
     score::Result<AlgorithmCapabilities> QueryCapabilities(const AlgorithmId& algorithm) override;
@@ -84,6 +86,7 @@ class CryptoContextImpl final : public ICryptoContext
     score::Result<std::unique_ptr<IKeySlotObject>> GetKeySlotObject(const CryptoResourceId& id) override;
     score::Result<std::unique_ptr<ICertificateObject>> GetCertificateObject(const CryptoResourceId& id) override;
     score::Result<std::unique_ptr<ICertSlotObject>> GetCertSlotObject(const CryptoResourceId& id) override;
+    score::Result<std::unique_ptr<ITrustStoreObject>> GetTrustStoreObject(const CryptoResourceId& id) override;
 
   private:
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
