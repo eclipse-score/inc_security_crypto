@@ -51,6 +51,7 @@ inline constexpr std::string_view kVerify = "VERIFY";
 inline constexpr std::string_view kRandom = "RANDOM";
 inline constexpr std::string_view kKeyManagement = "KEY:MANAGEMENT";
 inline constexpr std::string_view kCertManagement = "CERT:MANAGEMENT";
+inline constexpr std::string_view kCertTrustStore = "CERT:TRUST_STORE";
 
 /// @brief The scope prefix of @p context_type: the part before the first
 ///        kScopeSeparator, or an empty view for an unscoped type such as "HASH".
@@ -62,6 +63,7 @@ inline constexpr std::string_view kCertManagement = "CERT:MANAGEMENT";
 
 static_assert(ScopeOf(kKeyManagement) == kKeyScope, "kKeyManagement must be in the KEY scope");
 static_assert(ScopeOf(kCertManagement) == kCertScope, "kCertManagement must be in the CERT scope");
+static_assert(ScopeOf(kCertTrustStore) == kCertScope, "kCertTrustStore must be in the CERT scope");
 static_assert(ScopeOf(kHash).empty(), "unscoped context types carry no scope");
 }  // namespace context_types
 
