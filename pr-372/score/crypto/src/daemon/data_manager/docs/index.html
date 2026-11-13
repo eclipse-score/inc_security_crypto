@@ -223,13 +223,6 @@
 
 
 <li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../../../ipc/message_passing_adapter/docs/index.html">
-    IPC Message Passing Adapter
-  </a>
-</li>
-
-
-<li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../../../../../iav_primula/docs/index.html">
     IAV Primula Component
   </a>
@@ -417,13 +410,6 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../../ipc/message_passing_adapter/docs/index.html">
-    IPC Message Passing Adapter
-  </a>
-</li>
-
-
-<li class="nav-item ">
   <a class="nav-link nav-internal" href="../../../../../iav_primula/docs/index.html">
     IAV Primula Component
   </a>
@@ -521,7 +507,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../docs/architecture/key_management_architecture.html">Key Management Architecture</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../ipc/message_passing_adapter/docs/index.html">IPC Message Passing Adapter</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../../../docs/detailed_design/index.html">Detailed Design</a></li>
@@ -596,7 +581,7 @@
                   
   <section id="data-manager">
 <h1>Data Manager<a class="headerlink" href="#data-manager" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-a58649a9">
+<div class="need_container docutils container" id="SNCB-13005654">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto_data_manager">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -652,7 +637,9 @@ lookup, lifecycle management, and safe concurrent access to those nodes.</p>
 <section id="responsibilities">
 <h2>Responsibilities<a class="headerlink" href="#responsibilities" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>Provide a single registry for data nodes, indexed by both ClientId and DataNodeId.</p></li>
+<li><p>Provide a single registry for data nodes, indexed by both <a class="reference internal" href="../../../ipc/docs/architecture/client_id_design.html#term-ClientId"><span class="xref std std-term">ClientId</span></a> and DataNodeId.
+The ClientId scopes nodes to one IPC connection; its assignment and lifecycle are described in
+<a class="reference internal" href="../../../ipc/docs/architecture/client_id_design.html#ipc-client-id-assignment"><span class="std std-ref">Client ID Assignment and Scope</span></a>.</p></li>
 <li><p>Control lifetime and ownership semantics for nodes.</p></li>
 <li><p>Ensure thread-safe access to nodes across the daemon using mutex-based synchronization
 for all public operations.</p></li>
@@ -665,7 +652,7 @@ a busy-node tracking mechanism.</p></li>
 </section>
 <section id="design-decisions">
 <h2>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-9c12623b">
+<div class="need_container docutils container" id="SNCB-3436cff2">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__central_data_node_manager">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">

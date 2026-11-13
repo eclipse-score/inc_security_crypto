@@ -72,7 +72,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="IPC Message Passing Adapter" href="../../src/ipc/message_passing_adapter/docs/index.html" />
+    <link rel="next" title="Detailed Design" href="../detailed_design/index.html" />
     <link rel="prev" title="Common Storage Design Decisions" href="../../src/daemon/common/storage/docs/architecture/design_decisions.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
@@ -218,13 +218,6 @@
 <li class=" current active">
   <a class="nav-link dropdown-item nav-internal" href="../index.html">
     Crypto
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../../src/ipc/message_passing_adapter/docs/index.html">
-    IPC Message Passing Adapter
   </a>
 </li>
 
@@ -417,13 +410,6 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../src/ipc/message_passing_adapter/docs/index.html">
-    IPC Message Passing Adapter
-  </a>
-</li>
-
-
-<li class="nav-item ">
   <a class="nav-link nav-internal" href="../../../iav_primula/docs/index.html">
     IAV Primula Component
   </a>
@@ -521,7 +507,6 @@
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Key Management Architecture</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="../../src/ipc/message_passing_adapter/docs/index.html">IPC Message Passing Adapter</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
@@ -596,7 +581,7 @@
                   
   <section id="key-management-architecture">
 <span id="crypto-key-management-architecture"></span><h1>Key Management Architecture<a class="headerlink" href="#key-management-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-109873e7">
+<div class="need_container docutils container" id="SNCB-77b7c087">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto_key_management">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -645,6 +630,9 @@ in detail: how keys come into being, how they are stored, how their lifetime
 is managed across multiple clients, and how they are bound to a cryptographic
 operation context.  A MAC operation is used as the running example because it
 touches every layer of the subsystem.</p>
+<p>Key-management nodes, caches, and key references are scoped by the IPC
+<a class="reference internal" href="../../src/ipc/docs/architecture/client_id_design.html#term-ClientId"><span class="xref std std-term">ClientId</span></a>; its assignment and lifecycle are defined in
+<a class="reference internal" href="../../src/ipc/docs/architecture/client_id_design.html#ipc-client-id-assignment"><span class="std std-ref">Client ID Assignment and Scope</span></a>.</p>
 <nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#architecture-overview" id="id8">Architecture Overview</a></p></li>
@@ -738,7 +726,7 @@ injects the shared <code class="docutils literal notranslate"><span class="pre">
 <p class="plantuml">
 <object data="../../../../_images/plantuml-6924b6173ff304117af5b720a4ed17bb6cbc2201.svg" type="image/svg+xml" style="width:7531px;height:2838px;background:#FFFFFF;"></object></p>
 <figcaption>
-<p><span class="caption-number">Fig. 11 </span><span class="caption-text">Key Management — Class Diagram</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
+<p><span class="caption-number">Fig. 20 </span><span class="caption-text">Key Management — Class Diagram</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>
@@ -751,7 +739,7 @@ binding, MAC streaming, and crash cleanup:</p>
 <p class="plantuml">
 <object data="../../../../_images/plantuml-ca56e46ea27f0d5c556463619be54c382aa414c9.svg" type="image/svg+xml" style="width:5155px;height:792px;background:#FFFFFF;"></object></p>
 <figcaption>
-<p><span class="caption-number">Fig. 12 </span><span class="caption-text">Key Management — Sequence Diagrams</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
+<p><span class="caption-number">Fig. 21 </span><span class="caption-text">Key Management — Sequence Diagrams</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>
@@ -1414,11 +1402,11 @@ and one dep in <code class="docutils literal notranslate"><span class="pre">daem
       </div>
     </a>
     <a class="right-next"
-       href="../../src/ipc/message_passing_adapter/docs/index.html"
+       href="../detailed_design/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">IPC Message Passing Adapter</p>
+        <p class="prev-next-title">Detailed Design</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
