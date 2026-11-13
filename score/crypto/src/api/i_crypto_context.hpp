@@ -32,6 +32,7 @@ namespace crypto
 
 // Config types (used as const& parameters)
 class CertificateContextConfig;
+class CertificateVerificationContextConfig;
 class CipherContextConfig;
 class HashContextConfig;
 class KeyManagementContextConfig;
@@ -43,6 +44,7 @@ class VerifySignatureContextConfig;
 
 // Operation contexts (returned as std::unique_ptr)
 class ICertificateManagementContext;
+class ICertificateVerificationContext;
 class ICipherContext;
 class IHashContext;
 class IKeyManagementContext;
@@ -61,10 +63,8 @@ class ITrustStoreObject;
 
 // The following forward declarations are for contexts not yet active (IPC implementation pending).
 // class AeadContextConfig;
-// class CertificateVerificationContextConfig;
 // class CsrGenerationContextConfig;
 // class IAeadContext;
-// class ICertificateVerificationContext;
 // class ICsrGenerationContext;
 // class IProviderObject;
 
@@ -174,15 +174,19 @@ class ICryptoContext
     virtual score::Result<std::unique_ptr<ITrustStoreManagementContext>> CreateTrustStoreManagementContext(
         const TrustStoreManagementContextConfig& config) = 0;
 
+    /// @brief Creates a certificate verification context.
+    /// @param config Verification configuration (provider optional; revocation defaults optional)
+    /// @note The context is not bound to an algorithm. Verification inputs are set on the returned context before
+    ///       Verify() is called. A revocation policy in the configuration is applied before the context is returned.
+    virtual score::Result<std::unique_ptr<ICertificateVerificationContext>> CreateCertificateVerificationContext(
+        const CertificateVerificationContextConfig& config) = 0;
+
     // The following factory methods are declared but not yet active.
     // Each is implemented in score/crypto/src/api/future/contexts/
     // and will be moved here together with its IPC implementation.
 
     // virtual score::Result<std::unique_ptr<IAeadContext>> CreateAeadContext(
     //     const AeadContextConfig& config) = 0;
-
-    // virtual score::Result<std::unique_ptr<ICertificateVerificationContext>> CreateCertificateVerificationContext(
-    //     const CertificateVerificationContextConfig& config) = 0;
 
     // virtual score::Result<std::unique_ptr<ICsrGenerationContext>> CreateCsrGenerationContext(
     //     const CsrGenerationContextConfig& config) = 0;

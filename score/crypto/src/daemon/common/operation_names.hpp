@@ -82,6 +82,8 @@ constexpr std::string_view ActorName(OperationActor actor) noexcept
             return "RANDOM_HANDLER";
         case actors::OP_ACTOR_CERT_MANAGEMENT:
             return "CERT_MGMT";
+        case actors::OP_ACTOR_CERT_VERIFICATION:
+            return "CERT_VERIFY";
         default:
             return "<unknown_actor>";
     }

@@ -18,7 +18,10 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 # consumers of the codes do not inherit certificate-management headers.
 cc_library(
     name = "cert_management_operations",
-    hdrs = ["interfaces/cert_management_operations.hpp"],
+    hdrs = [
+        "interfaces/cert_management_operations.hpp",
+        "interfaces/cert_verification_operations.hpp",
+    ],
     linkstatic = True,
     visibility = ["//:__subpackages__"],
     deps = [
@@ -277,6 +280,17 @@ cc_library(
 )
 
 cc_library(
+    name = "crl_metadata_wire_layout",
+    hdrs = ["interfaces/crl_metadata_wire_layout.hpp"],
+    linkstatic = True,
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/api/types:certificate_types",
+        "@score_baselibs//score/language/futurecpp",
+    ],
+)
+
+cc_library(
     name = "cert_management_context",
     srcs = [
         "context/crl_validation.cpp",
@@ -286,6 +300,13 @@ cc_library(
         "context/trust_store/context_factory.cpp",
         "context/trust_store/context_handler.cpp",
         "context/trust_store/executor.cpp",
+        "context/verification/context_factory.cpp",
+        "context/verification/context_handler.cpp",
+        "context/verification/executor.cpp",
+        "context/verification/request_builder.cpp",
+        "context/verification/result_encoder.cpp",
+        "context/verification/session.cpp",
+        "context/verification/trust_store_binding.cpp",
     ],
     hdrs = [
         "context/cert_execution_context.hpp",
@@ -296,6 +317,13 @@ cc_library(
         "context/trust_store/context_factory.hpp",
         "context/trust_store/context_handler.hpp",
         "context/trust_store/executor.hpp",
+        "context/verification/context_factory.hpp",
+        "context/verification/context_handler.hpp",
+        "context/verification/executor.hpp",
+        "context/verification/request_builder.hpp",
+        "context/verification/result_encoder.hpp",
+        "context/verification/session.hpp",
+        "context/verification/trust_store_binding.hpp",
     ],
     linkstatic = True,
     visibility = [
@@ -308,6 +336,8 @@ cc_library(
         ":cert_management_headers",
         ":cert_management_internal_headers",
         ":cert_management_runtime_headers",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/api/types:common_types",
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common/context:context_registration",
@@ -315,6 +345,7 @@ cc_library(
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/cert_management:cert_management_operations",
+        ":crl_metadata_wire_layout",
         "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
         "@score_baselibs//score/mw/log",
     ],

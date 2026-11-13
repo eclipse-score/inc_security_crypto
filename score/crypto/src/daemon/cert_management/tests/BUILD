@@ -153,3 +153,42 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "test_cert_verification_context",
+    srcs = [
+        "context/verification/test_cert_verification_context.cpp",
+    ],
+    data = [
+        "//score/tests/config:logging.json",
+        "//score/tests/test_vectors/certificate:certificate_test_vectors",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/daemon/cert_management",
+        "//score/crypto/src/daemon/cert_management:cert_management_context",
+        "//score/crypto/src/daemon/cert_management:crl_metadata_wire_layout",
+        "//score/crypto/src/daemon/cert_management:cert_management_daemon_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_internal_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_operations",
+        "//score/crypto/src/daemon/cert_management:cert_management_runtime_headers",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common/context:context_registration",
+        "//score/crypto/src/daemon/common/context:handler_headers",
+        "//score/crypto/src/daemon/common/storage:kv_deployment",
+        "//score/crypto/src/daemon/config:config_types",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider:provider_manager",
+        "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_cert_management_headers",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_cert_parser_library",
+        "//score/tests/utility:utility",
+        "@googletest//:gtest_main",
+    ],
+)

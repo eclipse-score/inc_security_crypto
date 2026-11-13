@@ -15,7 +15,10 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
     name = "cert_parser_headers",
-    hdrs = ["i_cert_parser.hpp"],
+    hdrs = [
+        "i_cert_parser.hpp",
+        "i_cert_path_validator.hpp",
+    ],
     linkstatic = True,
     visibility = ["//:__subpackages__"],
     deps = [
