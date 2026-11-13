@@ -905,6 +905,26 @@ std::vector<std::uint8_t> ToBytes(std::string_view text)
     return std::vector<std::uint8_t>(text.begin(), text.end());
 }
 
+// SYSTEM_CAPABILITIES reports a subset of the catalog, and provider names are
+// limited at registration; both must fit the public structs the client fills.
+static_assert(std::size(score::crypto::kAlgorithmCatalog) <= SystemCapabilities::kMaxAlgorithms,
+              "SystemCapabilities cannot hold every catalog algorithm");
+static_assert(common::kMaxProviderNameLength == decltype(ProviderInfo::name)::capacity(),
+              "provider name limit differs from ProviderInfo::name capacity");
+
+constexpr bool AllCatalogNamesFitAlgorithmId() noexcept
+{
+    for (const auto& row : score::crypto::kAlgorithmCatalog)
+    {
+        if (row.name.size() > AlgorithmId::capacity())
+        {
+            return false;
+        }
+    }
+    return true;
+}
+static_assert(AllCatalogNamesFitAlgorithmId(), "catalog algorithm name exceeds AlgorithmId capacity");
+
 /// Context types reported as capability operations, in reporting order.
 constexpr std::array<std::string_view, 6U> kCapabilityContexts{common::context_types::kHash,
                                                                common::context_types::kMac,
@@ -1066,6 +1086,14 @@ bool MediatorImpl::HandleSystemCapabilitiesOperation(const control_plane::Single
                                                      control_plane::protocol::OperationResponseBuilder& responseBuilder)
 {
     const auto providers = InitializedProviders();
+    if (providers.size() > SystemCapabilities::kMaxProviders)
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] SYSTEM_CAPABILITIES: " << providers.size()
+                                   << " providers exceed the client limit of " << SystemCapabilities::kMaxProviders;
+        responseBuilder.operation(operation.operationId)
+            .return_error(score::crypto::CryptoErrorCode::kInsufficientBufferSize);
+        return false;
+    }
     auto& response = responseBuilder.operation(operation.operationId);
 
     response.return_value_uint16(static_cast<std::uint16_t>(providers.size()));

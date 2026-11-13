@@ -196,6 +196,13 @@ bool ProviderManager::RegisterProvider(const common::ProviderName& providerName,
         return false;
     }
 
+    if (providerName.empty() || (providerName.size() > common::kMaxProviderNameLength))
+    {
+        score::mw::log::LogError() << "[ProviderManager] Cannot register provider '" << providerName
+                                   << "': name must be 1 to " << common::kMaxProviderNameLength << " characters";
+        return false;
+    }
+
     // Assign numeric ID: next index in m_provider_by_id
     common::ProviderId numeric_id = static_cast<common::ProviderId>(m_provider_by_id.size());
 

@@ -149,12 +149,20 @@ std::optional<AlgorithmCapabilities> ReadAlgorithmCapabilities(
 }
 
 /// @brief Builds the public provider record from PROVIDER_INFO wire values.
-ProviderInfo MakeProviderInfo(std::uint16_t id, std::uint8_t wire_type, const std::vector<std::uint8_t>& name)
+/// @return nullopt if @p name does not fit ProviderInfo::name; the daemon
+///         rejects such names at registration, so the response is malformed.
+std::optional<ProviderInfo> MakeProviderInfo(std::uint16_t id,
+                                             std::uint8_t wire_type,
+                                             const std::vector<std::uint8_t>& name)
 {
     ProviderInfo info{};
     info.id = id;
     info.type = ProviderTypeConverter::FromWireValue(wire_type);
     info.name = AsText(name);
+    if (info.name.truncated())
+    {
+        return std::nullopt;
+    }
     return info;
 }
 
@@ -620,6 +628,14 @@ score::Result<SystemCapabilities> CryptoContextImpl::QueryCapabilities()
     {
         return malformed();
     }
+    // The daemon refuses the query when its providers exceed kMaxProviders; a
+    // larger count here comes from a daemon without that check.
+    if (provider_count.value() > SystemCapabilities::kMaxProviders)
+    {
+        return score::Result<SystemCapabilities>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kInsufficientBufferSize, "SYSTEM_CAPABILITIES lists more providers than fit")};
+    }
     for (std::uint16_t i = 0U; i < provider_count.value(); ++i)
     {
         const auto id = validator.getParameterAt<std::uint16_t>(0, index++);
@@ -629,15 +645,17 @@ score::Result<SystemCapabilities> CryptoContextImpl::QueryCapabilities()
         {
             return malformed();
         }
-        // The arrays are bounded; extra entries are dropped rather than failing the query.
-        if (result.provider_count < SystemCapabilities::kMaxProviders)
+        auto info = MakeProviderInfo(id.value(), type.value(), name.value());
+        if (!info.has_value())
         {
-            result.providers[result.provider_count++] = MakeProviderInfo(id.value(), type.value(), name.value());
+            return malformed();
         }
+        result.providers[result.provider_count++] = info.value();
     }
 
+    // The algorithms are a subset of the daemon's catalog, which fits kMaxAlgorithms.
     const auto algorithm_count = validator.getParameterAt<std::uint16_t>(0, index++);
-    if (!algorithm_count.has_value())
+    if (!algorithm_count.has_value() || (algorithm_count.value() > SystemCapabilities::kMaxAlgorithms))
     {
         return malformed();
     }
@@ -648,15 +666,17 @@ score::Result<SystemCapabilities> CryptoContextImpl::QueryCapabilities()
         {
             return malformed();
         }
-        auto capabilities = ReadAlgorithmCapabilities(validator, index, AlgorithmId{AsText(name.value())});
+        const AlgorithmId algorithm{AsText(name.value())};
+        if (algorithm.truncated())
+        {
+            return malformed();
+        }
+        auto capabilities = ReadAlgorithmCapabilities(validator, index, algorithm);
         if (!capabilities.has_value() || !capabilities.value().supported)
         {
             return malformed();
         }
-        if (result.algorithm_count < SystemCapabilities::kMaxAlgorithms)
-        {
-            result.algorithms[result.algorithm_count++] = capabilities.value();
-        }
+        result.algorithms[result.algorithm_count++] = capabilities.value();
     }
     return result;
 }
@@ -691,12 +711,15 @@ score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(uint16_t provider
     const auto id = validator.getParameterAt<std::uint16_t>(0, 0);
     const auto type = validator.getParameterAt<std::uint8_t>(0, 1);
     const auto name = validator.getParameterAt<proto::DataBufferReturn>(0, 2);
-    if (!id.has_value() || !type.has_value() || !name.has_value())
+    const auto info = (id.has_value() && type.has_value() && name.has_value())
+                          ? MakeProviderInfo(id.value(), type.value(), name.value())
+                          : std::nullopt;
+    if (!info.has_value())
     {
         return score::Result<ProviderInfo>{
             score::unexpect, MakeError(CryptoErrorCode::kInternalError, "PROVIDER_INFO response malformed")};
     }
-    return MakeProviderInfo(id.value(), type.value(), name.value());
+    return info.value();
 }
 
 score::Result<ProviderInfo> CryptoContextImpl::GetProviderInfo(const CryptoResourceId& resourceId)

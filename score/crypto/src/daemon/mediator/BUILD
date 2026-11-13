@@ -100,6 +100,7 @@ cc_test(
         ":mediator",
         ":mediator_operations",
         "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types",
         "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",
