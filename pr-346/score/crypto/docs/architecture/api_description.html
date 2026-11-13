@@ -714,10 +714,12 @@ to detect that the resource is still referenced by an active context — call
 <code class="docutils literal notranslate"><span class="pre">GetProviderInfo(resource)</span></code> does the same for the resource’s
 <code class="docutils literal notranslate"><span class="pre">primary_provider</span></code>. Unknown ids return <code class="docutils literal notranslate"><span class="pre">kInvalidArgument</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">QueryCapabilities(algorithm)</span></code> reports the operations that at least one
-provider accepts for that name, as entries in <code class="docutils literal notranslate"><span class="pre">modes</span></code>:
-<code class="docutils literal notranslate"><span class="pre">HASH</span></code>, <code class="docutils literal notranslate"><span class="pre">MAC</span></code>, <code class="docutils literal notranslate"><span class="pre">CIPHER</span></code>, <code class="docutils literal notranslate"><span class="pre">SIGN</span></code>, <code class="docutils literal notranslate"><span class="pre">VERIFY</span></code>, <code class="docutils literal notranslate"><span class="pre">RANDOM</span></code> and
-<code class="docutils literal notranslate"><span class="pre">GENERATE_KEY</span></code>. <code class="docutils literal notranslate"><span class="pre">supported</span></code> is false and <code class="docutils literal notranslate"><span class="pre">modes</span></code> empty when no
-provider accepts it, including for names outside the algorithm catalog.
+provider accepts for that name, as entries in <code class="docutils literal notranslate"><span class="pre">operations</span></code>. Today these
+are <code class="docutils literal notranslate"><span class="pre">HASH</span></code>, <code class="docutils literal notranslate"><span class="pre">MAC</span></code>, <code class="docutils literal notranslate"><span class="pre">CIPHER</span></code>, <code class="docutils literal notranslate"><span class="pre">SIGN</span></code>, <code class="docutils literal notranslate"><span class="pre">VERIFY</span></code>, <code class="docutils literal notranslate"><span class="pre">RANDOM</span></code> and
+<code class="docutils literal notranslate"><span class="pre">GENERATE_KEY</span></code>, in that order. The daemon sends the names and the client
+passes them through, so new operations reach applications without a client
+change. <code class="docutils literal notranslate"><span class="pre">supported</span></code> is false and <code class="docutils literal notranslate"><span class="pre">operations</span></code> empty when no provider
+accepts it, including for names outside the algorithm catalog.
 An empty name reports the default random generator, CTR-DRBG, the same
 generator a random context created without an algorithm uses.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">QueryCapabilities()</span></code> lists the providers and every catalog algorithm
