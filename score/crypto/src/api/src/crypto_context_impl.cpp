@@ -15,6 +15,7 @@
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/config/certificate_context_config.hpp"
+#include "score/crypto/src/api/config/certificate_verification_context_config.hpp"
 #include "score/crypto/src/api/config/cipher_context_config.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
 #include "score/crypto/src/api/config/key_management_context_config.hpp"
@@ -24,6 +25,7 @@
 #include "score/crypto/src/api/config/trust_store_management_context_config.hpp"
 #include "score/crypto/src/api/config/verify_signature_context_config.hpp"
 #include "score/crypto/src/api/contexts/src/cert_management_context_impl.hpp"
+#include "score/crypto/src/api/contexts/src/cert_verification_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/cipher_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/hash_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/key_management_context_impl.hpp"
@@ -528,6 +530,43 @@ score::Result<std::unique_ptr<ITrustStoreManagementContext>> CryptoContextImpl::
     }
 
     return std::make_unique<TrustStoreManagementContextImpl>(m_connection, context_id.value(), m_transcoder);
+}
+
+score::Result<std::unique_ptr<ICertificateVerificationContext>> CryptoContextImpl::CreateCertificateVerificationContext(
+    const CertificateVerificationContextConfig& config)
+{
+    // No algorithm: verification contexts are not bound to one, so the algorithm slot carries the empty string.
+    ContextCreationRequest request{};
+    request.context_type = daemon_common::context_types::kCertVerification;
+    request.provider_type = config.provider_type;
+
+    auto context_id = CreateDaemonContext(m_connection, request);
+    if (!context_id.has_value())
+    {
+        return score::Result<std::unique_ptr<ICertificateVerificationContext>>{score::unexpect, context_id.error()};
+    }
+
+    // The configured defaults are applied before the context is returned. Destroying the local object on an early
+    // return sends CTX_CLOSE, so a rejected default leaves no daemon-side context behind.
+    auto context = std::make_unique<CertVerificationContextImpl>(m_connection, context_id.value(), m_transcoder);
+    if (config.revocation_policy.has_value())
+    {
+        auto policy_result = context->SetRevocationCheckPolicy(config.revocation_policy.value());
+        if (!policy_result.has_value())
+        {
+            return score::Result<std::unique_ptr<ICertificateVerificationContext>>{score::unexpect,
+                                                                                   policy_result.error()};
+        }
+    }
+
+    auto coverage_result = context->SetRevocationCoveragePolicy(config.revocation_coverage_policy);
+    if (!coverage_result.has_value())
+    {
+        return score::Result<std::unique_ptr<ICertificateVerificationContext>>{score::unexpect,
+                                                                               coverage_result.error()};
+    }
+
+    return std::unique_ptr<ICertificateVerificationContext>{std::move(context)};
 }
 
 // ---------------------------------------------------------------------------

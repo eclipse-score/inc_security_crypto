@@ -541,7 +541,7 @@ context. ``ITrustStoreObject`` remains a read-only snapshot interface.
 
 **ICertificateVerificationContext** provides builder-style chain verification:
 
-- ``SetCertificate()``, ``SetCertificateChain()``, ``SetVerificationTrustStore()``, ``SetAdditionalTrustAnchors()``
+- ``SetCertificate()``, ``SetCertificateChain()``, ``SetVerificationTrustStore()``, ``SetUntrustedCertificates()``
 - ``SetRevocationCheckPolicy()`` with CRL, OCSP, or combined strategies
 - ``Verify()`` executes the configured verification
 

@@ -27,7 +27,7 @@ TEST(ContextAlgorithmTest, KeyManagementAndCertScopeContextsAreUnboundToAnAlgori
     EXPECT_FALSE(ContextTakesAlgorithm(context_types::kKeyManagement));
     EXPECT_FALSE(ContextTakesAlgorithm(context_types::kCertManagement));
     EXPECT_FALSE(ContextTakesAlgorithm(context_types::kCertTrustStore));
-    EXPECT_FALSE(ContextTakesAlgorithm("CERT:VERIFICATION"));
+    EXPECT_FALSE(ContextTakesAlgorithm(context_types::kCertVerification));
     EXPECT_TRUE(ContextTakesAlgorithm(context_types::kHash));
     EXPECT_TRUE(ContextTakesAlgorithm(context_types::kRandom));
 }

@@ -296,9 +296,9 @@ with no fingerprint fields, has no stored metadata; the file-backed handler
 derives it on demand when it has a parser and the slot holds a certificate, and
 reports none otherwise.
 This has no revocation-checking implication: the cached descriptor fields are
-for inspection only. Revocation checking is a provider verification
-responsibility and is expected to parse raw CRL bytes directly rather than
-rely on this cache. The cached fields exist solely to answer inspection
+for inspection only. Revocation checking is performed by the provider's path
+validation, which parses the raw CRL bytes it receives rather than relying on
+this cache. The cached fields exist solely to answer inspection
 queries (``ICertificateObject::GetCrlMetadata``) without deserialising the
 CRL.
 
@@ -311,8 +311,8 @@ Consequences
 * CRL lifecycle is entirely derived from slot lifecycle — no orphan CRLs.
 * ``StoreCertificate`` stale-CRL invalidation is a single write path with no
   cross-registry coordination.
-* The verification handler walks trust-store member slots and calls ``HasCrl``
-  per slot — no separate CRL lookup service.
+* The verification context handler collects CRLs from the trust-store member
+  slots — no separate CRL lookup service.
 * CRL metadata is available without deserialising the CRL during normal reads.
 
 **Negative:**
@@ -446,14 +446,16 @@ Provider Boundary: Parser Operations Only; No Private Key or HSM Handle Crossing
 
    .. :affects: comp__crypto_cert_management
 
-The certificate management core interacts with providers through one narrow
-interface, ``ICertParser``, which has four operations: ``ParseCertificate``,
+The certificate management core interacts with providers through narrow
+interfaces. ``ICertParser`` has four operations: ``ParseCertificate``,
 ``ParseCertificates``, ``EncodeCertificate``, and ``ValidateCrl``.
 ``ParseCertificate`` converts raw bytes into an immutable ``CertObject`` value.
 No provider handle, HSM reference, or raw private key enters or leaves the core
-component. Provider context handlers (verification and CSR generation) are
-separate objects created by the provider factory; they do not share types with
-the certificate management core.
+component. Path validation is reached through ``ICertPathValidator``, and CSR
+generation through a provider context handler. Both are separate objects created
+by the provider factory; they do not share types with the certificate management
+core. The certificate verification context handler is held by the certificate
+management core and is not a provider object.
 
 Context
 -------
@@ -473,8 +475,8 @@ were evaluated:
 2. **Immutable value type (``CertObject``) with a narrow parsing interface** —
    the provider converts bytes to a provider-neutral value once at load time.
    The core stores and shares the value; the provider is not involved in
-   subsequent reads. Verification handlers receive ``CertObject`` values and
-   apply provider-specific OpenSSL or HSM operations internally.
+   subsequent reads. The path validator receives ``CertObject`` values and
+   applies provider-specific OpenSSL or HSM operations internally.
 
 Decision
 --------
@@ -513,8 +515,8 @@ Consequences
 * Private keys cannot leak through the certificate management path; the boundary
   is structurally enforced (``ICertParser`` receives only cert bytes and returns
   only cert values).
-* Verification handlers receive fully self-contained ``CertObject`` values and
-  operate without callback into the storage layer during chain building.
+* The path validator receives fully self-contained ``CertObject`` values and
+  operates without callback into the storage layer during chain building.
 
 **Negative:**
 

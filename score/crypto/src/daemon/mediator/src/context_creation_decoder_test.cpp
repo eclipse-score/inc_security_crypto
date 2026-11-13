@@ -190,6 +190,24 @@ TEST(ContextCreationDecoderTest, TrustStoreContextTakesNoAlgorithmDescriptor)
     EXPECT_FALSE(decoded.value().key_node_id.has_value());
 }
 
+TEST(ContextCreationDecoderTest, VerificationContextTakesNoAlgorithmDescriptor)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__decode_validate");
+    RecordProperty("Description", "Certificate verification context takes no algorithm descriptor.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
+    const auto operation = MakeOperation(common::RequestParameters{
+        std::string_view{common::context_types::kCertVerification}, std::string_view{""}, std::uint8_t{0U}});
+
+    const auto decoded = DecodeContextCreationRequest(operation);
+
+    ASSERT_TRUE(decoded.has_value());
+    EXPECT_EQ(decoded.value().context_type, common::context_types::kCertVerification);
+    EXPECT_FALSE(decoded.value().algorithm_descriptor.has_value());
+    EXPECT_FALSE(decoded.value().key_node_id.has_value());
+}
+
 TEST(ContextCreationDecoderTest, DecodesProviderPreferenceWithFallback)
 {
     RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__decode_validate");

@@ -146,17 +146,6 @@ struct CrlMetadata
     uint64_t crl_number{0U};   ///< CRL number, or zero if the CRL has no number.
 };
 
-struct CrlMetadataWireLayout final
-{
-    static constexpr std::size_t kFingerprintSize = kSha256FingerprintSize;
-    static constexpr std::size_t kCrlFingerprintOffset = 0U;
-    static constexpr std::size_t kIssuerFingerprintOffset = kCrlFingerprintOffset + kFingerprintSize;
-    static constexpr std::size_t kThisUpdateOffset = kIssuerFingerprintOffset + kFingerprintSize;
-    static constexpr std::size_t kNextUpdateOffset = kThisUpdateOffset + sizeof(std::int64_t);
-    static constexpr std::size_t kCrlNumberOffset = kNextUpdateOffset + sizeof(std::int64_t);
-    static constexpr std::size_t kEntrySize = kCrlNumberOffset + sizeof(std::uint64_t);
-};
-
 /// @brief Snapshot of a certificate slot's state and persistent CRL presence.
 struct CertificateSlotInfo
 {

@@ -71,6 +71,8 @@ class CryptoContextImpl final : public ICryptoContext
         const CertificateContextConfig& config) override;
     score::Result<std::unique_ptr<ITrustStoreManagementContext>> CreateTrustStoreManagementContext(
         const TrustStoreManagementContextConfig& config) override;
+    score::Result<std::unique_ptr<ICertificateVerificationContext>> CreateCertificateVerificationContext(
+        const CertificateVerificationContextConfig& config) override;
 
     // -- Queries --
     score::Result<AlgorithmCapabilities> QueryCapabilities(const AlgorithmId& algorithm) override;
