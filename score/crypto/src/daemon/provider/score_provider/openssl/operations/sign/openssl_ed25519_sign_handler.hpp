@@ -61,6 +61,8 @@ class OpenSslEd25519SignHandler final : public operations::sign::ScoreSignHandle
     /// @return Number of bytes written, or an error if signing cannot be completed.
     Expected<std::size_t, common::DaemonErrorCode> SingleShotSign(score::cpp::span<const std::uint8_t> data,
                                                                   score::cpp::span<std::uint8_t> signature) override;
+
+    /// @brief Check if the given algorithm is supported by this handler.
     static bool IsAlgorithmSupported(const AlgorithmDescriptor&) noexcept;
 
   private:

@@ -68,6 +68,10 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
+    /// @brief Whether GenerateKey() accepts @p algorithm, without generating a key.
+    ///
+    /// Accepts EC keys on a curve OpenSSL names, RSA keys of a supported modulus
+    /// size, Ed25519 keys, and symmetric keys of a known size.
     [[nodiscard]] bool IsKeyGenerationSupported(const AlgorithmDescriptor& algorithm) const override;
 
     /// Import raw key material by copying into a new heap buffer, or parse a
