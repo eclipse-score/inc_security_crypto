@@ -18,11 +18,13 @@
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace score::crypto::daemon::key_management
@@ -203,7 +205,12 @@ struct UnwrapKeyRequest
 // SecureKeyBytes — RAII container for exported key material
 // ---------------------------------------------------------------------------
 
-/// Bytes are securely zeroized on destruction.
+/// Bytes are securely zeroized on destruction, and before the buffer is replaced
+/// by move assignment.
+///
+/// Zeroization uses common::SecureZeroize, which the compiler is not allowed to
+/// optimise away. A plain loop over bytes that are about to be freed is a dead
+/// store, and the compiler may drop it.
 ///
 /// Ephemeral keys remain associated with their creating provider for the
 /// duration of the context. Must not be stored in persistent data structures.
@@ -216,16 +223,36 @@ struct SecureKeyBytes
 
     ~SecureKeyBytes()
     {
-        for (auto& b : bytes)
-        {
-            b = 0U;
-        }
+        Wipe();
     }
 
     SecureKeyBytes(const SecureKeyBytes&) = delete;
     SecureKeyBytes& operator=(const SecureKeyBytes&) = delete;
     SecureKeyBytes(SecureKeyBytes&&) noexcept = default;
-    SecureKeyBytes& operator=(SecureKeyBytes&&) noexcept = default;
+
+    /// Zeroizes the bytes held so far, then takes over @p other's buffer.
+    SecureKeyBytes& operator=(SecureKeyBytes&& other) noexcept
+    {
+        if (this != &other)
+        {
+            Wipe();
+            bytes = std::move(other.bytes);
+        }
+        return *this;
+    }
+
+    /// Securely zeroize the bytes in place; the size is kept.
+    void Zeroize() noexcept
+    {
+        common::SecureZeroize(bytes.data(), bytes.size());
+    }
+
+    /// Securely zeroize, then clear the bytes.
+    void Wipe() noexcept
+    {
+        Zeroize();
+        bytes.clear();
+    }
 };
 
 // ---------------------------------------------------------------------------

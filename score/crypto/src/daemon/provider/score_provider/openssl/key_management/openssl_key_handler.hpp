@@ -85,6 +85,12 @@ class OpenSslKeyHandler final : public key_management::IKeyHandler
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     Export() const override;
 
+    /// Raw bytes for a symmetric key; for an asymmetric key, the private key as DER, or the
+    /// SubjectPublicKeyInfo DER when only the public half is held.
+    [[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
+                                            ::score::crypto::daemon::common::DaemonErrorCode>
+    SerializeForStorage() const override;
+
     [[nodiscard]] common::ProviderId GetProviderId() const noexcept override;
 
     /// Direct access to managed symmetric key material without opaque_id round-trip.

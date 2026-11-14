@@ -27,7 +27,8 @@ namespace score::crypto::daemon::key_management
 ///
 /// Reads raw key bytes from a file and delegates to IKeyFactory::ImportKey().
 /// The local read buffer is securely zeroized immediately after the provider
-/// has internalized the material, even on failure.
+/// has internalized the material, even on failure. StoreKey writes a key into
+/// an empty slot; ClearSlot securely erases it.
 ///
 /// Support for encrypted-at-rest files is reserved for future extension.
 ///
@@ -66,6 +67,39 @@ class FileBackedSlotHandler final : public IKeySlotHandler
     /// Return slot metadata derived from the KeySlotConfig.
     [[nodiscard]] score::crypto::Expected<score::crypto::KeySlotInfo, score::crypto::daemon::common::DaemonErrorCode>
     GetSlotInfo(const KeySlotConfig& slot) override;
+
+    /// Persist the key held by @p handler in the slot's key file.
+    ///
+    /// Only an empty slot is written: an occupied one is refused with kKeySlotOccupied, so
+    /// replacing a key takes an explicit ClearSlot first and the old material is securely
+    /// erased rather than overwritten. The key must fit the slot's algorithm (same key type,
+    /// size and curve), or LoadKey could not import it again (kAlgorithmMismatch).
+    ///
+    /// The provider serializes the key (IKeyHandler::SerializeForStorage) in the form its
+    /// ImportKey reads back. The file is created owner-only (0600) and published atomically
+    /// (common::storage::CreateSecretFile), which also refuses a file created concurrently.
+    /// The key path follows the same rules as for ClearSlot. The file holds the key in
+    /// plain form, as file-backed slots do today; encryption at rest is a future extension.
+    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> StoreKey(
+        const KeySlotConfig& slot,
+        IKeyHandler& handler) override;
+
+    /// Securely erase the slot's key file: overwrite it with zeros, flush, remove.
+    ///
+    /// The deployment descriptor is kept, so the slot keeps its key_path and a later
+    /// StoreKey writes to the same location. GetSlotState() returns kEmpty afterwards.
+    /// Clearing an already empty slot succeeds. Key material already loaded from the
+    /// slot is not touched here; it is zeroized when its last reference is released.
+    ///
+    /// The key path must be absolute with no ".." components, and must name a regular
+    /// file of at most kMaxKeyFileSize bytes. Unlike LoadKey, ClearSlot does not follow
+    /// a symbolic link: overwriting the link's target could destroy an unrelated file.
+    /// Every refusal is logged.
+    ///
+    /// See common::storage::SecureEraseFile for what the overwrite does and does not
+    /// guarantee on the underlying storage.
+    [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> ClearSlot(
+        const KeySlotConfig& slot) override;
 
   private:
     IKeyFactory::Sptr m_factory;
