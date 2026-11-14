@@ -14,8 +14,10 @@
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 
 #include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/cert_management/interfaces/cert_slot_config.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/data_plane/src/base_shm_factory.hpp"
+#include "score/crypto/src/daemon/provider/pkcs11/cert_management/pkcs11_cert_slot_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_factory.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_slot_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
@@ -24,6 +26,7 @@
 #include "score/mw/log/logging.h"
 
 #include <cstdlib>
+#include <utility>
 #include <vector>
 
 namespace score::crypto::daemon::provider::pkcs11
@@ -459,6 +462,20 @@ std::shared_ptr<key_management::IKeySlotHandler> Pkcs11Provider::GetKeySlotHandl
         m_key_store = std::make_shared<Pkcs11KeyStore>(shared_from_this(), m_module);
     }
     return std::make_shared<Pkcs11KeySlotHandler>(shared_from_this(), m_module, m_key_store);
+}
+
+std::shared_ptr<::score::crypto::daemon::cert_management::ICertSlotHandler> Pkcs11Provider::GetCertSlotHandler(
+    const ::score::crypto::daemon::cert_management::CertSlotConfig& config,
+    std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> parser)
+{
+    if (config.integrity_policy == ::score::crypto::daemon::cert_management::IntegrityPolicy::kRequired)
+    {
+        score::mw::log::LogError() << "[PKCS#11] Certificate slot '" << config.slot_name
+                                   << "' requests integrity_policy kRequired, which token-backed slots do not enforce; "
+                                      "the slot is refused";
+        return nullptr;
+    }
+    return std::make_shared<Pkcs11CertSlotHandler>(config, shared_from_this(), m_module, std::move(parser));
 }
 
 std::shared_ptr<::score::crypto::daemon::data_plane::IShmFactory> Pkcs11Provider::GetShmFactory()

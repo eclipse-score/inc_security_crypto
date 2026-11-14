@@ -59,6 +59,30 @@ std::string NameToString(X509_NAME* name)
     return size > 0 && data != nullptr ? std::string{data, static_cast<std::size_t>(size)} : std::string{};
 }
 
+bool EncodeX509NameDer(const X509_NAME* name, std::vector<std::uint8_t>& der)
+{
+    if (name == nullptr)
+        return false;
+    const int size = i2d_X509_NAME(name, nullptr);
+    if (size <= 0)
+        return false;
+    der.resize(static_cast<std::size_t>(size));
+    unsigned char* cursor = der.data();
+    return i2d_X509_NAME(name, &cursor) == size;
+}
+
+bool EncodeSerialNumberDer(const ASN1_INTEGER* serial, std::vector<std::uint8_t>& der)
+{
+    if (serial == nullptr)
+        return false;
+    const int size = i2d_ASN1_INTEGER(serial, nullptr);
+    if (size <= 0)
+        return false;
+    der.resize(static_cast<std::size_t>(size));
+    unsigned char* cursor = der.data();
+    return i2d_ASN1_INTEGER(serial, &cursor) == size;
+}
+
 template <typename T>
 void CopyOpenSslBytes(const T* data, std::size_t size, std::vector<std::uint8_t>& destination)
 {
@@ -168,6 +192,12 @@ score::crypto::Expected<CertObject::Sptr, Error> BuildObject(X509* certificate,
     if (metadata.subject_canonical.empty() || metadata.issuer_canonical.empty() ||
         !Asn1TimeToEpoch(X509_get0_notBefore(certificate), metadata.not_before_epoch_s) ||
         !Asn1TimeToEpoch(X509_get0_notAfter(certificate), metadata.not_after_epoch_s))
+    {
+        return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
+    }
+    if (!EncodeX509NameDer(X509_get_subject_name(certificate), metadata.subject_name_der) ||
+        !EncodeX509NameDer(X509_get_issuer_name(certificate), metadata.issuer_name_der) ||
+        !EncodeSerialNumberDer(X509_get_serialNumber(certificate), metadata.serial_number_der))
     {
         return score::crypto::make_unexpected(Error::kCertificateParsingFailed);
     }

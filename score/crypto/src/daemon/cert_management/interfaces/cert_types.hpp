@@ -106,13 +106,22 @@ struct CertChainMetadata
     /// RFC 4514 string representation of the Subject DN (e.g., "CN=...,O=...,C=...").
     std::string subject_canonical;
 
+    /// DER encoding of the X.509 subject distinguished name.
+    std::vector<uint8_t> subject_name_der;
+
     /// RFC 4514 string representation of the Issuer DN.
     std::string issuer_canonical;
+
+    /// DER encoding of the X.509 issuer distinguished name.
+    std::vector<uint8_t> issuer_name_der;
 
     /// Certificate serial number as an uppercase hex string (e.g., "01ABCDEF").
     /// Empty if not available. Together with issuer_canonical this is the RFC 5280
     /// canonical certificate identifier used in CRLs and OCSP.
     std::string serial_number_hex;
+
+    /// DER encoding of the certificate's ASN.1 INTEGER serial number.
+    std::vector<uint8_t> serial_number_der;
 
     /// DER-encoded Subject Key Identifier extension value; empty if the extension
     /// is absent from the certificate.

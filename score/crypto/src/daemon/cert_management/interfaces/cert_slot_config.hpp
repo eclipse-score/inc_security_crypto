@@ -32,7 +32,8 @@ namespace score::crypto::daemon::cert_management
 /// kDisabled: no integrity check is applied to the stored content.
 /// kRequired: the stored content must pass the integrity check the deployment defines
 ///            before it is used. The check is deployment-specific and may cover certificate
-///            content, CRL data, or other material.
+///            content, CRL data, or other material. A provider that cannot run the check
+///            refuses to create the slot's handler; the PKCS#11 provider does so for kRequired.
 ///
 /// The policy is a static slot property set at startup by the integrator, so a compromised
 /// descriptor cannot switch it off.

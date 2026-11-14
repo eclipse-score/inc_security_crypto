@@ -64,6 +64,9 @@ TEST(OpenSslCertParserTest, ParsesPemCertificateAndExtractsMetadata)
     EXPECT_EQ((*result)->GetFormat(), FormatType::kPem);
     EXPECT_EQ((*result)->GetSubject(), "CN=cert-management-test,O=Eclipse");
     EXPECT_EQ((*result)->GetIssuer(), "CN=cert-management-test,O=Eclipse");
+    EXPECT_FALSE((*result)->GetChainMetadata().subject_name_der.empty());
+    EXPECT_FALSE((*result)->GetChainMetadata().issuer_name_der.empty());
+    EXPECT_FALSE((*result)->GetChainMetadata().serial_number_der.empty());
     EXPECT_TRUE((*result)->IsCA());
     EXPECT_EQ((*result)->GetSkid().size(), 20U);
     EXPECT_EQ((*result)->GetFingerprint().size(), score::crypto::kSha256FingerprintSize);
