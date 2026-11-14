@@ -51,11 +51,13 @@ constexpr std::string_view kLogPrefix = "[API][RandomContextImpl] ERROR: ";
 RandomContextImpl::RandomContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                      uint64_t context_id,
                                      AlgorithmId algorithm,
-                                     std::shared_ptr<IBufferTranscoder> transcoder)
+                                     std::shared_ptr<IBufferTranscoder> transcoder,
+                                     std::chrono::milliseconds operation_timeout)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
       m_algorithm(std::move(algorithm)),
-      m_transcoder(std::move(transcoder))
+      m_transcoder(std::move(transcoder)),
+      m_operation_timeout(operation_timeout)
 {
 }
 
@@ -63,7 +65,8 @@ RandomContextImpl::RandomContextImpl(RandomContextImpl&& other) noexcept
     : m_connection(std::move(other.m_connection)),
       m_context_id(std::exchange(other.m_context_id, 0)),
       m_algorithm(std::move(other.m_algorithm)),
-      m_transcoder(std::move(other.m_transcoder))
+      m_transcoder(std::move(other.m_transcoder)),
+      m_operation_timeout(other.m_operation_timeout)
 {
 }
 
@@ -76,6 +79,7 @@ RandomContextImpl& RandomContextImpl::operator=(RandomContextImpl&& other) noexc
         m_context_id = std::exchange(other.m_context_id, 0);
         m_algorithm = std::move(other.m_algorithm);
         m_transcoder = std::move(other.m_transcoder);
+        m_operation_timeout = other.m_operation_timeout;
     }
     return *this;
 }
@@ -109,7 +113,7 @@ void RandomContextImpl::CloseContext() noexcept
         return;
     }
 
-    auto response_res = m_connection->SendRequest(context_close_res.value());
+    auto response_res = m_connection->SendRequest(context_close_res.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(response_res);
     validator.expectOperation(score::crypto::daemon::mediator::operations::CloseContext()).expectSuccess();
@@ -146,9 +150,9 @@ score::Result<std::size_t> RandomContextImpl::Generate(score::cpp::span<uint8_t>
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = control_request_result.value();
+    control_req.operations = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_RANDOM_HANDLER, random_ops::RANDOM_GENERATE}).expectSuccess();
@@ -202,9 +206,9 @@ score::Result<std::monostate> RandomContextImpl::Seed(score::cpp::span<const uin
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = control_request_result.value();
+    control_req.operations = control_request_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_RANDOM_HANDLER, random_ops::RANDOM_SEED}).expectSuccess();

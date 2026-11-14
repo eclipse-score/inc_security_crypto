@@ -22,17 +22,14 @@
 #include <vector>
 
 #include "score/crypto/src/common/types.hpp"
-
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 namespace score::crypto::daemon::data_manager
 {
 
-/// @brief Opaque 64-bit identifier assigned to every DataNode by the DataManager.
-using DataNodeId = std::uint64_t;
-
-/// @brief Opaque 64-bit identifier that represents the owning client of a node.
-using ClientId = std::uint64_t;
+using DataNodeId = score::crypto::daemon::common::DataNodeId;
+using ClientId = score::crypto::daemon::common::ClientId;
 
 /// @brief Discriminator for concrete DataNode subtypes.
 ///

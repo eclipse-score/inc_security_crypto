@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/control_plane/src/connection_handler.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_operations.h"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
@@ -38,15 +39,16 @@ ConnectionHandler::ConnectionHandler(std::unique_ptr<IRequestHandler> next_reque
 ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
 {
     score::mw::log::LogDebug() << "[CONTROL_HANDLER] Received request - Request ID:" << request.request_id
-                               << ", Client Id ID:" << request.client_id << ", UID:" << request.uid
-                               << ", PID:" << request.pid << ", Data Node Id:" << request.data_node_id
+                               << ", Client Id ID:" << request.client_id
+                               << ", UID:" << score::crypto::daemon::common::GetUidFromClientId(request.client_id)
+                               << ", Data Node Id:" << request.data_node_id
                                << ", Data Node Value:" << request.node_id_value
                                << ", Data Node Tag:" << request.node_tag_value;
     std::ostringstream tid;
     tid << std::this_thread::get_id();
     score::mw::log::LogDebug() << "[CONTROL_HANDLER] Thread ID:" << tid.str();
     // Validate empty request
-    if (request.operation.operations.empty())
+    if (request.operations.empty())
     {
         score::mw::log::LogDebug() << "[CONTROL_HANDLER] Empty operation, returning error";
         protocol::OperationResponseBuilder builder;
@@ -65,10 +67,10 @@ ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
     protocol::OperationResponseBuilder responseBuilder;
 
     // Iterate through operations in request - process those for the control plane
-    for (size_t idx = 0; idx < request.operation.operations.size(); ++idx)
+    for (size_t idx = 0; idx < request.operations.size(); ++idx)
     {
         // Extract operation name
-        const auto& opId = request.operation.operations[idx].operationId;
+        const auto& opId = request.operations[idx].operationId;
         score::mw::log::LogDebug() << "[CONTROL_HANDLER] Operation actor:" << opId.operationActor
                                    << " action:" << opId.operationAction;
         if (opId.operationActor != common::actors::OP_ACTOR_CONTROL)
@@ -78,7 +80,7 @@ ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
         }
         else
         {
-            if (!ProcessSingleRequest(request, request.operation.operations[idx].operationId, responseBuilder))
+            if (!ProcessSingleRequest(request, request.operations[idx].operationId, responseBuilder))
             {
                 score::mw::log::LogError()
                     << "[CONTROL_HANDLER] Failed to process control operation: actor=" << opId.operationActor
@@ -90,8 +92,9 @@ ControlResponse ConnectionHandler::processRequest(ControlRequest& request)
         }
     }
 
-    return ControlResponse{request.request_id,
-                           responseBuilder.build().value_or(control_plane::protocol::OperationResponse())};
+    return ControlResponse{
+        request.request_id,
+        responseBuilder.build().value_or(std::vector<control_plane::protocol::SingleOperationResponse>{})};
 }
 
 bool ConnectionHandler::ProcessSingleRequest(const ControlRequest& request,

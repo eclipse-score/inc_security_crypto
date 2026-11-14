@@ -40,7 +40,6 @@ cc_binary(
         "//score/crypto/src/backend:openssl_backend_active": ["SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED=1"],
         "//conditions:default": [],
     }),
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
         "//score/tests/utility",
@@ -62,7 +61,6 @@ cc_binary(
         "//score/crypto/src/backend:openssl_backend_active": ["SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED=1"],
         "//conditions:default": [],
     }),
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
         "//score/tests/utility",
@@ -74,7 +72,6 @@ cc_binary(
     name = "hash_performance_test",
     srcs = ["hash_performance_test.cpp"],
     data = ["//score/tests/test_vectors/hash:hash_test_vectors"],
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
         "//score/tests/utility",
@@ -91,7 +88,6 @@ cc_binary(
         "//score/tests/test_vectors/block_cipher/CBC-AES256:block_cipher_test_vectors",
         "//score/tests/test_vectors/config:integration_test_config",
     ],
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -111,7 +107,6 @@ cc_binary(
         "//score/tests/test_vectors/ed25519:ed25519_test_vectors",
         "//score/tests/test_vectors/rsa:rsa_pss_test_vectors",
     ],
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -130,7 +125,6 @@ cc_binary(
         "//score/tests/test_vectors/config:integration_test_config",
         "//score/tests/test_vectors/ecdsa:ecdsa_test_vectors",
     ],
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -168,7 +162,6 @@ cc_binary(
     data = [
         "//score/tests/test_vectors/config:integration_test_config",
     ],
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -193,7 +186,6 @@ cc_binary(
         "//score/crypto/src/backend:openssl_backend_active": ["SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED=1"],
         "//conditions:default": [],
     }),
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
         "@googletest//:gtest",
@@ -214,7 +206,6 @@ cc_binary(
         "//score/crypto/src/backend:openssl_backend_active": ["SCORE_CRYPTO_SOFTWARE_BACKEND_ENABLED=1"],
         "//conditions:default": [],
     }),
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
         "//score/tests/utility",
@@ -273,7 +264,6 @@ integration_test(
     }),
     libraries = [
         "//score/crypto/src/api/control_plane",
-        "//third_party/grpc:libgrpc_shared",
         "//third_party/openssl:openssl_so",
         "//third_party/soft_hsm:softhsm_so",
     ],

@@ -31,6 +31,10 @@ is managed across multiple clients, and how they are bound to a cryptographic
 operation context.  A MAC operation is used as the running example because it
 touches every layer of the subsystem.
 
+Key-management nodes, caches, and key references are scoped by the IPC
+:term:`ClientId`; its assignment and lifecycle are defined in
+:ref:`ipc_client_id_assignment`.
+
 .. contents::
    :local:
    :depth: 2
@@ -458,7 +462,7 @@ Session Pools
 
 Each ``Pkcs11Provider`` maintains two pools of PKCS#11 sessions — one for
 Read-Only (RO) and one for Read-Write (RW) operations.  The pools are
-protected by ``m_poolMutex`` so that the gRPC thread pool can acquire and
+protected by ``m_poolMutex`` so that the RPC thread pool can acquire and
 release sessions concurrently.
 
 Session acquisition:
@@ -509,7 +513,7 @@ Thread-safe login state
 - ``OnUserHandlerReleased``: decrements the counter; calls ``C_Logout``
   when it reaches zero.  Protected by ``m_mutex``.
 
-The mutex is essential because the gRPC daemon's thread pool can dispatch
+The mutex is essential because the daemon's thread pool can dispatch
 concurrent crypto operations that each require a logged-in session.
 
 Session validation

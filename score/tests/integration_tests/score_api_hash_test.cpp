@@ -42,12 +42,6 @@ using tests::utility::print_hex;
 namespace
 {
 
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
-
 constexpr std::chrono::milliseconds kDefaultOperationTimeout{500};
 constexpr std::size_t kInBandThreshold = 32U;
 
@@ -101,10 +95,7 @@ TEST_P(ParameterizedHashTest, HashingTest)
     ASSERT_EQ(expected_hash_alternative.size(), expected_out_data_size);
 
     // 1. Create the crypto stack and connect to the daemon
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -242,10 +233,7 @@ TEST_P(ParameterizedHashTest, HashingTest)
 
 TEST_F(HashExampleTest, PreservesArbitraryHashBytesAcrossTheClientDaemonBoundary)
 {
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -276,10 +264,7 @@ TEST_F(HashExampleTest, PreservesArbitraryHashBytesAcrossTheClientDaemonBoundary
 
 TEST_F(HashExampleTest, ReportsUnsupportedHashAlgorithmAtContextCreation)
 {
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value());
     auto ctx_result = stack_result.value()->CreateCryptoContext();
     ASSERT_TRUE(ctx_result.has_value());
@@ -293,10 +278,7 @@ TEST_F(HashExampleTest, ReportsUnsupportedHashAlgorithmAtContextCreation)
 
 TEST_F(HashExampleTest, ReportsStreamStateErrorsAndRecoversWithReset)
 {
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value());
     auto ctx_result = stack_result.value()->CreateCryptoContext();
     ASSERT_TRUE(ctx_result.has_value());
@@ -344,7 +326,7 @@ TEST_F(HashExampleTest, ReportsStreamStateErrorsAndRecoversWithReset)
 TEST_F(HashExampleTest, MemoryAllocationStrategyComparison)
 {
     CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint).SetDefaultOperationTimeout(kDefaultOperationTimeout);
+    stack_config.SetDefaultOperationTimeout(kDefaultOperationTimeout);
 
     auto stack_result = CreateCryptoStack(stack_config);
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";

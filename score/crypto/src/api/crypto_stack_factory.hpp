@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_SRC_API_CRYPTO_STACK_FACTORY_HPP
 
 #include "score/crypto/src/api/i_crypto_stack.hpp"
+#include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 #include "score/result/result.h"
 
 #include <chrono>
@@ -31,10 +32,11 @@ namespace crypto
 /// @brief Configuration builder for creating a crypto stack instance.
 struct CryptoStackConfig
 {
-    // TODO: Will hide this information in this future, via mw::com
     /// @brief Daemon endpoint URI (required).
-    /// Examples: "unix:///tmp/crypto_daemon.sock"
-    std::string connection_endpoint{};
+    /// Examples: "score://crypto_daemon.sock"
+    /// Defaults to score endpoint
+    std::string connection_endpoint{std::string{score::crypto::ipc::kScoreConnectionEndpointPrefix} +
+                                    std::string{score::crypto::ipc::kControlServiceIdentifier}};
 
     /// @brief Default per-IPC-call timeout for all operations on this stack.
     ///
@@ -42,26 +44,21 @@ struct CryptoStackConfig
     /// complete within this deadline. For streaming operations, the timeout
     /// applies to each individual call, not the entire sequence.
     ///
-    /// When std::nullopt (default), the daemon applies its own default
-    ///
+    /// When std::nullopt (default), the transport default is used. The
+    /// transport caps any individual request timeout at 10 minutes, including
+    /// explicit values above that limit.
     /// Per-context overrides are available via BaseContextConfig::operation_timeout.
     std::optional<std::chrono::milliseconds> default_operation_timeout{std::nullopt};
 
     /// @brief Set connection endpoint
-    CryptoStackConfig& SetConnectionEndpoint(std::string_view endpoint)
-    {
-        connection_endpoint = std::string{endpoint};
-        return *this;
-    }
+    CryptoStackConfig& SetConnectionEndpoint(std::string_view endpoint);
 
     /// @brief Sets the stack-wide default operation timeout.
-    /// @param timeout Maximum duration for any single IPC call.
-    ///        Operations exceeding this return kOperationTimedOut.
-    CryptoStackConfig& SetDefaultOperationTimeout(std::chrono::milliseconds timeout)
-    {
-        default_operation_timeout = timeout;
-        return *this;
-    }
+    /// @param timeout Requested maximum duration for any single IPC call.
+    ///        The transport caps it at 10 minutes. Operations exceeding the
+    ///        effective timeout return kOperationTimedOut.
+    ///        Values below 1 ms are clamped to 1 ms.
+    CryptoStackConfig& SetDefaultOperationTimeout(std::chrono::milliseconds timeout);
 
     // Future extensible fields:
     // std::optional<std::chrono::milliseconds> connection_timeout{std::nullopt};
@@ -80,6 +77,13 @@ struct CryptoStackConfig
 /// @param config Stack configuration with at minimum a connection endpoint
 /// @return Unique pointer to the created stack, or error on connection failure
 score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& config);
+
+/// @brief Creates a new crypto stack with the default configuration.
+///
+/// See CreateCryptoStack(const CryptoStackConfig& config) for details.
+///
+/// @return Unique pointer to the created stack, or error on connection failure
+score::Result<ICryptoStack::Uptr> CreateCryptoStack();
 
 }  // namespace crypto
 

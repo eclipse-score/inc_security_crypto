@@ -13,7 +13,7 @@
 
 #include "score/crypto/src/daemon/data_plane/src/shm_data_node.hpp"
 
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/mw/log/logging.h"
 
 #include <chrono>
@@ -29,11 +29,10 @@ namespace score::crypto::daemon::data_plane
 
 score::crypto::FixedCapacityString<64> ShmDataNode::GetShmName(std::uint32_t uid)
 {
-    const auto epoch_ns =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch())
-            .count();
+    static std::atomic<std::uint64_t> counter{0};
+    const auto rolling_counter = counter.fetch_add(1, std::memory_order_relaxed);
     return score::crypto::FixedCapacityString<64>{std::string("/score_crypto_") + std::to_string(uid) + "_" +
-                                                  std::to_string(epoch_ns)};
+                                                  std::to_string(rolling_counter)};
 }
 
 Expected<std::shared_ptr<ShmDataNode>, common::DaemonErrorCode> ShmDataNode::Create(
@@ -42,7 +41,7 @@ Expected<std::shared_ptr<ShmDataNode>, common::DaemonErrorCode> ShmDataNode::Cre
     std::size_t size,
     data_manager::ClientId client_id)
 {
-    const auto uid = control_plane::protocol::GetUidFromClientId(client_id);
+    const auto uid = common::GetUidFromClientId(client_id);
     const auto name = GetShmName(uid);
 
     // 1. Validate inputs
@@ -119,7 +118,7 @@ ShmDataNode::~ShmDataNode()
     // 2. Unregister from quota tracker (if registry still alive)
     if (auto registry = m_registry.lock())
     {
-        const auto uid = control_plane::protocol::GetUidFromClientId(m_client_id);
+        const auto uid = common::GetUidFromClientId(m_client_id);
         registry->Unregister(uid, m_size);
     }
 }

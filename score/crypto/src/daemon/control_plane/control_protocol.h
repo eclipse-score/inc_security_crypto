@@ -15,6 +15,7 @@
 #define SCORE_CRYPTO_DAEMON_CONTROL_PLANE_CONTROL_PROTOCOL_H
 
 #include "score/mw/log/logging.h"
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -31,8 +32,6 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/data_manager/data_node.hpp"
-#include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 
 namespace score::crypto::daemon::control_plane::protocol
 {
@@ -45,16 +44,20 @@ namespace score::crypto::daemon::control_plane::protocol
 // If cross-version wire stability ever becomes a requirement (rolling daemon/client upgrades),
 // introduce a dedicated serialization enum here and translate at the boundary so CryptoErrorCode
 // can evolve independently of the on-wire representation.
-using OperationResult = std::underlying_type<score::crypto::CryptoErrorCode>::type;
-static constexpr OperationResult OPERATION_RESULT_SUCCESS = 0;
-
-// ============================================================================
-// Convenience type aliased to bring them to into the namespace
-// ============================================================================
+using OperationResult = common::OperationResult;
+using common::OPERATION_RESULT_SUCCESS;
+using DataNodeId = common::DataNodeId;
+using ClientId = common::ClientId;
+using common::DATA_NODE_ID_RESERVED_BITS;
+using common::DATA_NODE_ID_VALUE_BITS;
+using RequestId = common::RequestId;
 
 using OperationIdentifier = common::OperationIdentifier;
+using common::GetUidFromClientId;
+using common::IsEnvelopeErrorOperation;
+using common::kEnvelopeErrorOperationIdentifier;
+
 using NoParam = daemon::common::NoParam;
-using DataNodeId = daemon::data_manager::DataNodeId;
 using OwnedString = common::OwnedString;
 using OwnedBuffer = common::OwnedBuffer;
 using DataBufferReturn = common::OwnedBuffer;
@@ -109,108 +112,47 @@ struct SingleOperationResponse
 };
 
 // ============================================================================
-// Batching of multiple Operation per Request & Response
-// ============================================================================
-
-struct OperationRequest
-{
-    std::vector<SingleOperationRequest> operations;
-};
-
-struct OperationResponse
-{
-    std::vector<SingleOperationResponse> operations;
-};
-
-// ============================================================================
 // ControlRequest & ControlResponse
 // ============================================================================
 
-using RequestId = std::uint64_t;
+struct ExecutionPolicy
+{
+};
 
 /// Request for control operation
 struct ControlRequest
 {
     RequestId request_id;
-    // TODO: This is not really nice, since we duplicate the union definition
-    // But we avoid confusion about the order / portability
-    // BUT, we should get rid of this in general
-    // There are currently THREE copies either change none or all
+    ClientId client_id{0U};
+    // ExecutionPolicy is an extension point to provide information to the daemon, how the operation should be executed
+    // A primary use case for ExecutionPolicy could be to specify the priority of the operation.
+    ExecutionPolicy execution_policy;
     union
     {
-        data_manager::ClientId client_id;
-        struct
-        {
-            uint32_t pid;
-            uint32_t uid;
-        };
-    };
-    union
-    {
-        data_manager::DataNodeId data_node_id;
+        DataNodeId data_node_id;
         // TODO: Unclear if this depends on endianess or other factors
         // Is there a clear statemenet about the order of these elements in the C / C++ spec?
         // It may be better to define a named struct within data_manager
         struct
         {
-            uint64_t node_id_value : data_manager::DATA_NODE_ID_VALUE_BITS;
-            uint64_t node_tag_value : data_manager::DATA_NODE_ID_RESERVED_BITS;
+            uint64_t node_id_value : DATA_NODE_ID_VALUE_BITS;
+            uint64_t node_tag_value : DATA_NODE_ID_RESERVED_BITS;
         };
     };
-    protocol::OperationRequest operation;
+    std::chrono::steady_clock::time_point deadline{};
+    std::vector<SingleOperationRequest> operations;
 };
-
-static_assert(sizeof(pid_t) == sizeof(decltype(ControlRequest::pid)),
-              "Error: The size of pid_t is not the expected size.");
-static_assert(sizeof(uid_t) == sizeof(decltype(ControlRequest::uid)),
-              "Error: The size of uid_t is not the expected size.");
-static_assert(sizeof(data_manager::ClientId) ==
-                  sizeof(decltype(ControlRequest::pid)) + sizeof(decltype(ControlRequest::uid)),
-              "Error: The size of data_manager::ClientId and its components do not match.");
 
 /// Response from control operation
 struct ControlResponse
 {
     RequestId request_id;
-    protocol::OperationResponse operation;
+    std::vector<SingleOperationResponse> operations;
 };
 
-/// Extract the process ID (pid) from a ClientId
-inline uint32_t GetPidFromClientId(data_manager::ClientId client_id)
+inline bool IsEnvelopeErrorResponse(const ControlResponse& response) noexcept
 {
-    // TODO: This is not really nice, since we duplicate the union definition
-    // But we avoid confusion about the order / portability
-    // BUT, we should get rid of this in general
-    // There are currently THREE copies either change none or all
-    union
-    {
-        data_manager::ClientId id;
-        struct
-        {
-            uint32_t pid;
-            uint32_t uid;
-        };
-    } decomposed{client_id};
-    return decomposed.pid;
-}
-
-/// Extract the user ID (uid) from a ClientId
-inline uint32_t GetUidFromClientId(data_manager::ClientId client_id)
-{
-    // TODO: This is not really nice, since we duplicate the union definition
-    // But we avoid confusion about the order / portability
-    // BUT, we should get rid of this in general
-    // There are currently THREE copies either change none or all
-    union
-    {
-        data_manager::ClientId id;
-        struct
-        {
-            uint32_t pid;
-            uint32_t uid;
-        };
-    } decomposed{client_id};
-    return decomposed.uid;
+    return (response.operations.size() == 1U) && IsEnvelopeErrorOperation(response.operations.front().operationId);
 }
 
 // ============================================================================
@@ -222,7 +164,7 @@ class OperationRequestBuilder
   public:
     OperationRequestBuilder& operation(const OperationIdentifier& opId)
     {
-        operationRequest.operations.push_back(SingleOperationRequest{opId, {}});
+        operations.push_back(SingleOperationRequest{opId, {}});
 
         return *this;
     }
@@ -231,7 +173,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(NoParam{});
+            operations.back().parameters.push_back(NoParam{});
         }
         return *this;
     };
@@ -240,7 +182,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(string);
+            operations.back().parameters.push_back(string);
         }
         return *this;
     };
@@ -249,7 +191,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(data);
+            operations.back().parameters.push_back(data);
         }
         return *this;
     };
@@ -258,7 +200,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -267,7 +209,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -276,7 +218,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -285,7 +227,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -294,7 +236,7 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -306,12 +248,12 @@ class OperationRequestBuilder
     {
         if (validateOperationExists())
         {
-            operationRequest.operations.back().parameters.push_back(common::DataShm{node_id, offset, size, direction});
+            operations.back().parameters.push_back(common::DataShm{node_id, offset, size, direction});
         }
         return *this;
     };
 
-    Expected<OperationRequest, score::crypto::CryptoErrorCode> build()
+    Expected<std::vector<SingleOperationRequest>, score::crypto::CryptoErrorCode> build()
     {
         if (error)
         {
@@ -320,25 +262,22 @@ class OperationRequestBuilder
                    "building process";
 
             error = false;
-            operationRequest.operations.clear();
+            operations.clear();
 
             return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
-        OperationRequest ret{
-            std::move(operationRequest.operations),
-        };
-        return ret;
+        return std::move(operations);
     }
 
   private:
     bool error = false;
 
-    OperationRequest operationRequest;
+    std::vector<SingleOperationRequest> operations;
 
     bool validateOperationExists()
     {
-        if (operationRequest.operations.empty())
+        if (operations.empty())
         {
             score::mw::log::LogError()
                 << "[CONTROL_OP_REQ_BUILDER] ERROR - Trying to add parameter without an operation";
@@ -354,7 +293,7 @@ class OperationResponseBuilder
   public:
     OperationResponseBuilder& operation(const OperationIdentifier& opId)
     {
-        operationResponse.operations.push_back(SingleOperationResponse{opId, {}});
+        operations.push_back(SingleOperationResponse{opId, {}});
 
         return *this;
     }
@@ -363,7 +302,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().result = OPERATION_RESULT_SUCCESS;
+            operations.back().result = OPERATION_RESULT_SUCCESS;
         }
         return *this;
     };
@@ -372,7 +311,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().result = static_cast<OperationResult>(error);
+            operations.back().result = static_cast<OperationResult>(error);
         }
         return *this;
     };
@@ -389,7 +328,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -398,7 +337,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -407,7 +346,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -416,7 +355,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -425,7 +364,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(val);
+            operations.back().parameters.push_back(val);
         }
         return *this;
     };
@@ -434,7 +373,7 @@ class OperationResponseBuilder
     {
         if (validateOperationExists())
         {
-            operationResponse.operations.back().parameters.push_back(OwnedBuffer{std::move(data)});
+            operations.back().parameters.push_back(OwnedBuffer{std::move(data)});
         }
         return *this;
     };
@@ -452,11 +391,11 @@ class OperationResponseBuilder
         {
             return_error(static_cast<score::crypto::CryptoErrorCode>(res));
         }
-        operationResponse.operations.back().parameters = std::move(response);
+        operations.back().parameters = std::move(response);
         return *this;
     };
 
-    Expected<OperationResponse, score::crypto::CryptoErrorCode> build()
+    Expected<std::vector<SingleOperationResponse>, score::crypto::CryptoErrorCode> build()
     {
         if (error)
         {
@@ -465,24 +404,22 @@ class OperationResponseBuilder
                    "building process";
 
             error = false;
-            operationResponse.operations.clear();
+            operations.clear();
 
             return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
-        return OperationResponse{
-            std::move(operationResponse.operations),
-        };
+        return std::move(operations);
     }
 
   private:
     bool error = false;
 
-    OperationResponse operationResponse;
+    std::vector<SingleOperationResponse> operations;
 
     bool validateOperationExists()
     {
-        if (operationResponse.operations.empty())
+        if (operations.empty())
         {
             score::mw::log::LogError()
                 << "[CONTROL_OP_RESP_BUILDER] ERROR - Trying to add parameter without an operation";
@@ -497,10 +434,20 @@ class OperationResponseBuilder
 // Response Validator (Fluent Builder Pattern)
 // ============================================================================
 
+/**
+ * @brief Validates operation results and parameters in a control response.
+ *
+ * @note The validator does not own the operations it examines. The referenced operations response must outlive the
+ * validator.
+ */
 class ControlResponseValidator
 {
   public:
-    explicit ControlResponseValidator(const OperationResponse& response, bool logErrors = false)
+    /// @brief Constructs a validator over caller-owned response operations.
+    /// @note The caller must keep the response alive for the lifetime of the returned validator.
+    /// @param response Operations to validate; the vector must outlive this validator.
+    /// @param logErrors Whether validation failures should be logged.
+    explicit ControlResponseValidator(const std::vector<SingleOperationResponse>& response, bool logErrors = false)
         : m_response(response),
           m_currentOpIndex(std::numeric_limits<size_t>::max()),
           m_errorMsg(""),
@@ -508,22 +455,43 @@ class ControlResponseValidator
     {
     }
 
-    /// Create a validator from a Result/Expected type, validating has_value() first
-    /// Works with any type T where has_value() and value() are available
-    /// Automatically extracts .operation from ControlResponse if present
+    /// @brief Creates a validator from a Result/Expected-like object.
+    ///
+    /// Checks has_value() and uses the contained ControlResponse's operations when present.
+    /// @note The caller must keep the result alive for the lifetime of the returned validator.
+    /// @param result Result-like object containing a ControlResponse.
+    /// @param logErrors Whether validation failures should be logged.
     template <typename T>
     static ControlResponseValidator FromResult(const T& result, bool logErrors = false)
     {
         if (!result.has_value())
         {
-            ControlResponseValidator validator(OperationResponse{}, logErrors);
+            ControlResponseValidator validator(std::vector<SingleOperationResponse>{}, logErrors);
             validator.m_isValid = false;
             validator.m_errorMsg = "Operation response is not available (has_value() returned false)";
             return validator;
         }
 
-        // Extract .operation from ControlResponse
-        ControlResponseValidator validator(result.value().operation, logErrors);
+        const auto& response = result.value();
+        ControlResponseValidator validator(response.operations, logErrors);
+        if (IsEnvelopeErrorResponse(response))
+        {
+            const auto operation_result = response.operations.front().result;
+            if (operation_result == OPERATION_RESULT_SUCCESS)
+            {
+                validator.m_isValid = false;
+                validator.m_errorMsg = "Request error envelope contains a success result";
+                validator.m_operationError = score::crypto::CryptoErrorCode::kInternalError;
+            }
+            else
+            {
+                const auto error = static_cast<score::crypto::CryptoErrorCode>(operation_result);
+                validator.m_isValid = false;
+                validator.m_errorMsg = "Request failed: " + std::string(score::crypto::kCryptoErrorDomain.MessageFor(
+                                                                static_cast<score::result::ErrorCode>(error)));
+                validator.m_operationError = static_cast<score::crypto::CryptoErrorCode>(operation_result);
+            }
+        }
         return validator;
     }
 
@@ -548,16 +516,16 @@ class ControlResponseValidator
         }
 
         // Validate we have enough operations
-        if (m_currentOpIndex >= m_response.get().operations.size())
+        if (m_currentOpIndex >= m_response.get().size())
         {
             m_isValid = false;
             m_errorMsg = "Expected operation at index " + std::to_string(m_currentOpIndex) + " but response has only " +
-                         std::to_string(m_response.get().operations.size()) + " operations";
+                         std::to_string(m_response.get().size()) + " operations";
             return *this;
         }
 
         // Validate operation ID
-        const auto& op = m_response.get().operations[m_currentOpIndex];
+        const auto& op = m_response.get()[m_currentOpIndex];
         if (op.operationId.operationActor != opId.operationActor ||
             op.operationId.operationAction != opId.operationAction)
         {
@@ -583,7 +551,16 @@ class ControlResponseValidator
         if (!m_isValid)
             return *this;
 
-        const auto& op = m_response.get().operations[m_currentOpIndex];
+        // Validate we have enough operations
+        if (m_currentOpIndex >= m_response.get().size())
+        {
+            m_isValid = false;
+            m_errorMsg = "Expected successful operation at index " + std::to_string(m_currentOpIndex) +
+                         " but response has only " + std::to_string(m_response.get().size()) + " operations";
+            return *this;
+        }
+
+        const auto& op = m_response.get()[m_currentOpIndex];
         if (op.result != OPERATION_RESULT_SUCCESS)
         {
             auto errorCode = static_cast<score::crypto::CryptoErrorCode>(op.result);
@@ -627,12 +604,12 @@ class ControlResponseValidator
             return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
-        if (opIndex >= m_response.get().operations.size())
+        if (opIndex >= m_response.get().size())
         {
             return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
-        const auto& op = m_response.get().operations[opIndex];
+        const auto& op = m_response.get()[opIndex];
 
         if (paramIdx >= op.parameters.size())
         {
@@ -652,7 +629,7 @@ class ControlResponseValidator
             return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
         }
 
-        if (opIndex >= m_response.get().operations.size())
+        if (opIndex >= m_response.get().size())
         {
             m_isValid = false;
             m_errorMsg = "Operation index " + std::to_string(opIndex) + " out of bounds";
@@ -660,7 +637,7 @@ class ControlResponseValidator
             return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
         }
 
-        const auto& op = m_response.get().operations[opIndex];
+        const auto& op = m_response.get()[opIndex];
 
         if (paramIdx >= op.parameters.size())
         {
@@ -696,7 +673,7 @@ class ControlResponseValidator
     }
 
   private:
-    std::reference_wrapper<const OperationResponse> m_response;
+    std::reference_wrapper<const std::vector<SingleOperationResponse>> m_response;
     size_t m_currentOpIndex;
     bool m_isValid = true;
     std::string m_errorMsg;
@@ -741,8 +718,7 @@ class ControlRequestBuilder
     {
         // Filled in by the IPC during transmission
         m_request.request_id = 0;
-        m_request.pid = 0;
-        m_request.uid = 0;
+        m_request.client_id = 0U;
 
         // Default value, in case not provided
         m_request.data_node_id = 0;
@@ -754,7 +730,7 @@ class ControlRequestBuilder
      * @param data_node_id The data node ID to associate with this request.
      * @return Reference to this builder for method chaining.
      */
-    ControlRequestBuilder& forDataNodeId(daemon::data_manager::DataNodeId data_node_id)
+    ControlRequestBuilder& forDataNodeId(DataNodeId data_node_id)
     {
         m_request.data_node_id = data_node_id;
         return *this;
@@ -886,7 +862,7 @@ class ControlRequestBuilder
             return make_unexpected(op_result.error());
         }
 
-        m_request.operation = op_result.value();
+        m_request.operations = std::move(op_result).value();
         return m_request;
     }
 

@@ -1,0 +1,54 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml message_passing_adapter_server_request_flow
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam shadowing false
+
+title Server-Side Request Handling
+
+participant "SCORE message-passing IPC" as Transport
+participant "MessagePassingControlServer" as Server
+participant "WorkItemDispatcher" as Dispatcher
+participant "SessionManager" as SessionManager
+participant "SessionRegistry" as Registry
+participant "Session" as Session
+participant "Worker executor" as Executor
+participant "IRequestHandler" as Handler
+participant "FlatBufferCodec" as Codec
+participant "IServerConnection" as ServerConnection
+
+Transport -> Server: **OnRequest(connection, bytes) callback**
+Server -> Dispatcher: WorkItemDispatcher::OnRequest(bytes)
+Dispatcher -> SessionManager: Find session for connection
+SessionManager -> Registry: FindSessionForRequest(connection)
+Registry --> SessionManager: Session
+SessionManager --> Dispatcher: Session
+Dispatcher -> Session: TryAdmitWorkItem(item)
+Dispatcher -> Executor: Submit(session, item, job)
+
+... worker executes accepted operation ...
+
+Executor -> Dispatcher: RunAcceptedWorkItem(item, handler)
+Dispatcher -> Codec: DeserializeRequest(item bytes)
+Codec --> Dispatcher: ControlRequest
+Dispatcher -> Handler: processRequest(request)
+Handler --> Dispatcher: ControlResponse
+Dispatcher -> Codec: SerializeResponse(response)
+Codec --> Dispatcher: Response bytes
+Dispatcher -> Session: Respond(response bytes)
+Session -> ServerConnection: **IServerConnection::Notify(bytes)**
+ServerConnection -> Transport: Response notification
+
+@enduml

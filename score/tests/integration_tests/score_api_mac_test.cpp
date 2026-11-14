@@ -51,12 +51,6 @@ using tests::utility::print_hex;
 namespace
 {
 
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
-
 // =========================================================================
 // Parameterized Test Data
 // =========================================================================
@@ -266,10 +260,7 @@ TEST_P(GeneratedKeyMacTest, MacGenerationAndVerificationTest)
     // =========================================================================
     // 1. Create the crypto stack and connect to the daemon
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -426,10 +417,7 @@ TEST_P(KeySlotMacTest, MacWithKeySlotTest)
     // =========================================================================
     // 1. Create the crypto stack and connect to the daemon
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -544,9 +532,7 @@ TEST_P(KeySlotMacTest, AcceptsEmptyMessageAndEmptyChunks)
     const auto expected_mac = tests::utility::read_bin(GetTestVectorPath(test_data.expected_mac_data_relative_path));
     ASSERT_FALSE(input.empty());
 
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto ctx_result = stack_result.value()->CreateCryptoContext();
     ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
@@ -745,9 +731,7 @@ INSTANTIATE_TEST_SUITE_P(KeySlotProviderType,
 /// MAC permission and of the HMAC's digest length, is refused.
 TEST(MacKeyFitTest, HmacRefusesAnAesKey)
 {
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto ctx_result = stack_result.value()->CreateCryptoContext();
     ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";

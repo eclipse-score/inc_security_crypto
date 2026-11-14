@@ -49,8 +49,6 @@ class ConfigFile;
 
 constexpr std::string_view CRYPTO_CONFIG_FILE_ENV = "CRYPTO_CONFIG_FILE";
 
-constexpr uint16_t SERVER_PORT_DEFAULT = 50051;  ///< Default server port for IPC communication
-
 constexpr uint32_t MAX_SESSIONS = 100U;                      ///< Maximum number of concurrent sessions allowed
 constexpr uint32_t MAX_EPHEMERAL_KEYS_PER_CONNECTION = 32U;  ///< Per-connection ephemeral key limit
 constexpr uint32_t MAX_LOADED_KEYS_PER_CONNECTION = 16U;     ///< Per-connection loaded-from-slot key limit
@@ -89,54 +87,30 @@ struct ResourceQuotaPolicy
 class IPCConfig
 {
   public:
+    // TODO: With config concept (and inversion), this shall be rather part of the IPC
+    static constexpr std::string_view kDefaultEndpoint{"crypto_daemon.sock"};
+
     IPCConfig() = default;
 
-    /// @brief Return the number of IPC worker threads.
-    /// @return The configured thread count.
-    uint32_t GetNumOfIPCThreads() const noexcept
+    /// @brief Return the endpoint on which the IPC server listens.
+    /// @return The configured endpoint.
+    const std::string& GetEndpoint() const noexcept
     {
-        return m_num_ipc_threads;
+        return m_endpoint;
     }
 
-    /// @brief Return the address on which the IPC server listens.
-    /// @return The configured server address.
-    const std::string& GetServerAddress() const noexcept
+    /// @brief Set the endpoint on which the IPC server listens.
+    /// @param endpoint Endpoint to configure.
+    void SetEndpoint(const std::string_view endpoint)
     {
-        return m_server_address;
-    }
-
-    /// @brief Return the IPC server port.
-    /// @return The configured server port.
-    uint16_t GetServerPort() const noexcept
-    {
-        return m_server_port;
-    }
-
-    /// @brief Set the number of IPC worker threads.
-    /// @param threads Number of threads to configure.
-    void SetNumOfIPCThreads(uint32_t threads)
-    {
-        m_num_ipc_threads = threads;
-    }
-
-    /// @brief Set the address on which the IPC server listens.
-    /// @param address Server address to configure.
-    void SetServerAddress(const std::string& address)
-    {
-        m_server_address = address;
-    }
-
-    /// @brief Set the IPC server port.
-    /// @param port Server port to configure.
-    void SetServerPort(uint16_t port)
-    {
-        m_server_port = port;
+        if (!endpoint.empty())
+        {
+            m_endpoint.assign(endpoint.data(), endpoint.size());
+        }
     }
 
   private:
-    uint32_t m_num_ipc_threads = 4;
-    std::string m_server_address = "0.0.0.0";
-    uint16_t m_server_port = SERVER_PORT_DEFAULT;
+    std::string m_endpoint;
 };
 
 /**
@@ -826,6 +800,9 @@ class Config
 
     /// Populate m_certificate from the cert_slot_config section; sets m_cert_management_enabled.
     bool ParseCertManagementSection(const ConfigFile& file);
+
+    /// Populate IPC defaults until it has a serialized config section.
+    bool ParseIpcSection(const ConfigFile& file);
 
     // ---------------------------------------------------------------------------
     // Low-level argument / environment helpers

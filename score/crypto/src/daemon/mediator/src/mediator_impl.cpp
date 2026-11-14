@@ -91,9 +91,9 @@ control_plane::ControlResponse MediatorImpl::processRequest(control_plane::Contr
 {
     auto responseBuilder = control_plane::protocol::OperationResponseBuilder();
 
-    for (size_t idx = 0; idx < request.operation.operations.size(); ++idx)
+    for (size_t idx = 0; idx < request.operations.size(); ++idx)
     {
-        const auto& operation = request.operation.operations[idx];
+        const auto& operation = request.operations[idx];
 
         // Stop processing requests, once one fails. They may depend on each other
         if (!HandleSingleOperation(request, operation, responseBuilder))
@@ -105,14 +105,14 @@ control_plane::ControlResponse MediatorImpl::processRequest(control_plane::Contr
     }
 
     // Build response
-    auto opResponse = responseBuilder.build().value_or(control_plane::protocol::OperationResponse());
+    auto opResponse = responseBuilder.build().value_or(std::vector<control_plane::protocol::SingleOperationResponse>{});
 
     ControlResponse response;
     response.request_id = request.request_id;
-    response.operation = opResponse;
+    response.operations = opResponse;
 
     score::mw::log::LogVerbose() << "[SCORE_API_MED] Response operations: "
-                                 << static_cast<std::uint64_t>(opResponse.operations.size());
+                                 << static_cast<std::uint64_t>(opResponse.size());
 
     return response;
 }
@@ -742,7 +742,7 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
     // param[3]: is_pool (0=bulk, 1=pool).
     const auto is_pool_param = operation.getParameter<std::uint64_t>(3);
     const bool is_pool = is_pool_param.has_value() && (is_pool_param.value() != 0U);
-    const std::uint32_t uid = control_plane::protocol::GetUidFromClientId(request.client_id);
+    const std::uint32_t uid = common::GetUidFromClientId(request.client_id);
 
     std::size_t size{};
     std::shared_ptr<data_plane::IShmFactory> factory_override{};

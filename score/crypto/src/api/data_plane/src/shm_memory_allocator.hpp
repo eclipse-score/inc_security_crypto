@@ -23,6 +23,7 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/result/result.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -54,7 +55,8 @@ class ShmMemoryAllocator final : public IMemoryAllocator
     static score::Result<std::unique_ptr<ShmMemoryAllocator>> Create(
         std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
         IReadWriteMemoryFactory::Sptr factory,
-        std::shared_ptr<IShmRegionRegistry> registry);
+        std::shared_ptr<IShmRegionRegistry> registry,
+        std::chrono::milliseconds operation_timeout = std::chrono::milliseconds::max());
 
     /// @brief Constructor with tag - only callable via Create method.
     /// @param tag         Tag to restrict construction to Create method.
@@ -65,7 +67,8 @@ class ShmMemoryAllocator final : public IMemoryAllocator
     explicit ShmMemoryAllocator(ConstructorTag tag,
                                 std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                 IReadWriteMemoryFactory::Sptr factory,
-                                std::shared_ptr<IShmRegionRegistry> registry);
+                                std::shared_ptr<IShmRegionRegistry> registry,
+                                std::chrono::milliseconds operation_timeout);
 
     ~ShmMemoryAllocator() override = default;
 
@@ -92,6 +95,7 @@ class ShmMemoryAllocator final : public IMemoryAllocator
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection_ptr;
     IReadWriteMemoryFactory::Sptr m_factory_ptr;
     std::shared_ptr<IShmRegionRegistry> m_registry_ptr;
+    std::chrono::milliseconds m_operation_timeout;
 };
 
 }  // namespace crypto

@@ -23,8 +23,10 @@
 
 #include "score/result/result.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace score
 {
@@ -44,7 +46,8 @@ class CryptoContextImpl final : public ICryptoContext
     /// @param connection  Shared ownership of the connection (which contains the DataNodeId)
     /// @param transcoder  Session-shared buffer transcoder.
     CryptoContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-                      std::shared_ptr<IBufferTranscoder> transcoder);
+                      std::shared_ptr<IBufferTranscoder> transcoder,
+                      std::optional<std::chrono::milliseconds> default_operation_timeout = std::nullopt);
 
     ~CryptoContextImpl() override;
 
@@ -81,6 +84,7 @@ class CryptoContextImpl final : public ICryptoContext
   private:
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     std::shared_ptr<IBufferTranscoder> m_transcoder;
+    std::optional<std::chrono::milliseconds> m_default_operation_timeout;
 };
 
 }  // namespace crypto

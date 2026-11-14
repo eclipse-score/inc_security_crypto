@@ -57,8 +57,9 @@ class KeyManagementContextImpl::ContextReleaseCallbackImpl final : public IRelea
 {
   public:
     ContextReleaseCallbackImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-                               proto::DataNodeId context_id)
-        : m_connection(std::move(connection)), m_context_id(context_id)
+                               proto::DataNodeId context_id,
+                               std::chrono::milliseconds operation_timeout)
+        : m_connection(std::move(connection)), m_context_id(context_id), m_operation_timeout(operation_timeout)
     {
     }
 
@@ -88,7 +89,7 @@ class KeyManagementContextImpl::ContextReleaseCallbackImpl final : public IRelea
             return;
         }
 
-        auto response_res = m_connection->SendRequest(context_close_res.value());
+        auto response_res = m_connection->SendRequest(context_close_res.value(), m_operation_timeout);
 
         auto validator = proto::ControlResponseValidator::FromResult(response_res);
         validator.expectOperation(score::crypto::daemon::mediator::operations::CloseContext()).expectSuccess();
@@ -109,6 +110,7 @@ class KeyManagementContextImpl::ContextReleaseCallbackImpl final : public IRelea
   private:
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     proto::DataNodeId m_context_id;
+    std::chrono::milliseconds m_operation_timeout;
 };
 
 // ---------------------------------------------------------------------------
@@ -119,10 +121,12 @@ class KeyManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCallb
   public:
     ReleaseCallbackImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                         proto::DataNodeId context_id,
-                        std::shared_ptr<IReleaseCallback> context_release_callback)
+                        std::shared_ptr<IReleaseCallback> context_release_callback,
+                        std::chrono::milliseconds operation_timeout)
         : m_connection(std::move(connection)),
           m_context_id(context_id),
-          m_context_release_callback(std::move(context_release_callback))
+          m_context_release_callback(std::move(context_release_callback)),
+          m_operation_timeout(operation_timeout)
     {
     }
 
@@ -140,7 +144,7 @@ class KeyManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCallb
                 score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build KEY_RELEASE request")};
         }
 
-        auto control_response_res = m_connection->SendRequest(control_req_result.value());
+        auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
         auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
         validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_RELEASE}).expectSuccess();
@@ -161,17 +165,24 @@ class KeyManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCallb
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     proto::DataNodeId m_context_id;
     std::shared_ptr<IReleaseCallback> m_context_release_callback;
+    std::chrono::milliseconds m_operation_timeout;
 };
 
 KeyManagementContextImpl::KeyManagementContextImpl(
     std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
     uint64_t context_id,
-    std::shared_ptr<IBufferTranscoder> transcoder)
+    std::shared_ptr<IBufferTranscoder> transcoder,
+    std::chrono::milliseconds operation_timeout)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
-      m_context_release_callback(std::make_shared<ContextReleaseCallbackImpl>(m_connection, m_context_id)),
-      m_release_callback(std::make_shared<ReleaseCallbackImpl>(m_connection, m_context_id, m_context_release_callback)),
-      m_transcoder(std::move(transcoder))
+      m_context_release_callback(
+          std::make_shared<ContextReleaseCallbackImpl>(m_connection, m_context_id, operation_timeout)),
+      m_release_callback(std::make_shared<ReleaseCallbackImpl>(m_connection,
+                                                               m_context_id,
+                                                               m_context_release_callback,
+                                                               operation_timeout)),
+      m_transcoder(std::move(transcoder)),
+      m_operation_timeout(operation_timeout)
 {
 }
 
@@ -207,7 +218,7 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::GenerateKey(const G
             score::unexpect, MakeError(CryptoErrorCode::kKeyGenerationFailed, "Failed to build KEY_GENERATE request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_GENERATE}).expectSuccess();
@@ -229,7 +240,7 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::GenerateKey(const G
             << "[API][KeyMgmtContextImpl] ERROR: KEY_GENERATE response has invalid resource_id type";
         return score::Result<CryptoResourceGuard>{
             score::unexpect,
-            MakeError(CryptoErrorCode::kKeyGenerationFailed, "KEY_GENERATE response has invalid resource_id type")};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     CryptoResourceId resource_id{};
@@ -270,7 +281,7 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::LoadKey(const Crypt
             score::unexpect, MakeError(CryptoErrorCode::kInternalError, "Failed to build KEY_LOAD request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_LOAD}).expectSuccess();
@@ -291,7 +302,7 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::LoadKey(const Crypt
         score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: KEY_LOAD response has invalid resource_id type";
         return score::Result<CryptoResourceGuard>{
             score::unexpect,
-            MakeError(CryptoErrorCode::kInternalError, "KEY_LOAD response has invalid resource_id type")};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     CryptoResourceId resource_id{};
@@ -419,9 +430,9 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::ImportKey(const Imp
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = operation_req_result.value();
+    control_req.operations = operation_req_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_IMPORT}).expectSuccess();
@@ -529,9 +540,9 @@ score::Result<std::size_t> KeyManagementContextImpl::ExportKey(const CryptoResou
     }
 
     proto::ControlRequest control_req{};
-    control_req.operation = operation_req_result.value();
+    control_req.operations = operation_req_result.value();
     control_req.data_node_id = m_context_id;
-    auto control_response_res = m_connection->SendRequest(control_req);
+    auto control_response_res = m_connection->SendRequest(control_req, m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_EXPORT}).expectSuccess();
@@ -574,7 +585,7 @@ score::Result<std::size_t> KeyManagementContextImpl::GetExportKeySize(const Cryp
             MakeError(CryptoErrorCode::kOperationFailed, "Failed to build KEY_GET_EXPORT_SIZE request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), m_operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_GET_EXPORT_SIZE}).expectSuccess();

@@ -15,7 +15,11 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 cc_binary(
     name = "crypto_daemon",
-    srcs = ["src/daemon.cpp"],
+    srcs = [
+        "src/daemon.cpp",
+        "src/disconnect_cleanup_callback.cpp",
+        "src/disconnect_cleanup_callback.hpp",
+    ],
     copts = select({
         "//conditions:default": [],
         ":tsan_enabled": [
@@ -24,9 +28,6 @@ cc_binary(
             "-O1",
         ],
     }),
-    dynamic_deps = [
-        "//third_party/grpc:libgrpc_shared",
-    ],
     includes = ["IPC"],
     linkopts = select({
         "//conditions:default": [],
@@ -37,14 +38,15 @@ cc_binary(
     linkstatic = True,
     visibility = ["//visibility:public"],
     deps = [
+        "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/config",
         "//score/crypto/src/daemon/control_plane",
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/data_plane",
         "//score/crypto/src/daemon/mediator",
         "//score/crypto/src/daemon/provider:provider_manager_factory",
-        "//score/crypto/src/ipc:ipc_config",
-        "//score/crypto/src/ipc/grpc_adapter:grpc_control_server",
+        "//score/crypto/src/ipc/message_passing_adapter:ipc_config",
+        "//score/crypto/src/ipc/message_passing_adapter:message_passing_server",
         "@score_communication//score/memory/shared",
         "@score_baselibs//score/mw/log",
     ],

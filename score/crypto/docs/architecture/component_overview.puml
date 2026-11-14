@@ -39,7 +39,7 @@ package "Client Library (score::crypto)" <<Rectangle>> {
 ' IPC TRANSPORT
 ' ====================================================================
 package "IPC (score::crypto::ipc)" <<Rectangle>> {
-    class "ipc::GrpcControlServer" as GrpcControlServer {
+    class "ipc::MessagePassingAdapterServer" as MessagePassingAdapterServer {
         +Start(socket_path)
         +Stop()
         +WaitForTermination()
@@ -76,8 +76,8 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
             +processRequest(request) : ControlResponse
         }
 
-        GrpcControlServer .up.|> ControlServer
-        GrpcControlServer *-- HandlerChainFactory : owns
+        MessagePassingAdapterServer .up.|> ControlServer
+        MessagePassingAdapterServer *-- HandlerChainFactory : owns
         BasicHandlerChainFactory .up.|> HandlerChainFactory
         ConnectionHandler .up.|> RequestHandler
         BasicHandlerChainFactory ..> ConnectionHandler : creates
@@ -217,9 +217,9 @@ package "Daemon (score::crypto::daemon)" <<Rectangle>> {
 ' ====================================================================
 ' CROSS-BOUNDARY CONNECTIONS
 ' ====================================================================
-CryptoStack ..> GrpcControlServer : IPC (Unix socket / gRPC)
-CryptoStack -[hidden]down- GrpcControlServer
-GrpcControlServer -[hidden]down- ControlServer
+CryptoStack ..> MessagePassingAdapterServer : IPC
+CryptoStack -[hidden]down- MessagePassingAdapterServer
+MessagePassingAdapterServer -[hidden]down- ControlServer
 
 legend right
   **Not shown:** Logging, session node cleanup,

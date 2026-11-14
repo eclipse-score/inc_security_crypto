@@ -50,10 +50,7 @@ void PrintHex(const char* label, const uint8_t* data, std::size_t len)
 int main()
 {
     // 1. Create the crypto stack and connect to the daemon
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint("unix:///var/run/crypto-daemon.sock");
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     if (!stack_result.has_value())
     {
         std::cout << "Error: Failed to create crypto stack" << std::endl;

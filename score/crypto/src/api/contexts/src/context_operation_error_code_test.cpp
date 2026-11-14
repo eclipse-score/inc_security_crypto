@@ -61,7 +61,7 @@ class FakeConnection final : public api::control_plane::IConnection
         ::score::crypto::daemon::common::ResponseParameters parameters{};
     };
 
-    Expected<proto::ControlResponse, CryptoErrorCode> SendRequest(const proto::ControlRequest& request) override
+    Expected<proto::ControlResponse, CryptoErrorCode> SendRequest(proto::ControlRequest& request) override
     {
         Reply reply = default_reply;
         if (!replies.empty())
@@ -75,12 +75,18 @@ class FakeConnection final : public api::control_plane::IConnection
         }
 
         proto::ControlResponse response{};
-        if (!request.operation.operations.empty())
+        if (!request.operations.empty())
         {
-            response.operation.operations.push_back(proto::SingleOperationResponse{
-                request.operation.operations.front().operationId, reply.result, reply.parameters});
+            response.operations.push_back(
+                proto::SingleOperationResponse{request.operations.front().operationId, reply.result, reply.parameters});
         }
         return response;
+    }
+
+    Expected<proto::ControlResponse, CryptoErrorCode> SendRequest(proto::ControlRequest& request,
+                                                                  std::chrono::milliseconds /*timeout*/) override
+    {
+        return SendRequest(request);
     }
 
     proto::DataNodeId GetConnectionNodeId() const override

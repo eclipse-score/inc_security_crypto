@@ -18,7 +18,6 @@
 | Folder | Type | Framework | Description |
 |---|---|---|---|
 | `demo/` | Demo / manual | Google Test | Multi-provider demo binaries (e.g. MAC with SoftHSM + OpenSSL) |
-| `grpc_control_plane/` | Component | Google Test | gRPC-based control-plane protocol tests |
 | `integration_tests/` | Integration | Google Test + pytest | End-to-end daemon tests running inside Docker containers |
 | `key_management/` | Component | Google Test | Key config, access policy, key store, OpenSSL/PKCS#11 key handlers |
 | `openssl/` | Component | Google Test | OpenSSL block-cipher operation tests |

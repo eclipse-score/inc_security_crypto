@@ -14,20 +14,30 @@
 #ifndef CONTROL_SERVER_H
 #define CONTROL_SERVER_H
 
-#include <string_view>
+#include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
+
+#include <variant>
 
 namespace score::crypto::daemon::control_plane
 {
 
-/// Abstract interface for control plane server lifecycle management
+/**
+ * @brief Lifecycle interface for a control-plane server.
+ * Implementations accept control-plane connections and process requests. Start begins listening,
+ * Stop initiates graceful shutdown, and WaitForTermination blocks until shutdown completes.
+ */
 class IControlServer
 {
   public:
     virtual ~IControlServer() = default;
 
-    /// Start the server listening on the specified socket path
-    /// @param socket_path Path to Unix domain socket
-    virtual void Start(std::string_view socket_path) = 0;
+    /**
+     * @brief Start the server listening
+     * @return Expected<std::monostate, DaemonErrorCode> indicating success or failure
+     */
+    [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+    Start() = 0;
 
     /// Block until server termination
     virtual void WaitForTermination() = 0;

@@ -47,10 +47,11 @@ enum class CryptoErrorCode : score::result::ErrorCode
     kInternalError = 0x01010004,       ///< Unspecified internal error
 
     // ---- Operation errors (0x01020000) ----
-    kUnsupportedOperation = 0x01020001,  ///< Operation not supported by provider
-    kInvalidOperation = 0x01020002,      ///< Operation not valid in current state
-    kOperationFailed = 0x01020003,       ///< Operation execution failed
-    kOperationTimedOut = 0x01020004,     ///< Operation exceeded configured timeout deadline
+    kUnsupportedOperation = 0x01020001,       ///< Operation not supported by provider
+    kInvalidOperation = 0x01020002,           ///< Operation not valid in current state
+    kOperationFailed = 0x01020003,            ///< Operation execution failed
+    kOperationTimedOut = 0x01020004,          ///< Operation exceeded configured timeout deadline
+    kOperationResponseTimedOut = 0x01020006,  ///< No terminal response arrived before timeout and grace expired
 
     // ---- Parameter / validation errors (0x01030000) ----
     kInvalidArgument = 0x01030001,      ///< Invalid argument provided
