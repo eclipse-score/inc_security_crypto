@@ -314,3 +314,66 @@ TEST(ProviderManagerDefaultResolutionTest, DefaultSkipsFailedPreferredProvider)
     ASSERT_NE(def, nullptr);
     EXPECT_EQ(def->GetProviderName(), "SW_PROVIDER");
 }
+
+// ===========================================================================
+// Application-scoped provider resources (issue #290)
+// ===========================================================================
+
+TEST(ProviderManagerAppProviderTest, ResolvesNamePerUid)
+{
+    score::crypto::daemon::config::Config config;
+    provider::ProviderManager mgr(config.GetProviderInitConfig());
+    auto sw = std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false);
+    auto hw = std::make_shared<ConfigurableStubProvider>("HW_PROVIDER", 1, false);
+    ASSERT_TRUE(mgr.RegisterProvider("SW_PROVIDER", sw, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.RegisterProvider("HW_PROVIDER", hw, common::CryptoProviderType::HARDWARE));
+
+    ASSERT_TRUE(mgr.RegisterAppProvider(1000U, "app/mac", "HW_PROVIDER"));
+    ASSERT_TRUE(mgr.RegisterAppProvider(1001U, "app/mac", "SW_PROVIDER"));
+
+    EXPECT_EQ(mgr.ResolveAppProvider(1000U, "app/mac"), hw);
+    EXPECT_EQ(mgr.ResolveAppProvider(1001U, "app/mac"), sw);
+}
+
+TEST(ProviderManagerAppProviderTest, OnlyMappedNamesResolve)
+{
+    score::crypto::daemon::config::Config config;
+    provider::ProviderManager mgr(config.GetProviderInitConfig());
+    ASSERT_TRUE(mgr.RegisterProvider("SW_PROVIDER",
+                                     std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false),
+                                     common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.RegisterAppProvider(1000U, "app/sw", "SW_PROVIDER"));
+
+    EXPECT_EQ(mgr.ResolveAppProvider(1000U, "SW_PROVIDER"), nullptr);  // provider name is not a resource name
+    EXPECT_EQ(mgr.ResolveAppProvider(1000U, "app/other"), nullptr);
+    EXPECT_EQ(mgr.ResolveAppProvider(1001U, "app/sw"), nullptr);  // another uid's mapping
+}
+
+TEST(ProviderManagerAppProviderTest, RejectsUnregisteredProviderAndDuplicateName)
+{
+    score::crypto::daemon::config::Config config;
+    provider::ProviderManager mgr(config.GetProviderInitConfig());
+    auto sw = std::make_shared<ConfigurableStubProvider>("SW_PROVIDER", 0, false);
+    auto hw = std::make_shared<ConfigurableStubProvider>("HW_PROVIDER", 1, false);
+    ASSERT_TRUE(mgr.RegisterProvider("SW_PROVIDER", sw, common::CryptoProviderType::SOFTWARE));
+    ASSERT_TRUE(mgr.RegisterProvider("HW_PROVIDER", hw, common::CryptoProviderType::HARDWARE));
+
+    EXPECT_FALSE(mgr.RegisterAppProvider(1000U, "app/x", "NOT_BUILT"));
+    EXPECT_EQ(mgr.ResolveAppProvider(1000U, "app/x"), nullptr);
+
+    ASSERT_TRUE(mgr.RegisterAppProvider(1000U, "app/sw", "SW_PROVIDER"));
+    EXPECT_FALSE(mgr.RegisterAppProvider(1000U, "app/sw", "HW_PROVIDER"));
+    EXPECT_EQ(mgr.ResolveAppProvider(1000U, "app/sw"), sw);  // first mapping kept
+}
+
+TEST(ProviderManagerAppProviderTest, ProviderThatFailedToInitializeDoesNotResolve)
+{
+    score::crypto::daemon::config::Config config;
+    provider::ProviderManager mgr(config.GetProviderInitConfig());
+    ASSERT_TRUE(mgr.RegisterProvider("FAIL_PROVIDER",
+                                     std::make_shared<ConfigurableStubProvider>("FAIL_PROVIDER", 0, true),
+                                     common::CryptoProviderType::HARDWARE));
+    ASSERT_TRUE(mgr.RegisterAppProvider(1000U, "app/hw", "FAIL_PROVIDER"));
+
+    EXPECT_EQ(mgr.ResolveAppProvider(1000U, "app/hw"), nullptr);
+}

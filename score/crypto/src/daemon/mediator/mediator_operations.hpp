@@ -125,7 +125,8 @@ struct ProviderTypePreference final
 // Request:  data_node_id = connection_id (parent node),
 //           param[0]: string — handler context type (e.g. "HASH" or "CERT:...")
 //           param[1]: string — algorithm name (e.g. "SHA256", "SHA512")
-//           param[2]: optional uint8 — provider type preference (defaults to DEFAULT)
+//           param[2]: optional — either uint8 provider type preference (defaults to DEFAULT)
+//                     or uint64 handle of a kProvider resource resolved by this client
 //           param[3]: optional uint64_t — node_id of key resource (CryptoResourceId.id)
 //           param[4]: optional uint8 — common::ContextMode (keyed contexts)
 //           param[5]: optional uint8 — CipherPadding (cipher contexts)
@@ -135,6 +136,10 @@ struct ProviderTypePreference final
 // checked against the scope's required capability. Unrecognized or absent scopes add no
 // capability constraint and follow existing provider selection rules (provider-type
 // preference or key affinity). The full context type is passed to the handler factory unchanged.
+// Provider handle: the context is created on that provider only, with no fallback.
+// A handle that is not a kProvider resource of this client fails with kInvalidResourceId,
+// a bound key on another provider with kCrossProviderIncompatible, and a provider that
+// cannot serve the request with its own error (e.g. kUnsupportedOperation).
 // Response: status_code (SUCCESS/error)
 //           uint64_t — daemon-assigned context_id (DataNodeId)
 // Effect:   Creates cryptographic context, initializes handler with specified algorithm
@@ -171,7 +176,7 @@ inline constexpr OperationAction CTX_CLOSE = 2;
 //           param[0]: uint64 — daemon-assigned resource id
 //           param[1]: uint8  — ResourceType enum value
 //           param[2]: bool  — True if resource is persistent, false if ephemeral
-//           param[3]: uint16 — primary_provider id
+//           param[3]: uint16 — primary_provider id (kInvalidProviderId for kProvider)
 // Effect:   Resolves a named resource to a daemon-scoped CryptoResourceId.
 //           Access control (uid-based) is enforced during resolution.
 inline constexpr OperationAction RESOLVE_RESOURCE = 3;
@@ -235,6 +240,66 @@ inline control_plane::protocol::OperationIdentifier DestroyShmObject()
 {
     return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
                                                         .operationAction = operations::SHM_DESTROY_OBJECT};
+}
+
+// PROVIDER_INFO
+// Request:  param[0]: uint64 — provider id, or the resource id of a kProvider handle
+//           param[1]: uint64 — optional; ResourceType::kProvider selects the handle form
+// Response: status_code (SUCCESS / kInvalidArgument for an unknown id /
+//           kInvalidResourceId for a handle not owned by this client)
+//           param[0]: uint16     — provider id
+//           param[1]: uint8      — wire ProviderType (0 = default, 1 = hardware, 2 = software)
+//           param[2]: DataBuffer — the app_resource_id the client resolved, for the
+//                                  handle form; empty for a lookup by provider id.
+//                                  Configured provider names are never sent (#290).
+inline constexpr OperationAction PROVIDER_INFO = 6;
+
+// QUERY_CAPABILITIES
+// Request:  string — algorithm name, as in the algorithm catalog
+// Response: status_code (SUCCESS)
+//           param[0]: uint8 — CapabilityFlags of the operations at least one
+//                             provider accepts for this name; 0 if none
+inline constexpr OperationAction QUERY_CAPABILITIES = 7;
+
+// SYSTEM_CAPABILITIES
+// Request:  no parameters
+// Response: status_code (SUCCESS)
+//           param[0]: uint16 — provider count P
+//           P times:  uint16 provider id, uint8 wire ProviderType, DataBuffer name
+//                     (always empty: configured provider names are never sent, #290)
+//           then:     uint16 — algorithm count A
+//           A times:  DataBuffer algorithm name (UTF-8, not NUL-terminated),
+//                     uint8 CapabilityFlags (never 0)
+// Effect:   Lists the providers and every catalog algorithm at least one of
+//           them accepts, in catalog order.
+inline constexpr OperationAction SYSTEM_CAPABILITIES = 8;
+
+/// Operation bits reported by QUERY_CAPABILITIES and SYSTEM_CAPABILITIES.
+namespace capability_flags
+{
+inline constexpr std::uint8_t kHash = 1U << 0U;
+inline constexpr std::uint8_t kMac = 1U << 1U;
+inline constexpr std::uint8_t kCipher = 1U << 2U;
+inline constexpr std::uint8_t kSign = 1U << 3U;
+inline constexpr std::uint8_t kVerify = 1U << 4U;
+inline constexpr std::uint8_t kRandom = 1U << 5U;
+inline constexpr std::uint8_t kGenerateKey = 1U << 6U;
+}  // namespace capability_flags
+
+inline control_plane::protocol::OperationIdentifier GetProviderInfo()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::PROVIDER_INFO};
+}
+inline control_plane::protocol::OperationIdentifier QueryCapabilities()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::QUERY_CAPABILITIES};
+}
+inline control_plane::protocol::OperationIdentifier QuerySystemCapabilities()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::SYSTEM_CAPABILITIES};
 }
 
 // Starting point for custom OPs

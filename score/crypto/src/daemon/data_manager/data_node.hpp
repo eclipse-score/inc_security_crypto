@@ -50,6 +50,7 @@ enum class DataNodeType : std::uint8_t
     kCertSlot = 6U,    ///< Certificate slot reference (CertSlotDataNode)
     kCertData = 7U,    ///< Loaded-certificate reference (CertDataNode)
     kTrustStore = 8U,  ///< Resolved trust-store reference (TrustStoreDataNode)
+    kProvider = 9U,    ///< Resolved provider reference (ProviderDataNode)
 };
 
 /**
