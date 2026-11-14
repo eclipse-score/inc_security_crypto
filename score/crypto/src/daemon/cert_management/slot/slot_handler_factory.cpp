@@ -108,6 +108,12 @@ score::crypto::Expected<std::monostate, common::DaemonErrorCode> SlotHandlerFact
     return std::monostate{};
 }
 
+score::crypto::Expected<provider::cert_management::ICertParser::Sptr, common::DaemonErrorCode>
+SlotHandlerFactory::GetCertParser() const
+{
+    return ResolveCertParser();
+}
+
 score::crypto::Expected<ICertSlotHandler::Sptr, common::DaemonErrorCode> SlotHandlerFactory::Create(
     const CertSlotConfig& slot) const
 {

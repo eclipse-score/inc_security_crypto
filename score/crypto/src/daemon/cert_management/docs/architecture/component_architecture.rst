@@ -98,12 +98,15 @@ The provider boundary consists of:
 * The selected certificate-management provider must expose ``ICertParser``
   to convert DER/PEM bytes into a provider-neutral ``CertObject``.
 * ``ICertSlotHandler`` loads and stores slot data.
-* Provider context handlers perform verification, CSR generation, conversion,
-  and public-key operations.
+* Provider context handlers perform CSR generation, conversion, and public-key
+  operations.
+* Path validation is a provider operation. The certificate verification context
+  handler, which this component holds, supplies the trust anchors and CRLs for
+  each request.
 * Cross-context services are expected to provide signing and public-key operations
   for non-exportable keys, with provider ownership of private keys preserved.
-* Verification handlers obtain trust anchors, CRLs, and chain-building lookups
-  through ``ITrustStoreHandler``.
+* The verification context handler obtains trust anchors, CRLs, and chain-building
+  lookups through ``ITrustStoreHandler``.
 
 
 Design decisions

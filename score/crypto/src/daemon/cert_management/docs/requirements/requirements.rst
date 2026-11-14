@@ -128,15 +128,30 @@ Functional requirements
    Certificate-slot and trust-store mutations shall require an explicitly
    authorized client UID. Empty write allowlists shall not grant access.
 
+.. comp_req:: Export a certificate's public key only for the certificate it describes
+   :id: comp_req__crypto_cert_mgmt__public_key_export
+   :version: 1
+   :reqtype: Functional
+   :security: YES
+   :safety: QM
+   :status: valid
+   :satisfied_by: comp__crypto_cert_management
+
+   The component shall write the public key of a certificate to a caller's
+   buffer only when the certificate node still holds the certificate whose
+   SHA-256 fingerprint the caller presents. For any other certificate it shall
+   refuse the request and leave the caller's buffer unchanged.
+
 
 Dependency expectations
 -----------------------
 
 The component persists CRL material alongside the issuing certificate's slot
-and exposes it through ``ICertSlotHandler`` / ``ITrustStoreHandler`` for a
-verification provider to consume; CRL-based revocation checking itself is
-performed by that provider's verification context handler, not by this
-component. Certificate signing requests are assembled by a CSR-generation
+and exposes it through ``ICertSlotHandler`` / ``ITrustStoreHandler``. The
+certificate verification context handler is held by this component, which
+supplies the trust anchors and CRLs for a verification request. Path
+validation, including CRL-based revocation checking, is performed by a
+provider. Certificate signing requests are assembled by a CSR-generation
 context handler, which is expected to obtain the issuing signature from an
 exportable software key or, for hardware-bound keys, through a cross-context
 signing capability supplied by key management, without this component ever

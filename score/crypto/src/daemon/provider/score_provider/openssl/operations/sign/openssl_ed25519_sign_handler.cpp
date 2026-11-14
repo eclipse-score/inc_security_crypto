@@ -49,7 +49,7 @@ bool OpenSslEd25519SignHandler::IsAlgorithmSupported(const AlgorithmDescriptor& 
 }
 
 Expected<std::monostate, DaemonErrorCode> OpenSslEd25519SignHandler::InitializeContext(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& params)
+    const ::score::crypto::daemon::common::InitializationParams& params)
 {
     auto base = ScoreSignHandler::InitializeContext(params);
     if (!base.has_value())

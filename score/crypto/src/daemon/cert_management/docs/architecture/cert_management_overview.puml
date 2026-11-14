@@ -32,7 +32,7 @@ skinparam component {
 
 package "Callers (outside the component)" {
   component "Certificate-management context handlers\nslot lifecycle and CRLs" as MgmtCtx
-  component "Trust-store context handlers\nmembership" as TrustCtx
+  component "Trust-store context handlers\nmembership and member CRLs" as TrustCtx
   component "Verification context handlers\ntrust binding" as VerifyCtx
   component "Typed-object queries\ncertificate, slot, trust-store member" as Queries
 }
@@ -56,7 +56,6 @@ package "Collaborators (outside the component)" {
 
 MgmtCtx --> Service
 TrustCtx --> Service
-TrustCtx --> TrustManager : membership mutations
 VerifyCtx --> Service : resolve certificates\nand trust stores
 VerifyCtx --> StoreHandler : anchors and CRLs
 VerifyCtx --> Validate : path validation

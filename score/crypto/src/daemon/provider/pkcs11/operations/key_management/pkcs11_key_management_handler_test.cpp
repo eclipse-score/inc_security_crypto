@@ -125,11 +125,11 @@ class Pkcs11KeyHandlerTest : public tests::softhsm::SofthsmTestFixture
         ASSERT_NE(m_km_handler, nullptr);
 
         // Initialize handler context with client identity and assigned node IDs
-        handler::InitializationParams init_params{.client_id = kClient,
-                                                  .context_node_id = m_parent_id,
-                                                  .provider_id = 1,
-                                                  .key_node_id = 0U,
-                                                  .bound_key_handler = nullptr};
+        score::crypto::daemon::common::InitializationParams init_params{.client_id = kClient,
+                                                                        .context_node_id = m_parent_id,
+                                                                        .provider_id = 1,
+                                                                        .key_node_id = 0U,
+                                                                        .bound_key_handler = nullptr};
         auto init_result = m_km_handler->InitializeContext(init_params);
         ASSERT_TRUE(init_result.has_value()) << "InitializeContext failed";
     }

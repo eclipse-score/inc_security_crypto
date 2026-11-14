@@ -13,8 +13,8 @@
 
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_I_CRYPTO_HANDLER_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_HANDLER_I_CRYPTO_HANDLER_FACTORY_HPP
-#include "i_handler.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/result/result.h"
 #include <memory>
@@ -55,8 +55,9 @@ class ICryptoHandlerFactory
      * @return The created Handler on success, or an error if the type or
      *         algorithm is not supported.
      */
-    virtual ::score::Result<Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
-                                                         const ::score::crypto::AlgorithmDescriptor& algorithm) = 0;
+    virtual ::score::Result<common::Handler::Sptr> CreateHandler(
+        const common::HandlerId& handlerId,
+        const ::score::crypto::AlgorithmDescriptor& algorithm) = 0;
 
     /**
      * @brief Create the provider's key management handler.
@@ -67,7 +68,7 @@ class ICryptoHandlerFactory
      * @return The created Handler on success, or an error if the provider has
      *         no key management.
      */
-    virtual ::score::Result<Handler::Sptr> CreateKeyManagementHandler() = 0;
+    virtual ::score::Result<common::Handler::Sptr> CreateKeyManagementHandler() = 0;
 
   protected:
     ICryptoHandlerFactory() = default;

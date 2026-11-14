@@ -17,9 +17,9 @@
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 
 #include "score/span.hpp"
 
@@ -47,7 +47,7 @@ class CipherExecutor;
 /// The cipher direction and padding are fixed for the lifetime of the context:
 /// both are read from the CTX_CREATE parameters in InitializeContext() and never
 /// change afterwards, so a context created for encryption can never decrypt.
-class ScoreCipherHandler : public handler::Handler
+class ScoreCipherHandler : public score::crypto::daemon::common::Handler
 {
   public:
     using Sptr = std::shared_ptr<ScoreCipherHandler>;
@@ -69,7 +69,7 @@ class ScoreCipherHandler : public handler::Handler
         common::RequestParameters& request) override;
 
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
-        const handler::InitializationParams& init_params) override;
+        const score::crypto::daemon::common::InitializationParams& init_params) override;
 
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> Reset() override;
 
@@ -162,13 +162,13 @@ class ScoreCipherHandler : public handler::Handler
     ///
     /// Leaves m_direction untouched when the mode is absent or is not a cipher
     /// direction, so the kEncrypt default applies.
-    void ExtractDirection(const handler::InitializationParams& init_params) noexcept;
+    void ExtractDirection(const score::crypto::daemon::common::InitializationParams& init_params) noexcept;
 
     /// @brief Reads the padding scheme from the CTX_CREATE parameters.
     ///
     /// Leaves m_padding untouched when the slot is absent or malformed, so the
     /// kPkcs7 default applies.
-    void ExtractPadding(const handler::InitializationParams& init_params) noexcept;
+    void ExtractPadding(const score::crypto::daemon::common::InitializationParams& init_params) noexcept;
 
   private:
     std::unique_ptr<CipherExecutor> m_executor;

@@ -1,0 +1,104 @@
+/********************************************************************************
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Apache License Version 2.0 which is available at
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ ********************************************************************************/
+
+#include "score/crypto/src/api/objects/src/trust_store_object_impl.hpp"
+
+#include <algorithm>
+#include <utility>
+
+namespace score
+{
+
+namespace crypto
+{
+
+TrustStoreObjectImpl::TrustStoreObjectImpl(CryptoResourceId id, std::vector<MemberInfo> members)
+    : m_id(id), m_members(std::move(members))
+{
+}
+
+CryptoResourceId TrustStoreObjectImpl::GetId() const noexcept
+{
+    return m_id;
+}
+
+ResourceType TrustStoreObjectImpl::GetType() const noexcept
+{
+    return ResourceType::kCertificateTrustStore;
+}
+
+const std::vector<MemberInfo>& TrustStoreObjectImpl::GetMembers() const noexcept
+{
+    return m_members;
+}
+
+const MemberInfo* TrustStoreObjectImpl::FindMember(const CryptoResourceId& slot) const noexcept
+{
+    for (const auto& member : GetMembers())
+    {
+        if (member.slot_id.id == slot.id && member.slot_id.type == slot.type)
+        {
+            return &member;
+        }
+    }
+    return nullptr;
+}
+
+const MemberInfo* TrustStoreObjectImpl::FindMemberByFingerprint(
+    score::cpp::span<const uint8_t, kSha256FingerprintSize> fingerprint) const noexcept
+{
+    for (const auto& member : GetMembers())
+    {
+        if (std::equal(fingerprint.begin(),
+                       fingerprint.end(),
+                       member.sha256_fingerprint.begin(),
+                       member.sha256_fingerprint.end()))
+        {
+            return &member;
+        }
+    }
+    return nullptr;
+}
+
+// A member is disabled whenever its status is not kEnabled. That includes conditional-external members that are
+// awaiting acknowledgement or whose content differs from the accepted fingerprint, because none of those statuses
+// makes the member an active anchor.
+std::vector<CryptoResourceId> TrustStoreObjectImpl::GetEnabledMemberSlotIds() const
+{
+    std::vector<CryptoResourceId> result;
+    for (const auto& member : GetMembers())
+    {
+        if (member.status == MemberStatus::kEnabled)
+        {
+            result.push_back(member.slot_id);
+        }
+    }
+    return result;
+}
+
+std::vector<CryptoResourceId> TrustStoreObjectImpl::GetDisabledMemberSlotIds() const
+{
+    std::vector<CryptoResourceId> result;
+    for (const auto& member : GetMembers())
+    {
+        if (member.status != MemberStatus::kEnabled)
+        {
+            result.push_back(member.slot_id);
+        }
+    }
+    return result;
+}
+
+}  // namespace crypto
+
+}  // namespace score

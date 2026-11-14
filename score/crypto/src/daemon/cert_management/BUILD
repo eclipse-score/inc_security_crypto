@@ -14,6 +14,21 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
+# Operation codes of the certificate-management context. Header-only; depends only on the daemon common types, so
+# consumers of the codes do not inherit certificate-management headers.
+cc_library(
+    name = "cert_management_operations",
+    hdrs = [
+        "interfaces/cert_management_operations.hpp",
+        "interfaces/cert_verification_operations.hpp",
+    ],
+    linkstatic = True,
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/daemon/common",
+    ],
+)
+
 cc_test(
     name = "cert_object_response_builder_test",
     srcs = ["query/cert_object_response_builder_test.cpp"],
@@ -92,6 +107,10 @@ cc_test(
         ":cert_management_daemon_headers",
         ":cert_management_internal_headers",
         ":cert_management_runtime_headers",
+        "//score/crypto/src/daemon/common/context:context_registration",
+        "//score/crypto/src/daemon/common/context:context_types",
+        "//score/crypto/src/daemon/common/context:keyed_registry",
+        "//score/crypto/src/daemon/common/context:resource_resolver",
         "//score/crypto/src/daemon/config:config_types",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",
@@ -111,7 +130,6 @@ cc_library(
     ],
     linkstatic = True,
     deps = [
-        ":cert_management",
         ":cert_management_headers",
         ":cert_management_runtime_headers",
         ":cert_management_daemon_headers",
@@ -231,6 +249,13 @@ cc_library(
     hdrs = [
         "cert_management_module.hpp",
         "core/cert_management_service.hpp",
+        "query/get_cert_slot_object_query.hpp",
+        "query/get_certificate_object_query.hpp",
+        "query/get_certificate_public_key_query.hpp",
+        "query/get_trust_store_member_id_list_query.hpp",
+        "query/get_trust_store_member_object_query.hpp",
+        "resolver/cert_slot_resource_resolver.hpp",
+        "resolver/trust_store_resource_resolver.hpp",
     ],
     visibility = [
         "//score/crypto/src/daemon:__pkg__",
@@ -246,8 +271,83 @@ cc_library(
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/config:config_types",
+        "//score/crypto/src/daemon/common/context:context_registration",
+        "//score/crypto/src/daemon/common/context:resource_resolver",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/provider:provider_headers",
+    ],
+)
+
+cc_library(
+    name = "crl_metadata_wire_layout",
+    hdrs = ["interfaces/crl_metadata_wire_layout.hpp"],
+    linkstatic = True,
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//score/crypto/src/api/types:certificate_types",
+        "@score_baselibs//score/language/futurecpp",
+    ],
+)
+
+cc_library(
+    name = "cert_management_context",
+    srcs = [
+        "context/crl_validation.cpp",
+        "context/management/context_factory.cpp",
+        "context/management/context_handler.cpp",
+        "context/management/executor.cpp",
+        "context/trust_store/context_factory.cpp",
+        "context/trust_store/context_handler.cpp",
+        "context/trust_store/executor.cpp",
+        "context/verification/context_factory.cpp",
+        "context/verification/context_handler.cpp",
+        "context/verification/executor.cpp",
+        "context/verification/request_builder.cpp",
+        "context/verification/result_encoder.cpp",
+        "context/verification/session.cpp",
+        "context/verification/trust_store_binding.cpp",
+    ],
+    hdrs = [
+        "context/cert_execution_context.hpp",
+        "context/crl_validation.hpp",
+        "context/management/context_factory.hpp",
+        "context/management/context_handler.hpp",
+        "context/management/executor.hpp",
+        "context/trust_store/context_factory.hpp",
+        "context/trust_store/context_handler.hpp",
+        "context/trust_store/executor.hpp",
+        "context/verification/context_factory.hpp",
+        "context/verification/context_handler.hpp",
+        "context/verification/executor.hpp",
+        "context/verification/request_builder.hpp",
+        "context/verification/result_encoder.hpp",
+        "context/verification/session.hpp",
+        "context/verification/trust_store_binding.hpp",
+    ],
+    linkstatic = True,
+    visibility = [
+        "//score/crypto/src/daemon:__pkg__",
+        "//score/crypto/src/daemon:__subpackages__",
+        "//score/crypto/tests/cert_management:__pkg__",
+    ],
+    deps = [
+        ":cert_management_daemon_headers",
+        ":cert_management_headers",
+        ":cert_management_internal_headers",
+        ":cert_management_runtime_headers",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/api/types:common_types",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common/context:context_registration",
+        "//score/crypto/src/daemon/common/context:handler_headers",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_operations",
+        ":crl_metadata_wire_layout",
+        "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
+        "@score_baselibs//score/mw/log",
     ],
 )
 
@@ -256,6 +356,13 @@ cc_library(
     srcs = [
         "cert_management_module.cpp",
         "core/cert_entry.cpp",
+        "resolver/cert_slot_resource_resolver.cpp",
+        "resolver/trust_store_resource_resolver.cpp",
+        "query/get_cert_slot_object_query.cpp",
+        "query/get_certificate_object_query.cpp",
+        "query/get_certificate_public_key_query.cpp",
+        "query/get_trust_store_member_id_list_query.cpp",
+        "query/get_trust_store_member_object_query.cpp",
         "core/cert_management_service.cpp",
         "core/cert_registry.cpp",
         "interfaces/i_cert_slot_handler.cpp",
@@ -284,9 +391,16 @@ cc_library(
         ":cert_management_slot_backend_headers",
         ":cert_management_internal_headers",
         ":cert_management_daemon_headers",
+        ":cert_management_context",
+        ":cert_object_response_builder",
+        "//score/crypto/src/daemon/common/context:context_registration",
+        "//score/crypto/src/daemon/common/context:context_types",
+        "//score/crypto/src/daemon/common/context:resource_resolver",
         "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "//score/crypto/src/daemon/config",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
+        "//score/crypto/src/daemon/mediator:mediator_operations",
         "//score/crypto/src/daemon/provider:provider_manager",
         "@score_baselibs//score/mw/log",
     ],

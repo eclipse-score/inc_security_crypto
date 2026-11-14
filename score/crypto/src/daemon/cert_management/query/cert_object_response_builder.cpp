@@ -13,7 +13,6 @@
 
 #include "score/crypto/src/daemon/cert_management/query/cert_object_response_builder.hpp"
 #include "score/crypto/src/api/types/certificate.hpp"
-#include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
 
 #include <cstdint>
 #include <utility>
@@ -77,6 +76,9 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
     out.push_back(static_cast<std::uint64_t>(crl.this_update));
     out.push_back(static_cast<std::uint64_t>(crl.next_update));
     out.push_back(crl.crl_number);
+    // The key bytes are not part of this response; the caller fetches them through GET_CERTIFICATE_PUBLIC_KEY.
+    out.push_back(static_cast<std::uint64_t>(meta.public_key_der.size()));
+    out.push_back(common::OwnedString{meta.public_key_algorithm});
     return ResponseWithinBudget(std::move(out));
 }
 
@@ -95,20 +97,8 @@ BuildCertSlotInfoResponse(ICertSlotManager& mgr, CertSlotHandle slot, data_manag
 }
 
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> BuildTrustStoreMemberIdListResponse(
-    const std::vector<CertSlotHandle>& slots,
-    CertManagementService& service,
-    std::uint64_t client_id)
+    const std::vector<std::uint64_t>& slot_node_ids)
 {
-    std::vector<std::uint64_t> slot_node_ids;
-    slot_node_ids.reserve(slots.size());
-    for (const auto& slot : slots)
-    {
-        auto nid_res = service.ResolveCertSlotNode(slot, client_id);
-        if (!nid_res.has_value())
-            return score::crypto::make_unexpected(nid_res.error());
-        slot_node_ids.push_back(static_cast<std::uint64_t>(nid_res.value()));
-    }
-
     common::ResponseParameters out;
     out.push_back(static_cast<std::uint64_t>(slot_node_ids.size()));
     for (const auto node_id : slot_node_ids)
@@ -118,18 +108,14 @@ score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> Bui
 
 score::crypto::Expected<common::ResponseParameters, common::DaemonErrorCode> BuildTrustStoreMemberObjectResponse(
     const TrustStoreManager::MemberSnapshot& member,
-    CertManagementService& service,
-    std::uint64_t client_id)
+    std::uint64_t slot_node_id)
 {
-    auto nid_res = service.ResolveCertSlotNode(member.slot_handle, client_id);
-    if (!nid_res.has_value())
-        return score::crypto::make_unexpected(nid_res.error());
     const auto kind_res = ToApiMemberKind(member.kind);
     if (!kind_res.has_value())
         return score::crypto::make_unexpected(kind_res.error());
 
     common::ResponseParameters out;
-    out.push_back(static_cast<std::uint64_t>(nid_res.value()));
+    out.push_back(slot_node_id);
     out.push_back(common::OwnedBuffer{member.fingerprint.begin(), member.fingerprint.end()});
     out.push_back(common::OwnedString{member.subject});
     out.push_back(common::OwnedString{member.issuer});

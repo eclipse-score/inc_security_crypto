@@ -33,7 +33,7 @@ Expected<ResponseParameters, DaemonErrorCode> ScoreMacHandler::Execute(const com
 }
 
 Expected<std::monostate, DaemonErrorCode> ScoreMacHandler::InitializeContext(
-    const handler::InitializationParams& /*init_params*/)
+    const score::crypto::daemon::common::InitializationParams& /*init_params*/)
 {
     m_state = StreamOperationState::IDLE;
     return std::monostate{};

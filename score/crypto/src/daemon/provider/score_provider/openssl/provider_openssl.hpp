@@ -52,6 +52,7 @@ class OpenSSL final : public ::score::crypto::daemon::provider::score_provider::
 
     // --- Certificate management capability ---
     std::shared_ptr<provider::cert_management::ICertParser> GetCertParser() override;
+    std::shared_ptr<provider::cert_management::ICertPathValidator> GetCertPathValidator() override;
 
     // --- SHM capability ---
     std::shared_ptr<data_plane::IShmFactory> GetShmFactory() override;

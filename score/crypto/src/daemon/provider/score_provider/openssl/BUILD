@@ -33,7 +33,10 @@ cc_library(
 
 cc_library(
     name = "openssl_cert_management_headers",
-    hdrs = ["cert_management/openssl_cert_parser.hpp"],
+    hdrs = [
+        "cert_management/openssl_cert_parser.hpp",
+        "cert_management/openssl_cert_path_validator.hpp",
+    ],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -66,6 +69,8 @@ cc_library(
     srcs = ["cert_management/openssl_cert_parser.cpp"],
     implementation_deps = [
         ":openssl_cert_utils",
+        ":openssl_detail_headers",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//third_party/openssl:openssl_shared",
     ],
     target_compatible_with = select({
@@ -92,6 +97,129 @@ cc_test(
     deps = [
         ":openssl_cert_management_headers",
         ":openssl_cert_parser_library",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//third_party/openssl:openssl_shared",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# OpenSSL path-validation helpers: store and context helpers, CRL selection, the revocation coverage callback,
+# and the verification error mapping.
+cc_library(
+    name = "openssl_cert_path_validator_detail",
+    srcs = [
+        "cert_management/detail/openssl_crl_selection.cpp",
+        "cert_management/detail/openssl_revocation_coverage.cpp",
+        "cert_management/detail/openssl_verify_result_mapping.cpp",
+        "cert_management/detail/openssl_x509_utils.cpp",
+    ],
+    hdrs = [
+        "cert_management/detail/openssl_crl_selection.hpp",
+        "cert_management/detail/openssl_revocation_coverage.hpp",
+        "cert_management/detail/openssl_verify_result_mapping.hpp",
+        "cert_management/detail/openssl_x509_utils.hpp",
+    ],
+    implementation_deps = [
+        "@score_baselibs//score/mw/log",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//score/crypto/src/daemon/provider:__subpackages__"],
+    deps = [
+        ":openssl_cert_utils",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/common",
+        "//third_party/openssl:openssl_shared",
+    ],
+)
+
+# OpenSSL ICertPathValidator. Depends on the detail helpers above and on the openssl certificate primitives.
+cc_library(
+    name = "openssl_cert_path_validator_library",
+    srcs = ["cert_management/openssl_cert_path_validator.cpp"],
+    implementation_deps = [
+        ":openssl_cert_path_validator_detail",
+        "@score_baselibs//score/mw/log",
+        "//third_party/openssl:openssl_shared",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":openssl_cert_management_headers",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/common",
+    ],
+)
+
+cc_test(
+    name = "openssl_cert_path_validator_test",
+    srcs = ["cert_management/openssl_cert_path_validator_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/certificate:basic",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":openssl_cert_management_headers",
+        ":openssl_cert_parser_library",
+        ":openssl_cert_path_validator_library",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/common",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "openssl_verify_result_mapping_test",
+    srcs = ["cert_management/detail/openssl_verify_result_mapping_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":openssl_cert_path_validator_detail",
+        "//score/crypto/src/api/types:certificate_types",
+        "//score/crypto/src/daemon/common",
+        "//third_party/openssl:openssl_shared",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "openssl_revocation_coverage_test",
+    srcs = ["cert_management/detail/openssl_revocation_coverage_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":openssl_cert_path_validator_detail",
+        "//third_party/openssl:openssl_shared",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "openssl_crl_selection_test",
+    srcs = ["cert_management/detail/openssl_crl_selection_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":openssl_cert_management_headers",
+        ":openssl_cert_parser_library",
+        ":openssl_cert_path_validator_detail",
         "//score/crypto/src/daemon/cert_management:cert_management_headers",
         "//third_party/openssl:openssl_shared",
         "@googletest//:gtest_main",
@@ -138,6 +266,7 @@ cc_library(
     deps = [
         ":openssl_cert_management_headers",
         ":openssl_key_management_headers",
+        "//score/crypto/src/daemon/common/context:context_mode",
         "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
@@ -186,6 +315,7 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":openssl_cert_parser_library",
+        ":openssl_cert_path_validator_library",
         ":openssl_detail_headers",
         ":openssl_key_management_headers",
         ":provider_openssl_headers",

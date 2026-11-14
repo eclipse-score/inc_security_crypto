@@ -52,7 +52,7 @@ namespace crypto
 ///   auto ctx = crypto_context->CreateCertificateVerificationContext(config).value();
 ///   ctx->SetCertificateChain(chain);
 ///   ctx->SetVerificationTrustStore(system_trust_store);
-///   ctx->SetAdditionalCertificates(extra);  // untrusted chain-building inputs
+///   ctx->SetUntrustedCertificates(extra);  // untrusted chain-building inputs
 ///   auto result = ctx->Verify();
 /// @endcode
 class ICertificateVerificationContext : public IContext
@@ -125,12 +125,12 @@ class ICertificateVerificationContext : public IContext
     /// established exclusively by the configured trust store or standalone
     /// trusted certificates.
     ///
-    /// Replaces the additional certificates configured on this context.
+    /// Replaces the untrusted certificates configured on this context.
     ///
     /// @param certificates Span of untrusted certificate handles
     ///        (type = kCertificate or kCertSlot)
     /// @return std::monostate on success, or an error if a handle is invalid
-    virtual score::Result<std::monostate> SetAdditionalCertificates(
+    virtual score::Result<std::monostate> SetUntrustedCertificates(
         score::cpp::span<const CryptoResourceId> certificates) = 0;
 
     // ---- OCSP ----

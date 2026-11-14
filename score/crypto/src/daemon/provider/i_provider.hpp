@@ -39,6 +39,7 @@ class IShmFactory;
 namespace score::crypto::daemon::provider::cert_management
 {
 class ICertParser;
+class ICertPathValidator;
 }  // namespace score::crypto::daemon::provider::cert_management
 
 namespace score::crypto::daemon::cert_management
@@ -138,6 +139,15 @@ class IProvider
     /// explicit Initialize() call or lazily when a slot handler is first requested.
     /// Cert context operations (verify, CSR, etc.) are handled by ICryptoHandlerFactory.
     virtual std::shared_ptr<provider::cert_management::ICertParser> GetCertParser()
+    {
+        return nullptr;
+    }
+
+    /// Return the provider's certificate path validator.
+    ///
+    /// Returns nullptr if the provider does not perform path validation. Certificate management asks the provider
+    /// selected for each verification context for a validator, and each call returns a new instance.
+    virtual std::shared_ptr<provider::cert_management::ICertPathValidator> GetCertPathValidator()
     {
         return nullptr;
     }

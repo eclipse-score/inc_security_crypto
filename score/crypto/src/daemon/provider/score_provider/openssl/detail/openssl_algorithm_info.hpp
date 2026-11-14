@@ -19,6 +19,8 @@
 #include <openssl/evp.h>
 
 #include <cstdint>
+#include <initializer_list>
+#include <string_view>
 
 // The OpenSSL provider decides from the typed fields of a resolved catalog row
 // whether it serves an algorithm. Every decision on a catalog enum is a switch
@@ -88,6 +90,22 @@ namespace score::crypto::daemon::provider::openssl::detail
             return nullptr;
     }
     return nullptr;
+}
+
+/// @brief The elliptic curve named by an OpenSSL group name; the inverse of ToOpenSslGroupName.
+/// @return The curve, or EccCurve::kNone if the group name is not one this provider names. The curve list is kept in
+///         step with ToOpenSslGroupName by the round-trip test in openssl_algorithm_info_test.cpp.
+[[nodiscard]] inline ::score::crypto::EccCurve FromOpenSslGroupName(std::string_view name) noexcept
+{
+    for (const auto curve :
+         {::score::crypto::EccCurve::kP256, ::score::crypto::EccCurve::kP384, ::score::crypto::EccCurve::kP521})
+    {
+        if (name == ToOpenSslGroupName(curve))
+        {
+            return curve;
+        }
+    }
+    return ::score::crypto::EccCurve::kNone;
 }
 
 /// @brief Whether the OpenSSL provider serves RSA keys of @p modulus_bits.

@@ -581,6 +581,41 @@ inline constexpr AlgorithmDescriptor kAlgorithmCatalog[] = {
     return id.has_value() ? GetAlgorithmDescriptor(*id) : std::nullopt;
 }
 
+/// @brief Look up the catalog key algorithm for a public key described by its family and parameters.
+///
+/// An RSA key is matched by modulus length, an elliptic-curve key by its curve, and an Ed25519 key by its family
+/// alone. The arguments that a family does not use are ignored. The catalog has no separate Ed25519 key row: its
+/// signature row is the only row of the family, so that row names the Ed25519 public key.
+/// @param key_type Key family of the public key.
+/// @param modulus_bits RSA modulus length in bits.
+/// @param curve Named curve of an elliptic-curve key.
+/// @return The catalog row, or std::nullopt when the catalog defines no key algorithm for the key.
+[[nodiscard]] inline constexpr std::optional<AlgorithmDescriptor> FindKeyAlgorithm(KeyType key_type,
+                                                                                   std::uint16_t modulus_bits,
+                                                                                   EccCurve curve) noexcept
+{
+    for (const auto& row : kAlgorithmCatalog)
+    {
+        if (row.key_type != key_type)
+        {
+            continue;
+        }
+        // RSA and EC key rows are AlgorithmCategory::kKey; RSA-PSS and ECDSA rows of the same key type are not keys.
+        const bool names_public_key = (row.category == AlgorithmCategory::kKey) || (key_type == KeyType::kEd25519);
+        if (!names_public_key)
+        {
+            continue;
+        }
+        if (((key_type == KeyType::kRsa) && (row.key_bits != modulus_bits)) ||
+            ((key_type == KeyType::kEcc) && (row.curve != curve)))
+        {
+            continue;
+        }
+        return row;
+    }
+    return std::nullopt;
+}
+
 /// @brief Operation class of an algorithm.
 [[nodiscard]] inline constexpr AlgorithmCategory GetAlgorithmCategory(Algorithm algorithm) noexcept
 {

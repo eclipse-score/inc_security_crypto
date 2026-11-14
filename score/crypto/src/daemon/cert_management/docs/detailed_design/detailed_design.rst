@@ -69,8 +69,9 @@ first use unless a caller invokes ``Initialize()`` to resolve eagerly; a success
 parser is cached and shared, and a failed resolution is not cached so a later call
 retries. A slot handler is created only after the parser is available; slot operations
 requiring a handler return the creation error otherwise. Each provider supplies its own
-verification and CSR generation handlers, built
-on the same provider-neutral ``CertObject`` values. PKCS#11 is expected to supply its
+path validator and CSR generation handler, built
+on the same provider-neutral ``CertObject`` values. The certificate verification context
+handler is held by certificate management. PKCS#11 is expected to supply its
 own ``ICertSlotHandler`` for certificate-slot storage. Hardware-key CSR signing is
 expected to use a cross-context service without exporting private key material. OCSP
 remains a provider-boundary extension.
