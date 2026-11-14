@@ -167,6 +167,14 @@ Pkcs11KeyFactory::ImportKey(const key_management::KeyImportRequest& request)
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
+    const auto valid = ValidateSymmetricImport(request);
+    if (!valid.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "ImportKey: " << request.key_data_size
+                                   << " bytes are not a valid raw '" << request.algorithm.name << "' key";
+        return score::crypto::make_unexpected(valid.error());
+    }
+
     const Pkcs11HandlerRequirements reqs{Pkcs11SessionType::ReadWrite, Pkcs11TokenAuthState::User};
     Pkcs11SessionGuard guard(*provider, reqs);
     if (!guard)
@@ -228,6 +236,30 @@ Pkcs11KeyFactory::ImportKey(const key_management::KeyImportRequest& request)
     // Session intentionally NOT released.  See GenerateKey rationale above.
     static_cast<void>(guard.release());
     return std::make_shared<Pkcs11KeyHandler>(m_key_store, std::move(handle));
+}
+
+score::crypto::Expected<key_management::SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode>
+Pkcs11KeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle,
+                            std::optional<score::crypto::FormatType> format)
+{
+    if (!handle.is_asymmetric)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "ExportKey: secret keys are not exportable";
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+    return IKeyFactory::ExportKey(handle, format);
+}
+
+score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorCode> Pkcs11KeyFactory::GetExportKeySize(
+    const key_management::ProviderKeyHandle& handle,
+    std::optional<score::crypto::FormatType> format)
+{
+    if (!handle.is_asymmetric)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "GetExportKeySize: secret keys are not exportable";
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+    return IKeyFactory::GetExportKeySize(handle, format);
 }
 
 }  // namespace score::crypto::daemon::provider::pkcs11

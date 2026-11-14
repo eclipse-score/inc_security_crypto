@@ -14,7 +14,11 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_INTERFACES_KEY_MANAGEMENT_OPERATIONS_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_INTERFACES_KEY_MANAGEMENT_OPERATIONS_HPP
 
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+
+#include <cstdint>
+#include <optional>
 
 namespace score::crypto::daemon::key_management::operations
 {
@@ -78,6 +82,48 @@ inline constexpr OperationAction KEY_CLEAR = 0xE0;
 //           no output parameters
 // Effect:   Decrements ref-count; frees key material when ref_count reaches 0
 inline constexpr OperationAction KEY_RELEASE = 0xF0;
+
+// Key format parameter (KEY_IMPORT, KEY_EXPORT, KEY_GET_EXPORT_SIZE)
+// Wire:     uint32 — a FormatType value, or kFormatNative when the caller named no
+//                    format and the daemon picks the key type's native format.
+// Any other value is a malformed request.
+
+/// Wire value of a format parameter that names no format. Outside the FormatType range.
+inline constexpr std::uint32_t kFormatNative = 0xFFFFFFFFU;
+
+/// Encode an optional format for the wire: the FormatType value, or kFormatNative.
+[[nodiscard]] inline constexpr std::uint32_t EncodeFormat(std::optional<::score::crypto::FormatType> format) noexcept
+{
+    return format.has_value() ? static_cast<std::uint32_t>(format.value()) : kFormatNative;
+}
+
+/// Decode a wire format value; the inverse of EncodeFormat().
+///
+/// @param wire    Value read from the request.
+/// @param format  Receives the format, or std::nullopt for kFormatNative.
+/// @return false when wire is neither a FormatType value nor kFormatNative;
+///         format is left unchanged then.
+[[nodiscard]] inline constexpr bool DecodeFormat(std::uint32_t wire,
+                                                 std::optional<::score::crypto::FormatType>& format) noexcept
+{
+    switch (wire)
+    {
+        case kFormatNative:
+            format = std::nullopt;
+            return true;
+        case static_cast<std::uint32_t>(::score::crypto::FormatType::kDer):
+            format = ::score::crypto::FormatType::kDer;
+            return true;
+        case static_cast<std::uint32_t>(::score::crypto::FormatType::kPem):
+            format = ::score::crypto::FormatType::kPem;
+            return true;
+        case static_cast<std::uint32_t>(::score::crypto::FormatType::kRaw):
+            format = ::score::crypto::FormatType::kRaw;
+            return true;
+        default:
+            return false;
+    }
+}
 
 inline constexpr OperationAction KEY_MGMT_CUSTOM_OP_START = 1 << (std::numeric_limits<OperationAction>::digits - 1);
 

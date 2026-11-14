@@ -23,6 +23,8 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
+#include <variant>
 
 namespace score::crypto::daemon::key_management
 {
@@ -102,19 +104,21 @@ class IKeyFactory
     [[nodiscard]] virtual score::crypto::Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode>
     UnwrapKey(const UnwrapKeyRequest& request);
 
-    /// Export formatted key material (DER / PEM / RAW).
+    /// Export the public key of an asymmetric key (DER / PEM / RAW).
     ///
-    /// Used for asymmetric keys where formatting is provider-specific.
-    /// For raw symmetric bytes, prefer IKeyHandler::Export().
+    /// std::nullopt selects the provider's native format. Private and secret
+    /// key material must never be returned in plaintext: a provider refuses
+    /// it with kKeyNotExportable.
     /// Default: returns kNotSupported.
     [[nodiscard]] virtual score::crypto::Expected<SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode>
-    ExportKey(const ProviderKeyHandle& handle, score::crypto::FormatType format);
+    ExportKey(const ProviderKeyHandle& handle, std::optional<score::crypto::FormatType> format);
 
     /// Return the byte length of the exported key in the given format.
     ///
+    /// Must refuse exactly the requests ExportKey() refuses, with the same error.
     /// Default: returns kNotSupported.
     [[nodiscard]] virtual score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorCode>
-    GetExportKeySize(const ProviderKeyHandle& handle, score::crypto::FormatType format);
+    GetExportKeySize(const ProviderKeyHandle& handle, std::optional<score::crypto::FormatType> format);
 
     /// Generate a key atomically into a persistent slot.
     ///
@@ -150,6 +154,17 @@ class IKeyFactory
     /// Default: UnwrapKey(request) + slot_handler.StoreKey(slot, *handler).
     [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
     UnwrapKeyToSlot(const KeySlotConfig& slot, const UnwrapKeyRequest& request, IKeySlotHandler& slot_handler);
+
+  protected:
+    /// Check a symmetric key import before a provider stores the bytes.
+    ///
+    /// Shared by every provider so that all of them accept the same material:
+    ///   - the row must label a symmetric key (AES or HMAC secret): kInvalidArgument otherwise;
+    ///   - request.format must be unset (native) or kRaw: kInvalidFormat otherwise;
+    ///   - an AES key must be exactly as long as its variant (16, 24 or 32 bytes),
+    ///     and an HMAC key at least as long as its digest: kIncompatibleKeyType otherwise.
+    [[nodiscard]] static score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+    ValidateSymmetricImport(const KeyImportRequest& request) noexcept;
 };
 
 }  // namespace score::crypto::daemon::key_management

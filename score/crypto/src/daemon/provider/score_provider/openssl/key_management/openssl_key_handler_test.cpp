@@ -16,13 +16,23 @@
 #include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
+#include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
 #include "score/tests/utility/test_utility.hpp"
 
 #include <gtest/gtest.h>
+#include <openssl/evp.h>
+#include <openssl/x509.h>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 namespace km = score::crypto::daemon::key_management;
@@ -36,6 +46,24 @@ score::crypto::AlgorithmDescriptor Row(std::string_view name)
     const auto row = score::crypto::GetAlgorithmDescriptor(name);
     EXPECT_TRUE(row.has_value()) << "not in the catalog: " << name;
     return row.value_or(score::crypto::AlgorithmDescriptor{});
+}
+
+/// The EVP_PKEY behind an OpenSSL provider asymmetric handle.
+const EVP_PKEY* PkeyOf(const km::ProviderKeyHandle& handle)
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
+    return reinterpret_cast<const EVP_PKEY*>(static_cast<std::uintptr_t>(handle.opaque_id));
+}
+
+/// DER SubjectPublicKeyInfo of @p pkey, encoded directly with OpenSSL.
+std::vector<std::uint8_t> SpkiOf(const EVP_PKEY* pkey)
+{
+    const int len = i2d_PUBKEY(pkey, nullptr);
+    EXPECT_GT(len, 0);
+    std::vector<std::uint8_t> der(static_cast<std::size_t>(len > 0 ? len : 0));
+    unsigned char* cursor = der.data();
+    EXPECT_EQ(i2d_PUBKEY(pkey, &cursor), len);
+    return der;
 }
 }  // namespace
 
@@ -136,6 +164,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_ValidKey_Succeeds)
     req.key_data = raw_key;
     req.key_data_size = sizeof(raw_key);
     req.algorithm = Row("HMAC-SHA256");
+    req.format = score::crypto::FormatType::kRaw;
     req.permissions = score::crypto::KeyOperationPermission::kMac;
 
     auto result = m_factory->ImportKey(req);
@@ -186,6 +215,110 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_ZeroSize_ReturnsError)
     auto result = m_factory->ImportKey(req);
 
     ASSERT_FALSE(result.has_value());
+}
+
+// ============================================================================
+// Symmetric import validation tests
+// ============================================================================
+
+namespace
+{
+/// Builds a request importing @p key under the catalog row @p name.
+km::KeyImportRequest SymmetricImport(std::string_view name,
+                                     const std::vector<std::uint8_t>& key,
+                                     std::optional<score::crypto::FormatType> format = score::crypto::FormatType::kRaw)
+{
+    km::KeyImportRequest req{};
+    req.key_data = key.data();
+    req.key_data_size = key.size();
+    req.algorithm = Row(name);
+    req.format = format;
+    req.permissions = score::crypto::KeyOperationPermission::kAll;
+    return req;
+}
+}  // namespace
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_SymmetricNonRawFormat_IsRejected)
+{
+    // Symmetric keys have no ASN.1 or PEM encoding; a DER or PEM label on raw
+    // bytes is a caller error and must not be silently accepted.
+    const std::vector<std::uint8_t> key(32U, 0x5AU);
+    for (const auto format : {score::crypto::FormatType::kDer, score::crypto::FormatType::kPem})
+    {
+        for (const auto* name : {"AES-256", "HMAC-SHA256"})
+        {
+            auto result = m_factory->ImportKey(SymmetricImport(name, key, format));
+            ASSERT_FALSE(result.has_value()) << name << " with format " << static_cast<int>(format);
+            EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidFormat) << name;
+        }
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_AesWrongLength_IsRejected)
+{
+    struct Case
+    {
+        const char* name;
+        std::size_t size;
+    };
+    for (const auto& c : {Case{"AES-128", 16U},
+                          Case{"AES-192", 24U},
+                          Case{"AES-256", 32U},
+                          Case{"AES-128-CBC", 16U},
+                          Case{"AES-256-GCM", 32U},
+                          Case{"AES-256-CMAC", 32U}})
+    {
+        for (const std::size_t wrong : {c.size - 1U, c.size + 1U, std::size_t{1U}, std::size_t{64U}})
+        {
+            const std::vector<std::uint8_t> key(wrong, 0x11U);
+            auto result = m_factory->ImportKey(SymmetricImport(c.name, key));
+            ASSERT_FALSE(result.has_value()) << c.name << " accepted " << wrong << " bytes";
+            EXPECT_EQ(result.error(), common::DaemonErrorCode::kIncompatibleKeyType) << c.name << " " << wrong;
+        }
+
+        const std::vector<std::uint8_t> key(c.size, 0x11U);
+        auto result = m_factory->ImportKey(SymmetricImport(c.name, key));
+        ASSERT_TRUE(result.has_value()) << c.name << " rejected its own key length " << c.size;
+        EXPECT_EQ(result.value()->GetHandle().key_size, c.size);
+        EXPECT_TRUE(result.value()->Release().has_value());
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_HmacShorterThanDigest_IsRejected)
+{
+    struct Case
+    {
+        const char* name;
+        std::size_t digest_size;
+    };
+    for (const auto& c : {Case{"HMAC-SHA256", 32U}, Case{"HMAC-SHA384", 48U}, Case{"HMAC-SHA512", 64U}})
+    {
+        const std::vector<std::uint8_t> short_key(c.digest_size - 1U, 0x22U);
+        auto rejected = m_factory->ImportKey(SymmetricImport(c.name, short_key));
+        ASSERT_FALSE(rejected.has_value()) << c.name << " accepted a key shorter than its digest";
+        EXPECT_EQ(rejected.error(), common::DaemonErrorCode::kIncompatibleKeyType) << c.name;
+
+        // The digest length is a floor, not a fixed size: a longer HMAC key is valid.
+        for (const std::size_t good : {c.digest_size, 2U * c.digest_size})
+        {
+            const std::vector<std::uint8_t> key(good, 0x22U);
+            auto accepted = m_factory->ImportKey(SymmetricImport(c.name, key));
+            ASSERT_TRUE(accepted.has_value()) << c.name << " rejected " << good << " bytes";
+            EXPECT_EQ(accepted.value()->GetHandle().key_size, good);
+            EXPECT_TRUE(accepted.value()->Release().has_value());
+        }
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportKey_RowWithoutKey_IsRejected)
+{
+    const std::vector<std::uint8_t> key(32U, 0x33U);
+    for (const auto* name : {"SHA256", "RSA-PSS-2048-SHA256"})
+    {
+        auto result = m_factory->ImportKey(SymmetricImport(name, key));
+        ASSERT_FALSE(result.has_value()) << name << " names no symmetric key";
+        EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidArgument) << name;
+    }
 }
 
 // ============================================================================
@@ -283,11 +416,11 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicOnlyEcKey_DropsPrivateHalfPermissi
     EXPECT_TRUE(result.value()->Release().has_value());
 }
 
-TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyNonDer_IsRejected)
+TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyDerBytesLabelledPem_IsRejected)
 {
     // The control for the case above: the permission downgrade is reached only
-    // after the blob parses, so a rejected format must fail earlier and for a
-    // different reason.
+    // after the blob parses, so DER bytes declared as PEM must fail earlier and
+    // for a different reason.
     const auto spki = ReadP256SpkiDer();
     km::KeyImportRequest req{};
     req.key_data = spki.data();
@@ -298,7 +431,7 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyNonDer_IsRejected)
 
     auto result = m_factory->ImportKey(req);
 
-    ASSERT_FALSE(result.has_value()) << "Only DER-encoded EC keys are accepted";
+    ASSERT_FALSE(result.has_value()) << "Binary DER is not PEM armour";
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kInvalidFormat);
 }
 
@@ -320,6 +453,431 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyCurveMismatch_IsRejected)
 
     ASSERT_FALSE(result.has_value()) << "A P-384 key must not import under a P-256 algorithm";
     EXPECT_EQ(result.error(), score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+}
+
+// ============================================================================
+// PEM import tests
+//
+// The PEM vectors are the packaged NIST DER vectors re-encoded with the openssl
+// CLI (see score/tests/test_vectors/ecdsa/P256-SHA256/reference.md).
+// ============================================================================
+
+namespace
+{
+km::KeyImportRequest PemImport(std::string_view algorithm, const std::vector<std::uint8_t>& pem)
+{
+    km::KeyImportRequest req{};
+    req.key_data = pem.data();
+    req.key_data_size = pem.size();
+    req.algorithm = Row(algorithm);
+    req.format = score::crypto::FormatType::kPem;
+    req.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kVerify |
+                      score::crypto::KeyOperationPermission::kExport;
+    return req;
+}
+
+std::vector<std::uint8_t> Bytes(std::string_view text)
+{
+    return std::vector<std::uint8_t>{text.begin(), text.end()};
+}
+}  // namespace
+
+TEST_F(OpenSslKeyHandlerTest, ImportPem_PrivateKeys_KeepPrivateHalf)
+{
+    struct Case
+    {
+        const char* algorithm;
+        const char* path;
+    };
+    for (const auto& c : {Case{"ECDSA-P256", "/P256-SHA256/siggen_private_key.pem"},
+                          Case{"ECDSA-P256", "/P256-SHA256/siggen_private_key_sec1.pem"},
+                          Case{"ECDSA-P384", "/P384-SHA384/siggen_private_key.pem"}})
+    {
+        const auto pem = ReadVector(c.path);
+        ASSERT_FALSE(pem.empty()) << c.path;
+
+        auto result = m_factory->ImportKey(PemImport(c.algorithm, pem));
+
+        ASSERT_TRUE(result.has_value()) << c.path << " failed with error "
+                                        << (result.has_value() ? 0 : static_cast<int>(result.error()));
+        const auto& handle = result.value()->GetHandle();
+        EXPECT_TRUE(handle.is_asymmetric);
+        EXPECT_TRUE(score::crypto::HasPermission(handle.permissions, score::crypto::KeyOperationPermission::kSign))
+            << c.path << " carries a private scalar, so the private half keeps its grant";
+        EXPECT_TRUE(result.value()->Release().has_value());
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportPem_PublicKey_MatchesDerImport)
+{
+    const auto pem = ReadVector("/P256-SHA256/siggen_public_key.pem");
+    const auto der = ReadP256SpkiDer();
+
+    auto from_pem = m_factory->ImportKey(PemImport("ECDSA-P256", pem));
+    ASSERT_TRUE(from_pem.has_value());
+    EXPECT_FALSE(score::crypto::HasPermission(from_pem.value()->GetHandle().permissions,
+                                              score::crypto::KeyOperationPermission::kSign))
+        << "A PUBLIC KEY block carries no private half";
+
+    km::KeyImportRequest der_req = PemImport("ECDSA-P256", der);
+    der_req.format = score::crypto::FormatType::kDer;
+    auto from_der = m_factory->ImportKey(der_req);
+    ASSERT_TRUE(from_der.has_value());
+
+    auto pem_point = m_factory->ExportKey(from_pem.value()->GetHandle(), score::crypto::FormatType::kRaw);
+    auto der_point = m_factory->ExportKey(from_der.value()->GetHandle(), score::crypto::FormatType::kRaw);
+    ASSERT_TRUE(pem_point.has_value());
+    ASSERT_TRUE(der_point.has_value());
+    EXPECT_EQ(pem_point.value().bytes.size(), 65U);
+    EXPECT_EQ(pem_point.value().bytes, der_point.value().bytes);
+
+    EXPECT_TRUE(from_pem.value()->Release().has_value());
+    EXPECT_TRUE(from_der.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportPem_WrongCurve_IsRejected)
+{
+    const auto pem = ReadVector("/P384-SHA384/siggen_private_key.pem");
+
+    auto result = m_factory->ImportKey(PemImport("ECDSA-P256", pem));
+
+    ASSERT_FALSE(result.has_value()) << "A P-384 key must not import under a P-256 algorithm";
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kIncompatibleKeyType);
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportPem_EncryptedKey_IsRejected)
+{
+    // No passphrase can be supplied through ImportKey, so encrypted PEM is
+    // refused instead of prompting on the daemon's terminal.
+    for (const auto* path :
+         {"/P256-SHA256/siggen_private_key_encrypted.pem", "/P256-SHA256/siggen_private_key_sec1_encrypted.pem"})
+    {
+        const auto pem = ReadVector(path);
+        ASSERT_FALSE(pem.empty()) << path;
+
+        auto result = m_factory->ImportKey(PemImport("ECDSA-P256", pem));
+
+        ASSERT_FALSE(result.has_value()) << path;
+        EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidFormat) << path;
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportPem_MalformedInput_IsRejected)
+{
+    const auto pem = ReadVector("/P256-SHA256/siggen_public_key.pem");
+    const std::string text{pem.begin(), pem.end()};
+    const std::string body_only = text.substr(text.find('\n') + 1U);
+
+    const std::vector<std::pair<const char*, std::vector<std::uint8_t>>> cases = {
+        {"not PEM at all", Bytes("garbage")},
+        {"leading garbage", Bytes("junk\n" + text)},
+        {"trailing garbage", Bytes(text + "junk\n")},
+        {"second PEM block", Bytes(text + text)},
+        {"missing END line", Bytes(text.substr(0U, text.find("-----END")))},
+        {"missing BEGIN line", Bytes(body_only)},
+        {"unsupported label",
+         Bytes("-----BEGIN CERTIFICATE-----\n" + body_only.substr(0U, body_only.find("-----END")) +
+               "-----END CERTIFICATE-----\n")},
+        {"corrupt base64", Bytes("-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYI!!!!\n-----END PUBLIC KEY-----\n")},
+    };
+
+    for (const auto& [what, data] : cases)
+    {
+        auto result = m_factory->ImportKey(PemImport("ECDSA-P256", data));
+        ASSERT_FALSE(result.has_value()) << what;
+        EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidFormat) << what;
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportPem_LabelDisagreesWithContent_IsRejected)
+{
+    // A PRIVATE KEY label around a SubjectPublicKeyInfo body (and the reverse)
+    // is not a key this factory can classify reliably, so it is refused.
+    const auto pub = ReadVector("/P256-SHA256/siggen_public_key.pem");
+    const auto priv = ReadVector("/P256-SHA256/siggen_private_key.pem");
+    auto relabel = [](const std::vector<std::uint8_t>& pem, const std::string& from, const std::string& to) {
+        std::string text{pem.begin(), pem.end()};
+        for (std::size_t pos = text.find(from); pos != std::string::npos; pos = text.find(from, pos + to.size()))
+        {
+            text.replace(pos, from.size(), to);
+        }
+        return Bytes(text);
+    };
+
+    for (const auto& data : {relabel(pub, "PUBLIC KEY", "PRIVATE KEY"), relabel(priv, "PRIVATE KEY", "PUBLIC KEY")})
+    {
+        auto result = m_factory->ImportKey(PemImport("ECDSA-P256", data));
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidFormat);
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportPem_SurroundingWhitespace_IsAccepted)
+{
+    const auto pem = ReadVector("/P256-SHA256/siggen_public_key.pem");
+    const std::string text{pem.begin(), pem.end()};
+
+    auto result = m_factory->ImportKey(PemImport("ECDSA-P256", Bytes("\n  " + text + "\r\n\n")));
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value()->Release().has_value());
+}
+
+// ============================================================================
+// Native format (no format given) import tests
+//
+// Without a format, symmetric keys are raw bytes and asymmetric key material is
+// detected from the data (PEM, DER, or an EC raw point). Detection only picks
+// the parser: the curve, length and encryption checks still apply.
+// ============================================================================
+
+namespace
+{
+km::KeyImportRequest NativeImport(std::string_view algorithm, const std::vector<std::uint8_t>& data)
+{
+    km::KeyImportRequest req = PemImport(algorithm, data);
+    req.format = std::nullopt;
+    return req;
+}
+
+int ErrorOf(const score::crypto::Expected<km::IKeyHandler::Sptr, common::DaemonErrorCode>& result)
+{
+    return result.has_value() ? 0 : static_cast<int>(result.error());
+}
+}  // namespace
+
+TEST_F(OpenSslKeyHandlerTest, ImportNative_Symmetric_IsRawWithLengthChecks)
+{
+    for (const auto& [name, good_size, bad_size] :
+         {std::tuple<const char*, std::size_t, std::size_t>{"AES-128", 16U, 15U},
+          std::tuple<const char*, std::size_t, std::size_t>{"AES-256", 32U, 31U},
+          std::tuple<const char*, std::size_t, std::size_t>{"HMAC-SHA256", 32U, 31U}})
+    {
+        const std::vector<std::uint8_t> good(good_size, 0x5AU);
+        auto ok = m_factory->ImportKey(SymmetricImport(name, good, std::nullopt));
+        ASSERT_TRUE(ok.has_value()) << name << " error " << ErrorOf(ok);
+        EXPECT_EQ(ok.value()->GetHandle().key_size, good_size);
+        EXPECT_TRUE(ok.value()->Release().has_value());
+
+        const std::vector<std::uint8_t> bad(bad_size, 0x5AU);
+        auto rejected = m_factory->ImportKey(SymmetricImport(name, bad, std::nullopt));
+        ASSERT_FALSE(rejected.has_value()) << name << " accepted " << bad_size << " bytes";
+        EXPECT_EQ(rejected.error(), common::DaemonErrorCode::kIncompatibleKeyType) << name;
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportNative_PrivateDerAndPem_KeepPrivateHalf)
+{
+    struct Case
+    {
+        const char* algorithm;
+        const char* path;
+    };
+    for (const auto& c : {Case{"ECDSA-P256", "/P256-SHA256/siggen_private_key.der"},
+                          Case{"ECDSA-P256", "/P256-SHA256/siggen_private_key.pem"},
+                          Case{"ECDSA-P256", "/P256-SHA256/siggen_private_key_sec1.pem"},
+                          Case{"ECDSA-P384", "/P384-SHA384/siggen_private_key.der"},
+                          Case{"ECDSA-P384", "/P384-SHA384/siggen_private_key.pem"}})
+    {
+        const auto data = ReadVector(c.path);
+        ASSERT_FALSE(data.empty()) << c.path;
+
+        auto result = m_factory->ImportKey(NativeImport(c.algorithm, data));
+
+        ASSERT_TRUE(result.has_value()) << c.path << " failed with error " << ErrorOf(result);
+        EXPECT_TRUE(score::crypto::HasPermission(result.value()->GetHandle().permissions,
+                                                 score::crypto::KeyOperationPermission::kSign))
+            << c.path;
+        EXPECT_TRUE(result.value()->Release().has_value());
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportNative_PublicDerPemAndRawPoint_GiveTheSameKey)
+{
+    const auto der = ReadP256SpkiDer();
+    const auto pem = ReadVector("/P256-SHA256/siggen_public_key.pem");
+
+    auto reference = m_factory->ImportKey(NativeImport("ECDSA-P256", der));
+    ASSERT_TRUE(reference.has_value()) << "SPKI DER: error " << ErrorOf(reference);
+    auto point = m_factory->ExportKey(reference.value()->GetHandle(), score::crypto::FormatType::kRaw);
+    ASSERT_TRUE(point.has_value());
+    ASSERT_EQ(point.value().bytes.size(), 65U);
+    const std::vector<std::uint8_t> raw_point{point.value().bytes.begin(), point.value().bytes.end()};
+
+    for (const auto* data : {&pem, &raw_point})
+    {
+        auto result = m_factory->ImportKey(NativeImport("ECDSA-P256", *data));
+        ASSERT_TRUE(result.has_value()) << "error " << ErrorOf(result);
+        EXPECT_FALSE(score::crypto::HasPermission(result.value()->GetHandle().permissions,
+                                                  score::crypto::KeyOperationPermission::kSign))
+            << "A public key carries no private half";
+        auto exported = m_factory->ExportKey(result.value()->GetHandle(), score::crypto::FormatType::kRaw);
+        ASSERT_TRUE(exported.has_value());
+        EXPECT_EQ(exported.value().bytes, point.value().bytes);
+        EXPECT_TRUE(result.value()->Release().has_value());
+    }
+    EXPECT_TRUE(reference.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportNative_StillChecksTheCurve)
+{
+    for (const auto& data : {ReadVector("/P384/p384_public_key.pem"),
+                             ReadVector("/P384/p384_public_key.der"),
+                             ReadVector("/P384-SHA384/siggen_private_key.pem")})
+    {
+        auto result = m_factory->ImportKey(NativeImport("ECDSA-P256", data));
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error(), common::DaemonErrorCode::kIncompatibleKeyType);
+    }
+    auto raw = m_factory->ImportKey(NativeImport("ECDSA-P256", ReadP384RawPoint()));
+    EXPECT_FALSE(raw.has_value()) << "A 97-byte P-384 point is not a P-256 key";
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportNative_GarbageAndEncryptedPem_AreRejected)
+{
+    const auto pem = ReadVector("/P256-SHA256/siggen_public_key.pem");
+    const std::string pem_text{pem.begin(), pem.end()};
+    struct Case
+    {
+        const char* algorithm;
+        std::vector<std::uint8_t> data;
+    };
+    const std::vector<Case> cases{
+        {"ECDSA-P256", Bytes("not a key at all")},
+        {"ECDSA-P256", {0x30U, 0x03U, 0x02U, 0x01U, 0x01U}},
+        {"ECDSA-P256", Bytes("junk\n" + pem_text)},
+        {"ECDSA-P256", Bytes("-----BEGIN PUBLIC KEY-----\n!!!!\n-----END PUBLIC KEY-----\n")},
+        {"ECDSA-P256", ReadVector("/P256-SHA256/siggen_private_key_encrypted.pem")},
+        {"ECDSA-P256", ReadVector("/P256-SHA256/siggen_private_key_sec1_encrypted.pem")},
+        // A leading 0x04 means a raw point only for EC algorithms.
+        {"Ed25519", std::vector<std::uint8_t>(33U, 0x04U)},
+        {"RSA-2048", std::vector<std::uint8_t>(65U, 0x04U)},
+    };
+    for (const auto& c : cases)
+    {
+        auto result = m_factory->ImportKey(NativeImport(c.algorithm, c.data));
+        ASSERT_FALSE(result.has_value()) << c.algorithm << " accepted " << c.data.size() << " bytes";
+        EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidFormat) << c.algorithm;
+    }
+
+    auto off_curve = m_factory->ImportKey(NativeImport("ECDSA-P256", std::vector<std::uint8_t>(65U, 0x04U)));
+    EXPECT_FALSE(off_curve.has_value()) << "A 0x04-led blob that is not on the curve is no key";
+}
+
+TEST_F(OpenSslKeyHandlerTest, ImportExplicitRaw_OnNonEcAsymmetric_IsRejected)
+{
+    const auto private_der = ReadVector("/P256-SHA256/siggen_private_key.der");
+    for (const auto* algorithm : {"Ed25519", "RSA-2048"})
+    {
+        km::KeyImportRequest req = NativeImport(algorithm, private_der);
+        req.format = score::crypto::FormatType::kRaw;
+        auto result = m_factory->ImportKey(req);
+        ASSERT_FALSE(result.has_value()) << algorithm;
+        EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidFormat) << algorithm;
+    }
+    km::KeyImportRequest ec_req = NativeImport("ECDSA-P256", private_der);
+    ec_req.format = score::crypto::FormatType::kRaw;
+    EXPECT_FALSE(m_factory->ImportKey(ec_req).has_value()) << "kRaw on EC means a public point, not a private key";
+}
+
+// ============================================================================
+// File-backed slot loading: the deployment "key_format" property
+//
+// "raw" / "der" / "pem" force that format; an absent property means the native
+// format; any other value fails the load before the key reaches the factory.
+// ============================================================================
+
+namespace
+{
+/// Writes @p bytes to a file under TEST_TMPDIR and returns its absolute path.
+std::string WriteTestFile(const std::string& name, const std::vector<std::uint8_t>& bytes)
+{
+    const char* dir = std::getenv("TEST_TMPDIR");
+    const std::string path = std::string{(dir != nullptr) ? dir : "."} + "/" + name;
+    std::ofstream out{path, std::ios::binary | std::ios::trunc};
+    out.write(reinterpret_cast<const char*>(bytes.data()),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+              static_cast<std::streamsize>(bytes.size()));
+    return path;
+}
+
+/// Deploys @p key under a slot for @p algorithm, with the given key_format line
+/// (none when @p key_format is std::nullopt).
+km::KeySlotConfig DeploySlot(const std::string& name,
+                             const std::string& algorithm,
+                             const std::vector<std::uint8_t>& key,
+                             const std::optional<std::string>& key_format)
+{
+    const std::string key_path = WriteTestFile(name + ".key", key);
+    std::string kv = "[metadata]\navailability=active\n[key]\nkey_path=" + key_path + "\n";
+    if (key_format.has_value())
+    {
+        kv += "key_format=" + key_format.value() + "\n";
+    }
+    km::KeySlotConfig slot{};
+    slot.slot_name = name;
+    slot.algorithm = algorithm;
+    slot.allowed_operations = score::crypto::KeyOperationPermission::kAll;
+    slot.deployment_path = WriteTestFile(name + ".kv", Bytes(kv));
+    return slot;
+}
+}  // namespace
+
+TEST_F(OpenSslKeyHandlerTest, SlotLoad_KeyFormatAbsentOrMatching_Loads)
+{
+    const std::vector<std::uint8_t> aes(32U, 0x5AU);
+    const std::vector<std::uint8_t> hmac(32U, 0xA5U);
+    const auto ec_der = ReadVector("/P256-SHA256/siggen_private_key.der");
+    const auto ec_pem = ReadVector("/P256-SHA256/siggen_private_key.pem");
+    const auto ec_pub_der = ReadP256SpkiDer();
+    struct Case
+    {
+        const char* name;
+        const char* algorithm;
+        const std::vector<std::uint8_t>* key;
+        std::optional<std::string> key_format;
+    };
+    const std::vector<Case> cases{
+        {"aes_native", "AES-256-CBC", &aes, std::nullopt},
+        {"aes_raw", "AES-256-CBC", &aes, "raw"},
+        {"hmac_native", "HMAC-SHA256", &hmac, std::nullopt},
+        {"ec_der_native", "ECDSA-P256-SHA256", &ec_der, std::nullopt},
+        {"ec_der", "ECDSA-P256-SHA256", &ec_der, "der"},
+        {"ec_pem_native", "ECDSA-P256-SHA256", &ec_pem, std::nullopt},
+        {"ec_pem", "ECDSA-P256-SHA256", &ec_pem, "pem"},
+        {"ec_pub_der_native", "ECDSA-P256-SHA256", &ec_pub_der, std::nullopt},
+    };
+    km::FileBackedSlotHandler handler{m_factory};
+    for (const auto& c : cases)
+    {
+        auto result = handler.LoadKey(DeploySlot(c.name, c.algorithm, *c.key, c.key_format));
+        ASSERT_TRUE(result.has_value()) << c.name << " failed with error " << ErrorOf(result);
+        EXPECT_TRUE(result.value()->Release().has_value());
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, SlotLoad_KeyFormatMismatchOrUnknown_IsRejected)
+{
+    const std::vector<std::uint8_t> aes(32U, 0x5AU);
+    const auto ec_der = ReadVector("/P256-SHA256/siggen_private_key.der");
+    struct Case
+    {
+        const char* name;
+        const char* algorithm;
+        const std::vector<std::uint8_t>* key;
+        const char* key_format;
+    };
+    for (const auto& c : {Case{"aes_der", "AES-256-CBC", &aes, "der"},
+                          Case{"aes_pem", "AES-256-CBC", &aes, "pem"},
+                          Case{"aes_bogus", "AES-256-CBC", &aes, "base64"},
+                          Case{"aes_upper", "AES-256-CBC", &aes, "RAW"},
+                          Case{"ec_pem", "ECDSA-P256-SHA256", &ec_der, "pem"},
+                          Case{"ec_bogus", "ECDSA-P256-SHA256", &ec_der, "pkcs8"}})
+    {
+        km::FileBackedSlotHandler handler{m_factory};
+        auto result = handler.LoadKey(DeploySlot(c.name, c.algorithm, *c.key, std::string{c.key_format}));
+        ASSERT_FALSE(result.has_value()) << c.name;
+        EXPECT_EQ(result.error(), common::DaemonErrorCode::kInvalidFormat) << c.name;
+    }
 }
 
 // ============================================================================
@@ -421,8 +979,7 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_CompressedDerImport_StillExpo
     reimp.key_data_size = exported.value().bytes.size();
     reimp.algorithm = Row("ECDSA-P384-SHA512");
     reimp.format = score::crypto::FormatType::kRaw;
-    reimp.permissions =
-        score::crypto::KeyOperationPermission::kVerify | score::crypto::KeyOperationPermission::kExport;
+    reimp.permissions = score::crypto::KeyOperationPermission::kVerify | score::crypto::KeyOperationPermission::kExport;
 
     auto reimported = m_factory->ImportKey(reimp);
     ASSERT_TRUE(reimported.has_value()) << "The forced-uncompressed export must satisfy the raw import contract";
@@ -597,6 +1154,216 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_WithoutExportPermission_IsDen
     EXPECT_TRUE(imported.value()->Release().has_value());
 }
 
+TEST_F(OpenSslKeyHandlerTest, ExportSpkiDer_P256_MatchesOpenSslAndReimports)
+{
+    km::KeyGenerationRequest gen{};
+    gen.algorithm = Row("ECDSA-P256-SHA256");
+    gen.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto generated = m_factory->GenerateKey(gen);
+    ASSERT_TRUE(generated.has_value());
+    const auto& handle = generated.value()->GetHandle();
+
+    auto size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kDer);
+    ASSERT_TRUE(size.has_value());
+    auto exported = m_factory->ExportKey(handle, score::crypto::FormatType::kDer);
+    ASSERT_TRUE(exported.has_value());
+    EXPECT_EQ(exported.value().bytes.size(), size.value()) << "size query must equal the exported length";
+    EXPECT_EQ(exported.value().bytes, SpkiOf(PkeyOf(handle))) << "DER export must be i2d_PUBKEY of the key";
+
+    // The export holds the public half only and decodes to the same key.
+    const unsigned char* cursor = exported.value().bytes.data();
+    EVP_PKEY* decoded = d2i_PUBKEY(nullptr, &cursor, static_cast<long>(exported.value().bytes.size()));
+    ASSERT_NE(decoded, nullptr);
+    EXPECT_EQ(EVP_PKEY_eq(decoded, PkeyOf(handle)), 1);
+    EVP_PKEY_free(decoded);
+
+    km::KeyImportRequest imp{};
+    imp.key_data = exported.value().bytes.data();
+    imp.key_data_size = exported.value().bytes.size();
+    imp.algorithm = Row("ECDSA-P256-SHA256");
+    imp.format = score::crypto::FormatType::kDer;
+    imp.permissions = score::crypto::KeyOperationPermission::kVerify | score::crypto::KeyOperationPermission::kExport;
+    auto reimported = m_factory->ImportKey(imp);
+    ASSERT_TRUE(reimported.has_value());
+    EXPECT_EQ(reimported.value()->GetHandle().permissions, score::crypto::KeyOperationPermission::kNone)
+        << "an SPKI export carries no private half";
+
+    auto raw = m_factory->ExportKey(handle, score::crypto::FormatType::kRaw);
+    auto reraw = m_factory->ExportKey(reimported.value()->GetHandle(), score::crypto::FormatType::kRaw);
+    ASSERT_TRUE(raw.has_value());
+    ASSERT_TRUE(reraw.has_value());
+    EXPECT_EQ(reraw.value().bytes, raw.value().bytes);
+
+    EXPECT_TRUE(generated.value()->Release().has_value());
+    EXPECT_TRUE(reimported.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportSpki_AllAsymmetricKeyTypes_NativeDerAndPemMatchSizeQuery)
+{
+    const std::string_view algorithms[] = {
+        "ECDSA-P256-SHA256", "ECDSA-P384-SHA512", "ECDSA-P521-SHA512", "RSA-2048", "Ed25519"};
+
+    for (const auto algorithm : algorithms)
+    {
+        km::KeyGenerationRequest gen{};
+        gen.algorithm = Row(algorithm);
+        gen.permissions = score::crypto::KeyOperationPermission::kSign;
+
+        auto generated = m_factory->GenerateKey(gen);
+        ASSERT_TRUE(generated.has_value()) << "generate failed for " << std::string{algorithm};
+        const auto& handle = generated.value()->GetHandle();
+
+        auto der = m_factory->ExportKey(handle, score::crypto::FormatType::kDer);
+        ASSERT_TRUE(der.has_value()) << "DER export failed for " << std::string{algorithm};
+        EXPECT_EQ(der.value().bytes, SpkiOf(PkeyOf(handle))) << std::string{algorithm};
+        auto der_size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kDer);
+        ASSERT_TRUE(der_size.has_value());
+        EXPECT_EQ(der_size.value(), der.value().bytes.size()) << std::string{algorithm};
+
+        auto native = m_factory->ExportKey(handle, std::nullopt);
+        ASSERT_TRUE(native.has_value()) << "native export failed for " << std::string{algorithm};
+        EXPECT_EQ(native.value().bytes, der.value().bytes) << "native export must be DER SPKI";
+        auto native_size = m_factory->GetExportKeySize(handle, std::nullopt);
+        ASSERT_TRUE(native_size.has_value());
+        EXPECT_EQ(native_size.value(), der.value().bytes.size()) << std::string{algorithm};
+
+        auto pem = m_factory->ExportKey(handle, score::crypto::FormatType::kPem);
+        ASSERT_TRUE(pem.has_value()) << "PEM export failed for " << std::string{algorithm};
+        const std::string pem_text(pem.value().bytes.begin(), pem.value().bytes.end());
+        EXPECT_EQ(pem_text.rfind("-----BEGIN PUBLIC KEY-----\n", 0), 0U) << pem_text;
+        EXPECT_NE(pem_text.find("-----END PUBLIC KEY-----\n"), std::string::npos) << pem_text;
+        auto pem_size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kPem);
+        ASSERT_TRUE(pem_size.has_value());
+        EXPECT_EQ(pem_size.value(), pem.value().bytes.size()) << std::string{algorithm};
+
+        EXPECT_TRUE(generated.value()->Release().has_value());
+    }
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportRaw_NonEcAsymmetricKey_IsIncompatible)
+{
+    km::KeyGenerationRequest gen{};
+    gen.algorithm = Row("Ed25519");
+    gen.permissions = score::crypto::KeyOperationPermission::kSign;
+
+    auto generated = m_factory->GenerateKey(gen);
+    ASSERT_TRUE(generated.has_value());
+
+    auto exported = m_factory->ExportKey(generated.value()->GetHandle(), score::crypto::FormatType::kRaw);
+    ASSERT_FALSE(exported.has_value());
+    EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+
+    EXPECT_TRUE(generated.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportSpki_WithoutPublicExportPermission_IsDenied)
+{
+    km::KeyGenerationRequest gen{};
+    gen.algorithm = Row("RSA-2048");
+    gen.permissions = score::crypto::KeyOperationPermission::kAll;
+    gen.public_key_permissions = score::crypto::KeyOperationPermission::kVerify;  // no kExport
+
+    auto generated = m_factory->GenerateKey(gen);
+    ASSERT_TRUE(generated.has_value());
+    const auto& handle = generated.value()->GetHandle();
+
+    for (const auto format : {score::crypto::FormatType::kDer, score::crypto::FormatType::kPem})
+    {
+        auto exported = m_factory->ExportKey(handle, format);
+        ASSERT_FALSE(exported.has_value());
+        EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+        auto size = m_factory->GetExportKeySize(handle, format);
+        ASSERT_FALSE(size.has_value());
+        EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+
+    EXPECT_TRUE(generated.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportSecretKey_EvenWithExportPermission_IsNotExportable)
+{
+    std::vector<std::uint8_t> key(32U, 0x5AU);
+
+    km::KeyImportRequest req{};
+    req.key_data = key.data();
+    req.key_data_size = key.size();
+    req.algorithm = Row("AES-256-GCM");
+    req.format = score::crypto::FormatType::kRaw;
+    req.permissions = score::crypto::KeyOperationPermission::kEncrypt | score::crypto::KeyOperationPermission::kExport;
+
+    auto imported = m_factory->ImportKey(req);
+    ASSERT_TRUE(imported.has_value());
+    const auto& handle = imported.value()->GetHandle();
+
+    // Secret keys never leave in plaintext, whatever the format or permissions.
+    const std::optional<score::crypto::FormatType> formats[] = {std::nullopt,
+                                                                score::crypto::FormatType::kRaw,
+                                                                score::crypto::FormatType::kDer,
+                                                                score::crypto::FormatType::kPem};
+    for (const auto& format : formats)
+    {
+        auto exported = m_factory->ExportKey(handle, format);
+        ASSERT_FALSE(exported.has_value());
+        EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+        auto size = m_factory->GetExportKeySize(handle, format);
+        ASSERT_FALSE(size.has_value());
+        EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+
+    EXPECT_TRUE(imported.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportSecretKey_WithoutExportPermission_IsNotExportable)
+{
+    km::KeyGenerationRequest gen{};
+    gen.algorithm = Row("HMAC-SHA256");
+    gen.permissions = score::crypto::KeyOperationPermission::kMac;  // no kExport
+
+    auto generated = m_factory->GenerateKey(gen);
+    ASSERT_TRUE(generated.has_value());
+    const auto& handle = generated.value()->GetHandle();
+
+    auto exported = m_factory->ExportKey(handle, score::crypto::FormatType::kRaw);
+    ASSERT_FALSE(exported.has_value());
+    EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+
+    auto size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kRaw);
+    ASSERT_FALSE(size.has_value());
+    EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+
+    EXPECT_TRUE(generated.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportKeyPair_PrivateExportPermission_DoesNotEnableExport)
+{
+    // kExport on the private half must not make anything exportable: the
+    // private key never leaves and the public half has its own permission.
+    km::KeyGenerationRequest gen{};
+    gen.algorithm = Row("ECDSA-P256-SHA256");
+    gen.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kExport;
+    gen.public_key_permissions = score::crypto::KeyOperationPermission::kVerify;
+
+    auto generated = m_factory->GenerateKey(gen);
+    ASSERT_TRUE(generated.has_value());
+    const auto& handle = generated.value()->GetHandle();
+
+    const std::optional<score::crypto::FormatType> formats[] = {std::nullopt,
+                                                                score::crypto::FormatType::kRaw,
+                                                                score::crypto::FormatType::kDer,
+                                                                score::crypto::FormatType::kPem};
+    for (const auto& format : formats)
+    {
+        auto exported = m_factory->ExportKey(handle, format);
+        ASSERT_FALSE(exported.has_value());
+        EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+        auto size = m_factory->GetExportKeySize(handle, format);
+        ASSERT_FALSE(size.has_value());
+        EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+
+    EXPECT_TRUE(generated.value()->Release().has_value());
+}
 
 TEST_F(OpenSslKeyHandlerTest, ReleaseKey_ZeroOpaque_Idempotent)
 {

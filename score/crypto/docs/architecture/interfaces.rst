@@ -174,7 +174,8 @@ The public API surface is organized into the following interface groups:
    wrapping (e.g., AES-GCM key wrap).
 
    Also supports ``LoadKey`` (optional, advanced), ``ExportKey``
-   (with format selection), ``ClearKey``, and ``GetKeySlotInfo``.
+   (public keys only; optional format, native DER SPKI), ``ClearKey``, and
+   ``GetKeySlotInfo``.
 
 .. real_arc_int:: ICertificateManagementContext
    :id: real_arc_int__crypto__i_cert_mgmt_context
@@ -344,8 +345,10 @@ The public API surface is organized into the following interface groups:
    - ``UnwrapKeyParams`` — wrapped data (span), wrapping key,
      inner key algorithm, optional wrapping algorithm, IV, AAD,
      permissions.
-   - ``ImportKeyParams`` — key data (span), format, algorithm,
-     permissions.
+   - ``ImportKeyParams`` — key data (span), optional format (unset
+     means the key type's native format: raw for symmetric keys,
+     PEM/DER/raw EC point detected from the data for asymmetric keys),
+     algorithm, permissions.
 
    The ``target_slot`` destination is **not** part of any params
    struct — it is expressed via the method overload signature

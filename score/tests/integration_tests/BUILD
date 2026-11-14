@@ -168,6 +168,10 @@ cc_binary(
     data = [
         "//score/tests/test_vectors/config:integration_test_config",
     ],
+    defines = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": ["SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED=1"],
+        "//conditions:default": [],
+    }),
     dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
