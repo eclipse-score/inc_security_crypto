@@ -75,7 +75,7 @@ A component can optional also consist of lower level components to further struc
    :security: YES
    :safety: QM
    :status: valid
-   :belongs_to: feat__mtef
+   :belongs_to: feat__security_crypto
 
 .. comp_arc_sta:: IAV Primula Static View
    :id: comp_arc_sta__iav_primula__sv

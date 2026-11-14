@@ -16,6 +16,23 @@ load("@rules_uv//uv:venv.bzl", "create_venv")
 load("@score_docs_as_code//:docs.bzl", "docs")
 
 docs(
+    bundles = [
+        {
+            "bundle": "//score/crypto/docs:docs",
+            "mount_at": "crypto/components/crypto",
+            "attach_to": "docs/components/index",
+        },
+        {
+            "bundle": "//score/cryptoki/docs:docs",
+            "mount_at": "crypto/components/cryptoki",
+            "attach_to": "docs/components/index",
+        },
+        {
+            "bundle": "//score/iav_primula/docs:docs",
+            "mount_at": "crypto/components/primula",
+            "attach_to": "docs/components/index",
+        },
+    ],
     source_dir = ".",
     external_needs = [
         "@score_process_description//:needs_json",

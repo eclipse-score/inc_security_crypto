@@ -12,24 +12,18 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-Crypto
-#######
+Components
+==========
 
-Abstract
-========
+The Crypto module contains the following documented components:
 
-[A short (~200 word) description of the feature.]
-
-For the main feature description and requirements, see the belonging `Feature <https://eclipse-score.github.io/score/main/features/index.html#features>`_ in the project repository.
+* **Crypto**: the client library, crypto daemon, and provider integration.
+* **Cryptoki**: the Rust PKCS#11 provider.
+* **Primula**: a Rust cryptographic driver focused on post-quantum algorithms.
 
 .. toctree::
-   :hidden:
+   :maxdepth: 1
 
-   architecture/index.rst
-   architecture/chklst_arc_inspection.rst
-   safety_analysis/fmea.rst
-   safety_analysis/dfa.rst
-   safety_analysis/aou_requirements.rst
-   safety_planning/index.rst
-   security_analysis/aou_requirements.rst
-   security_planning/index.rst
+   /crypto/components/crypto/index
+   /crypto/components/cryptoki/index
+   /crypto/components/primula/index

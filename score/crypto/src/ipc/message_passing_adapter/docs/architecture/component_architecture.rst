@@ -33,7 +33,7 @@ IPC Message Passing Adapter Component Architecture Documentation
    :security: YES
    :safety: ASIL_B
    :status: valid
-   :belongs_to: feat__mtef
+   :belongs_to: feat__security_crypto
 
 Overview
 --------
