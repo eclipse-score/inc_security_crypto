@@ -43,7 +43,7 @@ The API uses a two-phase resource identification model:
        ResourceType type;             // kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,
                                       // kKey, kCertificate, kSecureObject, kDataObject
        ResourcePersistence persistence; // kPersistent or kEphemeral
-       uint16_t primary_provider;     // owning device/provider index (0 = unbound)
+       uint16_t primary_provider;     // owning device/provider index (invalid sentinel = unbound)
    };
 
 The struct is fully numeric, cheap to copy and hash, and includes
@@ -331,7 +331,9 @@ Device Binding
 ``CryptoResourceId::primary_provider`` (``uint16_t``) identifies the owning
 device/provider. This embeds device binding directly in the handle so any
 code holding a reference knows which provider owns the resource without a
-daemon round-trip.
+daemon round-trip. Provider identifiers are zero-based. The maximum
+``uint16_t`` value, exposed as ``kUnboundProviderId``, indicates that no
+provider hint is available.
 
 Access Control
 --------------

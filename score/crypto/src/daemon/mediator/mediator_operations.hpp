@@ -21,8 +21,11 @@
 #include <optional>
 #include <string_view>
 
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/context_types.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
@@ -44,9 +47,74 @@ inline constexpr std::uint64_t SHM_WIRE_TRANSPORT_TYPE_ABSENT = 0xFFU;
 
 inline constexpr std::uint64_t SHM_WIRE_PROVIDER_TYPE_ABSENT = 0xFFU;
 
-inline constexpr std::uint64_t SHM_WIRE_PROVIDER_ID_UNBOUND = 0U;
+/// @brief Wire sentinel indicating that no provider ID hint is available.
+///
+/// Provider IDs are zero-based, so zero cannot represent an absent provider.
+inline constexpr std::uint64_t SHM_WIRE_PROVIDER_ID_UNBOUND = common::kInvalidProviderId;
+static_assert(SHM_WIRE_PROVIDER_ID_UNBOUND == score::crypto::kUnboundProviderId);
 
 using OperationAction = common::OperationAction;
+
+/// @brief Classification of a provider ID received through the SHM wire contract.
+enum class ProviderIdHintState : std::uint8_t
+{
+    kBound,    ///< A valid provider ID was supplied.
+    kUnbound,  ///< The explicit unbound sentinel was supplied.
+    kInvalid,  ///< The wire value cannot be represented as a ProviderId.
+};
+
+/// @brief Validated provider ID hint decoded from the SHM wire contract.
+struct ProviderIdHint final
+{
+    ProviderIdHintState state{ProviderIdHintState::kInvalid};
+    common::ProviderId provider_id{common::kInvalidProviderId};
+};
+
+/// @brief Validate and decode a provider ID received as a 64-bit wire value.
+///
+/// The unbound sentinel is reserved and therefore is not a usable provider ID.
+/// Values wider than ProviderId are rejected before narrowing.
+[[nodiscard]] inline constexpr ProviderIdHint DecodeProviderIdHint(const std::uint64_t wire_value) noexcept
+{
+    if (wire_value == SHM_WIRE_PROVIDER_ID_UNBOUND)
+    {
+        return ProviderIdHint{ProviderIdHintState::kUnbound, common::kInvalidProviderId};
+    }
+    if (wire_value > std::numeric_limits<common::ProviderId>::max())
+    {
+        return ProviderIdHint{ProviderIdHintState::kInvalid, common::kInvalidProviderId};
+    }
+    return ProviderIdHint{ProviderIdHintState::kBound, static_cast<common::ProviderId>(wire_value)};
+}
+
+/// @brief Convert provider resolution into a resource/SHM provider hint.
+///
+/// Provider resolution is advisory for resource lookup. Any resolution error
+/// therefore becomes the invalid-provider sentinel instead of failing an
+/// otherwise valid resource resolution.
+[[nodiscard]] inline common::ProviderId ProviderHintOrInvalid(
+    const score::crypto::Expected<common::ProviderId, common::DaemonErrorCode>& provider_result)
+{
+    return provider_result.has_value() ? provider_result.value() : common::kInvalidProviderId;
+}
+
+/// @brief Append a successful key-slot resource response with an advisory provider hint.
+///
+/// A provider-resolution error is encoded as kInvalidProviderId while the
+/// resource response remains successful.
+inline void ReturnResolvedKeySlot(
+    const std::uint64_t node_id,
+    const score::crypto::Expected<common::ProviderId, common::DaemonErrorCode>& provider_result,
+    const common::OperationIdentifier& operation_id,
+    control_plane::protocol::OperationResponseBuilder& response_builder)
+{
+    response_builder.operation(operation_id)
+        .return_value_uint64(node_id)
+        .return_value_uint8(static_cast<std::uint8_t>(score::crypto::ResourceType::kKeySlot))
+        .return_value_bool(true)
+        .return_value_uint16(ProviderHintOrInvalid(provider_result))
+        .return_success();
+}
 
 // ============================================================================
 // Common Mediator Operations

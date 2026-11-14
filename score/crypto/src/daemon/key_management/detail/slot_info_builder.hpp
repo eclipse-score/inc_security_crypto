@@ -21,9 +21,10 @@
 namespace score::crypto::daemon::key_management::detail
 {
 
-inline score::crypto::KeySlotInfo BuildKeySlotInfo(const KeySlotConfig& slot,
-                                                   score::crypto::KeySlotState state,
-                                                   uint16_t primary_provider = 0U) noexcept
+inline score::crypto::KeySlotInfo BuildKeySlotInfo(
+    const KeySlotConfig& slot,
+    score::crypto::KeySlotState state,
+    uint16_t primary_provider = score::crypto::kUnboundProviderId) noexcept
 {
     score::crypto::KeySlotInfo info{};
     info.state = state;

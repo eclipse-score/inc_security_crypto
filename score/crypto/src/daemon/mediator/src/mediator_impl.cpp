@@ -767,9 +767,20 @@ bool MediatorImpl::HandleShmCreateObject(const control_plane::ControlRequest& re
         const auto id_hint = operation.getParameter<std::uint64_t>(2);
 
         std::shared_ptr<provider::IProvider> provider{};
-        if (id_hint.has_value() && id_hint.value() != operations::SHM_WIRE_PROVIDER_ID_UNBOUND)
+        const auto decoded_id_hint = id_hint.has_value()
+                                         ? operations::DecodeProviderIdHint(id_hint.value())
+                                         : operations::ProviderIdHint{operations::ProviderIdHintState::kUnbound,
+                                                                      common::kInvalidProviderId};
+        if (decoded_id_hint.state == operations::ProviderIdHintState::kInvalid)
         {
-            provider = m_provider_manager->GetProvider(static_cast<common::ProviderId>(id_hint.value()));
+            score::mw::log::LogError() << "[SCORE_API_MED] [SHM_SETUP_FAILED] Invalid provider ID hint";
+            responseBuilder.operation(operation.operationId)
+                .return_error(score::crypto::CryptoErrorCode::kInvalidArgument);
+            return false;
+        }
+        if (decoded_id_hint.state == operations::ProviderIdHintState::kBound)
+        {
+            provider = m_provider_manager->GetProvider(decoded_id_hint.provider_id);
         }
         else if (type_hint.has_value() && type_hint.value() != operations::SHM_WIRE_PROVIDER_TYPE_ABSENT)
         {
@@ -910,14 +921,12 @@ void MediatorImpl::RegisterResourceResolvers()
             return false;
         }
 
-        // TODO: How to get the primary provider ?
-        // For now just return 0
-        responseBuilder.operation(op_id)
-            .return_value_uint64(static_cast<uint64_t>(node_id_result.value()))
-            .return_value_uint8(static_cast<uint8_t>(RT::kKeySlot))
-            .return_value_bool(true)  // KeySlots are always persistent
-            .return_value_uint16(0)
-            .return_success();
+        const auto provider_result = m_km_service->ResolveTargetProvider(
+            client_id,
+            common::CryptoProviderType::DEFAULT,
+            std::optional<data_manager::DataNodeId>{node_id_result.value()});
+        operations::ReturnResolvedKeySlot(
+            static_cast<std::uint64_t>(node_id_result.value()), provider_result, op_id, responseBuilder);
         return true;
     };
 
