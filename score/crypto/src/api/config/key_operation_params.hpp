@@ -536,10 +536,18 @@ struct ImportKeyParams
     /// For public keys: DER-encoded SubjectPublicKeyInfo or PEM equivalent.
     score::cpp::span<const uint8_t> key_data{};
 
-    /// @brief Encoding format of key_data: DER (binary ASN.1) or PEM (base64-armored).
-    /// Both formats are meaningful only for asymmetric (public) keys.
-    /// Symmetric keys have no ASN.1 structure and must not be imported via this struct.
-    FormatType format{FormatType::kDer};
+    /// @brief Encoding format of key_data (see FormatType).
+    ///
+    /// std::nullopt (default) selects the native format of the key type:
+    /// - symmetric (AES, HMAC): raw bytes;
+    /// - asymmetric: detected from the data: PEM when it starts with "-----BEGIN"
+    ///   (after optional whitespace), a raw uncompressed point when it starts with
+    ///   0x04 and the algorithm is EC, DER otherwise.
+    ///
+    /// An explicit format is enforced strictly: symmetric keys accept only kRaw,
+    /// asymmetric keys kDer or kPem, and EC public keys also kRaw. Symmetric keys
+    /// must have the exact AES key length, or at least the digest length for HMAC.
+    std::optional<FormatType> format{std::nullopt};
 
     /// @brief Algorithm identifier for the imported key (required).
     AlgorithmId algorithm{};

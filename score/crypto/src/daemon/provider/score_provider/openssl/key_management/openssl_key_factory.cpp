@@ -17,10 +17,13 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_handler.hpp"
 
+#include <openssl/bio.h>         // BIO_new_mem_buf
 #include <openssl/core_names.h>  // OSSL_PKEY_PARAM_GROUP_NAME
 #include <openssl/crypto.h>      // OPENSSL_cleanse
+#include <openssl/err.h>         // ERR_clear_error
 #include <openssl/evp.h>         // EVP_PKEY_CTX, EVP_PKEY_generate
 #include <openssl/params.h>      // OSSL_PARAM
+#include <openssl/pem.h>         // PEM_read_bio_ex
 #include <openssl/rand.h>        // RAND_bytes
 #include <openssl/rsa.h>         // EVP_PKEY_CTX_set_rsa_keygen_bits
 #include <openssl/x509.h>        // d2i_AutoPrivateKey / d2i_PUBKEY
@@ -29,6 +32,9 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iterator>
+#include <limits>
+#include <memory>
 #include <string_view>
 #include <vector>
 
@@ -154,6 +160,60 @@ EvpPkeyPtr BuildEcPublicKeyFromRawPoint(std::string_view group_name,
     return owned_pkey;
 }
 
+constexpr std::string_view kPemBeginMarker = "-----BEGIN ";
+constexpr std::string_view kPemPublicKeyLabel = "PUBLIC KEY";
+constexpr std::string_view kPemEncryptedPrivateKeyLabel = "ENCRYPTED PRIVATE KEY";
+/// PKCS#8 and the traditional SEC1 / PKCS#1 private-key labels.
+constexpr std::string_view kPemPrivateKeyLabels[] = {"PRIVATE KEY", "EC PRIVATE KEY", "RSA PRIVATE KEY"};
+
+constexpr std::string_view kPemWhitespace = " \t\r\n";
+
+/// Frees a buffer returned by PEM_read_bio_ex with PEM_FLAG_SECURE; a non-zero
+/// length also wipes it first.
+struct PemSecureFree
+{
+    long length{0};
+
+    void operator()(void* ptr) const noexcept
+    {
+        if (length > 0)
+        {
+            OPENSSL_secure_clear_free(ptr, static_cast<std::size_t>(length));
+        }
+        else
+        {
+            OPENSSL_secure_free(ptr);
+        }
+    }
+};
+
+/// The format asymmetric key material is parsed as. An explicit request.format
+/// is kept; without one it is detected from the data: PEM for a BEGIN line after
+/// optional whitespace, a raw point for 0x04 on an EC algorithm, DER otherwise.
+/// Detection only picks the parser, so every check after parsing still applies.
+score::crypto::FormatType ResolveAsymmetricFormat(const key_management::KeyImportRequest& request) noexcept
+{
+    if (request.format.has_value())
+    {
+        return request.format.value();
+    }
+    const std::string_view text{
+        reinterpret_cast<const char*>(request.key_data),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        request.key_data_size};
+    const std::size_t first = text.find_first_not_of(kPemWhitespace);
+    if ((first != std::string_view::npos) && (text.substr(first, kPemBeginMarker.size()) == kPemBeginMarker))
+    {
+        return score::crypto::FormatType::kPem;
+    }
+    constexpr std::uint8_t kUncompressedPointTag{0x04U};
+    if ((request.algorithm.key_type == ::score::crypto::KeyType::kEcc) && (request.key_data_size > 0U) &&
+        (request.key_data[0] == kUncompressedPointTag))
+    {
+        return score::crypto::FormatType::kRaw;
+    }
+    return score::crypto::FormatType::kDer;
+}
+
 /// Recover the EVP_PKEY an asymmetric handle refers to.
 ///
 /// The OpenSSL provider stores the EVP_PKEY address in opaque_id (see
@@ -225,20 +285,31 @@ OpenSslKeyFactory::GenerateAsymmetricKey(const key_management::KeyGenerationRequ
 
 OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id){};
 
-::score::crypto::Expected<OpenSslKeyFactory::ParsedDerKey, common::DaemonErrorCode> OpenSslKeyFactory::ParseDerKey(
+::score::crypto::Expected<OpenSslKeyFactory::ParsedDerKey, common::DaemonErrorCode> OpenSslKeyFactory::ParseKey(
     const key_management::KeyImportRequest& request)
+{
+    switch (ResolveAsymmetricFormat(request))
+    {
+        case score::crypto::FormatType::kDer:
+            return ParseDerKey(request.key_data, request.key_data_size);
+        case score::crypto::FormatType::kPem:
+            return ParsePemKey(request.key_data, request.key_data_size);
+        case score::crypto::FormatType::kRaw:
+            break;
+    }
+    score::mw::log::LogError() << kLogPrefix << "ParseKey: only DER or PEM encoded keys are supported here";
+    return ::score::crypto::make_unexpected(common::DaemonErrorCode::kInvalidFormat);
+}
+
+::score::crypto::Expected<OpenSslKeyFactory::ParsedDerKey, common::DaemonErrorCode> OpenSslKeyFactory::ParseDerKey(
+    const std::uint8_t* data,
+    std::size_t size)
 {
     using common::DaemonErrorCode;
 
-    if (request.format != score::crypto::FormatType::kDer)
-    {
-        score::mw::log::LogError() << kLogPrefix << "ParseDerKey: only DER-encoded keys are supported";
-        return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidFormat);
-    }
-
-    const auto* end = request.key_data + request.key_data_size;
-    const unsigned char* cursor = request.key_data;
-    EVP_PKEY* pkey = d2i_AutoPrivateKey(nullptr, &cursor, static_cast<long>(request.key_data_size));
+    const auto* end = data + size;
+    const unsigned char* cursor = data;
+    EVP_PKEY* pkey = d2i_AutoPrivateKey(nullptr, &cursor, static_cast<long>(size));
     bool has_private_half = pkey != nullptr;
 
     if (pkey != nullptr && cursor != end)
@@ -251,8 +322,8 @@ OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provide
 
     if (pkey == nullptr)
     {
-        cursor = request.key_data;
-        pkey = d2i_PUBKEY(nullptr, &cursor, static_cast<long>(request.key_data_size));
+        cursor = data;
+        pkey = d2i_PUBKEY(nullptr, &cursor, static_cast<long>(size));
         if (pkey == nullptr || cursor != end)
         {
             if (pkey == nullptr)
@@ -269,6 +340,91 @@ OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provide
     }
 
     return ParsedDerKey{EvpPkeyPtr{pkey}, has_private_half};
+}
+
+::score::crypto::Expected<OpenSslKeyFactory::ParsedDerKey, common::DaemonErrorCode> OpenSslKeyFactory::ParsePemKey(
+    const std::uint8_t* data,
+    std::size_t size)
+{
+    using common::DaemonErrorCode;
+
+    // PEM_read_bio skips any text before the BEGIN line; refuse it instead, so
+    // the input is exactly one PEM block with optional surrounding whitespace.
+    const std::string_view text{
+        reinterpret_cast<const char*>(data),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        size};
+    const std::size_t first = text.find_first_not_of(kPemWhitespace);
+    if ((first == std::string_view::npos) || (text.substr(first, kPemBeginMarker.size()) != kPemBeginMarker) ||
+        (size > static_cast<std::size_t>(std::numeric_limits<int>::max())))
+    {
+        score::mw::log::LogError() << kLogPrefix << "ParsePemKey: input does not start with a PEM BEGIN line";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidFormat);
+    }
+
+    const std::unique_ptr<BIO, decltype(&BIO_free)> bio{
+        BIO_new_mem_buf(text.data() + first, static_cast<int>(size - first)), &BIO_free};
+    if (!bio)
+    {
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kAllocationFailed);
+    }
+
+    // PEM_FLAG_SECURE keeps the decoded body, which may be a private key, on the
+    // secure heap and wipes it, and the base64 scratch buffers, when freed.
+    char* name = nullptr;
+    char* header = nullptr;
+    unsigned char* body = nullptr;
+    long body_len = 0;
+    if (PEM_read_bio_ex(bio.get(), &name, &header, &body, &body_len, PEM_FLAG_SECURE | PEM_FLAG_EAY_COMPATIBLE) != 1)
+    {
+        ERR_clear_error();
+        score::mw::log::LogError() << kLogPrefix << "ParsePemKey: malformed PEM block";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidFormat);
+    }
+    const std::unique_ptr<char, PemSecureFree> owned_name{name};
+    const std::unique_ptr<char, PemSecureFree> owned_header{header};
+    const std::unique_ptr<unsigned char, PemSecureFree> owned_body{body, PemSecureFree{body_len}};
+
+    // Anything after the END line other than whitespace (e.g. a second block) is refused.
+    char* tail = nullptr;
+    const long tail_len = BIO_get_mem_data(bio.get(), &tail);
+    if ((tail_len > 0) && (std::string_view{tail, static_cast<std::size_t>(tail_len)}.find_first_not_of(
+                               kPemWhitespace) != std::string_view::npos))
+    {
+        score::mw::log::LogError() << kLogPrefix << "ParsePemKey: data after the PEM END line";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidFormat);
+    }
+
+    // RFC 1421 headers (Proc-Type / DEK-Info) only appear on encrypted
+    // legacy keys. No passphrase can be supplied through ImportKey, so
+    // encrypted PEM of either kind is refused rather than decrypted.
+    const std::string_view label{owned_name.get()};
+    if ((owned_header && (owned_header.get()[0] != '\0')) || (label == kPemEncryptedPrivateKeyLabel))
+    {
+        score::mw::log::LogError() << kLogPrefix << "ParsePemKey: encrypted PEM keys are not supported";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidFormat);
+    }
+
+    const bool is_public_label = (label == kPemPublicKeyLabel);
+    const bool is_private_label = std::find(std::begin(kPemPrivateKeyLabels), std::end(kPemPrivateKeyLabels), label) !=
+                                  std::end(kPemPrivateKeyLabels);
+    if (!is_public_label && !is_private_label)
+    {
+        score::mw::log::LogError() << kLogPrefix << "ParsePemKey: unsupported PEM label '" << label << "'";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidFormat);
+    }
+
+    auto parsed = ParseDerKey(owned_body.get(), static_cast<std::size_t>(body_len));
+    if (!parsed.has_value())
+    {
+        return parsed;
+    }
+    if (parsed.value().has_private_half != is_private_label)
+    {
+        score::mw::log::LogError() << kLogPrefix << "ParsePemKey: PEM label '" << label
+                                   << "' does not match the encoded key";
+        return ::score::crypto::make_unexpected(DaemonErrorCode::kInvalidFormat);
+    }
+    return parsed;
 }
 
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode>
@@ -374,6 +530,14 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
             break;
     }
 
+    const auto valid = ValidateSymmetricImport(request);
+    if (!valid.has_value())
+    {
+        score::mw::log::LogError() << kLogPrefix << "ImportKey: " << request.key_data_size
+                                   << " bytes are not a valid raw '" << request.algorithm.name << "' key";
+        return ::score::crypto::make_unexpected(valid.error());
+    }
+
     std::vector<std::uint8_t> key_bytes(request.key_data, request.key_data + request.key_data_size);
 
     auto handle = MakeHandle(m_provider_id, request.algorithm, request.permissions, request.key_data_size, false);
@@ -423,10 +587,10 @@ OpenSslKeyFactory::ImportRsaKey(const key_management::KeyImportRequest& request)
     const std::size_t key_bits = request.algorithm.key_bits;
     const std::size_t modulus_size = (key_bits + 7U) / 8U;
 
-    auto parsed = ParseDerKey(request);
+    auto parsed = ParseKey(request);
     if (!parsed.has_value())
     {
-        score::mw::log::LogError() << kLogPrefix << "ImportRsaKey: could not parse DER key material";
+        score::mw::log::LogError() << kLogPrefix << "ImportRsaKey: could not parse key material";
         return ::score::crypto::make_unexpected(parsed.error());
     }
 
@@ -453,10 +617,10 @@ OpenSslKeyFactory::ImportRsaKey(const key_management::KeyImportRequest& request)
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::ImportEd25519Key(const key_management::KeyImportRequest& request)
 {
-    auto parsed = ParseDerKey(request);
+    auto parsed = ParseKey(request);
     if (!parsed.has_value())
     {
-        score::mw::log::LogError() << kLogPrefix << "ImportEd25519Key: could not parse DER key material";
+        score::mw::log::LogError() << kLogPrefix << "ImportEd25519Key: could not parse key material";
         return ::score::crypto::make_unexpected(parsed.error());
     }
 
@@ -492,15 +656,15 @@ OpenSslKeyFactory::ImportEcKey(const key_management::KeyImportRequest& request)
 
     // A raw import carries only the public half as an uncompressed SEC1 point,
     // so it follows a dedicated path and never claims a private-half permission.
-    if (request.format == score::crypto::FormatType::kRaw)
+    if (ResolveAsymmetricFormat(request) == score::crypto::FormatType::kRaw)
     {
         return ImportRawEcPublicKey(request);
     }
 
-    auto parsed = ParseDerKey(request);
+    auto parsed = ParseKey(request);
     if (!parsed.has_value())
     {
-        score::mw::log::LogError() << kLogPrefix << "ImportEcKey: could not parse DER key material";
+        score::mw::log::LogError() << kLogPrefix << "ImportEcKey: could not parse key material";
         return ::score::crypto::make_unexpected(parsed.error());
     }
 

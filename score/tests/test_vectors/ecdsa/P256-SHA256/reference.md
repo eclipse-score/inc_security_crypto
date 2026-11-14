@@ -38,6 +38,22 @@ this API. The vector is therefore used for *verification*: the published
 signature must verify under the published key, and a signature this stack
 produces must verify too.
 
+## PEM encodings of the positive-case key
+
+Converted from the DER files with OpenSSL 3.0:
+
+| File | Command |
+|------|---------|
+| `siggen_private_key.pem` (PKCS#8) | `openssl pkey -inform DER -in siggen_private_key.der` |
+| `siggen_private_key_sec1.pem` (SEC1, `EC PRIVATE KEY`) | `openssl ec -inform DER -in siggen_private_key.der` |
+| `siggen_public_key.pem` (SPKI) | `openssl pkey -pubin -inform DER -in siggen_public_key.der` |
+| `siggen_private_key_encrypted.pem` | `openssl pkcs8 -topk8 -v2 aes-256-cbc -inform DER -in siggen_private_key.der -passout pass:test` |
+| `siggen_private_key_sec1_encrypted.pem` | `openssl ec -aes256 -inform DER -in siggen_private_key.der -passout pass:test` |
+
+The encrypted files exist only to check that encrypted PEM is refused.
+`../P384-SHA384/siggen_private_key.pem` and `../P384/p384_public_key.pem` are
+made the same way from the DER files next to them.
+
 ## Negative case — `SigVer.rsp`, section `[P-256,SHA-256]`, first `Result = F` record
 
 ```

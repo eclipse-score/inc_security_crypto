@@ -126,7 +126,9 @@ struct KeyImportRequest
     const std::uint8_t* key_data{nullptr};
     std::size_t key_data_size{0U};
     ::score::crypto::AlgorithmDescriptor algorithm{};
-    score::crypto::FormatType format{score::crypto::FormatType::kDer};
+    /// Encoding of key_data; std::nullopt selects the key type's native format
+    /// (see ImportKeyParams::format).
+    std::optional<score::crypto::FormatType> format{std::nullopt};
     score::crypto::KeyOperationPermission permissions{score::crypto::KeyOperationPermission::kAll};
     score::crypto::ExtendedParameters provider_properties{};
 };

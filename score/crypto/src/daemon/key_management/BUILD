@@ -18,7 +18,10 @@ cc_library(
     name = "key_management_operations",
     hdrs = ["interfaces/key_management_operations.hpp"],
     visibility = ["//:__subpackages__"],
-    deps = ["//score/crypto/src/daemon/common"],
+    deps = [
+        "//score/crypto/src/api/types",
+        "//score/crypto/src/daemon/common",
+    ],
 )
 
 # Minimal leaf target: IKeyHandler + key_types only.
@@ -117,6 +120,7 @@ cc_library(
         "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",
