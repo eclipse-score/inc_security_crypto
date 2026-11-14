@@ -31,7 +31,8 @@ Crypto Daemon Component Architecture
    :security: YES
    :belongs_to: feat__security_crypto
    :consists_of: comp__crypto_key_management, comp__crypto_cert_management,
-                 comp__crypto_data_manager, comp__crypto_common_storage
+                 comp__crypto_data_manager, comp__crypto_common_storage,
+                 comp__crypto_mediator
 
 .. comp_arc_sta:: Crypto Daemon Static Architecture
    :id: comp_arc_sta__crypto_daemon__sv
@@ -58,6 +59,7 @@ scoped model.
    :caption: Daemon Subcomponents
 
    ../../src/daemon/cert_management/docs/index
+   ../../src/daemon/mediator/docs/index
    ../../src/daemon/data_manager/docs/index
    ../../src/daemon/common/storage/docs/index
    key_management_architecture

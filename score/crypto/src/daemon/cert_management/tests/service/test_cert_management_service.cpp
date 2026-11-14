@@ -30,13 +30,19 @@
 //     avoid repeated disk reads (certificate cache in CertSlotManager)
 //   - Mediator-style client cleanup isolates clients — purging one leaves the other intact
 //   - UpdateSlot/ClearSlot propagate through the TrustStoreManager anchor cache
+//   - Public-key query writes the key only for the fingerprint the caller presents;
+//     a mismatch is refused and the caller's buffer is left unchanged
 
 #include "score/crypto/src/daemon/cert_management/core/cert_entry.hpp"
 #include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
+#include "score/crypto/src/daemon/cert_management/query/get_certificate_public_key_query.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/cert_slot_manager.hpp"
 #include "score/crypto/src/daemon/cert_management/slot/slot_handler_factory.hpp"
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
+#include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"
 #include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
@@ -45,6 +51,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
@@ -65,6 +72,7 @@ namespace provider = score::crypto::daemon::provider;
 namespace common = score::crypto::daemon::common;
 namespace openssl_ns = score::crypto::daemon::provider::score_provider::openssl;
 namespace storage = score::crypto::daemon::common::storage;
+namespace protocol = score::crypto::daemon::control_plane::protocol;
 
 class TestParserProvider final : public provider::IProvider
 {
@@ -1140,6 +1148,96 @@ TEST_F(CertManagementServiceTest, CrlImport_KeepsCachedCertificate)
     const auto second = slot_manager->LoadCertificate(m_slot_handle, kClientA);
     ASSERT_TRUE(second.has_value());
     EXPECT_EQ(second.value().get(), first.value().get());
+}
+
+// Runs GET_CERTIFICATE_PUBLIC_KEY for the certificate at node_id as client_id. handled receives the query's result.
+auto RunPublicKeyQuery(const cert::CertManagementService::Sptr& service,
+                       dm::ClientId client_id,
+                       std::uint64_t node_id,
+                       score::crypto::span<const std::uint8_t> fingerprint,
+                       score::crypto::span<std::uint8_t> output,
+                       bool& handled)
+{
+    cert::query::GetCertificatePublicKeyQuery query{service};
+    protocol::ControlRequest request{};
+    request.client_id = client_id;
+    protocol::SingleOperationRequest operation{};
+    operation.parameters = common::RequestParameters{node_id, fingerprint, output};
+    protocol::OperationResponseBuilder builder;
+    handled = query.Handle(request, operation, builder);
+    return builder.build();
+}
+
+// The public-key query writes the key of the certificate the snapshot describes, and nothing else.
+TEST_F(CertManagementServiceTest, PublicKeyQueryWritesKeyForMatchingFingerprint)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_mgmt__public_key_export");
+    RecordProperty("Description", "Writes the public key of the certificate whose fingerprint the caller presents.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+    const auto loaded = LoadCert(kClientA);
+    ASSERT_NE(loaded.node_id, 0U);
+    const auto object = loaded.instance->GetCertObject();
+    const auto& meta = object->GetChainMetadata();
+    ASSERT_FALSE(meta.public_key_der.empty());
+
+    const auto fingerprint = meta.fingerprint;
+    std::vector<std::uint8_t> output(meta.public_key_der.size(), 0U);
+    bool handled = false;
+    const auto response =
+        RunPublicKeyQuery(m_service,
+                          kClientA,
+                          loaded.node_id,
+                          score::crypto::span<const std::uint8_t>{fingerprint.data(), fingerprint.size()},
+                          score::crypto::span<std::uint8_t>{output.data(), output.size()},
+                          handled);
+
+    EXPECT_TRUE(handled);
+    ASSERT_TRUE(response.has_value());
+    ASSERT_EQ(response.value().operations.size(), 1U);
+    const auto& operation = response.value().operations.front();
+    EXPECT_EQ(operation.result, protocol::OPERATION_RESULT_SUCCESS);
+    ASSERT_EQ(operation.parameters.size(), 1U);
+    const auto* written = std::get_if<std::uint64_t>(&operation.parameters.front());
+    ASSERT_NE(written, nullptr);
+    EXPECT_EQ(*written, meta.public_key_der.size());
+    EXPECT_EQ(output, meta.public_key_der);
+}
+
+// A fingerprint that does not match the node's certificate is refused, and the caller's buffer is left untouched.
+TEST_F(CertManagementServiceTest, PublicKeyQueryRefusesFingerprintOfAnotherCertificate)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_mgmt__public_key_export");
+    RecordProperty("Description",
+                   "Refuses a fingerprint of another certificate and leaves the caller's buffer unchanged.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+    const auto loaded = LoadCert(kClientA);
+    ASSERT_NE(loaded.node_id, 0U);
+    const auto object = loaded.instance->GetCertObject();
+    const auto& meta = object->GetChainMetadata();
+    ASSERT_FALSE(meta.public_key_der.empty());
+
+    // An all-zero digest is not the SHA-256 fingerprint of the test certificate.
+    const std::array<std::uint8_t, score::crypto::kSha256FingerprintSize> other_fingerprint{};
+    constexpr std::uint8_t kSentinel = 0xAAU;
+    std::vector<std::uint8_t> output(meta.public_key_der.size(), kSentinel);
+    bool handled = true;
+    const auto response =
+        RunPublicKeyQuery(m_service,
+                          kClientA,
+                          loaded.node_id,
+                          score::crypto::span<const std::uint8_t>{other_fingerprint.data(), other_fingerprint.size()},
+                          score::crypto::span<std::uint8_t>{output.data(), output.size()},
+                          handled);
+
+    EXPECT_FALSE(handled);
+    ASSERT_TRUE(response.has_value());
+    ASSERT_EQ(response.value().operations.size(), 1U);
+    EXPECT_EQ(
+        response.value().operations.front().result,
+        static_cast<protocol::OperationResult>(common::ToCryptoErrorCode(common::DaemonErrorCode::kResourceNotFound)));
+    EXPECT_EQ(output, std::vector<std::uint8_t>(output.size(), kSentinel));
 }
 
 }  // namespace

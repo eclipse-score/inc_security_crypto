@@ -17,9 +17,9 @@
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 
 #include "score/span.hpp"
 
@@ -44,7 +44,7 @@ class VerifyExecutor;
 /// Signature encoding: signatures arrive in the fixed-length IEEE P1363 form
 /// r‖s, the stack's wire format on every provider. Providers whose native input
 /// is DER convert at this boundary.
-class ScoreVerifyHandler : public handler::Handler
+class ScoreVerifyHandler : public score::crypto::daemon::common::Handler
 {
   public:
     using Sptr = std::shared_ptr<ScoreVerifyHandler>;
@@ -66,7 +66,7 @@ class ScoreVerifyHandler : public handler::Handler
         common::RequestParameters& request) override;
 
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
-        const handler::InitializationParams& init_params) override;
+        const score::crypto::daemon::common::InitializationParams& init_params) override;
 
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> Reset() override;
 

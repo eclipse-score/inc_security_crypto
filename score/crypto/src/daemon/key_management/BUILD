@@ -65,6 +65,7 @@ cc_library(
         "core/key_entry.hpp",
         "core/key_management_service.hpp",
         "core/key_registry.hpp",
+        "core/key_slot_resource_resolver.hpp",
         # detail/
         "detail/slot_info_builder.hpp",
         # root/
@@ -80,9 +81,14 @@ cc_library(
         "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/config:context_configs",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/common/context:keyed_registry",
+        "//score/crypto/src/daemon/common/context:context_registration",
+        "//score/crypto/src/daemon/common/context:context_mode",
+        "//score/crypto/src/daemon/common/context:resource_resolver",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",
         "//score/crypto/src/daemon/data_manager",
-        "//score/crypto/src/daemon/provider/handler:handler_headers",
+        "//score/crypto/src/daemon/common/context:handler_headers",
     ],
 )
 
@@ -103,6 +109,7 @@ cc_library(
         # core/
         "core/key_management_service.cpp",
         "core/key_registry.cpp",
+        "core/key_slot_resource_resolver.cpp",
         # root/
         "key_management_module.cpp",
     ],
@@ -110,13 +117,16 @@ cc_library(
     linkstatic = True,
     visibility = ["//:__subpackages__"],
     deps = [
+        ":key_handler_iface",
         ":key_management_headers",
         "//score/crypto/src/api/common:crypto_common",
         "//score/crypto/src/api/types:types",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common/context:context_types",
         "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/common:key_compatibility",
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",

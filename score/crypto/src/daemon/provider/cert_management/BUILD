@@ -25,15 +25,3 @@ cc_library(
         "//score/crypto/src/daemon/common",
     ],
 )
-
-# Certificate operation-code allocation table. Depends only on the daemon common
-# types, so consumers of the op codes do not inherit certificate-management headers.
-cc_library(
-    name = "cert_management_operation_codes",
-    hdrs = ["cert_management_operations.hpp"],
-    linkstatic = True,
-    visibility = ["//:__subpackages__"],
-    deps = [
-        "//score/crypto/src/daemon/common",
-    ],
-)

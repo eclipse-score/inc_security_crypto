@@ -13,7 +13,10 @@
 
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 
+#include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/context_types.hpp"
+#include "score/crypto/src/daemon/common/key_compatibility.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_entry.hpp"
 #include "score/crypto/src/daemon/key_management/nodes/key_data_node.hpp"
@@ -21,6 +24,7 @@
 
 #include "score/mw/log/logging.h"
 
+#include <cstdint>
 #include <string_view>
 
 namespace score::crypto::daemon::key_management
@@ -561,6 +565,95 @@ Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyMa
                                << " is neither a KeySlotDataNode nor a KeyDataNode"
                                << " (node_type=" << static_cast<int>(node_type) << ")";
     return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+}
+
+// ---------------------------------------------------------------------------
+// BindAndAuthorize
+// ---------------------------------------------------------------------------
+
+Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyManagementService::BindAndAuthorize(
+    const KeyBindRequest& request)
+{
+    // Refuse before the key is loaded or bound, so a request the key does not
+    // permit cannot make the provider load material it is not allowed to use.
+    const auto required = common::RequiredKeyPermission(request.context_type, request.mode);
+    if (!required.has_value())
+    {
+        // Either the type binds no key at CTX_CREATE, so a key reference on it
+        // is malformed, or this build does not know the type at all. Neither
+        // has a permission to check against, and both are refused rather than
+        // bound unchecked.
+        score::mw::log::LogError() << LOG_PREFIX << "BindAndAuthorize: key binding requested for a context type that"
+                                   << " takes no key or is unknown (context_type=" << request.context_type
+                                   << ", key_node_id=" << request.key_node_id << ")";
+        return score::crypto::make_unexpected(
+            score::crypto::daemon::common::DaemonErrorCode::kKeyOperationNotPermitted);
+    }
+
+    const auto handle = PeekKeyHandle(request.client_id, request.key_node_id);
+    if (!handle.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX
+                                   << "BindAndAuthorize: key lookup failed for key_node_id=" << request.key_node_id;
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
+
+    const auto granted = GrantedPermissionsFor(handle.value(), required.value());
+    if (!score::crypto::HasPermission(granted, required.value()))
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "BindAndAuthorize: key does not permit this operation"
+                                   << " (context_type=" << request.context_type
+                                   << ", key_node_id=" << request.key_node_id
+                                   << ", required=" << static_cast<std::uint32_t>(required.value())
+                                   << ", granted=" << static_cast<std::uint32_t>(granted) << ")";
+        return score::crypto::make_unexpected(
+            score::crypto::daemon::common::DaemonErrorCode::kKeyOperationNotPermitted);
+    }
+
+    // The key must also fit the algorithm: an EC key on another curve, an AES
+    // key of another length, or a key labelled for another operation is refused
+    // here for every provider rather than left to each provider to notice.
+    //
+    // A key slot that is not loaded yet has no material size (0). Its label is
+    // checked now and the length of its material after binding.
+    const auto& key_algorithm = handle.value().algorithm;
+    const std::size_t pre_bind_key_size = handle.value().key_size;
+    if (!request.algorithm.has_value() ||
+        !score::crypto::daemon::common::IsKeyCompatible(request.algorithm.value(), key_algorithm, pre_bind_key_size))
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "BindAndAuthorize: key does not fit the algorithm"
+                                   << " (context_type=" << request.context_type
+                                   << ", key_algorithm=" << key_algorithm.name
+                                   << ", key_node_id=" << request.key_node_id << ")";
+        return score::crypto::make_unexpected(
+            score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+    }
+
+    auto bind_res =
+        BindKeyToContext(request.client_id, request.context_node_id, request.key_node_id, request.provider_id);
+    if (!bind_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX
+                                   << "BindAndAuthorize: key binding failed for key_node_id=" << request.key_node_id;
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
+
+    if (pre_bind_key_size == 0U)
+    {
+        const auto& bound = bind_res.value().key_handler->GetHandle();
+        if (!score::crypto::daemon::common::IsKeyCompatible(request.algorithm.value(), bound.algorithm, bound.key_size))
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "BindAndAuthorize: loaded key does not fit the algorithm"
+                                       << " (context_type=" << request.context_type
+                                       << ", key_algorithm=" << bound.algorithm.name
+                                       << ", key_size=" << bound.key_size
+                                       << ", key_node_id=" << request.key_node_id << ")";
+            return score::crypto::make_unexpected(
+                score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+        }
+    }
+
+    return bind_res.value();
 }
 
 // ---------------------------------------------------------------------------

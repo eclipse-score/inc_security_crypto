@@ -33,7 +33,7 @@ Expected<ResponseParameters, DaemonErrorCode> ScoreRandomHandler::Execute(
 }
 
 Expected<std::monostate, DaemonErrorCode> ScoreRandomHandler::InitializeContext(
-    const handler::InitializationParams& /*init_params*/)
+    const score::crypto::daemon::common::InitializationParams& /*init_params*/)
 {
     // A random context holds no per-request state and binds no key, so there is
     // nothing to set up beyond what the constructor already did.

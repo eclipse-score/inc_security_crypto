@@ -76,6 +76,8 @@ cc_test(
         "//score/crypto/src/daemon/cert_management:cert_management_headers",
         "//score/crypto/src/daemon/cert_management:cert_management_internal_headers",
         "//score/crypto/src/daemon/cert_management:cert_management_runtime_headers",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "//score/crypto/src/daemon/config:config_types",
         "//score/crypto/src/daemon/data_manager",
