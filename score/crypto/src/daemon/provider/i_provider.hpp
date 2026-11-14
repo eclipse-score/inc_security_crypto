@@ -154,8 +154,9 @@ class IProvider
 
     /// Return a handler for a provider-owned certificate storage slot.
     ///
-    /// Returns nullptr when this provider does not implement certificate-slot
-    /// storage. The caller selects the provider by name via slot.storage_backend
+    /// Returns nullptr when this provider does not implement certificate-slot storage, or
+    /// when it cannot honour the slot's configuration (for example, an integrity policy it
+    /// cannot enforce). The caller selects the provider by name via slot.storage_backend
     /// (name-based lookup), NOT via the kCertManagement capability bit. A provider
     /// may implement this method without advertising kCertManagement — that bit
     /// exclusively governs GetCertParser() selection. The supplied parser is the

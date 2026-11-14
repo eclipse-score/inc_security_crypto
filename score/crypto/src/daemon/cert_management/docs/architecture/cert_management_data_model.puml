@@ -50,7 +50,7 @@ package "Configuration (fixed after startup)" {
 package "Immutable values (shared by pointer)" {
   class CertObject #E3F0E6 {
     bytes, format
-    chain metadata:\nsubject, issuer, SKID, AKID,\nfingerprint, validity, isCA
+    chain metadata:\nsubject, issuer, SKID, AKID,\nfingerprint, validity, isCA,\nDER subject, issuer, serial
   }
   class CrlData #E3F0E6 {
     bytes, format
@@ -104,7 +104,8 @@ package "Per client (released with the client's node)" {
 
 package "Persisted (deployment storage)" {
   class "Slot descriptor" as SlotDescriptor #F4E1D2 {
-    [certificate] path, format
+    [certificate] path, format (file slots)
+    [certificate] pkcs11.label, pkcs11.object_id (token slots)
     [certificate_metadata]
     [crl] path, format, metadata
   }
