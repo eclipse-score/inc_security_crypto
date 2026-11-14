@@ -11,11 +11,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
     name = "key_mgmt_executor",
-    srcs = ["src/key_mgmt_executor.cpp"],
+    srcs = [
+        "src/key_mgmt_executor.cpp",
+    ],
     hdrs = [
         "key_mgmt_context.hpp",
         "key_mgmt_executor.hpp",
@@ -26,9 +28,20 @@ cc_library(
         "//score/crypto/tests:__subpackages__",
     ],
     deps = [
+        "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider/handler:handler_headers",
+    ],
+)
+
+cc_test(
+    name = "key_mgmt_request_parser_test",
+    srcs = ["key_mgmt_request_parser_test.cpp"],
+    deps = [
+        ":key_mgmt_executor",
+        "//score/crypto/src/daemon/common",
+        "@googletest//:gtest_main",
     ],
 )

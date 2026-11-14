@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <optional>
 #include <string_view>
 
@@ -85,6 +86,43 @@ TEST(AlgorithmInfoTest, Ed25519SizesAreFixed)
 {
     EXPECT_EQ(kEd25519KeySize, 32U);
     EXPECT_EQ(kEd25519SignatureSize, 64U);
+}
+
+TEST(AlgorithmInfoTest, PqcKeyAlgorithmsUseStandardizedPrivateKeySizes)
+{
+    struct ExpectedKeySize
+    {
+        std::string_view name;
+        std::size_t private_key_size;
+    };
+    // Private-key byte sizes from FIPS 204 (ML-DSA) and FIPS 203 (ML-KEM).
+    constexpr std::array<ExpectedKeySize, 6U> kExpectedSizes{{
+        {"ML-DSA-44", 2560U},
+        {"ML-DSA-65", 4032U},
+        {"ML-DSA-87", 4896U},
+        {"ML-KEM-512", 1632U},
+        {"ML-KEM-768", 2400U},
+        {"ML-KEM-1024", 3168U},
+    }};
+
+    for (const ExpectedKeySize& expected : kExpectedSizes)
+    {
+        SCOPED_TRACE(expected.name);
+        const std::optional<std::size_t> size = LookupKeySize(Row(expected.name));
+        ASSERT_TRUE(size.has_value());
+        EXPECT_EQ(size.value(), expected.private_key_size);
+    }
+}
+
+TEST(AlgorithmInfoTest, KeySizeLookupPreservesClassicalAlgorithmsAndCatalogRejectsUnknownNames)
+{
+    EXPECT_EQ(LookupKeySize(Row("AES-128-CBC")), std::optional<std::size_t>{16U});
+    EXPECT_EQ(LookupKeySize(Row("RSA-3072")), std::optional<std::size_t>{384U});
+    EXPECT_EQ(LookupKeySize(Row("Ed25519")), std::optional<std::size_t>{32U});
+    EXPECT_FALSE(::score::crypto::GetAlgorithmDescriptor("ML-KEM-999").has_value());
+    EXPECT_FALSE(::score::crypto::GetAlgorithmDescriptor("ml-kem-768").has_value());
+    EXPECT_FALSE(::score::crypto::GetAlgorithmDescriptor("UNSUPPORTED_ALGORITHM").has_value());
+    EXPECT_FALSE(::score::crypto::GetAlgorithmDescriptor("").has_value());
 }
 
 }  // namespace

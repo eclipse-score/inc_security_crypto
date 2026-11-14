@@ -13,8 +13,8 @@
 
 /// @file context_operation_error_code_test.cpp
 /// @brief Every context operation that sends a request to the daemon returns
-///        the daemon's error code, and its fallback code only when there is no
-///        daemon verdict.
+///        the daemon's error code. Without a daemon verdict, it returns its
+///        fallback code or preserves the transport error.
 
 #include "score/crypto/src/api/contexts/src/cipher_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/hash_context_impl.hpp"
@@ -354,7 +354,7 @@ std::vector<OperationCase> AllOperations()
                           return ErrorOf(key_mgmt.LoadKey(slot));
                       }},
         OperationCase{"KeyManagement_ImportKey",
-                      CryptoErrorCode::kOperationFailed,
+                      CryptoErrorCode::kConnectionFailed,
                       [in](const auto& connection, const auto& transcoder) {
                           KeyManagementContextImpl key_mgmt{connection, kContextId, transcoder};
                           ImportKeyParams params{};
@@ -363,18 +363,20 @@ std::vector<OperationCase> AllOperations()
                           return ErrorOf(key_mgmt.ImportKey(params));
                       }},
         OperationCase{"KeyManagement_ExportKey",
-                      CryptoErrorCode::kOperationFailed,
+                      CryptoErrorCode::kConnectionFailed,
                       [out](const auto& connection, const auto& transcoder) {
                           KeyManagementContextImpl key_mgmt{connection, kContextId, transcoder};
                           CryptoResourceId key{};
+                          key.id = 7U;
                           key.type = ResourceType::kKey;
                           return ErrorOf(key_mgmt.ExportKey(key, out, FormatType::kDer));
                       }},
         OperationCase{"KeyManagement_GetExportKeySize",
-                      CryptoErrorCode::kOperationFailed,
+                      CryptoErrorCode::kConnectionFailed,
                       [](const auto& connection, const auto& transcoder) {
                           KeyManagementContextImpl key_mgmt{connection, kContextId, transcoder};
                           CryptoResourceId key{};
+                          key.id = 7U;
                           key.type = ResourceType::kKey;
                           return ErrorOf(key_mgmt.GetExportKeySize(key, FormatType::kDer));
                       }},

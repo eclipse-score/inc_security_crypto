@@ -56,6 +56,8 @@ struct Pkcs11AlgoInfo
             return Pkcs11AlgoInfo{CKK_GENERIC_SECRET, CKM_GENERIC_SECRET_KEY_GEN, value_len};
         case ::score::crypto::KeyType::kAes:
             return Pkcs11AlgoInfo{CKK_AES, CKM_AES_KEY_GEN, value_len};
+        case ::score::crypto::KeyType::kMlDsa:
+        case ::score::crypto::KeyType::kMlKem:
         case ::score::crypto::KeyType::kNone:
         case ::score::crypto::KeyType::kEcc:
         case ::score::crypto::KeyType::kRsa:
@@ -109,6 +111,8 @@ struct Pkcs11AlgoInfo
     {
         case ::score::crypto::KeyType::kSecret:
             break;
+        case ::score::crypto::KeyType::kMlDsa:
+        case ::score::crypto::KeyType::kMlKem:
         case ::score::crypto::KeyType::kNone:
         case ::score::crypto::KeyType::kAes:
         case ::score::crypto::KeyType::kEcc:
