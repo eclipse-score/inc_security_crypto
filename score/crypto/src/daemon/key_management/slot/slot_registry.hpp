@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_SLOT_REGISTRY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_SLOT_SLOT_REGISTRY_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
@@ -22,6 +23,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -80,6 +82,8 @@ struct KeyRegistrationParams
     data_manager::DataNodeId parent_id{0U};
     common::ProviderId provider_id{common::kInvalidProviderId};
     SlotHandle slot_handle{};  ///< Non-default only when loading from a slot.
+    /// Catalog row of the only operation the key may serve; std::nullopt means any it fits.
+    std::optional<::score::crypto::AlgorithmDescriptor> permitted_algorithm{};
 };
 
 /// @brief Central registry for all key slot configurations.
