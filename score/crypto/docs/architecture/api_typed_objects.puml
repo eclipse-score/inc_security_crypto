@@ -94,6 +94,21 @@ package "Certificate Objects" {
 }
 
 ' ============================================================
+' Trust-Store Objects
+' ============================================================
+package "Trust-Store Objects" {
+    interface ITrustStoreObject {
+        + GetMembers() : vector<MemberInfo>
+        + FindMember(slot : CryptoResourceId) : const MemberInfo*
+        + FindMemberByFingerprint(fingerprint : span<const uint8_t, kSha256FingerprintSize>) : const MemberInfo*
+        + GetEnabledMemberSlotIds() : vector<CryptoResourceId>
+        + GetDisabledMemberSlotIds() : vector<CryptoResourceId>
+    }
+
+    ITrustStoreObject --|> ICryptoObject : inherits
+}
+
+' ============================================================
 ' Other Objects
 ' ============================================================
 package "Other Objects" {

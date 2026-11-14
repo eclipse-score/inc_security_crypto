@@ -29,7 +29,7 @@ Pkcs11KeyManagementHandler::Pkcs11KeyManagementHandler(std::shared_ptr<Pkcs11Pro
 }
 
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Pkcs11KeyManagementHandler::InitializeContext(
-    const handler::InitializationParams& init_params)
+    const score::crypto::daemon::common::InitializationParams& init_params)
 {
     m_ctx.client_id = init_params.client_id;
     m_ctx.context_node_id = init_params.context_node_id;

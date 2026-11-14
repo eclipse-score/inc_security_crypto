@@ -1,0 +1,97 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml mediator_composition
+title Mediator: Implementation Units and Dependencies
+top to bottom direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor #46535E
+
+package "mediator" {
+  [MediatorImpl\n<size:9>dispatch, forwarding, close</size>] as Mediator #DCEFE2
+  [DecodeContextCreationRequest] as Decoder
+  [HandlerSelector] as Selector
+  [ProviderArbiter] as Arbiter
+  [ContextAssembler] as Assembler
+  [MediatorFactory\n<size:9>builds registries, selector, assembler</size>] as Factory #DCEFE2
+}
+
+package "daemon/common/context" {
+  [Context factory,\nresource resolver and\nmediator query registries\n<size:9>KeyedRegistry</size>] as Registries #FFF0CC
+  interface IMediatorRegistrar #DCEBFA
+  [Context-scope\ncapability table] as Selection #FFF0CC
+  [ContextDataNode] as ContextNode
+  interface Handler #DCEBFA
+  [InitializationParams] as InitParams #FFF0CC
+}
+
+package "daemon/key_management" {
+  [KeyManagementService] as KeyMgmt
+  [KeyManagementModule] as KeyModule
+}
+
+package "daemon/provider" {
+  [ProviderManager] as Providers
+  interface IProvider #DCEBFA
+  interface ICryptoHandlerFactory #DCEBFA
+}
+
+package "daemon/data_manager" {
+  interface IDataManager #DCEBFA
+}
+
+Mediator --> Decoder : CTX_CREATE parameters
+Mediator --> Selector
+Mediator --> Assembler
+Mediator --> IDataManager : forwarding, close
+Mediator --> Registries : looks up, read-only
+
+Factory ..> Mediator : creates
+Factory --> Registries : builds
+Factory --> IMediatorRegistrar : calls Register
+Factory ..> Selector : builds once
+Factory ..> Arbiter : builds once
+Factory ..> Assembler : builds once
+KeyModule ..|> IMediatorRegistrar
+KeyModule --> KeyMgmt
+
+Decoder ..> Selection
+
+Selector --> Registries : factory lookup
+Selector --> Arbiter : provider-served types
+Arbiter --> Providers
+Arbiter --> KeyMgmt : key affinity
+Arbiter ..> ICryptoHandlerFactory : creates handler
+Providers --> IProvider : registers
+IProvider ..> ICryptoHandlerFactory : provides
+
+Assembler --> IDataManager : context node
+Assembler --> KeyMgmt : bind and authorize
+Assembler ..> ContextNode : creates
+Assembler ..> Handler : initializes
+Assembler ..> InitParams : builds
+
+ContextNode --> Handler : holds
+
+legend bottom
+  |= Fill |= Role |
+  |<#DCEFE2> | Request dispatch |
+  |<#DCEBFA> | Contracts supplied by other components |
+  |<#FFF0CC> | Provider-neutral values and policy tables |
+  |<#FFFFFF> | Implementation unit |
+endlegend
+
+@enduml

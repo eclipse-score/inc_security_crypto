@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/key_management/key_management_module.hpp"
 
+#include "score/crypto/src/daemon/key_management/core/key_slot_resource_resolver.hpp"
 #include "score/crypto/src/daemon/key_management/slot/config_driven_slot_catalog.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
 
@@ -74,6 +75,12 @@ KeyManagementService::Sptr KeyManagementModule::GetService() const
 provider::ProviderManager::Sptr KeyManagementModule::GetProviderManager() const
 {
     return m_provider_manager;
+}
+
+bool KeyManagementModule::Register(common::MediatorRegistries& registries) const
+{
+    return registries.resource_resolvers.Register(score::crypto::ResourceType::kKeySlot,
+                                                  std::make_shared<KeySlotResourceResolver>(m_service));
 }
 
 }  // namespace score::crypto::daemon::key_management

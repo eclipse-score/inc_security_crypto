@@ -207,4 +207,27 @@ TEST(AlgorithmCatalogTest, KeyRowsAreNotOperations)
     }
 }
 
+TEST(AlgorithmCatalogTest, FindKeyAlgorithmMatchesRsaByModulusLength)
+{
+    const auto rsa = score::crypto::FindKeyAlgorithm(score::crypto::KeyType::kRsa, 2048U, EccCurve::kNone);
+    ASSERT_TRUE(rsa.has_value());
+    EXPECT_EQ(rsa->name, "RSA-2048");
+    EXPECT_FALSE(score::crypto::FindKeyAlgorithm(score::crypto::KeyType::kRsa, 1024U, EccCurve::kNone).has_value());
+}
+
+TEST(AlgorithmCatalogTest, FindKeyAlgorithmMatchesEllipticCurveByCurve)
+{
+    const auto p256 = score::crypto::FindKeyAlgorithm(score::crypto::KeyType::kEcc, 0U, EccCurve::kP256);
+    ASSERT_TRUE(p256.has_value());
+    EXPECT_EQ(p256->name, "ECDSA-P256");
+    EXPECT_FALSE(score::crypto::FindKeyAlgorithm(score::crypto::KeyType::kEcc, 0U, EccCurve::kNone).has_value());
+}
+
+TEST(AlgorithmCatalogTest, FindKeyAlgorithmMatchesEd25519ByFamily)
+{
+    const auto ed25519 = score::crypto::FindKeyAlgorithm(score::crypto::KeyType::kEd25519, 0U, EccCurve::kNone);
+    ASSERT_TRUE(ed25519.has_value());
+    EXPECT_EQ(ed25519->name, "Ed25519");
+}
+
 }  // namespace

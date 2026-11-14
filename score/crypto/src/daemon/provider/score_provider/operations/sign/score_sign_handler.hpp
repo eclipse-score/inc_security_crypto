@@ -17,9 +17,9 @@
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 
 #include "score/span.hpp"
 
@@ -46,7 +46,7 @@ class SignExecutor;
 /// Signature encoding: this stack uses the fixed-length IEEE P1363 form r‖s for
 /// ECDSA on every provider, so a signature produced by one provider verifies
 /// under another. Providers whose native output is DER convert at this boundary.
-class ScoreSignHandler : public handler::Handler
+class ScoreSignHandler : public score::crypto::daemon::common::Handler
 {
   public:
     using Sptr = std::shared_ptr<ScoreSignHandler>;
@@ -68,7 +68,7 @@ class ScoreSignHandler : public handler::Handler
         common::RequestParameters& request) override;
 
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
-        const handler::InitializationParams& init_params) override;
+        const score::crypto::daemon::common::InitializationParams& init_params) override;
 
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> Reset() override;
 

@@ -71,7 +71,7 @@ Client -> Med : HandleSingleOperation\n(OP_ACTOR_MEDIATOR, RESOLVE_RESOURCE)\npa
 activate Med
 
 Med -> Med : HandleMediatorOperation()\n→ HandleResourceResolutionOperation()
-Med -> Med : look up resolver for kKeySlot\n(registered in RegisterResourceResolvers)
+Med -> Med : look up resolver for kKeySlot\n(KeySlotResourceResolver, registered by KeyManagementModule)
 
 Med -> KCM : ResolveAppResource(slot_name, client_id)
 note right : ResolveSlot + AccessPolicyEnforcer::CheckSlotAccess

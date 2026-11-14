@@ -20,12 +20,15 @@
 #include <memory>
 #include <thread>
 #include <utility>
+#include <vector>
 
+#include "score/crypto/src/daemon/cert_management/cert_management_module.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/basic_handler_chain_factory.hpp"
 #include "score/crypto/src/daemon/control_plane/i_control_server.h"
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"
 #include "score/crypto/src/daemon/key_management/key_management_module.hpp"
+#include "score/crypto/src/daemon/mediator/mediator_factory.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager_factory.hpp"
 #include "score/crypto/src/ipc/grpc_adapter/grpc_control_server.h"
 #include "score/crypto/src/ipc/ipc_config.h"
@@ -75,7 +78,7 @@ int main(int argc, char** argv)
                                    << " (error code: " << static_cast<int>(provider_manager_result.error()) << ")";
         return 1;
     }
-    auto provider_manager = std::move(*provider_manager_result);
+    auto provider_manager = std::move(provider_manager_result).value();
 
     // Create data manager
     auto data_manager = std::make_shared<score::crypto::daemon::data_manager::DataManager>();
@@ -84,13 +87,42 @@ int main(int argc, char** argv)
     // config; the module decides what that means for its operations.
     auto key_mgmt_module = score::crypto::daemon::key_management::KeyManagementModule::Create(
         data_manager, provider_manager, config.GetKeyConfig());
+    if (!key_mgmt_module)
+    {
+        score::mw::log::LogError() << "Failed to initialize key management";
+        return 1;
+    }
+
+    // Initialize certificate management. A named parser provider must resolve during startup; otherwise the parser
+    // is resolved on first use.
+    auto cert_mgmt_module = score::crypto::daemon::cert_management::CertManagementModule::Create(
+        data_manager, provider_manager, config.GetCertificateConfig());
+    if (!cert_mgmt_module)
+    {
+        score::mw::log::LogError() << "Failed to initialize certificate management";
+        return 1;
+    }
+
+    // Create the mediator. Each subsystem that takes part registers its entries during creation;
+    // a rejected registration is a startup failure.
+    std::vector<score::crypto::daemon::common::IMediatorRegistrar::Sptr> mediator_registrars;
+    mediator_registrars.push_back(key_mgmt_module);
+    mediator_registrars.push_back(cert_mgmt_module);
+    auto mediator_result = score::crypto::daemon::mediator::MediatorFactory::Create(
+        data_manager, provider_manager, key_mgmt_module->GetService(), mediator_registrars);
+    if (!mediator_result.has_value())
+    {
+        score::mw::log::LogError() << "Failed to create mediator"
+                                   << " (error code: " << static_cast<int>(mediator_result.error()) << ")";
+        return 1;
+    }
+    auto mediator = std::move(mediator_result).value();
 
     // Set HandlerChainFactory to be used by IControlServer
     auto handler_factory = std::make_unique<score::crypto::daemon::control_plane::BasicHandlerChainFactory>(
-        data_manager,                                              // Shared thread-safe data manager
-        provider_manager,                                          // Shared thread-safe provider manager
-        config,                                                    // Config by reference (outlives factory)
-        key_mgmt_module ? key_mgmt_module->GetService() : nullptr  // Key management service
+        data_manager,  // Shared thread-safe data manager
+        config,        // Config by reference (outlives factory)
+        mediator       // Shared mediator for all handler chains
     );
 
     std::unique_ptr<score::crypto::daemon::control_plane::IControlServer> server =

@@ -127,8 +127,9 @@ Rejected Ideas
   certificate slots, keeping the deployment model uniform across all
   anchor types.
 * **``ICertFactory`` / ``ICertHandler``** — rejected; cert context
-  operations (verify, CSR, convert, key-extract) live inside context
-  handlers created by ``ICryptoHandlerFactory``. A separate factory
+  operations (verify, CSR, key-extract) live inside context handlers created
+  by ``ICryptoHandlerFactory``. Parsing, encoding and format conversion use
+  ``ICertParser`` through the certificate management context. A separate factory
   interface would duplicate handler lifecycle management.
 * **Separate ``CrlRegistry``** — rejected; CRL data is co-located with its
   CA cert slot in the KV descriptor. A standalone registry would require

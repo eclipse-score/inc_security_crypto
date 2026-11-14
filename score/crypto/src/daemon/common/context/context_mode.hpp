@@ -11,8 +11,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_MODE_HPP
-#define SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_MODE_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_CONTEXT_MODE_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_CONTEXT_MODE_HPP
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
@@ -139,4 +139,4 @@ inline constexpr std::size_t kSignatureInputModeParamIndex = 6U;
 
 }  // namespace score::crypto::daemon::common
 
-#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_MODE_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_COMMON_CONTEXT_CONTEXT_MODE_HPP

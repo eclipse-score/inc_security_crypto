@@ -19,6 +19,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -203,6 +204,13 @@ enum class CryptoProviderType : std::uint8_t
     HARDWARE,     ///< Hardware-based crypto provider (TPM, HSM)
     SOFTWARE,     ///< Software-based crypto provider
     SPECIALIZED,  ///< Specialized provider for specific operations
+};
+
+/// @brief Client-requested provider type: a primary choice and an optional fallback.
+struct ProviderTypePreference final
+{
+    CryptoProviderType primary;                  ///< Preferred provider type.
+    std::optional<CryptoProviderType> fallback;  ///< Alternative provider type the client accepts, if any.
 };
 
 inline CryptoProviderType CryptoProviderTypeFromString(const std::string& typeStr)

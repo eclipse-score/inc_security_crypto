@@ -434,24 +434,26 @@ Consequences
 
 ---
 
-Provider Boundary: Parsing Only; No Private Key or HSM Handle Crossing
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Provider Boundary: Parser Operations Only; No Private Key or HSM Handle Crossing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. dec_rec:: Provider Boundary — Parsing Only; No Private Key or HSM Handle Crossing
+.. dec_rec:: Provider Boundary — Parser Operations Only; No Private Key or HSM Handle Crossing
    :id: dec_rec__crypto_cert_mgmt__provider_boundary
    :version: 1
    :status: accepted
    :context: doc__crypto_cert_management_architecture
-   :decision: The certificate management component receives DER or PEM bytes from a provider via ``ICertParser`` and stores an immutable ``CertObject`` value. Provider-specific handles (PKCS#11 object handles, HSM references), raw private keys, and provider internal types do not cross the certificate management boundary in either direction.
+   :decision: The certificate management component delegates certificate parsing, encoding and CRL validation to the provider's ``ICertParser``. It passes certificate bytes in and stores the immutable ``CertObject`` value returned, and it passes ``CertObject`` values back for encoding and CRL validation. Provider-specific handles (PKCS#11 object handles, HSM references), raw private keys, and provider internal types do not cross the certificate management boundary in either direction.
 
    .. :affects: comp__crypto_cert_management
 
 The certificate management core interacts with providers through one narrow
-interface: ``ICertParser::ParseCertificate`` converts raw bytes into an
-immutable ``CertObject`` value. No provider handle, HSM reference, or raw
-private key enters or leaves the core component. Provider context handlers
-(verification, CSR generation, format conversion) are separate objects created
-by the provider factory; they do not share types with the storage layer.
+interface, ``ICertParser``, which has four operations: ``ParseCertificate``,
+``ParseCertificates``, ``EncodeCertificate``, and ``ValidateCrl``.
+``ParseCertificate`` converts raw bytes into an immutable ``CertObject`` value.
+No provider handle, HSM reference, or raw private key enters or leaves the core
+component. Provider context handlers (verification and CSR generation) are
+separate objects created by the provider factory; they do not share types with
+the certificate management core.
 
 Context
 -------
@@ -486,9 +488,10 @@ provider-crossing interface (option 2) was selected. ``CertObject`` contains:
 
 ``ICertFactory``, ``ICertHandler``, ``ICertLoader``, and ``ProviderCertHandle``
 were considered during early design and are not part of the
-implementation. Cert context operations (verify, CSR, convert, key extract)
-belong inside handlers created by ``ICryptoHandlerFactory::CreateHandler``; they
-are not responsibilities of the storage component.
+implementation. Cert context operations (verify, CSR, key extract) belong inside
+handlers created by ``ICryptoHandlerFactory::CreateHandler``; they are not
+responsibilities of the storage component. Parsing, encoding and format
+conversion use ``ICertParser`` through the certificate management context.
 
 For CSR generation, signing requires the private key to remain inside the
 provider that owns it. The CSR handler therefore obtains a signature over the
@@ -583,15 +586,18 @@ Option 3 was selected. ``SlotHandlerFactory`` resolves the parser as follows:
 * When it is empty, the provider selected for the certificate-management
   capability supplies the parser.
 
-Resolution is lazy on first slot-handler creation. ``Initialize()`` resolves
+Resolution is lazy unless a parser provider is named. ``Initialize()`` resolves
 eagerly and returns the resolution error without exposing the parser, so a
-caller can fail fast at startup; ``CertManagementModule::Create`` invokes it only
-when a parser provider is explicitly configured, and returns no module when that
-configured provider cannot be honoured. A successful parser is cached by the shared
-factory. A failed resolution is not cached, so a later call
-retries once the provider set is complete. ``SlotHandlerFactory::Create`` returns
-the resolution error without creating a handler when no parser is available;
-the slot manager caches only successfully created handlers.
+caller can fail fast at startup. ``CertManagementModule::Create`` invokes it only
+when a parser provider is named, and returns no module when resolution fails; the
+startup policy for that outcome is recorded in
+``dec_rec__crypto__module_startup_policy``. Otherwise the first slot-handler creation
+or CERT:MANAGEMENT context creation resolves the parser. A successful parser is
+cached by the shared factory. A failed resolution is not cached, so a later call
+retries once the provider set is complete. ``SlotHandlerFactory::Create`` and
+CERT:MANAGEMENT context creation return the resolution error without creating a
+handler when no parser is available; the slot manager caches only successfully
+created handlers.
 
 Context provider hints remain meaningful for context-scoped capabilities such as
 path validation and CSR generation. They do not select the parser.
@@ -605,17 +611,18 @@ Consequences
   trust-store matching, slot caching, and anchor deduplication stay consistent.
 * The parsing authority is a deployment decision rather than a compile-time one,
   without naming a concrete provider in the component.
-* An explicitly configured parser provider that cannot be honoured is a startup
-  failure, not a silent substitution.
+* A pinned parser provider that cannot be honoured is a startup failure, not a
+  silent substitution.
 * Parser resolution costs one provider lookup for the life of the component.
 
 **Negative:**
 
-* When no parser provider is configured and no provider offers the
-  certificate-management capability, startup remains available but slot-handler
-  creation fails. Operations requiring a slot handler, including slot state and
-  writes, report the creation error even when they do not parse content. A later
-  request retries creation; no restricted handler is cached.
+* When no parser provider is named and no provider offers the certificate-management
+  capability at startup, startup remains available. CERT:MANAGEMENT context creation
+  and slot-handler creation fail with the resolution error until a provider is
+  available. Operations that need a slot handler, including slot state and writes,
+  report that error even when they do not parse content. Each request retries
+  resolution; no restricted handler is cached.
 * Because failed resolution is not cached, the diagnostic for a missing
   certificate-management provider is emitted on each attempt rather than once.
 * A client cannot request a particular provider's parsing behaviour. Deployments
@@ -759,3 +766,57 @@ Consequences
   disabled after a restart.
 * The persistence requirement ``comp_req__crypto_cert_management__persistence`` is met only for
   stores with a deployment path.
+
+---
+
+Public Key Bytes Are Fetched on Export, Not Carried in the Certificate Snapshot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. dec_rec:: Public Key Bytes Are Fetched on Export, Not Carried in the Certificate Snapshot
+   :id: dec_rec__crypto_cert_mgmt__public_key_export
+   :version: 1
+   :status: accepted
+   :context: doc__crypto_cert_management_architecture
+   :decision: The certificate object view carries the public key's length and algorithm name in its snapshot. The key bytes are requested from the daemon when the caller exports them, into the caller's buffer, and the request carries the fingerprint the snapshot describes. The daemon refuses the request when the node no longer holds that certificate.
+
+   .. :affects: comp__crypto_cert_management
+
+Context
+-------
+
+A certificate view is a snapshot taken when it is created. It has no connection to the daemon, and
+the control plane bounds the size of a response payload. The public key of a certificate ranges from
+about 90 bytes for a P-256 key to about 2 KB for ML-DSA-65, so carrying the bytes in the metadata
+response would make lookups depend on key size and on that bound. Fetching the bytes when the view
+is created would add a round trip to every lookup. A slot can be rewritten after a view is created,
+so a request by node id alone could return the key of a different certificate than the snapshot
+describes.
+
+Decision
+--------
+
+* The metadata response carries the key length and the algorithm name. The view answers the size and
+  algorithm queries from the snapshot.
+* ExportPublicKey sends GET_CERTIFICATE_PUBLIC_KEY with the node id, the fingerprint from the
+  snapshot, and the caller's buffer. The daemon writes the key into the buffer only when the
+  fingerprint matches.
+* ExportPublicKey is the only method of the view that makes a daemon request. The other methods read
+  the snapshot.
+
+Consequences
+------------
+
+**Positive:**
+
+* Lookups do not depend on key size, and creating a view needs no request beyond the metadata
+  lookup.
+* Export writes straight into the caller's buffer, so the library allocates nothing for the key.
+* A key is returned only for the certificate the snapshot describes.
+
+**Negative:**
+
+* Export makes a daemon request, so it fails with the daemon's error when the node has been
+  released.
+* Reading a key costs one request per export, so the view is no longer free of IPC for this method.
+
+The requirement ``comp_req__crypto_cert_mgmt__public_key_export`` is met by this decision.
