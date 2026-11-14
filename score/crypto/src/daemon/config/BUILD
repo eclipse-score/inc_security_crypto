@@ -86,3 +86,12 @@ cc_library(
         "//score/crypto/src/daemon/common",
     ],
 )
+
+cc_test(
+    name = "provider_policy_unit_test",
+    srcs = ["src/provider_policy_test.cpp"],
+    deps = [
+        ":config",
+        "@googletest//:gtest_main",
+    ],
+)
