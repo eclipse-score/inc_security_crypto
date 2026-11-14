@@ -141,7 +141,7 @@ cc_test(
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
-        "//score/crypto/tests/softhsm:softhsm_test_fixture",
+        "//score/crypto/tests/pkcs11:pkcs11_test_fixture",
         "@googletest//:gtest_main",
     ],
 )

@@ -13,14 +13,30 @@
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
-# Header-only fixture shared by all SoftHSM-based integration tests.
+# Lightweight environment setup helper
 cc_library(
-    name = "softhsm_test_fixture",
-    hdrs = ["softhsm_test_fixture.hpp"],
+    name = "pkcs11_test_env_setup",
+    testonly = True,
+    hdrs = ["pkcs11_test_env_setup.hpp"],
     includes = ["."],
     visibility = ["//:__subpackages__"],
     deps = [
-        "//third_party/soft_hsm:softhsm_shared",
+        "//score/tests/utility",
+        "@googletest//:gtest",
+    ],
+)
+
+# Vendor-neutral PKCS#11 test fixture supporting interchangeable backends
+# (SoftHSM2, Rust Cryptoki, or dynamic loader) via active_pkcs11_backend.
+cc_library(
+    name = "pkcs11_test_fixture",
+    testonly = True,
+    hdrs = ["pkcs11_test_fixture.hpp"],
+    includes = ["."],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":pkcs11_test_env_setup",
+        "//score/crypto/src/backend:active_pkcs11_backend",
         "@googletest//:gtest",
     ],
 )
