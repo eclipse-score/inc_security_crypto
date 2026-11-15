@@ -364,7 +364,6 @@ git_override(
     commit = "1c3aca517a9af681b2c114c994340fe647cddbd7",
     remote = "https://github.com/eclipse-score/qnx_unit_tests.git",
 )
-
 bazel_dep(name = "score_itf", version = "0.7.0", dev_dependency = True)
 
 # Provide the tools from the devcontainer to Bazel
