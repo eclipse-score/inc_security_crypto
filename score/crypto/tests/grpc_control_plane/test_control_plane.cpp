@@ -141,7 +141,12 @@ class ControlPlaneTest : public ::testing::Test
         namespace ipc = score::crypto::ipc;
 
         // Generate unique socket path for this test
-        _socket_path = "/tmp/test_crypto_" + std::to_string(getpid()) + "_" +
+#ifdef __QNXNTO__
+        constexpr auto socket_path_prefix = "/opt/test_crypto_";
+#else
+        constexpr auto socket_path_prefix = "/tmp/test_crypto_";
+#endif
+        _socket_path = socket_path_prefix + std::to_string(getpid()) + "_" +
                        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".sock";
 
         // Create default config for testing
