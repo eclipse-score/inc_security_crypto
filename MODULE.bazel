@@ -357,7 +357,6 @@ bazel_dep(name = "bazel_skylib", version = "1.9.2")
 bazel_dep(name = "googletest", version = "1.18.0")
 
 bazel_dep(name = "score_qnx_unit_tests", version = "0.3.0", dev_dependency = True)
-
 bazel_dep(name = "score_itf", version = "0.7.0", dev_dependency = True)
 
 # Provide the tools from the devcontainer to Bazel

@@ -140,8 +140,16 @@ class ControlPlaneTest : public ::testing::Test
         // Namespace alias to avoid conflicts with unistd.h daemon() function
         namespace ipc = score::crypto::ipc;
 
-        // Generate unique socket path for this test
-        _socket_path = "/tmp/test_crypto_" + std::to_string(getpid()) + "_" +
+        // Generate unique socket path for this test. On QNX /tmp is a /dev/shmem
+        // symlink that cannot host a Unix socket file (bind() fails), so use /opt
+        // there, matching score/crypto/src/ipc/ipc_config.h. Keep /tmp elsewhere:
+        // TEST_TMPDIR paths exceed the gRPC sun_path length limit on Linux CI.
+#ifdef __QNXNTO__
+        const std::string socket_dir = "/opt";
+#else
+        const std::string socket_dir = "/tmp";
+#endif
+        _socket_path = socket_dir + "/test_crypto_" + std::to_string(getpid()) + "_" +
                        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".sock";
 
         // Create default config for testing
