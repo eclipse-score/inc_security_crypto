@@ -261,6 +261,7 @@ cc_library(
         "//score/crypto/src/daemon:__pkg__",
         "//score/crypto/src/daemon:__subpackages__",
         "//score/crypto/tests/cert_management:__pkg__",
+        "//score/crypto/tests/mediator:__pkg__",
     ],
     linkstatic = True,
     deps = [
@@ -384,6 +385,7 @@ cc_library(
         "//score/crypto/src/daemon:__pkg__",
         "//score/crypto/src/daemon:__subpackages__",
         "//score/crypto/tests/cert_management:__pkg__",
+        "//score/crypto/tests/mediator:__pkg__",
     ],
     deps = [
         ":cert_management_headers",
