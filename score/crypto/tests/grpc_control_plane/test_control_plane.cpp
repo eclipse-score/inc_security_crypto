@@ -14,13 +14,19 @@
 #include <gtest/gtest.h>
 #include <unistd.h>
 
+#include <sys/un.h>
+
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/control_plane/connection_factory.hpp"
@@ -132,6 +138,43 @@ class TestRequestHandlerFactory : public score::crypto::daemon::control_plane::I
 
 }  // namespace score::crypto::test
 
+// Build a unique Unix socket path that fits in sockaddr_un::sun_path (107 usable
+// characters). Candidate directories are tried in order and the first that fits is used:
+//  - QNX: /tmp is a /dev/shmem symlink and cannot host a socket file, so use $TEST_TMPDIR
+//    (set by the QNX test runner) or /opt.
+//  - Linux: /tmp first; $TEST_TMPDIR under Bazel is a sandbox path too long for sun_path.
+std::string MakeSocketPath()
+{
+    const char* test_tmpdir = std::getenv("TEST_TMPDIR");
+    std::vector<std::string> dirs;
+#ifdef __QNXNTO__
+    if (test_tmpdir != nullptr && test_tmpdir[0] != '\0')
+    {
+        dirs.emplace_back(test_tmpdir);
+    }
+    dirs.emplace_back("/opt");
+#else
+    dirs.emplace_back("/tmp");
+    if (test_tmpdir != nullptr && test_tmpdir[0] != '\0')
+    {
+        dirs.emplace_back(test_tmpdir);
+    }
+#endif
+
+    const auto suffix = "/test_crypto_" + std::to_string(getpid()) + "_" +
+                        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".sock";
+    constexpr std::size_t kMaxSocketPathLength = sizeof(sockaddr_un::sun_path) - 1;
+    for (const auto& dir : dirs)
+    {
+        if (dir.size() + suffix.size() <= kMaxSocketPathLength)
+        {
+            return dir + suffix;
+        }
+    }
+    throw std::runtime_error("No directory fits a Unix socket path within " +
+                             std::to_string(kMaxSocketPathLength) + " characters");
+}
+
 class ControlPlaneTest : public ::testing::Test
 {
   protected:
@@ -140,14 +183,7 @@ class ControlPlaneTest : public ::testing::Test
         // Namespace alias to avoid conflicts with unistd.h daemon() function
         namespace ipc = score::crypto::ipc;
 
-        // Generate unique socket path for this test
-#ifdef __QNXNTO__
-        constexpr auto socket_path_prefix = "/opt/test_crypto_";
-#else
-        constexpr auto socket_path_prefix = "/tmp/test_crypto_";
-#endif
-        _socket_path = socket_path_prefix + std::to_string(getpid()) + "_" +
-                       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".sock";
+        _socket_path = MakeSocketPath();
 
         // Create default config for testing
         score::crypto::daemon::config::Config config;
