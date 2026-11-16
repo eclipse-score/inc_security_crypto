@@ -110,7 +110,7 @@ class IPCConfig
     }
 
   private:
-    std::string m_endpoint;
+    std::string m_endpoint{kDefaultEndpoint};
 };
 
 /**

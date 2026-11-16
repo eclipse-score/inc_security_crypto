@@ -131,13 +131,10 @@ bool Config::ParseCertManagementSection(const ConfigFile& file)
 
 bool Config::ParseIpcSection(const ConfigFile& file)
 {
-    // TODO: For now we simply set the default endpoint.
+    // TODO: For now, we simply set the default endpoint, which is already handled by IPCConfig's default ctor.
     // Once we implement the full config concept,
     // we can extend the fbs file with all IPC-related settings and parse them here.
     static_cast<void>(file);
-
-    m_ipc.SetEndpoint(IPCConfig::kDefaultEndpoint);
-
     return true;
 }
 
