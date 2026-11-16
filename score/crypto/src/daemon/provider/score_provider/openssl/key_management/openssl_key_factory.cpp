@@ -90,13 +90,26 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
 ::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
 {
-    return ExportEcPublicKey(handle, format);
+    if (IsEcKeySupported(handle.algorithm))
+    {
+        return ExportEcPublicKey(handle, format);
+    }
+
+    score::mw::log::LogError() << kLogPrefix << "ExportKey: no export for algorithm '" << handle.algorithm.name << "'";
+    return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
 }
 
 ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
 OpenSslKeyFactory::GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
 {
-    return GetEcPublicKeyExportSize(handle, format);
+    if (IsEcKeySupported(handle.algorithm))
+    {
+        return GetEcPublicKeyExportSize(handle, format);
+    }
+
+    score::mw::log::LogError() << kLogPrefix << "GetExportKeySize: no export for algorithm '" << handle.algorithm.name
+                               << "'";
+    return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
 }
 
 }  // namespace score::crypto::daemon::provider::openssl

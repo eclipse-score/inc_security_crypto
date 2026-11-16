@@ -46,26 +46,39 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     OpenSslKeyFactory(OpenSslKeyFactory&&) = delete;
     OpenSslKeyFactory& operator=(OpenSslKeyFactory&&) = delete;
 
-    /// Generate a key of the family of the request.algorithm row.
+    /// Generate a key of the family that claims the request.algorithm row.
+    ///
+    /// @param request Catalog row and permissions of the key to generate.
+    /// @return The generated key, kUnsupportedAlgorithm when no family claims the row,
+    ///         or the error of the family that claims it.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
-    /// Import raw symmetric key material, or a DER-encoded key pair or public key.
+    /// Import raw symmetric key material, a DER-encoded key pair or public key, or a raw EC public point.
+    ///
+    /// @param request Key material, its format, catalog row and permissions.
+    /// @return The imported key, kInvalidArgument when request.key_data is null or empty,
+    ///         kUnsupportedAlgorithm when no family claims the row, or the error of the family that claims it.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const key_management::KeyImportRequest& request) override;
 
     /// Export an EC public key as the raw uncompressed SEC1 point 0x04||X||Y.
     ///
-    /// Only FormatType::kRaw on an EC key is supported; see ExportEcPublicKey()
-    /// for the errors. The export is gated by kExport on the public-half permissions.
+    /// @param handle Handle of the key to export.
+    /// @param format Requested export format; only kRaw is supported.
+    /// @return The point, kUnsupportedOperation when the EC family does not claim the key's row,
+    ///         or the errors of ExportEcPublicKey().
     [[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
 
-    /// Byte length of the raw export for @p handle, for the size-then-data
-    /// two-call export. Same checks as ExportKey.
+    /// Byte length of the raw export for @p handle, for the size-then-data two-call export.
+    ///
+    /// @param handle Handle of the key to export.
+    /// @param format Requested export format; only kRaw is supported.
+    /// @return The length, or the errors of ExportKey().
     [[nodiscard]] ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
     GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
 

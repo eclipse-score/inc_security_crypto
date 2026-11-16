@@ -248,7 +248,7 @@ package "OpenSSL Provider" <<Rectangle>> #FFFDE7 {
         .. row no family claims → kUnsupportedAlgorithm ..
         + ExportKey(handle, format) : Expected<SecureKeyBytes>
         + GetExportKeySize(handle, format) : Expected<size_t>
-        .. kRaw EC public point 0x04||X||Y → openssl_ec_key_pair ..
+        .. EC key, kRaw → openssl_ec_key_pair (public point 0x04||X||Y); other keys → kUnsupportedOperation ..
     }
 
     class OpenSslKeyHandler {

@@ -48,9 +48,14 @@ struct KeygenSpec
 
 /// Generates a key pair of @p spec.key_type and wraps it in an OpenSslKeyHandler.
 ///
-/// @p configure_keygen runs after EVP_PKEY_keygen_init() to apply algorithm
-/// parameters such as the EC group or the RSA modulus size; returning false
-/// fails the generation with kKeyGenerationFailed.
+/// @param provider_id Provider that issues the key handle.
+/// @param request Catalog row and permissions of the key to generate.
+/// @param spec OpenSSL key type, handle key size and log name of the family.
+/// @param configure_keygen Runs after EVP_PKEY_keygen_init() to apply algorithm parameters,
+///        such as the EC group or the RSA modulus size; returning false fails the generation.
+/// @return The generated key pair, or
+///         - kAllocationFailed when OpenSSL has no key type @p spec.key_type;
+///         - kKeyGenerationFailed when initialisation, @p configure_keygen or the generation fails.
 [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                         ::score::crypto::daemon::common::DaemonErrorCode>
 GenerateAsymmetricKey(
@@ -71,10 +76,12 @@ struct ParsedDerKey
 /// Parses DER key material (a private key, PKCS#8 or traditional, or a
 /// SubjectPublicKeyInfo) into an EVP_PKEY of @p expected_pkey_type.
 ///
-/// Returns kInvalidFormat when request.format is not kDer, the bytes parse as
-/// neither form or leave trailing bytes, kInvalidArgument when
-/// request.key_data_size does not fit a long, and kIncompatibleKeyType when the
-/// parsed key is not of @p expected_pkey_type (an EVP_PKEY_* id).
+/// @param request Key material, its format and catalog row.
+/// @param expected_pkey_type EVP_PKEY_* id the parsed key must have, e.g. EVP_PKEY_EC.
+/// @return The parsed key and whether it carries a private half, or
+///         - kInvalidFormat when request.format is not kDer, the bytes parse as neither form or leave trailing bytes;
+///         - kInvalidArgument when request.key_data_size does not fit a long;
+///         - kIncompatibleKeyType when the parsed key is not of @p expected_pkey_type.
 /// @pre request.key_data is non-null and request.key_data_size is non-zero.
 [[nodiscard]] ::score::crypto::Expected<ParsedDerKey, ::score::crypto::daemon::common::DaemonErrorCode> ParseDerKey(
     const key_management::KeyImportRequest& request,
@@ -85,6 +92,11 @@ struct ParsedDerKey
 ///
 /// A key without a private half gets no private-half permissions, whatever
 /// request.permissions grants; request.permissions governs the public half.
+/// @param provider_id Provider that issues the key handle.
+/// @param request Import request whose catalog row and permissions the handle carries.
+/// @param parsed Key returned by ParseDerKey(); the handler takes it over.
+/// @param key_size Handle key_size in bytes.
+/// @return The handler owning the key.
 [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                         ::score::crypto::daemon::common::DaemonErrorCode>
 CreateImportedAsymmetricKey(common::ProviderId provider_id,

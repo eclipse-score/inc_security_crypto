@@ -253,7 +253,11 @@ cc_test(
 cc_test(
     name = "openssl_key_handler_test",
     srcs = ["key_management/openssl_key_handler_test.cpp"],
-    data = ["//score/tests/test_vectors/ecdsa:ecdsa_test_vectors"],
+    data = [
+        "//score/tests/test_vectors/ecdsa:ecdsa_test_vectors",
+        "//score/tests/test_vectors/ed25519:ed25519_test_vectors",
+        "//score/tests/test_vectors/rsa:rsa_pss_test_vectors",
+    ],
     target_compatible_with = select({
         "//score/crypto/src/backend:openssl_backend_active": [],
         "//conditions:default": ["@platforms//:incompatible"],

@@ -27,8 +27,11 @@ namespace score::crypto::daemon::provider::openssl::detail
 
 /// Builds the handle of a symmetric key whose material is @p key_bytes.
 ///
-/// key_size is key_bytes.size(), and opaque_id the address of the buffer that
-/// the OpenSslKeyHandler built from this handle takes over.
+/// @param provider_id Provider that issues the handle.
+/// @param algorithm Catalog row of the key.
+/// @param permissions Operations the key allows.
+/// @param key_bytes Key material that the OpenSslKeyHandler built from this handle takes over.
+/// @return A symmetric handle whose key_size is key_bytes.size() and whose opaque_id is the address of the buffer.
 [[nodiscard]] inline key_management::ProviderKeyHandle MakeKeyHandle(
     common::ProviderId provider_id,
     const ::score::crypto::AlgorithmDescriptor& algorithm,
@@ -48,7 +51,13 @@ namespace score::crypto::daemon::provider::openssl::detail
 
 /// Builds the handle of a key pair or public key whose material is @p pkey.
 ///
-/// opaque_id is the address of @p pkey. The caller still sets public_key_permissions.
+/// @param provider_id Provider that issues the handle.
+/// @param algorithm Catalog row of the key.
+/// @param permissions Operations the private half allows.
+/// @param key_size Handle key_size in bytes: the EC field size, RSA modulus size or Ed25519 key size.
+/// @param pkey Key that the OpenSslKeyHandler built from this handle owns.
+/// @return An asymmetric handle whose opaque_id is the address of @p pkey.
+/// @note public_key_permissions stays unset; the caller sets it.
 [[nodiscard]] inline key_management::ProviderKeyHandle MakeKeyHandle(
     common::ProviderId provider_id,
     const ::score::crypto::AlgorithmDescriptor& algorithm,

@@ -542,6 +542,25 @@ std::vector<std::uint8_t> ReadP256SpkiDer()
     return ReadVector("/P256-SHA256/siggen_public_key.der");
 }
 
+/// A P-256 key pair as an unencrypted PKCS#8 PrivateKeyInfo DER blob — the form a
+/// signing slot deploys.
+std::vector<std::uint8_t> ReadP256Pkcs8Der()
+{
+    return ReadVector("/P256-SHA256/siggen_private_key.der");
+}
+
+/// An Ed25519 public key as a SubjectPublicKeyInfo DER blob: valid DER, but not an EC key.
+std::vector<std::uint8_t> ReadEd25519SpkiDer()
+{
+    return tests::utility::read_bin("score/tests/test_vectors/ed25519/RFC8032/public_key.der");
+}
+
+/// An RSA-2048 public key as a SubjectPublicKeyInfo DER blob.
+std::vector<std::uint8_t> ReadRsa2048SpkiDer()
+{
+    return tests::utility::read_bin("score/tests/test_vectors/rsa/RSA2048-SHA256-Positive/public_key.der");
+}
+
 /// A P-384 public key as a SubjectPublicKeyInfo DER blob whose EC point is in
 /// *compressed* form (lead byte 0x03, 49-byte point). No published vector ships
 /// a compressed point, so this one stays inline: decoding it yields a key whose
@@ -556,43 +575,6 @@ constexpr std::uint8_t kP384CompressedSpkiDer[] = {
     0x01, 0x37, 0x7b, 0x5f, 0xb0, 0x4c, 0x89, 0x96, 0xee, 0xa9, 0x4a, 0xb1, 0x05, 0x1b, 0x0c, 0xa7, 0x0e, 0xe5,
     0x26, 0x5c, 0x24, 0x59, 0x51, 0x18, 0x34, 0xd1, 0x6c, 0x03, 0xd9, 0x69, 0xb0, 0xcd, 0x0a, 0x76, 0x80, 0x45};
 
-/// A P-256 key pair as an unencrypted PKCS#8 PrivateKeyInfo DER blob — the form a
-/// signing slot deploys.
-constexpr std::uint8_t kP256Pkcs8Der[] = {
-    0x30, 0x81, 0x87, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06,
-    0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x04, 0x6d, 0x30, 0x6b, 0x02, 0x01, 0x01, 0x04, 0x20,
-    0x66, 0x1e, 0x6b, 0x7d, 0x30, 0x12, 0xd4, 0x60, 0xe2, 0x5f, 0x5d, 0xa1, 0x64, 0x9f, 0x4c, 0x01, 0xe3, 0xa1,
-    0x5c, 0x39, 0xe0, 0xf0, 0x7e, 0x3e, 0x5d, 0xd7, 0xad, 0xd4, 0xd7, 0x67, 0xf2, 0xf9, 0xa1, 0x44, 0x03, 0x42,
-    0x00, 0x04, 0x90, 0x41, 0x6f, 0xd3, 0xed, 0x1c, 0xcf, 0x10, 0x0e, 0x20, 0x01, 0x78, 0xf7, 0xa5, 0xe4, 0x1c,
-    0x68, 0x53, 0x2e, 0x51, 0xe1, 0x73, 0xd5, 0x1c, 0x09, 0x96, 0x1c, 0x9f, 0x19, 0x75, 0x6a, 0xf7, 0x3d, 0x72,
-    0x9a, 0x28, 0xc9, 0x12, 0x6e, 0xf7, 0xbb, 0xab, 0x5f, 0xe9, 0x1f, 0x12, 0x7e, 0x4a, 0xed, 0xc4, 0x46, 0xee,
-    0xec, 0x08, 0x82, 0x81, 0xa1, 0x90, 0xa6, 0x27, 0x21, 0x0a, 0x8f, 0xa1};
-
-/// An Ed25519 public key as a SubjectPublicKeyInfo DER blob: valid DER, but not an EC key.
-constexpr std::uint8_t kEd25519SpkiDer[] = {0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21,
-                                            0x00, 0x4b, 0x8a, 0x1b, 0x83, 0x04, 0xb2, 0xf2, 0x76, 0xb2, 0x74,
-                                            0xb6, 0xc4, 0x54, 0xe4, 0x41, 0xcd, 0xf8, 0x93, 0x53, 0xe7, 0x7b,
-                                            0xb1, 0xc5, 0x8c, 0x0c, 0xcc, 0xe9, 0x41, 0x2c, 0xa2, 0x6b, 0x68};
-
-/// An RSA-2048 public key as a SubjectPublicKeyInfo DER blob.
-constexpr std::uint8_t kRsa2048SpkiDer[] = {
-    0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
-    0x03, 0x82, 0x01, 0x0f, 0x00, 0x30, 0x82, 0x01, 0x0a, 0x02, 0x82, 0x01, 0x01, 0x00, 0xcc, 0x4d, 0x5a, 0x2f, 0x94,
-    0x5c, 0x81, 0x2a, 0xac, 0xd7, 0x21, 0x7a, 0x3c, 0x58, 0x3a, 0x63, 0x48, 0xab, 0x40, 0x2a, 0x74, 0x78, 0xeb, 0x50,
-    0xd6, 0xfd, 0x88, 0x6f, 0xae, 0x8e, 0x5f, 0x1e, 0x2f, 0x25, 0x65, 0x99, 0x8d, 0xd0, 0x85, 0x0e, 0x03, 0x6a, 0xe8,
-    0xb2, 0xaa, 0x95, 0x25, 0x2f, 0xfc, 0x66, 0x5c, 0xda, 0x54, 0x13, 0x7a, 0x64, 0x2a, 0x64, 0xdf, 0xb5, 0x6d, 0x23,
-    0xb2, 0x22, 0xf0, 0x6e, 0x1a, 0xf4, 0x77, 0x82, 0xa5, 0x0c, 0x22, 0xa8, 0xa3, 0xc7, 0x40, 0x68, 0xae, 0x42, 0xe6,
-    0x60, 0x28, 0x18, 0xaf, 0x5f, 0xd1, 0x1a, 0x33, 0x05, 0x42, 0x55, 0xbc, 0xa8, 0x51, 0xa5, 0xc5, 0xd5, 0x8a, 0xe4,
-    0x07, 0xaa, 0x99, 0x51, 0xcb, 0x86, 0xaf, 0xa7, 0x85, 0xfc, 0x53, 0xd8, 0x97, 0x0b, 0xaa, 0xb3, 0xe4, 0xb9, 0x64,
-    0x85, 0x51, 0xcc, 0xb9, 0xa0, 0x69, 0x3d, 0xaa, 0x0b, 0x6a, 0x92, 0xfb, 0x92, 0x40, 0x8a, 0x89, 0xe1, 0xe7, 0xc4,
-    0x64, 0xb2, 0x76, 0x33, 0xf7, 0x83, 0x7c, 0xb2, 0x92, 0x80, 0x37, 0x34, 0x6d, 0x25, 0xb5, 0x8f, 0x1c, 0x4b, 0x04,
-    0x2b, 0xcd, 0x64, 0x18, 0x72, 0x46, 0xe1, 0x61, 0x13, 0x31, 0x35, 0x9d, 0x35, 0x5e, 0x97, 0xe0, 0xe5, 0xa5, 0x84,
-    0xc2, 0x18, 0xb0, 0x1e, 0x3e, 0x47, 0x76, 0x68, 0xf4, 0x49, 0xe5, 0x83, 0x6c, 0xd9, 0xb6, 0x00, 0x80, 0x0e, 0xa9,
-    0x61, 0x21, 0x3c, 0x3f, 0xec, 0x02, 0xee, 0x45, 0x54, 0xc0, 0x3a, 0x75, 0x54, 0xa0, 0x11, 0x25, 0xb9, 0x43, 0x58,
-    0xd3, 0xea, 0x95, 0x2b, 0xd0, 0xd9, 0xd5, 0xc9, 0x9c, 0x6c, 0x1d, 0xae, 0x69, 0x9c, 0x5c, 0xeb, 0xf7, 0x3a, 0x92,
-    0x5f, 0xf8, 0xde, 0x6b, 0xd5, 0x1d, 0x4d, 0xd4, 0x19, 0x4f, 0x85, 0x14, 0x64, 0x47, 0x1a, 0xb6, 0xac, 0x5f, 0x58,
-    0x98, 0x71, 0x5c, 0x7d, 0x02, 0x03, 0x01, 0x00, 0x01};
-
 /// @p der followed by one extra byte, which no complete DER key may carry.
 std::vector<std::uint8_t> WithTrailingByte(const std::uint8_t* der, std::size_t size)
 {
@@ -604,9 +586,10 @@ std::vector<std::uint8_t> WithTrailingByte(const std::uint8_t* der, std::size_t 
 
 TEST_F(OpenSslKeyHandlerTest, ImportKey_Pkcs8EcKey_KeepsPrivateHalfPermissions)
 {
+    const auto p256_pkcs8 = ReadP256Pkcs8Der();
     km::KeyImportRequest req{};
-    req.key_data = kP256Pkcs8Der;
-    req.key_data_size = sizeof(kP256Pkcs8Der);
+    req.key_data = p256_pkcs8.data();
+    req.key_data_size = p256_pkcs8.size();
     req.algorithm = Row("ECDSA-P256");
     req.format = score::crypto::FormatType::kDer;
     req.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kVerify;
@@ -661,7 +644,8 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_PrivateKeyDerWithTrailingByte_ReturnsInv
 {
     // The private-key parse succeeds on the prefix, so the trailing byte must
     // reject it rather than let the SubjectPublicKeyInfo fallback accept it.
-    const auto der = WithTrailingByte(kP256Pkcs8Der, sizeof(kP256Pkcs8Der));
+    const auto pkcs8 = ReadP256Pkcs8Der();
+    const auto der = WithTrailingByte(pkcs8.data(), pkcs8.size());
     km::KeyImportRequest req{};
     req.key_data = der.data();
     req.key_data_size = der.size();
@@ -677,9 +661,10 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_PrivateKeyDerWithTrailingByte_ReturnsInv
 
 TEST_F(OpenSslKeyHandlerTest, ImportKey_NonEcDer_ReturnsIncompatibleKeyType)
 {
+    const auto ed25519_spki = ReadEd25519SpkiDer();
     km::KeyImportRequest req{};
-    req.key_data = kEd25519SpkiDer;
-    req.key_data_size = sizeof(kEd25519SpkiDer);
+    req.key_data = ed25519_spki.data();
+    req.key_data_size = ed25519_spki.size();
     req.algorithm = Row("ECDSA-P256");
     req.format = score::crypto::FormatType::kDer;
     req.permissions = score::crypto::KeyOperationPermission::kVerify;
@@ -710,9 +695,10 @@ TEST_F(OpenSslKeyHandlerTest, ImportEcKey_UnsupportedCurve_ReturnsUnsupportedAlg
 
 TEST_F(OpenSslKeyHandlerTest, ImportKey_EcKeyOnOtherCurve_ReturnsIncompatibleKeyType)
 {
+    const auto p256_pkcs8 = ReadP256Pkcs8Der();
     km::KeyImportRequest req{};
-    req.key_data = kP256Pkcs8Der;
-    req.key_data_size = sizeof(kP256Pkcs8Der);
+    req.key_data = p256_pkcs8.data();
+    req.key_data_size = p256_pkcs8.size();
     req.algorithm = Row("ECDSA-P384");
     req.format = score::crypto::FormatType::kDer;
     req.permissions = score::crypto::KeyOperationPermission::kSign;
@@ -765,9 +751,10 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_SizeBeyondLong_ReturnsInvalidArgument)
 
 TEST_F(OpenSslKeyHandlerTest, ImportKey_RsaSignatureRow_ReturnsUnsupportedAlgorithm)
 {
+    const auto rsa2048_spki = ReadRsa2048SpkiDer();
     km::KeyImportRequest req{};
-    req.key_data = kRsa2048SpkiDer;
-    req.key_data_size = sizeof(kRsa2048SpkiDer);
+    req.key_data = rsa2048_spki.data();
+    req.key_data_size = rsa2048_spki.size();
     req.algorithm = Row("RSA-PSS-2048-SHA256");
     req.format = score::crypto::FormatType::kDer;
     req.permissions = score::crypto::KeyOperationPermission::kVerify;
@@ -780,9 +767,10 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_RsaSignatureRow_ReturnsUnsupportedAlgori
 
 TEST_F(OpenSslKeyHandlerTest, ImportRsaKey_UnsupportedModulus_ReturnsUnsupportedAlgorithm)
 {
+    const auto rsa2048_spki = ReadRsa2048SpkiDer();
     km::KeyImportRequest req{};
-    req.key_data = kRsa2048SpkiDer;
-    req.key_data_size = sizeof(kRsa2048SpkiDer);
+    req.key_data = rsa2048_spki.data();
+    req.key_data_size = rsa2048_spki.size();
     req.algorithm = Row("RSA-2048");
     req.algorithm.key_bits = 1024U;
     req.format = score::crypto::FormatType::kDer;
@@ -836,9 +824,10 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_Ed25519_ProducesKeyPair)
 
 TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicOnlyEd25519Key_DropsPrivateHalfPermissions)
 {
+    const auto ed25519_spki = ReadEd25519SpkiDer();
     km::KeyImportRequest req{};
-    req.key_data = kEd25519SpkiDer;
-    req.key_data_size = sizeof(kEd25519SpkiDer);
+    req.key_data = ed25519_spki.data();
+    req.key_data_size = ed25519_spki.size();
     req.algorithm = Row("Ed25519");
     req.format = score::crypto::FormatType::kDer;
     req.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kVerify;
@@ -859,9 +848,10 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_PublicOnlyEd25519Key_DropsPrivateHalfPer
 
 TEST_F(OpenSslKeyHandlerTest, ImportKey_NonRsaDerForRsaAlgorithm_ReturnsIncompatibleKeyType)
 {
+    const auto ed25519_spki = ReadEd25519SpkiDer();
     km::KeyImportRequest req{};
-    req.key_data = kEd25519SpkiDer;
-    req.key_data_size = sizeof(kEd25519SpkiDer);
+    req.key_data = ed25519_spki.data();
+    req.key_data_size = ed25519_spki.size();
     req.algorithm = Row("RSA-2048");
     req.format = score::crypto::FormatType::kDer;
     req.permissions = score::crypto::KeyOperationPermission::kVerify;
@@ -874,9 +864,10 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_NonRsaDerForRsaAlgorithm_ReturnsIncompat
 
 TEST_F(OpenSslKeyHandlerTest, ImportKey_RsaSpki_DropsPrivateHalfPermissions)
 {
+    const auto rsa2048_spki = ReadRsa2048SpkiDer();
     km::KeyImportRequest req{};
-    req.key_data = kRsa2048SpkiDer;
-    req.key_data_size = sizeof(kRsa2048SpkiDer);
+    req.key_data = rsa2048_spki.data();
+    req.key_data_size = rsa2048_spki.size();
     req.algorithm = Row("RSA-2048");
     req.format = score::crypto::FormatType::kDer;
     req.permissions = score::crypto::KeyOperationPermission::kSign | score::crypto::KeyOperationPermission::kVerify;
@@ -896,9 +887,10 @@ TEST_F(OpenSslKeyHandlerTest, ImportKey_RsaSpki_DropsPrivateHalfPermissions)
 
 TEST_F(OpenSslKeyHandlerTest, ImportKey_RsaKeyOfOtherSize_ReturnsIncompatibleKeyType)
 {
+    const auto rsa2048_spki = ReadRsa2048SpkiDer();
     km::KeyImportRequest req{};
-    req.key_data = kRsa2048SpkiDer;
-    req.key_data_size = sizeof(kRsa2048SpkiDer);
+    req.key_data = rsa2048_spki.data();
+    req.key_data_size = rsa2048_spki.size();
     req.algorithm = Row("RSA-3072");
     req.format = score::crypto::FormatType::kDer;
     req.permissions = score::crypto::KeyOperationPermission::kVerify;
@@ -1269,6 +1261,31 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_WithoutExportPermission_IsDen
     EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
 
     EXPECT_TRUE(imported.value()->Release().has_value());
+}
+
+TEST_F(OpenSslKeyHandlerTest, ExportKey_NonEcKey_ReturnsUnsupportedOperation)
+{
+    // Only the EC family exports, so the factory refuses every other key before any format check.
+    for (const char* name : {"Ed25519", "HMAC-SHA256"})
+    {
+        km::KeyGenerationRequest req{};
+        req.algorithm = Row(name);
+        req.permissions = score::crypto::KeyOperationPermission::kExport;
+
+        auto generated = m_factory->GenerateKey(req);
+        ASSERT_TRUE(generated.has_value()) << name;
+        const auto& handle = generated.value()->GetHandle();
+
+        auto exported = m_factory->ExportKey(handle, score::crypto::FormatType::kRaw);
+        ASSERT_FALSE(exported.has_value()) << name;
+        EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation) << name;
+
+        auto size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kRaw);
+        ASSERT_FALSE(size.has_value()) << name;
+        EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation) << name;
+
+        EXPECT_TRUE(generated.value()->Release().has_value());
+    }
 }
 
 TEST_F(OpenSslKeyHandlerTest, ReleaseKey_ZeroOpaque_Idempotent)

@@ -21,12 +21,17 @@
 namespace score::crypto::daemon::provider::openssl
 {
 
-/// Whether the Ed25519 family serves @p algorithm: the Ed25519 row.
+/// Whether the Ed25519 family serves @p algorithm.
+///
+/// @param algorithm Catalog row of a request.
+/// @return true for the Ed25519 row.
 [[nodiscard]] bool IsEd25519KeySupported(const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept;
 
 /// Generate an Ed25519 key pair.
 ///
-/// The returned handler owns a single EVP_PKEY carrying both halves.
+/// @param provider_id Provider that issues the key handle.
+/// @param request Catalog row and permissions of the key to generate.
+/// @return A handler owning one EVP_PKEY that carries both halves, or the generation error.
 [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                         ::score::crypto::daemon::common::DaemonErrorCode>
 GenerateEd25519KeyPair(common::ProviderId provider_id, const key_management::KeyGenerationRequest& request);
@@ -34,9 +39,12 @@ GenerateEd25519KeyPair(common::ProviderId provider_id, const key_management::Key
 /// Import a DER-encoded Ed25519 key (a PKCS#8 private key or a
 /// SubjectPublicKeyInfo) into an OpenSslKeyHandler.
 ///
-/// Returns kInvalidFormat when request.format is not kDer or the bytes are not one complete DER key,
-/// kInvalidArgument when request.key_data_size does not fit a long, and kIncompatibleKeyType when
-/// the key is not an Ed25519 key.
+/// @param provider_id Provider that issues the key handle.
+/// @param request Key material, its format, catalog row and permissions.
+/// @return The imported key, or
+///         - kInvalidFormat when request.format is not kDer or the bytes are not one complete DER key;
+///         - kInvalidArgument when request.key_data_size does not fit a long;
+///         - kIncompatibleKeyType when the key is not an Ed25519 key.
 /// @pre request.key_data is non-null and request.key_data_size is non-zero.
 /// @note A SubjectPublicKeyInfo import carries no private-half permissions,
 ///       whatever request.permissions grants.
