@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
 
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
@@ -24,6 +25,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <vector>
 
 namespace score::crypto::daemon::key_management
@@ -46,8 +48,15 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
     /// @param handler        Owning key handler (must not be nullptr).
     /// @param provider_id    Numeric provider ID (uint16_t) that created this key.
     /// @param slot_handle    Non-default only when key was loaded from a slot.
-    KeyEntry(IKeyHandler::Sptr handler, common::ProviderId provider_id, SlotHandle slot_handle = SlotHandle{})
-        : m_handler{std::move(handler)}, m_provider_id{provider_id}, m_slot_handle{slot_handle}
+    /// @param permitted_algorithm Row of the only operation the key may serve; std::nullopt means any.
+    KeyEntry(IKeyHandler::Sptr handler,
+             common::ProviderId provider_id,
+             SlotHandle slot_handle = SlotHandle{},
+             std::optional<::score::crypto::AlgorithmDescriptor> permitted_algorithm = std::nullopt)
+        : m_handler{std::move(handler)},
+          m_provider_id{provider_id},
+          m_slot_handle{slot_handle},
+          m_permitted_algorithm{permitted_algorithm}
     {
     }
 
@@ -69,6 +78,12 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
     [[nodiscard]] const ProviderKeyHandle& GetHandle() const noexcept
     {
         return m_handler->GetHandle();
+    }
+
+    /// Row of the only operation this key may serve; std::nullopt means any it fits.
+    [[nodiscard]] const std::optional<::score::crypto::AlgorithmDescriptor>& GetPermittedAlgorithm() const noexcept
+    {
+        return m_permitted_algorithm;
     }
 
     /// Access the key handler (e.g., for crypto operations that need raw bytes).
@@ -117,6 +132,7 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
     IKeyHandler::Sptr m_handler;
     common::ProviderId m_provider_id;
     SlotHandle m_slot_handle;
+    std::optional<::score::crypto::AlgorithmDescriptor> m_permitted_algorithm;
 
     mutable std::mutex m_ref_mutex;  ///< Protects m_referencing_clients.
     std::atomic<std::uint32_t> m_ref_count{0U};

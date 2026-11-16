@@ -17,6 +17,7 @@
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 
 #include <cstddef>
+#include <optional>
 
 namespace score::crypto::daemon::common
 {
@@ -79,6 +80,40 @@ namespace score::crypto::daemon::common
 
     return (key.key_type == operation.key_type) && (key.key_bits == operation.key_bits) &&
            (key.curve == operation.curve);
+}
+
+/// @brief Decide whether a key pinned to one algorithm may serve an operation.
+///
+/// A key labelled with a key row fits every operation of its family: an
+/// AES-256 key fits AES-256-CBC, AES-256-GCM and AES-256-CMAC alike, and an
+/// ECDSA-P256 key fits every ECDSA-P256 digest. Using one key in two modes can
+/// leak secrets one mode relies on, e.g. a single CBC block under a zero IV
+/// returns the GCM hash subkey. A key with a permitted algorithm is therefore
+/// usable for that catalog row only. A key labelled with an operation row
+/// already serves that row only, so its pin can only repeat it.
+///
+/// @param operation  Row the context was created for.
+/// @param permitted  Row the key is pinned to; std::nullopt means no pin.
+[[nodiscard]] inline constexpr bool IsPermittedAlgorithm(
+    const ::score::crypto::AlgorithmDescriptor& operation,
+    const std::optional<::score::crypto::AlgorithmDescriptor>& permitted) noexcept
+{
+    return !permitted.has_value() || (operation.id == permitted->id);
+}
+
+/// @brief Decide whether a permitted algorithm can be set on a key at all.
+///
+/// Refuses a pin the key could never serve, such as an AES-128 key pinned to
+/// AES-256-GCM or an HMAC-SHA256 key pinned to HMAC-SHA384, and a pin that
+/// names no keyed operation, such as "AES-256" or
+/// "SHA256", which no context would ever match. The mistake is reported when
+/// the key is created or the slot is loaded rather than at every later use.
+[[nodiscard]] inline constexpr bool IsValidPermittedAlgorithm(const ::score::crypto::AlgorithmDescriptor& permitted,
+                                                              const ::score::crypto::AlgorithmDescriptor& key,
+                                                              const std::size_t key_size_bytes) noexcept
+{
+    // IsKeyCompatible() already refuses hash, key and random rows as operations.
+    return IsKeyCompatible(permitted, key, key_size_bytes);
 }
 
 }  // namespace score::crypto::daemon::common
