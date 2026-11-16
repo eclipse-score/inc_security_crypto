@@ -13,8 +13,13 @@
 
 name: Daily Maintenance
 
+# Must cover every permission requested by the reusable workflow's jobs
+# (stale-prs, detect-repo-capabilities, docs-cleanup), otherwise the run
+# fails at startup.
 permissions:
   contents: write
+  issues: write
+  pull-requests: write
   pages: write
   id-token: write
 
@@ -24,4 +29,4 @@ on:
 
 jobs:
   docs-cleanup:
-    uses: eclipse-score/cicd-workflows/.github/workflows/daily.yml@8d80e8df150cae21d53cbc8031d0f970648f7a67 # v0.0.3
+    uses: eclipse-score/cicd-workflows/.github/workflows/daily.yml@v0.0.3

@@ -14,6 +14,7 @@
 load("@rules_uv//uv:pip.bzl", "pip_compile")
 load("@rules_uv//uv:venv.bzl", "create_venv")
 load("@score_docs_as_code//:docs.bzl", "docs")
+load("@score_tooling//:defs.bzl", "dash_license_checker")
 
 docs(
     bundles = [
@@ -66,4 +67,13 @@ create_venv(
     name = "venv",
     destination_folder = ".venv_test",
     requirements_txt = "//:requirements.txt",
+)
+
+# bazel run --lockfile_mode=error //:license-check -- -project automotive.score -repo <url>
+# Rust third-party crates (shipped code). The macro is instantiated once per
+# package; Python docs tooling deps (//:requirements.txt) are not covered here.
+dash_license_checker(
+    src = "//score/cryptoki:Cargo.lock",
+    file_type = "cargo",
+    visibility = ["//visibility:public"],
 )

@@ -23,7 +23,7 @@ on:
       - main
 jobs:
   common:
-    uses: eclipse-score/cicd-workflows/.github/workflows/on-pr.yml@on-pr/v0.0.0
+    uses: eclipse-score/cicd-workflows/.github/workflows/on-pr.yml@v0.0.3
     with:
       # TODO: For now, our clang-tidy execution is not clean
       # Skip pre-commit checks, reactivate after fixing all clang-tidy issues
