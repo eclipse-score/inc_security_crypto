@@ -526,6 +526,50 @@ TEST_F(CertVerificationSessionTest, ResetClearsTheInputsAndReleasesTheTrustStore
     EXPECT_TRUE(m_log->requests.empty());
 }
 
+TEST_F(CertVerificationSessionTest, DestroyingTheSessionReleasesItsTrustStoreReference)
+{
+    // While the session holds its reference, the store's cache is warm: a rotated member certificate is not
+    // seen. Destroying the session releases the reference and evicts the cache, so the next read reloads the
+    // rotated certificate from disk.
+    const auto store = m_trust_store_manager->GetStore(m_trust_store_handle);
+    ASSERT_NE(store, nullptr);
+    const auto member_path = m_dir / "exclusive.pem";
+
+    const auto updated = m_parser->ParseCertificate(m_updated_bytes.data(), m_updated_bytes.size(), FormatType::kPem);
+    ASSERT_TRUE(updated.has_value());
+    const std::string updated_subject{updated.value()->GetSubject()};
+
+    auto session = MakeSession();
+    ASSERT_TRUE(session->SetTrustStore(m_trust_store_node).has_value());
+
+    std::string initial_subject;
+    {
+        auto anchors = store->GetAnchors();
+        ASSERT_TRUE(anchors.has_value());
+        ASSERT_EQ(anchors->size(), 1U);
+        initial_subject = std::string{(*anchors)[0]->GetSubject()};
+    }
+    ASSERT_NE(initial_subject, updated_subject);
+
+    std::filesystem::copy_file(::tests::utility::TestVectorPath(kUpdatedVector),
+                               member_path,
+                               std::filesystem::copy_options::overwrite_existing);
+
+    {
+        auto anchors = store->GetAnchors();
+        ASSERT_TRUE(anchors.has_value());
+        ASSERT_EQ(anchors->size(), 1U);
+        EXPECT_EQ(std::string{(*anchors)[0]->GetSubject()}, initial_subject);
+    }
+
+    session.reset();
+
+    auto reloaded = store->GetAnchors();
+    ASSERT_TRUE(reloaded.has_value());
+    ASSERT_EQ(reloaded->size(), 1U);
+    EXPECT_EQ(std::string{(*reloaded)[0]->GetSubject()}, updated_subject);
+}
+
 // ---------------------------------------------------------------------------
 // Context handler
 // ---------------------------------------------------------------------------
