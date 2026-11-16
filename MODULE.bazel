@@ -12,12 +12,7 @@
 # *******************************************************************************
 module(name = "score_security_crypto")
 
-bazel_dep(name = "rules_python", version = "2.3.1")
-single_version_override(
-    module_name = "rules_python",
-    version = "1.5.4",
-)
-
+bazel_dep(name = "rules_python", version = "1.8.5")
 bazel_dep(name = "rules_uv", version = "0.89.2")
 
 PYTHON_VERSION = "3.12"
@@ -213,20 +208,19 @@ use_repo(
 # Intended to be replaced with score_communication transporting a size limited
 # FlatBuffers in the future
 # *******************************************************************************
-bazel_dep(name = "grpc", version = "1.83.0")
+bazel_dep(name = "grpc", version = "1.76.0")
 
 single_version_override(
     module_name = "grpc-java",
     version = "1.82.0",
 )
 
-# Patch grpc and bundled abseil-cpp to not link -lpthread on QNX (pthread is built into libc on QNX)
-archive_override(
+# Keep the registry's Bazel metadata and patches, then apply QNX's link options.
+# Overrides are root-only: consumers targeting QNX must also apply this patch.
+single_version_override(
     module_name = "grpc",
     patch_strip = 1,
     patches = ["//third_party/grpc:grpc_qnx_pthread.patch"],
-    strip_prefix = "grpc-1.76.0",
-    urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.76.0.tar.gz"],
 )
 
 # Abseil-cpp dependency (pulled by grpc)
@@ -242,15 +236,15 @@ archive_override(
 )
 
 # Protobuf dependency (pulled by grpc)
-bazel_dep(name = "protobuf", version = "36.0")
+bazel_dep(name = "protobuf", version = "33.0")
 
-# Patch protobuf to not link -lpthread on QNX (pthread is built into libc on QNX)
-archive_override(
+# QNX provides pthread through libc. Apply only the link-options patch to the
+# registry-selected Protobuf release; do not replace its source archive.
+# Consumers targeting QNX must repeat this root-only override.
+single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
     patches = ["//third_party/grpc:protobuf_qnx_pthread.patch"],
-    strip_prefix = "protobuf-31.1",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v31.1.tar.gz"],
 )
 
 single_version_override(
