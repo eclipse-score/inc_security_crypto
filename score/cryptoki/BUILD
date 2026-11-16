@@ -13,6 +13,11 @@
 
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_shared_library")
 
+# Consumed by //:license-check (dash license check of Rust third-party crates).
+exports_files(
+    ["Cargo.lock"],
+    visibility = ["//:__pkg__"],
+)
 
 filegroup(
     name = "src",
