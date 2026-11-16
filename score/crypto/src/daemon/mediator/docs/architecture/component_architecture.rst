@@ -124,7 +124,7 @@ Validation is split by what it depends on:
 * **The mediator** checks the shape of the request: parameter count and types,
   a known provider preference, a non-zero key reference. It also applies three
   context-type rules, because each decides something that must be known before
-  a handler exists or before a key is loaded: whether the type requires a key,
+  a handler exists or before a key is loaded: whether the type requires a key (checked at provider selection, before any provider is asked),
   whether it takes an algorithm, and which provider capability its scope
   requires. Authorizing a bound key against the context's operation and
   direction is delegated to key management for the same reason.

@@ -13,8 +13,10 @@
 
 #include "score/crypto/src/daemon/mediator/src/provider_arbiter.hpp"
 
+#include "score/crypto/src/daemon/common/context/context_types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
+#include "score/mw/log/logging.h"
 
 #include <array>
 #include <cstddef>
@@ -84,6 +86,16 @@ ProviderArbiter::ResolveProvider(const ProviderSelectionRequest& request,
 score::crypto::Expected<ProviderHandlerSelection, score::crypto::CryptoErrorCode> ProviderArbiter::Select(
     const ProviderSelectionRequest& request) const
 {
+    // A context type that needs a key is refused before any provider is asked. Provider selection uses the key
+    // reference to keep provider affinity, so a request without one must not reach it.
+    if (!request.key_node_id.has_value() &&
+        common::RequiredKeyPermission(request.context_type, request.mode).has_value())
+    {
+        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Missing key resource for keyed context: "
+                                   << request.context_type;
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
+    }
+
     const std::array<std::optional<common::CryptoProviderType>, 2U> candidates{request.provider.primary,
                                                                                request.provider.fallback};
     std::optional<common::ProviderId> previous_provider_id{};

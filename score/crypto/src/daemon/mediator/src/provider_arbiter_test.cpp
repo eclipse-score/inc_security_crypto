@@ -79,6 +79,26 @@ class ProviderArbiterTest : public ::testing::Test
     provider::ProviderManager::Sptr m_manager;
 };
 
+TEST_F(ProviderArbiterTest, KeyedContextWithoutKeyIsRefusedBeforeAnyProviderIsAsked)
+{
+    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__decode_validate");
+    RecordProperty("Description",
+                   "A context type that needs a key is refused without a key reference, and no provider is asked to "
+                   "create a handler.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
+    const auto software = Register("SW", CryptoProviderType::SOFTWARE, ProviderCapability::kCrypto);
+    const auto arbiter = MakeArbiter();
+
+    const auto selected = arbiter.Select(
+        Request({CryptoProviderType::SOFTWARE, std::nullopt}, ProviderCapability::kNone, common::context_types::kSign));
+
+    ASSERT_FALSE(selected.has_value());
+    EXPECT_EQ(selected.error(), score::crypto::CryptoErrorCode::kInvalidArgument);
+    EXPECT_EQ(software->Factory()->CreateCalls(), 0);
+}
+
 TEST_F(ProviderArbiterTest, ExplicitProviderTypeSelectsProviderOfThatType)
 {
     RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__arbitration");

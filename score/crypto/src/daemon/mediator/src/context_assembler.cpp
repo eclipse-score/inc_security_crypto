@@ -14,6 +14,7 @@
 #include "score/crypto/src/daemon/mediator/src/context_assembler.hpp"
 
 #include "score/crypto/src/daemon/common/context/context_data_node.hpp"
+#include "score/crypto/src/daemon/common/context/context_types.hpp"
 #include "score/crypto/src/daemon/common/context/handler_init_params.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 
@@ -76,8 +77,7 @@ score::crypto::Expected<data_manager::DataNodeId, common::DaemonErrorCode> Conte
         bind_request.context_node_id = context_node_id;
         bind_request.key_node_id = request.key_node_id.value();
         bind_request.provider_id = request.provider_id;
-        bind_request.context_type = request.context_type;
-        bind_request.mode = request.mode;
+        bind_request.permission = common::RequiredKeyPermission(request.context_type, request.mode);
         bind_request.algorithm = request.algorithm;
 
         auto bind_res = m_km_service->BindAndAuthorize(bind_request);

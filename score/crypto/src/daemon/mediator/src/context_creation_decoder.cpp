@@ -127,15 +127,6 @@ score::crypto::Expected<ContextCreationRequest, score::crypto::CryptoErrorCode> 
 
     const auto mode = common::ExtractContextMode(operation.parameters);
 
-    // Keyed context families must carry a key reference; operation-mode semantics
-    // stay with the concrete handler.
-    if (common::RequiredKeyPermission(context_type, mode).has_value() && !key_node_id.has_value())
-    {
-        score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Missing key resource for keyed context: "
-                                   << context_type;
-        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
-    }
-
     // Resolve the algorithm name once, before any provider is asked; a name the
     // catalog does not know is refused here. std::nullopt is kept for a
     // KEY:MANAGEMENT context, which is bound to no algorithm.

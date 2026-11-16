@@ -451,7 +451,7 @@ Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyMa
                                        << "BindKeyToContext: KeySlotDataNode has no config "
                                           "(key_node_id="
                                        << key_node_id << ")";
-            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
         }
         const auto* slot_config = slot_config_res.value();
         const auto slot_handle = slot_node->GetSlotHandle();
@@ -462,7 +462,7 @@ Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyMa
         {
             score::mw::log::LogError() << LOG_PREFIX << "BindKeyToContext: no primary provider for slot "
                                        << key_node_id;
-            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
         }
         const common::ProviderId& slot_provider_id = primary_prov_res.value();
 
@@ -481,7 +481,7 @@ Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyMa
         {
             score::mw::log::LogError() << LOG_PREFIX << "BindKeyToContext: provider '" << slot_provider_id
                                        << "' not found";
-            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
         }
 
         auto slot_handler = slot_provider->GetKeySlotHandler(*slot_config);
@@ -531,7 +531,7 @@ Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyMa
             score::mw::log::LogError() << LOG_PREFIX
                                        << "BindKeyToContext: KeyDataNode has no backing "
                                           "KeyDataNode";
-            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInternalError);
         }
 
         // Cross-provider guard: key's provider must match the target context provider.
@@ -579,16 +579,14 @@ Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyMa
 {
     // Refuse before the key is loaded or bound, so a request the key does not
     // permit cannot make the provider load material it is not allowed to use.
-    const auto required = common::RequiredKeyPermission(request.context_type, request.mode);
+    // The caller derives the permission from the context type and mode. Absent
+    // means the context type takes no key, or is unknown; neither has a
+    // permission to check, so the binding is refused rather than made unchecked.
+    const auto required = request.permission;
     if (!required.has_value())
     {
-        // Either the type binds no key at CTX_CREATE, so a key reference on it
-        // is malformed, or this build does not know the type at all. Neither
-        // has a permission to check against, and both are refused rather than
-        // bound unchecked.
-        score::mw::log::LogError() << LOG_PREFIX << "BindAndAuthorize: key binding requested for a context type that"
-                                   << " takes no key or is unknown (context_type=" << request.context_type
-                                   << ", key_node_id=" << request.key_node_id << ")";
+        score::mw::log::LogError() << LOG_PREFIX << "BindAndAuthorize: key binding requested without a permission"
+                                   << " (key_node_id=" << request.key_node_id << ")";
         return score::crypto::make_unexpected(
             score::crypto::daemon::common::DaemonErrorCode::kKeyOperationNotPermitted);
     }
@@ -605,8 +603,7 @@ Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyMa
     if (!score::crypto::HasPermission(granted, required.value()))
     {
         score::mw::log::LogError() << LOG_PREFIX << "BindAndAuthorize: key does not permit this operation"
-                                   << " (context_type=" << request.context_type
-                                   << ", key_node_id=" << request.key_node_id
+                                   << " (key_node_id=" << request.key_node_id
                                    << ", required=" << static_cast<std::uint32_t>(required.value())
                                    << ", granted=" << static_cast<std::uint32_t>(granted) << ")";
         return score::crypto::make_unexpected(
@@ -625,11 +622,9 @@ Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyMa
         !score::crypto::daemon::common::IsKeyCompatible(request.algorithm.value(), key_algorithm, pre_bind_key_size))
     {
         score::mw::log::LogError() << LOG_PREFIX << "BindAndAuthorize: key does not fit the algorithm"
-                                   << " (context_type=" << request.context_type
-                                   << ", key_algorithm=" << key_algorithm.name
+                                   << " (key_algorithm=" << key_algorithm.name
                                    << ", key_node_id=" << request.key_node_id << ")";
-        return score::crypto::make_unexpected(
-            score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
     }
 
     auto bind_res =
@@ -638,7 +633,7 @@ Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyMa
     {
         score::mw::log::LogError() << LOG_PREFIX
                                    << "BindAndAuthorize: key binding failed for key_node_id=" << request.key_node_id;
-        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+        return score::crypto::make_unexpected(bind_res.error());
     }
 
     if (pre_bind_key_size == 0U)
@@ -647,12 +642,23 @@ Expected<KeyBindingResult, score::crypto::daemon::common::DaemonErrorCode> KeyMa
         if (!score::crypto::daemon::common::IsKeyCompatible(request.algorithm.value(), bound.algorithm, bound.key_size))
         {
             score::mw::log::LogError() << LOG_PREFIX << "BindAndAuthorize: loaded key does not fit the algorithm"
-                                       << " (context_type=" << request.context_type
-                                       << ", key_algorithm=" << bound.algorithm.name
-                                       << ", key_size=" << bound.key_size
+                                       << " (key_algorithm=" << bound.algorithm.name << ", key_size=" << bound.key_size
                                        << ", key_node_id=" << request.key_node_id << ")";
-            return score::crypto::make_unexpected(
-                score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+            // The bind has already created the key node under the context. Remove it, so a failed call leaves
+            // no binding behind. The node is one that CreateKeyDataNode made for this call; the guard keeps the
+            // caller's own key node from ever being removed.
+            if (bind_res.value().resolved_node_id != request.key_node_id)
+            {
+                const auto removed = m_data_manager->deleteNode(request.client_id, bind_res.value().resolved_node_id);
+                if (!removed.has_value())
+                {
+                    score::mw::log::LogError() << LOG_PREFIX
+                                               << "BindAndAuthorize: failed to remove the key node of a "
+                                                  "rejected binding"
+                                               << " (key_node_id=" << request.key_node_id << ")";
+                }
+            }
+            return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
         }
     }
 

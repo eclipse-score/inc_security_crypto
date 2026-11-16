@@ -16,6 +16,7 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/context_mode.hpp"
 #include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
@@ -36,6 +37,7 @@ struct ProviderSelectionRequest final
     std::uint64_t client_id{0U};                 ///< Client used to resolve the provider associated with a key node.
     std::optional<std::uint64_t> key_node_id{};  ///< Optional key node used to preserve provider affinity.
     std::string_view context_type{};             ///< Context type passed to the handler factory.
+    std::optional<common::ContextMode> mode{};   ///< Operation mode; selects the key permission of a cipher context.
     std::optional<AlgorithmDescriptor> algorithm{};  ///< Algorithm descriptor; absent for key-management contexts.
     common::ProviderTypePreference provider{common::CryptoProviderType::DEFAULT,
                                             std::nullopt};  ///< Primary provider and optional fallback.

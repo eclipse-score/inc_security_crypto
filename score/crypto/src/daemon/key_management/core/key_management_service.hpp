@@ -14,6 +14,7 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_MANAGEMENT_SERVICE_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_MANAGEMENT_SERVICE_HPP
 
+#include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/context/context_mode.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
@@ -58,15 +59,16 @@ struct KeyBindingResult
                                                 ///< input when slot-direct path was used).
 };
 
-/// Input to a key binding authorized against a context type.
+/// Input to a key binding authorized against a required permission.
 struct KeyBindRequest final
 {
     data_manager::ClientId client_id{0U};          ///< Client requesting and owning the context.
     data_manager::DataNodeId context_node_id{0U};  ///< Context node that will receive the key binding.
     data_manager::DataNodeId key_node_id{0U};      ///< Key or key-slot node to bind to the context.
     common::ProviderId provider_id{0U};            ///< Provider selected to own the context.
-    std::string_view context_type{};               ///< Context type used to determine required permission.
-    std::optional<common::ContextMode> mode{};     ///< Optional mode used when determining permission.
+    /// Permission the bound key must grant. The caller derives it from the context type and mode. Absent when
+    /// the context type takes no key, or is unknown; such a binding is refused.
+    std::optional<score::crypto::KeyOperationPermission> permission{};
     std::optional<::score::crypto::AlgorithmDescriptor> algorithm{};  ///< Operation algorithm the key must fit;
                                                                       ///< absent refuses the binding.
 };

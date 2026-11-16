@@ -119,23 +119,6 @@ TEST(ContextCreationDecoderTest, RejectsZeroKeyNodeId)
     EXPECT_EQ(decoded.error(), CryptoError::kInvalidArgument);
 }
 
-TEST(ContextCreationDecoderTest, RejectsKeyedContextWithoutKeyBeforeCheckingAlgorithm)
-{
-    RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__decode_validate");
-    RecordProperty("Description", "Rejects keyed context without key before checking algorithm.");
-    RecordProperty("TestType", "requirements-based");
-    RecordProperty("DerivationTechnique", "requirements-analysis");
-    // The missing key is reported even though the algorithm name is also unresolvable,
-    // which pins the check order: key requirement before algorithm resolution.
-    const auto operation =
-        MakeOperation(common::RequestParameters{std::string_view{common::context_types::kSign}, std::string_view{""}});
-
-    const auto decoded = DecodeContextCreationRequest(operation);
-
-    ASSERT_FALSE(decoded.has_value());
-    EXPECT_EQ(decoded.error(), CryptoError::kInvalidArgument);
-}
-
 TEST(ContextCreationDecoderTest, KeyManagementContextTakesNoAlgorithmDescriptor)
 {
     RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__decode_validate");
