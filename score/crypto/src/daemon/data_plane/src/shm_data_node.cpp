@@ -16,13 +16,29 @@
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/mw/log/logging.h"
 
-#include <chrono>
+#include <sys/types.h>
+#include <unistd.h>
+#include <atomic>
+#include <cstdint>
+#include <limits>
+#include <string>
 #include <utility>
 
 namespace
 {
 constexpr std::string_view LOG_PREFIX = "[SHM_DATA_NODE] ";
-}
+
+constexpr std::string_view SHM_NAME_PREFIX = "/score_crypto_";
+
+constexpr std::size_t kMaxUidDigits = static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::digits10) + 1U;
+constexpr std::size_t kMaxPidDigits = static_cast<std::size_t>(std::numeric_limits<pid_t>::digits10) + 1U;
+constexpr std::size_t kMaxCounterDigits = static_cast<std::size_t>(std::numeric_limits<std::uint64_t>::digits10) + 1U;
+constexpr std::size_t kNameSeparatorLength = 1U;
+constexpr std::size_t kMaxShmNameLength = SHM_NAME_PREFIX.size() + kMaxUidDigits + kNameSeparatorLength +
+                                          kMaxPidDigits + kNameSeparatorLength + kMaxCounterDigits;
+static_assert(kMaxShmNameLength <= score::crypto::FixedCapacityString<64>::max_capacity,
+              "SHM name may be truncated by FixedCapacityString");
+}  // namespace
 
 namespace score::crypto::daemon::data_plane
 {
@@ -31,8 +47,8 @@ score::crypto::FixedCapacityString<64> ShmDataNode::GetShmName(std::uint32_t uid
 {
     static std::atomic<std::uint64_t> counter{0};
     const auto rolling_counter = counter.fetch_add(1, std::memory_order_relaxed);
-    return score::crypto::FixedCapacityString<64>{std::string("/score_crypto_") + std::to_string(uid) + "_" +
-                                                  std::to_string(rolling_counter)};
+    return score::crypto::FixedCapacityString<64>{std::string(SHM_NAME_PREFIX) + std::to_string(uid) + "_" +
+                                                  std::to_string(::getpid()) + "_" + std::to_string(rolling_counter)};
 }
 
 Expected<std::shared_ptr<ShmDataNode>, common::DaemonErrorCode> ShmDataNode::Create(
