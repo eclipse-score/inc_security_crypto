@@ -37,22 +37,19 @@ namespace score::crypto::daemon::cert_management
 /// anchors by the cert verification context handler.
 ///
 /// All anchors are loaded from named certificate slots via the
-/// CertSlotRegistry. Their content is daemon-mediated: a certificate write to
-/// any member slot through CertManagementService refreshes the affected member
-/// in every referencing store.
+/// CertSlotRegistry. Their content is daemon-mediated: a SaveCertificate to
+/// any member slot triggers NotifySlotUpdate() on every referencing store.
 ///
-/// This interface is the read side that verification consumers use. Membership
-/// is represented by typed certificate-slot references; runtime membership and
-/// acceptance mutations belong to the concrete TrustStoreHandler, which
-/// persists them in the trust-store deployment descriptor, and are reached
-/// through TrustStoreManager.
+/// Membership is represented by typed certificate-slot references. Runtime
+/// membership and acceptance mutations are coordinated by TrustStoreManager
+/// and persisted in the trust-store deployment descriptor.
 ///
 /// Chain-building support:
 ///   FindBySubject and FindBySkid return nullable CertObject::Sptr for
 ///   efficient O(1) / O(log n) anchor lookup during chain building.
 ///
-/// Thread safety: implementations synchronize their own state, so the read
-/// methods may be called concurrently with member updates.
+/// Thread safety: ITrustStoreHandler instances are not individually thread-safe.
+/// TrustStoreManager coordinates concurrent access.
 class ITrustStoreHandler
 {
   public:
@@ -81,33 +78,59 @@ class ITrustStoreHandler
     // Anchor enumeration
     // -----------------------------------------------------------------------
 
-    /// Return the enabled trust anchors of this store. Every entry is non-null.
+    /// Return all current enabled slot-backed trust anchors.
     ///
-    /// The result is complete: either every enabled member is resolved or an error is returned,
-    /// never a partial set. An empty member slot contributes no anchor and is not an error.
-    /// A failure to read an existing member certificate or CRL is returned.
+    /// Slot-backed anchors may be null if the underlying cert slot is empty.
+    /// Callers should filter out null entries before passing to a verifier.
     ///
-    /// Caching: while a client holds the store (see TrustStoreManager::AddRef()) the result is
-    /// served from the store's cache. Without a holder the members are resolved on each call and
-    /// the result is not cached, so a call is correct but slower and keeps nothing alive.
+    /// Returns kInternalError when the anchor set cannot be assembled
+    /// (e.g., static file I/O failure during lazy reload).
+    ///
+    /// Lifetime contract: callers must bracket every usage of GetAnchors() with
+    /// TrustStoreManager::AddRef() before the first call and ReleaseRef() after
+    /// the last call. AddRef pins the anchor cache so it is not evicted while
+    /// certs are in use; ReleaseRef allows eviction when no client holds refs.
+    /// Calling GetAnchors() without a matching AddRef/ReleaseRef pair populates
+    /// the cache with no corresponding cleanup trigger — the loaded certs will
+    /// remain in memory until an unrelated ReleaseRef happens to evict them.
+    /// The sole production call path (ScoreCertVerificationHandler) already
+    /// satisfies this contract; direct calls are only safe in tests or
+    /// read-only tooling where memory lifetime is not a concern.
     [[nodiscard]] virtual score::crypto::Expected<std::vector<CertObject::Sptr>,
                                                   score::crypto::daemon::common::DaemonErrorCode>
     GetAnchors() = 0;
 
     // -----------------------------------------------------------------------
-    // CRL access — same caching behaviour as the anchors
+    // Slot update notification (called by TrustStoreManager)
     // -----------------------------------------------------------------------
 
-    /// Return the CRL snapshots of the enabled members that have one. Every entry is non-null.
+    /// Update the in-memory anchor for the given cert slot.
     ///
-    /// Used by the verification handler when CRL-based revocation checking is active. The
-    /// snapshots are immutable and shared with the slot-level cache; a CRL update replaces a
-    /// member's snapshot and does not modify one already returned. A failure to read an
-    /// existing CRL is returned, so a CRL is never silently omitted. Caching follows
-    /// GetAnchors().
-    [[nodiscard]] virtual score::crypto::Expected<std::vector<CrlData::Sptrc>,
-                                                  score::crypto::daemon::common::DaemonErrorCode>
-    GetCrls() = 0;
+    /// Called by TrustStoreManager::NotifyUpdate() when SaveCertificate writes
+    /// to a member slot. If cert is nullptr, the slot's anchor entry is
+    /// cleared (models an empty slot).
+    ///
+    /// Implementations must update the internal slot->anchor mapping and
+    /// invalidate / refresh the chain-building indices (FindBySubject, FindBySkid).
+    virtual void NotifySlotUpdate(CertSlotHandle slot, CertObject::Sptr cert) = 0;
+
+    // -----------------------------------------------------------------------
+    // CRL cache — co-located with the anchor cache
+    // -----------------------------------------------------------------------
+
+    /// Return all CRL entries currently cached for enabled member slots.
+    ///
+    /// Entries are loaded lazily alongside the anchor cache (EnsureLoaded).
+    /// Used by the OpenSSL verification handler when kCrlOnly revocation
+    /// checking is active — avoids re-reading CRL files on every Verify() call.
+    [[nodiscard]] virtual std::vector<CrlEntry> GetCrls() = 0;
+
+    /// Update the in-memory CRL cache for a single slot.
+    ///
+    /// Called by TrustStoreManager after a successful StoreCrl (AddMember or
+    /// ImportCrlForMember) to keep the cache coherent without a full reload.
+    /// An empty @p entry evicts the slot's CRL from the cache.
+    virtual void NotifyCrlUpdate(CertSlotHandle slot, std::optional<CrlEntry> entry) = 0;
 
     // -----------------------------------------------------------------------
     // Chain-building lookup indices
@@ -119,9 +142,8 @@ class ITrustStoreHandler
     /// issuer field against the anchors in this trust store.
     ///
     /// Returns a non-null CertObject::Sptr when a matching anchor is found,
-    /// nullptr otherwise, including when the anchors cannot be resolved (callers
-    /// must check before dereferencing).
-    [[nodiscard]] virtual CertObject::Sptr FindBySubject(const std::string& canonical_subject) = 0;
+    /// nullptr otherwise (callers must check before dereferencing).
+    [[nodiscard]] virtual CertObject::Sptr FindBySubject(const std::string& canonical_subject) const = 0;
 
     /// Find a trust anchor by its Subject Key Identifier (SKID) extension value.
     ///
@@ -131,8 +153,8 @@ class ITrustStoreHandler
     /// skid contains the raw SKID extension bytes (variable length; typically 20).
     ///
     /// Returns a non-null CertObject::Sptr when a matching anchor is found,
-    /// nullptr otherwise, including when the anchors cannot be resolved.
-    [[nodiscard]] virtual CertObject::Sptr FindBySkid(score::crypto::span<const uint8_t> skid) = 0;
+    /// nullptr otherwise.
+    [[nodiscard]] virtual CertObject::Sptr FindBySkid(score::crypto::span<const uint8_t> skid) const = 0;
 };
 
 }  // namespace score::crypto::daemon::cert_management

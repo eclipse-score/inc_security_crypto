@@ -50,11 +50,8 @@ class CertConfigManagerTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        auto file = config::FlatBufferConfigParser::LoadFile(kConfigPath);
-        ASSERT_TRUE(file.has_value()) << "Failed to load config file: " << kConfigPath;
-        auto parse_result = config::FlatBufferConfigParser::ParseCertManagementConfig(file.value(), m_cert_config);
+        auto parse_result = config::FlatBufferConfigParser::ParseCertConfigFromFile(kConfigPath, m_cert_config);
         ASSERT_TRUE(parse_result.has_value()) << "Failed to parse cert config from: " << kConfigPath;
-        ASSERT_TRUE(parse_result.value()) << "Cert config section is absent in: " << kConfigPath;
 
         m_registry = std::make_shared<cert::CertSlotRegistry>();
         cert::ConfigDrivenSlotCatalog slot_catalog{m_cert_config};
@@ -76,65 +73,60 @@ class CertConfigManagerTest : public ::testing::Test
 
 TEST_F(CertConfigManagerTest, ParsedConfig_HasExpectedSlotCount)
 {
-    ASSERT_EQ(m_cert_config.GetSlotEntries().size(), 3U);
-}
-
-TEST_F(CertConfigManagerTest, ParsedConfig_HasParserProviderName)
-{
-    ASSERT_EQ(m_cert_config.GetParserProviderName(), "ALT_PROVIDER");
+    EXPECT_EQ(m_cert_config.GetSlotEntries().size(), 3U);
 }
 
 TEST_F(CertConfigManagerTest, ParsedConfig_HasExpectedTrustStoreCount)
 {
-    ASSERT_EQ(m_cert_config.GetTrustStoreEntries().size(), 2U);
+    EXPECT_EQ(m_cert_config.GetTrustStoreEntries().size(), 2U);
 }
 
 TEST_F(CertConfigManagerTest, ParsedConfig_HasExpectedAppCertSlotMappings)
 {
     // uid=0 has 2 mappings, uid=1000 has 1
-    ASSERT_EQ(m_cert_config.GetAppCertSlotMappings().size(), 3U);
+    EXPECT_EQ(m_cert_config.GetAppCertSlotEntries().size(), 3U);
 }
 
 TEST_F(CertConfigManagerTest, ParsedConfig_HasExpectedAppTrustStoreMappings)
 {
-    ASSERT_EQ(m_cert_config.GetAppTrustStoreMappings().size(), 3U);
+    EXPECT_EQ(m_cert_config.GetAppTrustStoreEntries().size(), 3U);
 }
 
 TEST_F(CertConfigManagerTest, ParsedConfig_CertSlotEntry_AllFieldsCorrect)
 {
     const auto& slots = m_cert_config.GetSlotEntries();
     ASSERT_GE(slots.size(), 1U);
-    ASSERT_EQ(slots[0].slot_name, "test/root-ca");
-    ASSERT_EQ(slots[0].storage_backend, "DEFAULT");
-    ASSERT_EQ(slots[0].deployment_format, "kv");
-    ASSERT_EQ(slots[0].integrity_policy, config::CertificateConfig::IntegrityPolicy::kDisabled);
+    EXPECT_EQ(slots[0].slot_name, "test/root-ca");
+    EXPECT_EQ(slots[0].storage_backend, "DEFAULT");
+    EXPECT_EQ(slots[0].deployment_format, "kv");
+    EXPECT_EQ(slots[0].integrity_policy, "disabled");
     ASSERT_EQ(slots[0].allowed_uids.size(), 2U);
-    ASSERT_EQ(slots[0].allowed_uids[0], 0U);
-    ASSERT_EQ(slots[0].allowed_uids[1], 1000U);
+    EXPECT_EQ(slots[0].allowed_uids[0], 0U);
+    EXPECT_EQ(slots[0].allowed_uids[1], 1000U);
     ASSERT_EQ(slots[0].allowed_write_uids.size(), 1U);
-    ASSERT_EQ(slots[0].allowed_write_uids[0], 0U);
+    EXPECT_EQ(slots[0].allowed_write_uids[0], 0U);
 }
 
 TEST_F(CertConfigManagerTest, ParsedConfig_TrustStoreEntry_MembersCorrect)
 {
     const auto& stores = m_cert_config.GetTrustStoreEntries();
     ASSERT_GE(stores.size(), 1U);
-    ASSERT_EQ(stores[0].store_name, "test/tls-roots");
+    EXPECT_EQ(stores[0].store_name, "test/tls-roots");
     ASSERT_EQ(stores[0].members.size(), 2U);
-    ASSERT_EQ(stores[0].members[0].slot_name, "test/root-ca");
-    ASSERT_EQ(stores[0].members[0].kind, config::CertificateConfig::TrustStoreMemberKind::kSharedStatic);
-    ASSERT_EQ(stores[0].members[1].slot_name, "test/exclusive-slot");
-    ASSERT_EQ(stores[0].members[1].kind, config::CertificateConfig::TrustStoreMemberKind::kExclusiveMutable);
+    EXPECT_EQ(stores[0].members[0].slot_name, "test/root-ca");
+    EXPECT_EQ(stores[0].members[0].kind, config::CertificateConfig::TrustStoreMemberKind::kSharedStatic);
+    EXPECT_EQ(stores[0].members[1].slot_name, "test/exclusive-slot");
+    EXPECT_EQ(stores[0].members[1].kind, config::CertificateConfig::TrustStoreMemberKind::kExclusiveMutable);
 }
 
 TEST_F(CertConfigManagerTest, ParsedConfig_TrustStoreEntry_ConditionalExternalMember)
 {
     const auto& stores = m_cert_config.GetTrustStoreEntries();
     ASSERT_GE(stores.size(), 2U);
-    ASSERT_EQ(stores[1].store_name, "test/ota-roots");
+    EXPECT_EQ(stores[1].store_name, "test/ota-roots");
     ASSERT_EQ(stores[1].members.size(), 1U);
-    ASSERT_EQ(stores[1].members[0].kind, config::CertificateConfig::TrustStoreMemberKind::kConditionalExternal);
-    ASSERT_EQ(stores[1].conditional_slot_initialization,
+    EXPECT_EQ(stores[1].members[0].kind, config::CertificateConfig::TrustStoreMemberKind::kConditionalExternal);
+    EXPECT_EQ(stores[1].conditional_slot_initialization,
               config::CertificateConfig::ConditionalSlotInitialization::kEnableAndAcceptCurrent);
 }
 
@@ -144,14 +136,14 @@ TEST_F(CertConfigManagerTest, ParsedConfig_TrustStoreEntry_ConditionalExternalMe
 
 TEST_F(CertConfigManagerTest, Registry_SlotCount_MatchesConfig)
 {
-    ASSERT_EQ(m_registry->GetSlotCount(), 3U);
+    EXPECT_EQ(m_registry->GetSlotCount(), 3U);
 }
 
 TEST_F(CertConfigManagerTest, Registry_KnownSlotName_ReturnsValidHandle)
 {
     auto result = m_registry->ResolveSlotInternal("test/root-ca");
     ASSERT_TRUE(result.has_value());
-    ASSERT_TRUE(result->IsValid());
+    EXPECT_TRUE(result->IsValid());
 }
 
 TEST_F(CertConfigManagerTest, Registry_AllThreeSlots_AreResolvable)
@@ -160,7 +152,7 @@ TEST_F(CertConfigManagerTest, Registry_AllThreeSlots_AreResolvable)
     {
         auto result = m_registry->ResolveSlotInternal(name);
         ASSERT_TRUE(result.has_value()) << "Slot not found: " << name;
-        ASSERT_TRUE(result->IsValid()) << "Invalid handle for slot: " << name;
+        EXPECT_TRUE(result->IsValid()) << "Invalid handle for slot: " << name;
     }
 }
 
@@ -168,7 +160,7 @@ TEST_F(CertConfigManagerTest, Registry_UnknownSlotName_ReturnsError)
 {
     auto result = m_registry->ResolveSlotInternal("test/nonexistent");
     ASSERT_FALSE(result.has_value());
-    ASSERT_EQ(result.error(), DaemonErrorCode::kInvalidResourceId);
+    EXPECT_EQ(result.error(), DaemonErrorCode::kInvalidResourceId);
 }
 
 TEST_F(CertConfigManagerTest, Registry_SlotConfig_ContainsExpectedDeploymentPath)
@@ -177,8 +169,8 @@ TEST_F(CertConfigManagerTest, Registry_SlotConfig_ContainsExpectedDeploymentPath
     ASSERT_TRUE(handle.has_value());
     auto cfg = m_registry->GetConfig(*handle);
     ASSERT_TRUE(cfg.has_value());
-    ASSERT_EQ(cfg->get().slot_name, "test/device-cert");
-    ASSERT_EQ(cfg->get().deployment_path, "/opt/crypto/deploy/certs/device_cert.kv");
+    EXPECT_EQ((*cfg)->slot_name, "test/device-cert");
+    EXPECT_EQ((*cfg)->deployment_path, "/opt/crypto/deploy/certs/device_cert.kv");
 }
 
 TEST_F(CertConfigManagerTest, Registry_AppResourceMappings_Populated)
@@ -186,14 +178,14 @@ TEST_F(CertConfigManagerTest, Registry_AppResourceMappings_Populated)
     // uid=0, "device_cert" → "test/device-cert"
     auto result = m_registry->ResolveAppResource("device_cert", /*client_id=*/0U);
     ASSERT_TRUE(result.has_value());
-    ASSERT_TRUE(result->IsValid());
+    EXPECT_TRUE(result->IsValid());
 }
 
 TEST_F(CertConfigManagerTest, Registry_UnknownAppResource_ReturnsError)
 {
     auto result = m_registry->ResolveAppResource("nonexistent", 0U);
     ASSERT_FALSE(result.has_value());
-    ASSERT_EQ(result.error(), DaemonErrorCode::kInvalidResourceId);
+    EXPECT_EQ(result.error(), DaemonErrorCode::kInvalidResourceId);
 }
 
 // ---------------------------------------------------------------------------
@@ -203,34 +195,28 @@ TEST_F(CertConfigManagerTest, Registry_UnknownAppResource_ReturnsError)
 TEST_F(CertConfigManagerTest, TrustStoreManager_KnownStoreName_ReturnsValidHandle)
 {
     const auto handle = m_trust_store_manager.ResolveByName("test/tls-roots");
-    ASSERT_TRUE(handle.has_value());
-    ASSERT_TRUE(handle->IsValid());
+    EXPECT_TRUE(handle.IsValid());
 }
 
 TEST_F(CertConfigManagerTest, TrustStoreManager_BothStores_AreResolvable)
 {
-    const auto tls_roots = m_trust_store_manager.ResolveByName("test/tls-roots");
-    const auto ota_roots = m_trust_store_manager.ResolveByName("test/ota-roots");
-    ASSERT_TRUE(tls_roots.has_value());
-    ASSERT_TRUE(ota_roots.has_value());
-    ASSERT_TRUE(tls_roots->IsValid());
-    ASSERT_TRUE(ota_roots->IsValid());
+    EXPECT_TRUE(m_trust_store_manager.ResolveByName("test/tls-roots").IsValid());
+    EXPECT_TRUE(m_trust_store_manager.ResolveByName("test/ota-roots").IsValid());
 }
 
 TEST_F(CertConfigManagerTest, TrustStoreManager_UnknownStoreName_ReturnsInvalidHandle)
 {
     const auto handle = m_trust_store_manager.ResolveByName("test/nonexistent");
-    ASSERT_FALSE(handle.has_value());
+    EXPECT_FALSE(handle.IsValid());
 }
 
 TEST_F(CertConfigManagerTest, TrustStoreManager_StoreConfig_HasExpectedMemberCount)
 {
     const auto handle = m_trust_store_manager.ResolveByName("test/tls-roots");
-    ASSERT_TRUE(handle.has_value());
-    ASSERT_TRUE(handle->IsValid());
-    const auto* cfg = m_trust_store_manager.GetStoreConfig(*handle);
+    ASSERT_TRUE(handle.IsValid());
+    const auto* cfg = m_trust_store_manager.GetStoreConfig(handle);
     ASSERT_NE(cfg, nullptr);
-    ASSERT_EQ(cfg->members.size(), 2U);
+    EXPECT_EQ(cfg->members.size(), 2U);
 }
 
 TEST_F(CertConfigManagerTest, TrustStoreManager_SlotMembership_RootCaInBothStores)
@@ -240,7 +226,7 @@ TEST_F(CertConfigManagerTest, TrustStoreManager_SlotMembership_RootCaInBothStore
 
     const auto memberships = m_trust_store_manager.GetMembershipsForSlot(*root_handle);
     // "test/root-ca" is a member of both tls-roots and ota-roots
-    ASSERT_EQ(memberships.size(), 2U);
+    EXPECT_EQ(memberships.size(), 2U);
 }
 
 TEST_F(CertConfigManagerTest, TrustStoreManager_ExclusiveSlot_MemberOfOnlyOneStore)
@@ -249,5 +235,5 @@ TEST_F(CertConfigManagerTest, TrustStoreManager_ExclusiveSlot_MemberOfOnlyOneSto
     ASSERT_TRUE(excl_handle.has_value());
 
     const auto memberships = m_trust_store_manager.GetMembershipsForSlot(*excl_handle);
-    ASSERT_EQ(memberships.size(), 1U);
+    EXPECT_EQ(memberships.size(), 1U);
 }

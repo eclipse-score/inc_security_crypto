@@ -16,6 +16,7 @@
 #include "score/crypto/src/daemon/key_management/core/key_entry.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
+#include "score/crypto/src/daemon/key_management/slot/access_policy_enforcer.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_request_parser.hpp"
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
@@ -60,6 +61,10 @@ Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorC
     if (action == km_ops::KEY_GENERATE)
     {
         return HandleGenerate(ctx, request);
+    }
+    if (action == km_ops::KEY_GENERATE_TO_SLOT)
+    {
+        return HandleGenerateToSlot(ctx, request);
     }
     if (action == km_ops::KEY_LOAD)
     {
@@ -142,6 +147,98 @@ KeyManagementExecutor::HandleGenerate(const KeyMgmtExecutionContext& ctx, common
     output.push_back(static_cast<std::uint64_t>(node_id_result.value().node_id));
     // Return the numeric provider ID assigned by ProviderManager
     output.push_back(static_cast<std::uint16_t>(ctx.provider_id));
+    return output;
+}
+
+// ---------------------------------------------------------------------------
+// HandleGenerateToSlot
+//
+// Parameter layout:
+//   client_id   – authenticated client (from InitializationParams)
+//   request[0]  = target slot node id (uint64_t)
+//   request[1]  = algorithm (string_view)
+//   request[2]  = permissions (uint32_t, optional; default kAll)
+//
+// Generates key material via IKeyFactory::GenerateKey() and immediately
+// persists it into the target slot via IKeySlotHandler::StoreKey() (composed
+// by the default IKeyFactory::GenerateKeyToSlot()). No ephemeral resource is
+// registered — the key lives only in the slot; callers must KEY_LOAD it to
+// obtain a usable resource guard.
+// ---------------------------------------------------------------------------
+
+Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
+KeyManagementExecutor::HandleGenerateToSlot(const KeyMgmtExecutionContext& ctx, common::RequestParameters& request)
+{
+    auto slot_nid_res = km_parse::ExtractUint64(request, 0U);
+    if (!slot_nid_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGenerateToSlot: invalid slot node id";
+        return score::crypto::make_unexpected(slot_nid_res.error());
+    }
+
+    auto algo_res = km_parse::ExtractAlgorithm(request, 1U);
+    if (!algo_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGenerateToSlot: invalid algorithm";
+        return score::crypto::make_unexpected(algo_res.error());
+    }
+
+    const auto descriptor = ::score::crypto::GetAlgorithmDescriptor(algo_res.value());
+    if (!descriptor.has_value())
+    {
+        return score::crypto::make_unexpected(common::DaemonErrorCode::kUnsupportedAlgorithm);
+    }
+    key_management::KeyGenerationRequest gen_req{};
+    gen_req.algorithm = descriptor.value();
+
+    const auto perm_res = km_parse::ExtractOptionalPermissions(request, 2U);
+    if (perm_res.has_value())
+    {
+        gen_req.permissions = perm_res.value();
+    }
+
+    // Orchestration: resolve slot to config.
+    auto slot_res = m_service->ResolveSlotForOperation(ctx.client_id, slot_nid_res.value());
+    if (!slot_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGenerateToSlot: slot resolution failed";
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
+    const auto& resolution = slot_res.value();
+
+    // Access control: only clients listed in the slot's allowed_write_uids may generate into it.
+    auto write_res = key_management::AccessPolicyEnforcer::CheckWritePermission(*resolution.config, ctx.client_id);
+    if (!write_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGenerateToSlot: write access denied"
+                                   << " client_id=" << ctx.client_id;
+        return score::crypto::make_unexpected(write_res.error());
+    }
+
+    // Access control: only the slot's primary (writer) provider may mutate it.
+    auto provider_res =
+        key_management::AccessPolicyEnforcer::CheckProviderAccess(*resolution.config, ctx.provider_id, true);
+    if (!provider_res.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGenerateToSlot: provider not permitted to write to slot"
+                                   << " provider_id=" << ctx.provider_id;
+        return score::crypto::make_unexpected(provider_res.error());
+    }
+
+    // Provider-specific: generate the key and persist it into the slot in one step.
+    auto store_result = m_factory->GenerateKeyToSlot(*resolution.config, gen_req, *m_slot_handler);
+    if (!store_result.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "HandleGenerateToSlot: GenerateKeyToSlot failed"
+                                   << " error=" << static_cast<int>(store_result.error());
+        return score::crypto::make_unexpected(store_result.error());
+    }
+
+    score::mw::log::LogInfo() << LOG_PREFIX << "HandleGenerateToSlot: key generated and stored"
+                              << " slot=" << resolution.config->slot_name;
+
+    common::ResponseParameters output;
+    output.push_back(static_cast<std::uint64_t>(0U));  // success marker, no key resource is created
     return output;
 }
 

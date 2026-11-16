@@ -38,6 +38,7 @@
 
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/provider/handler/operations/csr_handler_operations.hpp"
 
 // Operation constants — these headers only depend on types.hpp (no circular risk).
 #include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
@@ -80,6 +81,8 @@ constexpr std::string_view ActorName(OperationActor actor) noexcept
             return "VERIFY_HANDLER";
         case actors::OP_ACTOR_RANDOM_HANDLER:
             return "RANDOM_HANDLER";
+        case actors::OP_ACTOR_CSR_HANDLER:
+            return "CSR_HANDLER";
         default:
             return "<unknown_actor>";
     }
@@ -107,6 +110,18 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
 
     switch (actor)
     {
+        case actors::OP_ACTOR_CSR_HANDLER:
+            switch (action)
+            {
+                case provider::handler::csr_handler_operations::CSR_GENERATE:
+                    return "CSR_GENERATE";
+                case provider::handler::csr_handler_operations::CSR_PUBLIC_KEY_INFO:
+                    return "CSR_PUBLIC_KEY_INFO";
+                case provider::handler::csr_handler_operations::CSR_GENERATE_NATIVE:
+                    return "CSR_GENERATE_NATIVE";
+                default:
+                    return "<unknown_csr_op>";
+            }
         case actors::OP_ACTOR_MEDIATOR:
             switch (action)
             {
@@ -116,6 +131,8 @@ constexpr std::string_view ActionName(OperationActor actor, OperationAction acti
                     return "CTX_CLOSE";
                 case kMediatorResolveResource:
                     return "RESOLVE_RESOURCE";
+                case 10U:
+                    return "CSR_PROCESS";
                 default:
                     return "<unknown_mediator_op>";
             }

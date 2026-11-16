@@ -16,6 +16,7 @@
 
 #include "score/crypto/src/api/common/i_memory_allocator.hpp"
 #include "score/crypto/src/api/i_crypto_context.hpp"
+#include "score/crypto/src/api/csr/csr_processing_client.hpp"
 #include "score/result/result.h"
 
 #include <memory>
@@ -49,6 +50,14 @@ class ICryptoStack
     /// @note Multiple contexts can be created from one stack for parallel
     ///       independent operation streams.
     virtual score::Result<ICryptoContext::Uptr> CreateCryptoContext() = 0;
+
+    /// Explicit helper service using this stack's established connection.
+    /// The returned service owns connection/transcoder references and may
+    /// outlive the stack. Implementations without this capability fail closed.
+    virtual score::Result<std::unique_ptr<ICsrProcessingService>> CreateCsrProcessingService()
+    {
+      return score::Unexpected{MakeError(CryptoErrorCode::kUnsupportedOperation, "CSR processing unavailable")};
+    }
 
     /// @brief Returns the data-plane memory allocator.
     /// @return Result containing ownership of the memory allocator.

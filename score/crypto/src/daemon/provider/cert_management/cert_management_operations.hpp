@@ -15,11 +15,15 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_CERT_MANAGEMENT_CERT_MANAGEMENT_OPERATIONS_HPP
 
 #include "score/crypto/src/daemon/common/types.hpp"
+#include <cstddef>
 #include <limits>
 
 namespace score::crypto::daemon::provider::cert_management
 {
 using OperationAction = common::OperationAction;
+// Single-certificate DER/PEM input budget; not a certificate-bundle limit.
+inline constexpr std::size_t kMaxCertificateInputBytes = 8192U;
+
 inline constexpr OperationAction CERT_PARSE = 0x10U;
 inline constexpr OperationAction CERT_PARSE_CHAIN = 0x11U;
 inline constexpr OperationAction CERT_SAVE = 0x12U;

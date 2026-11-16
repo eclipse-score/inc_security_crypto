@@ -65,6 +65,9 @@ class KeyManagementExecutor final
         const KeyMgmtExecutionContext& ctx,
         common::RequestParameters& request);
 
+    [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode>
+    HandleGenerateToSlot(const KeyMgmtExecutionContext& ctx, common::RequestParameters& request);
+
     [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleLoad(
         const KeyMgmtExecutionContext& ctx,
         common::RequestParameters& request);

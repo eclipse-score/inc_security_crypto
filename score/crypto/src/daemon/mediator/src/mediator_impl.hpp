@@ -82,7 +82,8 @@ class MediatorImpl : public IMediator
     /// @brief Resolve a provider and create a compatible handler.
     ///
     /// @p algorithm is the resolved catalog row of the requested algorithm, or
-    /// std::nullopt for a KEY:MANAGEMENT context, which names no algorithm.
+    /// std::nullopt for KEY:MANAGEMENT and the original algorithm-free CERT:*
+    /// factory modes. CSR_GENERATION always carries a signature catalog row.
     ///
     /// Preferred-provider fallback is attempted only when the primary provider
     /// is unavailable or rejects the requested context/algorithm. Exact provider
@@ -168,6 +169,21 @@ class MediatorImpl : public IMediator
     bool HandleShmCreateObject(const control_plane::ControlRequest& request,
                                const control_plane::SingleOperationRequest& operation,
                                control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleCsrProcessing(const control_plane::ControlRequest& request,
+                               const control_plane::SingleOperationRequest& operation,
+                               control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleGetCertificateObject(const control_plane::ControlRequest& request,
+                                    const control_plane::SingleOperationRequest& operation,
+                                    control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleGetCertSlotObject(const control_plane::ControlRequest& request,
+                                 const control_plane::SingleOperationRequest& operation,
+                                 control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleGetTrustStoreMemberIdList(const control_plane::ControlRequest& request,
+                                         const control_plane::SingleOperationRequest& operation,
+                                         control_plane::protocol::OperationResponseBuilder& responseBuilder);
+    bool HandleGetTrustStoreMemberObject(const control_plane::ControlRequest& request,
+                                         const control_plane::SingleOperationRequest& operation,
+                                         control_plane::protocol::OperationResponseBuilder& responseBuilder);
     bool ForwardSingleOperation(const control_plane::ControlRequest& request,
                                 const control_plane::SingleOperationRequest& operation,
                                 control_plane::protocol::OperationResponseBuilder& responseBuilder);

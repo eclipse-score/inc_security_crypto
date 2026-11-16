@@ -49,10 +49,14 @@ certificate/
 │   ├── ml_dsa_87.pem,   ml_dsa_87_slot.kv
 │   └── private/
 │
-└── pki_chain/                 # Future: root → intermediate → leaf + OCSP
+└── pki_chain/                 # Root → intermediate → leaf + CRL/OCSP vectors
     ├── manifest.json
+    ├── root_ca.pem/.crl.der   # Root anchor and CRL
+    ├── intermediate_ca.pem/.crl.der
+    ├── leaf.pem/.der          # End-entity certificate
+    ├── leaf.chain.pem         # Leaf + intermediate + root bundle
     ├── ocsp_signer.ext.conf   # Extension config for the OCSP signing cert
-    └── private/
+    └── private/               # NOT committed — local keys only
 ```
 
 Private keys live under each folder's `private/` directory and are ignored by
@@ -92,11 +96,13 @@ Associated artifacts: `certificate.crl.pem/.der` (CRL revoking `certificate_leaf
 
 PQC support requires OpenSSL ≥ 3.5.
 
-### `pki_chain/` (future)
+### `pki_chain/`
 
-Three-level PKI for chain-verification and OCSP tests. No certificates are
-committed yet. Generate in the order listed in `pki_chain/manifest.json`
-under `_generation_order`.
+Three-level PKI for chain-verification, trust-store policy, and CRL tests.
+The generated public certificates, bundles, CRLs, and slot descriptors are
+committed. Private keys remain local and must never be committed. Regenerate
+the vectors in the order listed in `pki_chain/manifest.json` under
+`_generation_order` when refreshing them.
 
 ---
 

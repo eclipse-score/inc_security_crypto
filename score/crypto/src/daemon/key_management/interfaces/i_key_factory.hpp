@@ -116,6 +116,20 @@ class IKeyFactory
     [[nodiscard]] virtual score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorCode>
     GetExportKeySize(const ProviderKeyHandle& handle, score::crypto::FormatType format);
 
+    /// Serialize a provider-held asymmetric private key to DER for file-backed
+    /// slot persistence.
+    ///
+    /// This is the daemon's internal persistence path for direct-to-slot key
+    /// generation and is deliberately NOT gated by the user-facing kExport
+    /// permission: slot-write authorization is enforced separately by the caller
+    /// (AccessPolicyEnforcer), and the resulting bytes become the slot's own
+    /// backing store rather than a client-visible export. The DER form must
+    /// round-trip through ImportKey() so a later LoadKey() reconstructs the key.
+    ///
+    /// Default: returns kNotSupported.
+    [[nodiscard]] virtual score::crypto::Expected<SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode>
+    SerializePrivateKeyForPersistence(const ProviderKeyHandle& handle);
+
     /// Generate a key atomically into a persistent slot.
     ///
     /// The default implementation composes GenerateKey() + slot_handler.StoreKey().

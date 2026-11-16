@@ -19,77 +19,70 @@
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
-#include <utility>
 
 namespace score::crypto::daemon::cert_management
 {
 
 /// DataNode placed in the client's tree that references a shared CertEntry
-/// instance and a weak reference to its CertRegistry.
+/// living in the per-provider CertRegistry.
 ///
-/// The registry and node share ownership of the CertEntry. On destruction,
-/// the node unregisters its entry if the registry is still alive.
+/// On construction, increments the CertEntry's reference count.
+/// On destruction, decrements it. When the count reaches zero, the provided
+/// cleanup callback unregisters the cert from the registry.
 ///
 /// exclusiveAccess = false: multiple threads may read concurrently.
 class CertDataNode final : public data_manager::DataNode
 {
   public:
-    /// @brief Returns the data manager node type for certificate data.
+    using UnregisterCallback = std::function<void(CertRegistryId)>;
+
     [[nodiscard]] data_manager::DataNodeType GetNodeType() const noexcept override
     {
         return data_manager::DataNodeType::kCertData;
     }
 
-    /// @brief Create a client-scoped reference to a registered certificate.
-    /// @param cert_instance Certificate instance retained by the node.
-    /// @param cert_registry Registry used to unregister the entry when the node is destroyed; must not be null.
-    /// @param registry_id Identifier returned by the registry when the certificate was registered.
-    /// @param client_id Client that owns this node.
-    CertDataNode(std::shared_ptr<CertEntry> cert_instance,
-                 CertRegistry::Sptr cert_registry,
+    CertDataNode(std::shared_ptr<CertEntry> cert_entry,
                  CertRegistryId registry_id,
-                 data_manager::ClientId client_id)
+                 data_manager::ClientId client_id,
+                 UnregisterCallback unregister_callback)
         : DataNode(false),
-          m_cert_instance{std::move(cert_instance)},
-          m_cert_registry{std::move(cert_registry)},
+          m_cert_entry{std::move(cert_entry)},
           m_registry_id{registry_id},
-          m_client_id{client_id}
+          m_client_id{client_id},
+          m_unregister_callback{std::move(unregister_callback)}
     {
     }
 
-    /// @brief Unregisters the certificate entry if the registry is still alive.
     ~CertDataNode() override
     {
-        if (const auto cert_registry = m_cert_registry.lock())
+        if (m_cert_entry != nullptr && m_unregister_callback)
         {
-            cert_registry->Unregister(m_registry_id);
+            m_unregister_callback(m_registry_id);
         }
     }
 
-    /// Not copyable or movable; the registry entry is tied to this node's lifetime.
     CertDataNode(const CertDataNode&) = delete;
     CertDataNode& operator=(const CertDataNode&) = delete;
     CertDataNode(CertDataNode&&) = delete;
     CertDataNode& operator=(CertDataNode&&) = delete;
 
-    /// @brief Shared certificate instance held by this node.
-    [[nodiscard]] std::shared_ptr<CertEntry> GetCertInstance() const noexcept
+    [[nodiscard]] std::shared_ptr<CertEntry> GetCertEntry() const noexcept
     {
-        return m_cert_instance;
+        return m_cert_entry;
     }
 
-    /// @brief Identifier under which the entry is registered.
     [[nodiscard]] CertRegistryId GetRegistryId() const noexcept
     {
         return m_registry_id;
     }
 
   private:
-    std::shared_ptr<CertEntry> m_cert_instance;
-    std::weak_ptr<CertRegistry> m_cert_registry;
+    std::shared_ptr<CertEntry> m_cert_entry;
     CertRegistryId m_registry_id;
     data_manager::ClientId m_client_id;
+    UnregisterCallback m_unregister_callback;
 };
 
 }  // namespace score::crypto::daemon::cert_management

@@ -64,9 +64,17 @@ class CryptoContextImpl final : public ICryptoContext
         const KeyManagementContextConfig& config) override;
     score::Result<std::unique_ptr<ICipherContext>> CreateCipherContext(const CipherContextConfig& config) override;
     score::Result<std::unique_ptr<ISignContext>> CreateSignContext(const SignContextConfig& config) override;
+    score::Result<std::unique_ptr<ICsrGenerationContext>> CreateCsrGenerationContext(
+        const CsrGenerationContextConfig& config) override;
     score::Result<std::unique_ptr<IVerifySignatureContext>> CreateVerifySignatureContext(
         const VerifySignatureContextConfig& config) override;
     score::Result<std::unique_ptr<IRandomContext>> CreateRandomContext(const RandomContextConfig& config) override;
+    score::Result<std::unique_ptr<ICertificateManagementContext>> CreateCertificateManagementContext(
+        const CertificateContextConfig& config) override;
+    score::Result<std::unique_ptr<ICertificateVerificationContext>> CreateCertificateVerificationContext(
+        const CertificateVerificationContextConfig& config) override;
+    score::Result<std::unique_ptr<ITrustStoreManagementContext>> CreateTrustStoreManagementContext(
+        const TrustStoreManagementContextConfig& config) override;
 
     // -- Queries --
     score::Result<AlgorithmCapabilities> QueryCapabilities(const AlgorithmId& algorithm) override;
@@ -77,6 +85,9 @@ class CryptoContextImpl final : public ICryptoContext
     // -- Typed Object Access --
     score::Result<std::unique_ptr<IKeyObject>> GetKeyObject(const CryptoResourceId& id) override;
     score::Result<std::unique_ptr<IKeySlotObject>> GetKeySlotObject(const CryptoResourceId& id) override;
+    score::Result<std::unique_ptr<ICertificateObject>> GetCertificateObject(const CryptoResourceId& id) override;
+    score::Result<std::unique_ptr<ICertSlotObject>> GetCertSlotObject(const CryptoResourceId& id) override;
+    score::Result<std::unique_ptr<ITrustStoreObject>> GetTrustStoreObject(const CryptoResourceId& id) override;
 
   private:
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;

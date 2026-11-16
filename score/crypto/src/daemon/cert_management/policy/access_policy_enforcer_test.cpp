@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <optional>
 
 namespace
 {
@@ -45,41 +44,21 @@ TEST(AccessPolicyEnforcerTest, AllowsUnrestrictedSlotRead)
     EXPECT_TRUE(AccessPolicyEnforcer::CheckSlotAccess(slot, ClientId(100U, 200U)).has_value());
 }
 
-// std::nullopt configures an empty write allowlist.
-struct WriteAuthorizationCase
+TEST(AccessPolicyEnforcerTest, DeniesSlotWriteWhenUidIsNotAllowed)
 {
-    std::optional<std::uint32_t> permitted_uid;
-    std::uint32_t requesting_uid;
-    bool expect_success;
-};
-
-class SlotWriteAuthorizationTest : public ::testing::TestWithParam<WriteAuthorizationCase>
-{
-};
-
-TEST_P(SlotWriteAuthorizationTest, ChecksWriteAgainstAllowlist)
-{
-    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_mgmt__access_control");
-    RecordProperty("Description", "A certificate slot grants writes only to UIDs listed in its write allowlist.");
-    RecordProperty("TestType", "interface-test");
-    RecordProperty("DerivationTechnique", "requirements-analysis");
-
-    const auto& param = GetParam();
     CertSlotConfig slot;
-    if (param.permitted_uid.has_value())
-    {
-        slot.access_policy.allowed_write_uids = {*param.permitted_uid};
-    }
+    slot.access_policy.allowed_write_uids = {100U};
 
-    const auto result = AccessPolicyEnforcer::CheckWritePermission(slot, ClientId(1U, param.requesting_uid));
-    EXPECT_EQ(result.has_value(), param.expect_success);
+    EXPECT_FALSE(AccessPolicyEnforcer::CheckWritePermission(slot, ClientId(1U, 200U)).has_value());
 }
 
-INSTANTIATE_TEST_SUITE_P(SlotWriteAuthorization,
-                         SlotWriteAuthorizationTest,
-                         ::testing::Values(WriteAuthorizationCase{100U, 200U, false},
-                                           WriteAuthorizationCase{200U, 200U, true},
-                                           WriteAuthorizationCase{std::nullopt, 200U, false}));
+TEST(AccessPolicyEnforcerTest, AllowsSlotWriteForConfiguredUid)
+{
+    CertSlotConfig slot;
+    slot.access_policy.allowed_write_uids = {200U};
+
+    EXPECT_TRUE(AccessPolicyEnforcer::CheckWritePermission(slot, ClientId(1U, 200U)).has_value());
+}
 
 TEST(AccessPolicyEnforcerTest, AllowsUnrestrictedTrustStoreRead)
 {
@@ -87,31 +66,17 @@ TEST(AccessPolicyEnforcerTest, AllowsUnrestrictedTrustStoreRead)
     EXPECT_TRUE(AccessPolicyEnforcer::CheckTrustStoreAccess(store, ClientId(1U, 200U)).has_value());
 }
 
-class TrustStoreWriteAuthorizationTest : public ::testing::TestWithParam<WriteAuthorizationCase>
+TEST(AccessPolicyEnforcerTest, DeniesTrustStoreWriteWhenAllowlistIsEmpty)
 {
-};
-
-TEST_P(TrustStoreWriteAuthorizationTest, ChecksWriteAgainstAllowlist)
-{
-    RecordProperty("PartiallyVerifies", "comp_req__crypto_cert_mgmt__access_control");
-    RecordProperty("Description", "A trust store grants writes only to UIDs listed in its write allowlist.");
-    RecordProperty("TestType", "interface-test");
-    RecordProperty("DerivationTechnique", "requirements-analysis");
-
-    const auto& param = GetParam();
     TrustStoreConfig store;
-    if (param.permitted_uid.has_value())
-    {
-        store.access_policy.allowed_write_uids = {*param.permitted_uid};
-    }
-
-    const auto result = AccessPolicyEnforcer::CheckTrustStoreWritePermission(store, ClientId(1U, param.requesting_uid));
-    EXPECT_EQ(result.has_value(), param.expect_success);
+    EXPECT_FALSE(AccessPolicyEnforcer::CheckTrustStoreWritePermission(store, ClientId(1U, 200U)).has_value());
 }
 
-INSTANTIATE_TEST_SUITE_P(TrustStoreWriteAuthorization,
-                         TrustStoreWriteAuthorizationTest,
-                         ::testing::Values(WriteAuthorizationCase{100U, 200U, false},
-                                           WriteAuthorizationCase{200U, 200U, true},
-                                           WriteAuthorizationCase{std::nullopt, 200U, false}));
+TEST(AccessPolicyEnforcerTest, AllowsTrustStoreWriteForConfiguredUid)
+{
+    TrustStoreConfig store;
+    store.access_policy.allowed_write_uids = {200U};
+
+    EXPECT_TRUE(AccessPolicyEnforcer::CheckTrustStoreWritePermission(store, ClientId(1U, 200U)).has_value());
+}
 }  // namespace

@@ -25,42 +25,42 @@
 #include <span>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
-#include <utility>
 #include <variant>
 #include <vector>
 
 namespace score::crypto::daemon::cert_management
 {
 
-/// Interface for certificate-slot operations.
+/// Interface for provider-specific certificate slot operations.
 ///
-/// A slot handler loads and inspects certificate material for one configured slot. The
-/// configuration is given at construction and is fixed for the handler's lifetime, so
-/// operations do not take it as an argument. CRL operations for the slot are exposed
-/// through the same interface.
+/// A slot handler manages the storage backend for one deployment category:
+///   - FileBackedSlotHandler : file system (OpenSSL / software provider)
+///   - (future) hardware providers implement their own ICertSlotHandler subclass
 ///
-/// LoadCertificate is the primary operation and returns a CertObject that owns
-/// the loaded certificate material.
+/// LoadCertificate is the primary operation: it retrieves certificate material
+/// from the slot and returns a CertObject that owns the parsed form.
 ///
-/// Optional operations have default implementations; each method documents its
-/// behavior when the operation or requested data is unsupported. Read-only
-/// implementations may leave unsupported optional operations at their defaults.
+/// CRL operations are co-located with the certificate slot:
+/// the [crl] section of the slot's KV deployment descriptor holds the CRL.
+/// ICertSlotHandler is the single management surface for both the certificate
+/// and its associated CRL (if any).
 ///
-/// Thread safety: A handler instance may be shared by concurrent requests.
-/// Implementations must serialize operations on the same slot, including reads
-/// that must be consistent with writes, and synchronize any provider or backend
-/// resources they use. A per-handler operation mutex is suitable. Callers must
-/// not assume DataNode access serializes handler calls; certificate-slot nodes
-/// allow concurrent access.
+/// Default implementations of optional methods return kUnsupportedOperation.
+/// Implementations that support only read-only certificate material (e.g., a
+/// static-provisioning slot) override only LoadCertificate, GetSlotState, and
+/// GetSlotInfo.
+///
+/// Thread safety: individual slot handler instances are not thread-safe.
+/// The CertManagementService serializes concurrent access via DataNode locks.
 class ICertSlotHandler
 {
   public:
     using Sptr = std::shared_ptr<ICertSlotHandler>;
 
-    /// @param config Configuration of the slot this handler serves.
-    explicit ICertSlotHandler(CertSlotConfig config) : m_config{std::move(config)} {}
+    ICertSlotHandler() = default;
 
     virtual ~ICertSlotHandler() = default;
 
@@ -69,111 +69,136 @@ class ICertSlotHandler
     ICertSlotHandler(ICertSlotHandler&&) = delete;
     ICertSlotHandler& operator=(ICertSlotHandler&&) = delete;
 
-    /// Configuration of the slot this handler serves. Fixed for the handler's lifetime.
-    /// @return The slot configuration given at construction.
-    [[nodiscard]] const CertSlotConfig& GetConfig() const noexcept;
+    // -----------------------------------------------------------------------
+    // Pure virtual — must be implemented by every slot handler
+    // -----------------------------------------------------------------------
 
-    /// Load certificate material from the slot and return an owning CertObject.
+    /// Load certificate material from the slot and return a handler that owns it.
+    ///
+    /// For file-backed slots: reads the file referenced in the [certificate]
+    /// section of the deployment descriptor, delegates to the injected ICertParser.
+    /// For hardware slots: retrieves the certificate object from the secure element.
     ///
     /// The returned CertObject must be transferred to a CertDataNode
-    /// (via CertManagementService::RegisterCertificate()) immediately; the
+    /// (via CertManagementService::RegisterCertMaterial()) immediately; the
     /// caller must not hold a bare reference across yield points.
     ///
-    /// @return The loaded certificate on success, or an error code. Returns
-    ///         kKeySlotEmpty when the slot has no certificate.
+    /// Returns kKeySlotEmpty when no certificate has been stored in this slot.
     [[nodiscard]] virtual score::crypto::Expected<CertObject::Sptr, score::crypto::daemon::common::DaemonErrorCode>
-    LoadCertificate() = 0;
+    LoadCertificate(const CertSlotConfig& slot) = 0;
 
     /// Query certificate-slot state (kEmpty or kOccupied).
     ///
-    /// Must not load the certificate.
-    ///
-    /// @return The slot state, or an error code on failure.
+    /// Must not load the certificate — for file-backed slots this is a
+    /// lightweight existence check (stat) against the deployment descriptor.
     [[nodiscard]] virtual score::crypto::Expected<score::crypto::CertificateSlotState,
                                                   score::crypto::daemon::common::DaemonErrorCode>
-    GetSlotState() = 0;
+    GetSlotState(const CertSlotConfig& slot) = 0;
 
     /// Return slot metadata (state, subject, issuer, validity, provider).
     ///
-    /// @return Slot metadata, or an error code on failure.
+    /// May read cached metadata from the [certificate_metadata] section of the
+    /// deployment descriptor without fully parsing the certificate file.
     [[nodiscard]] virtual score::crypto::Expected<score::crypto::CertificateSlotInfo,
                                                   score::crypto::daemon::common::DaemonErrorCode>
-    GetSlotInfo() = 0;
+    GetSlotInfo(const CertSlotConfig& slot) = 0;
 
-    /// Check whether a CRL is associated with the slot.
+    /// Check whether the slot has an associated CRL stored in its [crl] section.
     ///
-    /// @return True if a CRL is associated with the slot, false otherwise, or
-    ///         an error code if the presence could not be determined.
-    [[nodiscard]] virtual score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> HasCrl() = 0;
+    /// For file-backed slots: checks existence of the crl_path key in the
+    /// deployment descriptor and verifies the file is present.
+    [[nodiscard]] virtual score::crypto::Expected<bool, score::crypto::daemon::common::DaemonErrorCode> HasCrl(
+        const CertSlotConfig& slot) = 0;
 
     // -----------------------------------------------------------------------
-    // Optional operations — see each method for its default behavior
+    // Optional — defaulted to kUnsupportedOperation
     // -----------------------------------------------------------------------
 
     /// Persist a CertObject's certificate material into the slot.
     ///
-    /// @param cert Certificate material to persist.
-    /// @return std::monostate on success, or an error code. The default
-    ///         implementation returns kUnsupportedOperation.
+    /// For file-backed slots: serializes to the format specified in the
+    /// deployment descriptor and writes to the path in the [certificate]
+    /// section. Updates the [certificate_metadata] section.
+    /// For hardware slots: stores the certificate object in the secure element.
+    ///
+    /// Default: returns kUnsupportedOperation.
     [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    StoreCertificate(const CertObject& cert);
+    StoreCertificate(const CertSlotConfig& slot, const CertObject& cert);
 
     /// Erase certificate material (and CRL if present) from the slot.
     ///
     /// After this call, GetSlotState() must return kEmpty and HasCrl() false.
     ///
-    /// @return std::monostate on success, or an error code. The default
-    ///         implementation returns kUnsupportedOperation.
+    /// Default: returns kUnsupportedOperation.
     [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    ClearSlot();
+    ClearSlot(const CertSlotConfig& slot);
 
     // ---- CRL management --------------------------------------------------
 
-    /// Store the CRL associated with the slot.
+    /// Load the raw CRL bytes from the slot's [crl] section.
     ///
-    /// @param crl  CRL bytes, encoding, and optional metadata. The implementation must copy
-    ///             whatever it needs before returning.
-    /// @return std::monostate on success, or an error code. The default
-    ///         implementation returns kUnsupportedOperation.
-    [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    StoreCrl(const CrlData& crl);
+    /// Returns the DER or PEM bytes as stored; callers inspect the format via
+    /// the cert_deployment_keys::kCrlFormat key in the deployment descriptor.
+    ///
+    /// Default: returns kUnsupportedOperation.
+    [[nodiscard]] virtual score::crypto::Expected<std::vector<uint8_t>, score::crypto::daemon::common::DaemonErrorCode>
+    LoadCrl(const CertSlotConfig& slot);
 
-    /// Remove the CRL associated with the slot.
+    /// Store raw CRL bytes into the slot's [crl] section.
+    ///
+    /// crl_data points to caller-owned memory valid for the duration of this call.
+    /// The implementation must copy the bytes and write them to the configured path.
+    /// Updates CRL metadata keys in the deployment descriptor when metadata is provided.
+    ///
+    /// Consistency model: the operation is two steps — write CRL file, then write
+    /// descriptor. Each step is individually atomic (temp-file + rename). If the
+    /// descriptor write fails after the file write succeeds, the CRL file is an
+    /// orphan that HasCrl() will not surface (it cross-validates file existence
+    /// against the descriptor path). The orphan is silently overwritten on the
+    /// next StoreCrl call. No explicit rollback is required.
+    ///
+    /// Default: returns kUnsupportedOperation.
+    [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
+    StoreCrl(const CertSlotConfig& slot,
+             score::crypto::span<const uint8_t> crl_data,
+             score::crypto::FormatType format,
+             std::optional<score::crypto::CrlMetadata> metadata = std::nullopt);
+
+    /// Remove the CRL from the slot's [crl] section.
     ///
     /// After this call, HasCrl() must return false.
     ///
-    /// @return std::monostate on success, or an error code. The default
-    ///         implementation returns kUnsupportedOperation.
+    /// Default: returns kUnsupportedOperation.
     [[nodiscard]] virtual score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
-    ClearCrl();
+    ClearCrl(const CertSlotConfig& slot);
 
-    /// Return the metadata of the stored CRL without reading the CRL itself.
+    /// Return the nextUpdate time of the stored CRL as Unix epoch seconds.
     ///
-    /// An empty value means no metadata is available: no CRL is stored, or the stored
-    /// CRL has none. Use HasCrl() to tell the two apart.
+    /// Used by the daemon's CRL refresh scheduler. Returns kUnsupportedOperation
+    /// when no CRL is stored (HasCrl() == false).
     ///
-    /// @return The metadata, an empty optional when none is available, or an error
-    ///         code. The default implementation returns an empty optional.
-    [[nodiscard]] virtual score::crypto::Expected<std::optional<score::crypto::CrlMetadata>,
-                                                  score::crypto::daemon::common::DaemonErrorCode>
-    GetCrlMetadata();
+    /// Default: returns kUnsupportedOperation.
+    [[nodiscard]] virtual score::crypto::Expected<int64_t, score::crypto::daemon::common::DaemonErrorCode>
+    GetCrlNextUpdate(const CertSlotConfig& slot);
 
-    /// Return the stored CRL as one snapshot, or std::nullopt when the slot has none.
+    /// Return the format (DER or PEM) of the CRL stored in the slot's [crl] section.
     ///
-    /// Bytes, format, and metadata describe the same CRL, so an implementation should
-    /// read them from one view of its backing store. This is the only way to read CRL
-    /// bytes.
+    /// Reads the crl_format key from the deployment descriptor without loading
+    /// the CRL bytes. Returns kDer when no [crl] section or format key is present.
     ///
-    /// @return The CRL snapshot, std::nullopt when no CRL is stored, or an error
-    ///         code on failure. The default implementation returns kUnsupportedOperation.
-    [[nodiscard]] virtual score::crypto::Expected<std::optional<CrlData>,
-                                                  score::crypto::daemon::common::DaemonErrorCode>
-    LoadCrlData();
+    /// Default: returns kDer.
+    [[nodiscard]] virtual score::crypto::FormatType GetCrlFormat(const CertSlotConfig& slot);
 
-  private:
-    /// Configuration of the slot this handler serves.
-    const CertSlotConfig m_config;
+    /// Return metadata for the stored CRL, when available.
+    [[nodiscard]] virtual std::optional<score::crypto::CrlMetadata> GetCrlMetadata(const CertSlotConfig& slot);
 };
+
+/// Factory function type for creating a slot handler from a slot configuration.
+///
+/// Defined here so that all components (CertManagementService, TrustStoreManager,
+/// ConfigDrivenTrustStoreCatalog) share one canonical type rather than each
+/// declaring an identical nested alias.
+using CertSlotHandlerFactory = std::function<ICertSlotHandler::Sptr(const CertSlotConfig&)>;
 
 }  // namespace score::crypto::daemon::cert_management
 

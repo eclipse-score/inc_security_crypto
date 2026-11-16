@@ -725,4 +725,44 @@ std::size_t OpenSslKeyFactory::DetermineKeySize(const AlgorithmDescriptor& algor
     return ::score::crypto::daemon::common::LookupKeySize(algorithm).value_or(0U);
 }
 
+::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
+OpenSslKeyFactory::SerializePrivateKeyForPersistence(const key_management::ProviderKeyHandle& handle)
+{
+    // Only this provider can interpret the opaque_id it issued, and only an
+    // asymmetric key has an EVP_PKEY private half to serialize.
+    if ((handle.provider_id != m_provider_id) || !handle.is_asymmetric)
+    {
+        return ::score::crypto::make_unexpected(
+            ::score::crypto::daemon::common::DaemonErrorCode::kIncompatibleKeyType);
+    }
+
+    EVP_PKEY* pkey = PkeyFromHandle(handle);
+    if (pkey == nullptr)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
+    }
+
+    // Traditional (type-specific) DER private key. d2i_AutoPrivateKey — which
+    // ImportKey uses on LoadKey — parses exactly this form, so store/load
+    // round-trips. A public-only key has no private half and i2d_PrivateKey
+    // reports a non-positive length, which surfaces as kKeyNotExportable.
+    const int der_len = i2d_PrivateKey(pkey, nullptr);
+    if (der_len <= 0)
+    {
+        score::mw::log::LogError() << kLogPrefix
+                                   << "SerializePrivateKeyForPersistence: key has no exportable private half";
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
+    }
+
+    key_management::SecureKeyBytes out{static_cast<std::size_t>(der_len)};
+    unsigned char* cursor = out.bytes.data();
+    const int written = i2d_PrivateKey(pkey, &cursor);
+    if (written != der_len)
+    {
+        return ::score::crypto::make_unexpected(::score::crypto::daemon::common::DaemonErrorCode::kOperationFailed);
+    }
+
+    return out;
+}
+
 }  // namespace score::crypto::daemon::provider::openssl

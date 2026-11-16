@@ -70,15 +70,18 @@ class ITrustStoreObject : public ICryptoObject
 
     /// @brief Find the member with the given SHA-256 fingerprint.
     ///
-    /// @param fingerprint 32-byte fingerprint span. Returns nullptr if its size is not 32.
+    /// @param fingerprint 32-byte SHA-256 fingerprint.
     /// @returns Pointer to the matching MemberInfo, or nullptr if not found.
     [[nodiscard]] virtual const MemberInfo* FindMemberByFingerprint(
-        score::cpp::span<const uint8_t> fingerprint) const noexcept = 0;
+        score::cpp::span<const uint8_t, kSha256FingerprintSize> fingerprint) const noexcept = 0;
 
     /// @brief Returns the slot IDs of all enabled trust store members.
     [[nodiscard]] virtual std::vector<CryptoResourceId> GetEnabledMemberSlotIds() const = 0;
 
-    /// @brief Returns the slot IDs of all disabled trust store members.
+    /// @brief Returns the slot IDs of all members whose status is not `MemberStatus::kEnabled`.
+    ///
+    /// Includes explicitly disabled members and conditional members with a fingerprint
+    /// mismatch or pending acknowledgement; use `MemberInfo::status` to tell them apart.
     [[nodiscard]] virtual std::vector<CryptoResourceId> GetDisabledMemberSlotIds() const = 0;
 
   protected:

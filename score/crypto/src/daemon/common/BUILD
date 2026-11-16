@@ -96,6 +96,7 @@ cc_library(
         ":common",
         "//score/crypto/src/daemon/key_management:key_management_operations",
         "//score/crypto/src/daemon/provider/handler:cipher_handler_operations",
+        "//score/crypto/src/daemon/provider/handler:csr_handler_operations",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
         "//score/crypto/src/daemon/provider/handler:mac_handler_operations",
         "//score/crypto/src/daemon/provider/handler:random_handler_operations",

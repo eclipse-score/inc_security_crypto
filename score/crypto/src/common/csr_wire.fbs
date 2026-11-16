@@ -1,0 +1,32 @@
+// *******************************************************************************
+// Copyright (c) 2026 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache License Version 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// SPDX-License-Identifier: Apache-2.0
+// *******************************************************************************
+
+namespace score.crypto.csr.wire.fb;
+enum Action:ubyte { None, Add, FromDn, San, Usage, Eku, Basic, Custom,
+    Validate, Encode, Save, Load, Prepare, ValidatePrepared, Generate, SanText }
+table Entry { oid:string; value:string; type:uint; }
+table Extension { oid:string; critical:bool; value:string; }
+// No key handle, private material, provider identifier or signing algorithm
+// override is accepted by Generate. Metadata fields are only for templates.
+table Document {
+    version:uint = 1;
+    action:Action;
+    subject:[Entry]; issuer:[Entry]; extensions:[Extension];
+    names:[Entry]; oids:[string]; runtime:[Entry];
+    required_subject:[string]; required_issuer:[string];
+    text:string; bytes:[ubyte]; id:string; resource:string;
+    algorithm:string; url:string;
+    critical:bool; ca:bool; path:int = -1;
+}
+root_type Document;
+file_identifier "SCR1";

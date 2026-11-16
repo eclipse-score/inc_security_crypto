@@ -18,6 +18,7 @@ cc_library(
     hdrs = [
         "base_context_config.hpp",
         "cipher_context_config.hpp",
+        "csr_generation_context_config.hpp",
         "hash_context_config.hpp",
         "key_management_context_config.hpp",
         "key_operation_params.hpp",

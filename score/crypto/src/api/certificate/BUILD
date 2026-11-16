@@ -14,6 +14,16 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
+    name = "csr_export",
+    hdrs = ["i_csr_export.hpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@score_baselibs//score/language/futurecpp",
+        "@score_baselibs//score/result",
+    ],
+)
+
+cc_library(
     name = "ocsp_export",
     hdrs = [
         "i_ocsp_request_export.hpp",

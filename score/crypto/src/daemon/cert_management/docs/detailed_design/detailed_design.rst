@@ -27,9 +27,77 @@ Certificate Management Detailed Design
 Implementation units
 --------------------
 
-The component-composition diagram shows the implementation units and their
-relationships. ``AccessPolicyEnforcer`` applies UID-based read/write policy;
-mutation authorization is default-deny unless writer UIDs are configured.
+``CertManagementService``
+   Coordinates resource resolution, DataManager nodes, certificate registry
+   access, slot operations, and trust-store update notifications.
+
+``CertRegistry`` and ``CertEntry``
+   Own live certificate entries. Each ``Load`` call produces a fresh
+   ``CertEntry`` per client; entries are never shared across clients.
+   ``CertEntry`` holds a ``CertObject::Sptr`` (the immutable parsed bytes) and
+   an optional session-scoped CRL from ``ImportCrl``
+   that is never written to disk. Because ``CertEntry`` is per-client, the
+   session CRL is isolated — one client's ``ImportCrl`` cannot be observed by
+   another client that loaded the same slot.
+
+``CertSlotRegistry``
+   Stores immutable slot configuration and application resource mappings.
+
+``FileBackedSlotHandler`` and ``CrlHandler``
+   Read and write certificate/CRL data using the deployment descriptor and
+   shared atomic file I/O. The slot handler delegates parsing to ``ICertParser``.
+   ``CrlHandler`` is composed into ``FileBackedSlotHandler`` and handles all
+   ``[crl]`` section operations.
+
+``TrustStoreManager`` and ``TrustStoreHandler``
+   Resolve typed slot memberships, maintain reverse indices, load anchors
+   lazily, persist mutable member state, and manage per-client references.
+   Slot handlers are created on demand (lazy cache in ``GetOrCreateHandler``).
+   Reference counting is per-client: one client releasing its verification
+   context cannot evict another client's active anchor cache.
+   ``GetMemberSlotHandles`` lists occupied member identities without resolving
+   certificate content; ``GetMemberSnapshot`` resolves one member's detail on
+   demand.
+
+``AccessPolicyEnforcer``
+   Applies UID-based read/write policy. Mutation is default-deny when no writer
+   UID is explicitly configured.
+
+``CertObjectResponseBuilder`` (``query/``)
+   Free functions that encode ``CertObject``, ``ICertSlotHandler`` state, and
+   trust-store member snapshots into the ``common::ResponseParameters`` IPC
+   wire format. Exposed as the single intended encoding path so that an
+   executor and any mediator typed-object handlers built on top of it share
+   one wire-layout definition for certificate, slot, and trust-store objects
+   instead of duplicating it. ``BuildTrustStoreMemberIdListResponse`` (member
+   identities only) and ``BuildTrustStoreMemberObjectResponse`` (one member's
+   detail) let a caller resolve trust-store membership one entry at a time
+   rather than requiring a response sized by total, configuration-driven
+   membership. Every function checks its built payload with
+   ``common::EstimateResponseSize`` against
+   ``common::kMaxResponsePayloadBytes`` and returns ``kResponseTooLarge``
+   instead of an oversized result — the estimate is recomputed from the actual
+   built output each call, so it does not need updating when a wire layout's
+   field set changes.
+
+Data and lifetime model
+-----------------------
+
+* ``CertSlotDataNode`` is a client-scoped reference to a configured slot.
+* ``CertDataNode`` is a client-scoped reference to a registry-owned
+  ``CertEntry``.
+* ``TrustStoreDataNode`` is a client-scoped reference to a manager-owned trust
+  store.
+* ``CertObject`` is immutable and provider-neutral.
+* ``CertSlotManager`` holds a weak-ptr cache of ``CertObject`` values keyed by
+  slot index. The cache avoids repeated disk reads when multiple clients open
+  the same slot in quick succession. Entries expire automatically when no
+  ``CertEntry`` holds a strong reference; ``StoreCertificate`` and
+  ``ClearSlot`` invalidate the entry explicitly so the next load reads fresh
+  bytes.
+* Trust-store anchor contents are loaded on demand by ``TrustStoreManager``
+  through a separate anchor cache. Per-client references prevent one client
+  from evicting another client's active anchor cache.
 
 Storage contract
 ----------------
@@ -43,95 +111,25 @@ descriptor remains available until the replacement is complete.
 Trust-store update contract
 ---------------------------
 
-The notification owner and the certificate-slot and CRL mutation paths are
-defined in :need:`dec_rec__crypto_cert_mgmt__notify_ownership`.
-
-When a certificate changes, a warm trust-store cache refreshes only the affected
-member. For a ``kConditionalExternal`` member, changed content disables the
-member until ``AcknowledgeMemberUpdate`` accepts the replacement fingerprint.
-Other member kinds retain their enablement state. The member's anchor and CRL
-are refreshed separately, so a concurrent reader may briefly see the new
-certificate with the previous CRL; each anchor-set entry is replaced atomically
-under the handler mutex. A cold cache is populated on the next read.
-
-A CRL-only update refreshes the affected member's CRL from the slot's current
-snapshot without reloading its certificate. Disabled members retain no CRL.
+After a successful slot certificate update, the service obtains the reverse
+membership list and calls ``TrustStoreManager::NotifySlotChanged``. The manager
+invalidates the affected ``TrustStoreHandler`` cache. For a
+``kConditionalExternal`` member, the manager also disables the member and
+persists its existing accepted fingerprint. The member remains unavailable
+until ``AcknowledgeMemberUpdate`` records the replacement fingerprint and
+re-enables it. Other member kinds retain their enablement state. The next
+``GetAnchors`` operation reloads the slot and reconstructs its ``CertObject``
+through the injected parser.
 
 Provider boundary and scope
 ----------------------------
 
-The core component does not depend on OpenSSL or PKCS#11 concrete types, and no
-provider is hardcoded as the parsing authority. ``SlotHandlerFactory`` resolves one
-canonical ``ICertParser`` for the component: the provider named by
-``CertificateConfig::GetParserProviderName`` when one is configured, otherwise the
-provider selected for the certificate-management capability. Resolution happens on
-first use unless a caller invokes ``Initialize()`` to resolve eagerly; a successful
-parser is cached and shared, and a failed resolution is not cached so a later call
-retries. A slot handler is created only after the parser is available; slot operations
-requiring a handler return the creation error otherwise. Each provider supplies its own
-verification and CSR generation handlers, built
-on the same provider-neutral ``CertObject`` values. PKCS#11 is expected to supply its
-own ``ICertSlotHandler`` for certificate-slot storage. Hardware-key CSR signing is
-expected to use a cross-context service without exporting private key material. OCSP
-remains a provider-boundary extension.
+The core component does not depend on OpenSSL or PKCS#11 concrete types.
+OpenSSL supplies the ``ICertParser`` implementation used for parsing; provider
+context handlers built on the same ``CertObject`` values are expected to
+supply verification and CSR generation. PKCS#11 is expected to supply its own
+``ICertSlotHandler`` for certificate-slot storage. Hardware-key CSR signing is
+expected to use a cross-context service without exporting private key
+material. OCSP remains a provider-boundary extension.
 
-Use cases
----------
-
-The sequence diagrams below describe individual operations. Shared contracts
-and cache behavior are described in the preceding sections; related operations
-are cross-referenced where they share a flow.
-
-.. _cert_management_load_certificate:
-
-Loading a certificate from a slot
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. uml:: uc_certificate_slot_load.puml
-
-.. _cert_management_write_certificate_slot:
-
-Writing a certificate slot
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Replacing a certificate also invalidates its associated CRL. Persistent CRL
-updates use the separate refresh path described in
-:ref:`Importing a CRL <cert_management_import_crl>`.
-
-.. uml:: uc_certificate_slot_update.puml
-
-.. _cert_management_import_crl:
-
-Importing a CRL
-~~~~~~~~~~~~~~~
-
-A certificate replacement invalidates its CRL and refreshes referencing trust
-stores as described in :ref:`Writing a certificate slot
-<cert_management_write_certificate_slot>`.
-
-Import stores the supplied CRL as given and does not validate it against its
-issuer certificate.
-
-.. uml:: uc_crl_import.puml
-
-.. _cert_management_add_trust_store_certificate:
-
-Adding a certificate to a trust store
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When CRL propagation is requested, the source CRL may be session-scoped or
-persistent, as described in :ref:`Importing a CRL
-<cert_management_import_crl>`.
-
-.. uml:: uc_trust_store_member_add.puml
-
-.. _cert_management_verify_certificate:
-
-Verifying a certificate
-~~~~~~~~~~~~~~~~~~~~~~~
-
-The certificate resource is loaded as described in
-:ref:`Loading a certificate from a slot <cert_management_load_certificate>`;
-this sequence focuses on trust-store binding and verification.
-
-.. uml:: uc_certificate_verification.puml
+.. uml:: cert_management_dynamic.puml
