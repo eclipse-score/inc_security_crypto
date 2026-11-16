@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.19.1
+        uses: bazel-contrib/setup-bazel@0.19.2
 
       - name: Install LLVM runtime dependencies
         # The prebuilt LLVM linker needs libxml2.so.2, provided by libxml2 on Ubuntu 24.04.
