@@ -251,7 +251,22 @@ score::crypto::Expected<std::monostate, DaemonErrorCode> WorkItemDispatcher::Res
         return score::crypto::make_unexpected(response.error());
     }
 
-    const auto response_bytes = m_codec.SerializeResponse(response.value());
+    auto response_bytes = m_codec.SerializeResponse(response.value());
+
+    // In case the response serialization fails due to insufficient buffer size,
+    // attempt to build an error response to notify the client.
+    if (!response_bytes.has_value() &&
+        (response_bytes.error() == score::crypto::CryptoErrorCode::kInsufficientBufferSize))
+    {
+        // Avoid RespondWithEnvelopeError to avoid potential of recursion
+        auto error_response = BuildEnvelopeErrorResponse(item->GetRequestId(), DaemonErrorCode::kResponseTooLarge);
+        if (!error_response.has_value())
+        {
+            item->Complete();
+            return score::crypto::make_unexpected(error_response.error());
+        }
+        response_bytes = m_codec.SerializeResponse(error_response.value());
+    }
     if (!response_bytes.has_value())
     {
         item->Complete();

@@ -51,6 +51,7 @@ constexpr std::uint64_t kPayload{0x123456789ABCDEF0ULL};
 constexpr std::uint64_t kBlockedPayload{0x0FEDCBA987654321ULL};
 constexpr std::uint64_t kServerTimeoutPayload{0x0BADF00DDEADBEEFULL};
 constexpr std::uint64_t kLateResponseGuardPayload{0x0A1B2C3D4E5F6071ULL};
+constexpr std::uint64_t kOversizedResponsePayload{0x0123456789ABCDEFULL};
 
 // Helper to limit the number of concurrent requests
 class RequestConcurrencyGate final
@@ -208,6 +209,15 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
                     operation.operationId,
                     static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kInvalidArgument),
                     {}});
+                continue;
+            }
+            if (value.value() == kOversizedResponsePayload)
+            {
+                response.operations.push_back(protocol::SingleOperationResponse{
+                    operation.operationId,
+                    protocol::OPERATION_RESULT_SUCCESS,
+                    {protocol::OwnedBuffer(static_cast<std::size_t>(::score::crypto::ipc::kMaxPayloadBytes) + 1U,
+                                           0U)}});
                 continue;
             }
             if (value.value() == kBlockedPayload)
@@ -656,6 +666,30 @@ TEST(MessagePassingAdapterIntegrationTest, OversizedRequestIsRejectedAndConnecti
     const auto valid_result = client->SendRequest(valid_request, std::chrono::milliseconds{2000});
     ExpectEchoResponse(valid_result, kPayload);
     EXPECT_EQ(server.handler_invocation_count(), 1U);
+}
+
+TEST(MessagePassingAdapterIntegrationTest, OversizedHandlerResponseReturnsEnvelopeError)
+{
+    RunningServer server;
+    ASSERT_TRUE(server.Start());
+
+    auto created_client = MessagePassingControlClient::Create(server.service_identifier());
+    ASSERT_TRUE(created_client.has_value());
+    auto client = std::move(created_client).value();
+
+    auto oversized_request = MakeEchoRequest(kOversizedResponsePayload);
+    const auto oversized_result = client->SendRequest(oversized_request, std::chrono::milliseconds{2000});
+
+    ASSERT_TRUE(oversized_result.has_value());
+    ASSERT_TRUE(protocol::IsEnvelopeErrorResponse(oversized_result.value()));
+    ASSERT_EQ(oversized_result->operations.size(), 1U);
+    EXPECT_EQ(oversized_result->operations.front().result,
+              static_cast<protocol::OperationResult>(score::crypto::CryptoErrorCode::kInsufficientBufferSize));
+
+    auto valid_request = MakeEchoRequest(kPayload);
+    const auto valid_result = client->SendRequest(valid_request, std::chrono::milliseconds{2000});
+    ExpectEchoResponse(valid_result, kPayload);
+    EXPECT_EQ(server.handler_invocation_count(), 2U);
 }
 
 TEST(MessagePassingAdapterIntegrationTest, ThreeClientsReceiveTheirOwnPayloads)
