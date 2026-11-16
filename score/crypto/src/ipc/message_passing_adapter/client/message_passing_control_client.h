@@ -69,6 +69,10 @@ class MessagePassingControlClient final
         daemon::control_plane::protocol::ControlRequest& request,
         std::chrono::milliseconds timeout) noexcept;
 
+    /// @brief Returns whether the underlying transport is shutting down or has stopped.
+    /// @return True when the transport cannot accept further requests.
+    bool IsTerminal() const noexcept;
+
   private:
     /// @brief Constructs the MessagePassingControlClient from an owned factory and created connection.
     /// used by static Create method.

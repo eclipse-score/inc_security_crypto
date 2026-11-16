@@ -54,6 +54,10 @@ class ControlPlaneConnection final : public IConnection
     /// @copydoc IConnection::GetConnectionNodeId
     daemon::control_plane::protocol::DataNodeId GetConnectionNodeId() const override;
 
+    /// @brief Returns whether the underlying transport is shutting down or has stopped.
+    /// @return True when the connection cannot send further requests.
+    bool IsTerminal() const noexcept;
+
     /// @brief Opens the daemon-side control connection and records its node ID.
     /// @return Success when open, or the error returned by the transport or daemon.
     Expected<std::monostate, score::crypto::CryptoErrorCode> Establish() noexcept;

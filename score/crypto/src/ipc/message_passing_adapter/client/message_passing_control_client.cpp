@@ -132,4 +132,9 @@ Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode> MessagePassi
     return m_session.SendRequest(request, timeout);
 }
 
+bool MessagePassingControlClient::IsTerminal() const noexcept
+{
+    return m_session.IsTerminal();
+}
+
 }  // namespace score::crypto::ipc::message_passing

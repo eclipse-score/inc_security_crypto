@@ -16,13 +16,13 @@
 
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/ipc/message_passing_adapter/client/client_session/pending_call_registry.h"
+#include "score/message_passing/i_client_connection.h"
 
 #include <score/memory.hpp>
 #include <score/span.hpp>
 
 #include <chrono>
 #include <condition_variable>
-#include <cstdint>
 #include <memory>
 #include <mutex>
 
@@ -30,11 +30,6 @@ namespace score::crypto::ipc::protocol
 {
 class IControlCodec;
 }  // namespace score::crypto::ipc::protocol
-
-namespace score::message_passing
-{
-class IClientConnection;
-}  // namespace score::message_passing
 
 namespace score::crypto::ipc::message_passing
 {
@@ -69,6 +64,10 @@ class ClientSession final : public std::enable_shared_from_this<ClientSession>
     score::crypto::Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
     SendRequest(daemon::control_plane::protocol::ControlRequest& request) noexcept;
 
+    /// @brief Returns whether the underlying transport is stopping or stopped.
+    /// @return True when the transport cannot accept further requests.
+    bool IsTerminal() const noexcept;
+
     /// @brief Starts transport callbacks and begins tracking connection readiness.
     /// @return Success if callbacks start, or an error if setup fails.
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> StartCallbacks() noexcept;
@@ -77,21 +76,13 @@ class ClientSession final : public std::enable_shared_from_this<ClientSession>
     void Shutdown() noexcept;
 
   private:
-    enum class LifecycleState : std::uint8_t
-    {
-        kStarting,  ///< The transport is attempting to connect.
-        kReady,     ///< The transport can send requests.
-        kStopping,  ///< The transport is shutting down.
-        kStopped,   ///< The transport has stopped and can be destroyed.
-    };
-
     /// @brief Fails all calls currently registered with the pending-call registry.
     /// @param error Error to deliver to each waiter.
     void FailAllPendingCalls(score::crypto::CryptoErrorCode error) noexcept;
 
-    /// @brief Processes a transport lifecycle callback and fails calls on shutdown.
-    /// @param state New client-session lifecycle state.
-    void OnTransportStateChanged(LifecycleState state) noexcept;
+    /// @brief Processes a transport callback and wakes state waiters.
+    /// @param state New transport state.
+    void OnTransportStateChanged(score::message_passing::IClientConnection::State state) noexcept;
 
     /// @brief Decodes a notification and completes its matching pending call.
     /// @param message Serialized response bytes received from the transport.
@@ -106,9 +97,8 @@ class ClientSession final : public std::enable_shared_from_this<ClientSession>
     /// @brief Waits until the transport reports its stopped state.
     void WaitForStopped() noexcept;
 
-    /// @brief Updates the lifecycle state and wakes readiness waiters.
-    /// @param state New lifecycle state.
-    void HandleTransportState(LifecycleState state) noexcept;
+    /// @brief Notify all state waiters of a change in the transport state.
+    void NotifyStateWaiters() noexcept;
 
     /// @brief Sends already-serialized request bytes when the connection is ready.
     /// @param bytes Serialized request data.
@@ -116,9 +106,11 @@ class ClientSession final : public std::enable_shared_from_this<ClientSession>
     score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> TransferRequestBytes(
         score::cpp::span<const std::uint8_t> bytes) noexcept;
 
+    // The actual state is kept in the underlying IClientConnection and retrieved on demand
+    // Additionally the state change callback is used to get notified in case of a change.
+    // Condition variables are used to synchronize waiters with state changes outside of the callback execution.
     mutable std::mutex m_mutex{};
     std::condition_variable m_state_condition{};
-    LifecycleState m_state{LifecycleState::kStarting};
 
     const score::crypto::ipc::protocol::IControlCodec& m_codec;
 

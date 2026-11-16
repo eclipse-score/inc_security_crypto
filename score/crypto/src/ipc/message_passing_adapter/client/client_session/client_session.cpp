@@ -105,21 +105,33 @@ score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCod
     return m_pending_call_registry.WaitForCallResponse(request_id, call, deadline + ipc::kTimeoutGracePeriod);
 }
 
+bool ClientSession::IsTerminal() const noexcept
+{
+    // The transport enters kStopping before its callback drains pending calls, so its state is authoritative then.
+    const auto transport_state = m_connection->GetState();
+    return (transport_state == score::message_passing::IClientConnection::State::kStopping) ||
+           (transport_state == score::message_passing::IClientConnection::State::kStopped);
+}
+
 score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSession::WaitForConnectionReady(
     const std::chrono::steady_clock::time_point deadline) noexcept
 {
     std::unique_lock<std::mutex> lock(m_mutex);
     m_state_condition.wait_until(lock, deadline, [this] {
-        return (m_state == LifecycleState::kReady) || (m_state == LifecycleState::kStopping) ||
-               (m_state == LifecycleState::kStopped);
+        const auto state = m_connection->GetState();
+        return (state == score::message_passing::IClientConnection::State::kReady) ||
+               (state == score::message_passing::IClientConnection::State::kStopping) ||
+               (state == score::message_passing::IClientConnection::State::kStopped);
     });
 
-    if (m_state == LifecycleState::kReady)
+    const auto state = m_connection->GetState();
+    if (state == score::message_passing::IClientConnection::State::kReady)
     {
         return {};
     }
 
-    if (m_state == LifecycleState::kStopped || m_state == LifecycleState::kStopping)
+    if ((state == score::message_passing::IClientConnection::State::kStopped) ||
+        (state == score::message_passing::IClientConnection::State::kStopping))
     {
         auto stop_reason = m_connection->GetStopReason();
         if (stop_reason == score::message_passing::IClientConnection::StopReason::kPermission)
@@ -139,13 +151,6 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSe
 score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSession::TransferRequestBytes(
     const score::cpp::span<const std::uint8_t> bytes) noexcept
 {
-    const std::lock_guard<std::mutex> state_lock(m_mutex);
-    if (m_state != LifecycleState::kReady)
-    {
-        score::mw::log::LogError() << "ClientSession::TransferRequestBytes called while connection is not ready.";
-        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kConnectionFailed);
-    }
-
     const auto send_result = m_connection->Send(bytes);
     if (!send_result.has_value())
     {
@@ -156,12 +161,9 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSe
     return {};
 }
 
-void ClientSession::HandleTransportState(const LifecycleState state) noexcept
+void ClientSession::NotifyStateWaiters() noexcept
 {
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_state = state;
-    }
+    const std::lock_guard<std::mutex> lock(m_mutex);
     m_state_condition.notify_all();
 }
 
@@ -171,26 +173,7 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSe
     {
         m_connection->Start(
             [this](const score::message_passing::IClientConnection::State state) noexcept {
-                switch (state)
-                {
-                    case score::message_passing::IClientConnection::State::kStarting:
-                        OnTransportStateChanged(LifecycleState::kStarting);
-                        break;
-                    case score::message_passing::IClientConnection::State::kReady:
-                        OnTransportStateChanged(LifecycleState::kReady);
-                        break;
-                    case score::message_passing::IClientConnection::State::kStopping:
-                        OnTransportStateChanged(LifecycleState::kStopping);
-                        break;
-                    case score::message_passing::IClientConnection::State::kStopped:
-                        OnTransportStateChanged(LifecycleState::kStopped);
-                        break;
-                    default:
-                        score::mw::log::LogError() << "[IPC][MESSAGE_PASSING_CLIENT] Received unknown transport state="
-                                                   << static_cast<int>(state);
-                        OnTransportStateChanged(LifecycleState::kStopped);
-                        break;
-                }
+                OnTransportStateChanged(state);
             },
             [this](const score::cpp::span<const std::uint8_t> message) noexcept {
                 OnResponseBytes(message);
@@ -210,13 +193,14 @@ score::crypto::Expected<std::monostate, score::crypto::CryptoErrorCode> ClientSe
     }
 }
 
-void ClientSession::OnTransportStateChanged(const LifecycleState state) noexcept
+void ClientSession::OnTransportStateChanged(const score::message_passing::IClientConnection::State state) noexcept
 {
-    if ((state == LifecycleState::kStopping) || (state == LifecycleState::kStopped))
+    if ((state == score::message_passing::IClientConnection::State::kStopping) ||
+        (state == score::message_passing::IClientConnection::State::kStopped))
     {
         FailAllPendingCalls(score::crypto::CryptoErrorCode::kConnectionFailed);
     }
-    HandleTransportState(state);
+    NotifyStateWaiters();
 }
 
 void ClientSession::OnResponseBytes(const score::cpp::span<const std::uint8_t> message) noexcept
@@ -250,7 +234,7 @@ void ClientSession::WaitForStopped() noexcept
 {
     std::unique_lock<std::mutex> lock(m_mutex);
     m_state_condition.wait(lock, [this] {
-        return m_state == LifecycleState::kStopped;
+        return m_connection->GetState() == score::message_passing::IClientConnection::State::kStopped;
     });
 }
 

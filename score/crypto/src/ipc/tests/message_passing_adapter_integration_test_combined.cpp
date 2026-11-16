@@ -11,7 +11,10 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
+#include "score/crypto/src/api/control_plane/connection_factory.hpp"
+#include "score/crypto/src/api/control_plane/src/control_plane_connection.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
+#include "score/crypto/src/daemon/control_plane/control_operations.h"
 #include "score/crypto/src/daemon/control_plane/i_handler_chain_factory.hpp"
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/ipc/message_passing_adapter/client/message_passing_control_client.h"
@@ -41,6 +44,7 @@ namespace
 {
 
 namespace protocol = daemon::control_plane::protocol;
+namespace operations = daemon::control_plane::operations;
 using DaemonErrorCode = score::crypto::daemon::common::DaemonErrorCode;
 using ClientResult = score::crypto::Expected<protocol::ControlResponse, score::crypto::CryptoErrorCode>;
 
@@ -200,8 +204,24 @@ class EchoRequestHandler final : public daemon::control_plane::IRequestHandler
         m_handler_invocation_count->fetch_add(1U, std::memory_order_relaxed);
         protocol::ControlResponse response{};
         response.request_id = request.request_id;
+        const auto open_connection = operations::OpenConnection();
+        const auto close_connection = operations::CloseConnection();
         for (const auto& operation : request.operations)
         {
+            if ((operation.operationId.operationActor == open_connection.operationActor) &&
+                (operation.operationId.operationAction == open_connection.operationAction))
+            {
+                response.operations.push_back(protocol::SingleOperationResponse{
+                    operation.operationId, protocol::OPERATION_RESULT_SUCCESS, {std::uint64_t{1U}}});
+                continue;
+            }
+            if ((operation.operationId.operationActor == close_connection.operationActor) &&
+                (operation.operationId.operationAction == close_connection.operationAction))
+            {
+                response.operations.push_back(
+                    protocol::SingleOperationResponse{operation.operationId, protocol::OPERATION_RESULT_SUCCESS, {}});
+                continue;
+            }
             const auto value = operation.getParameter<std::uint64_t>(0U);
             if (!value.has_value())
             {
@@ -283,7 +303,14 @@ class RunningServer final
   public:
     explicit RunningServer(std::shared_ptr<CleanupObserver> cleanup_observer = {},
                            AuthorizationCallback authorization_callback = {})
-        : m_service_identifier(MakeServiceIdentifier()),
+        : RunningServer(MakeServiceIdentifier(), std::move(cleanup_observer), std::move(authorization_callback))
+    {
+    }
+
+    explicit RunningServer(std::string service_identifier,
+                           std::shared_ptr<CleanupObserver> cleanup_observer = {},
+                           AuthorizationCallback authorization_callback = {})
+        : m_service_identifier(std::move(service_identifier)),
           m_handler_blocker(std::make_shared<HandlerBlocker>()),
           m_late_response_blocker(std::make_shared<HandlerBlocker>()),
           m_handler_invocation_count(std::make_shared<std::atomic<std::size_t>>(0U)),
@@ -469,6 +496,38 @@ TEST(MessagePassingAdapterIntegrationTest, OneClientOneServerEchoesValue)
 
     auto response = response_future.get();
     ExpectEchoResponse(response, kPayload);
+}
+
+TEST(MessagePassingAdapterIntegrationTest, ConnectionRegistryReestablishesAfterTransportStops)
+{
+    // Explicitly create an endpoint identifier to reuse it across server restarts.
+    const std::string service_identifier{MakeServiceIdentifier()};
+    const std::string endpoint = std::string{::score::crypto::ipc::kScoreConnectionEndpointPrefix} + service_identifier;
+    RunningServer initial_server{service_identifier};
+    ASSERT_TRUE(initial_server.Start());
+
+    score::crypto::api::control_plane::ConnectionFactory connection_factory;
+    auto first_result = connection_factory.EstablishConnection(endpoint);
+    ASSERT_TRUE(first_result.has_value());
+    auto first_connection = std::move(first_result).value();
+    auto first_control_connection =
+        std::static_pointer_cast<score::crypto::api::control_plane::ControlPlaneConnection>(first_connection);
+
+    initial_server.StopAndJoin();
+    const auto terminal_deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
+    while (!first_control_connection->IsTerminal() && (std::chrono::steady_clock::now() < terminal_deadline))
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
+    ASSERT_TRUE(first_control_connection->IsTerminal());
+
+    RunningServer restarted_server{service_identifier};
+    ASSERT_TRUE(restarted_server.Start());
+    const auto second_result = connection_factory.EstablishConnection(endpoint);
+
+    ASSERT_TRUE(second_result.has_value());
+    EXPECT_NE(second_result.value().get(), first_connection.get());
+    EXPECT_NE(second_result.value()->GetConnectionNodeId(), 0U);
 }
 
 TEST(MessagePassingAdapterIntegrationTest, FreshClientConnectsAfterServerBecomesAvailable)

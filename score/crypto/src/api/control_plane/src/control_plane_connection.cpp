@@ -123,6 +123,11 @@ daemon::control_plane::protocol::DataNodeId ControlPlaneConnection::GetConnectio
     return m_connection_node_id;
 }
 
+bool ControlPlaneConnection::IsTerminal() const noexcept
+{
+    return (m_transport == nullptr) || m_transport->IsTerminal();
+}
+
 Expected<std::monostate, score::crypto::CryptoErrorCode> ControlPlaneConnection::Establish() noexcept
 {
     if (m_connection_node_id != 0U)

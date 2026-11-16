@@ -41,18 +41,22 @@ ControlPlaneConnectionRegistry::Result ControlPlaneConnectionRegistry::Establish
     }
 
     std::lock_guard<std::mutex> establishment_lock(*establishment_mutex);
+    std::shared_ptr<ControlPlaneConnection> cached_connection;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         const auto iterator = m_connections.find(registry_key);
         if (iterator != m_connections.end())
         {
-            auto connection = iterator->second.lock();
-            if (connection != nullptr)
-            {
-                return connection;
-            }
-            m_connections.erase(iterator);
+            cached_connection = iterator->second.lock();
         }
+    }
+    if ((cached_connection != nullptr) && !cached_connection->IsTerminal())
+    {
+        return cached_connection;
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_connections.erase(registry_key);
     }
 
     auto control_client_result = score::crypto::ipc::message_passing::MessagePassingControlClient::Create(registry_key);

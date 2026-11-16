@@ -51,6 +51,8 @@ cc_test(
     name = "message_passing_adapter_integration_test_combined",
     srcs = ["message_passing_adapter_integration_test_combined.cpp"],
     deps = [
+        "//score/crypto/src/api/control_plane:control_plane",
+        "//score/crypto/src/api/control_plane:control_plane_hdr",
         "//score/crypto/src/ipc/message_passing_adapter:message_passing_client",
         "//score/crypto/src/ipc/message_passing_adapter:message_passing_server",
         "//score/crypto/src/ipc/message_passing_adapter:ipc_config",
