@@ -13,8 +13,13 @@
 
 name: Daily Maintenance
 
+# Must cover every permission requested by the reusable workflow's jobs
+# (stale-prs, detect-repo-capabilities, docs-cleanup), otherwise the run
+# fails at startup.
 permissions:
   contents: write
+  issues: write
+  pull-requests: write
   pages: write
   id-token: write
 
