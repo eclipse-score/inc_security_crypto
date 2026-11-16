@@ -13,75 +13,78 @@
    # *******************************************************************************
 
 Crypto Documentation
-=====================
+====================
 
-This documentation describes the structure, usage, and configuration of the Crypto module in this repository, following the `SCORE module folder structure <https://eclipse-score.github.io/score/main/contribute/general/folder.html#module-folder-structure>`_ and the `SCORE building blocks concept <https://eclipse-score.github.io/process_description/main/general_concepts/score_building_blocks_concept.html>`_.
+This repository provides the cryptographic services of the Eclipse S-CORE
+:need:`feat__security_crypto`.
+The Crypto module offers applications a common interface for key management,
+symmetric and asymmetric cryptography, hashing, digital signatures, certificate
+handling, and post-quantum cryptography, with support for software and
+hardware-backed cryptographic providers. Its scope is cryptographic services,
+rather than all use cases covered by Security & Crypto.
 
-.. contents:: Table of Contents
-   :depth: 2
-   :local:
+Feature Documentation
+---------------------
 
-Overview
---------
+The feature documentation describes Crypto's architecture, safety and security
+planning, and analyses.
 
-This repository documents the Crypto module implementation, including its build, test, documentation, safety and security management, verification, and release workflows.
-It provides the documentation artifacts needed for the Crypto module, including the component architecture documentation in :doc:`/score/crypto/docs/architecture/component_architecture` and the detailed design documentation in :doc:`/score/crypto/docs/detailed_design/detailed_design_example`.
+.. toctree::
+   :maxdepth: 1
 
+   /docs/features/index
+
+.. needtable::
+   :filter: docname is not None and docname.startswith("docs/features/")
+   :style: table
+   :types: document
+   :columns: title;id;safety;security;status
+   :colwidths: 25,35,15,15,15
+   :sort: title
 
 Module Documentation
 --------------------
 
-The Crypto module provides a cryptographic middleware stack for automotive ECUs, including client-side APIs, a crypto daemon, provider integration, and supporting safety and security documentation.
-
-The sections below provide the module-level documentation structure for these Crypto-specific artifacts, and additional content should be added in the relevant sections for feature architecture, safety analysis, security analysis, manuals, and related work products.
-
-.. mod:: Crypto Module
-   :id: mod__crypto_module
-   :version: 1
-   :status: invalid
-   :includes: comp__crypto, comp__crypto_daemon
+The module documentation covers the implementation overview, manuals, safety and
+security management, and verification report.
 
 .. toctree::
    :maxdepth: 1
 
-   docs/index
-   docs/manuals/index
-   docs/release/release_note
-   docs/features/index
-   docs/safety_mgt/index
-   docs/security_mgt/index
-   docs/verification_report/module_verification_report
+   /docs/module/index
+   /docs/verification_report/module_verification_report
 
+.. needtable::
+   :filter: docname is not None and docname.startswith(("docs/module/", "docs/verification_report/"))
+   :style: table
+   :types: document
+   :columns: title;id;safety;security;status
+   :colwidths: 25,35,15,15,15
+   :sort: title
 
 Component Documentation
 -----------------------
 
-For documentation of individual components within this module:
+The component documentation provides requirements, architecture, detailed design,
+and analyses for the individual components of the Crypto module.
 
 .. toctree::
    :maxdepth: 1
 
-   score/crypto/docs/index
-   score/iav_primula/docs/index
+   /docs/components/index
 
-Architecture Modeling Reference
---------------------------------
-
-A reference for modeling the Crypto architecture in Sphinx Needs can be found in
-
-.. toctree::
-   :maxdepth: 1
-
-   examples/docs/architecture_modeling_example
-
-
-Please note that this is a reference model for using Sphinx Needs for architecture modeling, not the canonical architecture documentation for the Crypto module. The actual architecture documentation of the Crypto components and features should follow the provided guidance and module-specific content.
-
+.. needtable::
+   :filter: docname is not None and docname.startswith("crypto/components/")
+   :style: table
+   :types: document
+   :columns: title;id;safety;security;status
+   :colwidths: 25,35,15,15,15
+   :sort: title
 
 .. _quick-start-building-testing:
 
 Quick Start - Building and Testing
-==================================
+-----------------------------------
 
 To build the entire module:
 
@@ -94,14 +97,6 @@ To run all tests:
 .. code-block:: bash
 
    bazel test //score/...
-
-
-To run only component or feature integration tests:
-
-.. code-block:: bash
-
-   bazel test //score/...
-
 
 Module Build Configuration
 --------------------------

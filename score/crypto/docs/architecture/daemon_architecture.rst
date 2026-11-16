@@ -57,7 +57,7 @@ scoped model.
    :maxdepth: 1
    :caption: Daemon Subcomponents
 
-   ../../src/daemon/cert_management/docs/index
-   ../../src/daemon/data_manager/docs/index
-   ../../src/daemon/common/storage/docs/index
+   /score/crypto/src/daemon/cert_management/docs/index
+   /score/crypto/src/daemon/data_manager/docs/index
+   /score/crypto/src/daemon/common/storage/docs/index
    key_management_architecture
