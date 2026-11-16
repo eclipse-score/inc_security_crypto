@@ -253,6 +253,7 @@ bool MediatorImpl::HandleContextCreationOperation(const score::crypto::daemon::c
     const auto selection = m_arbiter.Select(ProviderSelectionRequest{.client_id = request.client_id,
                                                                      .key_node_id = req.key_node_id,
                                                                      .context_type = req.context_type,
+                                                                     .mode = req.mode,
                                                                      .algorithm = req.algorithm_descriptor,
                                                                      .provider = req.provider,
                                                                      .required_capability = req.required_capability});

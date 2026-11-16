@@ -188,15 +188,15 @@ TEST_F(MediatorContextCreationTest, ValidationFailureReportsTheFirstFailingCheck
 {
     RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__decode_validate");
     RecordProperty("Description",
-                   "A request with a missing key for a keyed context and an unknown algorithm reports the key "
-                   "failure, which is checked first.");
+                   "A request with an unknown algorithm reports the algorithm failure, which is checked before "
+                   "provider selection.");
     RecordProperty("TestType", "requirements-based");
     RecordProperty("DerivationTechnique", "requirements-analysis");
 
     const auto response =
         CreateContext(common::RequestParameters{std::string_view{"SIGN"}, std::string_view{"NOT_AN_ALGORITHM"}});
 
-    EXPECT_EQ(response.result, ResultOf(CryptoError::kInvalidArgument));
+    EXPECT_EQ(response.result, ResultOf(CryptoError::kUnsupportedAlgorithm));
     EXPECT_TRUE(m_data_manager->AddedChildren().empty());
 }
 
