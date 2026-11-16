@@ -35,7 +35,7 @@ Functional Requirements
    :version: 1
    :reqtype: Functional
    :security: NO
-   :safety: ASIL_B
+   :safety: QM
    :status: valid
    :satisfied_by: comp__iav_primula
 

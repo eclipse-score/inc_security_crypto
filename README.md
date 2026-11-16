@@ -200,7 +200,7 @@ made inside the container will not persist after a rebuild.
 
 ---
 
-# Valeo S-CORE Crypto Module
+# S-CORE Crypto Module
 
 This is the main eclipse-score repository of the security-crypto module.
 
@@ -208,7 +208,7 @@ This is the main eclipse-score repository of the security-crypto module.
 
 This repository supports multiple interchangeable cryptographic backends:
 *   **SoftHSM (C++ Default)**: The default fallback emulator.
-*   **Valeo Cryptoki (Rust Backend)**: S-CORE's high-security Rust-based PKCS#11 provider. For complete compilation, running, and troubleshooting manuals, please refer directly to the [Valeo Cryptoki Integration Guide](score/cryptoki/README.md).
+*   **Cryptoki (Rust Backend)**: S-CORE's high-security Rust-based PKCS#11 provider. For complete compilation, running, and troubleshooting manuals, please refer directly to the [Cryptoki Integration Guide](score/cryptoki/README.md).
 
 ## Use of genAI in this repository
 The repository partially contains AI-generated code by using GitHub Copilot Business.

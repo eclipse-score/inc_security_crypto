@@ -214,7 +214,7 @@ cc_binary(
 
 integration_test(
     name = "integration_test",
-    size = "small",
+    size = "medium",
     srcs = ["integration_test.py"],
     binaries = [
         ":score_api_hash_test",

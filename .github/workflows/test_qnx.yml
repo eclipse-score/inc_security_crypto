@@ -48,6 +48,8 @@ jobs:
       bazel-config: ${{ matrix.bazel-config }}
       bazel-test-target: ${{ matrix.bazel-test-target }}
       extra-bazel-test-flags: ${{ matrix.extra-bazel-test-flags }}
+      fetch-attempts: 5
+      fetch-retry-delay: 60
       credential-helper: ".github/tools/qnx_credential_helper.py"
       bazel-disk-cache: ${{ matrix.bazel-config }}
     secrets:
