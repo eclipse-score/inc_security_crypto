@@ -120,7 +120,11 @@ class ProcessRunner:
         time.sleep(_STARTUP_POLL_INTERVAL_S)
         pid_lines = [line.strip() for line in output.decode().splitlines() if line.strip().isdigit()]
         self._pid = pid_lines[-1] if pid_lines else None
-        if self._pid is None:
+        if self._pid is not None:
+            exit_code, _ = self._target.execute(f"kill -0 {self._pid}")
+            if exit_code != 0:
+                self._pid = None
+        else:
             self._pid = self._find_pid_by_name()
         if self._pid is None:
             logger.error(
