@@ -79,6 +79,10 @@ class CryptoContextImpl final : public ICryptoContext
     score::Result<std::unique_ptr<IKeySlotObject>> GetKeySlotObject(const CryptoResourceId& id) override;
 
   private:
+    /// Sends PROVIDER_INFO for a provider id, or for the DataNodeId of a
+    /// resolved kProvider resource when @p by_provider_handle is true.
+    score::Result<ProviderInfo> RequestProviderInfo(std::uint64_t provider_or_handle, bool by_provider_handle);
+
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     std::shared_ptr<IBufferTranscoder> m_transcoder;
 };

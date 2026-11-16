@@ -68,6 +68,8 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
+    [[nodiscard]] bool IsKeyGenerationSupported(const AlgorithmDescriptor& algorithm) const override;
+
     /// Import raw key material by copying into a new heap buffer, or parse a
     /// DER-encoded asymmetric key when the request.algorithm row is one.
     [[nodiscard]] ::score::crypto::Expected<key_management::IKeyHandler::Sptr,

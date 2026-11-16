@@ -37,6 +37,8 @@ class CertSlotEntry;
 class TrustStoreEntry;
 class AppCertSlotMapping;
 class AppTrustStoreMapping;
+// Forward declarations for FlatBuffers-generated types (provider resource config)
+class ProviderResourceConfig;
 }  // namespace score::crypto::daemon::config::keyslot
 
 namespace score::crypto::daemon::config
@@ -121,6 +123,15 @@ class FlatBufferConfigParser
     static Expected<bool, common::DaemonErrorCode> ParseCertManagementConfig(const ConfigFile& file,
                                                                              CertificateConfig& out_config);
 
+    /// @brief Parse the provider resource section (provider_config) from a loaded file.
+    ///
+    /// @param file       Validated file from LoadFile()
+    /// @param out_config Output ProviderResourceConfig; replaced only when the section parses fully
+    /// @return true if the section was present and parsed, false if the file has no
+    ///         provider_config, or DaemonErrorCode if the present section is malformed
+    static Expected<bool, common::DaemonErrorCode> ParseProviderResourceConfig(const ConfigFile& file,
+                                                                               ProviderResourceConfig& out_config);
+
     // -----------------------------------------------------------------------
     // Low-level helpers — key slot config (binary FlatBuffers)
     // -----------------------------------------------------------------------
@@ -159,6 +170,10 @@ class FlatBufferConfigParser
     static Expected<std::monostate, common::DaemonErrorCode> ParseAppKeySlotMappings(
         const keyslot::KeySlotConfig* key_slot_config,
         KeyConfig& out_config);
+
+    static Expected<std::monostate, common::DaemonErrorCode> ParseAppProviderMappings(
+        const keyslot::ProviderResourceConfig* provider_config,
+        ProviderResourceConfig& out_config);
 
     // -----------------------------------------------------------------------
     // Cert config helpers

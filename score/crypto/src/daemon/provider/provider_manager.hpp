@@ -273,6 +273,36 @@ class ProviderManager
     [[nodiscard]] bool IsProviderCompatibleWithType(const common::ProviderId provider_id,
                                                     common::CryptoProviderType requested_type) const;
 
+    /**
+     * @brief Map an application-local provider resource name to a registered provider.
+     *
+     * Called at startup for each configured AppProviderMapping, before concurrent
+     * use begins. The mapping is per uid: the same app_resource_id may name
+     * different providers for different applications.
+     *
+     * @param uid             UID of the application that owns the mapping.
+     * @param app_resource_id Application-local resource name.
+     * @param provider_name   Name of a registered provider.
+     * @return true if stored; false if the provider is not registered or the
+     *         uid already maps app_resource_id.
+     */
+    bool RegisterAppProvider(uint32_t uid,
+                             const std::string& app_resource_id,
+                             const common::ProviderName& provider_name);
+
+    /**
+     * @brief Resolve an application-local provider resource name for a uid.
+     *
+     * Only names mapped for @p uid resolve. Configured provider names are not
+     * accepted unless a mapping uses them as its app_resource_id.
+     *
+     * @param uid             UID of the requesting application.
+     * @param app_resource_id Application-local resource name.
+     * @return The initialized provider, or nullptr if the name is not mapped for
+     *         @p uid or the provider is unavailable.
+     */
+    [[nodiscard]] std::shared_ptr<IProvider> ResolveAppProvider(uint32_t uid, const std::string& app_resource_id) const;
+
   private:
     [[nodiscard]] bool EnsureProviderInitialized(ProviderEntry& entry) const;
 
@@ -336,6 +366,10 @@ class ProviderManager
 
     /// Mapping of provider type to numeric provider ID for type-based lookups
     std::unordered_map<common::CryptoProviderType, common::ProviderId> m_typeToProviderId;
+
+    /// Per-uid application provider resources: uid -> { app_resource_id -> provider id }.
+    /// Populated at startup by RegisterAppProvider(); read-only after that.
+    std::unordered_map<uint32_t, std::unordered_map<std::string, common::ProviderId>> m_app_providers;
 
     /// Provider activation and default-mapping policy snapshot.
     config::ProviderInitConfig m_providerConfig;

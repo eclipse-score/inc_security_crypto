@@ -129,6 +129,19 @@ bool Config::ParseCertManagementSection(const ConfigFile& file)
     return true;
 }
 
+bool Config::ParseProviderResourceSection(const ConfigFile& file)
+{
+    auto result = FlatBufferConfigParser::ParseProviderResourceConfig(file, m_provider_resources);
+    if (!result.has_value())
+    {
+        score::mw::log::LogError() << "[CONFIG] Provider resource config parsing failed";
+        return false;
+    }
+    score::mw::log::LogDebug() << "[CONFIG] Provider resources: "
+                               << m_provider_resources.GetAppProviderMappings().size() << " app mapping(s).";
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // ParseConfig — orchestrates all component section parsers
 // ---------------------------------------------------------------------------
@@ -207,6 +220,11 @@ bool Config::ParseConfig()
     }
 
     if (!ParseCertManagementSection(file.value()))
+    {
+        return false;
+    }
+
+    if (!ParseProviderResourceSection(file.value()))
     {
         return false;
     }

@@ -120,6 +120,11 @@ class ICryptoContext
     /// @return CryptoResourceId handle for use in configs and operations
     /// @note Called once per resource; result should be cached by the application.
     ///       Access control (uid) is enforced during resolution.
+    /// @note For ResourceType::kProvider, @p resource_id is an application-scoped
+    ///       name that the deployment maps to a provider for the calling uid
+    ///       (provider_config.app_provider_mappings). Configured provider names
+    ///       are not accepted unless mapped. The handle is valid for this
+    ///       connection only.
     virtual score::Result<CryptoResourceId> ResolveResource(const ResourceId& resource_id, ResourceType type) = 0;
 
     // ---- Context Factory ----
@@ -177,13 +182,14 @@ class ICryptoContext
     // ---- Queries ----
 
     /// @brief Queries algorithm capabilities and support.
-    /// @param algorithm Algorithm identifier to query
+    /// @param algorithm Algorithm identifier to query; empty queries the default random generator (CTR-DRBG)
     /// @return Capabilities including whether the algorithm is supported and available modes
     virtual score::Result<AlgorithmCapabilities> QueryCapabilities(const AlgorithmId& algorithm) = 0;
 
     /// @brief Queries system-wide capabilities across all providers.
     /// @return Aggregated capabilities including all registered providers and
-    ///         the union of their supported algorithms
+    ///         the union of their supported algorithms. Provider entries carry
+    ///         id and type; their names are empty.
     virtual score::Result<SystemCapabilities> QueryCapabilities() = 0;
 
     // FUTURE: Uncomment when there is potentiant use for this in the future.
@@ -197,15 +203,21 @@ class ICryptoContext
     // virtual score::Result<ProviderCompatibilityInfo> QueryProviderCompatibility(const CryptoResourceId& resource) =
     // 0;
 
-    /// @brief Gets provider information for the primary provider in CryptoResourceId.
+    /// @brief Gets provider information for a resource.
+    ///
+    /// For a kProvider handle from ResolveResource(name, ResourceType::kProvider),
+    /// the daemon maps the handle to the provider configured for the calling
+    /// application and reports the application's resource name as the name.
+    /// For all other resource types, the primary provider is used.
     /// @param resourceId CryptoResourceId
-    /// @return Provider info with type and name
+    /// @return Provider info with id, type and application-scoped name
     virtual score::Result<ProviderInfo> GetProviderInfo(const CryptoResourceId& resourceId) = 0;
 
     /// @brief Maps a numeric provider ID to human-readable metadata.
     /// @param provider_id Numeric provider ID (from CryptoResourceId::primary_provider
     ///        or KeySlotInfo::compatible_providers)
-    /// @return Provider info with type and name
+    /// @return Provider info with id and type; the name is empty, as configured
+    ///         provider names are not exposed to applications
     virtual score::Result<ProviderInfo> GetProviderInfo(uint16_t provider_id) = 0;
 
     // ---- Typed Object Access ----

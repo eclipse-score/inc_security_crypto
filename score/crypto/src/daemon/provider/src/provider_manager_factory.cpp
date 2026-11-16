@@ -109,6 +109,13 @@ score::crypto::Expected<std::shared_ptr<ProviderManager>, common::DaemonErrorCod
         return score::crypto::make_unexpected(common::DaemonErrorCode::kInternalError);
     }
 
+    // A mapping to a provider that is not in this build is skipped and logged, so the
+    // application cannot resolve it. It does not stop the daemon.
+    for (const auto& mapping : config.GetProviderResourceConfig().GetAppProviderMappings())
+    {
+        (void)provider_manager->RegisterAppProvider(mapping.uid, mapping.app_resource_id, mapping.provider_name);
+    }
+
     return provider_manager;
 }
 

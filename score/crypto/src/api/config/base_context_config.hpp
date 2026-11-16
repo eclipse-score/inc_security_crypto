@@ -30,21 +30,25 @@ namespace crypto
 ///
 /// **Provider auto-resolution**: When provider is omitted but a key_slot
 /// is specified in a derived config, the daemon auto-resolves the provider
-/// from CryptoResourceId::primary_provider of the key slot. Explicitly
-/// setting provider overrides this — enabling cross-provider scenarios
-/// where the app wants to use a secondary-compatible provider instead
-/// of the key's primary.
+/// from CryptoResourceId::primary_provider of the key slot.
+///
+/// **Explicit provider**: provider, when set, must be a handle from
+/// ResolveResource(name, ResourceType::kProvider); any other resource type
+/// fails with kInvalidResourceType. The context is then created on that
+/// provider only, and provider_type is ignored. There is no fallback: a key
+/// on another provider fails with kCrossProviderIncompatible, and a provider
+/// that cannot serve the algorithm or context fails the call.
 struct BaseContextConfig
 {
     /// @brief Algorithm identifier (e.g., "AES-256-CBC", "SHA384", "ECDSA-P256-SHA256").
     AlgorithmId algorithm{};
 
-    /// @brief Optional resolved provider handle. When set, overrides
-    ///        auto-resolution from key_slot's primary_provider.
+    /// @brief Optional resolved kProvider handle. When set, pins the context
+    ///        to that provider, with no fallback (see above).
     std::optional<CryptoResourceId> provider{std::nullopt};
 
     /// @brief Optional provider type preference (e.g., kHardwarePreferred).
-    ///        Used when provider handle is not set to guide daemon selection.
+    ///        Used only when provider is not set, to guide daemon selection.
     std::optional<ProviderType> provider_type{std::nullopt};
 
     /// @brief Algorithm- or operation-scoped extended parameters.

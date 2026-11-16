@@ -58,7 +58,9 @@ struct CryptoResourceId
     uint64_t id{0U};                                                   ///< Daemon-assigned resource identifier.
     ResourceType type{ResourceType::kKeySlot};                         ///< Kind of resource referenced by id.
     ResourcePersistence persistence{ResourcePersistence::kEphemeral};  ///< Resource lifetime category.
-    uint16_t primary_provider{0U};                                     ///< Owning provider id, or zero when unbound.
+    /// Owning provider id, or zero when unbound. kProvider handles carry 0xFFFF;
+    /// the daemon maps them to the provider (see ICryptoContext::GetProviderInfo).
+    uint16_t primary_provider{0U};
 
     /// @brief Tests whether all resource identity fields match.
     constexpr bool operator==(const CryptoResourceId& other) const noexcept
@@ -134,7 +136,10 @@ struct ProviderInfo
 {
     uint16_t id{0U};                            ///< Daemon-assigned provider id.
     ProviderType type{ProviderType::kDefault};  ///< Provider category.
-    FixedCapacityString<32> name{};             ///< Human-readable provider name.
+    /// Application-scoped name: the app_resource_id the caller resolved, for
+    /// GetProviderInfo() on a kProvider handle; empty otherwise. Configured
+    /// provider names are not exposed to applications.
+    FixedCapacityString<64> name{};
 };
 
 /// @brief Provider compatibility information for one resource.

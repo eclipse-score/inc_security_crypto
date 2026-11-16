@@ -455,5 +455,13 @@
         "slot_name": "Ed25519_RFC8032_IntegrationTestKey_OpenSSL"
       }
     ]
+  },
+  "provider_config": {
+    "app_provider_mappings": [
+      { "uid": 0, "app_resource_id": "IntegrationTest_SoftwareProvider", "provider_name": "OPENSSL" },
+      { "uid": 0, "app_resource_id": "IntegrationTest_HardwareProvider", "provider_name": "PKCS11_ENGINE" },
+      { "uid": 1000, "app_resource_id": "IntegrationTest_SoftwareProvider", "provider_name": "OPENSSL" },
+      { "uid": 1000, "app_resource_id": "IntegrationTest_HardwareProvider", "provider_name": "PKCS11_ENGINE" }
+    ]
   }
 }

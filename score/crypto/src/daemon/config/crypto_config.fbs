@@ -177,21 +177,47 @@ table CertSlotConfig {
 }
 
 // ---------------------------------------------------------------------------
+// Provider resource configuration
+// ---------------------------------------------------------------------------
+
+/// Per-application resource ID to provider name mapping.
+/// Applications select a provider by a portable application-local name
+/// (e.g., "secure_hw") and never see the configured provider name.
+table AppProviderMapping {
+  /// UID of the application that owns this mapping
+  uid: uint32;
+  /// Application-local resource name
+  app_resource_id: string (required);
+  /// Name of the provider registered in the daemon (e.g., "PKCS11_ENGINE")
+  provider_name: string (required);
+}
+
+/// Provider resource config contains all per-app provider mappings
+table ProviderResourceConfig {
+  /// All per-app provider mappings
+  app_provider_mappings: [AppProviderMapping] (required);
+}
+
+// ---------------------------------------------------------------------------
 // Top-level configuration root
 // ---------------------------------------------------------------------------
 
 /// Top-level configuration root_type.
 ///
-/// Both sections are optional — the daemon starts with empty registries for any
+/// All sections are optional — the daemon starts with empty registries for any
 /// section that is absent.  Supported deployment profiles:
 ///
 ///   Key management only  — provide key_slot_config, omit cert_slot_config.
 ///   Cert management only — provide cert_slot_config, omit key_slot_config.
 ///   Full stack           — provide both sections.
 ///   Minimal / test       — omit both sections (empty config is valid).
+///
+/// provider_config is independent of the profiles above. Without it, no
+/// application can resolve a provider resource.
 table CryptoConfig {
   key_slot_config: KeySlotConfig;
   cert_slot_config: CertSlotConfig;
+  provider_config: ProviderResourceConfig;
 }
 
 root_type CryptoConfig;

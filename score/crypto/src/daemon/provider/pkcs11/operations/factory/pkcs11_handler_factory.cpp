@@ -38,6 +38,25 @@ Pkcs11HandlerFactory::Pkcs11HandlerFactory(const Pkcs11Module& module, Pkcs11Pro
 {
 }
 
+bool Pkcs11HandlerFactory::IsAlgorithmSupported(const common::HandlerId& handlerId,
+                                                const AlgorithmDescriptor& algorithm) const
+{
+    // Report what CreateHandler() would accept: the row must be one this
+    // provider maps, and the selected token must implement its mechanism.
+    if (handlerId == common::context_types::kHash)
+    {
+        return Pkcs11HashHandler::IsAlgorithmSupported(algorithm) &&
+               m_provider.SupportsMechanism(detail::LookupHashMechanism(algorithm), CKF_DIGEST).value_or(false);
+    }
+    if (handlerId == common::context_types::kMac)
+    {
+        return Pkcs11MacHandler::IsAlgorithmSupported(algorithm) &&
+               m_provider.SupportsMechanism(detail::LookupMacMechanism(algorithm), CKF_SIGN | CKF_VERIFY)
+                   .value_or(false);
+    }
+    return false;
+}
+
 score::Result<handler::Handler::Sptr> Pkcs11HandlerFactory::CreateHandler(const common::HandlerId& handlerId,
                                                                           const AlgorithmDescriptor& algorithm)
 {

@@ -222,6 +222,43 @@ bool ProviderManager::IsProviderRegistered(const common::ProviderName& provider_
     return m_providers.find(provider_name) != m_providers.end();
 }
 
+bool ProviderManager::RegisterAppProvider(uint32_t uid,
+                                          const std::string& app_resource_id,
+                                          const common::ProviderName& provider_name)
+{
+    const auto provider_it = m_providers.find(provider_name);
+    if (provider_it == m_providers.end())
+    {
+        score::mw::log::LogError() << "[ProviderManager] App provider mapping ignored: uid=" << uid << " resource='"
+                                   << app_resource_id << "' names unregistered provider '" << provider_name << "'";
+        return false;
+    }
+
+    auto& uid_map = m_app_providers[uid];
+    if (!uid_map.emplace(app_resource_id, provider_it->second.numeric_id).second)
+    {
+        score::mw::log::LogError() << "[ProviderManager] Duplicate app provider mapping ignored: uid=" << uid
+                                   << " resource='" << app_resource_id << "'";
+        return false;
+    }
+    return true;
+}
+
+std::shared_ptr<IProvider> ProviderManager::ResolveAppProvider(uint32_t uid, const std::string& app_resource_id) const
+{
+    const auto uid_it = m_app_providers.find(uid);
+    if (uid_it == m_app_providers.end())
+    {
+        return nullptr;
+    }
+    const auto res_it = uid_it->second.find(app_resource_id);
+    if (res_it == uid_it->second.end())
+    {
+        return nullptr;
+    }
+    return GetProvider(res_it->second);
+}
+
 std::shared_ptr<IProvider> ProviderManager::GetProvider(common::ProviderId providerId) const
 {
     if (providerId >= m_provider_by_id.size())

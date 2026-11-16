@@ -381,6 +381,75 @@ Expected<bool, common::DaemonErrorCode> FlatBufferConfigParser::ParseCertManagem
     return true;
 }
 
+Expected<bool, common::DaemonErrorCode> FlatBufferConfigParser::ParseProviderResourceConfig(
+    const ConfigFile& file,
+    ProviderResourceConfig& out_config)
+{
+    const auto* root = flatbuffers::GetRoot<CryptoConfig>(file.data());
+    if (!root)
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "Failed to get CryptoConfig root";
+        return make_unexpected(common::DaemonErrorCode::kInternalError);
+    }
+
+    if (!root->provider_config())
+    {
+        score::mw::log::LogDebug() << LOG_PREFIX << "No provider_config in configuration - no provider resources";
+        return false;
+    }
+
+    // Parse into a local so that out_config changes only when the whole section has parsed.
+    ProviderResourceConfig parsed;
+    auto res = ParseAppProviderMappings(root->provider_config(), parsed);
+    if (!res.has_value())
+    {
+        return make_unexpected(res.error());
+    }
+    out_config = std::move(parsed);
+    return true;
+}
+
+Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseAppProviderMappings(
+    const keyslot::ProviderResourceConfig* provider_config,
+    ProviderResourceConfig& out_config)
+{
+    const auto* mappings = provider_config->app_provider_mappings();
+    if (!mappings)
+    {
+        return std::monostate{};
+    }
+
+    for (const auto* entry : *mappings)
+    {
+        if (!entry)
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "Null app provider entry encountered";
+            return make_unexpected(common::DaemonErrorCode::kInternalError);
+        }
+
+        ProviderResourceConfig::AppProviderMapping mapping;
+        mapping.uid = entry->uid();
+
+        if (!HasText(entry->app_resource_id()))
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "App provider entry missing or empty 'app_resource_id'";
+            return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+        }
+        mapping.app_resource_id = entry->app_resource_id()->str();
+
+        if (!HasText(entry->provider_name()))
+        {
+            score::mw::log::LogError() << LOG_PREFIX << "App provider entry missing or empty 'provider_name'";
+            return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
+        }
+        mapping.provider_name = entry->provider_name()->str();
+
+        out_config.AddAppProviderMapping(std::move(mapping));
+    }
+
+    return std::monostate{};
+}
+
 // ---------------------------------------------------------------------------
 // File loading
 // ---------------------------------------------------------------------------
