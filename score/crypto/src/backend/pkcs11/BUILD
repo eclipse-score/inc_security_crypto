@@ -50,8 +50,7 @@ cc_library(
 # the pkcs11_backend label_flag.
 #
 # Parses the optional backend-owned FlatBuffer configuration. When no runtime
-# configuration reference is supplied, the existing build-selected test
-# defaults remain available for backward compatibility.
+# configuration reference is supplied, no PKCS#11 providers are configured.
 #
 # Backend subdirectories (softhsm/, vendor_hsm/, etc.) provide only the
 # PKCS#11 library and headers — they do NOT own config parsing.
@@ -62,10 +61,6 @@ cc_library(
 cc_library(
     name = "pkcs11_config_parser",
     srcs = ["pkcs11_token_config_parser.cpp"],
-    defines = select({
-        "//score/crypto/src/backend:rust_cryptoki_selected": ["USE_RUST_PKCS11=1"],
-        "//conditions:default": [],
-    }),
     target_compatible_with = select({
         "//score/crypto/src/backend:pkcs11_backend_enabled": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -73,6 +68,8 @@ cc_library(
     visibility = ["//score/crypto/src/backend:__pkg__"],
     deps = [
         ":pkcs11_config_schema",
+        "//score/crypto/src/common:flatbuffer_config_utils",
+        "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/provider/pkcs11:pkcs11_token_config",
         "@score_baselibs//score/flatbuffers:flatbufferutils",

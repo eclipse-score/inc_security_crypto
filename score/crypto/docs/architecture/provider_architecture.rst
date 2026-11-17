@@ -129,9 +129,9 @@ separate config type and resolved at a different point during daemon startup.
    ``BufferVersion`` envelope, identified by ``P11C`` and versioned as
    major/minor ``0.1``. It requires at least one token entry, validates the
    entries, and maps them to ``Pkcs11TokenEntry`` values. A supplied file is
-   authoritative and malformed content is reported as a PKCS#11 factory
-   creation failure. When the common catalog has no ``pkcs11`` entry, the
-   existing build-selected defaults remain in effect for compatibility.
+   authoritative and malformed or insecurely permissioned content is reported
+   as a PKCS#11 factory creation failure. When the common catalog has no
+   ``pkcs11`` entry, no PKCS#11 provider is created.
 
    The Score provider currently obtains its entries from the active backends
    discovered at build time. A Score sub-backend that later needs custom

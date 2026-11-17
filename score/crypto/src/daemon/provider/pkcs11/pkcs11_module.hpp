@@ -76,12 +76,13 @@ class TokenAuthGuard final
 {
   public:
     /// @brief Construct with the user PIN for this token.
-    /// @param pin  User PIN.  Empty string is valid (zero-length PIN login).
-    explicit TokenAuthGuard(std::string_view pin) noexcept;
+    /// @param pin  User PIN. Empty is valid. The source is securely erased
+    ///             after the guard takes its private copy.
+    explicit TokenAuthGuard(std::string& pin) noexcept;
 
     /// @brief Default-construct with no PIN (Public-only operations).
     TokenAuthGuard() noexcept = default;
-    ~TokenAuthGuard() = default;
+    ~TokenAuthGuard();
 
     TokenAuthGuard(const TokenAuthGuard&) = delete;
     TokenAuthGuard& operator=(const TokenAuthGuard&) = delete;

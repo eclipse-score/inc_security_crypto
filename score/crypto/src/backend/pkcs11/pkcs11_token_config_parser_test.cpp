@@ -89,6 +89,8 @@ class TemporaryPkcs11Config
         std::ofstream output{m_path, std::ios::binary};
         output.write(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      static_cast<std::streamsize>(builder.GetSize()));
+        output.close();
+        SetPermissions(std::filesystem::perms::owner_read | std::filesystem::perms::owner_write);
     }
 
     ~TemporaryPkcs11Config()
@@ -100,6 +102,11 @@ class TemporaryPkcs11Config
     std::string Path() const
     {
         return m_path.string();
+    }
+
+    void SetPermissions(const std::filesystem::perms permissions)
+    {
+        std::filesystem::permissions(m_path, permissions, std::filesystem::perm_options::replace);
     }
 
   private:
@@ -121,6 +128,10 @@ class TemporaryRawConfig
             output.seekp(static_cast<std::streamoff>(size - 1U));
             output.put('\0');
         }
+        output.close();
+        std::filesystem::permissions(m_path,
+                                     std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+                                     std::filesystem::perm_options::replace);
     }
 
     ~TemporaryRawConfig()
@@ -298,28 +309,89 @@ TEST(Pkcs11ConfigParserTest, SuppliedMissingFileDoesNotFallBackToDefaults)
     EXPECT_TRUE(config.GetConfig().tokens.empty());
 }
 
-TEST(Pkcs11ConfigParserTest, PreservesExistingDefaultWhenNoRuntimeConfigIsProvided)
+TEST(Pkcs11ConfigParserTest, FailedReplacementClearsPreviouslyParsedConfiguration)
+{
+    TemporaryPkcs11Config valid_file{{TokenInput{"TokenA", "", "sensitive-pin", "HSM_A"}}};
+    Pkcs11Config config;
+    const auto valid_path = valid_file.Path();
+    ASSERT_TRUE(config.ParseConfig(std::optional<std::string_view>{valid_path}).has_value());
+    ASSERT_EQ(config.GetConfig().tokens.size(), 1U);
+
+    static std::atomic<std::uint32_t> sequence{0U};
+    const auto missing_path = (std::filesystem::temp_directory_path() /
+                               ("missing_pkcs11_replacement_" + std::to_string(sequence.fetch_add(1U)) + ".bin"))
+                                  .string();
+    std::error_code error;
+    std::filesystem::remove(missing_path, error);
+    const auto result = config.ParseConfig(std::optional<std::string_view>{missing_path});
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), common::DaemonErrorCode::kResourceNotAllocated);
+    EXPECT_TRUE(config.GetConfig().tokens.empty());
+}
+
+TEST(Pkcs11ConfigParserTest, ConfiguresNoTokensWhenNoRuntimeConfigIsProvided)
 {
     Pkcs11Config config;
 
     ASSERT_TRUE(config.ParseConfig(std::nullopt).has_value());
-    ASSERT_EQ(config.GetConfig().tokens.size(), 1U);
-    EXPECT_EQ(config.GetConfig().tokens.front().providerName, "PKCS11_ENGINE");
+    EXPECT_TRUE(config.GetConfig().tokens.empty());
 }
 
-TEST(Pkcs11ConfigParserTest, SuppliedRuntimeConfigReplacesPreviouslySelectedDefaults)
+TEST(Pkcs11ConfigParserTest, MissingRuntimeConfigClearsPreviouslyParsedTokens)
 {
     TemporaryPkcs11Config file{{TokenInput{"ConfiguredToken", "", "", "CONFIGURED_PROVIDER"}}};
     Pkcs11Config config;
-
-    ASSERT_TRUE(config.ParseConfig(std::nullopt).has_value());
-    ASSERT_EQ(config.GetConfig().tokens.size(), 1U);
-    EXPECT_EQ(config.GetConfig().tokens.front().providerName, "PKCS11_ENGINE");
 
     const auto path = file.Path();
     ASSERT_TRUE(config.ParseConfig(std::optional<std::string_view>{path}).has_value());
     ASSERT_EQ(config.GetConfig().tokens.size(), 1U);
     EXPECT_EQ(config.GetConfig().tokens.front().providerName, "CONFIGURED_PROVIDER");
+
+    ASSERT_TRUE(config.ParseConfig(std::nullopt).has_value());
+    EXPECT_TRUE(config.GetConfig().tokens.empty());
+}
+
+TEST(Pkcs11ConfigParserTest, TransfersParsedConfigurationWithoutRetainingPins)
+{
+    TemporaryPkcs11Config file{{TokenInput{"TokenA", "", "1234", "HSM_A"}}};
+    Pkcs11Config config;
+    const auto path = file.Path();
+    ASSERT_TRUE(config.ParseConfig(std::optional<std::string_view>{path}).has_value());
+
+    auto transferred = config.TakeConfig();
+
+    ASSERT_EQ(transferred.tokens.size(), 1U);
+    EXPECT_EQ(transferred.tokens.front().userPin, "1234");
+    EXPECT_TRUE(config.GetConfig().tokens.empty());
+    SecureClearPins(transferred);
+}
+
+TEST(Pkcs11ConfigParserTest, RejectsGroupOrWorldAccessibleConfiguration)
+{
+    TemporaryPkcs11Config group_accessible_file{{TokenInput{"TokenA", "", "1234", "HSM_A"}}};
+    group_accessible_file.SetPermissions(std::filesystem::perms::owner_read | std::filesystem::perms::group_read);
+    Pkcs11Config group_accessible_config;
+    const auto group_accessible_path = group_accessible_file.Path();
+
+    const auto group_result =
+        group_accessible_config.ParseConfig(std::optional<std::string_view>{group_accessible_path});
+
+    ASSERT_FALSE(group_result.has_value());
+    EXPECT_EQ(group_result.error(), common::DaemonErrorCode::kAccessDenied);
+    EXPECT_TRUE(group_accessible_config.GetConfig().tokens.empty());
+
+    TemporaryPkcs11Config world_accessible_file{{TokenInput{"TokenA", "", "1234", "HSM_A"}}};
+    world_accessible_file.SetPermissions(std::filesystem::perms::owner_read | std::filesystem::perms::others_read);
+    Pkcs11Config world_accessible_config;
+    const auto world_accessible_path = world_accessible_file.Path();
+
+    const auto world_result =
+        world_accessible_config.ParseConfig(std::optional<std::string_view>{world_accessible_path});
+
+    ASSERT_FALSE(world_result.has_value());
+    EXPECT_EQ(world_result.error(), common::DaemonErrorCode::kAccessDenied);
+    EXPECT_TRUE(world_accessible_config.GetConfig().tokens.empty());
 }
 
 }  // namespace

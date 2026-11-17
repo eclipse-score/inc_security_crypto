@@ -44,8 +44,8 @@ cc_library(
         "//:__subpackages__",
     ],
     deps = [
-        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/common:algorithm_info",
     ],
 )
@@ -124,6 +124,7 @@ cc_library(
     deps = [
         ":pkcs11_token_config",
         ":provider_pkcs11_library",
+        "//score/crypto/src/daemon/common",
     ],
 )
 

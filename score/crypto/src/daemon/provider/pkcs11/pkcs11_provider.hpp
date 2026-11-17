@@ -58,7 +58,8 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
 {
   public:
     /// @brief Construct provider with an exclusive PKCS#11 module (single-provider path).
-    explicit Pkcs11Provider(Pkcs11ProviderConfig config);
+    /// @param config Consumed configuration. Its source PIN is securely erased.
+    explicit Pkcs11Provider(Pkcs11ProviderConfig&& config);
 
     /// @brief Construct provider with a shared, pre-initialized PKCS#11 module.
     ///
@@ -66,7 +67,8 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
     /// PKCS#11 library.  The caller (e.g. ProviderManager) must call sharedModule->Init()
     /// before constructing any provider with it.  C_Finalize is deferred until the last
     /// shared_ptr owner is destroyed -- guaranteeing all sessions are closed first.
-    Pkcs11Provider(Pkcs11ProviderConfig config, std::shared_ptr<Pkcs11Module> sharedModule);
+    /// @param config Consumed configuration. Its source PIN is securely erased.
+    Pkcs11Provider(Pkcs11ProviderConfig&& config, std::shared_ptr<Pkcs11Module> sharedModule);
 
     ~Pkcs11Provider() override;
 

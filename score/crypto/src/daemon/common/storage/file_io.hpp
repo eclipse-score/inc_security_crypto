@@ -37,6 +37,22 @@ namespace score::crypto::daemon::common::storage
 [[nodiscard]] score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> ReadFile(const std::string& path,
                                                                                            std::size_t max_size);
 
+/// Read an owner-only regular file through one validated file descriptor.
+///
+/// The file is opened without following a final-component symbolic link, then
+/// its type, owner, and permissions are checked with fstat() before its bytes
+/// are read from that same descriptor. The owner must be the effective daemon
+/// user or root, and no group or other permissions are allowed.
+///
+/// @param path     Absolute or relative path to the file.
+/// @param max_size Maximum accepted file size in bytes.
+/// @return Byte vector on success; kResourceNotAllocated if the path is absent,
+///         kAccessDenied for an insecure or inaccessible file, kInvalidArgument
+///         if path/size is invalid, or kInternalError for another I/O failure.
+[[nodiscard]] score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> ReadOwnerOnlyFile(
+    const std::string& path,
+    std::size_t max_size);
+
 /// Write @p data to @p path atomically via a temporary file and rename.
 ///
 /// Creates parent directories if they do not exist. Writes to a sibling

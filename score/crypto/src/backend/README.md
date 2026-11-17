@@ -129,13 +129,28 @@ uses the standard SCORE `BufferVersion` envelope with the `P11C` file
 identifier, and currently accepts schema version `0.1`. Its configuration must
 contain at least one token and describes token label/model matching, login PIN,
 registered provider name/type, and session cleanup strategy. If no `pkcs11`
-reference is present, the existing build-selected test defaults are used. If a
-reference is present but the file is missing or invalid, parsing fails without
-falling back to those defaults.
+reference is present, no PKCS#11 provider is created. If a reference is present
+but the file is missing or invalid, parsing fails without falling back to
+built-in credentials.
 
 Backend configuration is read once during daemon startup; live reload is not
-supported. Configuration files containing credentials such as a PKCS#11 PIN
-must be protected using deployment-appropriate file permissions.
+supported. A PKCS#11 configuration file must be a regular file owned by the
+daemon's effective user or by root, and it must grant no permissions to group
+or other users (for example, mode `0600` or `0400`).
+
+The common catalog remains backend-neutral and preserves references for future
+backend parsers. During startup, the provider manager logs a warning for every
+reference for which the current build has no registered backend parser, so a
+misspelled identifier cannot be ignored silently.
+
+The current schema carries the PIN directly. An external credential provider
+(for example, secure storage or a platform callback) is not yet supported and
+should be introduced before deployments that cannot store the PIN in the
+protected configuration file. Raw configuration bytes and transient PIN copies
+are zeroized after parsing and provider construction. One PIN copy remains in
+the token authentication guard while the provider is active because the token
+may need to log in again after its last authenticated handler logs out; that
+copy is zeroized when the provider is destroyed.
 
 Generate the host-side JSON schema with:
 

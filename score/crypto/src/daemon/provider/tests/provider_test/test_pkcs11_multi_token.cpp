@@ -23,6 +23,7 @@
 #include <fstream>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
@@ -128,7 +129,7 @@ class Pkcs11MultiTokenTest : public ::testing::Test
 
         const CK_RV rv = fns->C_InitToken(targetSlot, soPinPtr, static_cast<CK_ULONG>(soPin.size()), labelPtr);
         ASSERT_EQ(rv, CKR_OK) << "C_InitToken failed for token=" << label << " on slot=" << targetSlot;
-#endif // USE_RUST_PKCS11
+#endif  // USE_RUST_PKCS11
 
         outSlot = targetSlot;
 
@@ -148,7 +149,7 @@ class Pkcs11MultiTokenTest : public ::testing::Test
 
         fns->C_Logout(session);
         fns->C_CloseSession(session);
-#endif // USE_RUST_PKCS11
+#endif  // USE_RUST_PKCS11
     }
 
     std::shared_ptr<pkcs11::Pkcs11Provider> CreateProvider(const std::string& label, CK_SLOT_ID slot)
@@ -160,7 +161,7 @@ class Pkcs11MultiTokenTest : public ::testing::Test
         config.providerName = label;
         config.cleanupStrategy = pkcs11::Pkcs11SessionCleanupStrategy::kHardCleanup;
 
-        auto p = std::make_shared<pkcs11::Pkcs11Provider>(config, m_module);
+        auto p = std::make_shared<pkcs11::Pkcs11Provider>(std::move(config), m_module);
         provider::ProviderInitContext ctx{};
         ctx.numeric_id = (label == "TokenA") ? 0U : 1U;
         ctx.name = label;

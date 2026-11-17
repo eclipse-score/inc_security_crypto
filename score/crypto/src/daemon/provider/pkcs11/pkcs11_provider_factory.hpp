@@ -45,9 +45,9 @@ namespace score::crypto::daemon::provider::pkcs11
 class Pkcs11ProviderFactory final : public IProviderFactory
 {
   public:
-    explicit Pkcs11ProviderFactory(const Pkcs11ProviderFactoryConfig& config);
+    explicit Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig config);
 
-    ~Pkcs11ProviderFactory() override = default;
+    ~Pkcs11ProviderFactory() override;
 
     /**
      * @brief Initialise a shared Pkcs11Module (C_Initialize called once), then

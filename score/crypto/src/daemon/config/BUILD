@@ -80,6 +80,7 @@ cc_library(
     deps = [
         ":config_types",
         "//score/crypto/src/common:common_types",
+        "//score/crypto/src/common:flatbuffer_config_utils",
         "//score/crypto/src/daemon/common",
         "@flatbuffers",
         "@score_baselibs//score/mw/log",

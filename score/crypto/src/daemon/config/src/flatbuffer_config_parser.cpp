@@ -13,10 +13,9 @@
 
 #include "score/crypto/src/daemon/config/src/flatbuffer_config_parser.hpp"
 
+#include "score/crypto/src/common/flatbuffer_config_utils.hpp"
 #include "score/mw/log/logging.h"
 
-#include <algorithm>
-#include <cctype>
 #include <fstream>
 #include <limits>
 #include <string>
@@ -33,28 +32,6 @@ using namespace score::crypto::daemon::config::keyslot;
 
 namespace score::crypto::daemon::config
 {
-
-namespace
-{
-
-// A required name, path, or format is present, not blank, and free of control characters.
-bool HasText(const flatbuffers::String* value)
-{
-    if (value == nullptr || value->size() == 0U)
-    {
-        return false;
-    }
-    const std::string_view text{value->c_str(), value->size()};
-    if (text.find_first_not_of(" \t\r\n") == std::string_view::npos)
-    {
-        return false;
-    }
-    return std::none_of(text.begin(), text.end(), [](char c) {
-        return std::iscntrl(static_cast<unsigned char>(c)) != 0;
-    });
-}
-
-}  // namespace
 
 // ---------------------------------------------------------------------------
 // Binary FlatBuffers configuration parsing
@@ -141,14 +118,14 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseS
 
         KeyConfig::KeySlotEntry slot_entry;
 
-        if (!HasText(entry->slot_name()))
+        if (!score::crypto::config_utils::HasText(entry->slot_name()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "Slot entry missing or empty 'slot_name'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
         }
         slot_entry.slot_name = entry->slot_name()->str();
 
-        if (!HasText(entry->algorithm()))
+        if (!score::crypto::config_utils::HasText(entry->algorithm()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "Slot entry missing or empty 'algorithm'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -163,7 +140,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseS
         }
         for (const auto* provider : *entry->provider_names())
         {
-            if (!HasText(provider))
+            if (!score::crypto::config_utils::HasText(provider))
             {
                 score::mw::log::LogError() << LOG_PREFIX << "Slot entry has a missing or empty provider name";
                 return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -171,7 +148,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseS
             slot_entry.provider_names.push_back(provider->str());
         }
 
-        if (!HasText(entry->allowed_operations()))
+        if (!score::crypto::config_utils::HasText(entry->allowed_operations()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "Slot entry missing or empty 'allowed_operations'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -198,14 +175,14 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseS
             slot_entry.allowed_write_uids.push_back(uid);
         }
 
-        if (!HasText(entry->deployment_path()))
+        if (!score::crypto::config_utils::HasText(entry->deployment_path()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "Slot entry missing or empty 'deployment_path'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
         }
         slot_entry.deployment_path = entry->deployment_path()->str();
 
-        if (!HasText(entry->deployment_format()))
+        if (!score::crypto::config_utils::HasText(entry->deployment_format()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "Slot entry missing or empty 'deployment_format'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -241,14 +218,14 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseA
         KeyConfig::AppKeySlotMapping key_slot_entry;
         key_slot_entry.uid = entry->uid();
 
-        if (!HasText(entry->app_resource_id()))
+        if (!score::crypto::config_utils::HasText(entry->app_resource_id()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "App key slot entry missing or empty 'app_resource_id'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
         }
         key_slot_entry.app_resource_id = entry->app_resource_id()->str();
 
-        if (!HasText(entry->slot_name()))
+        if (!score::crypto::config_utils::HasText(entry->slot_name()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "App key slot entry missing or empty 'slot_name'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -407,7 +384,8 @@ Expected<bool, common::DaemonErrorCode> FlatBufferConfigParser::ParseBackendConf
         parsed.reserve(entries->size());
         for (const auto* entry : *entries)
         {
-            if (!entry || !HasText(entry->backend_id()) || !HasText(entry->config_path()))
+            if (!entry || !score::crypto::config_utils::HasText(entry->backend_id()) ||
+                !score::crypto::config_utils::HasText(entry->config_path()))
             {
                 score::mw::log::LogError() << LOG_PREFIX << "Invalid backend configuration reference";
                 return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -518,18 +496,18 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseC
             score::mw::log::LogError() << LOG_PREFIX << "Null cert slot entry encountered";
             return make_unexpected(common::DaemonErrorCode::kInternalError);
         }
-        if (!HasText(entry->slot_name()))
+        if (!score::crypto::config_utils::HasText(entry->slot_name()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "Cert slot entry missing or empty 'slot_name'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
         }
-        if (!HasText(entry->deployment_path()))
+        if (!score::crypto::config_utils::HasText(entry->deployment_path()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "Cert slot entry missing or empty 'deployment_path'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
         }
         // An absent field takes the schema default "kv"; an explicit value must be well formed.
-        if (entry->deployment_format() && !HasText(entry->deployment_format()))
+        if (entry->deployment_format() && !score::crypto::config_utils::HasText(entry->deployment_format()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "Cert slot entry has an empty or malformed 'deployment_format'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -539,7 +517,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseC
         slot.slot_name = entry->slot_name()->str();
         // An absent field takes the schema default; an explicit value must be well formed, since no handler
         // can be selected for an empty one.
-        if (entry->storage_backend() && !HasText(entry->storage_backend()))
+        if (entry->storage_backend() && !score::crypto::config_utils::HasText(entry->storage_backend()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "Cert slot '" << slot.slot_name
                                        << "' has an empty or malformed storage_backend";
@@ -602,7 +580,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseT
             score::mw::log::LogError() << LOG_PREFIX << "Null trust store entry encountered";
             return make_unexpected(common::DaemonErrorCode::kInternalError);
         }
-        if (!HasText(entry->store_name()))
+        if (!score::crypto::config_utils::HasText(entry->store_name()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "Trust store entry missing or empty 'store_name'";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -614,7 +592,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseT
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
         }
         // An absent field takes the schema default "kv"; an explicit value must be well formed.
-        if (entry->deployment_format() && !HasText(entry->deployment_format()))
+        if (entry->deployment_format() && !score::crypto::config_utils::HasText(entry->deployment_format()))
         {
             score::mw::log::LogError() << LOG_PREFIX
                                        << "Trust store entry has an empty or malformed 'deployment_format'";
@@ -663,7 +641,7 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseT
         {
             for (const auto* member : *entry->members())
             {
-                if (!member || !HasText(member->slot_name()))
+                if (!member || !score::crypto::config_utils::HasText(member->slot_name()))
                 {
                     score::mw::log::LogError() << LOG_PREFIX << "Trust store member missing or empty 'slot_name'";
                     return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -718,7 +696,8 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseA
             score::mw::log::LogError() << LOG_PREFIX << "Null app cert slot entry encountered";
             return make_unexpected(common::DaemonErrorCode::kInternalError);
         }
-        if (!HasText(entry->app_resource_id()) || !HasText(entry->slot_name()))
+        if (!score::crypto::config_utils::HasText(entry->app_resource_id()) ||
+            !score::crypto::config_utils::HasText(entry->slot_name()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "App cert slot entry missing or empty required fields";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -751,7 +730,8 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseA
             score::mw::log::LogError() << LOG_PREFIX << "Null app trust store entry encountered";
             return make_unexpected(common::DaemonErrorCode::kInternalError);
         }
-        if (!HasText(entry->app_resource_id()) || !HasText(entry->trust_store_name()))
+        if (!score::crypto::config_utils::HasText(entry->app_resource_id()) ||
+            !score::crypto::config_utils::HasText(entry->trust_store_name()))
         {
             score::mw::log::LogError() << LOG_PREFIX << "App trust store entry missing or empty required fields";
             return make_unexpected(common::DaemonErrorCode::kInvalidArgument);

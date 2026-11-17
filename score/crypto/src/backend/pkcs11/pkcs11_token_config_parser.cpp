@@ -14,18 +14,19 @@
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_token_config.hpp"
 
 #include "score/crypto/src/backend/pkcs11/pkcs11_config_generated.h"
+#include "score/crypto/src/common/flatbuffer_config_utils.hpp"
+#include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/crypto/src/daemon/common/storage/file_io.hpp"
 #include "score/flatbuffers/buffer_version_info.hpp"
 #include "score/flatbuffers/version_reader.hpp"
 #include "score/mw/log/logging.h"
 
-#include <algorithm>
-#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <unordered_set>
+#include <vector>
 
 namespace score::crypto::daemon::provider::pkcs11
 {
@@ -39,21 +40,24 @@ constexpr ::score::flatbuffers::BufferVersionInfo kSupportedSchemaVersion{"P11C"
                                                                           kSupportedSchemaMajor,
                                                                           kSupportedSchemaMinor};
 
-bool HasText(const ::flatbuffers::String* value)
+class SensitiveConfigGuard final
 {
-    if (!value || value->empty())
+  public:
+    explicit SensitiveConfigGuard(Pkcs11ProviderFactoryConfig& config) noexcept : config_{config} {}
+
+    ~SensitiveConfigGuard()
     {
-        return false;
+        SecureClearPins(config_);
     }
-    const std::string_view text{value->c_str(), value->size()};
-    if (text.find_first_not_of(" \t\r\n") == std::string_view::npos)
-    {
-        return false;
-    }
-    return std::none_of(text.begin(), text.end(), [](const char character) {
-        return std::iscntrl(static_cast<unsigned char>(character)) != 0;
-    });
-}
+
+    SensitiveConfigGuard(const SensitiveConfigGuard&) = delete;
+    SensitiveConfigGuard& operator=(const SensitiveConfigGuard&) = delete;
+    SensitiveConfigGuard(SensitiveConfigGuard&&) = delete;
+    SensitiveConfigGuard& operator=(SensitiveConfigGuard&&) = delete;
+
+  private:
+    Pkcs11ProviderFactoryConfig& config_;
+};
 
 std::string ProviderTypeToString(const score::crypto::backend::pkcs11::config::ProviderType provider_type)
 {
@@ -74,30 +78,27 @@ std::string ProviderTypeToString(const score::crypto::backend::pkcs11::config::P
 score::crypto::Expected<std::monostate, common::DaemonErrorCode> Pkcs11Config::ParseConfig(
     const std::optional<std::string_view> config_path)
 {
+    // A supplied configuration is authoritative. Clear any previously parsed
+    // credentials before attempting the replacement so every failure path is
+    // fail-closed and cannot expose stale provider configuration to a caller.
+    SecureClearPins(m_config);
+    m_config = Pkcs11ProviderFactoryConfig{};
+
     if (!config_path.has_value())
     {
-        Pkcs11ProviderFactoryConfig parsed;
-        Pkcs11TokenEntry entry{};
-#if USE_RUST_PKCS11
-        entry.tokenLabel = "ValeoCryptokiToken";
-#else
-        entry.tokenLabel = "SoftHSM";
-#endif
-        entry.userPin = "1234";
-        entry.providerName = "PKCS11_ENGINE";
-        entry.useHardCleanup = true;
-        parsed.tokens.push_back(std::move(entry));
-        m_config = std::move(parsed);
+        score::mw::log::LogWarn()
+            << "[PKCS11_CONFIG] No PKCS#11 backend configuration reference; no PKCS#11 providers will be created";
         return std::monostate{};
     }
 
-    auto buffer_result = common::storage::ReadFile(std::string{config_path.value()}, kMaximumConfigFileSize);
+    auto buffer_result = common::storage::ReadOwnerOnlyFile(std::string{config_path.value()}, kMaximumConfigFileSize);
     if (!buffer_result.has_value())
     {
         score::mw::log::LogError() << "[PKCS11_CONFIG] Failed to read backend config file: " << config_path.value();
         return score::crypto::make_unexpected(buffer_result.error());
     }
-    const auto& buffer = buffer_result.value();
+    auto& buffer = buffer_result.value();
+    const common::ScopedByteBufferZeroizer buffer_guard{buffer};
     const auto version_result = ::score::flatbuffers::VerifyVersion(buffer, kSupportedSchemaVersion);
     if (!version_result.has_value())
     {
@@ -120,6 +121,7 @@ score::crypto::Expected<std::monostate, common::DaemonErrorCode> Pkcs11Config::P
     }
 
     Pkcs11ProviderFactoryConfig parsed;
+    const SensitiveConfigGuard parsed_guard{parsed};
     std::unordered_set<std::string> provider_names;
     const auto* tokens = root->tokens();
     if (!tokens || tokens->empty())
@@ -130,7 +132,8 @@ score::crypto::Expected<std::monostate, common::DaemonErrorCode> Pkcs11Config::P
     parsed.tokens.reserve(tokens->size());
     for (const auto* token : *tokens)
     {
-        if (!token || !HasText(token->token_label()) || !HasText(token->provider_name()))
+        if (!token || !score::crypto::config_utils::HasText(token->token_label()) ||
+            !score::crypto::config_utils::HasText(token->provider_name()))
         {
             score::mw::log::LogError() << "[PKCS11_CONFIG] Token label and provider name are required";
             return score::crypto::make_unexpected(common::DaemonErrorCode::kInvalidArgument);
@@ -158,13 +161,17 @@ score::crypto::Expected<std::monostate, common::DaemonErrorCode> Pkcs11Config::P
             return score::crypto::make_unexpected(common::DaemonErrorCode::kInvalidArgument);
         }
 
-        parsed.tokens.push_back(
-            Pkcs11TokenEntry{token->token_label()->str(),
-                             token->token_model() ? token->token_model()->str() : std::string{},
-                             token->user_pin() ? token->user_pin()->str() : std::string{},
-                             std::move(provider_name),
-                             provider_type,
-                             cleanup_strategy == score::crypto::backend::pkcs11::config::CleanupStrategy::HARD});
+        parsed.tokens.emplace_back();
+        auto& parsed_token = parsed.tokens.back();
+        parsed_token.tokenLabel = token->token_label()->str();
+        parsed_token.tokenModel = token->token_model() ? token->token_model()->str() : std::string{};
+        if (token->user_pin())
+        {
+            parsed_token.userPin.assign(token->user_pin()->c_str(), token->user_pin()->size());
+        }
+        parsed_token.providerName = std::move(provider_name);
+        parsed_token.providerType = provider_type;
+        parsed_token.useHardCleanup = cleanup_strategy == score::crypto::backend::pkcs11::config::CleanupStrategy::HARD;
     }
 
     m_config = std::move(parsed);

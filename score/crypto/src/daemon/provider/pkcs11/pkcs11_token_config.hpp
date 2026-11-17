@@ -57,6 +57,9 @@ struct Pkcs11ProviderFactoryConfig
     std::vector<Pkcs11TokenEntry> tokens;
 };
 
+/// @brief Securely erase all PIN values held by a factory configuration.
+void SecureClearPins(Pkcs11ProviderFactoryConfig& config) noexcept;
+
 /// @brief Aggregates the ordered list of PKCS#11 token entries for the daemon.
 ///
 /// This is the canonical PKCS#11-specific configuration type. The daemon's
@@ -67,7 +70,7 @@ struct Pkcs11ProviderFactoryConfig
 /// complete Pkcs11ProviderFactoryConfig snapshot to the factory. Typical usage:
 /// @code
 ///   Pkcs11ProviderFactoryConfig factory_config{
-///       config.GetPkcs11Config().GetConfig()};
+///       config.GetPkcs11Config().TakeConfig()};
 ///   auto factory = std::make_unique<Pkcs11ProviderFactory>(std::move(factory_config));
 ///   auto result = factory->CreateAndRegister(manager);
 /// @endcode
@@ -75,16 +78,28 @@ class Pkcs11Config
 {
   public:
     Pkcs11Config() = default;
+    ~Pkcs11Config();
+
+    Pkcs11Config(const Pkcs11Config&) = delete;
+    Pkcs11Config& operator=(const Pkcs11Config&) = delete;
+    Pkcs11Config(Pkcs11Config&&) = delete;
+    Pkcs11Config& operator=(Pkcs11Config&&) = delete;
 
     /// @brief Get the complete factory configuration snapshot (read-only).
     const Pkcs11ProviderFactoryConfig& GetConfig() const;
 
+    /// @brief Transfer the parsed configuration to its consumer.
+    ///
+    /// Moving the complete vector avoids retaining an additional long-lived
+    /// copy of configured PIN values in the daemon's top-level configuration.
+    Pkcs11ProviderFactoryConfig TakeConfig();
+
     /// @brief Parse a backend-owned runtime configuration and populate token information.
     ///
-    /// When no path is supplied, the existing build-selected test defaults are
-    /// retained for backward compatibility. A supplied path is authoritative:
-    /// read or validation failures are returned without falling back to the
-    /// build-selected defaults.
+    /// When no path is supplied, the token list is cleared and no PKCS#11
+    /// providers are configured. A supplied path is authoritative: read,
+    /// permission, or validation failures are returned without falling back to
+    /// built-in credentials.
     /// @param config_path Optional path from the common backend config catalog.
     /// @return Empty value on success, or a daemon error if parsing fails.
     [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ParseConfig(

@@ -44,6 +44,29 @@ namespace ops = score::crypto::daemon::provider::handler::hash_handler_operation
 namespace
 {
 
+TEST(Pkcs11ProviderConfigTest, ExclusiveModuleConstructorClearsSourcePin)
+{
+    pkcs11::Pkcs11ProviderConfig config{};
+    config.userPin = "sensitive-pin";
+
+    const pkcs11::Pkcs11Provider provider{std::move(config)};
+
+    EXPECT_TRUE(config.userPin.empty());
+    EXPECT_FALSE(provider.IsInitialized());
+}
+
+TEST(Pkcs11ProviderConfigTest, SharedModuleConstructorClearsSourcePin)
+{
+    pkcs11::Pkcs11ProviderConfig config{};
+    config.userPin = "sensitive-pin";
+    auto module = std::make_shared<pkcs11::Pkcs11Module>();
+
+    const pkcs11::Pkcs11Provider provider{std::move(config), std::move(module)};
+
+    EXPECT_TRUE(config.userPin.empty());
+    EXPECT_FALSE(provider.IsInitialized());
+}
+
 /// Catalog row of @p name; the daemon resolves names before a provider sees them.
 score::crypto::AlgorithmDescriptor Row(std::string_view name)
 {

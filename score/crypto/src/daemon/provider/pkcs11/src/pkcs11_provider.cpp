@@ -15,6 +15,7 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/crypto/src/daemon/data_plane/src/base_shm_factory.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_factory.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_slot_handler.hpp"
@@ -33,8 +34,8 @@ namespace score::crypto::daemon::provider::pkcs11
 // Construction
 // ============================================================================
 
-Pkcs11Provider::Pkcs11Provider(Pkcs11ProviderConfig config)
-    : m_config{std::move(config)},
+Pkcs11Provider::Pkcs11Provider(Pkcs11ProviderConfig&& config)
+    : m_config{config},
       m_initialized{false},
       m_module{nullptr},
       m_roPool{},
@@ -44,10 +45,11 @@ Pkcs11Provider::Pkcs11Provider(Pkcs11ProviderConfig config)
       m_authGuard{m_config.userPin},
       m_handlerFactory{nullptr}
 {
+    common::SecureZeroizeAndClear(config.userPin);
 }
 
-Pkcs11Provider::Pkcs11Provider(Pkcs11ProviderConfig config, std::shared_ptr<Pkcs11Module> sharedModule)
-    : m_config{std::move(config)},
+Pkcs11Provider::Pkcs11Provider(Pkcs11ProviderConfig&& config, std::shared_ptr<Pkcs11Module> sharedModule)
+    : m_config{config},
       m_initialized{false},
       m_module{std::move(sharedModule)},
       m_roPool{},
@@ -57,6 +59,7 @@ Pkcs11Provider::Pkcs11Provider(Pkcs11ProviderConfig config, std::shared_ptr<Pkcs
       m_authGuard{m_config.userPin},
       m_handlerFactory{nullptr}
 {
+    common::SecureZeroizeAndClear(config.userPin);
 }
 
 Pkcs11Provider::~Pkcs11Provider()
