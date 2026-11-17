@@ -204,9 +204,3 @@ its R2, R6, and resource-scaling limitations.
 - Option E is not the fastest measured option: the indicative results show lower round-trip latency for Option F and, in some measurements, for the asynchronous LoLa POC. Option E is selected because it provides a better overall balance across the requirements, including bounded client-side waiting, concurrent client and server operation, point-to-point responses, peer identification, configuration, and server-threading flexibility. Further preliminary measurements indicated that the IPC overhead was below 20% of the overall operation time (of the target daemon architecture), reducing the practical impact of the latency difference.
 - Option E does not provide an immediate admission acknowledgement. A successful `Send()` confirms only client-side enqueueing; server-side validation or work-queue submission failure must be returned through a negative `Notify()`, and the client must handle final-result timeouts and late notifications. In rare cases (Server cannot retrieve request_id), the notify cannot be matched to a specific client request. This however is considered as a rare case and could be partially mitigated e.g. by relying on the timeout mechanism.
 - The selected library does not currently support inter-VM communication. The existing `IConnection` abstraction may guide a second, dedicated IPC mechanism, but that migration path has not been demonstrated and remains separate follow-up work.
-
-**Production implementation follow-up:**
-
-The formal implementation of the ``IConnection`` and ``IControlServer``
-interfaces to replace the gRPC adapter remains pending and will be addressed
-separately.
