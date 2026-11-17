@@ -19,7 +19,6 @@ generate_cpp(
     name = "generated_control",
     schema = "control.fbs",
     output = "control_generated.h",
-    size_prefixed = True,
 )
 
 cc_library(

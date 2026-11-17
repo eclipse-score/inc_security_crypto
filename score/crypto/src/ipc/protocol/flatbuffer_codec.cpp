@@ -436,6 +436,9 @@ score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::CryptoErrorCod
     }
 }
 
+// TODO: Improvement
+// Consider using: DetachedBuffer flatbuffers::FlatBufferBuilder::Release()
+// with an ownership wrapper to avoid unnecessary copies.
 score::crypto::Expected<std::vector<std::uint8_t>, score::crypto::CryptoErrorCode> FlatBufferCodec::SerializeResponse(
     const bl::ControlResponse& response) const noexcept
 {

@@ -13,5 +13,4 @@
 
 exports_files([
     "openssl_sys_build_rs.patch",
-    "score_baselibs_generate_cpp_size_prefixed.patch",
 ])
