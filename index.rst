@@ -32,7 +32,7 @@ planning, and analyses.
 .. toctree::
    :maxdepth: 1
 
-   /docs/features/index
+   docs/features/index
 
 .. needtable::
    :filter: docname is not None and docname.startswith("docs/features/")
@@ -51,8 +51,8 @@ security management, and verification report.
 .. toctree::
    :maxdepth: 1
 
-   /docs/module/index
-   /docs/verification_report/module_verification_report
+   docs/module/index
+   docs/verification_report/module_verification_report
 
 .. needtable::
    :filter: docname is not None and docname.startswith(("docs/module/", "docs/verification_report/"))
@@ -71,7 +71,7 @@ and analyses for the individual components of the Crypto module.
 .. toctree::
    :maxdepth: 1
 
-   /docs/components/index
+   docs/components/index
 
 .. needtable::
    :filter: docname is not None and docname.startswith("crypto/components/")
