@@ -37,6 +37,7 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <utility>
 #include <variant>
 
@@ -608,11 +609,99 @@ score::Result<std::monostate> KeyManagementContextImpl::ClearKey(const CryptoRes
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "ClearKey not yet implemented")};
 }
 
-score::Result<KeySlotInfo> KeyManagementContextImpl::GetKeySlotInfo(const CryptoResourceId& /*slot*/)
+score::Result<KeySlotInfo> KeyManagementContextImpl::GetKeySlotInfo(const CryptoResourceId& slot)
 {
-    score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: GetKeySlotInfo not yet implemented";
-    return score::Result<KeySlotInfo>{
-        score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "GetKeySlotInfo not yet implemented")};
+    if (slot.type != ResourceType::kKeySlot)
+    {
+        score::mw::log::LogError()
+            << "[API][KeyMgmtContextImpl] ERROR: GetKeySlotInfo called with invalid slot resource type";
+        return score::Result<KeySlotInfo>{
+            score::unexpect,
+            MakeError(CryptoErrorCode::kInvalidArgument, "GetKeySlotInfo called with invalid slot resource type")};
+    }
+
+    auto control_req_result = proto::ControlRequestBuilder()
+                                  .forDataNodeId(m_context_id)
+                                  .operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_SLOT_INFO})
+                                  .with_in_val_uint64(slot.id)
+                                  .build();
+
+    if (!control_req_result.has_value())
+    {
+        score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: Failed to build KEY_SLOT_INFO request";
+        return score::Result<KeySlotInfo>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build KEY_SLOT_INFO request")};
+    }
+
+    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+
+    auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
+    validator.expectOperation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_SLOT_INFO}).expectSuccess();
+
+    if (!validator.isValid())
+    {
+        score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR:" << validator.getError();
+        return score::Result<KeySlotInfo>{
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kOperationFailed),
+                      "KEY_SLOT_INFO daemon response invalid")};
+    }
+
+    const auto invalid_response = [](std::string_view reason) {
+        score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: KEY_SLOT_INFO response " << reason;
+        return score::Result<KeySlotInfo>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "KEY_SLOT_INFO response malformed")};
+    };
+
+    auto state_result = validator.getParameterAt<std::uint64_t>(0, 0);
+    auto permissions_result = validator.getParameterAt<std::uint64_t>(0, 2);
+    auto algorithm_result = validator.getParameterAt<proto::OwnedString>(0, 3);
+    auto primary_result = validator.getParameterAt<std::uint16_t>(0, 4);
+    if (!state_result.has_value() || !permissions_result.has_value() || !algorithm_result.has_value() ||
+        !primary_result.has_value())
+    {
+        return invalid_response("has missing or mistyped parameters");
+    }
+
+    const auto state = state_result.value();
+    if (state > static_cast<std::uint64_t>(KeySlotState::kLocked))
+    {
+        return invalid_response("has an unknown slot state");
+    }
+
+    KeySlotInfo info{};
+    info.state = static_cast<KeySlotState>(state);
+    info.permitted_operations = static_cast<KeyOperationPermission>(static_cast<std::uint32_t>(
+        permissions_result.value() & static_cast<std::uint64_t>(KeyOperationPermission::kAll)));
+    info.algorithm = AlgorithmId{std::string_view{algorithm_result.value()}};
+    if (info.algorithm.truncated())
+    {
+        return invalid_response("has an algorithm name that exceeds AlgorithmId capacity");
+    }
+    info.primary_provider = primary_result.value();
+
+    // Compatible provider ids follow from index 5 to the end of the response;
+    // isParameterOfType() fails once the index runs past the last parameter.
+    constexpr std::size_t kFirstCompatibleProviderIdx = 5U;
+    for (std::size_t idx = kFirstCompatibleProviderIdx;
+         info.compatible_provider_count < KeySlotInfo::kMaxCompatibleProviders;
+         ++idx)
+    {
+        auto is_provider_id = validator.isParameterOfType<std::uint16_t>(0, idx);
+        if (!is_provider_id.has_value())
+        {
+            break;
+        }
+        if (!is_provider_id.value())
+        {
+            return invalid_response("has a mistyped compatible provider id");
+        }
+        info.compatible_providers.at(info.compatible_provider_count) =
+            validator.getParameterAt<std::uint16_t>(0, idx).value();
+        ++info.compatible_provider_count;
+    }
+
+    return info;
 }
 
 }  // namespace crypto

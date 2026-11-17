@@ -61,6 +61,10 @@ class KeyManagementExecutor final
     std::shared_ptr<key_management::IKeySlotHandler> m_slot_handler;
     std::shared_ptr<key_management::KeyManagementService> m_service;
 
+    /// Primary provider of a resolved slot; kResourceNotFound if none is available.
+    [[nodiscard]] Expected<common::ProviderId, score::crypto::daemon::common::DaemonErrorCode> OwnerOf(
+        const key_management::SlotResolution& resolution) const;
+
     [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleGenerate(
         const KeyMgmtExecutionContext& ctx,
         common::RequestParameters& request);
@@ -85,7 +89,7 @@ class KeyManagementExecutor final
         common::RequestParameters& request);
 
     [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleSlotInfo(
-        std::uint64_t client_id,
+        const KeyMgmtExecutionContext& ctx,
         common::RequestParameters& request);
 };
 

@@ -18,19 +18,36 @@
 #include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
 
+#include <cstddef>
+#include <string_view>
+
 namespace score::crypto::daemon::key_management::detail
 {
 
+/// @brief Builds the client-facing KeySlotInfo from the slot config and its current state.
+///
+/// The algorithm is the slot's configured constraint and is reported for empty
+/// slots too, so a client can tell which key type the slot accepts.
+/// provider_ids[0] is the primary provider; the rest are reported as compatible
+/// providers (truncated to KeySlotInfo::kMaxCompatibleProviders).
 inline score::crypto::KeySlotInfo BuildKeySlotInfo(const KeySlotConfig& slot,
-                                                   score::crypto::KeySlotState state,
-                                                   uint16_t primary_provider = 0U) noexcept
+                                                   score::crypto::KeySlotState state) noexcept
 {
     score::crypto::KeySlotInfo info{};
     info.state = state;
-    info.algorithm = (state == score::crypto::KeySlotState::kOccupied) ? slot.algorithm : common::AlgorithmId{};
-    info.primary_provider = primary_provider;
+    info.algorithm = std::string_view{slot.algorithm};
     info.permitted_operations = slot.allowed_operations;
-    info.compatible_provider_count = 0U;
+    if (!slot.provider_ids.empty())
+    {
+        info.primary_provider = slot.provider_ids.front();
+        for (std::size_t i = 1U;
+             (i < slot.provider_ids.size()) && (info.compatible_provider_count < info.compatible_providers.size());
+             ++i)
+        {
+            info.compatible_providers.at(info.compatible_provider_count) = slot.provider_ids[i];
+            ++info.compatible_provider_count;
+        }
+    }
     return info;
 }
 
