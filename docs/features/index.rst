@@ -12,10 +12,8 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _features_template:
-
 Crypto
-#######
+######
 
 Feature description can be found here :need:`feat__security_crypto`.
 
