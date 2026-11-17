@@ -12,12 +12,7 @@
 # *******************************************************************************
 module(name = "score_security_crypto")
 
-bazel_dep(name = "rules_python", version = "2.3.1")
-single_version_override(
-    module_name = "rules_python",
-    version = "1.5.4",
-)
-
+bazel_dep(name = "rules_python", version = "1.8.5")
 bazel_dep(name = "rules_uv", version = "0.89.2")
 
 PYTHON_VERSION = "3.12"
