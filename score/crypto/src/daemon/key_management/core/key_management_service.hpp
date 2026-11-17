@@ -27,6 +27,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -72,9 +73,8 @@ struct KeyDataNodeResult
 /// are NOT part of this service. Executors call IKeyFactory and IKeySlotHandler
 /// directly for those, then use the service for bookkeeping integration.
 ///
-/// Thread safety: methods are serialized by the underlying DataManager and
-/// SlotRegistry mutexes. The service itself holds no mutable state beyond
-/// the injected shared pointers.
+/// Thread safety: the service protects its registry and slot-node cache maps;
+/// DataManager, SlotRegistry, and KeyRegistry provide their own synchronization.
 class KeyManagementService final
 {
   public:
@@ -274,6 +274,9 @@ class KeyManagementService final
 
     provider::ProviderManager::Sptr m_provider_manager;
     SlotRegistry::Sptr m_slot_registry;
+
+    // Protect access to m_registries and m_slot_node_cache
+    std::mutex m_state_mutex;
     // m_registries must be declared before m_data_manager so that the registries
     // outlive the DataManager. ~DataManager() destroys KeyDataNode objects whose
     // destructors invoke [&registry](...){ registry.Unregister(id); } callbacks.
