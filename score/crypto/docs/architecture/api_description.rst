@@ -197,6 +197,9 @@ would accept for that algorithm on at least one provider. It does not check
 key slots, permissions or memory. The answer is the union over providers;
 to target one provider, set ``ProviderType`` on the context config.
 
+The mediator forwards the three queries to ``ProviderCapabilityQuery`` in
+the provider package, which reads them from the provider manager.
+
 Memory and Data Plane Model
 ---------------------------
 

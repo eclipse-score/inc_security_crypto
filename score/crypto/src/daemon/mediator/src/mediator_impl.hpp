@@ -25,6 +25,7 @@
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
+#include "score/crypto/src/daemon/provider/provider_capability_query.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <cstddef>
@@ -165,28 +166,15 @@ class MediatorImpl : public IMediator
     bool HandleMediatorOperation(const control_plane::ControlRequest& request,
                                  const control_plane::SingleOperationRequest& operation,
                                  control_plane::protocol::OperationResponseBuilder& responseBuilder);
-    bool HandleProviderInfoOperation(const control_plane::SingleOperationRequest& operation,
-                                     control_plane::protocol::OperationResponseBuilder& responseBuilder);
-    bool HandleQueryCapabilitiesOperation(const control_plane::SingleOperationRequest& operation,
-                                          control_plane::protocol::OperationResponseBuilder& responseBuilder);
-    bool HandleSystemCapabilitiesOperation(const control_plane::SingleOperationRequest& operation,
-                                           control_plane::protocol::OperationResponseBuilder& responseBuilder);
-
-    /// Names of the operations (operations::capability_operations) at least one of
-    /// @p providers accepts for @p algorithm, in kCapabilityContexts order; empty if none.
-    [[nodiscard]] static std::vector<std::string_view> CollectCapabilities(
-        const std::vector<std::shared_ptr<provider::IProvider>>& providers,
-        const AlgorithmDescriptor& algorithm);
-
-    /// Initialized providers, ordered by id.
-    [[nodiscard]] std::vector<std::shared_ptr<provider::IProvider>> InitializedProviders() const;
-
     bool HandleShmCreateObject(const control_plane::ControlRequest& request,
                                const control_plane::SingleOperationRequest& operation,
                                control_plane::protocol::OperationResponseBuilder& responseBuilder);
     bool ForwardSingleOperation(const control_plane::ControlRequest& request,
                                 const control_plane::SingleOperationRequest& operation,
                                 control_plane::protocol::OperationResponseBuilder& responseBuilder);
+
+    /// Serves PROVIDER_INFO, QUERY_CAPABILITIES and SYSTEM_CAPABILITIES.
+    provider::ProviderCapabilityQuery m_capability_query;
 };
 
 }  // namespace score::crypto::daemon::mediator

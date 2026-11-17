@@ -88,6 +88,7 @@ cc_library(
         "//score/crypto/src/daemon/data_plane",
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider:provider_capability_query",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",
     ],

@@ -12,7 +12,8 @@
  ********************************************************************************/
 
 // Unit tests for the PROVIDER_INFO, QUERY_CAPABILITIES and SYSTEM_CAPABILITIES
-// mediator operations, driven through processRequest() with stub providers.
+// mediator operations, driven through processRequest() with stub providers. The
+// mediator forwards them to provider::ProviderCapabilityQuery.
 
 #include "score/crypto/src/daemon/mediator/src/mediator_impl.hpp"
 

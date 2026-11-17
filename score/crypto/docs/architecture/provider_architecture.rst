@@ -201,6 +201,7 @@ Directory Layout
    ├── i_provider_factory.hpp             ← IProviderFactory interface
    ├── provider_manager.hpp/.cpp          ← Provider registry & lifecycle
    ├── provider_manager_factory.hpp/.cpp  ← Build-time factory wiring
+   ├── provider_capability_query.hpp/.cpp ← PROVIDER_INFO / QUERY_CAPABILITIES / SYSTEM_CAPABILITIES
    ├── handler/
    │   ├── i_handler.hpp                  ← Handler interface
    │   ├── i_crypto_handler_factory.hpp   ← Factory interface
