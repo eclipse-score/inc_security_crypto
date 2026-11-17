@@ -650,13 +650,15 @@ with at least one operation, in catalog order. Each ECDSA curve/hash
 pairing is a row of its own and is listed separately.</p></li>
 </ul>
 <p>The daemon resolves the name to its catalog row and asks each provider’s
-<code class="docutils literal notranslate"><span class="pre">IsAlgorithmSupported()</span></code> and <code class="docutils literal notranslate"><span class="pre">IsKeyGenerationSupported()</span></code> with that
-descriptor. These are the same checks that context creation and key
-generation apply, so a reported operation is one that
-<code class="docutils literal notranslate"><span class="pre">Create[Op]Context()</span></code> or <code class="docutils literal notranslate"><span class="pre">GenerateKey()</span></code> would accept for that algorithm
-on at least one provider. It does not check key slots, permissions or
-memory. The answer is the union over providers; to target one provider, set
-<code class="docutils literal notranslate"><span class="pre">ProviderType</span></code> on the context config.</p>
+handler factory <code class="docutils literal notranslate"><span class="pre">IsAlgorithmSupported()</span></code> and key factory
+<code class="docutils literal notranslate"><span class="pre">IsOperationSupported(KEY_GENERATE,</span> <span class="pre">...)</span></code> with that descriptor. These
+are the same checks that context creation and key generation apply, so a
+reported operation is one that <code class="docutils literal notranslate"><span class="pre">Create[Op]Context()</span></code> or <code class="docutils literal notranslate"><span class="pre">GenerateKey()</span></code>
+would accept for that algorithm on at least one provider. It does not check
+key slots, permissions or memory. The answer is the union over providers;
+to target one provider, set <code class="docutils literal notranslate"><span class="pre">ProviderType</span></code> on the context config.</p>
+<p>The mediator forwards the three queries to <code class="docutils literal notranslate"><span class="pre">ProviderCapabilityQuery</span></code> in
+the provider package, which reads them from the provider manager.</p>
 </section>
 <section id="memory-and-data-plane-model">
 <h2>Memory and Data Plane Model<a class="headerlink" href="#memory-and-data-plane-model" title="Link to this heading">#</a></h2>
