@@ -17,7 +17,9 @@
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 
+#include <cstddef>
 #include <memory>
+#include <optional>
 
 namespace score::crypto::daemon::provider::pkcs11
 {
@@ -66,6 +68,18 @@ class Pkcs11KeyFactory : public key_management::IKeyFactory
     [[nodiscard]] score::crypto::Expected<key_management::IKeyHandler::Sptr,
                                           score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const key_management::KeyImportRequest& request) override;
+
+    /// Refuse export: every PKCS#11 key of this provider is a secret key, and
+    /// secret keys never leave the token in plaintext (kKeyNotExportable).
+    [[nodiscard]] score::crypto::Expected<key_management::SecureKeyBytes,
+                                          score::crypto::daemon::common::DaemonErrorCode>
+    ExportKey(const key_management::ProviderKeyHandle& handle,
+              std::optional<score::crypto::FormatType> format) override;
+
+    /// Same refusal as ExportKey().
+    [[nodiscard]] score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorCode> GetExportKeySize(
+        const key_management::ProviderKeyHandle& handle,
+        std::optional<score::crypto::FormatType> format) override;
 
   private:
     std::weak_ptr<Pkcs11Provider> m_provider;

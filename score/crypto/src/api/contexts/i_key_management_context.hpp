@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace score
 {
@@ -250,26 +251,36 @@ class IKeyManagementContext : public IContext
     // Key Export
     // =========================================================================
 
-    /// @brief Exports key data in the specified format.
+    /// @brief Exports the public key of an asymmetric key pair.
+    ///
+    /// Only public key material leaves the daemon in plaintext:
+    ///   - std::nullopt (default): the native format, DER SubjectPublicKeyInfo;
+    ///   - kDer / kPem: SubjectPublicKeyInfo, DER or PEM ("BEGIN PUBLIC KEY");
+    ///   - kRaw: the uncompressed point 0x04||X||Y (EC keys only).
+    /// Requires kExport in the public-key permissions (granted by default).
+    ///
+    /// Private and secret (symmetric) keys are never exported in plaintext; they
+    /// can leave the daemon only wrapped (WrapKey()). Asking to export one, or a
+    /// public key without kExport, fails with CryptoErrorCode::kKeyNotExportable.
+    ///
     /// @param key Handle to the key to export.
     /// @param output Buffer to receive the exported key data.
-    /// @param format Output encoding format (default: DER).
+    /// @param format Output encoding format (default: native).
     /// @return Number of bytes written on success, error if key is not exportable.
     virtual score::Result<std::size_t> ExportKey(const CryptoResourceId& key,
                                                  score::cpp::span<uint8_t> output,
-                                                 FormatType format = FormatType::kDer) = 0;
+                                                 std::optional<FormatType> format = std::nullopt) = 0;
 
     /// @brief Returns the byte length of the exported form of a key.
     ///
     /// Call this before ExportKey() to allocate a buffer of the correct size.
-    /// The size depends on the algorithm and export format (e.g., DER-encoded
-    /// PKCS#8 for private keys, SubjectPublicKeyInfo for public keys).
+    /// The size depends on the algorithm and export format (see ExportKey()).
     ///
     /// @param key Handle to the key to query
-    /// @param format Desired export format (default: DER)
-    /// @return Required buffer size in bytes, or error if the key is not exportable
+    /// @param format Desired export format (default: native)
+    /// @return Required buffer size in bytes, or the same error ExportKey() would return
     virtual score::Result<std::size_t> GetExportKeySize(const CryptoResourceId& key,
-                                                        FormatType format = FormatType::kDer) = 0;
+                                                        std::optional<FormatType> format = std::nullopt) = 0;
 
     // =========================================================================
     // Key Clearing

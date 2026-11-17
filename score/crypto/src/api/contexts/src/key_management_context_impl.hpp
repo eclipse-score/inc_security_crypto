@@ -111,8 +111,8 @@ class KeyManagementContextImpl final : public IKeyManagementContext
     // -- Key Export (stubs) --
     score::Result<std::size_t> ExportKey(const CryptoResourceId& key,
                                          score::cpp::span<uint8_t> output,
-                                         FormatType format) override;
-    score::Result<std::size_t> GetExportKeySize(const CryptoResourceId& key, FormatType format) override;
+                                         std::optional<FormatType> format) override;
+    score::Result<std::size_t> GetExportKeySize(const CryptoResourceId& key, std::optional<FormatType> format) override;
 
     // -- Key Clearing (stub) --
     score::Result<std::monostate> ClearKey(const CryptoResourceId& key) override;

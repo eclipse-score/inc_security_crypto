@@ -410,6 +410,13 @@ Permissions are enforced by the daemon at context creation time. Each
    ExportKey()                            → kExport
    AgreeKey()                             → kAgree
 
+``ExportKey()`` exports public keys only: SubjectPublicKeyInfo as DER (the
+native format, used when no format is given) or PEM, or the uncompressed EC
+point as ``kRaw``. It checks ``kExport`` on the public-key permissions.
+Private and secret keys never leave the daemon in plaintext, only wrapped
+(``WrapKey()``); exporting one fails with ``kKeyNotExportable``, as does a
+public key without ``kExport``. ``GetExportKeySize()`` refuses the same way.
+
 If the key's permissions do not include the required operation, the
 daemon returns ``CryptoErrorCode::kKeyOperationNotPermitted`` and the
 context is not created. This is a fail-fast check — no resources are
