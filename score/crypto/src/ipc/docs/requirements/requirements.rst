@@ -42,7 +42,7 @@ Functional requirements
    :security: NO
    :safety: ASIL_B
    :status: valid
-   :satisfied_by: comp__ipc_message_passing_adapter
+   :satisfied_by: comp__ipc_message_passing_adapter, comp__ipc_protocol
    :derived_from: feat_req__sec_crypt__no_key_exposure[version==1],
       feat_req__sec_crypt__os_protection[version==1],
       feat_req__sec_crypt__access_control[version==1],
