@@ -30,7 +30,7 @@ participant "SCORE message-passing IPC" as Transport
 Application -> Client: SendRequest(request)
 Client -> ClientSession: SendRequest(request)
 ClientSession -> ClientSession: WaitForConnectionReady()
-ClientSession -> PendingRegistry: Register()
+ClientSession -> PendingRegistry: BeginCall()
 PendingRegistry --> ClientSession: request_id, pending call
 ClientSession -> Codec: SerializeRequest(request)
 Codec --> ClientSession: request bytes
@@ -38,7 +38,8 @@ ClientSession -> ClientConnection: **IClientConnection::Send(bytes)**
 ClientConnection -> Transport: Request frame
 
 note over ClientSession, PendingCall
-	WaitForResponse(request_id, deadline + grace) blocks the caller.
+	PendingCallRegistry::WaitForCallResponse(request_id, call, deadline + grace)
+	blocks the caller while PendingCall::WaitForResponse(deadline + grace) waits.
 	The transport response callback completes the pending call asynchronously.
 end note
 
@@ -46,7 +47,7 @@ Transport --> ClientConnection: Response frame
 ClientConnection -> ClientSession: **OnResponseBytes(bytes) callback**
 ClientSession -> Codec: DeserializeResponse(bytes)
 Codec --> ClientSession: ControlResponse
-ClientSession -> PendingRegistry: Complete(request_id, response)
+ClientSession -> PendingRegistry: CompleteCall(request_id, response)
 PendingRegistry -> PendingCall: Complete(response)
 ClientSession --> Client: Return response
 Client --> Application: Return response

@@ -30,13 +30,13 @@ participant "FlatBufferCodec" as Codec
 participant "IServerConnection" as ServerConnection
 
 Transport -> Server: **OnRequest(connection, bytes) callback**
-Server -> Dispatcher: WorkItemDispatcher::OnRequest(bytes)
+Server -> Dispatcher: WorkItemDispatcher::OnRequest(connection, bytes)
 Dispatcher -> SessionManager: Find session for connection
 SessionManager -> Registry: FindSessionForRequest(connection)
 Registry --> SessionManager: Session
 SessionManager --> Dispatcher: Session
 Dispatcher -> Session: TryAdmitWorkItem(item)
-Dispatcher -> Executor: Submit(session, item, job)
+Dispatcher -> Executor: TrySubmitWorkItem(WorkItemSubmission{session, item}, job)
 
 ... worker executes accepted operation ...
 

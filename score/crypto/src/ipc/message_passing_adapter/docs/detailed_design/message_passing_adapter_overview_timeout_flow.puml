@@ -28,14 +28,14 @@ participant "SCORE message-passing IPC" as Transport
 
 Application -> Client: SendRequest(request, timeout)
 Client -> ClientSession: SendRequest(request, timeout)
-ClientSession -> PendingRegistry: Register request ID and pending call
+ClientSession -> PendingRegistry: BeginCall()
 ClientSession -> ClientConnection: **IClientConnection::Send(request bytes)**
 ClientConnection -> Transport: Send IPC message
-ClientSession -> PendingRegistry: WaitForResponse(deadline + grace)
+ClientSession -> PendingRegistry: WaitForCallResponse(request_id, call, deadline + grace)
 PendingRegistry -> PendingCall: WaitForResponse(deadline + grace)
 PendingCall -> PendingCall: **condition_variable.wait_until(...)**
 PendingCall --> PendingRegistry: Response wait timed out
-PendingRegistry -> PendingRegistry: Fail pending call; remove request ID
+PendingRegistry -> PendingRegistry: FailCall(request_id, call, kOperationResponseTimedOut)
 PendingRegistry --> ClientSession: Client-side timeout
 ClientSession --> Client: Return timeout
 Client --> Application: Operation response timed out
