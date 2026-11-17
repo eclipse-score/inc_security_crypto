@@ -173,13 +173,6 @@ to detect that the resource is still referenced by an active context — call
        // e.g. resource still used by an active context — destroy it first
    }
 
-Key Encapsulation Mechanism
----------------------------
-
-ML-KEM encapsulation and decapsulation are provided through the Key Management
-API. See :ref:`crypto_key_management_kem_operations` for API behavior and
-shared-secret lifecycle details.
-
 Memory and Data Plane Model
 ---------------------------
 
