@@ -189,13 +189,13 @@ Provider and Capability Discovery
   pairing is a row of its own and is listed separately.
 
 The daemon resolves the name to its catalog row and asks each provider's
-``IsAlgorithmSupported()`` and ``IsKeyGenerationSupported()`` with that
-descriptor. These are the same checks that context creation and key
-generation apply, so a reported operation is one that
-``Create[Op]Context()`` or ``GenerateKey()`` would accept for that algorithm
-on at least one provider. It does not check key slots, permissions or
-memory. The answer is the union over providers; to target one provider, set
-``ProviderType`` on the context config.
+handler factory ``IsAlgorithmSupported()`` and key factory
+``IsOperationSupported(KEY_GENERATE, ...)`` with that descriptor. These
+are the same checks that context creation and key generation apply, so a
+reported operation is one that ``Create[Op]Context()`` or ``GenerateKey()``
+would accept for that algorithm on at least one provider. It does not check
+key slots, permissions or memory. The answer is the union over providers;
+to target one provider, set ``ProviderType`` on the context config.
 
 Memory and Data Plane Model
 ---------------------------

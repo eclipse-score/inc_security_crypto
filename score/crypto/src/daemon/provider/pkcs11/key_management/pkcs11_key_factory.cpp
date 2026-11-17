@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_factory.hpp"
 
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/detail/pkcs11_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/key_management/pkcs11_key_store.hpp"
@@ -70,8 +71,13 @@ Pkcs11KeyFactory::Pkcs11KeyFactory(std::weak_ptr<Pkcs11Provider> provider,
 {
 }
 
-bool Pkcs11KeyFactory::IsKeyGenerationSupported(const AlgorithmDescriptor& algorithm) const
+bool Pkcs11KeyFactory::IsOperationSupported(common::OperationAction operation,
+                                            const AlgorithmDescriptor& algorithm) const
 {
+    if (operation != key_management::operations::KEY_GENERATE)
+    {
+        return false;
+    }
     const auto algo_info = detail::LookupAlgorithm(algorithm);
     const auto provider = m_provider.lock();
     if (!algo_info.has_value() || !provider)

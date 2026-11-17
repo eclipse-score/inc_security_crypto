@@ -28,6 +28,7 @@
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_executor.hpp"
@@ -885,7 +886,9 @@ TEST_F(Pkcs11ProviderHashTest, KeyGenerationSupportFollowsTheTokenKeySizeRange)
                                           std::pair{score::crypto::Algorithm::kAes256, CK_ULONG{32U}}})
     {
         const bool in_range = (aes_gen.value()->ulMinKeySize <= bytes) && (bytes <= aes_gen.value()->ulMaxKeySize);
-        EXPECT_EQ(key_factory->IsKeyGenerationSupported(*score::crypto::GetAlgorithmDescriptor(algorithm)), in_range)
+        EXPECT_EQ(key_factory->IsOperationSupported(score::crypto::daemon::key_management::operations::KEY_GENERATE,
+                                                    *score::crypto::GetAlgorithmDescriptor(algorithm)),
+                  in_range)
             << bytes;
     }
 }

@@ -22,6 +22,7 @@
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/mediator/mediator_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
@@ -86,9 +87,9 @@ class FakeKeyFactory final : public key_management::IKeyFactory
   public:
     explicit FakeKeyFactory(std::set<Algorithm> supported) : m_supported{std::move(supported)} {}
 
-    bool IsKeyGenerationSupported(const AlgorithmDescriptor& algorithm) const override
+    bool IsOperationSupported(common::OperationAction operation, const AlgorithmDescriptor& algorithm) const override
     {
-        return m_supported.count(algorithm.id) != 0U;
+        return (operation == key_management::operations::KEY_GENERATE) && (m_supported.count(algorithm.id) != 0U);
     }
 
   private:

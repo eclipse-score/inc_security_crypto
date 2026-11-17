@@ -60,12 +60,13 @@ class Pkcs11KeyFactory : public key_management::IKeyFactory
                                           score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
-    /// @brief Whether GenerateKey() accepts @p algorithm, without generating a key.
+    /// @brief Whether the factory accepts @p operation for @p algorithm, without performing it.
     ///
-    /// The algorithm must map to a secret or AES key, and the token's generation
+    /// Reports KEY_GENERATE only. The algorithm must map to a secret or AES key, and the token's generation
     /// mechanism must allow CKF_GENERATE for that key length
     /// (see detail::CanGenerateKey).
-    [[nodiscard]] bool IsKeyGenerationSupported(const AlgorithmDescriptor& algorithm) const override;
+    [[nodiscard]] bool IsOperationSupported(common::OperationAction operation,
+                                            const AlgorithmDescriptor& algorithm) const override;
 
     /// Import raw key material via C_CreateObject (session object, CKA_TOKEN=false).
     ///

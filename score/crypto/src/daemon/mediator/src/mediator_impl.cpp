@@ -44,6 +44,7 @@
 #include "score/crypto/src/daemon/data_plane/src/shm_data_node.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 #include "score/crypto/src/daemon/mediator/context_algorithm.hpp"
 #include "score/crypto/src/daemon/mediator/i_mediator.hpp"
@@ -1012,7 +1013,8 @@ std::vector<std::string_view> MediatorImpl::CollectCapabilities(
         }
         if (const auto key_factory = provider->GetKeyFactory())
         {
-            generates_key = generates_key || key_factory->IsKeyGenerationSupported(algorithm);
+            generates_key =
+                generates_key || key_factory->IsOperationSupported(key_management::operations::KEY_GENERATE, algorithm);
         }
     }
 
