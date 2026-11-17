@@ -26,6 +26,13 @@ python.toolchain(
 # Foreign CC rules for building projects with external build systems (make, cmake, etc.)
 bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
 
+# Use the host's pkg-config and m4 instead of building them from source. The bundled glib of the
+# source-built pkgconfig uses the GNU 'asm' keyword and fails with a strict -std=c11 host compiler.
+register_toolchains(
+    "@rules_foreign_cc//toolchains:preinstalled_pkgconfig_toolchain",
+    "@rules_foreign_cc//toolchains:preinstalled_m4_toolchain",
+)
+
 # HTTP archive rule for downloading and extracting source code from the web
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
