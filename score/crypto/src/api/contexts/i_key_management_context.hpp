@@ -158,7 +158,7 @@ class IKeyManagementContext : public IContext
     // =========================================================================
 
     /// @brief Derives a new ephemeral key using structured KDF parameters.
-    /// @param params Derivation parameters (kKey or kSharedSecret source, algorithm, KDF config, permissions).
+    /// @param params Derivation parameters (kKey, kKeySlot, or kSharedSecret source, algorithm, KDF, permissions).
     ///              Implementations shall call params.Validate() before IPC dispatch to catch
     ///              KDF truncation errors.
     /// @return CryptoResourceGuard wrapping the ephemeral derived key.

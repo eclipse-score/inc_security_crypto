@@ -307,7 +307,7 @@ struct DecapsulateKeyParams
 struct DeriveKeyParams
 {
     /// @brief Handle to the source key material (required).
-    /// Must reference ResourceType::kKey or ResourceType::kSharedSecret.
+    /// Must reference ResourceType::kKey, ResourceType::kKeySlot, or ResourceType::kSharedSecret.
     /// The provider must permit KeyOperationPermission::kDerive for this resource.
     CryptoResourceId source_key{};
 
@@ -350,13 +350,14 @@ struct DeriveKeyParams
     /// @brief Validates these parameters.
     ///
     /// Requires an assigned source id (not kInvalidCryptoResourceId) of type
-    /// kKey or kSharedSecret; otherwise returns kInvalidArgument.
+    /// kKey, kKeySlot, or kSharedSecret; otherwise returns kInvalidArgument.
     /// Propagates KdfParameters::Validate(), including truncation detected
     /// by SetSalt() or SetSeed().
     score::Result<std::monostate> Validate() const noexcept
     {
         if (source_key.id == kInvalidCryptoResourceId ||
-            (source_key.type != ResourceType::kKey && source_key.type != ResourceType::kSharedSecret))
+            (source_key.type != ResourceType::kKey && source_key.type != ResourceType::kKeySlot &&
+             source_key.type != ResourceType::kSharedSecret))
         {
             return score::Result<std::monostate>{
                 score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Invalid derivation source")};

@@ -1035,10 +1035,11 @@ TEST(CryptoResourceTypeTest, SharedSecretPreservesExistingResourceTypeValues)
     EXPECT_EQ(static_cast<std::uint8_t>(Type::kSharedSecret), 8U);
 }
 
-TEST(KeyDerivationParamsTest, AcceptsKeysAndSharedSecretsAsSources)
+TEST(KeyDerivationParamsTest, AcceptsKeysKeySlotsAndSharedSecretsAsSources)
 {
-    for (const score::crypto::ResourceType type :
-         {score::crypto::ResourceType::kKey, score::crypto::ResourceType::kSharedSecret})
+    for (const score::crypto::ResourceType type : {score::crypto::ResourceType::kKey,
+                                                   score::crypto::ResourceType::kKeySlot,
+                                                   score::crypto::ResourceType::kSharedSecret})
     {
         score::crypto::CryptoResourceId source = KeyId(71U);
         source.type = type;
@@ -1061,8 +1062,12 @@ TEST(KeyDerivationParamsTest, AcceptsKeysAndSharedSecretsAsSources)
 TEST(KeyDerivationParamsTest, RejectsOtherResourceTypes)
 {
     using Type = score::crypto::ResourceType;
-    for (const Type type : {Type::kProvider, Type::kKeySlot, Type::kCertSlot, Type::kCertificateTrustStore,
-                            Type::kCertificate, Type::kSecureObject, Type::kDataObject})
+    for (const Type type : {Type::kProvider,
+                            Type::kCertSlot,
+                            Type::kCertificateTrustStore,
+                            Type::kCertificate,
+                            Type::kSecureObject,
+                            Type::kDataObject})
     {
         score::crypto::CryptoResourceId source = KeyId(71U);
         source.type = type;
