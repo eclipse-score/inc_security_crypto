@@ -16,14 +16,14 @@
 FMEA (Failure Modes and Effects Analysis)
 =========================================
 
-.. document:: IAV Primula FMEA
-   :id: doc__iav_primula_fmea
+.. document:: PQC Provider FMEA
+   :id: doc__pqc_provider_fmea
    :version: 1
    :status: draft
    :safety: QM
    :security: YES
    :realizes: wp__sw_component_fmea
-   :tags: iav_primula
+   :tags: pqc_provider
 
 .. note::
    Current component scope is ``QM`` and contains only deterministic in-process
