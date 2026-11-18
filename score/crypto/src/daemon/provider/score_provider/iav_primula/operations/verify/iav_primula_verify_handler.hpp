@@ -49,6 +49,9 @@ class IavPrimulaVerifyHandler final : public operations::verify::ScoreVerifyHand
     IavPrimulaVerifyHandler(const IavPrimulaVerifyHandler&&) = delete;
     IavPrimulaVerifyHandler& operator=(const IavPrimulaVerifyHandler&&) = delete;
 
+    /// @brief Return whether this handler supports the resolved signature algorithm.
+    [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
+
     /// @brief Validate the algorithm and bind the verification key.
     ///
     /// The bound key must contain public or private signature material for the
