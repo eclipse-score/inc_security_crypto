@@ -27,48 +27,48 @@ It provides a **standardized project structure**, ensuring best practices for:
 
 ## 📂 Project Structure
 
-| File/Folder                         | Description                                       |
-| ----------------------------------- | ------------------------------------------------- |
-| `README.md`                         | Short description & build instructions            |
-| `score/`                            | Crypto component                                  |
-| `tests/`                            | Unit tests (UT) and integration tests (IT)        |
-| `examples/`                         | Example files used for guidance                   |
-| `third_party/`                      | Build file for external dependencies (e.g. gRPC)  |
-| `docs/`                             | Documentation (Doxygen for C++ / mdBook for Rust) |
-| `.vscode/`                          | Recommended VS Code settings                      |
-| `.bazelrc`, `MODULE.bazel`, `BUILD` | Bazel configuration & settings                    |
-| `project_config.bzl`                | Project-specific metadata for Bazel macros        |
+| File/Folder                         | Description                                          |
+| ----------------------------------- | ---------------------------------------------------- |
+| `README.md`                         | Short description & build instructions               |
+| `score/`                            | Crypto component                                     |
+| `tests/`                            | Unit tests (UT) and integration tests (IT)           |
+| `examples/`                         | Example files used for guidance                      |
+| `third_party/`                      | Build file for external dependencies (e.g. SoftHSM)  |
+| `docs/`                             | Documentation (Doxygen for C++ / mdBook for Rust)    |
+| `.vscode/`                          | Recommended VS Code settings                         |
+| `.bazelrc`, `MODULE.bazel`, `BUILD` | Bazel configuration & settings                       |
+| `project_config.bzl`                | Project-specific metadata for Bazel macros           |
 
 ### Score Folder Layout
 
 ```
-score/                            ← Source code  ◄ main
+score/                                ← Source code  ◄ main
 ├── mw/crypto/
-│   └── api/                      ← [LIBRARY]
+│   └── api/                          ← [LIBRARY]
 │       ├── common/
-│       ├── config/               ← API config
-│       ├── contexts/             ← Crypto contexts
-│       ├── objects/              ← Key/cert objects
-│       └── src/                  ← Entry point
+│       ├── config/                   ← API config
+│       ├── contexts/                 ← Crypto contexts
+│       ├── objects/                  ← Key/cert objects
+│       └── src/                      ← Entry point
 │
 ├── crypto/
 │   ├── api/
-│   │   └── control_plane/        ← [LIB CTRL-PLANE]
+│   │   └── control_plane/            ← [LIB CTRL-PLANE]
 │   │
 │   ├── ipc/
-│   │   └── grpc_adapter/         ← [IPC — gRPC]
+│   │   └── message_passing_adapter/  ← [IPC — Score Message Passing]
 │   │
 │   └── daemon/
-│       ├── control_plane/        ← [DAEMON CTRL-PLANE]
-│       ├── mediator/             ← [MEDIATOR]
-│       ├── data_manager/         ← [DATA MANAGER]
-│       ├── key_management/       ← [KEY MANAGEMENT]
-│       ├── config/               ← [CONFIG]
+│       ├── control_plane/            ← [DAEMON CTRL-PLANE]
+│       ├── mediator/                 ← [MEDIATOR]
+│       ├── data_manager/             ← [DATA MANAGER]
+│       ├── key_management/           ← [KEY MANAGEMENT]
+│       ├── config/                   ← [CONFIG]
 │       └── provider/
-│           ├── score_provider/   ← [SW PROVIDER / OpenSSL]
-│           └── pkcs11/           ← [HW PROVIDER / PKCS#11]
+│           ├── score_provider/       ← [SW PROVIDER / OpenSSL]
+│           └── pkcs11/               ← [HW PROVIDER / PKCS#11]
 │
-└── cryptoki/                     ← [HW SECURE PROVIDER / PKCS#11 Rust Library]  ◄ Peer Package
+└── cryptoki/                         ← [HW SECURE PROVIDER / PKCS#11 Rust Library]  ◄ Peer Package
 ```
 
 ---
@@ -200,7 +200,7 @@ made inside the container will not persist after a rebuild.
 
 ---
 
-# Valeo S-CORE Crypto Module
+# S-CORE Crypto Module
 
 This is the main eclipse-score repository of the security-crypto module.
 
@@ -208,7 +208,7 @@ This is the main eclipse-score repository of the security-crypto module.
 
 This repository supports multiple interchangeable cryptographic backends:
 *   **SoftHSM (C++ Default)**: The default fallback emulator.
-*   **Valeo Cryptoki (Rust Backend)**: S-CORE's high-security Rust-based PKCS#11 provider. For complete compilation, running, and troubleshooting manuals, please refer directly to the [Valeo Cryptoki Integration Guide](score/cryptoki/README.md).
+*   **Cryptoki (Rust Backend)**: S-CORE's high-security Rust-based PKCS#11 provider. For complete compilation, running, and troubleshooting manuals, please refer directly to the [Cryptoki Integration Guide](score/cryptoki/README.md).
 
 ## Use of genAI in this repository
 The repository partially contains AI-generated code by using GitHub Copilot Business.

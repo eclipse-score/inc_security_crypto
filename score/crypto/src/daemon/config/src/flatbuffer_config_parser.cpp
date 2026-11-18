@@ -503,10 +503,10 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseC
         // An unknown value is rejected rather than defaulted, so a typo cannot silently disable the check.
         switch (entry->integrity_policy())
         {
-            case IntegrityPolicy_disabled:
+            case IntegrityPolicy::disabled:
                 slot.integrity_policy = CertificateConfig::IntegrityPolicy::kDisabled;
                 break;
-            case IntegrityPolicy_required:
+            case IntegrityPolicy::required:
                 slot.integrity_policy = CertificateConfig::IntegrityPolicy::kRequired;
                 break;
             default:
@@ -581,11 +581,11 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseT
         // Map FlatBuffer enum to C++ enum
         switch (entry->conditional_slot_init())
         {
-            case ConditionalSlotInit_kEnableAndAcceptCurrent:
+            case ConditionalSlotInit::kEnableAndAcceptCurrent:
                 store.conditional_slot_initialization =
                     CertificateConfig::ConditionalSlotInitialization::kEnableAndAcceptCurrent;
                 break;
-            case ConditionalSlotInit_kDisableUntilAccepted:
+            case ConditionalSlotInit::kDisableUntilAccepted:
                 store.conditional_slot_initialization =
                     CertificateConfig::ConditionalSlotInitialization::kDisableUntilAccepted;
                 break;
@@ -626,13 +626,13 @@ Expected<std::monostate, common::DaemonErrorCode> FlatBufferConfigParser::ParseT
 
                 switch (member->kind())
                 {
-                    case TrustStoreMemberKind_kExclusiveMutable:
+                    case TrustStoreMemberKind::kExclusiveMutable:
                         mem.kind = CertificateConfig::TrustStoreMemberKind::kExclusiveMutable;
                         break;
-                    case TrustStoreMemberKind_kConditionalExternal:
+                    case TrustStoreMemberKind::kConditionalExternal:
                         mem.kind = CertificateConfig::TrustStoreMemberKind::kConditionalExternal;
                         break;
-                    case TrustStoreMemberKind_kSharedStatic:
+                    case TrustStoreMemberKind::kSharedStatic:
                         mem.kind = CertificateConfig::TrustStoreMemberKind::kSharedStatic;
                         break;
                     default:

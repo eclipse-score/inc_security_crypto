@@ -17,38 +17,48 @@
 #include <string_view>
 
 #include "score/crypto/src/common/types.hpp"
+#include "score/crypto/src/ipc/message_passing_adapter/ipc_config.h"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/control_plane/connection_factory.hpp"
 #include "score/crypto/src/api/control_plane/i_connection.hpp"
-#include "score/crypto/src/api/control_plane/src/connection_impl.hpp"
+#include "score/crypto/src/api/control_plane/src/control_plane_connection_registry.hpp"
+
+#include <string>
+#include <utility>
 
 namespace score::crypto::api::control_plane
 {
 
-Expected<std::unique_ptr<IConnection>, score::crypto::CryptoErrorCode> ConnectionFactory::CreateConnection(
+Expected<std::shared_ptr<IConnection>, score::crypto::CryptoErrorCode> ConnectionFactory::EstablishConnection(
     std::string_view endpoint)
 {
-    const std::string_view unixProtocolPrefix = "unix://";
-    if (endpoint.rfind(unixProtocolPrefix, 0) != 0)
+    const std::string_view messagePassingProtocolPrefix = score::crypto::ipc::kScoreConnectionEndpointPrefix;
+    if (endpoint.rfind(messagePassingProtocolPrefix, 0) != 0)
     {
-        score::mw::log::LogError()
-            << "[CONTROL_CLIENT_NODE_FACTORY] ERROR - Unsupported endpoint protocol. Only unix domain sockets "
-               "are supported.";
+        score::mw::log::LogError() << "[CONNECTION_FACTORY] ERROR - Unsupported endpoint protocol. Only "
+                                   << messagePassingProtocolPrefix << " protocol is supported.";
         return make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
     }
 
-    const std::string_view socketPath = endpoint.substr(unixProtocolPrefix.size());
+    const std::string_view endpointIdentifier = endpoint.substr(messagePassingProtocolPrefix.size());
 
-    auto connection = std::make_unique<ConnectionImpl>(socketPath);
-    if (!connection)
+    try
     {
-        score::mw::log::LogError() << "[CONTROL_CLIENT_NODE_FACTORY] ERROR - Failed to create connection to socket: "
-                                   << socketPath;
-        return make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
+        auto connection_result = ControlPlaneConnectionRegistry::Instance().EstablishConnection(endpointIdentifier);
+        if (!connection_result.has_value())
+        {
+            score::mw::log::LogError() << "[CONNECTION_FACTORY] ERROR - Failed to open endpoint: "
+                                       << endpointIdentifier;
+            return score::crypto::make_unexpected(connection_result.error());
+        }
+        return std::shared_ptr<IConnection>{std::move(connection_result).value()};
     }
-
-    return connection;
+    catch (...)
+    {
+        score::mw::log::LogError() << "[CONNECTION_FACTORY] ERROR - Failed to open endpoint: " << endpointIdentifier;
+        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInternalError);
+    }
 }
 
 }  // namespace score::crypto::api::control_plane

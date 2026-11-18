@@ -26,10 +26,61 @@
 #include <variant>
 #include <vector>
 
+#include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/span.hpp"
 
 namespace score::crypto::daemon::common
 {
+
+/// @brief Identifier used to correlate a request with its response.
+using RequestId = std::uint64_t;
+
+/// @brief Identifier for a connected client and its daemon-owned resources.
+/// Consists of the UID and an opaque daemon-generated identifier.
+using ClientId = std::uint64_t;
+
+/// @brief Identifier to a data node by the DataManager.
+using DataNodeId = std::uint64_t;
+
+/// @brief Number of high-order bits reserved in a DataNodeId.
+inline constexpr std::size_t DATA_NODE_ID_RESERVED_BITS{8U};
+/// @brief Number of low-order value bits available in a DataNodeId.
+inline constexpr std::size_t DATA_NODE_ID_VALUE_BITS{56U};
+
+/// @brief The two 32-bit components encoded in a ClientId.
+/// The opaque ID occupies the low word and the UID occupies the high word.
+struct ClientIdParts final
+{
+    std::uint32_t opaque_id{0U};
+    std::uint32_t uid{0U};
+};
+
+static_assert(sizeof(ClientIdParts) == sizeof(ClientId), "ClientId must contain two 32-bit components.");
+
+/// @brief Combines an opaque ID and UID into the stable 64-bit ClientId representation.
+/// @param opaque_id Value stored in bits 0 through 31.
+/// @param uid Value stored in bits 32 through 63.
+/// @return The encoded ClientId.
+inline constexpr ClientId MakeClientId(const std::uint32_t opaque_id, const std::uint32_t uid) noexcept
+{
+    return (static_cast<ClientId>(uid) << 32U) | static_cast<ClientId>(opaque_id);
+}
+
+/// @brief Splits a ClientId into its opaque ID and UID components.
+/// @param client_id Encoded ClientId.
+/// @return The decoded low-word opaque ID and high-word UID.
+inline constexpr ClientIdParts GetClientIdParts(const ClientId client_id) noexcept
+{
+    constexpr auto component_mask = static_cast<ClientId>(std::numeric_limits<std::uint32_t>::max());
+    return ClientIdParts{static_cast<std::uint32_t>(client_id & component_mask),
+                         static_cast<std::uint32_t>(client_id >> 32U)};
+}
+
+/// @brief Extracts the UID stored in a ClientId's high word.
+inline constexpr std::uint32_t GetUidFromClientId(const ClientId client_id) noexcept
+{
+    return GetClientIdParts(client_id).uid;
+}
 
 using HandlerId = std::string;
 using AlgorithmId = std::string;
@@ -58,6 +109,23 @@ struct OperationIdentifier
     OperationActor operationActor{0};
     OperationAction operationAction{0};
 };
+
+/// @brief Operation identifier used for daemon-generated RPC envelope errors.
+inline constexpr OperationIdentifier kEnvelopeErrorOperationIdentifier{0U, 0U};
+
+/// @brief Checks whether an operation identifier denotes an RPC envelope error.
+/// @param operation_id Identifier to check.
+/// @return True when the identifier matches kEnvelopeErrorOperationIdentifier.
+inline constexpr bool IsEnvelopeErrorOperation(const OperationIdentifier& operation_id) noexcept
+{
+    return (operation_id.operationActor == kEnvelopeErrorOperationIdentifier.operationActor) &&
+           (operation_id.operationAction == kEnvelopeErrorOperationIdentifier.operationAction);
+}
+
+/// @brief Wire representation of a crypto operation result.
+using OperationResult = std::underlying_type<score::crypto::CryptoErrorCode>::type;
+/// @brief Wire value representing successful completion of an operation.
+inline constexpr OperationResult OPERATION_RESULT_SUCCESS{0};
 
 // ============================================================================
 // Non-owning buffer types for zero-copy parameter passing

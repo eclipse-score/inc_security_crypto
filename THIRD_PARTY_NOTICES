@@ -13,8 +13,3 @@ This product includes FlatBuffers (https://github.com/google/flatbuffers),
 Copyright (c) 2014 Google LLC.
 Licensed under the Apache License, Version 2.0
 (https://www.apache.org/licenses/LICENSE-2.0).
-
-This product includes gRPC (https://github.com/grpc/grpc),
-Copyright (c) 2015 gRPC authors.
-Licensed under the Apache License, Version 2.0
-(https://www.apache.org/licenses/LICENSE-2.0).

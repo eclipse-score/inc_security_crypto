@@ -18,6 +18,7 @@
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
 
 #include <memory>
+#include <mutex>
 
 namespace score::crypto::daemon::provider::score_provider
 {
@@ -59,6 +60,7 @@ class ScoreProvider : public IProvider
 
     [[nodiscard]] virtual std::shared_ptr<handler::ICryptoHandlerFactory> CreateHandlerFactory() = 0;
 
+    std::mutex m_initialization_mutex;
     bool m_initialized{false};
     common::ProviderId m_numeric_id{common::kInvalidProviderId};
     common::ProviderName m_provider_name{};

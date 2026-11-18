@@ -174,7 +174,8 @@ DataManager::addSiblingNode(ClientId clientId, DataNodeId siblingId, std::shared
 }
 
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DataManager::deleteClientNodes(
-    ClientId clientId)
+    ClientId clientId,
+    bool ignoreMissing)
 {
     score::mw::log::LogDebug() << LOG_PREFIX << "deleteClientNodes for clientId:" << clientId;
 
@@ -185,6 +186,12 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DataMan
     auto clientItr = m_entry_nodes_per_client.find(clientId);
     if (clientItr == m_entry_nodes_per_client.end())
     {
+        if (ignoreMissing)
+        {
+            m_id_counter_per_client.erase(clientId);
+            return std::monostate{};
+        }
+
         score::mw::log::LogError() << LOG_PREFIX << "deleteClientNodes: Unknown clientId:" << clientId;
         return make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
@@ -198,6 +205,11 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DataMan
         {
             result = make_unexpected(subResult.error());
         }
+    }
+
+    if (result.has_value())
+    {
+        m_id_counter_per_client.erase(clientId);
     }
 
     return result;

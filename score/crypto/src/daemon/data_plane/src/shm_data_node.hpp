@@ -38,7 +38,7 @@ class ShmDataNode final : public IShmDataNode
   public:
     /// @brief Factory method - creates SHM object and registers with quota tracker.
     ///
-    /// Generates a unique SHM name from the UID encoded in @p client_id and the current timestamp, then:
+    /// Generates a unique SHM name from the UID encoded in @p client_id, the process ID, and an allocation counter
     ///
     /// @param registry      Quota tracker (must not be null).
     /// @param factory       SHM factory (must not be null).
@@ -71,7 +71,7 @@ class ShmDataNode final : public IShmDataNode
     [[nodiscard]] score::memory::shared::ISharedMemoryResource* GetHandle() const noexcept override;
 
   private:
-    /// @brief Generate unique SHM name using UID and timestamp.
+    /// @brief Generate SHM name using UID, process ID, and allocation counter.
     static score::crypto::FixedCapacityString<64> GetShmName(std::uint32_t uid);
 
     /// @brief Private constructor - only callable via Create() factory method.

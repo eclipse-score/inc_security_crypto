@@ -43,4 +43,4 @@ control-plane component.
    :maxdepth: 1
 
    architecture/index
-   requirements/index
+   detailed_design/index

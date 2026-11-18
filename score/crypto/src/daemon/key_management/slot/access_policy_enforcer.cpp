@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/key_management/slot/access_policy_enforcer.hpp"
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 #include <algorithm>
 
@@ -22,7 +22,7 @@ namespace score::crypto::daemon::key_management
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 AccessPolicyEnforcer::CheckSlotAccess(const KeySlotConfig& slot, data_manager::ClientId client_id)
 {
-    const uint32_t uid = control_plane::protocol::GetUidFromClientId(client_id);
+    const uint32_t uid = common::GetUidFromClientId(client_id);
 
     const auto& allowed = slot.access_policy.allowed_uids;
     if (std::find(allowed.begin(), allowed.end(), uid) != allowed.end())
@@ -36,7 +36,7 @@ AccessPolicyEnforcer::CheckSlotAccess(const KeySlotConfig& slot, data_manager::C
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 AccessPolicyEnforcer::CheckWritePermission(const KeySlotConfig& slot, data_manager::ClientId client_id)
 {
-    const uint32_t uid = control_plane::protocol::GetUidFromClientId(client_id);
+    const uint32_t uid = common::GetUidFromClientId(client_id);
 
     const auto& allowed = slot.access_policy.allowed_write_uids;
     if (std::find(allowed.begin(), allowed.end(), uid) != allowed.end())

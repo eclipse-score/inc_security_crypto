@@ -172,6 +172,7 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> KeyMana
 
 void KeyManagementService::CleanupClient(data_manager::ClientId client_id)
 {
+    const std::lock_guard<std::mutex> lock{m_state_mutex};
     m_slot_node_cache.erase(client_id);
     for (auto& [provider_id, registry] : m_registries)
     {
@@ -186,6 +187,7 @@ void KeyManagementService::CleanupClient(data_manager::ClientId client_id)
 
 KeyRegistry& KeyManagementService::GetProviderRegistry(const common::ProviderId& provider_id)
 {
+    const std::lock_guard<std::mutex> lock{m_state_mutex};
     return m_registries[provider_id];
 }
 
@@ -227,6 +229,7 @@ Expected<data_manager::DataNodeId, score::crypto::daemon::common::DaemonErrorCod
     const std::string& resource_name,
     data_manager::ClientId client_id)
 {
+    const std::lock_guard<std::mutex> lock{m_state_mutex};
     // Dedup: return cached DataNodeId when the same client resolves the same resource twice.
     auto& client_cache = m_slot_node_cache[client_id];
     const auto cache_it = client_cache.find(resource_name);

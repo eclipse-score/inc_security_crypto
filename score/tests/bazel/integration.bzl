@@ -54,6 +54,7 @@ def integration_test(
         srcs = binaries,
         attributes = pkg_attributes(mode = "0755"),
         prefix = "bin",
+        testonly = True,
     )
 
     pkg_files(
@@ -61,18 +62,21 @@ def integration_test(
         srcs = libraries,
         attributes = pkg_attributes(mode = "0755"),
         prefix = "lib",
+        testonly = True,
     )
 
     pkg_files(
         name = "config",
         srcs = configs,
         prefix = "etc",
+        testonly = True,
     )
 
     pkg_filegroup(
         name = "file_pkgs",
         srcs = file_pkgs,
         prefix = "share",
+        testonly = True,
     )
 
     pkg_tar(
@@ -83,6 +87,7 @@ def integration_test(
             ":config",
             ":file_pkgs",
         ],
+        testonly = True,
     )
 
     merged_data = kwargs.pop("data", []) + [":deployment"]

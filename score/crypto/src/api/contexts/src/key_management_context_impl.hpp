@@ -28,6 +28,7 @@
 #include "score/result/result.h"
 #include "score/span.hpp"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -53,10 +54,15 @@ class KeyManagementContextImpl final : public IKeyManagementContext
     /// @brief Constructs a key management context bound to an existing daemon-side context.
     /// @param connection Shared connection for IPC communication
     /// @param context_id Daemon-assigned context identifier (from CTX_CREATE response)
-    /// @param transcoder Stack-shared buffer-routing abstraction for binary data.
+    /// @param transcoder Stack-shared buffer-routing abstraction (pool/bulk/in-band).
+    ///                   Shared with all other contexts in the same CryptoStack and used
+    ///                   to route ExportKey output through the data plane (shared memory).
+    /// @param operation_timeout Maximum duration for each IPC request, including
+    ///                   the daemon-side context close when its last reference is released.
     KeyManagementContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                              uint64_t context_id,
-                             std::shared_ptr<IBufferTranscoder> transcoder = nullptr);
+                             std::shared_ptr<IBufferTranscoder> transcoder = nullptr,
+                             std::chrono::milliseconds operation_timeout = std::chrono::milliseconds::max());
 
     ~KeyManagementContextImpl() override;
 
@@ -162,6 +168,12 @@ class KeyManagementContextImpl final : public IKeyManagementContext
     /// ContextReleaseCallbackImpl to keep the key management context alive.
     class ReleaseCallbackImpl;
     std::shared_ptr<IReleaseCallback> m_release_callback;
+
+    /// @brief Stack-shared buffer-routing abstraction used to export key material
+    /// through the data plane (shared memory) instead of in-band control-plane buffers.
+    std::shared_ptr<IBufferTranscoder> m_transcoder;
+
+    std::chrono::milliseconds m_operation_timeout;
 };
 
 }  // namespace crypto

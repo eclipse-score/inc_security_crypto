@@ -36,7 +36,9 @@ lookup, lifecycle management, and safe concurrent access to those nodes.
 Responsibilities
 ----------------
 
-- Provide a single registry for data nodes, indexed by both ClientId and DataNodeId.
+- Provide a single registry for data nodes, indexed by both :term:`ClientId` and DataNodeId.
+  The ClientId scopes nodes to one IPC connection; its assignment and lifecycle are described in
+  :ref:`ipc_client_id_assignment`.
 - Control lifetime and ownership semantics for nodes.
 - Ensure thread-safe access to nodes across the daemon using mutex-based synchronization
   for all public operations.
