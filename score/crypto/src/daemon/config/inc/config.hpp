@@ -25,6 +25,7 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -43,9 +44,9 @@ class ConfigFile;
 /// @brief Environment variable name for the crypto stack configuration file.
 ///
 /// The file is a binary FlatBuffers (.bin) file compiled by the build-time
-/// ``flatc -b`` genrule. ParseConfig() populates both the key slot
-/// configuration and the certificate management configuration from the same
-/// file.
+/// ``flatc -b`` genrule. ParseConfig() populates component configuration and
+/// provider-neutral references to backend-owned configuration files from the
+/// same file.
 
 constexpr std::string_view CRYPTO_CONFIG_FILE_ENV = "CRYPTO_CONFIG_FILE";
 
@@ -210,6 +211,52 @@ struct ProviderInitConfig
     {
         typeToProviderName[cryptoType] = providerName;
     }
+};
+
+/// @brief Location of one backend-owned runtime configuration file.
+struct BackendConfigReference
+{
+    std::string backendId;   ///< Stable backend parser identifier.
+    std::string configPath;  ///< Source path; normalized by Config before runtime use.
+};
+
+/// @brief Provider-neutral index of backend-owned configuration files.
+///
+/// The common daemon configuration owns only this index. Backend-specific
+/// schemas, parsing, versioning, and semantic validation remain in the
+/// corresponding backend implementation.
+class BackendConfigCatalog
+{
+  public:
+    /// @brief Replace all backend configuration references.
+    void SetReferences(std::vector<BackendConfigReference> references)
+    {
+        m_references = std::move(references);
+    }
+
+    /// @brief Look up the configuration path for a backend parser identifier.
+    /// @param backend_id Stable backend parser identifier.
+    /// @return Path when configured; std::nullopt otherwise.
+    [[nodiscard]] std::optional<std::string_view> FindConfigPath(std::string_view backend_id) const noexcept
+    {
+        for (const auto& reference : m_references)
+        {
+            if (reference.backendId == backend_id)
+            {
+                return reference.configPath;
+            }
+        }
+        return std::nullopt;
+    }
+
+    /// @brief Return all configured backend references.
+    [[nodiscard]] const std::vector<BackendConfigReference>& GetReferences() const noexcept
+    {
+        return m_references;
+    }
+
+  private:
+    std::vector<BackendConfigReference> m_references;
 };
 
 /**
@@ -694,6 +741,11 @@ class Config
     {
         return m_provider_init;
     }
+    /// @brief Return backend-owned configuration file references.
+    const BackendConfigCatalog& GetBackendConfigCatalog() const noexcept
+    {
+        return m_backend_config;
+    }
     /// @brief Return the general daemon configuration (read-only).
     /// @return The general configuration section.
     const GeneralConfig& GetGeneralConfig() const noexcept
@@ -797,6 +849,7 @@ class Config
     IPCConfig m_ipc;
     ProviderConfig m_provider;
     ProviderInitConfig m_provider_init;
+    BackendConfigCatalog m_backend_config;
     GeneralConfig m_general;
     KeyConfig m_key;
     CertificateConfig m_certificate;
@@ -826,6 +879,9 @@ class Config
 
     /// Populate m_certificate from the cert_slot_config section; sets m_cert_management_enabled.
     bool ParseCertManagementSection(const ConfigFile& file);
+
+    /// Populate and normalize backend-owned configuration file references.
+    bool ParseBackendConfigSection(const ConfigFile& file, std::string_view common_config_path);
 
     // ---------------------------------------------------------------------------
     // Low-level argument / environment helpers

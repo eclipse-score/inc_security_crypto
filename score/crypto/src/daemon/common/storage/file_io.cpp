@@ -12,10 +12,68 @@
  ********************************************************************************/
 #include "score/crypto/src/daemon/common/storage/file_io.hpp"
 
+#include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/filesystem/error.h"
 #include "score/filesystem/filestream/file_factory.h"
 #include "score/filesystem/filestream/file_stream.h"
 #include "score/filesystem/filesystem.h"
+
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <cerrno>
+#include <cstddef>
+#include <cstdint>
+
+namespace
+{
+
+class FileDescriptor final
+{
+  public:
+    explicit FileDescriptor(const int descriptor) noexcept : descriptor_{descriptor} {}
+
+    ~FileDescriptor()
+    {
+        if (descriptor_ >= 0)
+        {
+            static_cast<void>(::close(descriptor_));
+        }
+    }
+
+    FileDescriptor(const FileDescriptor&) = delete;
+    FileDescriptor& operator=(const FileDescriptor&) = delete;
+    FileDescriptor(FileDescriptor&&) = delete;
+    FileDescriptor& operator=(FileDescriptor&&) = delete;
+
+    [[nodiscard]] int Get() const noexcept
+    {
+        return descriptor_;
+    }
+
+  private:
+    int descriptor_;
+};
+
+score::crypto::daemon::common::DaemonErrorCode MapOpenError(const int error_number) noexcept
+{
+    using ErrorCode = score::crypto::daemon::common::DaemonErrorCode;
+    switch (error_number)
+    {
+        case ENOENT:
+        case ENOTDIR:
+            return ErrorCode::kResourceNotAllocated;
+        case EACCES:
+        case EPERM:
+        case ELOOP:
+            return ErrorCode::kAccessDenied;
+        default:
+            return ErrorCode::kInternalError;
+    }
+}
+
+}  // namespace
 
 namespace score::crypto::daemon::common::storage
 {
@@ -54,6 +112,85 @@ score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> ReadFile(con
     if (!stream)
         return score::crypto::make_unexpected(DaemonErrorCode::kInternalError);
     return data;
+}
+
+score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> ReadOwnerOnlyFile(const std::string& path,
+                                                                                      const std::size_t max_size)
+{
+    if (path.empty() || (max_size == 0U))
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
+
+    const int descriptor = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+    if (descriptor < 0)
+    {
+        return score::crypto::make_unexpected(MapOpenError(errno));
+    }
+    const FileDescriptor file{descriptor};
+
+    struct stat status{};
+    if (::fstat(file.Get(), &status) != 0)
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kInternalError);
+    }
+    if (!S_ISREG(status.st_mode))
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kAccessDenied);
+    }
+
+    const auto effective_user = ::geteuid();
+    if ((status.st_uid != effective_user) && (status.st_uid != 0U))
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kAccessDenied);
+    }
+
+    constexpr mode_t kDisallowedPermissions = S_IRWXG | S_IRWXO;
+    if ((status.st_mode & kDisallowedPermissions) != 0U)
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kAccessDenied);
+    }
+
+    if ((status.st_size <= 0) || (static_cast<std::uintmax_t>(status.st_size) > max_size))
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kInvalidArgument);
+    }
+
+    std::vector<std::uint8_t> data(static_cast<std::size_t>(status.st_size));
+    common::ScopedByteBufferZeroizer data_guard{data};
+    std::size_t total_read{0U};
+    while (total_read < data.size())
+    {
+        const auto bytes_read = ::read(file.Get(), data.data() + total_read, data.size() - total_read);
+        if (bytes_read < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            return score::crypto::make_unexpected(DaemonErrorCode::kInternalError);
+        }
+        if (bytes_read == 0)
+        {
+            return score::crypto::make_unexpected(DaemonErrorCode::kInternalError);
+        }
+        total_read += static_cast<std::size_t>(bytes_read);
+    }
+
+    std::uint8_t trailing_byte{};
+    ssize_t trailing_read{};
+    do
+    {
+        trailing_read = ::read(file.Get(), &trailing_byte, sizeof(trailing_byte));
+    } while ((trailing_read < 0) && (errno == EINTR));
+    if (trailing_read != 0)
+    {
+        return score::crypto::make_unexpected(DaemonErrorCode::kInternalError);
+    }
+
+    score::crypto::Expected<std::vector<std::uint8_t>, DaemonErrorCode> result{std::move(data)};
+    data_guard.Release();
+    return result;
 }
 
 score::crypto::Expected<std::monostate, DaemonErrorCode> WriteFile(const std::string& path,

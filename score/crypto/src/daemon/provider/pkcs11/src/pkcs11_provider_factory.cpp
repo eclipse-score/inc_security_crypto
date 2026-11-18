@@ -14,11 +14,12 @@
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
 
 #include <memory>
-#include <vector>
+#include <utility>
 
 #include <pkcs11.h>
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/i_provider_factory.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
@@ -29,7 +30,12 @@
 namespace score::crypto::daemon::provider::pkcs11
 {
 
-Pkcs11ProviderFactory::Pkcs11ProviderFactory(const Pkcs11ProviderFactoryConfig& config) : m_config{config} {}
+Pkcs11ProviderFactory::Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig config) : m_config{std::move(config)} {}
+
+Pkcs11ProviderFactory::~Pkcs11ProviderFactory()
+{
+    SecureClearPins(m_config);
+}
 
 ProviderFactoryResult Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& manager)
 {
@@ -37,28 +43,6 @@ ProviderFactoryResult Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& 
     if (m_config.tokens.empty())
     {
         return result;
-    }
-
-    // Convert plain-data entries to internal PKCS#11 configs here, rather than
-    // in the header, so callers (including provider_manager_factory) never see
-    // pkcs11.h types.
-    auto convertTokenEntry = [](const Pkcs11TokenEntry& entry) {
-        Pkcs11ProviderConfig cfg{};
-        cfg.tokenLabel = entry.tokenLabel;
-        cfg.tokenModel = entry.tokenModel;
-        cfg.userPin = entry.userPin;
-        cfg.providerName = entry.providerName;
-        cfg.providerType = entry.providerType;
-        cfg.cleanupStrategy = entry.useHardCleanup ? Pkcs11SessionCleanupStrategy::kHardCleanup
-                                                   : Pkcs11SessionCleanupStrategy::kSoftCleanup;
-        return cfg;
-    };
-
-    std::vector<Pkcs11ProviderConfig> provider_configs;
-    provider_configs.reserve(m_config.tokens.size());
-    for (const auto& entry : m_config.tokens)
-    {
-        provider_configs.push_back(convertTokenEntry(entry));
     }
 
     // All tokens on the same linked library MUST share a single Pkcs11Module
@@ -72,25 +56,42 @@ ProviderFactoryResult Pkcs11ProviderFactory::CreateAndRegister(ProviderManager& 
     const auto initResult = pkcs11Module->Init(&init_args);
     if (!initResult.has_value())
     {
+        SecureClearPins(m_config);
+        m_config.tokens.clear();
         result.failures.push_back(ProviderFailure{
             "Pkcs11ProviderFactory", "", ProviderFailureReason::kFactoryCreationFailed, initResult.error()});
         return result;
     }
 
-    for (const auto& config : provider_configs)
+    for (auto& entry : m_config.tokens)
     {
-        auto provider = std::make_shared<Pkcs11Provider>(config, pkcs11Module);
+        // Convert plain-data entries here so callers never see pkcs11.h types.
+        // The provider copies the configuration and transfers the PIN to its
+        // TokenAuthGuard; both temporary source copies are then erased.
+        Pkcs11ProviderConfig config{};
+        config.tokenLabel = entry.tokenLabel;
+        config.tokenModel = entry.tokenModel;
+        config.userPin = entry.userPin;
+        common::SecureZeroizeAndClear(entry.userPin);
+        config.providerName = entry.providerName;
+        config.providerType = entry.providerType;
+        config.cleanupStrategy = entry.useHardCleanup ? Pkcs11SessionCleanupStrategy::kHardCleanup
+                                                      : Pkcs11SessionCleanupStrategy::kSoftCleanup;
+
+        auto provider = std::make_shared<Pkcs11Provider>(std::move(config), pkcs11Module);
         if (!manager.RegisterProvider(
-                config.providerName, provider, common::CryptoProviderTypeFromString(config.providerType)))
+                entry.providerName, provider, common::CryptoProviderTypeFromString(entry.providerType)))
         {
             result.failures.push_back(ProviderFailure{"Pkcs11ProviderFactory",
-                                                      config.providerName,
+                                                      entry.providerName,
                                                       ProviderFailureReason::kProviderRegistrationFailed,
                                                       common::DaemonErrorCode::kInternalError});
             continue;
         }
         ++result.registeredCount;
     }
+
+    m_config.tokens.clear();
 
     return result;
 }

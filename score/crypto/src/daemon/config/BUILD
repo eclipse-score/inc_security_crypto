@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 # Export FlatBuffers schema for use by tests
 filegroup(
@@ -53,6 +53,17 @@ cc_library(
     }),
 )
 
+cc_test(
+    name = "backend_config_unit_test",
+    srcs = ["src/backend_config_test.cpp"],
+    deps = [
+        ":config",
+        ":flatbuffer_config_parser",
+        "@flatbuffers",
+        "@googletest//:gtest_main",
+    ],
+)
+
 # FlatBuffers configuration parser
 cc_library(
     name = "flatbuffer_config_parser",
@@ -69,6 +80,7 @@ cc_library(
     deps = [
         ":config_types",
         "//score/crypto/src/common:common_types",
+        "//score/crypto/src/common:flatbuffer_config_utils",
         "//score/crypto/src/daemon/common",
         "@flatbuffers",
         "@score_baselibs//score/mw/log",
@@ -84,5 +96,6 @@ cc_library(
         ":config_types",
         ":flatbuffer_config_parser",
         "//score/crypto/src/daemon/common",
+        "@score_baselibs//score/filesystem",
     ],
 )

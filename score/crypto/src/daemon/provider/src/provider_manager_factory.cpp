@@ -22,8 +22,23 @@
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider_factory.hpp"
 #endif
 
+#include <string_view>
+
 namespace score::crypto::daemon::provider
 {
+
+namespace
+{
+bool HasRegisteredBackendParser(const std::string_view backend_id) noexcept
+{
+#if SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
+    return backend_id == pkcs11::kBackendConfigId;
+#else
+    static_cast<void>(backend_id);
+    return false;
+#endif
+}
+}  // namespace
 
 bool ProviderManagerFactory::IsProviderAllowed(const std::string& provider_name,
                                                const config::ProviderInitConfig& provider_config)
@@ -83,6 +98,16 @@ score::crypto::Expected<std::shared_ptr<ProviderManager>, common::DaemonErrorCod
     {
         provider_manager->RecordFactoryResult("Pkcs11ProviderFactory",
                                               (*pkcs11_factory)->CreateAndRegister(*provider_manager));
+    }
+
+    for (const auto& reference : config.GetBackendConfigCatalog().GetReferences())
+    {
+        if (!HasRegisteredBackendParser(reference.backendId))
+        {
+            score::mw::log::LogWarn() << "[ProviderManagerFactory] No backend parser registered for configuration "
+                                         "reference: "
+                                      << reference.backendId;
+        }
     }
 
     for (const auto& configured_provider : config.GetProviderInitConfig().providers)
@@ -153,20 +178,24 @@ ProviderManagerFactory::CreatePkcs11ProviderFactory(config::Config& config)
 #if SCORE_CRYPTO_PKCS11_BACKEND_ENABLED
     // Parse PKCS#11 configuration
     auto& pkcs11_config = config.GetPkcs11Config();
-    auto parse_result = pkcs11_config.ParseConfig(config);
+    auto parse_result =
+        pkcs11_config.ParseConfig(config.GetBackendConfigCatalog().FindConfigPath(pkcs11::kBackendConfigId));
     if (!parse_result.has_value())
     {
         return score::crypto::make_unexpected(parse_result.error());
     }
 
+    auto parsed_config = pkcs11_config.TakeConfig();
     pkcs11::Pkcs11ProviderFactoryConfig filtered_config;
-    for (const auto& entry : pkcs11_config.GetConfig().tokens)
+    filtered_config.tokens.reserve(parsed_config.tokens.size());
+    for (const auto& entry : parsed_config.tokens)
     {
         if (ProviderManagerFactory::IsProviderAllowed(entry.providerName, config.GetProviderInitConfig()))
         {
             filtered_config.tokens.push_back(entry);
         }
     }
+    pkcs11::SecureClearPins(parsed_config);
     if (filtered_config.tokens.empty())
     {
         return std::unique_ptr<IProviderFactory>{};

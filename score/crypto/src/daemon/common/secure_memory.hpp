@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #if defined(__linux__)
@@ -64,6 +65,52 @@ inline void SecureZeroizeAndClear(std::vector<uint8_t>& v) noexcept
     {
         SecureZeroize(v.data(), v.size());
         v.clear();
+    }
+}
+
+/// @brief Securely clear a byte buffer when leaving the current scope.
+///
+/// This guard is intended for buffers that temporarily contain credentials or
+/// serialized secret configuration. Call Release() only after ownership of the
+/// sensitive bytes has been intentionally transferred to another object.
+class ScopedByteBufferZeroizer final
+{
+  public:
+    explicit ScopedByteBufferZeroizer(std::vector<std::uint8_t>& buffer) noexcept : buffer_{buffer} {}
+
+    ~ScopedByteBufferZeroizer()
+    {
+        if (armed_)
+        {
+            SecureZeroizeAndClear(buffer_);
+        }
+    }
+
+    ScopedByteBufferZeroizer(const ScopedByteBufferZeroizer&) = delete;
+    ScopedByteBufferZeroizer& operator=(const ScopedByteBufferZeroizer&) = delete;
+    ScopedByteBufferZeroizer(ScopedByteBufferZeroizer&&) = delete;
+    ScopedByteBufferZeroizer& operator=(ScopedByteBufferZeroizer&&) = delete;
+
+    void Release() noexcept
+    {
+        armed_ = false;
+    }
+
+  private:
+    std::vector<std::uint8_t>& buffer_;
+    bool armed_{true};
+};
+
+/// @brief Securely zeroize a std::string and then clear it.
+///
+/// This overload is intended for short-lived credential copies. It clears the
+/// currently active character range before resetting the string length.
+inline void SecureZeroizeAndClear(std::string& value) noexcept
+{
+    if (!value.empty())
+    {
+        SecureZeroize(value.data(), value.size());
+        value.clear();
     }
 }
 

@@ -45,21 +45,21 @@ namespace score::crypto::daemon::provider::pkcs11
 class Pkcs11ProviderFactory final : public IProviderFactory
 {
   public:
-    explicit Pkcs11ProviderFactory(const Pkcs11ProviderFactoryConfig& config);
+    explicit Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig config);
 
-    ~Pkcs11ProviderFactory() override = default;
+    ~Pkcs11ProviderFactory() override;
 
     /**
      * @brief Initialise a shared Pkcs11Module (C_Initialize called once), then
      *        construct and register one Pkcs11Provider per configured token as
-     *        CryptoProviderType::HARDWARE.
+     *        the CryptoProviderType specified by that token entry.
      *
-     * Returns true if module initialisation and all registrations succeeded.
-     * Returns false on the first failure without partial registration.
-     * Returns true immediately (no-op) when no token configs were injected.
+     * Module initialisation failure is reported as a factory failure. Provider
+     * registration failures are collected per token while registration of the
+     * remaining entries continues. An empty configuration is a successful no-op.
      *
      * @param manager  The ProviderManager to register providers into.
-     * @return true on full success.
+     * @return Registration count and any factory or per-provider failures.
      */
     ProviderFactoryResult CreateAndRegister(ProviderManager& manager) override;
 

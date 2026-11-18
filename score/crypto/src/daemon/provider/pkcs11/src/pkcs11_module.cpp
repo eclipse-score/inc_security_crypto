@@ -16,11 +16,11 @@
 #include "score/crypto/src/common/types.hpp"
 
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/secure_memory.hpp"
 #include "score/mw/log/logging.h"
 #include <cstring>
 
 #include <mutex>
-#include <string_view>
 
 namespace score::crypto::daemon::provider::pkcs11
 {
@@ -29,7 +29,15 @@ namespace score::crypto::daemon::provider::pkcs11
 // TokenAuthGuard
 // ============================================================================
 
-TokenAuthGuard::TokenAuthGuard(std::string_view pin) noexcept : m_pin{pin} {}
+TokenAuthGuard::TokenAuthGuard(std::string& pin) noexcept : m_pin{pin}
+{
+    common::SecureZeroizeAndClear(pin);
+}
+
+TokenAuthGuard::~TokenAuthGuard()
+{
+    common::SecureZeroizeAndClear(m_pin);
+}
 
 Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> TokenAuthGuard::EnsureUserState(
     const CK_SESSION_HANDLE anySession,

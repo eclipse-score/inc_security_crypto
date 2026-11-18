@@ -47,8 +47,8 @@ cc_library(
     name = "kv_deployment",
     srcs = [
         "kv/kv_deployment_loader.cpp",
-        "kv/kv_deployment_validator.hpp",
         "kv/kv_deployment_validator.cpp",
+        "kv/kv_deployment_validator.hpp",
         "kv/kv_deployment_writer.cpp",
     ],
     hdrs = [
@@ -75,6 +75,15 @@ cc_test(
 cc_test(
     name = "test_file_io",
     srcs = ["file_io_test.cpp"],
+    deps = [
+        ":file_io",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "test_owner_only_file_io",
+    srcs = ["owner_only_file_io_test.cpp"],
     deps = [
         ":file_io",
         "@googletest//:gtest_main",

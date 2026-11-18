@@ -17,18 +17,17 @@
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 
+#include <optional>
 #include <string>
-#include <utility>
+#include <string_view>
 #include <variant>
 #include <vector>
 
-namespace score::crypto::daemon::config
-{
-class Config;
-}
-
 namespace score::crypto::daemon::provider::pkcs11
 {
+
+/// Stable identifier used by the common backend configuration catalog.
+inline constexpr std::string_view kBackendConfigId{"pkcs11"};
 
 /// @brief Plain-data configuration entry for one PKCS#11 token.
 ///
@@ -45,7 +44,7 @@ struct Pkcs11TokenEntry
     std::string userPin{};
     /// Provider name used to register and look up this provider in ProviderManager.
     std::string providerName{};
-    /// Provider Type used to register this provider in ProviderManager (HARDWARE or SOFTWARE).
+    /// Provider type used to register this provider (HARDWARE, SOFTWARE, or SPECIALIZED).
     std::string providerType{"HARDWARE"};
     /// Cleanup strategy for session objects (soft vs hard cleanup).
     /// true = kHardCleanup (re-open session after every handler), false = kSoftCleanup.
@@ -58,6 +57,9 @@ struct Pkcs11ProviderFactoryConfig
     std::vector<Pkcs11TokenEntry> tokens;
 };
 
+/// @brief Securely erase all PIN values held by a factory configuration.
+void SecureClearPins(Pkcs11ProviderFactoryConfig& config) noexcept;
+
 /// @brief Aggregates the ordered list of PKCS#11 token entries for the daemon.
 ///
 /// This is the canonical PKCS#11-specific configuration type. The daemon's
@@ -68,7 +70,7 @@ struct Pkcs11ProviderFactoryConfig
 /// complete Pkcs11ProviderFactoryConfig snapshot to the factory. Typical usage:
 /// @code
 ///   Pkcs11ProviderFactoryConfig factory_config{
-///       config.GetPkcs11Config().GetConfig()};
+///       config.GetPkcs11Config().TakeConfig()};
 ///   auto factory = std::make_unique<Pkcs11ProviderFactory>(std::move(factory_config));
 ///   auto result = factory->CreateAndRegister(manager);
 /// @endcode
@@ -76,18 +78,32 @@ class Pkcs11Config
 {
   public:
     Pkcs11Config() = default;
+    ~Pkcs11Config();
 
-    /// @brief Add a token entry (called by parser or bootstrapper).
-    void AddTokenEntry(Pkcs11TokenEntry entry);
+    Pkcs11Config(const Pkcs11Config&) = delete;
+    Pkcs11Config& operator=(const Pkcs11Config&) = delete;
+    Pkcs11Config(Pkcs11Config&&) = delete;
+    Pkcs11Config& operator=(Pkcs11Config&&) = delete;
 
     /// @brief Get the complete factory configuration snapshot (read-only).
     const Pkcs11ProviderFactoryConfig& GetConfig() const;
 
-    /// @brief Parse the configuration and populate the token information.
+    /// @brief Transfer the parsed configuration to its consumer.
     ///
-    /// This method parses the pkcs11 configuration and populates the token information.
+    /// Moving the complete vector avoids retaining an additional long-lived
+    /// copy of configured PIN values in the daemon's top-level configuration.
+    Pkcs11ProviderFactoryConfig TakeConfig();
+
+    /// @brief Parse a backend-owned runtime configuration and populate token information.
+    ///
+    /// When no path is supplied, the token list is cleared and no PKCS#11
+    /// providers are configured. A supplied path is authoritative: read,
+    /// permission, or validation failures are returned without falling back to
+    /// built-in credentials.
+    /// @param config_path Optional path from the common backend config catalog.
     /// @return Empty value on success, or a daemon error if parsing fails.
-    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ParseConfig(config::Config& config);
+    [[nodiscard]] score::crypto::Expected<std::monostate, common::DaemonErrorCode> ParseConfig(
+        std::optional<std::string_view> config_path);
 
   private:
     Pkcs11ProviderFactoryConfig m_config;

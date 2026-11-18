@@ -11,6 +11,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
+load("@score_baselibs//score/flatbuffers/bazel:tools.bzl", "serialize_versioned_buffer")
+
 genrule(
     name = "generate_integration_test_config",
     srcs = [
@@ -23,9 +25,20 @@ genrule(
     visibility = ["//:__subpackages__"],
 )
 
+serialize_versioned_buffer(
+    name = "generate_integration_pkcs11_config",
+    buffer_major_version = 0,
+    buffer_minor_version = 1,
+    data = "integration_pkcs11_config.json",
+    output = "integration_pkcs11_config.bin",
+    schema = "//score/crypto/src/backend/pkcs11:pkcs11_config_fbs_schema",
+    visibility = ["//:__subpackages__"],
+)
+
 filegroup(
     name = "integration_test_config",
     srcs = glob(["*.kv"]) + [
+        ":generate_integration_pkcs11_config",
         ":generate_integration_test_config",
     ],
     visibility = ["//:__subpackages__"],

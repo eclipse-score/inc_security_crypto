@@ -66,6 +66,7 @@ def integration_test(
     pkg_files(
         name = "config",
         srcs = configs,
+        attributes = pkg_attributes(mode = "0600"),
         prefix = "etc",
     )
 

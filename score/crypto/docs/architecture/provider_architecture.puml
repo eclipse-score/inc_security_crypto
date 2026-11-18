@@ -27,6 +27,17 @@ package "Configuration (config/)" <<Rectangle>> #FFF8DC {
     class Config {
         +GetScoreProviderConfig() : ScoreProviderConfig&
         +GetPkcs11Config() : Pkcs11Config&
+        +GetBackendConfigCatalog() : const BackendConfigCatalog&
+    }
+
+    class BackendConfigCatalog {
+        +FindConfigPath(backend_id) : optional<string_view>
+        +GetReferences() : const vector<BackendConfigReference>&
+    }
+
+    class BackendConfigReference <<struct>> {
+        +backendId : string
+        +configPath : string
     }
 
     class ScoreProviderConfig {
@@ -35,10 +46,12 @@ package "Configuration (config/)" <<Rectangle>> #FFF8DC {
     }
 
     class Pkcs11Config {
-        +AddTokenEntry(entry)
+        +ParseConfig(config_path) : Expected<monostate, DaemonErrorCode>
         +GetConfig() : const Pkcs11ProviderFactoryConfig&
     }
 
+    Config *-- BackendConfigCatalog
+    BackendConfigCatalog *-- BackendConfigReference
     Config *-- ScoreProviderConfig
     Config *-- Pkcs11Config
 }
@@ -47,6 +60,12 @@ package "Configuration (config/)" <<Rectangle>> #FFF8DC {
 ' PROVIDER MANAGER
 ' ====================================================================
 package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
+
+    class ProviderManagerFactory {
+        +Create(config) : Expected<shared_ptr<ProviderManager>, DaemonErrorCode>
+        +CreateScoreProviderFactory(config)
+        +CreatePkcs11ProviderFactory(config)
+    }
 
     interface IProviderFactory {
         +CreateAndRegister(manager : ProviderManager&) : ProviderFactoryResult
@@ -68,6 +87,9 @@ package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
 
     ProviderManager *-- IProvider : 1..n
     IProviderFactory ..> ProviderManager : registers into
+    ProviderManagerFactory ..> ProviderManager : creates and initializes
+    ProviderManagerFactory ..> BackendConfigCatalog : resolves "pkcs11" path
+    ProviderManagerFactory ..> Pkcs11Config : passes backend config path
 
     ' ====================================================================
     ' HANDLER SHARED INFRASTRUCTURE
@@ -227,8 +249,25 @@ package "Provider Infrastructure (provider/)" <<Rectangle>> #F5F5F5 {
         note bottom of Pkcs11ProviderFactory
           Each token entry produces
           one Pkcs11Provider instance.
+          The configured provider type is
+          applied during registration.
         end note
     }
+
+    package "PKCS#11 Backend Configuration (backend/pkcs11/)" <<Rectangle>> #E1F5FE {
+        class Pkcs11BackendConfig <<FlatBuffer>> {
+            +version_info : BufferVersion (P11C 0.1)
+            +tokens : vector<TokenEntry>
+        }
+
+        note bottom of Pkcs11BackendConfig
+          Pkcs11Config::ParseConfig verifies the
+          identifier, schema version, FlatBuffer,
+          and provider-specific semantics.
+        end note
+    }
+
+    Pkcs11Config ..> Pkcs11BackendConfig : verifies and parses
 
     ' shared ops used by both families
     OpenSslHashHandler ..> opsNote : includes
