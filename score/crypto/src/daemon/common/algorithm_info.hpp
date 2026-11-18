@@ -77,13 +77,6 @@ struct PqcAlgorithmInfo
         algorithm.shared_secret_size};
 }
 
-/// @brief Look up a standardized PQC algorithm by its exact textual identifier.
-[[nodiscard]] inline constexpr std::optional<PqcAlgorithmInfo> LookupPqcAlgorithm(std::string_view name) noexcept
-{
-    const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(name);
-    return algorithm.has_value() ? LookupPqcAlgorithm(*algorithm) : std::nullopt;
-}
-
 /// @brief Return whether the resolved row describes a PQC signature algorithm.
 [[nodiscard]] inline constexpr bool IsPqcSignatureAlgorithm(
     const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
@@ -91,25 +84,11 @@ struct PqcAlgorithmInfo
     return algorithm.key_type == ::score::crypto::KeyType::kMlDsa;
 }
 
-/// @brief Return whether the identifier names a PQC signature algorithm.
-[[nodiscard]] inline constexpr bool IsPqcSignatureAlgorithm(std::string_view name) noexcept
-{
-    const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(name);
-    return algorithm.has_value() && IsPqcSignatureAlgorithm(*algorithm);
-}
-
 /// @brief Return whether the resolved row describes a PQC KEM algorithm.
 [[nodiscard]] inline constexpr bool IsPqcKemAlgorithm(
     const ::score::crypto::AlgorithmDescriptor& algorithm) noexcept
 {
     return algorithm.key_type == ::score::crypto::KeyType::kMlKem;
-}
-
-/// @brief Return whether the identifier names a PQC KEM algorithm.
-[[nodiscard]] inline constexpr bool IsPqcKemAlgorithm(std::string_view name) noexcept
-{
-    const auto algorithm = ::score::crypto::GetAlgorithmDescriptor(name);
-    return algorithm.has_value() && IsPqcKemAlgorithm(*algorithm);
 }
 
 /// @brief Digest length in bytes of a hash function, from its hash row in the catalog.
