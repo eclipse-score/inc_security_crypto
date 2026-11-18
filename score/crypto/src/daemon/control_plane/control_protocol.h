@@ -457,9 +457,10 @@ class ControlResponseValidator
 
     /// @brief Creates a validator from a Result/Expected-like object.
     ///
-    /// Checks has_value() and uses the contained ControlResponse's operations when present.
+    /// Captures the result error when no response is available, and uses the contained ControlResponse's operations
+    /// when present.
     /// @note The caller must keep the result alive for the lifetime of the returned validator.
-    /// @param result Result-like object containing a ControlResponse.
+    /// @param result Result-like object containing a ControlResponse or an error code.
     /// @param logErrors Whether validation failures should be logged.
     template <typename T>
     static ControlResponseValidator FromResult(const T& result, bool logErrors = false)
@@ -468,7 +469,9 @@ class ControlResponseValidator
         {
             ControlResponseValidator validator(std::vector<SingleOperationResponse>{}, logErrors);
             validator.m_isValid = false;
-            validator.m_errorMsg = "Operation response is not available (has_value() returned false)";
+            validator.m_errorMsg = "Request failed: " + std::string(score::crypto::kCryptoErrorDomain.MessageFor(
+                                                            static_cast<score::result::ErrorCode>(result.error())));
+            validator.m_operationError = result.error();
             return validator;
         }
 
@@ -575,17 +578,16 @@ class ControlResponseValidator
         return *this;
     }
 
-    /// The error code the daemon reported, when the failure came from the daemon.
+    /// The error code associated with the failed result or response, when available.
     ///
-    /// expectSuccess() folds the code into a human-readable message for logging;
-    /// this exposes the code itself so a caller can forward the daemon's verdict
-    /// instead of collapsing every failure into one generic error. A client that
-    /// asked for something the key policy forbids needs to see
-    /// kKeyOperationNotPermitted, not "context creation failed".
+    /// FromResult() stores the result error when no response is available.
+    /// expectSuccess() stores the daemon's operation result when the response
+    /// reports a failure. Only one source applies to a given validator, and
+    /// callers can forward the specific code instead of using a generic fallback.
     ///
-    /// Returns std::nullopt when validation failed for a client-side reason —
-    /// no response at all, wrong operation id, missing or mistyped parameter —
-    /// because there is no daemon verdict to report in those cases.
+    /// Returns std::nullopt when response validation fails without an associated
+    /// result or operation error code, such as for a missing or mismatched
+    /// operation or an invalid parameter.
     [[nodiscard]] std::optional<score::crypto::CryptoErrorCode> getOperationError() const
     {
         return m_operationError;
@@ -679,7 +681,8 @@ class ControlResponseValidator
     std::string m_errorMsg;
     bool m_logErrors = false;
 
-    /// Set only by expectSuccess(), so it stays empty for client-side
+    /// Set by FromResult() for a transport error or error envelope, or by
+    /// expectSuccess() for a daemon operation error.
     /// validation failures where the daemon returned no verdict.
     std::optional<score::crypto::CryptoErrorCode> m_operationError;
 
