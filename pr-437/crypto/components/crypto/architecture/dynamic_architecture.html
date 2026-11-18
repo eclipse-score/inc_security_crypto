@@ -417,10 +417,10 @@
 <li class="toctree-l3"><a class="reference internal" href="chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
 <li class="toctree-l3"><a class="reference internal" href="design_decisions.html">Design Decisions</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data_plane_architecture.html">Data Plane Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../score/crypto/src/ipc/docs/index.html">Crypto IPC Documentation</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="daemon_architecture.html">Crypto Daemon Component Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../score/crypto/src/ipc/message_passing_adapter/docs/index.html">IPC Message Passing Adapter</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
@@ -524,9 +524,7 @@
 <p>Using a pre-deployed persistent key for encryption — the simplest path.
 No <code class="docutils literal notranslate"><span class="pre">LoadKey</span></code> or guard needed; the context internally loads from the slot:</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// 1. Create stack and context</span>
-<span class="n">CryptoStackConfig</span><span class="w"> </span><span class="n">stack_config</span><span class="p">;</span>
-<span class="n">stack_config</span><span class="p">.</span><span class="n">SetConnectionEndpoint</span><span class="p">(</span><span class="s">"unix:///var/run/crypto-daemon.sock"</span><span class="p">);</span>
-<span class="k">auto</span><span class="w"> </span><span class="n">stack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CreateCryptoStack</span><span class="p">(</span><span class="n">stack_config</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">stack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CreateCryptoStack</span><span class="p">().</span><span class="n">value</span><span class="p">();</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">ctx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">stack</span><span class="o">-&gt;</span><span class="n">CreateCryptoContext</span><span class="p">().</span><span class="n">value</span><span class="p">();</span>
 
 <span class="c1">// 2. Resolve the pre-deployed key slot (no LoadKey needed)</span>
@@ -734,8 +732,7 @@ use <code class="docutils literal notranslate"><span class="pre">LoadKey()</span
 <p>Bounding all IPC calls with a per-call deadline for safety analysis:</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// 1. Stack-wide default: 500 ms per IPC call</span>
 <span class="n">CryptoStackConfig</span><span class="w"> </span><span class="n">stack_config</span><span class="p">;</span>
-<span class="n">stack_config</span><span class="p">.</span><span class="n">SetConnectionEndpoint</span><span class="p">(</span><span class="s">"unix:///var/run/crypto-daemon.sock"</span><span class="p">)</span>
-<span class="w">            </span><span class="p">.</span><span class="n">SetDefaultOperationTimeout</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">chrono</span><span class="o">::</span><span class="n">milliseconds</span><span class="p">{</span><span class="mi">500</span><span class="p">});</span>
+<span class="n">stack_config</span><span class="p">.</span><span class="n">SetDefaultOperationTimeout</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">chrono</span><span class="o">::</span><span class="n">milliseconds</span><span class="p">{</span><span class="mi">500</span><span class="p">});</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">stack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CreateCryptoStack</span><span class="p">(</span><span class="n">stack_config</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">ctx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">stack</span><span class="o">-&gt;</span><span class="n">CreateCryptoContext</span><span class="p">().</span><span class="n">value</span><span class="p">();</span>
 
@@ -750,16 +747,19 @@ use <code class="docutils literal notranslate"><span class="pre">LoadKey()</span
 <span class="n">hash</span><span class="o">-&gt;</span><span class="n">Update</span><span class="p">(</span><span class="n">chunk1</span><span class="p">);</span><span class="w">       </span><span class="c1">// ≤ 200 ms or kOperationTimedOut</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hash</span><span class="o">-&gt;</span><span class="n">Finalize</span><span class="p">(</span><span class="n">digest_out</span><span class="p">);</span>
 <span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">result</span><span class="p">.</span><span class="n">has_value</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="c1">// On timeout: context is in error state, must destroy and recreate.</span>
-<span class="w">    </span><span class="c1">// result.error() == kOperationTimedOut</span>
+<span class="w">      </span><span class="c1">// A daemon-reported timeout is kOperationTimedOut.</span>
+<span class="w">      </span><span class="c1">// If the response grace expires without a reply, the error is</span>
+<span class="w">      </span><span class="c1">// kOperationResponseTimedOut and the daemon's final state is unknown.</span>
+<span class="w">      </span><span class="c1">// On timeout: The user is advised to re-create the context as the current state may not be definitive</span>
+<span class="w">      </span><span class="c1">// result.error() == kOperationTimedOut</span>
 <span class="p">}</span>
 
 <span class="c1">// 3. Disable timeout for slow PQC key generation on HSM</span>
 <span class="n">KeyManagementContextConfig</span><span class="w"> </span><span class="n">keygen_cfg</span><span class="p">;</span>
-<span class="n">keygen_cfg</span><span class="p">.</span><span class="n">DisableTimeout</span><span class="p">();</span><span class="w">  </span><span class="c1">// No deadline — HSM may take seconds</span>
+<span class="n">keygen_cfg</span><span class="p">.</span><span class="n">DisableTimeout</span><span class="p">();</span><span class="w">  </span><span class="c1">// Maximum transport wait: 10 minutes</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">key_mgmt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">CreateKeyManagementContext</span><span class="p">(</span><span class="n">keygen_cfg</span><span class="p">).</span><span class="n">value</span><span class="p">();</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">pqc_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">key_mgmt</span><span class="o">-&gt;</span><span class="n">GenerateKey</span><span class="p">(</span><span class="n">GenerateKeyParams</span><span class="p">{}.</span><span class="n">SetAlgorithm</span><span class="p">(</span><span class="s">"ML-KEM-768"</span><span class="p">)).</span><span class="n">value</span><span class="p">();</span>
-<span class="c1">// PQC key generation can take seconds on hardware — no timeout error</span>
+<span class="c1">// Longer operation deadline; the transport retains its 10-minute cap</span>
 </pre></div>
 </div>
 </section>

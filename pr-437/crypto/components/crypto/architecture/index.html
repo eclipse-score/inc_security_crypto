@@ -417,10 +417,10 @@
 <li class="toctree-l3"><a class="reference internal" href="chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
 <li class="toctree-l3"><a class="reference internal" href="design_decisions.html">Design Decisions</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data_plane_architecture.html">Data Plane Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../score/crypto/src/ipc/docs/index.html">Crypto IPC Documentation</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="daemon_architecture.html">Crypto Daemon Component Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../score/crypto/src/ipc/message_passing_adapter/docs/index.html">IPC Message Passing Adapter</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
@@ -497,7 +497,7 @@
                   
   <section id="component-architecture">
 <span id="crypto-architecture"></span><h1>Component Architecture<a class="headerlink" href="#component-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-962f2ea0">
+<div class="need_container docutils container" id="SNCB-ae50de49">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_architecture">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -637,7 +637,7 @@ with fluent builders; new optional fields never break existing callers</p></li>
 <li class="toctree-l2"><a class="reference internal" href="design_decisions.html#algorithm-catalog-alongside-algorithmid">Algorithm Catalog Alongside <code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="design_decisions.html#synchronous-only-ipc-model">Synchronous-Only IPC Model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="design_decisions.html#context-reset-for-streaming-context-reuse">Context <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> for Streaming Context Reuse</a></li>
-<li class="toctree-l2"><a class="reference internal" href="design_decisions.html#two-layer-per-call-timeout-with-daemon-side-enforcement">Two-Layer Per-Call Timeout with Daemon-Side Enforcement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="design_decisions.html#per-call-timeout-with-client-side-response-bound">Per-Call Timeout with Client-Side Response Bound</a></li>
 <li class="toctree-l2"><a class="reference internal" href="design_decisions.html#keyoperationpermission-as-a-capability-bitmask"><code class="docutils literal notranslate"><span class="pre">KeyOperationPermission</span></code> as a Capability Bitmask</a></li>
 <li class="toctree-l2"><a class="reference internal" href="design_decisions.html#unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split">Unified Cipher Context (No Encrypt/Decrypt or Symmetric/Asymmetric Split)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="design_decisions.html#imemoryallocator-separated-from-icryptostack"><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator</span></code> Separated from <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code></a></li>
@@ -650,6 +650,13 @@ with fluent builders; new optional fields never break existing callers</p></li>
 <li class="toctree-l2"><a class="reference internal" href="data_plane_architecture.html#api-side">API Side</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../score/crypto/src/ipc/docs/index.html">Crypto IPC Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../score/crypto/src/ipc/docs/requirements/index.html">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../score/crypto/src/ipc/docs/architecture/index.html">Selection of IPC Transport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../score/crypto/src/ipc/protocol/docs/index.html">Crypto IPC Control Protocol</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../score/crypto/src/ipc/message_passing_adapter/docs/index.html">IPC Message Passing Adapter</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </section>
@@ -657,7 +664,7 @@ with fluent builders; new optional fields never break existing callers</p></li>
 <h2>Static Architecture<a class="headerlink" href="#static-architecture" title="Link to this heading">#</a></h2>
 <p>The components are designed to cover the expectations from the feature architecture
 (i.e. if already exists a definition it should be taken over and enriched).</p>
-<div class="need_container docutils container" id="SNCB-e8872627">
+<div class="need_container docutils container" id="SNCB-8a91afa2">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
