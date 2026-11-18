@@ -74,19 +74,18 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const key_management::KeyImportRequest& request) override;
 
-    /// Export an EC public key as the raw uncompressed SEC1 point 0x04||X||Y.
+    /// Export raw key material, using the uncompressed SEC1 point 0x04||X||Y for EC keys.
     ///
-    /// Only FormatType::kRaw on an EC key is supported; DER/PEM export and
-    /// symmetric keys fall through to the base class's unsupported path. The
-    /// export is gated by kExport on the key's public-half permissions.
+    /// Raw non-EC export delegates to the key handler; DER/PEM export remains unsupported.
+    /// EC export is gated by kExport on the key's public-half permissions.
     [[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
-    ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
+    ExportKey(const key_management::IKeyHandler& key, score::crypto::FormatType format) override;
 
-    /// Byte length of the raw export for @p handle, for the mandatory
+    /// Byte length of the raw export for @p key, for the mandatory
     /// size-then-data two-call export. Same gating as ExportKey.
     [[nodiscard]] ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
-    GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
+    GetExportKeySize(const key_management::IKeyHandler& key, score::crypto::FormatType format) override;
 
   private:
     /// Result of parsing DER key material.

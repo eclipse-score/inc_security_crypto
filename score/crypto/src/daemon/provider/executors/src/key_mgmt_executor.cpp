@@ -619,20 +619,7 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleGetExpo
     {
         return make_unexpected(entry.error());
     }
-    const auto encoding = format.value();
-    const auto& handle = entry.value()->GetHandle();
-    // EC raw export is the provider-formatted public point. Other raw material,
-    // including Primula public keys, is exported by the live key handler.
-    if (encoding == score::crypto::FormatType::kRaw && handle.algorithm.key_type != score::crypto::KeyType::kEcc)
-    {
-        auto exported = entry.value()->GetKeyHandler()->Export();
-        if (!exported.has_value())
-        {
-            return make_unexpected(exported.error());
-        }
-        return common::ResponseParameters{static_cast<std::uint64_t>(exported.value().bytes.size())};
-    }
-    auto size = m_factory->GetExportKeySize(handle, encoding);
+    auto size = m_factory->GetExportKeySize(*entry.value()->GetKeyHandler(), format.value());
     if (!size.has_value())
     {
         return make_unexpected(size.error());
@@ -674,14 +661,7 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleExportK
     {
         return make_unexpected(entry.error());
     }
-    const auto encoding = format.value();
-    const auto& handle = entry.value()->GetHandle();
-    // EC raw export uses the provider's uncompressed public-point encoding;
-    // Primula public keys and raw symmetric bytes use their live handler.
-    const bool use_raw_handler =
-        encoding == score::crypto::FormatType::kRaw && handle.algorithm.key_type != score::crypto::KeyType::kEcc;
-    auto exported = use_raw_handler ? entry.value()->GetKeyHandler()->Export()
-                                    : m_factory->ExportKey(handle, encoding);
+    auto exported = m_factory->ExportKey(*entry.value()->GetKeyHandler(), format.value());
     if (!exported.has_value())
     {
         return make_unexpected(exported.error());

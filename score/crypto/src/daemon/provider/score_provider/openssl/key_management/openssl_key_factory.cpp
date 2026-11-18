@@ -637,8 +637,13 @@ OpenSslKeyFactory::PrepareUncompressedEcExport(const key_management::ProviderKey
 }
 
 ::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+OpenSslKeyFactory::ExportKey(const key_management::IKeyHandler& key, score::crypto::FormatType format)
 {
+    const auto& handle = key.GetHandle();
+    if (handle.algorithm.key_type != score::crypto::KeyType::kEcc)
+    {
+        return IKeyFactory::ExportKey(key, format);
+    }
     const auto curve = CheckRawEcExport(handle, format);
     if (!curve.has_value())
     {
@@ -672,8 +677,13 @@ OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, sc
 }
 
 ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
+OpenSslKeyFactory::GetExportKeySize(const key_management::IKeyHandler& key, score::crypto::FormatType format)
 {
+    const auto& handle = key.GetHandle();
+    if (handle.algorithm.key_type != score::crypto::KeyType::kEcc)
+    {
+        return IKeyFactory::GetExportKeySize(key, format);
+    }
     const auto curve = CheckRawEcExport(handle, format);
     if (!curve.has_value())
     {
