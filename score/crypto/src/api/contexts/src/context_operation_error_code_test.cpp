@@ -12,9 +12,8 @@
  ********************************************************************************/
 
 /// @file context_operation_error_code_test.cpp
-/// @brief Every context operation that sends a request to the daemon returns
-///        the daemon's error code, and its fallback code only when there is no
-///        daemon verdict.
+/// @brief Context operations preserve transport and daemon error codes, using
+///        their fallback only when response validation has no specific code.
 
 #include "score/crypto/src/api/contexts/src/cipher_context_impl.hpp"
 #include "score/crypto/src/api/contexts/src/hash_context_impl.hpp"
@@ -59,9 +58,10 @@ class FakeConnection final : public api::control_plane::IConnection
         std::optional<CryptoErrorCode> transport_error;  ///< no response at all
         proto::OperationResult result{proto::OPERATION_RESULT_SUCCESS};
         ::score::crypto::daemon::common::ResponseParameters parameters{};
+        bool omit_operation_response{false};
     };
 
-    Expected<proto::ControlResponse, CryptoErrorCode> SendRequest(const proto::ControlRequest& request) override
+    Expected<proto::ControlResponse, CryptoErrorCode> SendRequest(proto::ControlRequest& request) override
     {
         Reply reply = default_reply;
         if (!replies.empty())
@@ -75,12 +75,18 @@ class FakeConnection final : public api::control_plane::IConnection
         }
 
         proto::ControlResponse response{};
-        if (!request.operation.operations.empty())
+        if (!reply.omit_operation_response && !request.operations.empty())
         {
-            response.operation.operations.push_back(proto::SingleOperationResponse{
-                request.operation.operations.front().operationId, reply.result, reply.parameters});
+            response.operations.push_back(
+                proto::SingleOperationResponse{request.operations.front().operationId, reply.result, reply.parameters});
         }
         return response;
+    }
+
+    Expected<proto::ControlResponse, CryptoErrorCode> SendRequest(proto::ControlRequest& request,
+                                                                  std::chrono::milliseconds /*timeout*/) override
+    {
+        return SendRequest(request);
     }
 
     proto::DataNodeId GetConnectionNodeId() const override
@@ -115,8 +121,8 @@ class InBandTranscoder final : public IBufferTranscoder
     }
 };
 
-/// One context operation: how to call it, and the code it reports when the
-/// daemon gave no verdict.
+/// One context operation, including its fallback when validation has no
+/// specific error code.
 struct OperationCase
 {
     std::string name;
@@ -418,13 +424,29 @@ TEST_P(ContextErrorForwardingTest, ReturnsTheDaemonsErrorCode)
     }
 }
 
-TEST_P(ContextErrorForwardingTest, ReturnsItsFallbackWithoutADaemonVerdict)
+TEST_P(ContextErrorForwardingTest, ReturnsTransportErrorWithoutResponse)
 {
-    connection_->default_reply = FakeConnection::Reply{CryptoErrorCode::kConnectionFailed};
+    for (const auto transport_error : {CryptoErrorCode::kConnectionFailed,
+                                       CryptoErrorCode::kOperationTimedOut,
+                                       CryptoErrorCode::kOperationResponseTimedOut})
+    {
+        SCOPED_TRACE(static_cast<score::result::ErrorCode>(transport_error));
+        connection_->default_reply = FakeConnection::Reply{transport_error};
+
+        const auto error = GetParam().call(connection_, transcoder_);
+
+        ASSERT_TRUE(error.has_value()) << "operation succeeded without a response";
+        EXPECT_EQ(error.value(), static_cast<score::result::ErrorCode>(transport_error));
+    }
+}
+
+TEST_P(ContextErrorForwardingTest, ReturnsItsFallbackWhenResponseHasNoOperation)
+{
+    connection_->default_reply = FakeConnection::Reply{std::nullopt, proto::OPERATION_RESULT_SUCCESS, {}, true};
 
     const auto error = GetParam().call(connection_, transcoder_);
 
-    ASSERT_TRUE(error.has_value()) << "operation succeeded without a response";
+    ASSERT_TRUE(error.has_value()) << "operation succeeded with a response missing its operation";
     EXPECT_EQ(error.value(), static_cast<score::result::ErrorCode>(GetParam().fallback));
 }
 

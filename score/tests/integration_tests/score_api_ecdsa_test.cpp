@@ -85,12 +85,6 @@ using tests::utility::read_bin;
 namespace
 {
 
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
-
 // =========================================================================
 // NIST FIPS 186-4 CAVP vectors
 // =========================================================================
@@ -310,10 +304,7 @@ TEST_P(EcdsaSignVerifyTest, GenerateSignAndVerify)
     // =========================================================================
     // 1. Create the crypto stack and a crypto context
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -514,10 +505,7 @@ TEST_P(KeySlotEcdsaTest, VerifiesNistVectors)
     // =========================================================================
     // 1. Create the crypto stack and a crypto context
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -663,9 +651,7 @@ TEST_P(EcdsaPrehashedTest, UsesProvisionedNistVectorDigest)
     ASSERT_FALSE(message.empty());
     ASSERT_EQ(nist_signature.size(), test_data.signature_size);
 
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value());
     auto context_result = stack_result.value()->CreateCryptoContext();
     ASSERT_TRUE(context_result.has_value());
@@ -836,9 +822,7 @@ struct SoftwareSession
 
 void OpenSoftwareSession(SoftwareSession& session)
 {
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     session.stack = std::move(stack_result.value());
 
@@ -1137,9 +1121,7 @@ TEST_P(EcdsaCurveMismatchTest, SignAndVerifyContextsAreRefused)
 {
     const auto test_data = GetParam();
 
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto ctx_result = stack_result.value()->CreateCryptoContext();
     ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
@@ -1175,9 +1157,7 @@ TEST_P(EcdsaCurveMismatchTest, SignAndVerifyContextsAreRefused)
 
 TEST(EcdsaUnknownAlgorithmTest, SignContextIsRefusedAsUnsupportedAlgorithm)
 {
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto ctx_result = stack_result.value()->CreateCryptoContext();
     ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";

@@ -43,7 +43,7 @@ control_plane::ControlResponse ShmRequestHandler::processRequest(control_plane::
 
 control_plane::ControlResponse ShmRequestHandler::ForwardWithResolvedShm(control_plane::ControlRequest& request)
 {
-    for (auto& operation : request.operation.operations)
+    for (auto& operation : request.operations)
     {
         for (auto& param : operation.parameters)
         {

@@ -12,6 +12,9 @@
  ********************************************************************************/
 
 #include "score/crypto/src/api/src/crypto_context_impl.hpp"
+#include "score/crypto/src/api/config/base_context_config.hpp"
+#include "score/crypto/src/api/crypto_stack_factory.hpp"
+#include "score/crypto/src/api/src/crypto_context_impl.hpp"
 
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/config/hash_context_config.hpp"
@@ -23,9 +26,11 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace score::crypto
 {
@@ -39,14 +44,19 @@ class ErrorConnection final : public api::control_plane::IConnection
   public:
     explicit ErrorConnection(const CryptoErrorCode error_code) : m_error_code{error_code} {}
 
-    Expected<protocol::ControlResponse, CryptoErrorCode> SendRequest(
-        const protocol::ControlRequest& /*request*/) override
+    Expected<protocol::ControlResponse, CryptoErrorCode> SendRequest(protocol::ControlRequest& /*request*/) override
     {
         ++m_request_count;
         protocol::ControlResponse response{};
-        response.operation.operations.push_back(protocol::SingleOperationResponse{
+        response.operations.push_back(protocol::SingleOperationResponse{
             daemon::mediator::operations::CreateContext(), static_cast<protocol::OperationResult>(m_error_code), {}});
         return response;
+    }
+
+    Expected<protocol::ControlResponse, CryptoErrorCode> SendRequest(protocol::ControlRequest& request,
+                                                                     std::chrono::milliseconds timeout) override
+    {
+        return SendRequest(request);
     }
 
     protocol::DataNodeId GetConnectionNodeId() const override
@@ -82,9 +92,7 @@ TEST(CryptoContextImplTest, RejectsExplicitHashProviderInsteadOfIgnoringIt)
     auto connection = std::make_shared<ErrorConnection>(CryptoErrorCode::kInternalError);
     CryptoContextImpl context{connection, nullptr};
 
-    CryptoResourceId provider{};
-    provider.id = 42U;
-    provider.type = ResourceType::kProvider;
+    const CryptoResourceId provider{42U, ResourceType::kProvider, ResourcePersistence::kEphemeral, 0U};
 
     HashContextConfig config;
     config.SetAlgorithm("SHA256").SetProvider(provider);
@@ -93,6 +101,30 @@ TEST(CryptoContextImplTest, RejectsExplicitHashProviderInsteadOfIgnoringIt)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(*result.error(), static_cast<score::result::ErrorCode>(CryptoErrorCode::kUnsupportedOperation));
     EXPECT_EQ(connection->GetRequestCount(), 0U);
+}
+
+TEST(CryptoStackConfigTest, SetDefaultOperationTimeoutClampsNonPositiveValues)
+{
+    CryptoStackConfig config;
+
+    config.SetDefaultOperationTimeout(std::chrono::milliseconds{0});
+    ASSERT_TRUE(config.default_operation_timeout.has_value());
+    EXPECT_EQ(config.default_operation_timeout.value(), std::chrono::milliseconds{1});
+
+    config.SetDefaultOperationTimeout(std::chrono::milliseconds{-1});
+    EXPECT_EQ(config.default_operation_timeout.value(), std::chrono::milliseconds{1});
+}
+
+TEST(CryptoStackConfigTest, ResolutionClampsDirectlyAssignedNonPositiveDefault)
+{
+    CryptoStackConfig config;
+    config.default_operation_timeout = std::chrono::milliseconds{0};
+    EXPECT_EQ(ResolveOperationTimeout(true, std::nullopt, config.default_operation_timeout),
+              std::chrono::milliseconds{1});
+
+    config.default_operation_timeout = std::chrono::milliseconds{-1};
+    EXPECT_EQ(ResolveOperationTimeout(true, std::nullopt, config.default_operation_timeout),
+              std::chrono::milliseconds{1});
 }
 
 }  // namespace

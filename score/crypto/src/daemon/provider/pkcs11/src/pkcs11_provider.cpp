@@ -70,6 +70,7 @@ Pkcs11Provider::~Pkcs11Provider()
 
 bool Pkcs11Provider::Initialize(const ProviderInitContext& ctx)
 {
+    std::lock_guard<std::mutex> lock(m_initialization_mutex);
     if (m_initialized)
     {
         return true;
@@ -202,6 +203,7 @@ bool Pkcs11Provider::SeedSessionPool() noexcept
 
 void Pkcs11Provider::Shutdown()
 {
+    std::lock_guard<std::mutex> lock(m_initialization_mutex);
     if (!m_initialized)
     {
         return;
@@ -420,6 +422,7 @@ const common::ProviderName& Pkcs11Provider::GetProviderName() const
 
 handler::ICryptoHandlerFactory::Sptr Pkcs11Provider::GetCryptoHandlerFactory()
 {
+    std::lock_guard<std::mutex> lock(m_initialization_mutex);
     if (!m_handlerFactory)
     {
         // Lazy creation: by the time this is called, SetKeyManagementService() has been

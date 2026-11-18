@@ -25,18 +25,7 @@ using namespace score::crypto::daemon::cert_management;
 
 score::crypto::daemon::data_manager::ClientId ClientId(std::uint32_t pid, std::uint32_t uid)
 {
-    union
-    {
-        score::crypto::daemon::data_manager::ClientId id;
-        struct
-        {
-            std::uint32_t process_id;
-            std::uint32_t user_id;
-        } parts;
-    } value{0U};
-    value.parts.process_id = pid;
-    value.parts.user_id = uid;
-    return value.id;
+    return score::crypto::daemon::common::MakeClientId(pid, uid);
 }
 
 TEST(AccessPolicyEnforcerTest, AllowsUnrestrictedSlotRead)

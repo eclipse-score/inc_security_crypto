@@ -42,12 +42,6 @@ using tests::utility::read_bin;
 namespace
 {
 
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
-
 std::string GetTestVectorPath(const std::string_view relative_path)
 {
     const char* dir = std::getenv("TEST_VECTORS_DIR");
@@ -102,8 +96,8 @@ std::vector<std::uint8_t> ReadPublicKey(const EcCurve curve, const PublicKeyForm
 
     if ((x.size() != coordinate_size) || (y.size() != coordinate_size))
     {
-        ADD_FAILURE() << "Unexpected EC coordinate size. Expected " << coordinate_size
-                      << " bytes, got X=" << x.size() << " and Y=" << y.size();
+        ADD_FAILURE() << "Unexpected EC coordinate size. Expected " << coordinate_size << " bytes, got X=" << x.size()
+                      << " and Y=" << y.size();
         return {};
     }
 
@@ -120,10 +114,7 @@ class KeyImportExportTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        CryptoStackConfig stack_config;
-        stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-        auto stack_result = CreateCryptoStack(stack_config);
+        auto stack_result = CreateCryptoStack();
         ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
         stack_ = std::move(stack_result.value());
 
@@ -202,8 +193,7 @@ struct RoundTripCurve
     std::size_t point_size;
 };
 
-class KeyImportExportRoundTripTest : public KeyImportExportTest,
-                                     public ::testing::WithParamInterface<RoundTripCurve>
+class KeyImportExportRoundTripTest : public KeyImportExportTest, public ::testing::WithParamInterface<RoundTripCurve>
 {
 };
 
@@ -315,8 +305,7 @@ TEST_F(KeyImportExportTest, ImportDerP384WithMatchingAlgorithm_Succeeds)
         .SetPermissions(KeyOperationPermission::kVerify | KeyOperationPermission::kExport);
 
     auto key_result = key_mgmt_->ImportKey(import_params);
-    ASSERT_TRUE(key_result.has_value())
-        << "Importing a valid P-384 SubjectPublicKeyInfo DER key must succeed";
+    ASSERT_TRUE(key_result.has_value()) << "Importing a valid P-384 SubjectPublicKeyInfo DER key must succeed";
 
     auto key = std::move(key_result.value());
     EXPECT_TRUE(key.IsActive());

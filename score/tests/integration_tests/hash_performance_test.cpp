@@ -45,13 +45,9 @@ using tests::utility::print_hex;
 
 namespace
 {
-#ifdef __QNXNTO__
-constexpr auto kDaemonEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kDaemonEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
+
 constexpr std::size_t kSha512DigestSize = 64U;
-constexpr int kNumThreads = 4;
+constexpr int kNumThreads = 16;
 constexpr std::chrono::milliseconds kOperationTimeout{2000};
 
 /// @brief Validates concurrent and sequential hash operations via pool and bulk SHM paths.
@@ -77,7 +73,6 @@ struct ScalabilityTestParams
 score::Result<ICryptoStack::Uptr> MakeStack(std::optional<std::chrono::milliseconds> timeout = std::nullopt)
 {
     CryptoStackConfig cfg;
-    cfg.SetConnectionEndpoint(kDaemonEndpoint);
     if (timeout.has_value())
     {
         cfg.SetDefaultOperationTimeout(timeout.value());
@@ -189,8 +184,9 @@ TEST_P(ScalabilityTest, AlternatingPoolAndBulkSHM)
 
     auto run_task = [&](int task_index) {
         const std::string color = GetThreadColor(task_index);
-        const bool use_bulk = (task_index % 2 == 0);
-        const bool use_large = use_bulk || (task_index == 3);
+        const int pattern_index = task_index % 4;
+        const bool use_bulk = (pattern_index % 2 == 0);
+        const bool use_large = use_bulk || (pattern_index == 3);
         const std::vector<uint8_t>& task_msg = use_large ? msg_large_ : msg_small_;
 
         HashContextConfig cfg;
@@ -304,7 +300,9 @@ TEST_P(ScalabilityTest, AlternatingPoolAndBulkSHM)
     for (int i = 0; i < kNumThreads; ++i)
     {
         EXPECT_EQ(success_flags[static_cast<std::size_t>(i)], 1) << "Task " << i << " failed";
-        const auto& expected = (i == 1) ? reference_digest_small_ : reference_digest_large_;
+        const int pattern_index = i % 4;
+        const bool use_large = (pattern_index % 2 == 0) || (pattern_index == 3);
+        const auto& expected = use_large ? reference_digest_large_ : reference_digest_small_;
         EXPECT_EQ(digests[static_cast<std::size_t>(i)], expected) << "Task " << i << " digest does not match reference";
     }
 }
