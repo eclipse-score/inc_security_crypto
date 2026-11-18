@@ -14,9 +14,10 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_CORE_KEY_ENTRY_HPP
 
-#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/data_manager/data_node.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 #include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
 
 #include <algorithm>
@@ -24,6 +25,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <utility>
 #include <vector>
 
 namespace score::crypto::daemon::key_management
@@ -77,7 +79,7 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
         return m_handler;
     }
 
-    [[nodiscard]] const common::ProviderId GetProviderId() const noexcept
+    [[nodiscard]] common::ProviderId GetProviderId() const noexcept
     {
         return m_provider_id;
     }
@@ -101,8 +103,12 @@ class KeyEntry final : public std::enable_shared_from_this<KeyEntry>
     bool Release(data_manager::ClientId client_id)
     {
         const std::lock_guard<std::mutex> lock(m_ref_mutex);
-        m_referencing_clients.erase(std::remove(m_referencing_clients.begin(), m_referencing_clients.end(), client_id),
-                                    m_referencing_clients.end());
+        const auto client_it = std::find(m_referencing_clients.begin(), m_referencing_clients.end(), client_id);
+        if (client_it == m_referencing_clients.end())
+        {
+            return false;
+        }
+        m_referencing_clients.erase(client_it);
         const std::uint32_t prev = m_ref_count.fetch_sub(1U, std::memory_order_acq_rel);
         return prev == 1U;
     }

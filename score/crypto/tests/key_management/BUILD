@@ -38,3 +38,11 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "test_key_entry",
+    srcs = ["test_key_entry.cpp"],
+    deps = [
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "@googletest//:gtest_main",
+    ],
+)
