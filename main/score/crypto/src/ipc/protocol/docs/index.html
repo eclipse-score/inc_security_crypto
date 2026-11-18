@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 
 
-<html lang="en" data-content_root="../../../../../../../" >
+<html lang="en" data-content_root="../../../../../../" >
 
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Requirements &#8212; Crypto Project  documentation</title>
+    <title>Crypto IPC Control Protocol &#8212; Crypto Project  documentation</title>
   
   
   
@@ -26,42 +26,42 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../../../../../../_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
-<link href="../../../../../../../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+  <link href="../../../../../../_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+<link href="../../../../../../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/graphviz.css?v=4ae1632d" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score.css?v=415257cb" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score_needs.css?v=82a1844f" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/css/score_design.css?v=8048e6ee" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
-    <link rel="stylesheet" type="text/css" href="../../../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/css/score.css?v=415257cb" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/css/score_needs.css?v=82a1844f" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/css/score_design.css?v=8048e6ee" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_style.css?v=92936fa5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../../../../../../../_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
+  <script defer src="../../../../../../_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../../../../../../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
-<link rel="preload" as="script" href="../../../../../../../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
+  <link rel="preload" as="script" href="../../../../../../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
+<link rel="preload" as="script" href="../../../../../../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
 
-    <script src="../../../../../../../_static/jquery.js?v=5d32c60e"></script>
-    <script src="../../../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-    <script src="../../../../../../../_static/documentation_options.js?v=7f41d439"></script>
-    <script src="../../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
-    <script src="../../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script src="../../../../../../../_static/design-tabs.js?v=f930bc37"></script>
-    <script src="../../../../../../../_static/sphinx-data-viewer/jsonview.bundle.js?v=18cd53c5"></script>
-    <script src="../../../../../../../_static/sphinx-data-viewer/jsonview_loader.js?v=f7ff7e7d"></script>
-    <script src="../../../../../../../_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
-    <script src="../../../../../../../_static/sphinx-needs/libs/html/datatables_loader.js?v=a2cae175"></script>
-    <script src="../../../../../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/src/ipc/message_passing_adapter/docs/requirements/index';</script>
+    <script src="../../../../../../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../../../../../../_static/documentation_options.js?v=7f41d439"></script>
+    <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script src="../../../../../../_static/sphinx-data-viewer/jsonview.bundle.js?v=18cd53c5"></script>
+    <script src="../../../../../../_static/sphinx-data-viewer/jsonview_loader.js?v=f7ff7e7d"></script>
+    <script src="../../../../../../_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
+    <script src="../../../../../../_static/sphinx-needs/libs/html/datatables_loader.js?v=a2cae175"></script>
+    <script src="../../../../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/src/ipc/protocol/docs/index';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
@@ -70,19 +70,19 @@
             false;
         </script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
-    <link rel="index" title="Index" href="../../../../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../../../../search.html" />
-    <link rel="next" title="Crypto IPC Requirements" href="requirements.html" />
-    <link rel="prev" title="DAR — IPC Mechanism for score-crypto Daemon" href="../architecture/ipc_comparison.html" />
+    <link rel="index" title="Index" href="../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../search.html" />
+    <link rel="next" title="IPC Protocol Architecture" href="architecture/index.html" />
+    <link rel="prev" title="Client ID Assignment and Scope" href="../../docs/architecture/client_id_design.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1" />
   
     
-    <script src="../../../../../../../_static/searchtools.js"></script>
-    <script src="../../../../../../../_static/language_data.js"></script>
-    <script src="../../../../../../../searchindex.js"></script>
+    <script src="../../../../../../_static/searchtools.js"></script>
+    <script src="../../../../../../_static/language_data.js"></script>
+    <script src="../../../../../../searchindex.js"></script>
   
   </head>
   <body data-default-mode="">
@@ -102,7 +102,7 @@
   <dialog id="pst-search-dialog">
     
 <form class="bd-search d-flex align-items-center"
-      action="../../../../../../../search.html"
+      action="../../../../../../search.html"
       method="get">
   <i class="fa-solid fa-magnifying-glass"></i>
   <input type="search"
@@ -138,7 +138,7 @@
     
   
 
-<a class="navbar-brand logo" href="../../../../../../../index.html">
+<a class="navbar-brand logo" href="../../../../../../index.html">
   
   
   
@@ -160,28 +160,28 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../../../../../../docs/features/index.html">
+  <a class="nav-link nav-internal" href="../../../../../../docs/features/index.html">
     Crypto
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../../../../../../docs/module/index.html">
+  <a class="nav-link nav-internal" href="../../../../../../docs/module/index.html">
     Module
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../../../../../../docs/verification_report/module_verification_report.html">
+  <a class="nav-link nav-internal" href="../../../../../../docs/verification_report/module_verification_report.html">
     Verification Report
   </a>
 </li>
 
 
 <li class="nav-item current active">
-  <a class="nav-link nav-internal" href="../../../../../../../docs/components/index.html">
+  <a class="nav-link nav-internal" href="../../../../../../docs/components/index.html">
     Components
   </a>
 </li>
@@ -302,28 +302,28 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../../../../../../docs/features/index.html">
+  <a class="nav-link nav-internal" href="../../../../../../docs/features/index.html">
     Crypto
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../../../../../../docs/module/index.html">
+  <a class="nav-link nav-internal" href="../../../../../../docs/module/index.html">
     Module
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../../../../../../docs/verification_report/module_verification_report.html">
+  <a class="nav-link nav-internal" href="../../../../../../docs/verification_report/module_verification_report.html">
     Verification Report
   </a>
 </li>
 
 
 <li class="nav-item current active">
-  <a class="nav-link nav-internal" href="../../../../../../../docs/components/index.html">
+  <a class="nav-link nav-internal" href="../../../../../../docs/components/index.html">
     Components
   </a>
 </li>
@@ -406,28 +406,38 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../../../../../crypto/components/crypto/index.html">Crypto</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/index.html">Component Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/daemon_architecture.html">Crypto Daemon Component Architecture</a></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="../index.html">IPC Message Passing Adapter</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html">IPC Message Passing Adapter Architecture</a></li>
-<li class="toctree-l3 current active has-children"><a aria-current="page" class="current reference internal" href="#">Requirements</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="requirements.html">Crypto IPC Requirements</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../../../../crypto/components/crypto/index.html">Crypto</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/index.html">Component Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/component_architecture.html">Component Architecture Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/api_architecture.html">API Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/api_description.html">API Description</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/dynamic_architecture.html">API Dynamic Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/interfaces.html">Interfaces</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/provider_architecture.html">Provider Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/design_decisions.html">Design Decisions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/data_plane_architecture.html">Data Plane Architecture</a></li>
+<li class="toctree-l3 current active has-children"><a class="reference internal" href="../../docs/index.html">Crypto IPC Documentation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../../docs/requirements/index.html">Requirements</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../docs/architecture/index.html">Selection of IPC Transport</a></li>
+<li class="toctree-l4 current active"><a aria-current="page" class="current reference internal" href="#">Crypto IPC Control Protocol</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../message_passing_adapter/docs/index.html">IPC Message Passing Adapter</a></li>
 </ul>
 </details></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/detailed_design/index.html">Detailed Design</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/requirements/index.html">Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/safety_analysis/fmea.html">FMEA (Failure Modes and Effects Analysis)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/safety_analysis/aou_requirements.html">AoU Component Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/security_analysis/aou_requirements.html">AoU Component Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/component_classification.html">Component Classification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../crypto/components/crypto/architecture/daemon_architecture.html">Crypto Daemon Component Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../crypto/components/crypto/detailed_design/index.html">Detailed Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../crypto/components/crypto/requirements/index.html">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../crypto/components/crypto/safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../crypto/components/crypto/safety_analysis/fmea.html">FMEA (Failure Modes and Effects Analysis)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../crypto/components/crypto/safety_analysis/aou_requirements.html">AoU Component Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../crypto/components/crypto/security_analysis/aou_requirements.html">AoU Component Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../crypto/components/crypto/component_classification.html">Component Classification</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/cryptoki/index.html">Cryptoki</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/primula/index.html">IAV Primula Component</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../crypto/components/cryptoki/index.html">Cryptoki</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../crypto/components/primula/index.html">IAV Primula Component</a></li>
 </ul>
 </div>
 </nav></div>
@@ -464,20 +474,23 @@
   <ul class="bd-breadcrumbs">
     
     <li class="breadcrumb-item breadcrumb-home">
-      <a href="../../../../../../../index.html" class="nav-link" aria-label="Home">
+      <a href="../../../../../../index.html" class="nav-link" aria-label="Home">
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
     
-    <li class="breadcrumb-item"><a href="../../../../../../../docs/components/index.html" class="nav-link">Components</a></li>
+    <li class="breadcrumb-item"><a href="../../../../../../docs/components/index.html" class="nav-link">Components</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../../../../../../../crypto/components/crypto/index.html" class="nav-link">Crypto</a></li>
+    <li class="breadcrumb-item"><a href="../../../../../../crypto/components/crypto/index.html" class="nav-link">Crypto</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">IPC Message Passing Adapter</a></li>
+    <li class="breadcrumb-item"><a href="../../../../../../crypto/components/crypto/architecture/index.html" class="nav-link">Component Architecture</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Requirements</span></li>
+    
+    <li class="breadcrumb-item"><a href="../../docs/index.html" class="nav-link">Crypto IPC Documentation</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Crypto IPC Control Protocol</span></li>
   </ul>
 </nav>
 </div>
@@ -494,18 +507,28 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="requirements">
-<span id="crypto-ipc-requirements"></span><h1>Requirements<a class="headerlink" href="#requirements" title="Link to this heading">#</a></h1>
+  <section id="crypto-ipc-control-protocol">
+<h1>Crypto IPC Control Protocol<a class="headerlink" href="#crypto-ipc-control-protocol" title="Link to this heading">#</a></h1>
+<p>The protocol component defines the wire-format boundary between typed crypto
+control requests and serialized IPC frames. It is independent of the transport
+that carries those frames.</p>
+<section id="icontrolcodec">
+<h2>IControlCodec<a class="headerlink" href="#icontrolcodec" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">IControlCodec</span></code> defines serialization, deserialization, and request-metadata
+inspection for control requests and responses.</p>
+</section>
+<section id="flatbuffercodec">
+<h2>FlatBufferCodec<a class="headerlink" href="#flatbuffercodec" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">FlatBufferCodec</span></code> is the current implementation of <code class="docutils literal notranslate"><span class="pre">IControlCodec</span></code>. It
+encodes and decodes the control protocol using the FlatBuffers schema.</p>
+<p>The schema is maintained in <code class="docutils literal notranslate"><span class="pre">control.fbs</span></code> alongside the codec. The serialized
+frame-size limit is defined in <code class="docutils literal notranslate"><span class="pre">protocol_config.h</span></code>.</p>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="requirements.html">Crypto IPC Requirements</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="requirements.html#scope">Scope</a></li>
-<li class="toctree-l2"><a class="reference internal" href="requirements.html#functional-requirements">Functional requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="requirements.html#non-functional-requirements">Non-Functional requirements</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="architecture/index.html">IPC Protocol Architecture</a></li>
 </ul>
 </div>
+</section>
 </section>
 
 
@@ -519,20 +542,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../architecture/ipc_comparison.html"
+       href="../../docs/architecture/client_id_design.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">DAR — IPC Mechanism for score-crypto Daemon</p>
+        <p class="prev-next-title">Client ID Assignment and Scope</p>
       </div>
     </a>
     <a class="right-next"
-       href="requirements.html"
+       href="architecture/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Crypto IPC Requirements</p>
+        <p class="prev-next-title">IPC Protocol Architecture</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -548,10 +571,23 @@
 
 
   <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#icontrolcodec">IControlCodec</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flatbuffercodec">FlatBufferCodec</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./score/crypto/src/ipc/message_passing_adapter/docs/requirements/index.rst">
+    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./score/crypto/src/ipc/protocol/docs/index.rst">
       <i class="fa-solid fa-pencil"></i>
       
       
@@ -576,8 +612,8 @@
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../../../../../../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
-<script defer src="../../../../../../../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
+  <script defer src="../../../../../../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
+<script defer src="../../../../../../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
