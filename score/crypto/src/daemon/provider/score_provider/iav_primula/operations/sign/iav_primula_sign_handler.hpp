@@ -47,6 +47,9 @@ class IavPrimulaSignHandler final : public operations::sign::ScoreSignHandler
     IavPrimulaSignHandler(IavPrimulaSignHandler&&) = delete;
     IavPrimulaSignHandler& operator=(IavPrimulaSignHandler&&) = delete;
 
+    /// @brief Return whether this handler supports the resolved signature algorithm.
+    [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
+
     /// @brief Validate the algorithm and bind the signing key.
     ///
     /// The bound key must contain private signature material for the configured

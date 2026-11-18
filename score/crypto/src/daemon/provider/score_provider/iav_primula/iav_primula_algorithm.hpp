@@ -45,6 +45,13 @@ inline Expected<iav_algorithm, common::DaemonErrorCode> Algorithm(const Algorith
             return make_unexpected(common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
 }
+
+/// @brief Return whether the provider maps this signature algorithm to its backend.
+[[nodiscard]] inline bool IsSignatureSupported(const AlgorithmDescriptor& algorithm) noexcept
+{
+    return algorithm.key_type == ::score::crypto::KeyType::kMlDsa && algorithm.output_size != 0U &&
+           Algorithm(algorithm).has_value();
+}
 }  // namespace score::crypto::daemon::provider::score_provider::iav_primula
 
 #endif  // SCORE_CRYPTO_DAEMON_PROVIDER_IAV_PRIMULA_ALGORITHM_HPP

@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/operations/sign/iav_primula_sign_handler.hpp"
-#include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/iav_primula/iav_primula_algorithm.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/key_management/iav_primula_key_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/sign/sign_executor.hpp"
 
@@ -26,29 +26,20 @@ namespace score::crypto::daemon::provider::score_provider::iav_primula
 
 using common::DaemonErrorCode;
 
-/// @brief Return the expected signature size for a PQC signature algorithm.
-///
-/// @return Signature size in bytes, or zero if the algorithm is not a
-///         supported signature algorithm.
-std::size_t SignatureSizeForAlgorithm(const AlgorithmDescriptor& algorithm)
-{
-    const auto info = common::LookupPqcAlgorithm(algorithm);
-    if (info.has_value() && (info->kind == common::PqcAlgorithmKind::kSignature))
-    {
-        return info->signature_or_ciphertext_size;
-    }
-    return 0U;
-}
-
 IavPrimulaSignHandler::IavPrimulaSignHandler(std::unique_ptr<operations::sign::SignExecutor> executor,
                                              const AlgorithmDescriptor& algorithm)
     : ScoreSignHandler{std::move(executor), algorithm}
 {
 }
 
+bool IavPrimulaSignHandler::IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept
+{
+    return IsSignatureSupported(algorithm);
+}
+
 Expected<std::monostate, DaemonErrorCode> IavPrimulaSignHandler::ValidateAlgorithm() const
 {
-    if (SignatureSizeForAlgorithm(m_algorithm) == 0U)
+    if (!IsAlgorithmSupported(m_algorithm))
     {
         return make_unexpected(DaemonErrorCode::kUnsupportedAlgorithm);
     }
@@ -57,7 +48,7 @@ Expected<std::monostate, DaemonErrorCode> IavPrimulaSignHandler::ValidateAlgorit
 
 std::size_t IavPrimulaSignHandler::GetSignatureSize() const noexcept
 {
-    return SignatureSizeForAlgorithm(m_algorithm);
+    return IsAlgorithmSupported(m_algorithm) ? m_algorithm.output_size : 0U;
 }
 
 Expected<std::monostate, DaemonErrorCode> IavPrimulaSignHandler::InitializeContext(

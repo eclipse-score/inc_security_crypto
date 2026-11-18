@@ -13,7 +13,6 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/operations/factory/iav_primula_handler_factory.hpp"
 #include "score/crypto/src/api/common/error_domain.hpp"
-#include "score/crypto/src/daemon/common/algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/operations/sign/iav_primula_sign_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/iav_primula/operations/verify/iav_primula_verify_handler.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/key_management/score_key_management_handler.hpp"
@@ -59,7 +58,7 @@ IavPrimulaHandlerFactory::IavPrimulaHandlerFactory(std::shared_ptr<key_managemen
 ::score::Result<handler::Handler::Sptr> IavPrimulaHandlerFactory::CreateSignHandler(
     const AlgorithmDescriptor& algorithm)
 {
-    if (!common::IsPqcSignatureAlgorithm(algorithm))
+    if (!IavPrimulaSignHandler::IsAlgorithmSupported(algorithm))
     {
         return MakeUnsupportedAlgorithmError("Algorithm is not a supported iavPrimula signature algorithm: " +
                                              std::string{algorithm.name});
@@ -71,7 +70,7 @@ IavPrimulaHandlerFactory::IavPrimulaHandlerFactory(std::shared_ptr<key_managemen
 ::score::Result<handler::Handler::Sptr> IavPrimulaHandlerFactory::CreateVerifyHandler(
     const AlgorithmDescriptor& algorithm)
 {
-    if (!common::IsPqcSignatureAlgorithm(algorithm))
+    if (!IavPrimulaVerifyHandler::IsAlgorithmSupported(algorithm))
     {
         return MakeUnsupportedAlgorithmError("Algorithm is not a supported iavPrimula verification algorithm: " +
                                              std::string{algorithm.name});
