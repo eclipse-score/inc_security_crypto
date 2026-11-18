@@ -64,7 +64,7 @@ class ITrustStoreObject : public ICryptoObject
     /// @brief Find the member entry for a given slot resource ID.
     ///
     /// Matches by id and type only — primary_provider is not compared because
-    /// MemberInfo slot_id has primary_provider=0 as a placeholder.
+    /// MemberInfo slot_id may carry an unbound primary-provider sentinel.
     /// @returns Pointer to the matching MemberInfo, or nullptr if not a member.
     [[nodiscard]] virtual const MemberInfo* FindMember(const CryptoResourceId& slot) const noexcept = 0;
 

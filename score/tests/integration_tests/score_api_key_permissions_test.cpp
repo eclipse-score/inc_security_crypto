@@ -575,6 +575,20 @@ TEST_P(SlotPolicyTest, SlotAllowedOperationsGovernsMacContext)
     }
 }
 
+TEST_P(SlotPolicyTest, ResolvedSlotCarriesItsPrimaryProvider)
+{
+    const auto test_data = GetParam();
+    const auto slot = m_ctx->ResolveResource(test_data.mac_slot, ResourceType::kKeySlot);
+    ASSERT_TRUE(slot.has_value()) << "Failed to resolve key slot: " << test_data.mac_slot;
+    ASSERT_NE(slot.value().primary_provider, kUnboundProviderId);
+
+    auto key_mgmt = MakeKeyMgmtContext(test_data.provider);
+    ASSERT_NE(key_mgmt, nullptr);
+    const auto key = key_mgmt->LoadKey(slot.value());
+    ASSERT_TRUE(key.has_value()) << "Failed to load key from slot: " << test_data.mac_slot;
+    EXPECT_EQ(slot.value().primary_provider, key.value().Id().primary_provider);
+}
+
 INSTANTIATE_TEST_SUITE_P(PerProvider,
                          SlotPolicyTest,
                          ::testing::Values(

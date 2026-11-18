@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
     name = "data_plane_client",
@@ -39,13 +39,28 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/api/common:crypto_common",
-        "//score/crypto/src/api/types:types",
         "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/api/types",
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",
         "//score/crypto/src/daemon/mediator:mediator_operations",
-        "@score_communication//score/memory/shared",
         "@score_baselibs//score/mw/log",
+        "@score_communication//score/memory/shared",
+    ],
+)
+
+cc_test(
+    name = "shm_memory_allocator_test",
+    srcs = ["src/shm_memory_allocator_test.cpp"],
+    deps = [
+        ":data_plane_client",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/api/types",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
+        "//score/crypto/src/daemon/mediator:mediator_operations",
+        "@googletest//:gtest_main",
     ],
 )
