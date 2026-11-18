@@ -98,8 +98,8 @@ class MediatorContextCreationTest : public ::testing::Test
         request.request_id = 1U;
         request.client_id = kClient;
         request.data_node_id = node_id;
-        request.operation.operations = std::move(operations);
-        return m_mediator->processRequest(request).operation.operations;
+        request.operations = std::move(operations);
+        return m_mediator->processRequest(request).operations;
     }
 
     control_plane::protocol::SingleOperationResponse CreateContext(common::RequestParameters parameters)

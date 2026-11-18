@@ -360,9 +360,10 @@ class RecordingDataManager final : public data_manager::IDataManager
         return m_inner.deleteNode(client_id, node_id);
     }
 
-    Expected<std::monostate, common::DaemonErrorCode> deleteClientNodes(data_manager::ClientId client_id) override
+    Expected<std::monostate, common::DaemonErrorCode> deleteClientNodes(data_manager::ClientId client_id,
+                                                                        bool ignore_missing = false) override
     {
-        return m_inner.deleteClientNodes(client_id);
+        return m_inner.deleteClientNodes(client_id, ignore_missing);
     }
 
     Expected<std::monostate, common::DaemonErrorCode> releaseNodeAccessor(
