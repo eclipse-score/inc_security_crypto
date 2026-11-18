@@ -4,9 +4,13 @@
 # This seems to be an issue with llvm and not the changes
 # Disabling these for now.
 # -cppcoreguidelines-noexcept-destructor,-performance-noexcept-destructor
+# Same for:
+# -cppcoreguidelines-noexcept-move-operations, -performance-noexcept-move-constructor
 
 Checks: >
-  -*, clang-analyzer-*, cert-*, cppcoreguidelines-*, bugprone-*, misc-*, performance-*, readability-*,-cppcoreguidelines-noexcept-destructor,-performance-noexcept-destructor
+  -*, clang-analyzer-*, cert-*, cppcoreguidelines-*, bugprone-*, misc-*, performance-*, readability-*,
+  -cppcoreguidelines-noexcept-destructor, -performance-noexcept-destructor,
+  -cppcoreguidelines-noexcept-move-operations, -performance-noexcept-move-constructor
 # Only treat critical checks as errors, others are warnings
 # NOTE: the `WarningsAsErrors` property is yet subject to be tailored for the enabled checks
 WarningsAsErrors: >

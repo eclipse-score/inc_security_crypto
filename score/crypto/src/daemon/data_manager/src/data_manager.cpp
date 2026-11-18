@@ -188,6 +188,7 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DataMan
     {
         if (ignoreMissing)
         {
+            m_id_counter_per_client.erase(clientId);
             return std::monostate{};
         }
 
@@ -204,6 +205,11 @@ Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> DataMan
         {
             result = make_unexpected(subResult.error());
         }
+    }
+
+    if (result.has_value())
+    {
+        m_id_counter_per_client.erase(clientId);
     }
 
     return result;

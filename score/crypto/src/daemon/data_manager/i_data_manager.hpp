@@ -143,6 +143,7 @@ class IDataManager
      *
      * Iterates over every root-level entry node registered for @p clientId and
      * recursively removes the whole subtree beneath each one.
+     * This is terminal cleanup and must only be called after the client can no longer submit requests.
      *
      * @param clientId  Identifier of the client whose nodes should be removed.
      * @param ignoreMissing If true, silently ignore if the clientId is not found; otherwise return an error.
