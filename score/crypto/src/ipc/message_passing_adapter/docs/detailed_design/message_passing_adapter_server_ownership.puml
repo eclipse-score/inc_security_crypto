@@ -1,0 +1,161 @@
+' *******************************************************************************
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' https://www.apache.org/licenses/LICENSE-2.0
+'
+' SPDX-License-Identifier: Apache-2.0
+' *******************************************************************************
+
+@startuml message_passing_adapter_server_ownership
+!theme plain
+
+skinparam linetype ortho
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam class {
+    BackgroundColor #F1F7F5
+    BorderColor #376A78
+    FontColor #20313A
+}
+skinparam class<<thread>> {
+    BackgroundColor #FFF4E0
+    BorderColor #B07020
+}
+skinparam package {
+    BorderColor #80909B
+    FontColor #20313A
+}
+skinparam note {
+    BackgroundColor #FFFBE6
+    BorderColor #B0A060
+}
+hide empty members
+hide circle
+
+title Server-Side Ownership and Work Execution
+
+legend top left
+    | ""*--"" | owns (value member or unique_ptr) |
+    | ""o--"" | shares ownership (shared_ptr) |
+    | ""-->"" | non-owning reference |
+    | ""..>"" | calls back |
+    | <<thread>> | runs on its own OS thread |
+endlegend
+
+package "Crypto Daemon Process (daemon.cpp)" as DaemonProcess {
+    class "main()" as Main
+}
+
+package "Daemon Control Plane" as ControlPlane {
+    interface "IControlServer" as IControlServer
+    interface "IRequestHandler" as IRequestHandler
+    class "Handler chain" as HandlerChain {
+        ConnectionHandler
+        → ShmRequestHandler
+        → MediatorImpl
+    }
+}
+
+package "SCORE Message Passing" as Transport {
+    interface "IServerConnection" as IServerConnection
+    class "IServer" as IServer <<thread>> {
+        transport callback thread
+    }
+}
+
+package "Message-Passing Adapter Server Side" as ServerSide {
+    class "MessagePassingControlServer" as Server
+    class "FlatBufferCodec" as Codec
+    class "ServerStateMachine" as StateMachine
+
+    class "WorkItemDispatcher" as Dispatcher
+    class "SessionManager" as SessionManager {
+        m_authorization : AuthorizationCallback
+        m_cleanup_callback : DisconnectCleanupCallback
+    }
+    class "SessionRegistry" as SessionRegistry {
+        m_connections : map<IServerConnection*, shared_ptr<Session>>
+    }
+    class "Session" as Session {
+        m_work_items : map<RequestId, shared_ptr<WorkItem>>
+    }
+    class "WorkItem" as WorkItem {
+        m_session : weak_ptr<Session>
+    }
+
+    interface "IWorkItemSubmitter" as IWorkItemSubmitter
+    class "WorkItemSubmission" as Submission {
+        session : shared_ptr<Session>
+        item : shared_ptr<WorkItem>
+    }
+    class "FixedWorkerWorkItemExecutor" as Executor {
+        m_worker_busy : vector<bool>[N]
+        m_assigned_work_items : {WorkItemSubmission, job}[N]
+        m_assigned_cleanup_jobs : CleanupJob[N]
+        m_worker_conditions : condition_variable[N]
+        m_cleanup_jobs : deque, max kCleanupQueueCapacity
+        m_handler_factory : HandlerFactory
+        m_mutex : one lock for all slots
+        --
+        TrySubmitWorkItem() : selects the worker
+        TrySubmitCleanup() : selects a worker or queues
+    }
+    class "Worker thread [i]" as Worker <<thread>> {
+        N = kWorkerThreads
+        handler : unique_ptr<IRequestHandler>, created at Start()
+    }
+}
+
+Main *-- Server : unique_ptr<IControlServer>
+
+Server ..|> IControlServer
+HandlerChain ..|> IRequestHandler
+
+Server *-- IServer
+Server *-- StateMachine
+Server *-- Codec
+Server *-- SessionManager
+Server *-- Dispatcher
+Server *---- Executor
+IServer ..> Server : OnConnect / OnDisconnect / OnRequest
+
+SessionManager *-- SessionRegistry
+SessionManager --> IWorkItemSubmitter : passes to sessions
+SessionRegistry "1" o-- "0..kMaxTotalConnections" Session
+Session "1" o-- "0..kMaxOutstandingOperationsPerConnection" WorkItem
+Session --> IServerConnection : Respond() → Notify()
+Session --> IWorkItemSubmitter : TrySubmitCleanup()
+
+Dispatcher --> SessionManager : FindSessionForRequest()
+Dispatcher --> Codec
+Dispatcher --> IWorkItemSubmitter : TrySubmitWorkItem()
+
+IWorkItemSubmitter <|.. Executor
+Executor "1" *-- "N" Worker
+Executor "1" *-- "0..N" Submission : assigned slots
+Session --o Submission
+WorkItem --o Submission
+Worker *-- HandlerChain : reused for every request
+
+note left of Executor
+    **Worker selection** (TrySubmitWorkItem, on the transport callback thread)
+    1. Lock m_mutex.
+    2. Scan m_worker_busy from index 0; take the first idle worker i.
+    3. Move the submission and job into slot i,
+        set m_worker_busy[i] = true, notify m_worker_conditions[i].
+    4. No idle worker: return kProviderBusy. Operations are never queued;
+        WorkItemDispatcher answers the request with an error response.
+
+    **Cleanup jobs** use the same first-fit scan, but are queued in
+    m_cleanup_jobs when no worker is idle. A worker that finishes a job
+    takes the next queued cleanup job before it becomes idle again.
+end note
+
+@enduml

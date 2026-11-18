@@ -13,7 +13,7 @@
 
 #include "score/crypto/src/daemon/cert_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/cert_management/policy/access_policy_enforcer.hpp"
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 #include "score/mw/log/logging.h"
 
@@ -138,7 +138,7 @@ void CertSlotRegistry::RegisterAppResource(uint32_t uid,
 score::crypto::Expected<CertSlotHandle, score::crypto::daemon::common::DaemonErrorCode>
 CertSlotRegistry::ResolveAppResource(const std::string& app_resource_id, data_manager::ClientId client_id) const
 {
-    const uint32_t uid = control_plane::protocol::GetUidFromClientId(client_id);
+    const uint32_t uid = common::GetUidFromClientId(client_id);
 
     const auto uid_it = m_app_resource_map.find(uid);
     if (uid_it == m_app_resource_map.end())

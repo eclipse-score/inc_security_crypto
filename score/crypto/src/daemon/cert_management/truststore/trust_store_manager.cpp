@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 #include "score/crypto/src/daemon/cert_management/truststore/trust_store_manager.hpp"
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 #include "score/mw/log/logging.h"
 
@@ -122,7 +122,7 @@ score::crypto::Expected<TrustStoreHandle, Error> TrustStoreManager::ResolveAppRe
     const std::string& app_resource_id,
     data_manager::ClientId client_id) const
 {
-    const uint32_t uid = control_plane::protocol::GetUidFromClientId(client_id);
+    const uint32_t uid = common::GetUidFromClientId(client_id);
     const auto resources = m_app_resource_map.find(uid);
     if (resources == m_app_resource_map.end())
     {

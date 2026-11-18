@@ -40,11 +40,6 @@ using tests::utility::read_bin;
 
 namespace
 {
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
 
 struct SignatureCase
 {
@@ -128,9 +123,7 @@ class SignatureIntegrationTest : public ::testing::TestWithParam<SignatureCase>
   protected:
     static void SetUpTestSuite()
     {
-        CryptoStackConfig stack_config;
-        stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-        auto stack_result = CreateCryptoStack(stack_config);
+        auto stack_result = CreateCryptoStack();
         ASSERT_TRUE(stack_result.has_value());
         stack_ = std::move(stack_result.value());
 
@@ -581,9 +574,7 @@ class RsaPssVectorTest : public ::testing::TestWithParam<RsaPssVector>
   protected:
     void SetUp() override
     {
-        CryptoStackConfig stack_config;
-        stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-        auto stack_result = CreateCryptoStack(stack_config);
+        auto stack_result = CreateCryptoStack();
         ASSERT_TRUE(stack_result.has_value());
         stack_ = std::move(stack_result.value());
 

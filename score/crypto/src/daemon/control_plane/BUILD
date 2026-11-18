@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
     name = "control_operations",
@@ -19,6 +19,7 @@ cc_library(
     visibility = [
         "//:__subpackages__",
     ],
+    linkstatic = True,
     deps = ["//score/crypto/src/daemon/common"],
 )
 
@@ -29,10 +30,12 @@ cc_library(
         "i_request_handler.hpp",
     ],
     visibility = ["//:__subpackages__"],
+    linkstatic = True,
     deps = [
-        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/common:common_types",
+        "//score/crypto/src/daemon/common",
         "@score_baselibs//score/mw/log",
-        "@score_baselibs//score/result",
     ],
 )
 
@@ -45,12 +48,11 @@ cc_library(
     ],
     hdrs = [
         "basic_handler_chain_factory.hpp",
-        "control_protocol.h",
         "i_control_server.h",
         "i_handler_chain_factory.hpp",
         "i_request_handler.hpp",
     ],
-    linkstatic = True,  # Internal library should only be statically linked
+    linkstatic = True,
     visibility = ["//:__subpackages__"],
     deps = [
         ":control_operations",
@@ -60,6 +62,7 @@ cc_library(
         "//score/crypto/src/daemon/data_plane",
         "//score/crypto/src/daemon/mediator",
         "//score/crypto/src/daemon/provider:provider_manager",
+        "@score_baselibs//score/language/futurecpp",
         "@score_baselibs//score/mw/log",
         "@score_baselibs//score/result",
     ],

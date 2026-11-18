@@ -43,8 +43,7 @@ score_coverage_scope(
         "//score/crypto/src/daemon/provider:provider_manager_factory",
         "//score/crypto/src/daemon/cert_management:cert_object_response_builder",
         "//score/crypto/src/daemon/provider/cert_management:cert_management_operation_codes",
-
-        "//score/crypto/src/ipc/grpc_adapter:grpc_control_server",
+        "//score/crypto/src/ipc/message_passing_adapter:message_passing_server",
         "//score/cryptoki:cryptoki_cdylib_wrapped",
         "//score/cryptoki:cryptoki_headers",
         "//score/cryptoki:cryptoki_lib",

@@ -53,6 +53,16 @@ enum class ResourcePersistence : uint8_t
 ///
 /// The id is interpreted together with its resource type, persistence, and
 /// primary provider. Handles are resolved and authorized by the daemon.
+///
+/// @par Validity
+/// The returned CryptoResourceId is scoped to the connection of this
+/// ICryptoContext. It is valid only while this ICryptoContext, or at least one
+/// context created from it (hash, MAC, key management, ...), is alive.
+/// Once the last of them is destroyed, the daemon may release the resolved
+/// resource, and the handle must not be used again. Re-resolve it through a
+/// new ICryptoContext instead. Using a CryptoResourceId with a context
+/// that belongs to a different connection returns kInvalidResourceId.
+/// Copying the ID does not extend its validity.
 struct CryptoResourceId
 {
     uint64_t id{0U};                                                   ///< Daemon-assigned resource identifier.

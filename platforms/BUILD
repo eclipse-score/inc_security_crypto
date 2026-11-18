@@ -12,7 +12,7 @@
 # *******************************************************************************
 # Custom platform definitions for QNX builds
 # This wraps the score_bazel_platforms platform and adds the standard @platforms//os:qnx
-# constraint so that select() statements in external dependencies (grpc, abseil) can match it.
+# constraint so that select() statements in external dependencies (softHSM) can match it.
 
 platform(
     name = "x86_64-qnx-extended",
@@ -48,6 +48,12 @@ config_setting(
         "@platforms//os:qnx",
         "@platforms//cpu:x86_64",
     ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "is_qnx",
+    constraint_values = ["@platforms//os:qnx"],
     visibility = ["//visibility:public"],
 )
 

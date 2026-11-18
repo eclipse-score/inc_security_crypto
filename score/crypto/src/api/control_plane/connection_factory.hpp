@@ -25,12 +25,15 @@
 namespace score::crypto::api::control_plane
 {
 
-/// Factory for creating control client nodes
-/// Handles the creation and initialization of node connections to the daemon
+/// Factory for creating control client nodes.
+/// Connections for the same endpoint share one opened daemon-side connection
+/// and one underlying message-passing transport while a strong connection owner exists.
 class ConnectionFactory
 {
   public:
+    /// @brief Creates a factory for shared control-plane connections.
     ConnectionFactory() = default;
+    /// @brief Releases this factory without closing connections still held by callers.
     ~ConnectionFactory() = default;
 
     // Disable copy, allow move
@@ -39,7 +42,11 @@ class ConnectionFactory
     ConnectionFactory(ConnectionFactory&&) = default;
     ConnectionFactory& operator=(ConnectionFactory&&) = default;
 
-    Expected<std::unique_ptr<IConnection>, score::crypto::CryptoErrorCode> CreateConnection(std::string_view endpoint);
+    /// @brief Establishes or reuses the shared connection for an endpoint.
+    /// @param endpoint Service endpoint identifying the daemon.
+    /// @return The shared connection, or the error that prevented establishment.
+    Expected<std::shared_ptr<IConnection>, score::crypto::CryptoErrorCode> EstablishConnection(
+        std::string_view endpoint);
 };
 
 }  // namespace score::crypto::api::control_plane

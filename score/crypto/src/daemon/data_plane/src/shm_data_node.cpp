@@ -13,27 +13,42 @@
 
 #include "score/crypto/src/daemon/data_plane/src/shm_data_node.hpp"
 
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/mw/log/logging.h"
 
-#include <chrono>
+#include <sys/types.h>
+#include <unistd.h>
+#include <atomic>
+#include <cstdint>
+#include <limits>
+#include <string>
 #include <utility>
 
 namespace
 {
 constexpr std::string_view LOG_PREFIX = "[SHM_DATA_NODE] ";
-}
+
+constexpr std::string_view SHM_NAME_PREFIX = "/score_crypto_";
+
+constexpr std::size_t kMaxUidDigits = static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::digits10) + 1U;
+constexpr std::size_t kMaxPidDigits = static_cast<std::size_t>(std::numeric_limits<pid_t>::digits10) + 1U;
+constexpr std::size_t kMaxCounterDigits = static_cast<std::size_t>(std::numeric_limits<std::uint64_t>::digits10) + 1U;
+constexpr std::size_t kNameSeparatorLength = 1U;
+constexpr std::size_t kMaxShmNameLength = SHM_NAME_PREFIX.size() + kMaxUidDigits + kNameSeparatorLength +
+                                          kMaxPidDigits + kNameSeparatorLength + kMaxCounterDigits;
+static_assert(kMaxShmNameLength <= score::crypto::FixedCapacityString<64>::max_capacity,
+              "SHM name may be truncated by FixedCapacityString");
+}  // namespace
 
 namespace score::crypto::daemon::data_plane
 {
 
 score::crypto::FixedCapacityString<64> ShmDataNode::GetShmName(std::uint32_t uid)
 {
-    const auto epoch_ns =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch())
-            .count();
-    return score::crypto::FixedCapacityString<64>{std::string("/score_crypto_") + std::to_string(uid) + "_" +
-                                                  std::to_string(epoch_ns)};
+    static std::atomic<std::uint64_t> counter{0};
+    const auto rolling_counter = counter.fetch_add(1, std::memory_order_relaxed);
+    return score::crypto::FixedCapacityString<64>{std::string(SHM_NAME_PREFIX) + std::to_string(uid) + "_" +
+                                                  std::to_string(::getpid()) + "_" + std::to_string(rolling_counter)};
 }
 
 Expected<std::shared_ptr<ShmDataNode>, common::DaemonErrorCode> ShmDataNode::Create(
@@ -42,7 +57,7 @@ Expected<std::shared_ptr<ShmDataNode>, common::DaemonErrorCode> ShmDataNode::Cre
     std::size_t size,
     data_manager::ClientId client_id)
 {
-    const auto uid = control_plane::protocol::GetUidFromClientId(client_id);
+    const auto uid = common::GetUidFromClientId(client_id);
     const auto name = GetShmName(uid);
 
     // 1. Validate inputs
@@ -119,7 +134,7 @@ ShmDataNode::~ShmDataNode()
     // 2. Unregister from quota tracker (if registry still alive)
     if (auto registry = m_registry.lock())
     {
-        const auto uid = control_plane::protocol::GetUidFromClientId(m_client_id);
+        const auto uid = common::GetUidFromClientId(m_client_id);
         registry->Unregister(uid, m_size);
     }
 }

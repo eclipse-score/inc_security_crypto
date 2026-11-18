@@ -129,6 +129,15 @@ bool Config::ParseCertManagementSection(const ConfigFile& file)
     return true;
 }
 
+bool Config::ParseIpcSection(const ConfigFile& file)
+{
+    // TODO: For now, we simply set the default endpoint, which is already handled by IPCConfig's default ctor.
+    // Once we implement the full config concept,
+    // we can extend the fbs file with all IPC-related settings and parse them here.
+    static_cast<void>(file);
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // ParseConfig — orchestrates all component section parsers
 // ---------------------------------------------------------------------------
@@ -207,6 +216,11 @@ bool Config::ParseConfig()
     }
 
     if (!ParseCertManagementSection(file.value()))
+    {
+        return false;
+    }
+
+    if (!ParseIpcSection(file.value()))
     {
         return false;
     }

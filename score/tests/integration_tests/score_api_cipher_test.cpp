@@ -68,12 +68,6 @@ using tests::utility::read_bin;
 namespace
 {
 
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
-
 // =========================================================================
 // NIST CAVP AES-CBC vectors
 // =========================================================================
@@ -300,10 +294,7 @@ TEST_P(CipherRoundTripTest, EncryptDecryptRoundTrip)
     // =========================================================================
     // 1. Create the crypto stack and a crypto context
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -500,10 +491,7 @@ TEST_P(KeySlotCipherTest, MatchesNistVector)
     // =========================================================================
     // 1. Create the crypto stack and a crypto context
     // =========================================================================
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto& stack = stack_result.value();
 
@@ -676,9 +664,7 @@ TEST_P(KeySlotCipherTest, AcceptsEmptyInput)
     NistCbcVector vector;
     ASSERT_TRUE(LoadNistCbcVector(test_data.vector_dir, test_data.vector_prefix, vector));
 
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto ctx_result = stack_result.value()->CreateCryptoContext();
     ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";
@@ -884,9 +870,7 @@ INSTANTIATE_TEST_SUITE_P(NistVectorsOnSoftwareProvider,
 /// AES-256-CBC nor AES-128-CBC.
 TEST(KeySlotBindingTest, SlotWhoseKeyLengthDiffersFromItsLabelIsRefused)
 {
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     ASSERT_TRUE(stack_result.has_value()) << "Failed to create crypto stack";
     auto ctx_result = stack_result.value()->CreateCryptoContext();
     ASSERT_TRUE(ctx_result.has_value()) << "Failed to create crypto context";

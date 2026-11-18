@@ -20,6 +20,7 @@ namespace score::crypto::daemon::provider::score_provider
 
 bool ScoreProvider::Initialize(const ProviderInitContext& ctx)
 {
+    std::lock_guard<std::mutex> lock(m_initialization_mutex);
     if (m_initialized)
     {
         return true;
@@ -48,10 +49,12 @@ bool ScoreProvider::InitialiseBackend(const ProviderInitContext& /*ctx*/)
 
 void ScoreProvider::Shutdown()
 {
+    std::lock_guard<std::mutex> lock(m_initialization_mutex);
     if (!m_initialized)
     {
         return;
     }
+
     m_handler_factory.reset();
     m_initialized = false;
 }
@@ -73,6 +76,7 @@ const common::ProviderName& ScoreProvider::GetProviderName() const
 
 std::shared_ptr<handler::ICryptoHandlerFactory> ScoreProvider::GetCryptoHandlerFactory()
 {
+    std::lock_guard<std::mutex> lock(m_initialization_mutex);
     if (!m_handler_factory)
     {
         m_handler_factory = CreateHandlerFactory();

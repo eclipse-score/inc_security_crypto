@@ -38,8 +38,9 @@ namespace crypto
 {
 
 ShmMemoryFactory::ShmMemoryFactory(std::shared_ptr<IShmRegionRegistry> registry,
-                                   std::shared_ptr<score::crypto::api::control_plane::IConnection> connection)
-    : m_registry{std::move(registry)}, m_connection{std::move(connection)}
+                                   std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
+                                   std::chrono::milliseconds operation_timeout)
+    : m_registry{std::move(registry)}, m_connection{std::move(connection)}, m_operation_timeout{operation_timeout}
 {
 }
 
@@ -80,7 +81,8 @@ score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Crea
     // owned by the ShmReadWriteMemory and passed in when the callback is invoked, so the callback does not
     // capture any factory state and stays valid even if this factory has been destroyed.
     DestroyRequestCallback destroy_callback =
-        [](std::uint64_t node_id, const std::shared_ptr<score::crypto::api::control_plane::IConnection>& connection) {
+        [operation_timeout = m_operation_timeout](
+            std::uint64_t node_id, const std::shared_ptr<score::crypto::api::control_plane::IConnection>& connection) {
             if (connection != nullptr)
             {
                 auto destroy_req = protocol::OperationRequestBuilder()
@@ -90,9 +92,9 @@ score::crypto::Expected<ShmCreateResult, CryptoErrorCode> ShmMemoryFactory::Crea
                 if (destroy_req.has_value())
                 {
                     protocol::ControlRequest ctrl_req{};
-                    ctrl_req.operation = destroy_req.value();
+                    ctrl_req.operations = destroy_req.value();
                     ctrl_req.data_node_id = connection->GetConnectionNodeId();
-                    connection->SendRequest(ctrl_req);
+                    connection->SendRequest(ctrl_req, operation_timeout);
                 }
                 else
                 {

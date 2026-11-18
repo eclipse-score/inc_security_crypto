@@ -14,6 +14,13 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_foreign_cc//foreign_cc:defs.bzl", "configure_make")
 
+_QNX_SDP_ENV_FIXUP = select({
+    "//platforms:is_qnx": "env" +
+                          " QNX_HOST=\"$$(cd $$EXT_BUILD_ROOT && realpath -ms -- \"$${QNX_HOST#/proc/self/cwd/}\")\"" +
+                          " QNX_TARGET=\"$$(cd $$EXT_BUILD_ROOT && realpath -ms -- \"$${QNX_TARGET#/proc/self/cwd/}\")\"",
+    "//conditions:default": "",
+})
+
 # OpenSSL build using rules_foreign_cc
 # Configure options reference for OpenSSL 3.6.1:
 # https://github.com/openssl/openssl/blob/openssl-3.6.1/INSTALL.md
@@ -22,6 +29,7 @@ configure_make(
     args = ["-j$(nproc)"],
     configure_command = "Configure",  # OpenSSL uses Configure, not configure
     configure_in_place = False,  # Avoid path conflicts with QCC
+    configure_prefix = _QNX_SDP_ENV_FIXUP,
     configure_options = select({
         "//platforms:is_qnx_aarch64": ["qnx-aarch64"],  #Patched openssl main.conf
         "//platforms:is_qnx_x86_64": ["qnx-x86_64"],  #Patched openssl main.conf
@@ -86,18 +94,7 @@ configure_make(
         "--openssldir=$${INSTALLDIR}",
         "--libdir=lib",
     ],
-    env = select({
-        "//platforms:is_qnx_aarch64": {
-            # Override toolchain paths to use absolute paths instead of /proc/self/cwd
-            "QNX_HOST": "$${PWD}/external/score_bazel_cpp_toolchains++gcc+score_qcc_aarch64_toolchain_pkg/host/linux/x86_64",
-            "QNX_TARGET": "$${PWD}/external/score_bazel_cpp_toolchains++gcc+score_qcc_aarch64_toolchain_pkg/target/qnx",
-        },
-        "//platforms:is_qnx_x86_64": {
-            "QNX_HOST": "$${PWD}/external/score_bazel_cpp_toolchains++gcc+score_qcc_x86_64_toolchain_pkg/host/linux/x86_64",
-            "QNX_TARGET": "$${PWD}/external/score_bazel_cpp_toolchains++gcc+score_qcc_x86_64_toolchain_pkg/target/qnx",
-        },
-        "//conditions:default": {},
-    }),
+    tool_prefix = _QNX_SDP_ENV_FIXUP,
     lib_source = "@openssl_source//:all",
     out_include_dir = "include",
     out_lib_dir = "lib",

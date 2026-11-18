@@ -1,0 +1,99 @@
+// *******************************************************************************
+// Copyright (c) 2026 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache License Version 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// SPDX-License-Identifier: Apache-2.0
+// *******************************************************************************
+
+file_identifier "CCTL";
+
+namespace score.crypto.ipc.control;
+
+enum ShmDirection : uint8 {
+  In = 0,
+  InOut = 1,
+}
+
+table DataShm {
+  node_id: uint64;
+  offset: uint64;
+  size: uint64;
+  direction: ShmDirection;
+}
+
+union OperationParameter {
+  NoParam,
+  ValueBool,
+  ValueUint8,
+  ValueUint16,
+  ValueUint32,
+  ValueUint64,
+  DataBufferInBand,
+  String,
+  DataShm,
+}
+
+table SingleOperationRequest {
+  operation_id: OperationIdentifier;
+  parameter: [OperationParameter];
+}
+
+table SingleOperationResponse {
+  operation_id: OperationIdentifier;
+  result: OperationResult;
+  parameter: [OperationParameter];
+}
+
+table OperationIdentifier {
+  // {0, 0} is reserved for request-level error entries in ControlResponse.
+  operation_actor: uint16;
+  operation_action: uint16;
+}
+
+table OperationResult {
+  val: uint32;
+}
+
+table NoParam {}
+table ValueBool { val: bool; }
+table ValueUint8 { val: uint8; }
+table ValueUint16 { val: uint16; }
+table ValueUint32 { val: uint32; }
+table ValueUint64 { val: uint64; }
+table String { val: string; }
+table DataBufferInBand { val: [uint8]; }
+
+// ExecutionPolicy is an extension point to provide information to the daemon, how the operation should be executed
+// A primary use case for ExecutionPolicy could be to specify the priority of the operation.
+table ExecutionPolicy {
+}
+
+table ControlRequestMetaData {
+  request_id: uint64;
+  client_id: uint64;
+  execution_policy: ExecutionPolicy;
+  data_node_id: uint64;
+  // Remaining client request budget in milliseconds.
+  // On the daemon side, this is clamped to the max timeout
+  // We transfer a duration, since we cannot rely that both, server and client
+  // share the same clock source / epoch
+  timeout_ms: uint32 = 0;
+}
+
+table ControlRequest {
+  meta_data: ControlRequestMetaData;
+  operations: [SingleOperationRequest];
+}
+
+table ControlResponse {
+  request_id: uint64;
+  operations: [SingleOperationResponse];
+}
+
+root_type ControlRequest;

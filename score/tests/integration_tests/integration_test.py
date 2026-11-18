@@ -117,27 +117,6 @@ class TestCryptoDaemon:
         log_contents = daemon.get_log_contents()
         logger.info(f"crypto_daemon log contents:\n{log_contents}")
 
-    def test_daemon_control_socket_creation(self, target: Target, target_os: str):
-        """Test that crypto_daemon creates socket and handles SIGTERM."""
-        tmp_dir = "/opt" if target_os == "QNX" else "/tmp"
-        socket_path = f"{tmp_dir}/crypto_daemon.sock"
-        max_wait = 5
-        socket_found = False
-
-        for i in range(max_wait * 10):  # Check every 100ms
-            exit_code, _output = target.execute(f"test -S {socket_path}")
-            if exit_code == 0:
-                socket_found = True
-                logger.info(
-                    f"Unix domain socket {socket_path} created within {i * 0.1:.1f}s"
-                )
-                break
-            time.sleep(0.1)
-
-        assert socket_found, (
-            f"Unix domain socket {socket_path} was not created within {max_wait} seconds"
-        )
-
     def test_score_api_hash(self, target: Target, target_os: str, install_dir: str):
         """Test SCORE HASH API."""
         run_test_app(
