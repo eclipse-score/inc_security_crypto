@@ -417,10 +417,10 @@
 <li class="toctree-l3"><a class="reference internal" href="chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
 <li class="toctree-l3 current active"><a aria-current="page" class="current reference internal" href="#">Design Decisions</a></li>
 <li class="toctree-l3"><a class="reference internal" href="data_plane_architecture.html">Data Plane Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../score/crypto/src/ipc/docs/index.html">Crypto IPC Documentation</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="daemon_architecture.html">Crypto Daemon Component Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../score/crypto/src/ipc/message_passing_adapter/docs/index.html">IPC Message Passing Adapter</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
@@ -502,7 +502,7 @@
 <span id="crypto-design-decisions"></span><h1>Design Decisions<a class="headerlink" href="#design-decisions" title="Link to this heading">#</a></h1>
 <section id="abi-compatibility-for-ipc-layer-deferred-post-stabilisation">
 <h2>ABI Compatibility for IPC Layer (Deferred Post-Stabilisation)<a class="headerlink" href="#abi-compatibility-for-ipc-layer-deferred-post-stabilisation" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-12171dfd">
+<div class="need_container docutils container" id="SNCB-dc205af5">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__no_abi_compatibility_ipc">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -628,7 +628,7 @@ efficiently once the stack stabilises.</p>
 </section>
 <section id="cryptoresourceguard-lifetime-via-daemon-side-reference-counting">
 <h2>CryptoResourceGuard Lifetime via Daemon-Side Reference Counting<a class="headerlink" href="#cryptoresourceguard-lifetime-via-daemon-side-reference-counting" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-21637c5f">
+<div class="need_container docutils container" id="SNCB-86f6ee3b">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__cry_res_grd_lifetime">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -811,7 +811,7 @@ Memory cost is bounded by max concurrent keys (deployment-time constant).</p></l
 </section>
 <section id="shared-connection-anchor-for-persistent-resource-id-stability">
 <h2>Shared-Connection Anchor for Persistent Resource ID Stability<a class="headerlink" href="#shared-connection-anchor-for-persistent-resource-id-stability" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-b9b69b34">
+<div class="need_container docutils container" id="SNCB-6e37fa29">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__conn_anchor_persistent_ids">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -884,8 +884,8 @@ the same name by any stack return the identical <code class="docutils literal no
 namespace — IDs are not globally stable across application restarts or
 across different applications. This preserves the security property:
 IDs are per-application-unique and not externally predictable.</p></li>
-<li><p>Connection ID tracking is managed by the underlying IPC transport layer
-as an implementation detail, not exposed to library users.</p></li>
+<li><p>The IPC-assigned <a class="reference internal" href="../../../../score/crypto/src/ipc/docs/architecture/client_id_design.html#term-ClientId"><span class="xref std std-term">ClientId</span></a> scopes the connection; its construction and
+lifecycle are defined in <a class="reference internal" href="../../../../score/crypto/src/ipc/docs/architecture/client_id_design.html#ipc-client-id-assignment"><span class="std std-ref">Client ID Assignment and Scope</span></a>.</p></li>
 </ul>
 <section id="lifetime-strategy-deployment-choice">
 <h4>Lifetime Strategy (Deployment Choice)<a class="headerlink" href="#lifetime-strategy-deployment-choice" title="Link to this heading">#</a></h4>
@@ -945,7 +945,7 @@ the entire application lifetime even if the IDs are no longer used.</p></li>
 </section>
 <section id="algorithmid-as-fixedcapacitystring-64">
 <h2><code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code> as <code class="docutils literal notranslate"><span class="pre">FixedCapacityString&lt;64&gt;</span></code><a class="headerlink" href="#algorithmid-as-fixedcapacitystring-64" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-a82fd71e">
+<div class="need_container docutils container" id="SNCB-5713a9a5">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__alg_id_fixed_cap_str">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1039,7 +1039,7 @@ from untrusted input.</p></li>
 </section>
 <section id="algorithm-catalog-alongside-algorithmid">
 <h2>Algorithm Catalog Alongside <code class="docutils literal notranslate"><span class="pre">AlgorithmId</span></code><a class="headerlink" href="#algorithm-catalog-alongside-algorithmid" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-4f92310e">
+<div class="need_container docutils container" id="SNCB-15b55898">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__alg_catalog">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1171,7 +1171,7 @@ slot or key unusable until the configuration is migrated.</p></li>
 </section>
 <section id="synchronous-only-ipc-model">
 <h2>Synchronous-Only IPC Model<a class="headerlink" href="#synchronous-only-ipc-model" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-01b7fb72">
+<div class="need_container docutils container" id="SNCB-a8256acb">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__synchronous_ipc">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1264,7 +1264,7 @@ key to the context when the async result is consumed.</p></li>
 </section>
 <section id="context-reset-for-streaming-context-reuse">
 <h2>Context <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> for Streaming Context Reuse<a class="headerlink" href="#context-reset-for-streaming-context-reuse" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-7a32095d">
+<div class="need_container docutils container" id="SNCB-1fd62697">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__context_reset_reuse">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1353,13 +1353,13 @@ re-create continue to work unchanged.</p></li>
 <p>—</p>
 </section>
 </section>
-<section id="two-layer-per-call-timeout-with-daemon-side-enforcement">
-<h2>Two-Layer Per-Call Timeout with Daemon-Side Enforcement<a class="headerlink" href="#two-layer-per-call-timeout-with-daemon-side-enforcement" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-4778bd72">
+<section id="per-call-timeout-with-client-side-response-bound">
+<h2>Per-Call Timeout with Client-Side Response Bound<a class="headerlink" href="#per-call-timeout-with-client-side-response-bound" title="Link to this heading">#</a></h2>
+<div class="need_container docutils container" id="SNCB-67841bee">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__two_layer_timeout">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">Two-Layer Per-Call Timeout with Daemon-Side Enforcement</span></span></span></div>
+<div class="line"><span><span class="needs_title"><span class="needs_data">Per-Call Timeout with Client-Side Response Bound</span></span></span></div>
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
@@ -1399,18 +1399,26 @@ re-create continue to work unchanged.</p></li>
 </table>
 </div>
 </div>
-<p>Operation timeouts are enforced at two layers — a stack-wide default in
-<code class="docutils literal notranslate"><span class="pre">CryptoStackConfig</span></code> and a per-context override in <code class="docutils literal notranslate"><span class="pre">BaseContextConfig</span></code> with an
-explicit <code class="docutils literal notranslate"><span class="pre">DisableTimeout()</span></code> escape — with the daemon as the enforcement point.
-Client threads unblock on timeout; timed-out contexts transition to <code class="docutils literal notranslate"><span class="pre">kError</span></code>.</p>
+<p>Operation timeouts have two parts: the requested per-call deadline is forwarded
+to the daemon/provider, which is expected to honor it, and the library independently
+bounds its response wait. The requested duration comes from a stack-wide default
+in <code class="docutils literal notranslate"><span class="pre">CryptoStackConfig</span></code> or a per-context override in <code class="docutils literal notranslate"><span class="pre">BaseContextConfig</span></code>.
+<code class="docutils literal notranslate"><span class="pre">DisableTimeout()</span></code> selects the maximum request duration. The active
+message-passing transport caps that duration at <code class="docutils literal notranslate"><span class="pre">kMaximumRequestTimeout</span></code> minutes and gives
+the daemon a additional response grace period (<code class="docutils literal notranslate"><span class="pre">kTimeoutGracePeriod</span></code>) before the library
+unblocks. The grace is a transport compile-time setting, not a public runtime option. Other IPC
+adapters must provide their own bounded client-side wait; their grace behavior
+may differ.</p>
 <section id="id19">
 <h3>Context<a class="headerlink" href="#id19" title="Link to this heading">#</a></h3>
-<p>Without timeouts, a hung HSM or stalled IPC channel blocks the calling thread
-indefinitely — a safety violation for ISO 26262 ASIL functions. A single global
-timeout is insufficient because some legitimate operations (e.g., RSA-4096 key
-generation on software providers) require more time than typical operations.
-Client-side-only timeouts fail to release daemon-held resources when the deadline
-expires.</p>
+<p>Without a library-side bound, a hung HSM or stalled IPC channel could block the
+calling thread indefinitely — a safety violation for ISO 26262 ASIL functions.
+A single global timeout is insufficient because some legitimate operations
+(e.g., RSA-4096 key generation on software providers) require more time than
+typical operations. In an ASIL-B library / QM-only daemon deployment, the library
+must unblock even if the daemon/provider does not honor the requested timeout.
+That client-side bound cannot by itself prove that daemon-held resources were
+released.</p>
 </section>
 <section id="id20">
 <h3>Decision<a class="headerlink" href="#id20" title="Link to this heading">#</a></h3>
@@ -1419,36 +1427,47 @@ expires.</p>
 <li><p><strong>Client-side only (``std::future::wait_for``)</strong> — client unblocks after
 deadline, but the daemon continues executing the stalled operation, holding
 the resource. Does not provide bounded daemon resource usage.</p></li>
-<li><p><strong>Daemon-side only (watchdog thread per context)</strong> — daemon kills stalled
-operations after timeout and notifies client via error response. Provides
-bounded resource usage but requires the daemon to maintain one watchdog
-timer per in-flight context.</p></li>
-<li><p><strong>Two-layer: client deadline + daemon enforcement</strong> — client passes
-timeout value on each IPC call; daemon enforces the deadline server-side.
-If deadline expires, daemon transitions context to error, releases provider
-resources, and returns <code class="docutils literal notranslate"><span class="pre">kOperationTimedOut</span></code> to client. <code class="docutils literal notranslate"><span class="pre">DisableTimeout()</span></code>
-is available for legitimately long operations (e.g., RSA-4096 key generation
-on software providers).</p></li>
+<li><p><strong>Daemon/provider-side only</strong> — daemon/provider observes the requested
+timeout and reports the result. This relies on every daemon/provider
+implementation honoring the request and cannot bound the library’s wait if
+the response is lost or the implementation is QM-only/non-compliant.</p></li>
+<li><p><strong>Propagated request timeout + library response bound</strong> — the library sends
+the requested timeout to the daemon, and the daemon/provider are advised to
+respect it. The library allows a configured response grace after the
+requested timeout so a terminal operation status can arrive. If a terminal
+response arrives, the library returns that status (including
+<code class="docutils literal notranslate"><span class="pre">kOperationTimedOut</span></code>). If none arrives by timeout plus grace, the library
+unblocks with <code class="docutils literal notranslate"><span class="pre">kOperationResponseTimedOut</span></code>; daemon operation status is unknown.
+<code class="docutils literal notranslate"><span class="pre">DisableTimeout()</span></code> requests the maximum supported
+duration for legitimately long operations.</p></li>
 </ol>
-<p>Model 3 was selected for bounded behaviour at both layers.</p>
+<p>Model 3 was selected to combine daemon/provider cooperation with a guaranteed
+library-side response bound, without assuming the daemon has the same safety
+integrity level as the library.</p>
 </section>
 <section id="id21">
 <h3>Consequences<a class="headerlink" href="#id21" title="Link to this heading">#</a></h3>
 <p><strong>Positive:</strong></p>
 <ul class="simple">
-<li><p>Guaranteed bounded execution — no call blocks indefinitely.</p></li>
-<li><p>Daemon-side enforcement means provider resources are released on timeout,
-not just the client thread.</p></li>
+<li><p>The library’s response wait is bounded by the requested timeout plus grace,
+with the request duration capped at at a compile-time constant (<code class="docutils literal notranslate"><span class="pre">kMaximumRequestTimeout</span></code>).</p></li>
+<li><p>A daemon/provider that respects the requested timeout can stop work and report
+status by the deadline, allowing timely resource cleanup and an informative result.</p></li>
 <li><p>Per-context override allows fine-grained tuning without changing global config.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">DisableTimeout()</span></code> supports legitimate long-running operations without
-disabling safety globally.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DisableTimeout()</span></code> supports legitimate long-running operations by selecting
+the maximum request duration without changing the stack-wide default.</p></li>
 <li><p>Satisfies ISO 26262 Part 6 Table 1 (bounded execution time for safety functions).</p></li>
 </ul>
 <p><strong>Negative:</strong></p>
 <ul class="simple">
-<li><p>Daemon must maintain a per-context deadline and cancel infrastructure.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">DisableTimeout()</span></code> is a safety escape hatch; misuse (e.g., in Safety paths)
-must be justified in the application’s safety case.</p></li>
+<li><p>Daemon/provider deadline handling is cooperative: the requested timeout is
+forwarded and they are advised to honor it, but the library-side bound does
+not guarantee remote cancellation or cleanup.</p></li>
+<li><p>If the daemon/provider ignores the requested timeout, the library still unblocks
+but cannot guarantee the remote operation stopped.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DisableTimeout()</span></code> selects a long 10-minute request duration plus the
+message-passing grace; its use (e.g., in Safety paths) must be justified in
+the application’s safety case.</p></li>
 <li><p>Two-layer design adds complexity compared to a single global timeout.</p></li>
 </ul>
 <p>—</p>
@@ -1456,7 +1475,7 @@ must be justified in the application’s safety case.</p></li>
 </section>
 <section id="keyoperationpermission-as-a-capability-bitmask">
 <h2><code class="docutils literal notranslate"><span class="pre">KeyOperationPermission</span></code> as a Capability Bitmask<a class="headerlink" href="#keyoperationpermission-as-a-capability-bitmask" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-164d6628">
+<div class="need_container docutils container" id="SNCB-cb0e1a23">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__key_op_permission_bitmask">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1549,7 +1568,7 @@ callers can accidentally construct invalid combinations.</p></li>
 </section>
 <section id="unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split">
 <h2>Unified Cipher Context (No Encrypt/Decrypt or Symmetric/Asymmetric Split)<a class="headerlink" href="#unified-cipher-context-no-encrypt-decrypt-or-symmetric-asymmetric-split" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-f8e159ae">
+<div class="need_container docutils container" id="SNCB-5b906ff7">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__unified_enc_dec_contexts">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1648,7 +1667,7 @@ to non-AEAD operations — <code class="docutils literal notranslate"><span clas
 </section>
 <section id="imemoryallocator-separated-from-icryptostack">
 <h2><code class="docutils literal notranslate"><span class="pre">IMemoryAllocator</span></code> Separated from <code class="docutils literal notranslate"><span class="pre">ICryptoStack</span></code><a class="headerlink" href="#imemoryallocator-separated-from-icryptostack" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-912fd22c">
+<div class="need_container docutils container" id="SNCB-56a01141">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__memory_allocator_separation">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1745,7 +1764,7 @@ where a monolithic interface would require only one.</p></li>
 </section>
 <section id="control-plane-ipc-boundary-copy-with-daemon-internal-zero-copy-references">
 <h2>Control Plane IPC Boundary Copy with Daemon-Internal Zero-Copy References<a class="headerlink" href="#control-plane-ipc-boundary-copy-with-daemon-internal-zero-copy-references" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-25c46c85">
+<div class="need_container docutils container" id="SNCB-15cf0fc8">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__ipc_boundary_copy">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1861,7 +1880,7 @@ operations — zero-copy is safe there by design.</p>
 </section>
 <section id="per-operation-parameter-structs-with-dual-overloads">
 <h2>Per-Operation Parameter Structs with Dual Overloads<a class="headerlink" href="#per-operation-parameter-structs-with-dual-overloads" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-61f2ad7f">
+<div class="need_container docutils container" id="SNCB-8bd5eb18">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__per_op_params">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1996,7 +2015,7 @@ must outlive the struct. This is documented but not enforced at compile time.</p
 </ul>
 <section id="return-type-of-imemoryallocator-allocate">
 <h4>Return Type of IMemoryAllocator::Allocate()<a class="headerlink" href="#return-type-of-imemoryallocator-allocate" title="Link to this heading">#</a></h4>
-<div class="need_container docutils container" id="SNCB-c46026a3">
+<div class="need_container docutils container" id="SNCB-f37c09a5">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_dec_rec table" id="dec_rec__crypto__allocate_return_type">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -2156,7 +2175,7 @@ accessible via <code class="docutils literal notranslate"><span class="pre">IRea
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id18">Consequences</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#two-layer-per-call-timeout-with-daemon-side-enforcement">Two-Layer Per-Call Timeout with Daemon-Side Enforcement</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#per-call-timeout-with-client-side-response-bound">Per-Call Timeout with Client-Side Response Bound</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id19">Context</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id20">Decision</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id21">Consequences</a></li>
