@@ -76,16 +76,16 @@ Expected<std::size_t, common::DaemonErrorCode> GetKemCiphertextSize(
 }  // namespace
 
 Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaKeyFactory::GenerateKey(
-    const key_management::KeyGenerationRequest& r)
+    const key_management::KeyGenerationRequest& request)
 {
-    auto info = common::LookupPqcAlgorithm(r.algorithm);
+    auto info = common::LookupPqcAlgorithm(request.algorithm);
     if (!info ||
         ((info->kind != common::PqcAlgorithmKind::kSignature) && (info->kind != common::PqcAlgorithmKind::kKem)))
     {
         return make_unexpected(common::DaemonErrorCode::kUnsupportedAlgorithm);
     }
 
-    auto algorithm = Algorithm(r.algorithm);
+    auto algorithm = Algorithm(request.algorithm);
     if (!algorithm.has_value())
     {
         return make_unexpected(algorithm.error());
@@ -121,10 +121,10 @@ Expected<key_management::IKeyHandler::Sptr, common::DaemonErrorCode> IavPrimulaK
     key_management::ProviderKeyHandle h{};
     h.opaque_id = reinterpret_cast<std::uintptr_t>(key);
     h.provider_id = m_provider_id;
-    h.permissions = r.permissions;
-    h.public_key_permissions = r.public_key_permissions;
+    h.permissions = request.permissions;
+    h.public_key_permissions = request.public_key_permissions;
     h.is_asymmetric = true;
-    h.algorithm = r.algorithm;
+    h.algorithm = request.algorithm;
     h.key_size = info->private_key_size;
     h.material_kind = key_management::KeyMaterialKind::kPrivateKey;
     auto handler = std::make_shared<IavPrimulaKeyHandler>(key, std::move(pub), h);
