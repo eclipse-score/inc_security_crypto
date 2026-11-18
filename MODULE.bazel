@@ -162,26 +162,12 @@ use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
 # which activates Rust coverage without any custom toolchain instance.
 bazel_dep(name = "score_toolchains_rust", version = "0.10.1", dev_dependency = True)
 
-bazel_dep(name = "score_crates", version = "0.0.15")
+bazel_dep(name = "score_crates", version = "0.0.7")
 git_override(
     module_name = "score_crates",
     commit = "871234431b05bc99b249fb5db775bbe850ed7f0d",
     remote = "https://github.com/eclipse-score/score-crates.git",
 )
-
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", isolate = True)
-crate.from_cargo(
-    name = "crates",
-    cargo_lockfile = "//score/cryptoki:Cargo.lock",
-    manifests = ["//score/cryptoki:Cargo.toml"],
-    supported_platform_triples = [
-        "aarch64-unknown-linux-gnu",
-        "x86_64-unknown-linux-gnu",
-        "aarch64-unknown-nto-qnx710",
-        "x86_64-pc-nto-qnx710",
-    ],
-)
-use_repo(crate, "crates")
 
 # *******************************************************************************
 # QNX IFS (Image File System) toolchain for building boot images

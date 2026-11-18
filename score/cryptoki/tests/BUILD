@@ -11,9 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@crates//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_rust//rust:defs.bzl", "rust_test")
-
 
 filegroup(
     name = "rust_test_sources",
@@ -24,6 +22,7 @@ _COMMON_DEPS = [
     "//score/cryptoki:cryptoki_lib",
     "@score_crates//:libc",
     "@score_crates//:serde_json",
+    "@score_crates//:serial_test",
 ]
 
 _TESTS_WITH_COMMON = [
@@ -69,7 +68,7 @@ _FLAKY_TESTS = [
 ]
 
 _CPP_LINKER_FLAGS = select({
-    "@platforms//os:qnx": ["-Clink-arg=-lc++"],   # QNX uses libc++
+    "@platforms//os:qnx": ["-Clink-arg=-lc++"],  # QNX uses libc++
     "//conditions:default": ["-Clink-arg=-lstdc++"],
 }) + [
     "-Clink-arg=-lm",
@@ -82,49 +81,25 @@ _CPP_LINKER_FLAGS = select({
         name + ".rs",
         "common/mod.rs",
     ],
-    aliases = aliases(
-        package_name = "score/cryptoki",
-        normal_dev = True,
-        proc_macro_dev = True,
-    ),
     crate_root = name + ".rs",
     env = {"RUST_TEST_THREADS": "1"},
     flaky = name in _FLAKY_TESTS,
-    tags = ["flaky"] if name in _FLAKY_TESTS else [],
     rustc_flags = _CPP_LINKER_FLAGS,
+    tags = ["flaky"] if name in _FLAKY_TESTS else [],
     visibility = ["//visibility:public"],
-    proc_macro_deps = all_crate_deps(
-        package_name = "score/cryptoki",
-        proc_macro_dev = True,
-    ),
-    deps = _COMMON_DEPS + all_crate_deps(
-        package_name = "score/cryptoki",
-        normal_dev = True,
-    ),
+    deps = _COMMON_DEPS,
 ) for name in _TESTS_WITH_COMMON]
 
 [rust_test(
     name = name,
     srcs = [name + ".rs"],
-    aliases = aliases(
-        package_name = "score/cryptoki",
-        normal_dev = True,
-        proc_macro_dev = True,
-    ),
     crate_root = name + ".rs",
     env = {"RUST_TEST_THREADS": "1"},
     flaky = name in _FLAKY_TESTS,
-    tags = ["flaky"] if name in _FLAKY_TESTS else [],
     rustc_flags = _CPP_LINKER_FLAGS,
+    tags = ["flaky"] if name in _FLAKY_TESTS else [],
     visibility = ["//visibility:public"],
-    proc_macro_deps = all_crate_deps(
-        package_name = "score/cryptoki",
-        proc_macro_dev = True,
-    ),
-    deps = _COMMON_DEPS + all_crate_deps(
-        package_name = "score/cryptoki",
-        normal_dev = True,
-    ),
+    deps = _COMMON_DEPS,
 ) for name in _TESTS_NO_COMMON]
 
 test_suite(

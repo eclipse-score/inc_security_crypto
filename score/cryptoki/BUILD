@@ -24,22 +24,20 @@ filegroup(
 
 DEPS = [
     # --- Company Approved (Score Ecosystem) ---
+    "@score_crates//:argon2",
+    "@score_crates//:dirs",
     "@score_crates//:libc",
+    "@score_crates//:once_cell",
     "@score_crates//:openssl",
+    "@score_crates//:parking_lot",
+    "@score_crates//:parsec_client",
     "@score_crates//:serde",
     "@score_crates//:serde_json",
+    "@score_crates//:tempfile",
+    "@score_crates//:toml",
+    "@score_crates//:zeroize",
     "@score_baselibs//score/log_rust/score_log",
     "@score_logging//score/mw/log/rust/score_log_bridge",
-
-    # --- Community Fallback (Crate Universe) ---
-    "@crates//:argon2",
-    "@crates//:dirs",
-    "@crates//:once_cell",
-    "@crates//:parking_lot",
-    "@crates//:parsec-client",
-    "@crates//:tempfile",
-    "@crates//:toml",
-    "@crates//:zeroize",
 ]
 
 # Shared C/C++ linker flags required by score_log_bridge
