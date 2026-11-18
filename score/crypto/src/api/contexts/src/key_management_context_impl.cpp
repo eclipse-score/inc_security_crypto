@@ -425,8 +425,7 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::ImportKey(const Imp
 
 score::Result<std::size_t> KeyManagementContextImpl::GetExportKeySize(const CryptoResourceId& key, FormatType format)
 {
-    if (key.id == kInvalidCryptoResourceId || key.type != ResourceType::kKey ||
-        static_cast<std::uint8_t>(format) > static_cast<std::uint8_t>(FormatType::kRaw))
+    if (key.id == kInvalidCryptoResourceId)
     {
         return score::Result<std::size_t>{score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument)};
     }
@@ -454,8 +453,7 @@ score::Result<std::size_t> KeyManagementContextImpl::ExportKey(const CryptoResou
                                                                 score::cpp::span<uint8_t> output,
                                                                 FormatType format)
 {
-    if (key.id == kInvalidCryptoResourceId || key.type != ResourceType::kKey || output.data() == nullptr ||
-        static_cast<std::uint8_t>(format) > static_cast<std::uint8_t>(FormatType::kRaw))
+    if (key.id == kInvalidCryptoResourceId || output.data() == nullptr)
     {
         return score::Result<std::size_t>{score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument)};
     }

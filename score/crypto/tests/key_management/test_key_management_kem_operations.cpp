@@ -448,6 +448,54 @@ TEST_F(KeyManagementExecutorKemTest, KEMValidationRejectsWrongRoleMissingPermiss
 // Key operation permissions
 // ---------------------------------------------------------------------------
 
+TEST_F(KeyManagementExecutorKemTest, ExportOperationsValidateFormatsAndPermissionsInTheDaemon)
+{
+    struct Case
+    {
+        key_management::KeyMaterialKind kind;
+        Permission permissions;
+        score::crypto::FormatType format;
+        Error expected_error;
+    };
+    const std::array<Case, 3U> cases{{
+        {key_management::KeyMaterialKind::kPublicKey,
+         Permission::kExport,
+         static_cast<score::crypto::FormatType>(3U),
+         Error::kInvalidArgument},
+        {key_management::KeyMaterialKind::kPublicKey,
+         Permission::kNone,
+         score::crypto::FormatType::kRaw,
+         Error::kKeyOperationNotPermitted},
+        {key_management::KeyMaterialKind::kSharedSecret,
+         Permission::kDerive,
+         score::crypto::FormatType::kRaw,
+         Error::kKeyOperationNotPermitted},
+    }};
+
+    for (const auto& test_case : cases)
+    {
+        const auto key_id = RegisterSource(test_case.kind, test_case.permissions);
+        std::array<std::uint8_t, 4U> output{{0xA5U, 0xA5U, 0xA5U, 0xA5U}};
+        const auto original_output = output;
+        for (const auto action : {operations::KEY_GET_EXPORT_SIZE, operations::KEY_EXPORT})
+        {
+            common::RequestParameters request{
+                static_cast<std::uint64_t>(key_id), static_cast<std::uint32_t>(test_case.format)};
+            if (action == operations::KEY_EXPORT)
+            {
+                request.emplace_back(score::cpp::span<std::uint8_t>{output.data(), output.size()});
+            }
+
+            auto result = key_executor->Execute(
+                context, {common::actors::OP_ACTOR_KEY_MANAGEMENT, action}, request);
+
+            ASSERT_FALSE(result.has_value());
+            EXPECT_EQ(result.error(), test_case.expected_error);
+            EXPECT_EQ(output, original_output);
+        }
+    }
+}
+
 TEST_F(KeyManagementExecutorKemTest, PublicKeyPermissionsGovernEveryRequestedOperation)
 {
     const Permission granted = Permission::kAgree | Permission::kExport | Permission::kVerify;
@@ -1099,7 +1147,65 @@ TEST(KeyDerivationParamsTest, SharedSecretValidationPreservesKdfErrors)
     EXPECT_EQ(truncated_kdf.error(), score::crypto::MakeError(score::crypto::CryptoErrorCode::kParamTruncated));
 }
 
-TEST(KeyManagementContextKemTest, RejectsSharedSecretsAsKemInputKeysOrExportableKeys)
+TEST(KeyManagementContextTest, ExportRequestsDeferResourceAndFormatValidationToTheDaemon)
+{
+    struct Case
+    {
+        score::crypto::ResourceType type;
+        score::crypto::FormatType format;
+        score::crypto::CryptoErrorCode daemon_error;
+    };
+    const std::array<Case, 3U> cases{{
+        {score::crypto::ResourceType::kKeySlot,
+         score::crypto::FormatType::kRaw,
+         score::crypto::CryptoErrorCode::kInvalidResourceId},
+        {score::crypto::ResourceType::kKey,
+         static_cast<score::crypto::FormatType>(3U),
+         score::crypto::CryptoErrorCode::kInvalidArgument},
+        {score::crypto::ResourceType::kSharedSecret,
+         score::crypto::FormatType::kRaw,
+         score::crypto::CryptoErrorCode::kKeyOperationNotPermitted},
+    }};
+
+    for (const auto& test_case : cases)
+    {
+        auto connection = std::make_shared<RecordingConnection>();
+        auto registry = std::make_shared<score::crypto::ShmRegionRegistry>(1024U);
+        auto transcoder = std::make_shared<score::crypto::BufferShmTranscoder>(nullptr, registry);
+        score::crypto::KeyManagementContextImpl context{connection, 44U, transcoder};
+        auto key = KeyId(81U);
+        key.type = test_case.type;
+        std::array<std::uint8_t, 4U> output{};
+        registry->Register({90U, reinterpret_cast<std::uintptr_t>(output.data()), output.size(), false});
+
+        for (const auto action : {operations::KEY_GET_EXPORT_SIZE, operations::KEY_EXPORT})
+        {
+            auto reply = RecordingConnection::Success({common::actors::OP_ACTOR_KEY_MANAGEMENT, action}, {});
+            reply.operation.operations.front().result = static_cast<control::OperationResult>(test_case.daemon_error);
+            connection->replies.push_back(std::move(reply));
+        }
+
+        auto size = context.GetExportKeySize(key, test_case.format);
+        auto exported = context.ExportKey(key, {output.data(), output.size()}, test_case.format);
+
+        ASSERT_FALSE(size.has_value());
+        ASSERT_FALSE(exported.has_value());
+        EXPECT_EQ(size.error(), score::crypto::MakeError(test_case.daemon_error));
+        EXPECT_EQ(exported.error(), score::crypto::MakeError(test_case.daemon_error));
+        ASSERT_EQ(connection->requests.size(), 2U);
+        for (std::size_t i = 0U; i < connection->requests.size(); ++i)
+        {
+            const auto& operation = connection->requests[i].operation.operations.front();
+            EXPECT_EQ(operation.operationId.operationAction,
+                      i == 0U ? operations::KEY_GET_EXPORT_SIZE : operations::KEY_EXPORT);
+            ASSERT_GE(operation.parameters.size(), 2U);
+            EXPECT_EQ(std::get<std::uint64_t>(operation.parameters[0]), key.id);
+            EXPECT_EQ(std::get<std::uint32_t>(operation.parameters[1]), static_cast<std::uint32_t>(test_case.format));
+        }
+    }
+}
+
+TEST(KeyManagementContextKemTest, RejectsSharedSecretsAsKemInputKeys)
 {
     const std::shared_ptr<RecordingConnection> connection = std::make_shared<RecordingConnection>();
     score::crypto::KeyManagementContextImpl context{connection, 44U};
@@ -1117,22 +1223,15 @@ TEST(KeyManagementContextKemTest, RejectsSharedSecretsAsKemInputKeysOrExportable
     const score::Result<score::crypto::EncapsulationResult> encapsulated =
         context.EncapsulateKey(encapsulate, {output.data(), output.size()});
     const score::Result<score::crypto::CryptoResourceGuard> decapsulated = context.DecapsulateKey(decapsulate);
-    const score::Result<std::size_t> export_size = context.GetExportKeySize(secret, score::crypto::FormatType::kRaw);
-    const score::Result<std::size_t> exported =
-        context.ExportKey(secret, {output.data(), output.size()}, score::crypto::FormatType::kRaw);
 
     ASSERT_FALSE(size.has_value());
     ASSERT_FALSE(encapsulated.has_value());
     ASSERT_FALSE(decapsulated.has_value());
-    ASSERT_FALSE(export_size.has_value());
-    ASSERT_FALSE(exported.has_value());
     const score::result::Error invalid_argument =
         score::crypto::MakeError(score::crypto::CryptoErrorCode::kInvalidArgument);
     EXPECT_EQ(size.error(), invalid_argument);
     EXPECT_EQ(encapsulated.error(), invalid_argument);
     EXPECT_EQ(decapsulated.error(), invalid_argument);
-    EXPECT_EQ(export_size.error(), invalid_argument);
-    EXPECT_EQ(exported.error(), invalid_argument);
     EXPECT_TRUE(connection->requests.empty());
 }
 
