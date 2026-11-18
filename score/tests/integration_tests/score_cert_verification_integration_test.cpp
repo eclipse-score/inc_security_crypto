@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
@@ -31,6 +32,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -69,6 +71,11 @@ class CertificateVerificationIntegrationTest : public ::testing::Test
   protected:
     void SetUp() override
     {
+        ASSERT_NO_FATAL_FAILURE(OpenClient());
+    }
+
+    void OpenClient()
+    {
         score::crypto::CryptoStackConfig stack_config;
         stack_config.SetConnectionEndpoint(DaemonEndpoint());
         auto stack_result = score::crypto::CreateCryptoStack(stack_config);
@@ -87,6 +94,13 @@ class CertificateVerificationIntegrationTest : public ::testing::Test
         m_full_trust_store = ResolveTrustStore("verification_tls_roots");
         m_root_trust_store = ResolveTrustStore("verification_root_trust");
         m_intermediate_trust_store = ResolveTrustStore("verification_intermediate_roots");
+    }
+
+    void CloseClient()
+    {
+        m_management.reset();
+        m_context.reset();
+        m_stack.reset();
     }
 
     score::crypto::CryptoResourceId ResolveTrustStore(const char* name)
@@ -546,6 +560,251 @@ TEST_F(CertificateVerificationIntegrationTest, StandaloneAnchorAndVerificationTi
     auto future_result = verification->Verify();
     ASSERT_TRUE(future_result.has_value());
     EXPECT_EQ(*future_result, score::crypto::CertVerifyResult::kNotYetValid);
+}
+
+// Two 4 MiB SHM pools fill the 8 MiB per-uid quota, so the fixture's stack is closed while the workers run.
+constexpr std::size_t kConcurrentWorkers = 2U;
+constexpr std::size_t kIterationsPerWorker = 4U;
+
+/// What one worker observed. A worker writes only its own report, and the main thread reads the reports after join().
+struct VerificationWorkerReport
+{
+    std::size_t completed_iterations{0U};
+    std::vector<std::string> failures;
+};
+
+void RecordFailure(VerificationWorkerReport& report, std::string message)
+{
+    report.failures.push_back(std::move(message));
+}
+
+/// Verifies the leaf-intermediate-root chain and exports it. The worker releases its certificate handles once the
+/// verification context has taken their IDs, as the export test does, and checks the exported chain against the
+/// parsed one.
+void RunAcceptingVerification(score::crypto::ICryptoContext& context,
+                              score::crypto::ICertificateManagementContext& management,
+                              const score::crypto::CryptoResourceId& full_trust_store,
+                              VerificationWorkerReport& report)
+{
+    const auto chain_bytes = ReadFile(VectorPath("certificate/pki_chain/leaf.chain.pem"));
+    if (chain_bytes.empty())
+    {
+        RecordFailure(report, "leaf.chain.pem is empty");
+        return;
+    }
+    auto parsed = management.ParseCertificates(
+        score::cpp::span<const std::uint8_t>{chain_bytes.data(), chain_bytes.size()}, score::crypto::FormatType::kPem);
+    if (!parsed.has_value() || parsed->size() != 3U)
+    {
+        RecordFailure(report, "leaf.chain.pem did not parse to three certificates");
+        return;
+    }
+    const std::array<score::crypto::CryptoResourceId, 3U> chain_ids{
+        (*parsed)[0].Id(), (*parsed)[1].Id(), (*parsed)[2].Id()};
+
+    score::crypto::CertificateVerificationContextConfig config;
+    auto verification_result = context.CreateCertificateVerificationContext(config);
+    if (!verification_result.has_value())
+    {
+        RecordFailure(report, "CreateCertificateVerificationContext failed");
+        return;
+    }
+    auto verification = std::move(verification_result.value());
+
+    const score::cpp::span<const score::crypto::CryptoResourceId> chain_span{chain_ids.data(), chain_ids.size()};
+    if (!verification->SetCertificateChain(chain_span).has_value() ||
+        !verification->SetVerificationTrustStore(full_trust_store).has_value() ||
+        !verification->SetChainTerminationPolicy(score::crypto::ChainTerminationPolicy::kRootRequired).has_value() ||
+        !verification->SetEvidenceMode(score::crypto::VerificationEvidenceMode::kChain).has_value())
+    {
+        RecordFailure(report, "configuring the accepting verification failed");
+        return;
+    }
+
+    for (auto& certificate : *parsed)
+    {
+        if (!certificate.Release().has_value())
+        {
+            RecordFailure(report, "releasing a certificate handle failed");
+            return;
+        }
+    }
+
+    const auto result = verification->Verify();
+    if (!result.has_value() || *result != score::crypto::CertVerifyResult::kValid)
+    {
+        RecordFailure(report, "a valid chain did not verify as kValid");
+        return;
+    }
+
+    const auto chain_length = verification->GetVerifiedChainCertificateCount();
+    if (!chain_length.has_value() || *chain_length != 3U)
+    {
+        RecordFailure(report, "the verified chain does not hold three certificates");
+        return;
+    }
+
+    const auto export_size = verification->GetVerifiedChainExportSize(score::crypto::FormatType::kPem);
+    if (!export_size.has_value())
+    {
+        RecordFailure(report, "GetVerifiedChainExportSize failed");
+        return;
+    }
+    std::vector<std::uint8_t> exported(*export_size);
+    const auto exported_size = verification->ExportVerifiedChain(
+        score::crypto::FormatType::kPem, score::cpp::span<std::uint8_t>{exported.data(), exported.size()});
+    if (!exported_size.has_value() || *exported_size != *export_size)
+    {
+        RecordFailure(report, "ExportVerifiedChain did not write the advertised size");
+        return;
+    }
+
+    auto reparsed = management.ParseCertificates(score::cpp::span<const std::uint8_t>{exported.data(), exported.size()},
+                                                 score::crypto::FormatType::kPem);
+    if (!reparsed.has_value() || reparsed->size() != 3U)
+    {
+        RecordFailure(report, "the exported chain did not reparse to three certificates");
+        return;
+    }
+    ++report.completed_iterations;
+}
+
+/// Verifies a leaf whose intermediate is absent from the trust store. The expected outcome is a failure, so the
+/// failing path runs on this worker while other workers are on the accepting path.
+void RunRejectingVerification(score::crypto::ICryptoContext& context,
+                              score::crypto::ICertificateManagementContext& management,
+                              const score::crypto::CryptoResourceId& root_trust_store,
+                              VerificationWorkerReport& report)
+{
+    const auto leaf_bytes = ReadFile(VectorPath("certificate/pki_chain/leaf.pem"));
+    if (leaf_bytes.empty())
+    {
+        RecordFailure(report, "leaf.pem is empty");
+        return;
+    }
+    auto leaf = management.ParseCertificate(score::cpp::span<const std::uint8_t>{leaf_bytes.data(), leaf_bytes.size()},
+                                            score::crypto::FormatType::kPem);
+    if (!leaf.has_value())
+    {
+        RecordFailure(report, "leaf.pem did not parse");
+        return;
+    }
+
+    score::crypto::CertificateVerificationContextConfig config;
+    auto verification_result = context.CreateCertificateVerificationContext(config);
+    if (!verification_result.has_value())
+    {
+        RecordFailure(report, "CreateCertificateVerificationContext failed");
+        return;
+    }
+    auto verification = std::move(verification_result.value());
+
+    if (!verification->SetCertificate(leaf.value()).has_value() ||
+        !verification->SetVerificationTrustStore(root_trust_store).has_value())
+    {
+        RecordFailure(report, "configuring the rejecting verification failed");
+        return;
+    }
+
+    const auto result = verification->Verify();
+    if (!result.has_value() || *result != score::crypto::CertVerifyResult::kChainIncomplete)
+    {
+        RecordFailure(report, "a leaf without its intermediate did not verify as kChainIncomplete");
+        return;
+    }
+    ++report.completed_iterations;
+}
+
+/// One worker is one client with its own stack, context and management context, so it owns every handle and buffer it
+/// uses. Workers start on different iterations, so accepting and rejecting verifications overlap in time.
+void RunConcurrentVerificationWorker(std::size_t worker_index, VerificationWorkerReport& report)
+{
+    score::crypto::CryptoStackConfig stack_config;
+    stack_config.SetConnectionEndpoint(DaemonEndpoint());
+    auto stack_result = score::crypto::CreateCryptoStack(stack_config);
+    if (!stack_result.has_value())
+    {
+        RecordFailure(report, "CreateCryptoStack failed");
+        return;
+    }
+    auto stack = std::move(stack_result.value());
+
+    auto context_result = stack->CreateCryptoContext();
+    if (!context_result.has_value())
+    {
+        RecordFailure(report, "CreateCryptoContext failed");
+        return;
+    }
+    auto context = std::move(context_result.value());
+
+    score::crypto::CertificateContextConfig management_config;
+    auto management_result = context->CreateCertificateManagementContext(management_config);
+    if (!management_result.has_value())
+    {
+        RecordFailure(report, "CreateCertificateManagementContext failed");
+        return;
+    }
+    auto management = std::move(management_result.value());
+
+    const auto full_trust_store =
+        context->ResolveResource("verification_tls_roots", score::crypto::ResourceType::kCertificateTrustStore);
+    const auto root_trust_store =
+        context->ResolveResource("verification_root_trust", score::crypto::ResourceType::kCertificateTrustStore);
+    if (!full_trust_store.has_value() || !root_trust_store.has_value())
+    {
+        RecordFailure(report, "resolving the verification trust stores failed");
+        return;
+    }
+
+    for (std::size_t iteration = 0U; iteration < kIterationsPerWorker; ++iteration)
+    {
+        if (((worker_index + iteration) % 2U) == 0U)
+            RunAcceptingVerification(*context, *management, full_trust_store.value(), report);
+        else
+            RunRejectingVerification(*context, *management, root_trust_store.value(), report);
+        if (!report.failures.empty())
+            return;
+    }
+}
+
+TEST_F(CertificateVerificationIntegrationTest, ConcurrentVerificationsKeepPerThreadResults)
+{
+    CloseClient();
+
+    std::vector<VerificationWorkerReport> reports(kConcurrentWorkers);
+    std::vector<std::thread> workers;
+    workers.reserve(kConcurrentWorkers);
+    for (std::size_t index = 0U; index < kConcurrentWorkers; ++index)
+    {
+        workers.emplace_back([index, &reports]() {
+            RunConcurrentVerificationWorker(index, reports[index]);
+        });
+    }
+    for (auto& worker : workers)
+    {
+        worker.join();
+    }
+
+    for (std::size_t index = 0U; index < kConcurrentWorkers; ++index)
+    {
+        for (const auto& failure : reports[index].failures)
+        {
+            ADD_FAILURE() << "worker " << index << ": " << failure;
+        }
+        EXPECT_EQ(reports[index].completed_iterations, kIterationsPerWorker) << "worker " << index;
+    }
+
+    // The fixture's client still verifies after the workers have released their own handles.
+    ASSERT_NO_FATAL_FAILURE(OpenClient());
+    auto leaf = ParseCertificate("certificate/pki_chain/leaf.pem");
+    ASSERT_TRUE(leaf.has_value());
+    auto verification = CreateVerificationContext();
+    ASSERT_NE(verification, nullptr);
+    ASSERT_TRUE(verification->SetCertificate(*leaf).has_value());
+    ASSERT_TRUE(verification->SetVerificationTrustStore(m_full_trust_store).has_value());
+    auto result = verification->Verify();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, score::crypto::CertVerifyResult::kValid);
 }
 
 }  // namespace
