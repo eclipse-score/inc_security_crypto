@@ -26,15 +26,15 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+  <link href="_static/styles/theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=75c7c72ae941e8b558d8" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
-    <link rel="stylesheet" type="text/css" href="_static/css/score.css?v=415257cb" />
-    <link rel="stylesheet" type="text/css" href="_static/css/score_needs.css?v=82a1844f" />
-    <link rel="stylesheet" type="text/css" href="_static/css/score_design.css?v=8048e6ee" />
-    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/css/score.css?v=d7d4a875" />
+    <link rel="stylesheet" type="text/css" href="_static/css/score_needs.css?v=6a6a7ab0" />
+    <link rel="stylesheet" type="text/css" href="_static/css/score_design.css?v=f381fa98" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=6a604523" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
@@ -45,17 +45,17 @@
     <link rel="stylesheet" type="text/css" href="_static/sphinx-needs/modern.css?v=803738c0" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
+  <script defer src="_static/scripts/fontawesome.js?digest=75c7c72ae941e8b558d8"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8" />
 
     <script src="_static/jquery.js?v=5d32c60e"></script>
     <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
     <script src="_static/documentation_options.js?v=7f41d439"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script data-sd-tabs-storage-prefix="sphinx-design-tab-id-" src="_static/design-tabs.js?v=fcb327ea"></script>
     <script src="_static/sphinx-data-viewer/jsonview.bundle.js?v=18cd53c5"></script>
     <script src="_static/sphinx-data-viewer/jsonview_loader.js?v=f7ff7e7d"></script>
     <script src="_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
@@ -63,8 +63,8 @@
     <script src="_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
     <script>
-        DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
+        DOCUMENTATION_OPTIONS.theme_version = '0.24.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/crypto/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
@@ -72,7 +72,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Crypto Documentation" href="docs/index.html" />
+    <link rel="next" title="Crypto" href="docs/features/index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="en"/>
@@ -124,7 +124,7 @@
   
     <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
-  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation" aria-expanded="false" aria-controls="pst-primary-sidebar-modal">
     <span class="fa-solid fa-bars"></span>
   </button>
   
@@ -143,8 +143,14 @@
   
   
   
+    
+    
+      
+    
+    
+    <img src="_static/Eclipse-S-CORE-colour-horizontal.png" class="logo__image only-light" alt="Eclipse S-CORE documentation - Home"/>
+    <img src="_static/Eclipse-S-CORE-dark.png" class="logo__image only-dark pst-js-only" alt="Eclipse S-CORE documentation - Home"/>
   
-    <p class="title logo__title">Eclipse S-CORE</p>
   
 </a></div>
     
@@ -159,84 +165,32 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="docs/index.html">
-    Crypto Documentation
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="docs/manuals/index.html">
-    Manuals
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="docs/release/release_note.html">
-    Release Note
-  </a>
-</li>
-
-
-<li class="nav-item ">
   <a class="nav-link nav-internal" href="docs/features/index.html">
-    Features
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="docs/safety_mgt/index.html">
-    Safety Management
-  </a>
-</li>
-
-            <li class="nav-item dropdown">
-                <button class="btn dropdown-toggle nav-item" type="button"
-                data-bs-toggle="dropdown" aria-expanded="false"
-                aria-controls="pst-nav-more-links">
-                    More
-                </button>
-                <ul id="pst-nav-more-links" class="dropdown-menu">
-                    
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="docs/security_mgt/index.html">
-    Security Management
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="docs/verification_report/module_verification_report.html">
-    Verification Report
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="score/crypto/docs/index.html">
     Crypto
   </a>
 </li>
 
 
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="score/iav_primula/docs/index.html">
-    IAV Primula Component
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="docs/module/index.html">
+    Module
   </a>
 </li>
 
 
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="examples/docs/architecture_modeling_example.html">
-    Example model of architectural design
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="docs/verification_report/module_verification_report.html">
+    Verification Report
   </a>
 </li>
 
-                </ul>
-            </li>
-            
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="docs/components/index.html">
+    Components
+  </a>
+</li>
+
   </ul>
 </nav></div>
       
@@ -260,14 +214,14 @@
 
 <div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
   <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
-    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
-    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
-    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
   </button>
   <ul class="dropdown-menu dropdown-menu-end">
-    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
-    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
-    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
   </ul>
 </div></div>
       
@@ -322,7 +276,7 @@
   
 
   
-    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page" aria-expanded="false" aria-controls="pst-secondary-sidebar-modal">
       <span class="fa-solid fa-outdent"></span>
     </button>
   
@@ -338,7 +292,7 @@
       
         
       
-      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <dialog id="pst-primary-sidebar-modal" tabindex="-1"></dialog>
       <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
         
 
@@ -355,43 +309,15 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="docs/index.html">
-    Crypto Documentation
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="docs/manuals/index.html">
-    Manuals
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="docs/release/release_note.html">
-    Release Note
-  </a>
-</li>
-
-
-<li class="nav-item ">
   <a class="nav-link nav-internal" href="docs/features/index.html">
-    Features
+    Crypto
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="docs/safety_mgt/index.html">
-    Safety Management
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="docs/security_mgt/index.html">
-    Security Management
+  <a class="nav-link nav-internal" href="docs/module/index.html">
+    Module
   </a>
 </li>
 
@@ -404,22 +330,8 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="score/crypto/docs/index.html">
-    Crypto
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="score/iav_primula/docs/index.html">
-    IAV Primula Component
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="examples/docs/architecture_modeling_example.html">
-    Example model of architectural design
+  <a class="nav-link nav-internal" href="docs/components/index.html">
+    Components
   </a>
 </li>
 
@@ -437,14 +349,14 @@
 
 <div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
   <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
-    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
-    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
-    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto" title="System Settings"></i>
   </button>
   <ul class="dropdown-menu dropdown-menu-end">
-    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
-    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
-    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg me-1"></i>Dark</button></li>
   </ul>
 </div></div>
         
@@ -517,103 +429,376 @@
                   
   <section id="crypto-documentation">
 <h1>Crypto Documentation<a class="headerlink" href="#crypto-documentation" title="Link to this heading">#</a></h1>
-<p>This documentation describes the structure, usage, and configuration of the Crypto module in this repository, following the <a class="reference external" href="https://eclipse-score.github.io/score/main/contribute/general/folder.html#module-folder-structure">SCORE module folder structure</a> and the <a class="reference external" href="https://eclipse-score.github.io/process_description/main/general_concepts/score_building_blocks_concept.html">SCORE building blocks concept</a>.</p>
-<nav class="contents local" id="table-of-contents">
-<p class="topic-title">Table of Contents</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="#overview" id="id1">Overview</a></p></li>
-<li><p><a class="reference internal" href="#module-documentation" id="id2">Module Documentation</a></p></li>
-<li><p><a class="reference internal" href="#component-documentation" id="id3">Component Documentation</a></p></li>
-<li><p><a class="reference internal" href="#architecture-modeling-reference" id="id4">Architecture Modeling Reference</a></p></li>
+<p>This repository provides the cryptographic services of the Eclipse S-CORE
+<a class="external_link reference external" href="https://eclipse-score.github.io/score/main/features/security_crypto/architecture/index.html#feat__security_crypto">feat__security_crypto</a>.
+The Crypto module offers applications a common interface for key management,
+symmetric and asymmetric cryptography, hashing, digital signatures, certificate
+handling, and post-quantum cryptography, with support for software and
+hardware-backed cryptographic providers. Its scope is cryptographic services,
+rather than all use cases covered by Security &amp; Crypto.</p>
+<section id="feature-documentation">
+<h2>Feature Documentation<a class="headerlink" href="#feature-documentation" title="Link to this heading">#</a></h2>
+<p>The feature documentation describes Crypto’s architecture, safety and security
+planning, and analyses.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="docs/features/index.html">Crypto</a></li>
 </ul>
-</nav>
-<section id="overview">
-<h2><a class="toc-backref" href="#id1" role="doc-backlink">Overview</a><a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>This repository documents the Crypto module implementation, including its build, test, documentation, safety and security management, verification, and release workflows.
-It provides the documentation artifacts needed for the Crypto module, including the component architecture documentation in <a class="reference internal" href="score/crypto/docs/architecture/component_architecture.html"><span class="doc">Component Architecture Documentation</span></a> and the detailed design documentation in <a class="reference internal" href="score/crypto/docs/detailed_design/detailed_design_example.html"><span class="doc">Example: Detailed Design</span></a>.</p>
-</section>
-<section id="module-documentation">
-<h2><a class="toc-backref" href="#id2" role="doc-backlink">Module Documentation</a><a class="headerlink" href="#module-documentation" title="Link to this heading">#</a></h2>
-<p>The Crypto module provides a cryptographic middleware stack for automotive ECUs, including client-side APIs, a crypto daemon, provider integration, and supporting safety and security documentation.</p>
-<p>The sections below provide the module-level documentation structure for these Crypto-specific artifacts, and additional content should be added in the relevant sections for feature architecture, safety analysis, security analysis, manuals, and related work products.</p>
-<div class="need_container docutils container" id="SNCB-c37896ba">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_mod table" id="mod__crypto_module">
+</div>
+<div class="needstable_wrapper docutils container" id="needtable-index-0">
+<div class="pst-scrollable-table-container"><table class="NEEDS_TABLE table" id="needtable-index-0-table_node">
+<colgroup>
+<col style="width: 23.8%" />
+<col style="width: 33.3%" />
+<col style="width: 14.3%" />
+<col style="width: 14.3%" />
+<col style="width: 14.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Title</p></th>
+<th class="head"><p>ID</p></th>
+<th class="head"><p>Safety</p></th>
+<th class="head"><p>Security</p></th>
+<th class="head"><p>Status</p></th>
+</tr>
+</thead>
 <tbody>
-<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">Crypto Module</span></span></span></div>
-</div>
-</td>
-<td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">invalid</span></span></span></div>
-<div class="line"><span></span></div>
-<div class="line"><span></span></div>
-</div>
-</td>
-<td class="head_right" colspan="2"><div class="needs_head_right line-block">
-<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
-</div>
-</td>
+<tr class="need row-even"><td class="needs_title"><p>Crypto Architecture</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/features/architecture/index.html#doc__crypto_feat_architecture">doc__crypto_feat_architecture</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
 </tr>
-<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
-</span></span></div>
-<div class="line"><span><div class="line">includes: <span class="includes"><span><a class="reference internal" href="score/crypto/docs/architecture/index.html#comp__crypto" title="mod__crypto_module">comp__crypto</a>, <a class="reference internal" href="score/crypto/docs/architecture/daemon_architecture.html#comp__crypto_daemon" title="mod__crypto_module">comp__crypto_daemon</a></span></span></div>
-</span></div>
-</div>
-</td>
-<td class="meta" colspan="3"></td>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto DFA</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/features/safety_analysis/dfa.html#doc__crypto_feat_dfa">doc__crypto_feat_dfa</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
 </tr>
-<tr class="content row-odd"><td class="content" colspan="6"></td>
+<tr class="need row-even"><td class="needs_title"><p>Crypto Feature AoU</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/features/safety_analysis/aou_requirements.html#doc__crypto_feat_aou">doc__crypto_feat_aou</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
 </tr>
-<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#mod__crypto_module" title="mod__crypto_module">mod__crypto_module</a></span></span></div>
-</div>
-</td>
-<td class="footer" colspan="2"><div class="needs_footer line-block">
-<div class="line"><span><span class="needs_type_name"><span class="needs_data">Module</span></span></span></div>
-</div>
-</td>
-<td class="footer_right" colspan="2"></td>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto feature Architecture Inspection Checklist</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/features/architecture/chklst_arc_inspection.html#doc__crypto_feat_arc_inspection">doc__crypto_feat_arc_inspection</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>Crypto Feature Security AoU</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/features/security_analysis/aou_requirements.html#doc__crypto_sec_feat_aou">doc__crypto_sec_feat_aou</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto FMEA</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/features/safety_analysis/fmea.html#doc__crypto_feat_fmea">doc__crypto_feat_fmea</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>Crypto Safety WPs</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/features/safety_planning/index.html#doc__crypto_safety_wp">doc__crypto_safety_wp</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto Security WPs</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/features/security_planning/index.html#doc__feature_example_security_planning_wp">doc__feature_example_security_planning_wp</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
+</section>
+<section id="module-documentation">
+<h2>Module Documentation<a class="headerlink" href="#module-documentation" title="Link to this heading">#</a></h2>
+<p>The module documentation covers the implementation overview, manuals, safety and
+security management, and verification report.</p>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="docs/index.html">Crypto Documentation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="docs/manuals/index.html">Manuals</a></li>
-<li class="toctree-l1"><a class="reference internal" href="docs/release/release_note.html">Release Note</a></li>
-<li class="toctree-l1"><a class="reference internal" href="docs/features/index.html">Features</a></li>
-<li class="toctree-l1"><a class="reference internal" href="docs/safety_mgt/index.html">Safety Management</a></li>
-<li class="toctree-l1"><a class="reference internal" href="docs/security_mgt/index.html">Security Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docs/module/index.html">Module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="docs/verification_report/module_verification_report.html">Verification Report</a></li>
 </ul>
 </div>
+<div class="needstable_wrapper docutils container" id="needtable-index-1">
+<div class="pst-scrollable-table-container"><table class="NEEDS_TABLE table" id="needtable-index-1-table_node">
+<colgroup>
+<col style="width: 23.8%" />
+<col style="width: 33.3%" />
+<col style="width: 14.3%" />
+<col style="width: 14.3%" />
+<col style="width: 14.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Title</p></th>
+<th class="head"><p>ID</p></th>
+<th class="head"><p>Safety</p></th>
+<th class="head"><p>Security</p></th>
+<th class="head"><p>Status</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="need row-even"><td class="needs_title"><p>[Your Module Name] Release Note</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/release/release_note.html#doc__mod_temp_module_name_release_note">doc__mod_temp_module_name_release_note</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>[Your Module Name] Safety Analysis Checklist</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/safety_mgt/module_safety_analysis_fdr.html#doc__mod_temp_module_name_safety_analysis_fdr">doc__mod_temp_module_name_safety_analysis_fdr</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>[Your Module Name] Safety Manual</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/manuals/safety_manual.html#doc__mod_temp_module_name_safety_manual">doc__mod_temp_module_name_safety_manual</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>[Your Module Name] Safety Package Formal Review</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/safety_mgt/module_safety_package_fdr.html#doc__mod_temp_module_name_safety_package_fdr">doc__mod_temp_module_name_safety_package_fdr</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>[Your Module Name] Safety Plan</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/safety_mgt/module_safety_plan.html#doc__mod_temp_module_name_safety_plan">doc__mod_temp_module_name_safety_plan</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>[Your Module Name] Safety Plan Formal Review</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/safety_mgt/module_safety_plan_fdr.html#doc__mod_temp_module_name_safety_plan_fdr">doc__mod_temp_module_name_safety_plan_fdr</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>[Your Module Name] Security Manual</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/manuals/security_manual.html#doc__mod_temp_module_name_security_manual">doc__mod_temp_module_name_security_manual</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>[Your Module Name] Security Package Formal Review</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/security_mgt/module_security_package_fdr.html#doc__mod_temp_module_name_sec_pkg_fdr">doc__mod_temp_module_name_sec_pkg_fdr</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>[Your Module Name] Security Plan</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/security_mgt/module_security_plan.html#doc__mod_temp_module_name_security_plan">doc__mod_temp_module_name_security_plan</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>[Your Module Name] Security Plan Formal Review</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/security_mgt/module_security_plan_fdr.html#doc__mod_temp_module_name_security_plan_fdr">doc__mod_temp_module_name_security_plan_fdr</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>User Manual &lt;module name&gt;</p></td>
+<td class="needs_id"><p><a class="reference internal" href="docs/module/manuals/user_manual.html#doc__user_manual">doc__user_manual</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 </section>
 <section id="component-documentation">
-<h2><a class="toc-backref" href="#id3" role="doc-backlink">Component Documentation</a><a class="headerlink" href="#component-documentation" title="Link to this heading">#</a></h2>
-<p>For documentation of individual components within this module:</p>
+<h2>Component Documentation<a class="headerlink" href="#component-documentation" title="Link to this heading">#</a></h2>
+<p>The component documentation provides requirements, architecture, detailed design,
+and analyses for the individual components of the Crypto module.</p>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="score/crypto/docs/index.html">Crypto</a></li>
-<li class="toctree-l1"><a class="reference internal" href="score/iav_primula/docs/index.html">IAV Primula Component</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docs/components/index.html">Components</a></li>
 </ul>
 </div>
-</section>
-<section id="architecture-modeling-reference">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">Architecture Modeling Reference</a><a class="headerlink" href="#architecture-modeling-reference" title="Link to this heading">#</a></h2>
-<p>A reference for modeling the Crypto architecture in Sphinx Needs can be found in</p>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="examples/docs/architecture_modeling_example.html">Example model of architectural design</a></li>
-</ul>
+<div class="needstable_wrapper docutils container" id="needtable-index-2">
+<div class="pst-scrollable-table-container"><table class="NEEDS_TABLE table" id="needtable-index-2-table_node">
+<colgroup>
+<col style="width: 23.8%" />
+<col style="width: 33.3%" />
+<col style="width: 14.3%" />
+<col style="width: 14.3%" />
+<col style="width: 14.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Title</p></th>
+<th class="head"><p>ID</p></th>
+<th class="head"><p>Safety</p></th>
+<th class="head"><p>Security</p></th>
+<th class="head"><p>Status</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="need row-even"><td class="needs_title"><p>Crypto Architecture</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/architecture/index.html#doc__crypto_architecture">doc__crypto_architecture</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto Architecture Inspection Checklist</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/architecture/chklst_arc_inspection.html#doc__crypto_arc_inspection">doc__crypto_arc_inspection</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>Crypto Component</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/index.html#doc__crypto">doc__crypto</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto Component AoU</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/safety_analysis/aou_requirements.html#doc__crypto_comp_aou">doc__crypto_comp_aou</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>Crypto Component AoU</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/security_analysis/aou_requirements.html#doc__crypto_sec_comp_aou">doc__crypto_sec_comp_aou</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto Component Architecture</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/architecture/component_architecture.html#doc__crypto_comp_architecture">doc__crypto_comp_architecture</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>Crypto Component Classification</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/component_classification.html#doc__crypto_comp_class">doc__crypto_comp_class</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto Daemon Component Architecture</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/architecture/daemon_architecture.html#doc__crypto_daemon_architecture">doc__crypto_daemon_architecture</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>Crypto Detailed Design</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/detailed_design/detailed_design_example.html#doc__crypto_detailed_design">doc__crypto_detailed_design</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto DFA</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/safety_analysis/dfa.html#doc__crypto_dfa">doc__crypto_dfa</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>Crypto FMEA</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/safety_analysis/fmea.html#doc__crypto_fmea">doc__crypto_fmea</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto Implementation Inspection Checklist</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/detailed_design/chklst_impl_inspection.html#doc__crypto_impl_inspection">doc__crypto_impl_inspection</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>Crypto Requirements</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/requirements/requirements.html#doc__crypto_requirements">doc__crypto_requirements</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>Crypto Requirements Inspection Checklist</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/crypto/requirements/chklst_req_inspection.html#doc__crypto_req_inspection">doc__crypto_req_inspection</a></p></td>
+<td class="needs_safety"><p>ASIL_B</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>Cryptoki Component</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/cryptoki/index.html#doc__cryptoki">doc__cryptoki</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>PQC Provider Architecture</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/pqc_provider/architecture/component_architecture.html#doc__pqc_provider_architecture">doc__pqc_provider_architecture</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>PQC Provider Architecture Inspection Checklist</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/pqc_provider/architecture/chklst_arc_inspection.html#doc__pqc_provider_arc_inspection">doc__pqc_provider_arc_inspection</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>PQC Provider Component</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/pqc_provider/index.html#doc__pqc_provider">doc__pqc_provider</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>PQC Provider Component Classification</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/pqc_provider/component_classification.html#doc__pqc_provider_comp_class">doc__pqc_provider_comp_class</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>PQC Provider Detailed Design</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/pqc_provider/detailed_design/detailed_design_example.html#doc__pqc_provider_detailed_design">doc__pqc_provider_detailed_design</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>PQC Provider DFA</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/pqc_provider/safety_analysis/dfa.html#doc__pqc_provider_dfa">doc__pqc_provider_dfa</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>PQC Provider FMEA</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/pqc_provider/safety_analysis/fmea.html#doc__pqc_provider_fmea">doc__pqc_provider_fmea</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>PQC Provider Implementation Inspection Checklist</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/pqc_provider/detailed_design/chklst_impl_inspection.html#doc__pqc_provider_impl_inspection">doc__pqc_provider_impl_inspection</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-odd"><td class="needs_title"><p>PQC Provider Requirements</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/pqc_provider/requirements/requirements.html#doc__pqc_provider_requirements">doc__pqc_provider_requirements</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+<tr class="need row-even"><td class="needs_title"><p>PQC Provider Requirements Inspection Checklist</p></td>
+<td class="needs_id"><p><a class="reference internal" href="crypto/components/pqc_provider/requirements/chklst_req_inspection.html#doc__pqc_provider_req_inspection">doc__pqc_provider_req_inspection</a></p></td>
+<td class="needs_safety"><p>QM</p></td>
+<td class="needs_security"><p>YES</p></td>
+<td class="needs_status"><p>draft</p></td>
+</tr>
+</tbody>
+</table>
 </div>
-<p>Please note that this is a reference model for using Sphinx Needs for architecture modeling, not the canonical architecture documentation for the Crypto module. The actual architecture documentation of the Crypto components and features should follow the provided guidance and module-specific content.</p>
-</section>
+</div>
 </section>
 <section id="quick-start-building-and-testing">
-<span id="quick-start-building-testing"></span><h1>Quick Start - Building and Testing<a class="headerlink" href="#quick-start-building-and-testing" title="Link to this heading">#</a></h1>
+<span id="quick-start-building-testing"></span><h2>Quick Start - Building and Testing<a class="headerlink" href="#quick-start-building-and-testing" title="Link to this heading">#</a></h2>
 <p>To build the entire module:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span>build<span class="w"> </span>//score/...
 </pre></div>
@@ -622,10 +807,7 @@ It provides the documentation artifacts needed for the Crypto module, including 
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//score/...
 </pre></div>
 </div>
-<p>To run only component or feature integration tests:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bazel<span class="w"> </span><span class="nb">test</span><span class="w"> </span>//score/...
-</pre></div>
-</div>
+</section>
 <section id="module-build-configuration">
 <h2>Module Build Configuration<a class="headerlink" href="#module-build-configuration" title="Link to this heading">#</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">project_config.bzl</span></code> file at the root of the module defines metadata used by Bazel macros.
@@ -651,11 +833,11 @@ See <a class="reference external" href="https://eclipse-score.github.io/score/ma
                   
 <div class="prev-next-area">
     <a class="right-next"
-       href="docs/index.html"
+       href="docs/features/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Crypto Documentation</p>
+        <p class="prev-next-title">Crypto</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -666,7 +848,7 @@ See <a class="reference external" href="https://eclipse-score.github.io/score/ma
             
             
               
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <dialog id="pst-secondary-sidebar-modal" tabindex="-1"></dialog>
                 <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
@@ -678,26 +860,19 @@ See <a class="reference external" href="https://eclipse-score.github.io/score/ma
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Crypto Documentation</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#feature-documentation">Feature Documentation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-documentation">Module Documentation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#component-documentation">Component Documentation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture-modeling-reference">Architecture Modeling Reference</a></li>
-</ul>
-</li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start-building-and-testing">Quick Start - Building and Testing</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start-building-and-testing">Quick Start - Building and Testing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-build-configuration">Module Build Configuration</a></li>
 </ul>
-</li>
-</ul>
-
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./index.rst">
+    <a href="https://github.com/eclipse-score/crypto/edit/main/./index.rst">
       <i class="fa-solid fa-pencil"></i>
       
       
@@ -722,8 +897,8 @@ See <a class="reference external" href="https://eclipse-score.github.io/score/ma
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
-<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
+  <script defer src="_static/scripts/bootstrap.js?digest=75c7c72ae941e8b558d8"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=75c7c72ae941e8b558d8"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -746,7 +921,7 @@ See <a class="reference external" href="https://eclipse-score.github.io/score/ma
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.23.0.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.24.0.
 </p></div>
       
     </div>
