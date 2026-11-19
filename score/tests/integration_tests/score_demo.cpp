@@ -15,7 +15,7 @@
 //  HMAC MAC Slot & Provider Switching Demo
 // =============================================================================
 /// @file hmac_slot_provider_switching_demo.cpp
-/// @brief Demonstrates HMAC-SHA256 using slot-loaded keys with multi-provider (OpenSSL & SoftHSM).
+/// @brief Demonstrates HMAC-SHA256 using slot-loaded keys with multi-provider (OpenSSL & PKCS#11 / Hardware HSM).
 ///        Same code runs on different providers. Only provider selection differs.
 ///
 /// Key Insights:
@@ -133,7 +133,7 @@ score::Result<std::monostate> ComputeMacWithProvider(
     print_colored("- Algorithm: HMAC-SHA256", Color::BrightCyan);
     print_colored("- With KeySlot: " + std::string{slot_name}, Color::BrightCyan);
     print_colored("- With Provider: " +
-                      std::string(provider == ProviderType::kSoftware ? "OpenSSL (Software)" : "SoftHSM (Hardware)"),
+                      std::string(provider == ProviderType::kSoftware ? "OpenSSL (Software)" : "PKCS#11 (Hardware HSM)"),
                   Color::BrightCyan);
 
     // No need to select provider again.
@@ -243,14 +243,14 @@ int main() noexcept
 
 #ifdef SCORE_CRYPTO_HARDWARE_BACKEND_ENABLED
     // =========================================================================
-    // Demo: Provider 2 - SoftHSM (Hardware)
+    // Demo: Provider 2 - PKCS#11 / Hardware HSM
     // =========================================================================
-    print_section("PROVIDER 2: SoftHSM (Hardware)");
+    print_section("PROVIDER 2: PKCS#11 / Hardware HSM");
 
-    auto result_softhsm = ComputeMacWithProvider(kSlotNameHardware, ProviderType::kHardware, test_data, expected_mac);
-    if (!result_softhsm.has_value())
+    auto result_pkcs11 = ComputeMacWithProvider(kSlotNameHardware, ProviderType::kHardware, test_data, expected_mac);
+    if (!result_pkcs11.has_value())
     {
-        print_error("Hardware provider (SoftHSM) unavailable or verification failed");
+        print_error("Hardware / PKCS#11 provider unavailable or verification failed");
         return 1;
     }
 #endif

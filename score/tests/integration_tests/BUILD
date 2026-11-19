@@ -265,8 +265,14 @@ integration_test(
     libraries = [
         "//score/crypto/src/api/control_plane",
         "//third_party/openssl:openssl_so",
-        "//third_party/soft_hsm:softhsm_so",
-    ],
+    ] + select({
+        "//score/crypto/src/backend:rust_cryptoki_selected": [
+            "//score/cryptoki:cryptoki_cdylib",
+        ],
+        "//conditions:default": [
+            "//third_party/soft_hsm:softhsm_so",
+        ],
+    }),
     deps = [
         "//score/tests:common_fixtures",
         "//score/tests/utility/process_runner",

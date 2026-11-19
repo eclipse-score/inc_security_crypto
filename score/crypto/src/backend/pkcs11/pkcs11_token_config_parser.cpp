@@ -25,15 +25,9 @@ score::crypto::Expected<std::monostate, common::DaemonErrorCode> Pkcs11Config::P
         return std::monostate{};
     }
     Pkcs11TokenEntry entry{};
-#if USE_RUST_PKCS11
-    entry.tokenLabel = "ValeoCryptokiToken";
+    entry.tokenLabel = "PKCS11_TOKEN";
     entry.userPin = "1234";
     entry.providerName = "PKCS11_ENGINE";
-#else
-    entry.tokenLabel = "SoftHSM";
-    entry.userPin = "1234";
-    entry.providerName = "PKCS11_ENGINE";
-#endif
     entry.useHardCleanup = true;
     m_config.tokens.push_back(std::move(entry));
 
