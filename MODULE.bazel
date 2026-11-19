@@ -272,7 +272,7 @@ bazel_dep(name = "rules_pkg", version = "1.2.0")
 bazel_dep(name = "score_docs_as_code", version = "9.1.0")
 
 #process
-bazel_dep(name = "score_process_description", version = "2.2.2")
+bazel_dep(name = "score_process_description", version = "2.2.5")
 bazel_dep(name = "score_platform", version = "0.7.6")
 
 # score baselibs
