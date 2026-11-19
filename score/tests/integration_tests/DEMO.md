@@ -16,7 +16,7 @@
 ## Prepare Environment
 
 > Note: Ensure integration_test_config.bin was generated with the test user's UID listed in both 
-> allowed_uids and the application-resource mapping. If test user's UID is neithet 0 nor 1000,
+> allowed_uids and the application-resource mapping. If test user's UID is neither 0 nor 1000,
 > the settings in `score/tests/test_vectors/config/integration_test_config.json` need to be adapted.
 
 ```
