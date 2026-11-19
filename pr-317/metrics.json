@@ -37,46 +37,8 @@
     "broken_references": []
   },
   "verification_metrics": {
-    "comp__orch_deployment_impl": {
+    "comp__orchestrator": {
       "requirements": {
-        "status": {
-          "valid": 0,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 0
-        }
-      },
-      "architecture": {
-        "status": {
-          "valid": 0,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 0
-        }
-      }
-    },
-    "comp__pqc_provider": {
-      "requirements": {
-        "status": {
-          "valid": 1,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 1
-        }
-      },
-      "architecture": {
         "status": {
           "valid": 2,
           "valid_inspected": 0,
@@ -87,109 +49,17 @@
           "partially_covered": 0,
           "not_covered": 2
         }
-      }
-    },
-    "comp__crypto": {
-      "requirements": {
-        "status": {
-          "valid": 10,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 10
-        }
       },
       "architecture": {
         "status": {
-          "valid": 0,
+          "valid": 1,
           "valid_inspected": 0,
           "invalid": 0
         },
         "coverage": {
           "fully_covered": 0,
           "partially_covered": 0,
-          "not_covered": 0
-        }
-      }
-    },
-    "comp__cryptoki": {
-      "requirements": {
-        "status": {
-          "valid": 0,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 0
-        }
-      },
-      "architecture": {
-        "status": {
-          "valid": 0,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 0
-        }
-      }
-    },
-    "comp__orch_executor": {
-      "requirements": {
-        "status": {
-          "valid": 0,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 0
-        }
-      },
-      "architecture": {
-        "status": {
-          "valid": 0,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 0
-        }
-      }
-    },
-    "comp__crypto_common_storage": {
-      "requirements": {
-        "status": {
-          "valid": 0,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 0
-        }
-      },
-      "architecture": {
-        "status": {
-          "valid": 0,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 0
+          "not_covered": 1
         }
       }
     },
@@ -245,7 +115,7 @@
         }
       }
     },
-    "comp__os_ebclfsa": {
+    "comp__orch_executor": {
       "requirements": {
         "status": {
           "valid": 0,
@@ -268,32 +138,6 @@
           "fully_covered": 0,
           "partially_covered": 0,
           "not_covered": 0
-        }
-      }
-    },
-    "comp__feo_main": {
-      "requirements": {
-        "status": {
-          "valid": 26,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 26
-        }
-      },
-      "architecture": {
-        "status": {
-          "valid": 2,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 2
         }
       }
     },
@@ -349,7 +193,85 @@
         }
       }
     },
+    "comp__cryptoki": {
+      "requirements": {
+        "status": {
+          "valid": 0,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 0
+        }
+      },
+      "architecture": {
+        "status": {
+          "valid": 0,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 0
+        }
+      }
+    },
     "comp__crypto_key_management": {
+      "requirements": {
+        "status": {
+          "valid": 0,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 0
+        }
+      },
+      "architecture": {
+        "status": {
+          "valid": 0,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 0
+        }
+      }
+    },
+    "comp__crypto": {
+      "requirements": {
+        "status": {
+          "valid": 10,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 10
+        }
+      },
+      "architecture": {
+        "status": {
+          "valid": 0,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 0
+        }
+      }
+    },
+    "comp__orch_design_impl": {
       "requirements": {
         "status": {
           "valid": 0,
@@ -401,7 +323,59 @@
         }
       }
     },
-    "comp__orch_design_impl": {
+    "comp__os_ebclfsa": {
+      "requirements": {
+        "status": {
+          "valid": 0,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 0
+        }
+      },
+      "architecture": {
+        "status": {
+          "valid": 0,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 0
+        }
+      }
+    },
+    "comp__pqc_provider": {
+      "requirements": {
+        "status": {
+          "valid": 1,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 1
+        }
+      },
+      "architecture": {
+        "status": {
+          "valid": 2,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 2
+        }
+      }
+    },
+    "comp__orch_deployment_impl": {
       "requirements": {
         "status": {
           "valid": 0,
@@ -453,6 +427,32 @@
         }
       }
     },
+    "comp__feo_main": {
+      "requirements": {
+        "status": {
+          "valid": 26,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 26
+        }
+      },
+      "architecture": {
+        "status": {
+          "valid": 2,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 2
+        }
+      }
+    },
     "comp__os_libcpp": {
       "requirements": {
         "status": {
@@ -480,6 +480,32 @@
       }
     },
     "comp__os_libc": {
+      "requirements": {
+        "status": {
+          "valid": 0,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 0
+        }
+      },
+      "architecture": {
+        "status": {
+          "valid": 0,
+          "valid_inspected": 0,
+          "invalid": 0
+        },
+        "coverage": {
+          "fully_covered": 0,
+          "partially_covered": 0,
+          "not_covered": 0
+        }
+      }
+    },
+    "comp__crypto_common_storage": {
       "requirements": {
         "status": {
           "valid": 0,
@@ -554,32 +580,6 @@
           "fully_covered": 0,
           "partially_covered": 0,
           "not_covered": 0
-        }
-      }
-    },
-    "comp__orchestrator": {
-      "requirements": {
-        "status": {
-          "valid": 2,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 2
-        }
-      },
-      "architecture": {
-        "status": {
-          "valid": 1,
-          "valid_inspected": 0,
-          "invalid": 0
-        },
-        "coverage": {
-          "fully_covered": 0,
-          "partially_covered": 0,
-          "not_covered": 1
         }
       }
     }
