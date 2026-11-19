@@ -24,6 +24,7 @@
 #include "score/span.hpp"
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -47,7 +48,8 @@ class CertificateObjectImpl final : public ICertificateObject
     /// @brief Construct a snapshot view of an existing resource.
     ///
     /// The metadata and the public key size and algorithm are fixed at construction. The public key bytes are not
-    /// copied; ExportPublicKey() requests them from the daemon through the connection and transcoder.
+    /// copied; ExportPublicKey() requests them from the daemon through the connection and transcoder, each request
+    /// bounded by operation_timeout.
     CertificateObjectImpl(CryptoResourceId id,
                           std::string subject,
                           std::string issuer,
@@ -59,7 +61,8 @@ class CertificateObjectImpl final : public ICertificateObject
                           std::shared_ptr<api::control_plane::IConnection> connection,
                           std::shared_ptr<IBufferTranscoder> transcoder,
                           std::size_t public_key_size,
-                          std::string public_key_algorithm);
+                          std::string public_key_algorithm,
+                          std::chrono::milliseconds operation_timeout = std::chrono::milliseconds::max());
 
     ~CertificateObjectImpl() override = default;
 
@@ -97,6 +100,7 @@ class CertificateObjectImpl final : public ICertificateObject
     std::shared_ptr<IBufferTranscoder> m_transcoder;
     std::size_t m_public_key_size;
     AlgorithmId m_public_key_algorithm;
+    std::chrono::milliseconds m_operation_timeout;
 };
 
 }  // namespace crypto

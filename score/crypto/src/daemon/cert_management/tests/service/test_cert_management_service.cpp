@@ -1194,8 +1194,8 @@ TEST_F(CertManagementServiceTest, PublicKeyQueryWritesKeyForMatchingFingerprint)
 
     EXPECT_TRUE(handled);
     ASSERT_TRUE(response.has_value());
-    ASSERT_EQ(response.value().operations.size(), 1U);
-    const auto& operation = response.value().operations.front();
+    ASSERT_EQ(response.value().size(), 1U);
+    const auto& operation = response.value().front();
     EXPECT_EQ(operation.result, protocol::OPERATION_RESULT_SUCCESS);
     ASSERT_EQ(operation.parameters.size(), 1U);
     const auto* written = std::get_if<std::uint64_t>(&operation.parameters.front());
@@ -1233,9 +1233,9 @@ TEST_F(CertManagementServiceTest, PublicKeyQueryRefusesFingerprintOfAnotherCerti
 
     EXPECT_FALSE(handled);
     ASSERT_TRUE(response.has_value());
-    ASSERT_EQ(response.value().operations.size(), 1U);
+    ASSERT_EQ(response.value().size(), 1U);
     EXPECT_EQ(
-        response.value().operations.front().result,
+        response.value().front().result,
         static_cast<protocol::OperationResult>(common::ToCryptoErrorCode(common::DaemonErrorCode::kResourceNotFound)));
     EXPECT_EQ(output, std::vector<std::uint8_t>(output.size(), kSentinel));
 }

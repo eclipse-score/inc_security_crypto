@@ -59,7 +59,7 @@ score::Result<proto::ControlRequest> MakeControlRequest(proto::OperationRequestB
     }
 
     proto::ControlRequest request{};
-    request.operation = operation_result.value();
+    request.operations = operation_result.value();
     request.data_node_id = context_id;
     return request;
 }
@@ -81,8 +81,9 @@ class CertManagementContextImpl::ContextReleaseCallbackImpl final : public IRele
 {
   public:
     ContextReleaseCallbackImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-                               proto::DataNodeId context_id)
-        : m_connection(std::move(connection)), m_context_id(context_id)
+                               proto::DataNodeId context_id,
+                               std::chrono::milliseconds operation_timeout)
+        : m_connection(std::move(connection)), m_context_id(context_id), m_operation_timeout(operation_timeout)
     {
     }
 
@@ -107,7 +108,7 @@ class CertManagementContextImpl::ContextReleaseCallbackImpl final : public IRele
             score::mw::log::LogError() << "[API][CertMgmtCtxImpl] ERROR: Failed to build CTX_CLOSE request";
             return;
         }
-        auto resp = m_connection->SendRequest(req.value());
+        auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
         auto validator = proto::ControlResponseValidator::FromResult(resp);
         validator.expectOperation(score::crypto::daemon::mediator::operations::CloseContext()).expectSuccess();
         if (!validator.isValid())
@@ -124,6 +125,7 @@ class CertManagementContextImpl::ContextReleaseCallbackImpl final : public IRele
   private:
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     proto::DataNodeId m_context_id;
+    std::chrono::milliseconds m_operation_timeout;
 };
 
 // ===========================================================================
@@ -135,10 +137,12 @@ class CertManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCall
   public:
     ReleaseCallbackImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                         proto::DataNodeId context_id,
-                        std::shared_ptr<IReleaseCallback> context_release_callback)
+                        std::shared_ptr<IReleaseCallback> context_release_callback,
+                        std::chrono::milliseconds operation_timeout)
         : m_connection(std::move(connection)),
           m_context_id(context_id),
-          m_context_release_callback(std::move(context_release_callback))
+          m_context_release_callback(std::move(context_release_callback)),
+          m_operation_timeout(operation_timeout)
     {
     }
 
@@ -156,7 +160,7 @@ class CertManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCall
                 score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CERT_RELEASE request")};
         }
 
-        auto resp = m_connection->SendRequest(req.value());
+        auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
         auto validator = proto::ControlResponseValidator::FromResult(resp);
         validator.expectOperation(op_id).expectSuccess();
         if (!validator.isValid())
@@ -171,6 +175,7 @@ class CertManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCall
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     proto::DataNodeId m_context_id;
     std::shared_ptr<IReleaseCallback> m_context_release_callback;
+    std::chrono::milliseconds m_operation_timeout;
 };
 
 // ===========================================================================
@@ -180,12 +185,18 @@ class CertManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCall
 CertManagementContextImpl::CertManagementContextImpl(
     std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
     uint64_t context_id,
-    std::shared_ptr<IBufferTranscoder> transcoder)
+    std::shared_ptr<IBufferTranscoder> transcoder,
+    std::chrono::milliseconds operation_timeout)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
       m_transcoder(std::move(transcoder)),
-      m_context_release_callback(std::make_shared<ContextReleaseCallbackImpl>(m_connection, m_context_id)),
-      m_release_callback(std::make_shared<ReleaseCallbackImpl>(m_connection, m_context_id, m_context_release_callback))
+      m_operation_timeout(operation_timeout),
+      m_context_release_callback(
+          std::make_shared<ContextReleaseCallbackImpl>(m_connection, m_context_id, m_operation_timeout)),
+      m_release_callback(std::make_shared<ReleaseCallbackImpl>(m_connection,
+                                                               m_context_id,
+                                                               m_context_release_callback,
+                                                               m_operation_timeout))
 {
 }
 
@@ -218,7 +229,7 @@ score::Result<CryptoResourceGuard> CertManagementContextImpl::ParseCertificate(
         return score::Result<CryptoResourceGuard>{score::unexpect, request_result.error()};
     }
 
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -267,7 +278,7 @@ score::Result<std::vector<CryptoResourceGuard>> CertManagementContextImpl::Parse
         return score::Result<std::vector<CryptoResourceGuard>>{score::unexpect, request_result.error()};
     }
 
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -329,7 +340,7 @@ score::Result<std::monostate> CertManagementContextImpl::SaveCertificate(const C
         return score::Result<std::monostate>{score::unexpect,
                                              MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CERT_SAVE")};
     }
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -357,7 +368,7 @@ score::Result<std::monostate> CertManagementContextImpl::SaveCertificateWithCrl(
         return score::Result<std::monostate>{score::unexpect,
                                              MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CERT_SAVE")};
     }
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -389,7 +400,7 @@ score::Result<std::size_t> CertManagementContextImpl::GetCertificateExportSize(c
         return score::Result<std::size_t>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CERT_GET_EXPORT_SIZE")};
     }
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -429,7 +440,7 @@ score::Result<std::size_t> CertManagementContextImpl::ExportCertificate(const Cr
     {
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     }
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -468,7 +479,7 @@ score::Result<std::size_t> CertManagementContextImpl::GetConvertedCertificateSiz
     {
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     }
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -519,7 +530,7 @@ score::Result<std::size_t> CertManagementContextImpl::ConvertCertificateFormat(s
     {
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     }
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -545,7 +556,7 @@ score::Result<std::monostate> CertManagementContextImpl::ClearCertificate(const 
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CERT_CLEAR")};
     }
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -576,7 +587,7 @@ score::Result<CryptoResourceGuard> CertManagementContextImpl::LoadCertificate(co
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CERT_LOAD")};
     }
 
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -639,7 +650,7 @@ score::Result<std::monostate> CertManagementContextImpl::ImportCrl(score::cpp::s
         return score::Result<std::monostate>{score::unexpect, request_result.error()};
     }
 
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -672,7 +683,7 @@ score::Result<std::monostate> CertManagementContextImpl::ImportCrlToSlot(score::
         return score::Result<std::monostate>{score::unexpect, request_result.error()};
     }
 
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -697,7 +708,7 @@ score::Result<std::monostate> CertManagementContextImpl::DeleteCrl(const CryptoR
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CRL_DELETE")};
     }
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())

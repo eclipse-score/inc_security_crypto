@@ -522,13 +522,16 @@ score::Result<std::unique_ptr<ICertificateManagementContext>> CryptoContextImpl:
     request.context_type = daemon_common::context_types::kCertManagement;
     request.provider_type = config.provider_type;
 
-    auto context_id = CreateDaemonContext(m_connection, request);
+    const auto operation_timeout =
+        ResolveOperationTimeout(config.timeout_enabled, config.operation_timeout, m_default_operation_timeout);
+    auto context_id = CreateDaemonContext(m_connection, request, operation_timeout);
     if (!context_id.has_value())
     {
         return score::Result<std::unique_ptr<ICertificateManagementContext>>{score::unexpect, context_id.error()};
     }
 
-    return std::make_unique<CertManagementContextImpl>(m_connection, context_id.value(), m_transcoder);
+    return std::make_unique<CertManagementContextImpl>(
+        m_connection, context_id.value(), m_transcoder, operation_timeout);
 }
 
 // ---------------------------------------------------------------------------
@@ -650,6 +653,8 @@ score::Result<std::unique_ptr<ICertificateObject>> CryptoContextImpl::GetCertifi
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
     namespace med_ops = ::score::crypto::daemon::mediator::operations;
     using ResultType = score::Result<std::unique_ptr<ICertificateObject>>;
+    // No per-call configuration exists for this lookup, so the stack default applies, as for ResolveResource.
+    const auto operation_timeout = ResolveOperationTimeout(true, std::nullopt, m_default_operation_timeout);
 
     if ((id.type != ResourceType::kCertificate) && (id.type != ResourceType::kCertSlot))
     {
@@ -670,7 +675,7 @@ score::Result<std::unique_ptr<ICertificateObject>> CryptoContextImpl::GetCertifi
             MakeError(CryptoErrorCode::kOperationFailed, "GetCertificateObject: failed to build request")};
     }
 
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(med_ops::GetCertificateObject()).expectSuccess();
     if (!validator.isValid())
@@ -721,7 +726,8 @@ score::Result<std::unique_ptr<ICertificateObject>> CryptoContextImpl::GetCertifi
                                                    m_connection,
                                                    m_transcoder,
                                                    static_cast<std::size_t>(spki_size.value()),
-                                                   std::move(spki_algorithm.value()));
+                                                   std::move(spki_algorithm.value()),
+                                                   operation_timeout);
 }
 
 score::Result<std::unique_ptr<ICertSlotObject>> CryptoContextImpl::GetCertSlotObject(const CryptoResourceId& id)
@@ -729,6 +735,8 @@ score::Result<std::unique_ptr<ICertSlotObject>> CryptoContextImpl::GetCertSlotOb
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
     namespace med_ops = ::score::crypto::daemon::mediator::operations;
     using ResultType = score::Result<std::unique_ptr<ICertSlotObject>>;
+    // No per-call configuration exists for this lookup, so the stack default applies, as for ResolveResource.
+    const auto operation_timeout = ResolveOperationTimeout(true, std::nullopt, m_default_operation_timeout);
 
     if (id.type != ResourceType::kCertSlot)
     {
@@ -748,7 +756,7 @@ score::Result<std::unique_ptr<ICertSlotObject>> CryptoContextImpl::GetCertSlotOb
                           MakeError(CryptoErrorCode::kOperationFailed, "GetCertSlotObject: failed to build request")};
     }
 
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(med_ops::GetCertSlotObject()).expectSuccess();
     if (!validator.isValid())

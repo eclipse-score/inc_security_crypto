@@ -44,7 +44,7 @@ score::Result<proto::ControlRequest> MakeConnectionRequest(proto::OperationReque
     }
 
     proto::ControlRequest request{};
-    request.operation = operation_result.value();
+    request.operations = operation_result.value();
     request.data_node_id = connection_node_id;
     return request;
 }
@@ -62,7 +62,8 @@ CertificateObjectImpl::CertificateObjectImpl(CryptoResourceId id,
                                              std::shared_ptr<api::control_plane::IConnection> connection,
                                              std::shared_ptr<IBufferTranscoder> transcoder,
                                              std::size_t public_key_size,
-                                             std::string public_key_algorithm)
+                                             std::string public_key_algorithm,
+                                             std::chrono::milliseconds operation_timeout)
     : m_id(id),
       m_subject(std::move(subject)),
       m_issuer(std::move(issuer)),
@@ -74,7 +75,8 @@ CertificateObjectImpl::CertificateObjectImpl(CryptoResourceId id,
       m_connection(std::move(connection)),
       m_transcoder(std::move(transcoder)),
       m_public_key_size(public_key_size),
-      m_public_key_algorithm(public_key_algorithm)
+      m_public_key_algorithm(public_key_algorithm),
+      m_operation_timeout(operation_timeout)
 {
 }
 
@@ -177,7 +179,7 @@ score::Result<std::size_t> CertificateObjectImpl::ExportPublicKey(score::cpp::sp
     {
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     }
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
