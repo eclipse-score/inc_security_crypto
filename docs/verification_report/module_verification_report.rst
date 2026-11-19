@@ -22,6 +22,7 @@ Verification Report
    :safety: ASIL_B
    :security: YES
    :verification_method: test_and_inspection
+   :applies_to_module_version: v1.0
    :belongs_to: mod__crypto_module
    :realizes: wp__verification_module_ver_report
    :post_template: module_verification_report
