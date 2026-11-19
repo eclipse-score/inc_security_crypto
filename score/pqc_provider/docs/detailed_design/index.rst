@@ -12,7 +12,7 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _iav_primula_component_detailed_design:
+.. _pqc_provider_component_detailed_design:
 
 Detailed Design
 ###############

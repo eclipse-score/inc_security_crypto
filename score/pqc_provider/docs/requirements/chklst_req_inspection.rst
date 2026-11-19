@@ -13,14 +13,14 @@
    # *******************************************************************************
 
 
-.. document:: IAV Primula Requirements Inspection Checklist
-  :id: doc__iav_primula_req_inspection
+.. document:: PQC Provider Requirements Inspection Checklist
+  :id: doc__pqc_provider_req_inspection
   :version: 1
   :status: draft
   :safety: QM
   :security: YES
   :realizes: wp__requirements_inspect
-  :tags: iav_primula
+  :tags: pqc_provider
 
 Requirement Inspection Checklist
 ================================
@@ -159,10 +159,10 @@ Note: If a Review ID is not applicable for your requirement, then state ""n/a" i
 The following requirements in "valid" state and with "inspected" tag set are in the scope of this inspection:
 
 .. needtable::
-   :filter: "iav_primula" in docname and "requirements" in docname and docname is not None and status == "valid"
+   :filter: "pqc_provider" in docname and "requirements" in docname and docname is not None and status == "valid"
    :style: table
    :types: comp_req
-   :tags: iav_primula
+   :tags: pqc_provider
    :columns: id;status;tags
    :colwidths: 25,25,25
    :sort: title
@@ -170,10 +170,10 @@ The following requirements in "valid" state and with "inspected" tag set are in 
 And also the following AoUs in "valid" state and with "inspected" tag set (for these please answer the questions above as if the AoUs are requirements, except question REQ_03_01):
 
 .. needtable::
-   :filter: "iav_primula" in docname and "requirements" in docname and docname is not None and status == "valid"
+   :filter: "pqc_provider" in docname and "requirements" in docname and docname is not None and status == "valid"
    :style: table
    :types: aou_req
-   :tags: iav_primula
+   :tags: pqc_provider
    :columns: id;status;tags
    :colwidths: 25,25,25
    :sort: title

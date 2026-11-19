@@ -16,14 +16,14 @@
 DFA (Dependent Failure Analysis)
 ================================
 
-.. document:: IAV Primula DFA
-   :id: doc__iav_primula_dfa
+.. document:: PQC Provider DFA
+   :id: doc__pqc_provider_dfa
    :version: 1
    :status: draft
    :safety: QM
    :security: YES
    :realizes: wp__sw_component_dfa
-   :tags: iav_primula
+   :tags: pqc_provider
 
 .. note::
    Current component scope is ``QM`` and contains only a deterministic pure

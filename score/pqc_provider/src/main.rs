@@ -11,9 +11,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // *******************************************************************************
 
-use iav_primula::get_hello_message;
-
-#[test]
-fn returns_expected_message() {
-    assert_eq!(get_hello_message(), "Hello World from iav_primula");
+pub fn get_hello_message() -> &'static str {
+    "Hello World from pqc_provider"
 }
