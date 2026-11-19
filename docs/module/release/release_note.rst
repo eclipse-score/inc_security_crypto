@@ -95,7 +95,7 @@ Performed Verification
 ^^^^^^^^^^^^^^^^^^^^^^
 
 This release note is based on the verification as documented in module verification report
-:need:`doc__mod_temp_module_name_verification_report`.
+:need:`mod_vrep__crypto__report`.
 
 Known Issues
 ------------

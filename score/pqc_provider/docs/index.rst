@@ -12,26 +12,26 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-.. _iav_primula_component:
+.. _pqc_provider_component:
 
-IAV Primula Component
-#####################
+PQC Provider Component
+######################
 
 .. note:: Document header
 
-.. document:: IAV Primula Component
-   :id: doc__iav_primula
+.. document:: PQC Provider Component
+   :id: doc__pqc_provider
    :version: 1
    :status: draft
    :safety: QM
    :security: YES
    :realizes: wp__cmpt_request
-   :tags: iav_primula
+   :tags: pqc_provider
 
 Abstract
 ========
 
-IAV_Primula is a cryptographic driver in Rust focused on integrating
+PQC Provider is a cryptographic driver in Rust focused on integrating
 post-quantum (PQ) algorithms and establishing a future-ready foundation for
 cryptographic processing in the S-CORE context. The component emphasizes a
 clear, robust, and maintainable architecture that provides safe and structured
@@ -48,7 +48,7 @@ integrators to use cryptographic operations and key-related processes in a
 uniform way. Extensibility is also considered from the beginning so that
 additional PQ algorithms and operations can be added in a controlled manner.
 
-By being implemented in Rust, IAV_Primula benefits from strong memory-safety
+By being implemented in Rust, PQC Provider benefits from strong memory-safety
 properties and improved robustness against common implementation errors.
 Overall, the component addresses the need for a modern, integration-friendly,
 and post-quantum-focused cryptographic driver baseline designed for long-term
