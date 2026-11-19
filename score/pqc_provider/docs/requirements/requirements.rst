@@ -12,17 +12,17 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-IAV Primula Requirements
-########################
+PQC Provider Requirements
+#########################
 
-.. document:: IAV Primula Requirements
-   :id: doc__iav_primula_requirements
+.. document:: PQC Provider Requirements
+   :id: doc__pqc_provider_requirements
    :version: 1
    :status: draft
    :safety: QM
    :security: YES
    :realizes: wp__requirements_comp[version==1]
-   :tags: iav_primula
+   :tags: pqc_provider
 
 Scope
 =====
@@ -31,40 +31,40 @@ Functional Requirements
 -----------------------
 
 .. comp_req:: Provide hello message function
-   :id: comp_req__iav_primula__provide_hello_message
+   :id: comp_req__pqc_provider__provide_hello_message
    :version: 1
    :reqtype: Functional
    :security: NO
    :safety: QM
    :status: valid
-   :satisfied_by: comp__iav_primula
+   :satisfied_by: comp__pqc_provider
 
    The component shall provide a public Rust function
    ``get_hello_message() -> &'static str``.
 
 .. Note:
    ``get_hello_message()`` shall return the exact value
-   ``"Hello World from iav_primula"``.
+   ``"Hello World from pqc_provider"``.
 
 Assumption of Use Requirements
 ------------------------------
 
 .. aou_req:: Integrate as Rust library API
-   :id: aou_req__iav_primula__rust_lib_api
+   :id: aou_req__pqc_provider__rust_lib_api
    :version: 1
    :reqtype: Process
    :security: YES
    :safety: QM
    :status: valid
 
-   The component user shall link the crate ``iav_primula`` and call the public
+   The component user shall link the crate ``pqc_provider`` and call the public
    API from Rust code.
 
 Environmental Requirements
 --------------------------
 
 .. aou_req:: Build environment supports Rust 2021
-   :id: aou_req__iav_primula__rust2021_build_env
+   :id: aou_req__pqc_provider__rust2021_build_env
    :version: 1
    :reqtype: Process
    :security: YES
@@ -76,4 +76,4 @@ Environmental Requirements
    2021, consistent with the component BUILD definition.
 
 .. needextend:: "c.this_doc()"
-   :+tags: iav_primula
+   :+tags: pqc_provider

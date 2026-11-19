@@ -12,20 +12,20 @@
    # SPDX-License-Identifier: Apache-2.0
    # *******************************************************************************
 
-IAV Primula Detailed Design
-===========================
+PQC Provider Detailed Design
+============================
 
-.. document:: IAV Primula Detailed Design
-   :id: doc__iav_primula_detailed_design
+.. document:: PQC Provider Detailed Design
+   :id: doc__pqc_provider_detailed_design
    :version: 1
    :status: draft
    :safety: QM
    :security: YES
    :realizes: wp__sw_implementation
-   :tags: iav_primula
+   :tags: pqc_provider
 
-Detailed Design for Component: IAV Primula
-==========================================
+Detailed Design for Component: PQC Provider
+===========================================
 
 Description
 -----------

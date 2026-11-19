@@ -15,20 +15,20 @@
 Component Architecture Documentation
 ====================================
 
-.. document:: IAV Primula Architecture
-   :id: doc__iav_primula_architecture
+.. document:: PQC Provider Architecture
+   :id: doc__pqc_provider_architecture
    :version: 1
    :status: draft
    :safety: QM
    :security: YES
    :realizes: wp__component_arch
-   :tags: iav_primula
+   :tags: pqc_provider
 
 
 Overview
 --------
 
-The IAV Primula component is a lightweight Rust library exposing one public API
+The PQC Provider component is a lightweight Rust library exposing one public API
 to return a deterministic baseline message.
 
 Requirements Linked to Component Architecture
@@ -69,22 +69,22 @@ The components are designed to cover the expectations from the feature architect
 
 A component can optional also consist of lower level components to further structure the architecture. The component and its static views can also optionally use interfaces provided by other components.
 
-.. comp:: IAV Primula
-   :id: comp__iav_primula
+.. comp:: PQC Provider
+   :id: comp__pqc_provider
    :version: 1
    :security: YES
    :safety: QM
    :status: valid
    :belongs_to: feat__security_crypto
 
-.. comp_arc_sta:: IAV Primula Static View
-   :id: comp_arc_sta__iav_primula__sv
+.. comp_arc_sta:: PQC Provider Static View
+   :id: comp_arc_sta__pqc_provider__sv
    :version: 1
    :security: YES
    :safety: QM
    :status: valid
-   :belongs_to: comp__iav_primula
-   :fulfils: comp_req__iav_primula__provide_hello_message
+   :belongs_to: comp__pqc_provider
+   :fulfils: comp_req__pqc_provider__provide_hello_message
 
    .. needarch::
       :scale: 50
@@ -95,14 +95,14 @@ A component can optional also consist of lower level components to further struc
 Dynamic Architecture
 --------------------
 
-.. comp_arc_dyn:: IAV Primula Dynamic View
-   :id: comp_arc_dyn__iav_primula__dv
+.. comp_arc_dyn:: PQC Provider Dynamic View
+   :id: comp_arc_dyn__pqc_provider__dv
    :version: 1
    :security: YES
    :safety: QM
    :status: valid
-   :belongs_to: comp__iav_primula
-   :fulfils: comp_req__iav_primula__provide_hello_message
+   :belongs_to: comp__pqc_provider
+   :fulfils: comp_req__pqc_provider__provide_hello_message
 
    Caller invokes ``get_hello_message()`` and receives the constant baseline
    string response immediately.
@@ -111,7 +111,7 @@ Interfaces
 ----------
 
 .. real_arc_int:: Public hello message interface
-   :id: real_arc_int__iav_primula__get_hello_message
+   :id: real_arc_int__pqc_provider__get_hello_message
    :version: 1
    :security: NO
    :safety: QM
