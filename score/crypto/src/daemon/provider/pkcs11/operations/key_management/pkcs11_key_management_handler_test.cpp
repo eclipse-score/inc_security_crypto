@@ -175,7 +175,7 @@ TEST_F(Pkcs11KeyHandlerTest, GenerateKey_AES256_ReturnsHandle)
     SetStandardParams(params);
     const std::string algo = "AES-256";
     params.push_back(std::string_view(algo));
-    params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kEncrypt));
+    params.push_back(static_cast<std::uint32_t>(score::crypto::KeyOperationPermission::kEncrypt));
 
     auto result = m_km_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, params);
@@ -203,7 +203,7 @@ TEST_F(Pkcs11KeyHandlerTest, HmacSha256_GenerateAndRelease_FullLifecycle)
     SetStandardParams(gen_params);
     const std::string algo = "HMAC-SHA256";
     gen_params.push_back(std::string_view(algo));
-    gen_params.push_back(static_cast<std::uint64_t>(score::crypto::KeyOperationPermission::kMac));
+    gen_params.push_back(static_cast<std::uint32_t>(score::crypto::KeyOperationPermission::kMac));
 
     auto gen = m_km_handler->Execute(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, km::operations::KEY_GENERATE}, gen_params);

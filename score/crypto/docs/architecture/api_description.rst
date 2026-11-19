@@ -39,11 +39,11 @@ The API uses a two-phase resource identification model:
 .. code-block:: cpp
 
    struct CryptoResourceId {
-       uint64_t id;                    // daemon-assigned, unique per session
-       ResourceType type;              // kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,
-                                       // kKey, kCertificate, kSecureObject, kDataObject
+       uint64_t id;                     // daemon-assigned, unique per session
+       ResourceType type;               // kProvider, kKeySlot, kCertSlot, kCertificateTrustStore,
+                                        // kKey, kCertificate, kSecureObject, kDataObject, kSharedSecret
        ResourcePersistence persistence; // kPersistent or kEphemeral
-       uint16_t primary_provider;      // owning device/provider index (0 = unbound)
+       uint16_t primary_provider;       // owning device/provider index (0 = unbound)
    };
 
 The struct is fully numeric, cheap to copy and hash, and includes
@@ -52,11 +52,15 @@ in unordered containers.
 
 ``CryptoResourceId`` unifies persistent and ephemeral resources via the
 ``ResourcePersistence`` field. Keys are ephemeral by default when
-generated, derived, agreed, imported, or unwrapped — they receive a
+generated, derived, imported, unwrapped, or agreed with a KDF — they receive a
 ``CryptoResourceId`` with ``type == kKey`` and
 ``persistence == kEphemeral``. Use
 ``IKeyManagementContext::PersistKey()`` to promote an ephemeral key
 to a persistent slot.
+
+Shared secrets are represented by ``CryptoResourceId`` with
+``type == kSharedSecret`` and ``persistence == kEphemeral``, rather than
+as ``kKey`` resources.
 
 Key slots (``kKeySlot``) represent only logical persistent storage locations.
 Ephemeral keys exist in transient memory and have no slot; some providers
@@ -72,13 +76,16 @@ certificate subject), typed object interfaces can be obtained from
 Resource Lifecycle and CryptoResourceGuard
 ------------------------------------------
 
-Transient resources (ephemeral keys, loaded key material, extracted
-certificate public keys) must be deterministically released to prevent
+Transient resources (ephemeral keys, shared secrets, loaded key material,
+extracted certificate public keys) must be deterministically released to prevent
 sensitive key material from lingering in daemon memory.
 
-All resource-producing methods (``GenerateKey``, ``DeriveKey``, ``AgreeKey``,
-``UnwrapKey``, ``ImportKey``, ``LoadKey``, ``LoadCertificatePublicKey``,
-``ImportCrl``) return ``CryptoResourceGuard`` — a move-only RAII wrapper.
+All resource-producing methods return a ``CryptoResourceGuard`` — a move-only
+RAII wrapper — either directly or, for ``EncapsulateKey()``, as the
+``shared_secret`` member of ``EncapsulationResult``. These methods include
+``GenerateKey``, ``DeriveKey``, ``AgreeKey``, ``EncapsulateKey``,
+``DecapsulateKey``, ``UnwrapKey``, ``ImportKey``, ``LoadKey``,
+``LoadCertificatePublicKey``, and ``ImportCrl``.
 Transient resource lifetime is managed by the daemon via per-resource reference
 counting: the guard holds
 a type-erased IPC release handle; ``Create*Context()`` atomically
@@ -409,6 +416,9 @@ Permissions are enforced by the daemon at context creation time. Each
    DeriveKey()                            → kDerive (on source key)
    ExportKey()                            → kExport
    AgreeKey()                             → kAgree
+   GetEncapsulationCiphertextSize()       → kAgree
+   EncapsulateKey()                       → kAgree
+   DecapsulateKey()                       → kAgree
 
 If the key's permissions do not include the required operation, the
 daemon returns ``CryptoErrorCode::kKeyOperationNotPermitted`` and the

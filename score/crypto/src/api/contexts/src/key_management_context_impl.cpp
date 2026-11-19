@@ -33,8 +33,8 @@
 #include "score/mw/log/logging.h"
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
-#include <algorithm>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -114,7 +114,7 @@ class KeyManagementContextImpl::ContextReleaseCallbackImpl final : public IRelea
 };
 
 // ---------------------------------------------------------------------------
-// IReleaseCallback implementation — sends KEY_RELEASE to daemon
+// IReleaseCallback implementation — sends KEY_RELEASE for keys and shared secrets
 // ---------------------------------------------------------------------------
 class KeyManagementContextImpl::ReleaseCallbackImpl final : public IReleaseCallback
 {
@@ -187,6 +187,78 @@ KeyManagementContextImpl::KeyManagementContextImpl(
 }
 
 KeyManagementContextImpl::~KeyManagementContextImpl() = default;
+
+// ---------------------------------------------------------------------------
+// Internal IPC helpers
+// ---------------------------------------------------------------------------
+
+score::Result<proto::ControlResponse> KeyManagementContextImpl::SendKeyManagementRequest(
+    const Expected<proto::ControlRequest, CryptoErrorCode>& request)
+{
+    if (!request.has_value())
+    {
+        return score::Result<proto::ControlResponse>{score::unexpect, MakeError(request.error())};
+    }
+    if (!m_connection)
+    {
+        return score::Result<proto::ControlResponse>{score::unexpect, MakeError(CryptoErrorCode::kConnectionFailed)};
+    }
+    auto response = m_connection->SendRequest(request.value());
+    if (!response.has_value())
+    {
+        return score::Result<proto::ControlResponse>{score::unexpect, MakeError(response.error())};
+    }
+    return std::move(response.value());
+}
+
+score::Result<proto::SingleOperationResponse> KeyManagementContextImpl::ExecuteKeyManagementRequest(
+    const Expected<proto::ControlRequest, CryptoErrorCode>& request,
+    std::size_t response_parameter_count)
+{
+    auto response = SendKeyManagementRequest(request);
+    if (!response.has_value())
+    {
+        return score::Result<proto::SingleOperationResponse>{score::unexpect, response.error()};
+    }
+    auto& operations = response.value().operation.operations;
+    if (operations.size() != 1U || operations[0].operationId.operationActor != actors::OP_ACTOR_KEY_MANAGEMENT ||
+        operations[0].operationId.operationAction !=
+            request.value().operation.operations[0].operationId.operationAction)
+    {
+        return score::Result<proto::SingleOperationResponse>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Invalid key operation response")};
+    }
+    if (operations[0].result != proto::OPERATION_RESULT_SUCCESS)
+    {
+        return score::Result<proto::SingleOperationResponse>{
+            score::unexpect, MakeError(static_cast<CryptoErrorCode>(operations[0].result))};
+    }
+    if (operations[0].parameters.size() != response_parameter_count)
+    {
+        return score::Result<proto::SingleOperationResponse>{
+            score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Invalid key response parameter count")};
+    }
+    return std::move(operations[0]);
+}
+
+score::Result<CryptoResourceGuard> KeyManagementContextImpl::MakeResourceGuard(
+    const daemon::common::ResponseParameters& parameters,
+    std::size_t offset,
+    ResourceType type)
+{
+    if (parameters.size() < offset + 2U)
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed)};
+    }
+    const auto* id = std::get_if<std::uint64_t>(&parameters[offset]);
+    const auto* provider = std::get_if<std::uint16_t>(&parameters[offset + 1U]);
+    if (!id || *id == kInvalidCryptoResourceId || !provider || *provider == daemon::common::kInvalidProviderId)
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed)};
+    }
+    return CryptoResourceGuardFactory::Make(
+        m_release_callback, CryptoResourceId{*id, type, ResourcePersistence::kEphemeral, *provider});
+}
 
 // ---------------------------------------------------------------------------
 // Key Generation — Ephemeral
@@ -319,6 +391,115 @@ score::Result<CryptoResourceGuard> KeyManagementContextImpl::LoadKey(const Crypt
 
     return CryptoResourceGuardFactory::Make(m_release_callback, resource_id);
 }
+
+// ---------------------------------------------------------------------------
+// Key Material — Ephemeral
+// ---------------------------------------------------------------------------
+
+score::Result<CryptoResourceGuard> KeyManagementContextImpl::ImportKey(const ImportKeyParams& params)
+{
+    const score::Result<std::monostate> valid = params.Validate();
+    if (!valid.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, valid.error()};
+    }
+    if (!m_transcoder)
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed)};
+    }
+    auto acquired = m_transcoder->Acquire(params.key_data);
+    if (!acquired.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, acquired.error()};
+    }
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_IMPORT})
+        .with_in_string(params.algorithm)
+        .with_in_val_uint32(static_cast<std::uint32_t>(params.permissions))
+        .with_in_val_uint32(static_cast<std::uint32_t>(params.format));
+    m_transcoder->AppendInputBuffer(builder, acquired.value());
+    auto operation = builder.build();
+    if (!operation.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, MakeError(operation.error())};
+    }
+    proto::ControlRequest request{};
+    request.data_node_id = m_context_id;
+    request.operation = std::move(operation.value());
+    auto reply = ExecuteKeyManagementRequest(request, 2U);
+    if (!reply.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, reply.error()};
+    }
+    return MakeResourceGuard(reply.value().parameters, 0U, ResourceType::kKey);
+}
+
+score::Result<std::size_t> KeyManagementContextImpl::GetExportKeySize(const CryptoResourceId& key, FormatType format)
+{
+    if (key.id == kInvalidCryptoResourceId)
+    {
+        return score::Result<std::size_t>{score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument)};
+    }
+    auto reply = ExecuteKeyManagementRequest(
+        proto::ControlRequestBuilder()
+            .forDataNodeId(m_context_id)
+            .operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_GET_EXPORT_SIZE})
+            .with_in_val_uint64(key.id)
+            .with_in_val_uint32(static_cast<std::uint32_t>(format))
+            .build(),
+        1U);
+    if (!reply.has_value())
+    {
+        return score::Result<std::size_t>{score::unexpect, reply.error()};
+    }
+    const auto* size = std::get_if<std::uint64_t>(&reply.value().parameters[0]);
+    if (!size || *size > std::numeric_limits<std::size_t>::max())
+    {
+        return score::Result<std::size_t>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed)};
+    }
+    return static_cast<std::size_t>(*size);
+}
+
+score::Result<std::size_t> KeyManagementContextImpl::ExportKey(const CryptoResourceId& key,
+                                                                score::cpp::span<uint8_t> output,
+                                                                FormatType format)
+{
+    if (key.id == kInvalidCryptoResourceId || output.data() == nullptr)
+    {
+        return score::Result<std::size_t>{score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument)};
+    }
+    if (!m_transcoder)
+    {
+        return score::Result<std::size_t>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed)};
+    }
+    auto acquired = m_transcoder->Acquire(output, /*is_output=*/true);
+    if (!acquired.has_value())
+    {
+        return score::Result<std::size_t>{score::unexpect, acquired.error()};
+    }
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_EXPORT})
+        .with_in_val_uint64(key.id)
+        .with_in_val_uint32(static_cast<std::uint32_t>(format));
+    m_transcoder->AppendOutputBuffer(builder, acquired.value());
+    auto operation = builder.build();
+    if (!operation.has_value())
+    {
+        return score::Result<std::size_t>{score::unexpect, MakeError(operation.error())};
+    }
+    proto::ControlRequest request{};
+    request.data_node_id = m_context_id;
+    request.operation = std::move(operation.value());
+    auto reply = ExecuteKeyManagementRequest(request, 1U);
+    if (!reply.has_value())
+    {
+        return score::Result<std::size_t>{score::unexpect, reply.error()};
+    }
+    proto::OperationResponse response{{std::move(reply.value())}};
+    proto::ControlResponseValidator validator{response};
+    return m_transcoder->ExtractOutputBuffer(acquired.value(), validator);
+}
+
 
 // ---------------------------------------------------------------------------
 // Stubs — not yet implemented
@@ -624,6 +805,134 @@ score::Result<KeySlotInfo> KeyManagementContextImpl::GetKeySlotInfo(const Crypto
     score::mw::log::LogError() << "[API][KeyMgmtContextImpl] ERROR: GetKeySlotInfo not yet implemented";
     return score::Result<KeySlotInfo>{
         score::unexpect, MakeError(CryptoErrorCode::kUnsupportedOperation, "GetKeySlotInfo not yet implemented")};
+}
+
+// ---------------------------------------------------------------------------
+// KEM
+// ---------------------------------------------------------------------------
+
+score::Result<std::size_t> KeyManagementContextImpl::GetEncapsulationCiphertextSize(const EncapsulateKeyParams& params)
+{
+    auto valid = params.Validate();
+    if (!valid.has_value())
+    {
+        return score::Result<std::size_t>{score::unexpect, valid.error()};
+    }
+    auto reply = ExecuteKeyManagementRequest(
+        proto::ControlRequestBuilder()
+            .forDataNodeId(m_context_id)
+            .operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_GET_ENCAPSULATION_SIZE})
+            .with_in_string(params.algorithm)
+            .with_in_val_uint64(params.peer_public_key.id)
+            .build(),
+        1U);
+    if (!reply.has_value())
+    {
+        return score::Result<std::size_t>{score::unexpect, reply.error()};
+    }
+    const auto* size = std::get_if<std::uint64_t>(&reply.value().parameters[0]);
+    if (!size || *size == 0U || *size > std::numeric_limits<std::size_t>::max())
+    {
+        return score::Result<std::size_t>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed)};
+    }
+    return static_cast<std::size_t>(*size);
+}
+
+score::Result<EncapsulationResult> KeyManagementContextImpl::EncapsulateKey(const EncapsulateKeyParams& params,
+                                                                            score::cpp::span<uint8_t> ciphertext_out)
+{
+    auto valid = params.Validate();
+    if (!valid.has_value())
+    {
+        return score::Result<EncapsulationResult>{score::unexpect, valid.error()};
+    }
+    if (ciphertext_out.empty() || ciphertext_out.data() == nullptr)
+    {
+        return score::Result<EncapsulationResult>{score::unexpect, MakeError(CryptoErrorCode::kInsufficientBufferSize)};
+    }
+    if (!m_transcoder)
+    {
+        return score::Result<EncapsulationResult>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed)};
+    }
+    auto acquired = m_transcoder->Acquire(ciphertext_out, /*is_output=*/true);
+    if (!acquired.has_value())
+    {
+        return score::Result<EncapsulationResult>{score::unexpect, acquired.error()};
+    }
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_ENCAPSULATE})
+        .with_in_string(params.algorithm)
+        .with_in_val_uint64(params.peer_public_key.id);
+    m_transcoder->AppendOutputBuffer(builder, acquired.value());
+    auto operation = builder.build();
+    if (!operation.has_value())
+    {
+        return score::Result<EncapsulationResult>{score::unexpect, MakeError(operation.error())};
+    }
+    proto::ControlRequest request{};
+    request.data_node_id = m_context_id;
+    request.operation = std::move(operation.value());
+    auto reply = ExecuteKeyManagementRequest(request, 3U);
+    if (!reply.has_value())
+    {
+        return score::Result<EncapsulationResult>{score::unexpect, reply.error()};
+    }
+    // Construct the guard first so malformed ciphertext responses release a valid returned resource.
+    score::Result<CryptoResourceGuard> shared_secret =
+        MakeResourceGuard(reply.value().parameters, 1U, ResourceType::kSharedSecret);
+    if (!shared_secret.has_value())
+    {
+        return score::Result<EncapsulationResult>{score::unexpect, shared_secret.error()};
+    }
+    proto::OperationResponse response{{std::move(reply.value())}};
+    proto::ControlResponseValidator validator{response};
+    auto written = m_transcoder->ExtractOutputBuffer(acquired.value(), validator);
+    if (!written.has_value())
+    {
+        return score::Result<EncapsulationResult>{score::unexpect, written.error()};
+    }
+    if (written.value() == 0U)
+    {
+        return score::Result<EncapsulationResult>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed)};
+    }
+    return EncapsulationResult{std::move(shared_secret.value()), written.value()};
+}
+
+score::Result<CryptoResourceGuard> KeyManagementContextImpl::DecapsulateKey(const DecapsulateKeyParams& params)
+{
+    auto valid = params.Validate();
+    if (!valid.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, valid.error()};
+    }
+    if (!m_transcoder)
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed)};
+    }
+    auto acquired = m_transcoder->Acquire(params.ciphertext);
+    if (!acquired.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, acquired.error()};
+    }
+    proto::OperationRequestBuilder builder;
+    builder.operation({actors::OP_ACTOR_KEY_MANAGEMENT, keymgmt_ops::KEY_DECAPSULATE})
+        .with_in_string(params.algorithm)
+        .with_in_val_uint64(params.private_key.id);
+    m_transcoder->AppendInputBuffer(builder, acquired.value());
+    auto operation = builder.build();
+    if (!operation.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, MakeError(operation.error())};
+    }
+    proto::ControlRequest request{};
+    request.data_node_id = m_context_id;
+    request.operation = std::move(operation.value());
+    auto reply = ExecuteKeyManagementRequest(request, 2U);
+    if (!reply.has_value())
+    {
+        return score::Result<CryptoResourceGuard>{score::unexpect, reply.error()};
+    }
+    return MakeResourceGuard(reply.value().parameters, 0U, ResourceType::kSharedSecret);
 }
 
 }  // namespace crypto

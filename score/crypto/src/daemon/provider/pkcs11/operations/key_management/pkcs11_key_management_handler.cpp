@@ -67,6 +67,8 @@ bool Pkcs11KeyManagementHandler::IsAlgorithmSupported(const AlgorithmDescriptor&
             // AES key rows only.
             return (algorithm.category == ::score::crypto::AlgorithmCategory::kKey) &&
                    ((algorithm.key_bits == 128U) || (algorithm.key_bits == 192U) || (algorithm.key_bits == 256U));
+        case ::score::crypto::KeyType::kMlDsa:
+        case ::score::crypto::KeyType::kMlKem:
         case ::score::crypto::KeyType::kNone:
         case ::score::crypto::KeyType::kEcc:
         case ::score::crypto::KeyType::kRsa:

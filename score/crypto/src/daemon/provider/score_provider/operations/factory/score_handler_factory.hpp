@@ -24,8 +24,6 @@
 #include "score/result/result.h"
 
 #include <memory>
-#include <string_view>
-
 namespace score::crypto::daemon::provider::score_provider::operations::factory
 {
 
@@ -47,7 +45,14 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
 
     ~ScoreHandlerFactory() override = default;
 
-    /// Routes to the Create*Handler hook of the handler type.
+    /// @brief Create a handler for the requested operation family.
+    ///
+    /// Dispatches to the provider-specific factory method selected by
+    /// handlerId. Unsupported handler identifiers result in an
+    /// unsupported-operation error.
+    ///
+    /// @param handlerId Operation family to create.
+    /// @param algorithm Resolved algorithm descriptor used by algorithm-specific handlers.
     ::score::Result<handler::Handler::Sptr> CreateHandler(const common::HandlerId& handlerId,
                                                           const AlgorithmDescriptor& algorithm) override;
 
@@ -55,11 +60,13 @@ class ScoreHandlerFactory : public handler::ICryptoHandlerFactory
     [[nodiscard]] ::score::Result<handler::Handler::Sptr> CreateKeyManagementHandler() override;
 
   protected:
-    /// Override in concrete provider to create a hash handler. Default returns unsupported.
+    /// Override in a concrete provider to create a hash handler.
+    /// The default implementation returns kUnsupportedOperation.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateHashHandler(
         const AlgorithmDescriptor& algorithm);
 
-    /// Override in concrete provider to create a MAC handler. Default returns unsupported.
+    /// Override in a concrete provider to create a MAC handler.
+    /// The default implementation returns kUnsupportedOperation.
     [[nodiscard]] virtual ::score::Result<handler::Handler::Sptr> CreateMacHandler(
         const AlgorithmDescriptor& algorithm);
 

@@ -147,6 +147,8 @@ namespace score::crypto::daemon::provider::openssl::detail
     {
         case ::score::crypto::KeyType::kSecret:
             return ToEvpMd(algorithm.hash) != nullptr;
+        case ::score::crypto::KeyType::kMlDsa:
+        case ::score::crypto::KeyType::kMlKem:
         case ::score::crypto::KeyType::kNone:
         case ::score::crypto::KeyType::kAes:
         case ::score::crypto::KeyType::kEcc:
@@ -176,6 +178,8 @@ namespace score::crypto::daemon::provider::openssl::detail
             return IsRsaModulusSupported(algorithm.key_bits) && (ToEvpMd(algorithm.hash) != nullptr);
         case ::score::crypto::KeyType::kEd25519:
             return true;
+        case ::score::crypto::KeyType::kMlDsa:
+        case ::score::crypto::KeyType::kMlKem:
         case ::score::crypto::KeyType::kNone:
         case ::score::crypto::KeyType::kSecret:
         case ::score::crypto::KeyType::kAes:

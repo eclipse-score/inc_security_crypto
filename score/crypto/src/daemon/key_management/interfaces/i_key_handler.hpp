@@ -30,8 +30,9 @@ namespace score::crypto::daemon::key_management
 /// IKeySlotHandler (for slot-loaded keys). Its ownership is transferred to a
 /// KeyDataNode in the per-provider KeyRegistry.
 ///
-/// Thread safety: individual instances are not thread-safe. The DataNode
-/// exclusiveAccess flag ensures mutual exclusion for the KeyDataNode path.
+/// Thread safety: the provider defines which concurrent uses are supported and
+/// implements any required synchronization. Key management retains the owning
+/// KeyEntry during an operation but does not serialize key usage.
 ///
 /// Lifecycle contract:
 ///   - Release() must be called exactly once before destruction.

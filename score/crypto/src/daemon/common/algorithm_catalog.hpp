@@ -43,7 +43,9 @@ enum class KeyType : std::uint8_t
     kAes,     ///< AES key; its length selects the AES variant.
     kEcc,     ///< Elliptic-curve key pair or public key on one named curve.
     kRsa,     ///< RSA key pair or public key; its modulus length selects the variant.
-    kEd25519  ///< Ed25519 key pair or public key (RFC 8032).
+    kEd25519,  ///< Ed25519 key pair or public key (RFC 8032).
+    kMlDsa,    ///< ML-DSA key pair or public key (FIPS 204).
+    kMlKem     ///< ML-KEM key pair or public key (FIPS 203).
 };
 
 /// @brief Message digest an algorithm is built on, or computes.
@@ -153,7 +155,15 @@ enum class Algorithm : std::uint16_t
     kEcdsaP384Sha512,
     kEcdsaP521Sha224,
     kEcdsaP521Sha256,
-    kEcdsaP521Sha384
+    kEcdsaP521Sha384,
+
+    // Post-quantum identifiers, appended to preserve existing enum values.
+    kMlDsa44,
+    kMlDsa65,
+    kMlDsa87,
+    kMlKem512,
+    kMlKem768,
+    kMlKem1024
 };
 
 static_assert((static_cast<std::uint16_t>(Algorithm::kEcdsaP256Sha256) == 18U) &&
@@ -171,6 +181,8 @@ static_assert((static_cast<std::uint16_t>(Algorithm::kEcdsaP256Sha256) == 18U) &
 ///       form, which is the wire format of this stack; RSA-PSS signatures are
 ///       as long as the modulus and Ed25519 signatures are 64 bytes.
 /// @note For RSA @c key_bits is the modulus length; for Ed25519 it is 256.
+///       PQC parameter sets use explicit public/private key sizes instead of
+///       key_bits; output_size is the signature or KEM ciphertext length.
 struct AlgorithmDescriptor
 {
     Algorithm id{Algorithm::kUnknown};
@@ -184,6 +196,9 @@ struct AlgorithmDescriptor
     std::uint16_t output_size{0U};
     std::uint8_t block_size{0U};
     std::uint8_t iv_size{0U};
+    std::uint16_t public_key_size{0U};     ///< PQC public-key encoding length in bytes.
+    std::uint16_t private_key_size{0U};    ///< PQC private-key encoding length in bytes.
+    std::uint16_t shared_secret_size{0U};  ///< KEM shared-secret length; zero otherwise.
 };
 
 namespace algorithm_catalog_detail
@@ -426,6 +441,32 @@ namespace algorithm_catalog_detail
             0U};
 }
 
+/// @brief Describe a standardized PQC parameter set without treating its name as a key bit length.
+[[nodiscard]] constexpr AlgorithmDescriptor Pqc(Algorithm id,
+                                                std::string_view name,
+                                                AlgorithmCategory category,
+                                                KeyType key_type,
+                                                std::uint16_t public_key_size,
+                                                std::uint16_t private_key_size,
+                                                std::uint16_t output_size,
+                                                std::uint16_t shared_secret_size) noexcept
+{
+    return {id,
+            name,
+            category,
+            key_type,
+            0U,
+            HashFunction::kNone,
+            EccCurve::kNone,
+            CipherMode::kNone,
+            output_size,
+            0U,
+            0U,
+            public_key_size,
+            private_key_size,
+            shared_secret_size};
+}
+
 }  // namespace algorithm_catalog_detail
 
 /// @brief Every algorithm identifier this build knows, with its properties.
@@ -527,6 +568,21 @@ inline constexpr AlgorithmDescriptor kAlgorithmCatalog[] = {
     algorithm_catalog_detail::RsaKey(Algorithm::kRsa3072, "RSA-3072", 3072U),
     algorithm_catalog_detail::RsaKey(Algorithm::kRsa4096, "RSA-4096", 4096U),
 
+    // ML-DSA names identify both a parameterized key and its signature scheme.
+    algorithm_catalog_detail::Pqc(Algorithm::kMlDsa44, "ML-DSA-44", AlgorithmCategory::kSignature,
+                                 KeyType::kMlDsa, 1312U, 2560U, 2420U, 0U),
+    algorithm_catalog_detail::Pqc(Algorithm::kMlDsa65, "ML-DSA-65", AlgorithmCategory::kSignature,
+                                 KeyType::kMlDsa, 1952U, 4032U, 3309U, 0U),
+    algorithm_catalog_detail::Pqc(Algorithm::kMlDsa87, "ML-DSA-87", AlgorithmCategory::kSignature,
+                                 KeyType::kMlDsa, 2592U, 4896U, 4627U, 0U),
+    // KEM operations belong to Key Management, not to a separate context family.
+    algorithm_catalog_detail::Pqc(Algorithm::kMlKem512, "ML-KEM-512", AlgorithmCategory::kKey,
+                                 KeyType::kMlKem, 800U, 1632U, 768U, 32U),
+    algorithm_catalog_detail::Pqc(Algorithm::kMlKem768, "ML-KEM-768", AlgorithmCategory::kKey,
+                                 KeyType::kMlKem, 1184U, 2400U, 1088U, 32U),
+    algorithm_catalog_detail::Pqc(Algorithm::kMlKem1024, "ML-KEM-1024", AlgorithmCategory::kKey,
+                                 KeyType::kMlKem, 1568U, 3168U, 1568U, 32U),
+
     algorithm_catalog_detail::Rbg(Algorithm::kCtrDrbg, "CTR-DRBG"),
 };
 
@@ -598,6 +654,7 @@ inline constexpr AlgorithmDescriptor kAlgorithmCatalog[] = {
 /// @brief Key length in bytes implied by an algorithm.
 ///
 /// For curves this is the byte length of one coordinate, so P-521 gives 66.
+/// For ML-DSA and ML-KEM this is the encoded private-key length.
 /// @return The length, or std::nullopt when the algorithm takes no key.
 [[nodiscard]] inline constexpr std::optional<std::size_t> GetKeySizeBytes(Algorithm algorithm) noexcept
 {
@@ -605,6 +662,10 @@ inline constexpr AlgorithmDescriptor kAlgorithmCatalog[] = {
     if (!row.has_value() || (row->key_type == KeyType::kNone))
     {
         return std::nullopt;
+    }
+    if ((row->key_type == KeyType::kMlDsa) || (row->key_type == KeyType::kMlKem))
+    {
+        return row->private_key_size;
     }
     return (static_cast<std::size_t>(row->key_bits) + 7U) / 8U;
 }

@@ -19,6 +19,23 @@
 namespace score::crypto::daemon::key_management
 {
 
+Expected<std::size_t, common::DaemonErrorCode> IKeyFactory::GetEncapsulationCiphertextSize(
+    const KeyEncapsulationRequest&) const
+{
+    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+}
+
+Expected<ProviderEncapsulationResult, common::DaemonErrorCode> IKeyFactory::EncapsulateKey(
+    const KeyEncapsulationRequest&)
+{
+    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+}
+
+Expected<IKeyHandler::Sptr, common::DaemonErrorCode> IKeyFactory::DecapsulateKey(const KeyDecapsulationRequest&)
+{
+    return make_unexpected(common::DaemonErrorCode::kUnsupportedOperation);
+}
+
 score::crypto::Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode> IKeyFactory::GenerateKey(
     const KeyGenerationRequest& /*request*/)
 {
@@ -62,17 +79,26 @@ score::crypto::Expected<IKeyHandler::Sptr, score::crypto::daemon::common::Daemon
 }
 
 score::crypto::Expected<SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode> IKeyFactory::ExportKey(
-    const ProviderKeyHandle& /*handle*/,
-    score::crypto::FormatType /*format*/)
+    const IKeyHandler& key,
+    score::crypto::FormatType format)
 {
-    return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    if (format != score::crypto::FormatType::kRaw)
+    {
+        return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    }
+    return key.Export();
 }
 
 score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorCode> IKeyFactory::GetExportKeySize(
-    const ProviderKeyHandle& /*handle*/,
-    score::crypto::FormatType /*format*/)
+    const IKeyHandler& key,
+    score::crypto::FormatType format)
 {
-    return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kUnsupportedOperation);
+    auto exported = ExportKey(key, format);
+    if (!exported.has_value())
+    {
+        return score::crypto::make_unexpected(exported.error());
+    }
+    return exported.value().bytes.size();
 }
 
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> IKeyFactory::GenerateKeyToSlot(

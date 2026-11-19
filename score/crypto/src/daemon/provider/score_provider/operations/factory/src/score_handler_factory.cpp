@@ -63,7 +63,7 @@ ScoreHandlerFactory::ScoreHandlerFactory(std::shared_ptr<key_management::IKeyFac
 }
 
 // ---------------------------------------------------------------------------
-// Default implementations — return unsupported
+// Default provider hooks — return kUnsupportedOperation when not overridden.
 // ---------------------------------------------------------------------------
 
 ::score::Result<handler::Handler::Sptr> ScoreHandlerFactory::CreateHashHandler(const AlgorithmDescriptor& /*algorithm*/)
