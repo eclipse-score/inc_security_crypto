@@ -64,7 +64,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'crypto/components/crypto/architecture/key_management_architecture';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/crypto/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
@@ -72,7 +72,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="IPC Message Passing Adapter" href="../../../../score/crypto/src/ipc/message_passing_adapter/docs/index.html" />
+    <link rel="next" title="Detailed Design" href="../detailed_design/index.html" />
     <link rel="prev" title="Common Storage Design Decisions" href="../../../../score/crypto/src/daemon/common/storage/docs/architecture/design_decisions.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
@@ -415,7 +415,6 @@
 <li class="toctree-l3 current active"><a aria-current="page" class="current reference internal" href="#">Key Management Architecture</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../score/crypto/src/ipc/message_passing_adapter/docs/index.html">IPC Message Passing Adapter</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
@@ -426,7 +425,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cryptoki/index.html">Cryptoki</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../primula/index.html">IAV Primula Component</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pqc_provider/index.html">PQC Provider Component</a></li>
 </ul>
 </div>
 </nav></div>
@@ -495,7 +494,7 @@
                   
   <section id="key-management-architecture">
 <span id="crypto-key-management-architecture"></span><h1>Key Management Architecture<a class="headerlink" href="#key-management-architecture" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-b715f685">
+<div class="need_container docutils container" id="SNCB-fbf5861b">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__crypto_key_management">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -544,6 +543,9 @@ in detail: how keys come into being, how they are stored, how their lifetime
 is managed across multiple clients, and how they are bound to a cryptographic
 operation context.  A MAC operation is used as the running example because it
 touches every layer of the subsystem.</p>
+<p>Key-management nodes, caches, and key references are scoped by the IPC
+<a class="reference internal" href="../../../../score/crypto/src/ipc/docs/architecture/client_id_design.html#term-ClientId"><span class="xref std std-term">ClientId</span></a>; its assignment and lifecycle are defined in
+<a class="reference internal" href="../../../../score/crypto/src/ipc/docs/architecture/client_id_design.html#ipc-client-id-assignment"><span class="std std-ref">Client ID Assignment and Scope</span></a>.</p>
 <nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#architecture-overview" id="id8">Architecture Overview</a></p></li>
@@ -637,7 +639,7 @@ injects the shared <code class="docutils literal notranslate"><span class="pre">
 <p class="plantuml">
 <object data="../../../../_images/plantuml-eb361b9b28b81906820c0a86d9764f5e126ecce1.svg" type="image/svg+xml" style="width:7785px;height:2846px;background:#FFFFFF;"></object></p>
 <figcaption>
-<p><span class="caption-number">Fig. 11 </span><span class="caption-text">Key Management — Class Diagram</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
+<p><span class="caption-number">Fig. 20 </span><span class="caption-text">Key Management — Class Diagram</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>
@@ -648,9 +650,9 @@ key generation, key load with deduplication, MAC context creation with key
 binding, MAC streaming, and crash cleanup:</p>
 <figure class="align-center" id="id5">
 <p class="plantuml">
-<object data="../../../../_images/plantuml-e9df05e85942d04778776d51bfa26647a7fba577.svg" type="image/svg+xml" style="width:5039px;height:812px;background:#FFFFFF;"></object></p>
+<object data="../../../../_images/plantuml-ca56e46ea27f0d5c556463619be54c382aa414c9.svg" type="image/svg+xml" style="width:5079px;height:812px;background:#FFFFFF;"></object></p>
 <figcaption>
-<p><span class="caption-number">Fig. 12 </span><span class="caption-text">Key Management — Sequence Diagrams</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
+<p><span class="caption-number">Fig. 21 </span><span class="caption-text">Key Management — Sequence Diagrams</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>
@@ -1014,7 +1016,7 @@ decisions and their rationale.</p>
 <h3><a class="toc-backref" href="#id26" role="doc-backlink">Session Pools</a><a class="headerlink" href="#session-pools" title="Link to this heading">#</a></h3>
 <p>Each <code class="docutils literal notranslate"><span class="pre">Pkcs11Provider</span></code> maintains two pools of PKCS#11 sessions — one for
 Read-Only (RO) and one for Read-Write (RW) operations.  The pools are
-protected by <code class="docutils literal notranslate"><span class="pre">m_poolMutex</span></code> so that the gRPC thread pool can acquire and
+protected by <code class="docutils literal notranslate"><span class="pre">m_poolMutex</span></code> so that the RPC thread pool can acquire and
 release sessions concurrently.</p>
 <p>Session acquisition:</p>
 <ol class="arabic simple">
@@ -1058,7 +1060,7 @@ otherwise increments the counter.  Protected by <code class="docutils literal no
 <li><p><code class="docutils literal notranslate"><span class="pre">OnUserHandlerReleased</span></code>: decrements the counter; calls <code class="docutils literal notranslate"><span class="pre">C_Logout</span></code>
 when it reaches zero.  Protected by <code class="docutils literal notranslate"><span class="pre">m_mutex</span></code>.</p></li>
 </ul>
-<p>The mutex is essential because the gRPC daemon’s thread pool can dispatch
+<p>The mutex is essential because the daemon’s thread pool can dispatch
 concurrent crypto operations that each require a logged-in session.</p>
 </section>
 <section id="session-validation">
@@ -1313,11 +1315,11 @@ and one dep in <code class="docutils literal notranslate"><span class="pre">daem
       </div>
     </a>
     <a class="right-next"
-       href="../../../../score/crypto/src/ipc/message_passing_adapter/docs/index.html"
+       href="../detailed_design/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">IPC Message Passing Adapter</p>
+        <p class="prev-next-title">Detailed Design</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -1381,7 +1383,7 @@ and one dep in <code class="docutils literal notranslate"><span class="pre">daem
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/score/crypto/docs/architecture/key_management_architecture.rst">
+    <a href="https://github.com/eclipse-score/crypto/edit/main/score/crypto/docs/architecture/key_management_architecture.rst">
       <i class="fa-solid fa-pencil"></i>
       
       

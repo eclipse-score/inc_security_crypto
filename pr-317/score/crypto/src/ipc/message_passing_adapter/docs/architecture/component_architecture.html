@@ -64,7 +64,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/src/ipc/message_passing_adapter/docs/architecture/component_architecture';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/crypto/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
@@ -72,7 +72,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../../../search.html" />
-    <link rel="next" title="IPC Design Decisions" href="design_decisions.html" />
+    <link rel="next" title="Design Decisions" href="design_decisions.html" />
     <link rel="prev" title="IPC Message Passing Adapter Architecture" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
@@ -407,18 +407,26 @@
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../../../../../../crypto/components/crypto/index.html">Crypto</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/index.html">Component Architecture</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/index.html">Component Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/component_architecture.html">Component Architecture Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/api_architecture.html">API Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/api_description.html">API Description</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/dynamic_architecture.html">API Dynamic Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/interfaces.html">Interfaces</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/provider_architecture.html">Provider Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/design_decisions.html">Design Decisions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/data_plane_architecture.html">Data Plane Architecture</a></li>
+<li class="toctree-l3 current active has-children"><a class="reference internal" href="../../../docs/index.html">Crypto IPC Documentation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../../../docs/requirements/index.html">Requirements</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../docs/architecture/index.html">Selection of IPC Transport</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../protocol/docs/index.html">Crypto IPC Control Protocol</a></li>
+<li class="toctree-l4 current active"><a class="reference internal" href="../index.html">IPC Message Passing Adapter</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/architecture/daemon_architecture.html">Crypto Daemon Component Architecture</a></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="../index.html">IPC Message Passing Adapter</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active has-children"><a class="reference internal" href="index.html">IPC Message Passing Adapter Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l4 current active"><a aria-current="page" class="current reference internal" href="#">IPC Message Passing Adapter Component Architecture Documentation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="design_decisions.html">IPC Design Decisions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="ipc_comparison.html">DAR — IPC Mechanism for score-crypto Daemon</a></li>
-</ul>
-</details></li>
-<li class="toctree-l3"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/detailed_design/index.html">Detailed Design</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/requirements/index.html">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../../../../crypto/components/crypto/safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
@@ -429,7 +437,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/cryptoki/index.html">Cryptoki</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/primula/index.html">IAV Primula Component</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/pqc_provider/index.html">PQC Provider Component</a></li>
 </ul>
 </div>
 </nav></div>
@@ -477,6 +485,12 @@
     <li class="breadcrumb-item"><a href="../../../../../../../crypto/components/crypto/index.html" class="nav-link">Crypto</a></li>
     
     
+    <li class="breadcrumb-item"><a href="../../../../../../../crypto/components/crypto/architecture/index.html" class="nav-link">Component Architecture</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="../../../docs/index.html" class="nav-link">Crypto IPC Documentation</a></li>
+    
+    
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">IPC Message Passing Adapter</a></li>
     
     
@@ -501,7 +515,7 @@
                   
   <section id="ipc-message-passing-adapter-component-architecture-documentation">
 <span id="ipc-message-passing-adapter-architecture"></span><h1>IPC Message Passing Adapter Component Architecture Documentation<a class="headerlink" href="#ipc-message-passing-adapter-component-architecture-documentation" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-530a0e39">
+<div class="need_container docutils container" id="SNCB-dc834132">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_ipc_architecture">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -545,7 +559,7 @@
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-21107ef6">
+<div class="need_container docutils container" id="SNCB-1b11c2ff">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__ipc_message_passing_adapter">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -566,9 +580,9 @@
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
 <div class="line"><span><span><div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span><div class="line">affected by: <span class="affects"><span><a class="reference internal" href="design_decisions.html#dec_rec__crypto__lola_message_passing_ipc" title="comp__ipc_message_passing_adapter">dec_rec__crypto__lola_message_passing_ipc</a>, <a class="reference internal" href="design_decisions.html#dec_rec__crypto__send_notify_ipc_interaction" title="comp__ipc_message_passing_adapter">dec_rec__crypto__send_notify_ipc_interaction</a></span></span></div>
+<div class="line"><span><div class="line">affected by: <span class="affects"><span><a class="reference internal" href="design_decisions.html#dec_rec__crypto__ipc_fixed_worker_executor" title="comp__ipc_message_passing_adapter">dec_rec__crypto__ipc_fixed_worker_executor</a>, <a class="reference internal" href="design_decisions.html#dec_rec__crypto__ipc_request_work_admission" title="comp__ipc_message_passing_adapter">dec_rec__crypto__ipc_request_work_admission</a>, <a class="reference internal" href="../../../docs/architecture/design_decisions.html#dec_rec__crypto__lola_message_passing_ipc" title="comp__ipc_message_passing_adapter">dec_rec__crypto__lola_message_passing_ipc</a>, <a class="reference internal" href="design_decisions.html#dec_rec__crypto__send_notify_ipc_interaction" title="comp__ipc_message_passing_adapter">dec_rec__crypto__send_notify_ipc_interaction</a></span></span></div>
 <div class="line">belongs to: <span class="belongs_to"><span><a class="external_link reference external" href="https://eclipse-score.github.io/score/main/features/security_crypto/architecture/index.html#feat__security_crypto">feat__security_crypto</a></span></span></div>
-<div class="line">satisfies: <span class="satisfied_by"><span><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__authentic_peer_identification" title="comp__ipc_message_passing_adapter">comp_req__ipc__authentic_peer_identification</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__bounded_timeout_on_every_call" title="comp__ipc_message_passing_adapter">comp_req__ipc__bounded_timeout_on_every_call</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__concurrent_client_calls" title="comp__ipc_message_passing_adapter">comp_req__ipc__concurrent_client_calls</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__concurrent_client_processes" title="comp__ipc_message_passing_adapter">comp_req__ipc__concurrent_client_processes</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__flexible_server_thread_model" title="comp__ipc_message_passing_adapter">comp_req__ipc__flexible_server_thread_model</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__low_latency" title="comp__ipc_message_passing_adapter">comp_req__ipc__low_latency</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__minimal_or_zero_configuration" title="comp__ipc_message_passing_adapter">comp_req__ipc__minimal_or_zero_configuration</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__one_to_one_communication" title="comp__ipc_message_passing_adapter">comp_req__ipc__one_to_one_communication</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__payload_agnostic_communication" title="comp__ipc_message_passing_adapter">comp_req__ipc__payload_agnostic_communication</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__resilience_to_connection_loss" title="comp__ipc_message_passing_adapter">comp_req__ipc__resilience_to_connection_loss</a>, <a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__suitability_for_asil_b_use" title="comp__ipc_message_passing_adapter">comp_req__ipc__suitability_for_asil_b_use</a></span></span></div>
+<div class="line">satisfies: <span class="satisfied_by"><span><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__authentic_peer_identification" title="comp__ipc_message_passing_adapter">comp_req__ipc__authentic_peer_identification</a>, <a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__bounded_timeout_on_every_call" title="comp__ipc_message_passing_adapter">comp_req__ipc__bounded_timeout_on_every_call</a>, <a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__concurrent_client_calls" title="comp__ipc_message_passing_adapter">comp_req__ipc__concurrent_client_calls</a>, <a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__concurrent_client_processes" title="comp__ipc_message_passing_adapter">comp_req__ipc__concurrent_client_processes</a>, <a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__flexible_server_thread_model" title="comp__ipc_message_passing_adapter">comp_req__ipc__flexible_server_thread_model</a>, <a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__low_latency" title="comp__ipc_message_passing_adapter">comp_req__ipc__low_latency</a>, <a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__minimal_or_zero_configuration" title="comp__ipc_message_passing_adapter">comp_req__ipc__minimal_or_zero_configuration</a>, <a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__one_to_one_communication" title="comp__ipc_message_passing_adapter">comp_req__ipc__one_to_one_communication</a>, <a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__resilience_to_connection_loss" title="comp__ipc_message_passing_adapter">comp_req__ipc__resilience_to_connection_loss</a>, <a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__suitability_for_asil_b_use" title="comp__ipc_message_passing_adapter">comp_req__ipc__suitability_for_asil_b_use</a></span></span></div>
 </span></div>
 </div>
 </td>
@@ -592,7 +606,10 @@
 </div>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>&lt;Brief summary of the architecture.&gt;</p>
+<p>IPC Message Passing Adapter allows communication between clients and the server.
+Hereby it also takes care of connection and session management, which coordinates client calls,
+connection and session state, request dispatch, and worker execution.</p>
+<p>It is built upon the SCORE Communication Message Passing framework (score::message_passing).</p>
 </section>
 <section id="requirements-linked-to-component-architecture">
 <h2>Requirements Linked to Component Architecture<a class="headerlink" href="#requirements-linked-to-component-architecture" title="Link to this heading">#</a></h2>
@@ -610,37 +627,34 @@
 </thead>
 <tbody>
 <tr class="need row-even"><td class="needs_title"><p>Authentic peer identification</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__authentic_peer_identification">comp_req__ipc__authentic_peer_identification</a></p></td>
+<td class="needs_id"><p><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__authentic_peer_identification">comp_req__ipc__authentic_peer_identification</a></p></td>
 </tr>
 <tr class="need row-odd"><td class="needs_title"><p>Bounded timeout on every call</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__bounded_timeout_on_every_call">comp_req__ipc__bounded_timeout_on_every_call</a></p></td>
+<td class="needs_id"><p><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__bounded_timeout_on_every_call">comp_req__ipc__bounded_timeout_on_every_call</a></p></td>
 </tr>
 <tr class="need row-even"><td class="needs_title"><p>Concurrent calls from one process</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__concurrent_client_calls">comp_req__ipc__concurrent_client_calls</a></p></td>
+<td class="needs_id"><p><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__concurrent_client_calls">comp_req__ipc__concurrent_client_calls</a></p></td>
 </tr>
 <tr class="need row-odd"><td class="needs_title"><p>Multiple concurrent client processes</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__concurrent_client_processes">comp_req__ipc__concurrent_client_processes</a></p></td>
+<td class="needs_id"><p><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__concurrent_client_processes">comp_req__ipc__concurrent_client_processes</a></p></td>
 </tr>
 <tr class="need row-even"><td class="needs_title"><p>Flexible server-side threading model</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__flexible_server_thread_model">comp_req__ipc__flexible_server_thread_model</a></p></td>
+<td class="needs_id"><p><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__flexible_server_thread_model">comp_req__ipc__flexible_server_thread_model</a></p></td>
 </tr>
 <tr class="need row-odd"><td class="needs_title"><p>Low latency</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__low_latency">comp_req__ipc__low_latency</a></p></td>
+<td class="needs_id"><p><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__low_latency">comp_req__ipc__low_latency</a></p></td>
 </tr>
 <tr class="need row-even"><td class="needs_title"><p>Minimal or zero configuration</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__minimal_or_zero_configuration">comp_req__ipc__minimal_or_zero_configuration</a></p></td>
+<td class="needs_id"><p><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__minimal_or_zero_configuration">comp_req__ipc__minimal_or_zero_configuration</a></p></td>
 </tr>
 <tr class="need row-odd"><td class="needs_title"><p>One-to-one communication</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__one_to_one_communication">comp_req__ipc__one_to_one_communication</a></p></td>
+<td class="needs_id"><p><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__one_to_one_communication">comp_req__ipc__one_to_one_communication</a></p></td>
 </tr>
-<tr class="need row-even"><td class="needs_title"><p>Payload agnostic communication</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__payload_agnostic_communication">comp_req__ipc__payload_agnostic_communication</a></p></td>
+<tr class="need row-even"><td class="needs_title"><p>Resilience to connection loss</p></td>
+<td class="needs_id"><p><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__resilience_to_connection_loss">comp_req__ipc__resilience_to_connection_loss</a></p></td>
 </tr>
-<tr class="need row-odd"><td class="needs_title"><p>Resilience to connection loss</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__resilience_to_connection_loss">comp_req__ipc__resilience_to_connection_loss</a></p></td>
-</tr>
-<tr class="need row-even"><td class="needs_title"><p>Suitability for ASIL-B use</p></td>
-<td class="needs_id"><p><a class="reference internal" href="../requirements/requirements.html#comp_req__ipc__suitability_for_asil_b_use">comp_req__ipc__suitability_for_asil_b_use</a></p></td>
+<tr class="need row-odd"><td class="needs_title"><p>Suitability for ASIL-B use</p></td>
+<td class="needs_id"><p><a class="reference internal" href="../../../docs/requirements/requirements.html#comp_req__ipc__suitability_for_asil_b_use">comp_req__ipc__suitability_for_asil_b_use</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -673,7 +687,7 @@
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">IPC Design Decisions</p>
+        <p class="prev-next-title">Design Decisions</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -705,7 +719,7 @@
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./score/crypto/src/ipc/message_passing_adapter/docs/architecture/component_architecture.rst">
+    <a href="https://github.com/eclipse-score/crypto/edit/main/./score/crypto/src/ipc/message_passing_adapter/docs/architecture/component_architecture.rst">
       <i class="fa-solid fa-pencil"></i>
       
       
