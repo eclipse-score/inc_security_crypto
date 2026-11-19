@@ -64,7 +64,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/src/daemon/cert_management/docs/requirements/requirements';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/crypto/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
@@ -430,7 +430,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/cryptoki/index.html">Cryptoki</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/primula/index.html">IAV Primula Component</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/pqc_provider/index.html">PQC Provider Component</a></li>
 </ul>
 </div>
 </nav></div>
@@ -505,7 +505,7 @@
                   
   <section id="certificate-management-requirements">
 <h1>Certificate Management Requirements<a class="headerlink" href="#certificate-management-requirements" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-e411c06d">
+<div class="need_container docutils container" id="SNCB-2c012a91">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_requirements">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -557,7 +557,7 @@ component contract.</p>
 </section>
 <section id="functional-requirements">
 <h2>Functional requirements<a class="headerlink" href="#functional-requirements" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-4040b221">
+<div class="need_container docutils container" id="SNCB-f0fbc109">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_management__slots">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -604,7 +604,7 @@ handler.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-991b160f">
+<div class="need_container docutils container" id="SNCB-60b99715">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_management__parse">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -651,7 +651,7 @@ Parsing shall be supplied through the narrow <code class="docutils literal notra
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-60a6c475">
+<div class="need_container docutils container" id="SNCB-e5d7b453">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_mgmt__parser_authority">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -702,7 +702,7 @@ than replaced by another provider.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-dc950847">
+<div class="need_container docutils container" id="SNCB-01922749">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_mgmt__trust_stores">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -749,7 +749,7 @@ caches.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-d66dd853">
+<div class="need_container docutils container" id="SNCB-7f87badd">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_mgmt__tstr_cnsstncy">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -796,7 +796,7 @@ trust store’s anchor and CRL caches shall observe a complete anchor set.</p></
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-c10066f3">
+<div class="need_container docutils container" id="SNCB-1210f2e6">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_management__persistence">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -843,7 +843,7 @@ shall be written atomically.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-539305d5">
+<div class="need_container docutils container" id="SNCB-b065516e">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__crypto_cert_mgmt__access_control">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -962,7 +962,7 @@ handlers is the responsibility of the daemon mediator.</p>
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./score/crypto/src/daemon/cert_management/docs/requirements/requirements.rst">
+    <a href="https://github.com/eclipse-score/crypto/edit/main/./score/crypto/src/daemon/cert_management/docs/requirements/requirements.rst">
       <i class="fa-solid fa-pencil"></i>
       
       

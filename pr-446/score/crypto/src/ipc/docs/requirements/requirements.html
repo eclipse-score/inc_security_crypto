@@ -64,7 +64,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/src/ipc/docs/requirements/requirements';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/crypto/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
@@ -437,7 +437,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../../crypto/components/cryptoki/index.html">Cryptoki</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../../crypto/components/primula/index.html">IAV Primula Component</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../crypto/components/pqc_provider/index.html">PQC Provider Component</a></li>
 </ul>
 </div>
 </nav></div>
@@ -512,7 +512,7 @@
                   
   <section id="crypto-ipc-requirements">
 <h1>Crypto IPC Requirements<a class="headerlink" href="#crypto-ipc-requirements" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-bb802a2f">
+<div class="need_container docutils container" id="SNCB-0631b768">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_ipc_requirements">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -565,7 +565,7 @@ the evidence of satisfaction; they do not make that implementation the only poss
 </section>
 <section id="functional-requirements">
 <h2>Functional requirements<a class="headerlink" href="#functional-requirements" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-d2879933">
+<div class="need_container docutils container" id="SNCB-05c52b7e">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__suitability_for_asil_b_use">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -610,7 +610,7 @@ the evidence of satisfaction; they do not make that implementation the only poss
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-7e1da09d">
+<div class="need_container docutils container" id="SNCB-432270da">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__bounded_timeout_on_every_call">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -656,7 +656,7 @@ block an ASIL-B client thread.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-270b86ea">
+<div class="need_container docutils container" id="SNCB-e05ef657">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__resilience_to_connection_loss">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -703,7 +703,7 @@ appropriately. The client shall not block indefinitely or silently operate on a 
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-4e6afc64">
+<div class="need_container docutils container" id="SNCB-6d84f7c9">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__authentic_peer_identification">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -749,7 +749,7 @@ not a client-supplied value.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-a34d8190">
+<div class="need_container docutils container" id="SNCB-b1e6f90d">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__flexible_server_thread_model">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -795,7 +795,7 @@ single-thread, fixed pool, or per-request threads.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-4b444440">
+<div class="need_container docutils container" id="SNCB-fe886148">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__concurrent_client_calls">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -840,7 +840,7 @@ single-thread, fixed pool, or per-request threads.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-4b42f03a">
+<div class="need_container docutils container" id="SNCB-3872595c">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__concurrent_client_processes">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -885,7 +885,7 @@ single-thread, fixed pool, or per-request threads.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-9addd6ff">
+<div class="need_container docutils container" id="SNCB-20a1088d">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__inter_vm_communication">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -934,7 +934,7 @@ virtual machines (VMs).</p>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-bab4aebe">
+<div class="need_container docutils container" id="SNCB-ba6b1eea">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__cpp_rust_interoperability">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -983,7 +983,7 @@ order to enable future rust components.</p>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-e64a6a44">
+<div class="need_container docutils container" id="SNCB-ecb8e17d">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__payload_agnostic_communication">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1032,7 +1032,7 @@ of payload data without the need for changes to the IPC mechanism itself.</p></t
 </section>
 <section id="non-functional-requirements">
 <h2>Non-Functional requirements<a class="headerlink" href="#non-functional-requirements" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-b3514f16">
+<div class="need_container docutils container" id="SNCB-a2e2d767">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__minimal_or_zero_configuration">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1077,7 +1077,7 @@ of payload data without the need for changes to the IPC mechanism itself.</p></t
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-fdf77a26">
+<div class="need_container docutils container" id="SNCB-262a61f4">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__one_to_one_communication">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1123,7 +1123,7 @@ fan-out mechanisms.</p></td>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-bcbf894a">
+<div class="need_container docutils container" id="SNCB-4de0a5b9">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__ipc__low_latency">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -1228,7 +1228,7 @@ fan-out mechanisms.</p></td>
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./score/crypto/src/ipc/docs/requirements/requirements.rst">
+    <a href="https://github.com/eclipse-score/crypto/edit/main/./score/crypto/src/ipc/docs/requirements/requirements.rst">
       <i class="fa-solid fa-pencil"></i>
       
       

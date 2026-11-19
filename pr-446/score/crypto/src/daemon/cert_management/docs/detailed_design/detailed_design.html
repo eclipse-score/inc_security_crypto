@@ -64,7 +64,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'score/crypto/src/daemon/cert_management/docs/detailed_design/detailed_design';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/inc_security_crypto/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/crypto/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             false;
@@ -430,7 +430,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/cryptoki/index.html">Cryptoki</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/primula/index.html">IAV Primula Component</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../crypto/components/pqc_provider/index.html">PQC Provider Component</a></li>
 </ul>
 </div>
 </nav></div>
@@ -505,7 +505,7 @@
                   
   <section id="certificate-management-detailed-design">
 <h1>Certificate Management Detailed Design<a class="headerlink" href="#certificate-management-detailed-design" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-cc6d417d">
+<div class="need_container docutils container" id="SNCB-f43e14f6">
 <div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__crypto_cert_management_detailed_design">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
@@ -602,7 +602,7 @@ are cross-referenced where they share a flow.</p>
 <section id="loading-a-certificate-from-a-slot">
 <span id="cert-management-load-certificate"></span><h3>Loading a certificate from a slot<a class="headerlink" href="#loading-a-certificate-from-a-slot" title="Link to this heading">#</a></h3>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-d6b9c5f0d13a21112c756868eb9d1ab87de3f33a.svg" type="image/svg+xml" style="width:1879px;height:1027px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-1871616539231ae1ae982eed285930880b9d3a04.svg" type="image/svg+xml" style="width:1879px;height:1027px;background:#FFFFFF;"></object></p>
 </section>
 <section id="writing-a-certificate-slot">
 <span id="cert-management-write-certificate-slot"></span><h3>Writing a certificate slot<a class="headerlink" href="#writing-a-certificate-slot" title="Link to this heading">#</a></h3>
@@ -610,7 +610,7 @@ are cross-referenced where they share a flow.</p>
 updates use the separate refresh path described in
 <a class="reference internal" href="#cert-management-import-crl"><span class="std std-ref">Importing a CRL</span></a>.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-8aee7a96c2732b9ee73ea0b7101c5cdac4e6007d.svg" type="image/svg+xml" style="width:2582px;height:1336px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-be399ded1b4f1c502e96497c93b807cb85bdb7c3.svg" type="image/svg+xml" style="width:2582px;height:1336px;background:#FFFFFF;"></object></p>
 </section>
 <section id="importing-a-crl">
 <span id="cert-management-import-crl"></span><h3>Importing a CRL<a class="headerlink" href="#importing-a-crl" title="Link to this heading">#</a></h3>
@@ -619,14 +619,14 @@ stores as described in <a class="reference internal" href="#cert-management-writ
 <p>Import stores the supplied CRL as given and does not validate it against its
 issuer certificate.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-8c40dbc2ee4f416c2e313ef600ca368fa0fc8549.svg" type="image/svg+xml" style="width:2007px;height:1160px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-0b09ab0af005e585f55dbfe5f36a0eb4471a9db5.svg" type="image/svg+xml" style="width:2007px;height:1160px;background:#FFFFFF;"></object></p>
 </section>
 <section id="adding-a-certificate-to-a-trust-store">
 <span id="cert-management-add-trust-store-certificate"></span><h3>Adding a certificate to a trust store<a class="headerlink" href="#adding-a-certificate-to-a-trust-store" title="Link to this heading">#</a></h3>
 <p>When CRL propagation is requested, the source CRL may be session-scoped or
 persistent, as described in <a class="reference internal" href="#cert-management-import-crl"><span class="std std-ref">Importing a CRL</span></a>.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-21b3f0a732d2e7450d28019e824fdf553d0efe51.svg" type="image/svg+xml" style="width:2187px;height:1751px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-9b482565eaf331235af69a10ab319dc3b6f05fdb.svg" type="image/svg+xml" style="width:2187px;height:1751px;background:#FFFFFF;"></object></p>
 </section>
 <section id="verifying-a-certificate">
 <span id="cert-management-verify-certificate"></span><h3>Verifying a certificate<a class="headerlink" href="#verifying-a-certificate" title="Link to this heading">#</a></h3>
@@ -634,7 +634,7 @@ persistent, as described in <a class="reference internal" href="#cert-management
 <a class="reference internal" href="#cert-management-load-certificate"><span class="std std-ref">Loading a certificate from a slot</span></a>;
 this sequence focuses on trust-store binding and verification.</p>
 <p class="plantuml">
-<object data="../../../../../../../_images/plantuml-afc083055eff0908ace6baa3e25068f3ec83f5c6.svg" type="image/svg+xml" style="width:1943px;height:1419px;background:#FFFFFF;"></object></p>
+<object data="../../../../../../../_images/plantuml-d93f1d084ebf0926ad040f36ddad2c7cf3653258.svg" type="image/svg+xml" style="width:1943px;height:1419px;background:#FFFFFF;"></object></p>
 </section>
 </section>
 </section>
@@ -705,7 +705,7 @@ this sequence focuses on trust-store binding and verification.</p>
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/inc_security_crypto/edit/main/./score/crypto/src/daemon/cert_management/docs/detailed_design/detailed_design.rst">
+    <a href="https://github.com/eclipse-score/crypto/edit/main/./score/crypto/src/daemon/cert_management/docs/detailed_design/detailed_design.rst">
       <i class="fa-solid fa-pencil"></i>
       
       
