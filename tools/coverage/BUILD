@@ -45,6 +45,7 @@ score_coverage_scope(
         "//score/crypto/src/daemon/provider/cert_management:cert_management_operation_codes",
         "//score/crypto/src/ipc/message_passing_adapter:message_passing_server",
         "//score/cryptoki:cryptoki_cdylib_wrapped",
+        "//score/cryptoki:cryptoki_static_wrapped",
         "//score/cryptoki:cryptoki_headers",
         "//score/cryptoki:cryptoki_lib",
         "//score/pqc_provider",

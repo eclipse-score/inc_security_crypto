@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_rust//rust:defs.bzl", "rust_library", "rust_shared_library")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_shared_library", "rust_static_library")
 
 
 filegroup(
@@ -59,6 +59,30 @@ rust_library(
     rustc_flags = CPP_LINKER_FLAGS,
     visibility = ["//visibility:public"],
     deps = DEPS,
+)
+
+rust_static_library(
+    name = "cryptoki_static",
+    srcs = glob(["**/*.rs"]),
+    crate_name = "cryptoki",
+    crate_root = "lib.rs",
+    rustc_flags = CPP_LINKER_FLAGS,
+    visibility = ["//visibility:public"],
+    deps = DEPS,
+)
+
+cc_library(
+    name = "cryptoki_static_wrapped",
+    hdrs = [
+        "cpp/pkcs11.h",
+        "cpp/pkcs11_cpp.hpp",
+    ],
+    includes = ["cpp"],
+    linkstatic = True,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":cryptoki_static",
+    ],
 )
 
 rust_shared_library(

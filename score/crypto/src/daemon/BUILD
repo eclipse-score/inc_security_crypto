@@ -29,8 +29,12 @@ cc_binary(
         ],
     }),
     dynamic_deps = select({
-        "@score_openssl//:dynamic_openssl_enabled": [
+        "//score/crypto/src/backend:dynamic_openssl_in_daemon": [
             "@score_openssl//:openssl_shared",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:dynamic_pkcs11_in_daemon": [
             "//score/crypto/src/backend:pkcs11_shared_backend",
         ],
         "//conditions:default": [],

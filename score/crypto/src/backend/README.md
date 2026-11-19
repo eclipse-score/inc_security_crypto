@@ -104,35 +104,56 @@ independent of the selected library.
 
 ## Static vs. Dynamic Linking Behavior
 
-By default (per S-CORE DR-002), all cryptographic backends and dependencies are linked **statically** into the binaries:
-- OpenSSL static archives (`libcrypto.a`, `libssl.a`) are linked directly into the binary.
-- SoftHSM compiles as a static archive (`libsofthsm2-static.a`) and is linked statically into `crypto_daemon`.
+By default (per S-CORE architectural mandate **DR-002**), all cryptographic backends and dependencies are linked **statically** into the binaries:
+- OpenSSL static archives (`libcrypto.a`, `libssl.a`) are linked directly into `crypto_daemon`.
+- SoftHSM compiles as a static archive (`libsofthsm2-static.a`) and links statically into `crypto_daemon`.
+- Rust Cryptoki provides a C-compatible static archive (`cryptoki_static` / `cryptoki_static_wrapped`) via `rust_static_library` for pure static linking.
 
-### How to Test Statically (Default)
+### Independent Link Selection Flags
+
+Linking for OpenSSL and PKCS#11 is fully decoupled into orthogonal Bazel flags:
+
+| Dimension | Flag | Default | Dynamic Override |
+| :--- | :--- | :--- | :--- |
+| **OpenSSL Linking** | `@score_openssl//:use_dynamic_openssl` | `False` (Static) | `--@score_openssl//:use_dynamic_openssl=true` |
+| **PKCS#11 Linking** | `//score/crypto/src/backend:pkcs11_link_type` | `"static"` | `--//score/crypto/src/backend:pkcs11_link_type=dynamic` |
+
+### Command-Line Shorthand Configurations (`.bazelrc`)
+
+To simplify local development and CI execution, `.bazelrc` provides convenient presets:
 
 ```bash
-bazel test //score/...
+# 1. Pure Static Build (Default per DR-002)
+bazel build //score/crypto/src/daemon:crypto_daemon
+
+# 2. Dynamic OpenSSL Only (PKCS#11 remains static)
+bazel build //score/crypto/src/daemon:crypto_daemon --config=openssl-dynamic
+
+# 3. Dynamic PKCS#11 (Automatically applies OpenSSL guardrail)
+bazel build //score/crypto/src/daemon:crypto_daemon --config=pkcs11-dynamic
 ```
 
-### How to Test Dynamically (Opt-In)
+### Transitive Invariants & Safety Guardrails
 
-Dynamic shared library linking (`.so`) across OpenSSL and SoftHSM can be enabled via:
+The linking architecture enforces three mathematical rules:
 
-```bash
-bazel test //score/... --@score_openssl//:use_dynamic_openssl=true
+```text
+ ┌────────────────────────────────────────────────────────┐
+ │ 1. Dynamic OpenSSL does NOT force PKCS#11 dynamic.     │
+ │    (OpenSSL can be dynamic while PKCS#11 is static).   │
+ ├────────────────────────────────────────────────────────┤
+ │ 2. Disabled backends are excluded from dynamic_deps.   │
+ │    (If OpenSSL is disabled, openssl_shared is omitted).│
+ ├────────────────────────────────────────────────────────┤
+ │ 3. Dynamic PKCS#11 forces dynamic OpenSSL ONLY when    │
+ │    OpenSSL backend is active in the daemon.            │
+ └────────────────────────────────────────────────────────┘
 ```
 
-When this flag is active:
-1. `@score_openssl//:openssl_shared` builds and exposes `libopenssl.so`.
-2. `//third_party/soft_hsm:softhsm_shared` builds `libsofthsm2.so` via `cc_shared_library` with `dynamic_deps` referencing `openssl_shared`.
-3. `crypto_daemon` activates `dynamic_deps` for both `openssl_shared` and `softhsm_shared`, resolving both libraries at runtime.
-
-### Current Behavior & Transitive Dependency Invariants
-
-Currently, the dynamic build of SoftHSM (PKCS#11 backend) is coupled to `--@score_openssl//:use_dynamic_openssl=true`. 
-
-* **Transitive Dependency Rule:** If a PKCS#11 backend (SoftHSM or Cryptoki) is dynamically linked, OpenSSL **must also be dynamically linked**. Otherwise, `crypto_daemon` would link static OpenSSL code directly while SoftHSM/Cryptoki dynamically loads another instance of OpenSSL, leading to duplicate static symbols and runtime memory collision.
-* **Follow-Up Scope:** In an upcoming story, this coupling will be decoupled so that dynamic OpenSSL does not automatically force SoftHSM to be dynamic.
+* **Rationale for Rule 3 (Preventing ODR Violation):**  
+  If the daemon enables the OpenSSL provider and dynamically links PKCS#11 (`libsofthsm2.so` or `libcryptoki.so`), both components require OpenSSL. If OpenSSL were static, the daemon would embed `libcrypto.a` while the PKCS#11 shared library embeds another `libcrypto.a`, causing two static OpenSSL instances to conflict in process memory. Bazel automatically promotes OpenSSL to dynamic (`openssl_shared`) so both share a single `libcrypto.so` instance mapped once by the OS dynamic linker (`ld.so`).
+* **Tool Isolation:**  
+  CLI tools that only interact with PKCS#11 (such as `init_pkcs11_token`) link exclusively to `pkcs11_shared_backend` and never directly link `openssl_shared`. OpenSSL is loaded transitively by the PKCS#11 driver via standard ELF `DT_NEEDED`.
 
 ## Requirements for the PKCS#11 Library
 

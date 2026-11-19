@@ -18,8 +18,7 @@ cc_binary(
     name = "init_pkcs11_token",
     srcs = ["init_pkcs11_token.cpp"],
     dynamic_deps = select({
-        "@score_openssl//:dynamic_openssl_enabled": [
-            "@score_openssl//:openssl_shared",
+        "//score/crypto/src/backend:dynamic_pkcs11_in_daemon": [
             "//score/crypto/src/backend:pkcs11_shared_backend",
         ],
         "//conditions:default": [],
@@ -271,10 +270,14 @@ integration_test(
     }),
     libraries = [
         "//score/crypto/src/api/control_plane",
-        "//score/crypto/src/backend:pkcs11_shared_backend",
     ] + select({
-        "@score_openssl//:dynamic_openssl_enabled": [
+        "//score/crypto/src/backend:dynamic_openssl_in_daemon": [
             "@score_openssl//:openssl_shared",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:dynamic_pkcs11_in_daemon": [
+            "//score/crypto/src/backend:pkcs11_shared_backend",
         ],
         "//conditions:default": [],
     }),

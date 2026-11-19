@@ -54,9 +54,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//score/crypto/src/daemon/provider/score_provider:score_backend_adapter",
-        "//score/crypto/src/backend/score_provider/openssl:openssl_backend_define",
-        # To add a new score backend: add its *_backend_define dep here (step 3).
-    ],
+    ] + select({
+        "//score/crypto/src/backend:openssl_backend_active": [
+            "//score/crypto/src/backend/score_provider/openssl:openssl_backend_define",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 # Heavy: aggregates all active sub-backend adapter targets.
@@ -69,8 +72,10 @@ cc_library(
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     visibility = ["//score/crypto/src/backend:__pkg__"],
-    deps = [
-        "//score/crypto/src/backend/score_provider/openssl:openssl_backend",
-        # To add a new score backend: add its *_backend dep here (step 4).
-    ],
+    deps = select({
+        "//score/crypto/src/backend:openssl_backend_active": [
+            "//score/crypto/src/backend/score_provider/openssl:openssl_backend",
+        ],
+        "//conditions:default": [],
+    }),
 )
