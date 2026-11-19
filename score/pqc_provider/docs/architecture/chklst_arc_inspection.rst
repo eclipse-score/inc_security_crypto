@@ -13,14 +13,14 @@
    # *******************************************************************************
 
 
-.. document:: IAV Primula Architecture Inspection Checklist
-  :id: doc__iav_primula_arc_inspection
+.. document:: PQC Provider Architecture Inspection Checklist
+  :id: doc__pqc_provider_arc_inspection
   :version: 1
   :status: draft
   :safety: QM
   :security: YES
   :realizes: wp__sw_arch_verification
-  :tags: iav_primula
+  :tags: pqc_provider
 
 Architecture Inspection Checklist
 =================================
@@ -185,10 +185,10 @@ Note: If a Review ID is not applicable for your architecture, then state ""n/a" 
 The following static views in "valid" state and with "inspected" tag set are in the scope of this inspection:
 
 .. needtable::
-   :filter: "iav_primula" in docname and "architecture" in docname and docname is not None and status == "valid"
+   :filter: "pqc_provider" in docname and "architecture" in docname and docname is not None and status == "valid"
    :style: table
    :types: comp_arc_sta
-   :tags: iav_primula
+   :tags: pqc_provider
    :columns: id;status;tags
    :colwidths: 25,25,25
    :sort: title
@@ -196,10 +196,10 @@ The following static views in "valid" state and with "inspected" tag set are in 
 and the following dynamic views:
 
 .. needtable::
-   :filter: "iav_primula" in docname and "architecture" in docname and docname is not None and status == "valid"
+   :filter: "pqc_provider" in docname and "architecture" in docname and docname is not None and status == "valid"
    :style: table
    :types: comp_arc_dyn
-   :tags: iav_primula
+   :tags: pqc_provider
    :columns: id;status;tags
    :colwidths: 25,25,25
    :sort: title

@@ -11,11 +11,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-load("@rules_rust//rust:defs.bzl", "rust_test")
+load("@rules_rust//rust:defs.bzl", "rust_library")
 
-rust_test(
-    name = "hello_test",
-    srcs = ["hello_test.rs"],
+rust_library(
+    name = "pqc_provider",
+    srcs = ["src/main.rs"],
+    crate_name = "pqc_provider",
     edition = "2021",
-    deps = ["//score/iav_primula"],
+    visibility = ["//visibility:public"],
 )

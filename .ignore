@@ -1,0 +1,13 @@
+# Keep repository guidance pages out of the docs_bundle mounted into reference_integration.
+# When reference_integration builds the docs, its own conf.py is used, so the exclude_patterns of
+# this repository's conf.py do not apply there. These files are only meant for readers browsing
+# the repository on GitHub, are not part of the product documentation, and their GitHub-only
+# relative links cause Sphinx warnings, so they are not needed in the docs_bundle.
+# This also covers the other README.md files and the reference.md files of the test vectors
+# (score/tests/test_vectors), which are out of scope for reference_integration for now. The test
+# vectors may become relevant for it in the future. The same applies to the DEMO.md of the
+# integration tests (score/tests/integration_tests), which only describes how to run the demo.
+**/CONTRIBUTION.md
+**/DEMO.md
+**/README.md
+**/reference.md
