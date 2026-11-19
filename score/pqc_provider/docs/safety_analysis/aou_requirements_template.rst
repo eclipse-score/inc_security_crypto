@@ -15,7 +15,7 @@
 AoU Component Requirements Snippets
 ===================================
 
-This page contains the current Assumptions of Use snippets used by IAV Primula.
+This page contains the current Assumptions of Use snippets used by PQC Provider.
 
 Component AoU
 -------------
@@ -23,16 +23,16 @@ Component AoU
 .. code-block:: rst
 
    .. aou_req:: Integrate as Rust library API
-      :id: aou_req__iav_primula__integrate_as_rust_library_api
+      :id: aou_req__pqc_provider__integrate_as_rust_library_api
       :reqtype: Process
       :security: YES
       :safety: QM
       :status: valid
 
-      The component user shall link the crate ``iav_primula`` and call the public API from Rust code.
+      The component user shall link the crate ``pqc_provider`` and call the public API from Rust code.
 
    .. aou_req:: Build environment supports Rust 2021
-      :id: aou_req__iav_primula__build_env_supports_rust_2021
+      :id: aou_req__pqc_provider__build_env_supports_rust_2021
       :reqtype: Process
       :security: YES
       :safety: QM

@@ -28,8 +28,8 @@ docs(
             "attach_to": "docs/components/index",
         },
         {
-            "bundle": "//score/iav_primula/docs:docs",
-            "mount_at": "crypto/components/primula",
+            "bundle": "//score/pqc_provider/docs:docs",
+            "mount_at": "crypto/components/pqc_provider",
             "attach_to": "docs/components/index",
         },
     ],

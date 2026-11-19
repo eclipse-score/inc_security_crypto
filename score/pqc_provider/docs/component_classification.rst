@@ -17,16 +17,16 @@ Component Classification
 
 .. note:: Document header
 
-.. document:: IAV Primula Component Classification
-   :id: doc__iav_primula_comp_class
+.. document:: PQC Provider Component Classification
+   :id: doc__pqc_provider_comp_class
    :version: 1
    :status: draft
    :safety: QM
    :security: YES
    :realizes: wp__sw_component_class
-   :tags: iav_primula
+   :tags: pqc_provider
 
-| Classification of ``iav_primula``
+| Classification of ``pqc_provider``
 |
 | GitHub: ``https://github.com/eclipse-score/inc_security_crypto/tree/main/score/t.b.d``
 |
@@ -89,7 +89,7 @@ Step 1: Determine (P): the uncertainty of the Processes applied
 |       the risk of systematic faults due to these gaps is sufficiently low or manageable by mitigating the gaps.
 | (P=3) in all other cases.
 
-``iav_primula`` is determined as ``P=1``
+``pqc_provider`` is determined as ``P=1``
 
 
 Step 2: Determine (C): the uncertainty of finding systematic faults based on the Complexity
@@ -152,7 +152,7 @@ Step 2: Determine (C): the uncertainty of finding systematic faults based on the
 | (C=3) in all other cases.
 |
 
-``iav_primula`` is determined as ``C=1``
+``pqc_provider`` is determined as ``C=1``
 
 
 Step 3: Determine (CLAS_OUT): the classification outcome
@@ -172,7 +172,7 @@ Step 3: Determine (CLAS_OUT): the classification outcome
 | 3     |  QR   | QR    | NQ    |
 +-------+-------+-------+-------+
 
-``iav_primula`` is classified as ``CLAS_OUT=Q``
+``pqc_provider`` is classified as ``CLAS_OUT=Q``
 
 
 Step 4: Document all results and rationale for choosing (P) and (C) and (CLAS_OUT)
