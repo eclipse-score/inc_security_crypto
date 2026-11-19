@@ -271,7 +271,7 @@ integration_test(
     }),
     libraries = [
         "//score/crypto/src/api/control_plane",
-        "//third_party/soft_hsm:softhsm_shared",
+        "//score/crypto/src/backend:pkcs11_shared_backend",
     ] + select({
         "@score_openssl//:dynamic_openssl_enabled": [
             "@score_openssl//:openssl_shared",

@@ -28,6 +28,9 @@ _SOFTHSM_CACHE_ENTRIES = {
     "CMAKE_INSTALL_LIBDIR": "lib",
     "CMAKE_INSTALL_SYSCONFDIR": "etc",
     "CMAKE_INSTALL_LOCALSTATEDIR": "var",
+    # Ignore the host's pkg-config: a host openssl.pc adds -ldl to the OpenSSL libs, which QNX lacks,
+    # breaking SoftHSM's ECC try_run() probe. OpenSSL is found via OPENSSL_ROOT_DIR instead.
+    "CMAKE_DISABLE_FIND_PACKAGE_PkgConfig": "ON",
     # SoftHSM 2.7.0 uses try_run() to verify OpenSSL feature support.
     # try_run() cannot execute cross-compiled binaries on the build host;
     # cmake sets results to FAILED_TO_RUN in cross-compilation mode.
@@ -96,35 +99,10 @@ genrule(
     ],
     cmd = """
         SRCDIR=$$(dirname $$(echo $(locations @softhsm_source//:all) | awk '{print $$1}'))
-        mkdir -p $(@D)/include
-        cp $$SRCDIR/src/lib/pkcs11/pkcs11.h $(@D)/include/
+        mkdir -p $(RULEDIR)/include
+        cp $$SRCDIR/src/lib/pkcs11/pkcs11.h $(RULEDIR)/include/
     """,
     visibility = ["//visibility:public"],
-)
-
-# Shared SoftHSM backend library for linking into daemon or test runners
-cc_library(
-    name = "soft_hsm_backend",
-    hdrs = [":extract_pkcs11_headers"],
-    copts = [
-        "-Wno-error=deprecated-declarations",
-    ],
-    defines = [
-        "WITH_ECC=1",
-    ],
-    includes = [
-        "include",
-        "soft_hsm_source/src/lib/common",
-        "soft_hsm_source/src/lib/crypto",
-        "soft_hsm_source/src/lib/data_mgr",
-        "soft_hsm_source/src/lib/handle_mgr",
-        "soft_hsm_source/src/lib/object_store",
-        "soft_hsm_source/src/lib/pkcs11",
-        "soft_hsm_source/src/lib/session_mgr",
-        "soft_hsm_source/src/lib/slot_mgr",
-    ],
-    tags = ["no-sandbox"],
-    visibility = ["//visibility:private"],
 )
 
 # Softhsm pkcs11 static library for linking and header consumption
