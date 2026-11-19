@@ -42,7 +42,11 @@ struct CryptoStackConfig
     ///
     /// Each IPC call (Init, Update, Finalize, ResolveResource, etc.) must
     /// complete within this deadline. For streaming operations, the timeout
-    /// applies to each individual call, not the entire sequence.
+    /// applies to each individual call, not the entire sequence. It also
+    /// bounds the connection handshake in CreateCryptoStack() and the close
+    /// when the last stack on the connection is released. The connection is
+    /// shared per endpoint within a process, so the stack that opens it sets
+    /// the handshake timeout.
     ///
     /// When std::nullopt (default), the transport default is used. The
     /// transport caps any individual request timeout at 10 minutes, including

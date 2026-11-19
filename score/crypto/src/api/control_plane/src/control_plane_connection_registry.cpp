@@ -26,7 +26,8 @@ ControlPlaneConnectionRegistry& ControlPlaneConnectionRegistry::Instance() noexc
 }
 
 ControlPlaneConnectionRegistry::Result ControlPlaneConnectionRegistry::EstablishConnection(
-    const std::string_view service_identifier)
+    const std::string_view service_identifier,
+    const std::optional<std::chrono::milliseconds> timeout)
 {
     const std::string registry_key{service_identifier};
     std::shared_ptr<std::mutex> establishment_mutex;
@@ -66,7 +67,7 @@ ControlPlaneConnectionRegistry::Result ControlPlaneConnectionRegistry::Establish
     }
 
     auto connection = std::make_shared<ControlPlaneConnection>(std::move(control_client_result.value()));
-    const auto establish_result = connection->Establish();
+    const auto establish_result = connection->Establish(timeout);
     if (!establish_result.has_value())
     {
         return score::crypto::make_unexpected(establish_result.error());

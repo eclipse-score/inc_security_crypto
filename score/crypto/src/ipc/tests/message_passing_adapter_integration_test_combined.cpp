@@ -554,6 +554,22 @@ TEST(MessagePassingAdapterIntegrationTest, FreshClientConnectsAfterServerBecomes
     ExpectEchoResponse(recovered_response, kPayload + 1U);
 }
 
+TEST(MessagePassingAdapterIntegrationTest, ConnectionEstablishmentHonoursTimeoutWhenServerIsUnavailable)
+{
+    const std::string endpoint =
+        std::string{::score::crypto::ipc::kScoreConnectionEndpointPrefix} + MakeServiceIdentifier();
+    constexpr std::chrono::milliseconds kTimeout{250};
+
+    score::crypto::api::control_plane::ConnectionFactory connection_factory;
+    const auto start = std::chrono::steady_clock::now();
+    const auto result = connection_factory.EstablishConnection(endpoint, kTimeout);
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), score::crypto::CryptoErrorCode::kConnectionFailed);
+    EXPECT_LT(elapsed, std::chrono::seconds{10}) << "Establishment did not honour the requested timeout";
+}
+
 TEST(MessagePassingAdapterIntegrationTest, DeniedClientCannotInvokeHandler)
 {
     auto cleanup_observer = std::make_shared<CleanupObserver>();
