@@ -65,10 +65,10 @@ class MediatorFactoryTest : public ::testing::Test
         control_plane::protocol::SingleOperationRequest operation{};
         operation.operationId = control_plane::protocol::OperationIdentifier{
             .operationActor = common::actors::OP_ACTOR_MEDIATOR, .operationAction = action};
-        request.operation.operations.push_back(std::move(operation));
+        request.operations.push_back(std::move(operation));
 
         const auto response = mediator.processRequest(request);
-        return response.operation.operations.at(0U).result;
+        return response.operations.at(0U).result;
     }
 
     std::shared_ptr<RecordingDataManager> m_data_manager;

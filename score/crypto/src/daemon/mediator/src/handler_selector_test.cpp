@@ -144,7 +144,8 @@ TEST_F(HandlerSelectorTest, TypeWithoutAFactoryIsServedByAProvider)
     ASSERT_TRUE(m_provider_manager->RegisterProvider("SW", provider, CryptoProviderType::SOFTWARE));
     const auto selector = MakeSelector();
 
-    const auto selection = selector.Select(kClient, ProviderRequest("SIGN"));
+    // HASH binds no key, so the request reaches the arbiter without a key reference.
+    const auto selection = selector.Select(kClient, ProviderRequest(common::context_types::kHash));
 
     ASSERT_TRUE(selection.has_value());
     EXPECT_NE(selection.value().handler, nullptr);
