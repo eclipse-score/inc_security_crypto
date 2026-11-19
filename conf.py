@@ -23,6 +23,7 @@
 project = "Crypto Project"
 project_url = "https://eclipse-score.github.io/inc_security_crypto"
 version = "0.1"
+root_doc = "index"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -37,6 +38,7 @@ include_patterns = [
     "docs/**",
     "score/**",
     "examples/**",
+    "crypto/**",
 ]
 
 exclude_patterns = [
@@ -54,4 +56,5 @@ exclude_patterns = [
 ]
 
 
-required_in_id = []
+# Single-feature documentation omits the feature-name directory.
+required_in_id = ["crypto"]

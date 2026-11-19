@@ -13,17 +13,16 @@
 
 # ECDSA P384 / SHA512 — RFC 6979 Appendix A.2.6 vectors
 
-The NIST FIPS 186-4 CAVP archive has no `[P-384,SHA-512]` section, so instead of
-generating an ephemeral key pair these vectors come from the published,
-deterministic test vectors of RFC 6979, Appendix A.2.6
-(`ECDSA, 384 Bits (Prime Field)`), taking the `SHA-512` entries.
+Unlike the other pairs in this directory, these vectors do not come from the
+NIST FIPS 186-4 CAVP archive but from the published, deterministic test vectors
+of RFC 6979, Appendix A.2.6 (`ECDSA, 384 Bits (Prime Field)`), taking the
+`SHA-512` entries. NIST's `[P-384,SHA-512]` SigVer records are covered by
+`../SigVer/SigVer.rsp`.
 
 Source: <https://www.rfc-editor.org/info/rfc6979/#appendix-A.2.6>
 
 Because RFC 6979 fixes the per-message secret `k`, the `(r, s)` below are genuine
-known-answer values for NIST P-384, not freshly signed ones. Re-run
-`generate.py` in this directory to reproduce the `*.der` and `*.bin` files byte
-for byte.
+known-answer values for NIST P-384, not freshly signed ones.
 
 ## Key pair (RFC 6979 A.2.6)
 

@@ -14,8 +14,6 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_I_REQUEST_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_CONTROL_PLANE_I_REQUEST_HANDLER_HPP
 
-#include <cstdint>
-
 #include "score/crypto/src/daemon/control_plane/control_protocol.h"
 
 namespace score::crypto::daemon::control_plane

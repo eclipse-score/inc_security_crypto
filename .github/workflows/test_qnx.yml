@@ -39,7 +39,7 @@ jobs:
             bazel-test-target: >-
               //score/...
             extra-bazel-test-flags: "--test_timeout=180,900,2700,10800" # Increase default test timeout by factor 3
-    uses: eclipse-score/cicd-workflows/.github/workflows/qnx-build.yml@f606cc0c3fccd3e85dcc6d112f3f1f9aed7efdb8
+    uses: eclipse-score/cicd-workflows/.github/workflows/qnx-build.yml@69812f9210f4f910e562a786dc56e199c3df5248
     permissions:
       contents: read
       pull-requests: read
@@ -48,6 +48,8 @@ jobs:
       bazel-config: ${{ matrix.bazel-config }}
       bazel-test-target: ${{ matrix.bazel-test-target }}
       extra-bazel-test-flags: ${{ matrix.extra-bazel-test-flags }}
+      fetch-attempts: 5
+      fetch-retry-delay: 60
       credential-helper: ".github/tools/qnx_credential_helper.py"
       bazel-disk-cache: ${{ matrix.bazel-config }}
     secrets:

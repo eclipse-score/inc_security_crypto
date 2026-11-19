@@ -19,6 +19,7 @@
 #include "score/crypto/src/daemon/cert_management/truststore/config_driven_trust_store_catalog.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/storage/kv/kv_deployment_writer.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/provider/cert_management/i_cert_parser.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
@@ -95,23 +96,11 @@ class TestParserProvider final : public provider::IProvider
 };
 
 // ---------------------------------------------------------------------------
-// Helper — build a ClientId from explicit pid/uid fields.
-// Mirrors the union layout used by GetUidFromClientId in control_protocol.h.
+// Helper — build a ClientId from explicit opaque-ID/UID fields.
 // ---------------------------------------------------------------------------
 score::crypto::daemon::data_manager::ClientId MakeClientId(std::uint32_t pid, std::uint32_t uid)
 {
-    union
-    {
-        score::crypto::daemon::data_manager::ClientId id;
-        struct
-        {
-            std::uint32_t process_id;
-            std::uint32_t user_id;
-        } parts;
-    } value{0U};
-    value.parts.process_id = pid;
-    value.parts.user_id = uid;
-    return value.id;
+    return score::crypto::daemon::common::MakeClientId(pid, uid);
 }
 
 class CertificateManagementIntegrationTest : public ::testing::Test

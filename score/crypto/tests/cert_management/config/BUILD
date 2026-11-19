@@ -11,15 +11,14 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-genrule(
+load("@score_baselibs//score/flatbuffers/bazel:tools.bzl", "serialize_buffer")
+
+
+serialize_buffer(
     name = "generate_cert_management_test_config",
-    srcs = [
-        "//score/crypto/src/daemon/config:crypto_config_fbs_schema",
-        "cert_management_test_config.json",
-    ],
-    outs = ["cert_management_test_config.bin"],
-    cmd = "$(location @flatbuffers//:flatc) -b -o $(@D) $(SRCS)",
-    tools = ["@flatbuffers//:flatc"],
+    data = "cert_management_test_config.json",
+    schema = "//score/crypto/src/daemon/config:crypto_config_fbs_schema",
+    output = "cert_management_test_config.bin",
 )
 
 filegroup(
@@ -28,15 +27,11 @@ filegroup(
     visibility = ["//:__subpackages__"],
 )
 
-genrule(
+serialize_buffer(
     name = "generate_cert_module_startup_config",
-    srcs = [
-        "//score/crypto/src/daemon/config:crypto_config_fbs_schema",
-        "cert_module_startup_config.json",
-    ],
-    outs = ["cert_module_startup_config.bin"],
-    cmd = "$(location @flatbuffers//:flatc) -b -o $(@D) $(SRCS)",
-    tools = ["@flatbuffers//:flatc"],
+    data = "cert_module_startup_config.json",
+    schema = "//score/crypto/src/daemon/config:crypto_config_fbs_schema",
+    output = "cert_module_startup_config.bin",
 )
 
 filegroup(

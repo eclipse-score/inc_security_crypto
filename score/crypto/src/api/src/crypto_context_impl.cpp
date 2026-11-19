@@ -101,7 +101,8 @@ struct ContextCreationRequest
 /// wrap the resulting id in the right context implementation.
 score::Result<std::uint64_t> CreateDaemonContext(
     const std::shared_ptr<score::crypto::api::control_plane::IConnection>& connection,
-    const ContextCreationRequest& request)
+    const ContextCreationRequest& request,
+    const std::chrono::milliseconds operation_timeout)
 {
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
 
@@ -166,7 +167,7 @@ score::Result<std::uint64_t> CreateDaemonContext(
             score::unexpect, MakeError(CryptoErrorCode::kContextCreationFailed, "Failed to build CTX_CREATE request")};
     }
 
-    auto control_response_res = connection->SendRequest(control_req_result.value());
+    auto control_response_res = connection->SendRequest(control_req_result.value(), operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation(score::crypto::daemon::mediator::operations::CreateContext()).expectSuccess();
@@ -218,8 +219,11 @@ score::Result<std::monostate> ValidateOperationKey(const CryptoResourceId& key, 
 }  // namespace
 
 CryptoContextImpl::CryptoContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-                                     std::shared_ptr<IBufferTranscoder> transcoder)
-    : m_connection(std::move(connection)), m_transcoder(std::move(transcoder))
+                                     std::shared_ptr<IBufferTranscoder> transcoder,
+                                     std::optional<std::chrono::milliseconds> default_operation_timeout)
+    : m_connection(std::move(connection)),
+      m_transcoder(std::move(transcoder)),
+      m_default_operation_timeout(default_operation_timeout)
 {
 }
 
@@ -246,13 +250,16 @@ score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContex
     request.algorithm = &config.algorithm;
     request.provider_type = config.provider_type;
 
-    auto context_id = CreateDaemonContext(m_connection, request);
+    const auto operation_timeout =
+        ResolveOperationTimeout(config.timeout_enabled, config.operation_timeout, m_default_operation_timeout);
+    auto context_id = CreateDaemonContext(m_connection, request, operation_timeout);
     if (!context_id.has_value())
     {
         return score::Result<std::unique_ptr<IHashContext>>{score::unexpect, context_id.error()};
     }
 
-    return std::make_unique<HashContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
+    return std::make_unique<HashContextImpl>(
+        m_connection, context_id.value(), config.algorithm, m_transcoder, operation_timeout);
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +269,7 @@ score::Result<std::unique_ptr<IHashContext>> CryptoContextImpl::CreateHashContex
 score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const ResourceId& resource_id, ResourceType type)
 {
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
+    const auto operation_timeout = ResolveOperationTimeout(true, std::nullopt, m_default_operation_timeout);
 
     auto control_req_result = proto::ControlRequestBuilder()
                                   .forDataNodeId(m_connection->GetConnectionNodeId())
@@ -276,7 +284,7 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
             score::unexpect, MakeError(CryptoErrorCode::kInternalError, "Failed to build RESOURCE_RESOLVE request")};
     }
 
-    auto control_response_res = m_connection->SendRequest(control_req_result.value());
+    auto control_response_res = m_connection->SendRequest(control_req_result.value(), operation_timeout);
 
     auto validator = proto::ControlResponseValidator::FromResult(control_response_res);
     validator.expectOperation(score::crypto::daemon::mediator::operations::ResolveResource()).expectSuccess();
@@ -284,7 +292,8 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
     if (!validator.isValid())
     {
         return score::Result<CryptoResourceId>{
-            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE daemon response invalid")};
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     auto id_result = validator.getParameterAt<std::uint64_t>(0, 0);
@@ -292,14 +301,15 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
     {
         return score::Result<CryptoResourceId>{
             score::unexpect,
-            MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE response missing resource_id")};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     auto type_result = validator.getParameterAt<std::uint8_t>(0, 1);
     if (!type_result.has_value())
     {
         return score::Result<CryptoResourceId>{
-            score::unexpect, MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE response missing type")};
+            score::unexpect,
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     auto persistence_result = validator.getParameterAt<bool>(0, 2);
@@ -307,7 +317,7 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
     {
         return score::Result<CryptoResourceId>{
             score::unexpect,
-            MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE response missing persistence")};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     auto primary_provider = validator.getParameterAt<std::uint16_t>(0, 3);
@@ -315,7 +325,7 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
     {
         return score::Result<CryptoResourceId>{
             score::unexpect,
-            MakeError(CryptoErrorCode::kInternalError, "RESOURCE_RESOLVE response missing primary_provider")};
+            MakeError(validator.getOperationError().value_or(CryptoErrorCode::kInternalError), validator.getError())};
     }
 
     CryptoResourceId resolved{};
@@ -324,7 +334,6 @@ score::Result<CryptoResourceId> CryptoContextImpl::ResolveResource(const Resourc
     resolved.persistence =
         persistence_result.value() ? ResourcePersistence::kPersistent : ResourcePersistence::kEphemeral;
     resolved.primary_provider = primary_provider.value();
-
     return resolved;
 }
 
@@ -347,13 +356,16 @@ score::Result<std::unique_ptr<IMacContext>> CryptoContextImpl::CreateMacContext(
     request.key_node_id = config.key.id;
     request.mode = daemon_common::ToContextMode(config.operation_mode);
 
-    auto context_id = CreateDaemonContext(m_connection, request);
+    const auto operation_timeout =
+        ResolveOperationTimeout(config.timeout_enabled, config.operation_timeout, m_default_operation_timeout);
+    auto context_id = CreateDaemonContext(m_connection, request, operation_timeout);
     if (!context_id.has_value())
     {
         return score::Result<std::unique_ptr<IMacContext>>{score::unexpect, context_id.error()};
     }
 
-    return std::make_unique<MacContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
+    return std::make_unique<MacContextImpl>(
+        m_connection, context_id.value(), config.algorithm, m_transcoder, operation_timeout);
 }
 
 score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateKeyManagementContext(
@@ -365,13 +377,16 @@ score::Result<std::unique_ptr<IKeyManagementContext>> CryptoContextImpl::CreateK
     request.context_type = daemon_common::context_types::kKeyManagement;
     request.provider_type = config.provider_type;
 
-    auto context_id = CreateDaemonContext(m_connection, request);
+    const auto operation_timeout =
+        ResolveOperationTimeout(config.timeout_enabled, config.operation_timeout, m_default_operation_timeout);
+    auto context_id = CreateDaemonContext(m_connection, request, operation_timeout);
     if (!context_id.has_value())
     {
         return score::Result<std::unique_ptr<IKeyManagementContext>>{score::unexpect, context_id.error()};
     }
 
-    return std::make_unique<KeyManagementContextImpl>(m_connection, context_id.value(), m_transcoder);
+    return std::make_unique<KeyManagementContextImpl>(
+        m_connection, context_id.value(), m_transcoder, operation_timeout);
 }
 
 // ---------------------------------------------------------------------------
@@ -394,13 +409,16 @@ score::Result<std::unique_ptr<ICipherContext>> CryptoContextImpl::CreateCipherCo
     request.mode = daemon_common::ToContextMode(config.direction);
     request.padding = config.padding;
 
-    auto context_id = CreateDaemonContext(m_connection, request);
+    const auto operation_timeout =
+        ResolveOperationTimeout(config.timeout_enabled, config.operation_timeout, m_default_operation_timeout);
+    auto context_id = CreateDaemonContext(m_connection, request, operation_timeout);
     if (!context_id.has_value())
     {
         return score::Result<std::unique_ptr<ICipherContext>>{score::unexpect, context_id.error()};
     }
 
-    return std::make_unique<CipherContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
+    return std::make_unique<CipherContextImpl>(
+        m_connection, context_id.value(), config.algorithm, m_transcoder, operation_timeout);
 }
 
 score::Result<std::unique_ptr<ISignContext>> CryptoContextImpl::CreateSignContext(const SignContextConfig& config)
@@ -421,13 +439,16 @@ score::Result<std::unique_ptr<ISignContext>> CryptoContextImpl::CreateSignContex
     request.mode = daemon_common::ToContextMode(OperationMode::kGenerate);
     request.signature_input_mode = config.input_mode;
 
-    auto context_id = CreateDaemonContext(m_connection, request);
+    const auto operation_timeout =
+        ResolveOperationTimeout(config.timeout_enabled, config.operation_timeout, m_default_operation_timeout);
+    auto context_id = CreateDaemonContext(m_connection, request, operation_timeout);
     if (!context_id.has_value())
     {
         return score::Result<std::unique_ptr<ISignContext>>{score::unexpect, context_id.error()};
     }
 
-    return std::make_unique<SignContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
+    return std::make_unique<SignContextImpl>(
+        m_connection, context_id.value(), config.algorithm, m_transcoder, operation_timeout);
 }
 
 score::Result<std::unique_ptr<IVerifySignatureContext>> CryptoContextImpl::CreateVerifySignatureContext(
@@ -448,14 +469,16 @@ score::Result<std::unique_ptr<IVerifySignatureContext>> CryptoContextImpl::Creat
     request.mode = daemon_common::ToContextMode(OperationMode::kVerify);
     request.signature_input_mode = config.input_mode;
 
-    auto context_id = CreateDaemonContext(m_connection, request);
+    const auto operation_timeout =
+        ResolveOperationTimeout(config.timeout_enabled, config.operation_timeout, m_default_operation_timeout);
+    auto context_id = CreateDaemonContext(m_connection, request, operation_timeout);
     if (!context_id.has_value())
     {
         return score::Result<std::unique_ptr<IVerifySignatureContext>>{score::unexpect, context_id.error()};
     }
 
     return std::make_unique<VerifySignatureContextImpl>(
-        m_connection, context_id.value(), config.algorithm, m_transcoder);
+        m_connection, context_id.value(), config.algorithm, m_transcoder, operation_timeout);
 }
 
 score::Result<std::unique_ptr<IRandomContext>> CryptoContextImpl::CreateRandomContext(const RandomContextConfig& config)
@@ -467,13 +490,16 @@ score::Result<std::unique_ptr<IRandomContext>> CryptoContextImpl::CreateRandomCo
     request.algorithm = &config.algorithm;
     request.provider_type = config.provider_type;
 
-    auto context_id = CreateDaemonContext(m_connection, request);
+    const auto operation_timeout =
+        ResolveOperationTimeout(config.timeout_enabled, config.operation_timeout, m_default_operation_timeout);
+    auto context_id = CreateDaemonContext(m_connection, request, operation_timeout);
     if (!context_id.has_value())
     {
         return score::Result<std::unique_ptr<IRandomContext>>{score::unexpect, context_id.error()};
     }
 
-    return std::make_unique<RandomContextImpl>(m_connection, context_id.value(), config.algorithm, m_transcoder);
+    return std::make_unique<RandomContextImpl>(
+        m_connection, context_id.value(), config.algorithm, m_transcoder, operation_timeout);
 }
 
 // ---------------------------------------------------------------------------

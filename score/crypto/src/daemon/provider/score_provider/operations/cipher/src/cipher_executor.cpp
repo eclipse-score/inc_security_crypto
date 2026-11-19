@@ -195,7 +195,8 @@ Expected<ResponseParameters, DaemonErrorCode> CipherExecutor::ExecuteUpdate(Scor
         return make_unexpected(DaemonErrorCode::kInsufficientParameters);
     }
 
-    const auto inputSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[0]);
+    // An empty chunk is valid input; with PKCS#7 an empty plaintext still gives one padding block.
+    const auto inputSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[0], true);
     if (!inputSpan.has_value())
     {
         return make_unexpected(inputSpan.error());
@@ -262,7 +263,7 @@ Expected<ResponseParameters, DaemonErrorCode> CipherExecutor::ExecuteSingleShot(
         iv.emplace(ivSpan.value());
     }
 
-    const auto inputSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[1]);
+    const auto inputSpan = handler::handler_utils::CheckAndGetSpan<const std::uint8_t>(request[1], true);
     if (!inputSpan.has_value())
     {
         return make_unexpected(inputSpan.error());
@@ -307,7 +308,9 @@ Expected<std::monostate, DaemonErrorCode> CipherExecutor::ValidateStreamTransiti
         return make_unexpected(DaemonErrorCode::kInvalidOperation);
     }
 
-    const auto result = handler::handler_utils::ValidateStreamOperationSequence(currentState, op.value());
+    // Finalize may follow Init directly: with PKCS#7 the empty plaintext still gives one block.
+    const auto result = handler::handler_utils::ValidateStreamOperationSequence(
+        currentState, op.value(), true, DaemonErrorCode::kInvalidStreamOperation);
     if (!result.has_value())
     {
         return make_unexpected(result.error());

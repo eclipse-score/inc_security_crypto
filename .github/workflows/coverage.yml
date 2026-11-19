@@ -18,6 +18,11 @@ on:
     types: [opened, reopened, synchronize]
   merge_group:
     types: [checks_requested]
+  # Runs on main populate the Bazel caches; PR runs can only restore caches
+  # saved on the default branch (or on their own branch).
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -27,8 +32,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
 
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.19.1
+      - name: Setup Bazel with shared caching
+        uses: eclipse-score/cicd-actions/setup-bazel-cache@e2a2a587a759b681632040ec1e1294015a0405f5 # setup-bazel-cache/v0.1.0
+        with:
+          disk-cache-key: ${{ github.job }}
 
       - name: Check coverage scope completeness
         run: ./.github/tools/check_coverage_scope.sh

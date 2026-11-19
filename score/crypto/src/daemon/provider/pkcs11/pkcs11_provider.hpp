@@ -200,6 +200,7 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
     [[nodiscard]] bool SeedSessionPool() noexcept;
 
     Pkcs11ProviderConfig m_config;
+    std::mutex m_initialization_mutex;
     bool m_initialized{false};
     common::ProviderId m_numeric_id{common::kInvalidProviderId};
     common::ProviderName m_provider_name{};

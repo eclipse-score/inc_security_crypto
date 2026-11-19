@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 #include "score/crypto/src/daemon/cert_management/policy/access_policy_enforcer.hpp"
-#include "score/crypto/src/daemon/control_plane/control_protocol.h"
+#include "score/crypto/src/daemon/common/types.hpp"
 
 #include <algorithm>
 
@@ -31,7 +31,7 @@ AccessPolicyEnforcer::CheckSlotAccess([[maybe_unused]] const CertSlotConfig& slo
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 AccessPolicyEnforcer::CheckWritePermission(const CertSlotConfig& slot, data_manager::ClientId client_id)
 {
-    const uint32_t uid = control_plane::protocol::GetUidFromClientId(client_id);
+    const uint32_t uid = common::GetUidFromClientId(client_id);
 
     const auto& allowed = slot.access_policy.allowed_write_uids;
     // An omitted write allowlist must never grant mutation access.
@@ -55,7 +55,7 @@ AccessPolicyEnforcer::CheckTrustStoreAccess([[maybe_unused]] const TrustStoreCon
 score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode>
 AccessPolicyEnforcer::CheckTrustStoreWritePermission(const TrustStoreConfig& store, data_manager::ClientId client_id)
 {
-    const uint32_t uid = control_plane::protocol::GetUidFromClientId(client_id);
+    const uint32_t uid = common::GetUidFromClientId(client_id);
 
     const auto& allowed = store.access_policy.allowed_write_uids;
     // Trust-store mutations are default-deny: an explicit writer UID is

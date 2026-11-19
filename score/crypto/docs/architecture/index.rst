@@ -76,6 +76,7 @@ Requirements Linked to Component Architecture
    chklst_arc_inspection
    design_decisions
    data_plane_architecture
+   ../../../../score/crypto/src/ipc/docs/index
 
 
 Static Architecture
@@ -89,7 +90,7 @@ The components are designed to cover the expectations from the feature architect
    :version: 1
    :security: YES
    :safety: QM
-   :status: invalid
+   :status: valid
    :belongs_to: feat__security_crypto
 
 .. image:: component_overview.png

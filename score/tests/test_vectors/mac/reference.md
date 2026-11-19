@@ -25,3 +25,6 @@ cat in | openssl sha256 -hmac "$(cat key)" -binary -out out
 `Hi There` test vector and key taken from: https://datatracker.ietf.org/doc/html/rfc4231 (Test Case 1)
 
 Test vectors with other data generated with above approach based on the key from the RFC Test Case 1
+
+`hmac_sha256_empty.bin` is the HMAC of the empty message under the same key, generated with the
+command above from an empty `in`.

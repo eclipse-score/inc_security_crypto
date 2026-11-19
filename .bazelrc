@@ -12,23 +12,10 @@
 # *******************************************************************************
 
 common --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
-build --java_language_version=17
-build --tool_java_language_version=17
-build --java_runtime_version=remotejdk_17
-build --tool_java_runtime_version=remotejdk_17
 
 # Treat deprecated declarations as errors
 build --cxxopt=-Werror=deprecated-declarations
 build --@rules_rust//rust/settings:extra_rustc_flag=-Ddeprecated
-
-# Suppress deprecated warnings for grpc_adapter implementation. grpc_adapter will be removed in future
-build --per_file_copt=score/crypto/src/ipc/grpc_adapter/.*@-Wno-error=deprecated-declarations
-
-# TODO: Temporarily disable deprecation warnings for com
-build --per_file_copt=external/score_communication\\+/.*@-Wno-error=deprecated-declarations
-
-# Only contact license server every 59 secs per tool and not for every tool invocation to avoid flooding the license server
-common --action_env=QNX_LICENSE_EXTSERVER_DELAY=59
 
 test --test_output=errors
 test --test_env=CRYPTOKI_WEAK_PIN_HASHING=1
@@ -50,16 +37,6 @@ build:shared --@score_communication//score/memory/shared/flags:use_typedshmd=Fal
 
 # Shared qnx configuration
 build:shared_qnx --config=shared
-build:shared_qnx --copt=-D_QNX_SOURCE
-build:shared_qnx --copt=-DGRPC_POSIX_SOCKET
-build:shared_qnx --copt=-DGRPC_POSIX_SOCKETUTILS
-build:shared_qnx --copt=-DGRPC_POSIX_WAKEUP_FD
-build:shared_qnx --copt=-DIP_PKTINFO=0
-build:shared_qnx --cxxopt=-D_QNX_SOURCE
-build:shared_qnx --cxxopt=-DGRPC_POSIX_SOCKET
-build:shared_qnx --cxxopt=-DGRPC_POSIX_SOCKETUTILS
-build:shared_qnx --cxxopt=-DGRPC_POSIX_WAKEUP_FD
-build:shared_qnx --cxxopt=-DIP_PKTINFO=0
 build:shared_qnx --@score_communication//score/memory/shared/flags:use_typedshmd=false
 
 # -------------------------------------------------------------------------------
@@ -92,8 +69,6 @@ build:x86_64-qnx-common --extra_toolchains=@score_toolchains_rust//toolchains/fe
 
 build:x86_64-qnx --config=x86_64-qnx-common
 test:x86_64-qnx --run_under=@score_qnx_unit_tests//src:run_under_qnx
-# score_qnx_unit_tests defaults to the host CPU; pin it for consistent behavior across CI runners.
-test:x86_64-qnx --test_env=QEMU_CPU=Cascadelake-Server-v5
 test:x86_64-qnx --test_tag_filters=-itf,-flaky
 test:x86_64-qnx --test_timeout=180,900,2700,10800 # Increase default test timeout by factor 3
 

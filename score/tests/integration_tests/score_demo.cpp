@@ -53,11 +53,6 @@ using tests::utility::print_success;
 
 namespace
 {
-#ifdef __QNXNTO__
-constexpr auto kControlSocketEndpoint = "unix:///opt/crypto_daemon.sock";
-#else
-constexpr auto kControlSocketEndpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
 
 constexpr std::string_view kAlgHmacSha256 = "HMAC-SHA256";
 constexpr std::size_t kHmacSha256MacSize = 32;
@@ -97,11 +92,7 @@ score::Result<std::monostate> ComputeMacWithProvider(
     // =========================================================================
     print_colored("[Setup] Connecting to daemon");
 
-    CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(kControlSocketEndpoint);
-    // Note: In the future a default endpoint will be configured, making an explicit
-    // selection obsolete.
-    auto stack_result = CreateCryptoStack(stack_config);
+    auto stack_result = CreateCryptoStack();
     if (!stack_result.has_value())
     {
         print_error("ERROR: Failed to create crypto stack");
