@@ -7,7 +7,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>IAV Primula Detailed Design &#8212; Crypto Project  documentation</title>
+    <title>PQC Provider Requirements &#8212; Crypto Project  documentation</title>
   
   
   
@@ -61,7 +61,7 @@
     <script src="../../../../_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
     <script src="../../../../_static/sphinx-needs/libs/html/datatables_loader.js?v=a2cae175"></script>
     <script src="../../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'crypto/components/primula/detailed_design/detailed_design_example';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'crypto/components/pqc_provider/requirements/requirements';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/crypto/versions.json';
@@ -72,8 +72,8 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="Implementation Inspection Checklist" href="chklst_impl_inspection.html" />
-    <link rel="prev" title="Detailed Design" href="index.html" />
+    <link rel="next" title="Requirement Inspection Checklist" href="chklst_req_inspection.html" />
+    <link rel="prev" title="Requirements" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="en"/>
@@ -408,15 +408,14 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../crypto/index.html">Crypto</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cryptoki/index.html">Cryptoki</a></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">IAV Primula Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">PQC Provider Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../architecture/index.html">Component Architecture</a></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Detailed Design</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a aria-current="page" class="current reference internal" href="#">IAV Primula Detailed Design</a></li>
-
-<li class="toctree-l3"><a class="reference internal" href="chklst_impl_inspection.html">Implementation Inspection Checklist</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Requirements</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3 current active"><a aria-current="page" class="current reference internal" href="#">PQC Provider Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="chklst_req_inspection.html">Requirement Inspection Checklist</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/fmea.html">FMEA (Failure Modes and Effects Analysis)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/aou_requirements_template.html">AoU Component Requirements Snippets</a></li>
@@ -467,12 +466,12 @@
     <li class="breadcrumb-item"><a href="../../../../docs/components/index.html" class="nav-link">Components</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">IAV Primula Component</a></li>
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">PQC Provider Component</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Detailed Design</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Requirements</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">IAV Primula Detailed Design</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">PQC Provider Requirements</span></li>
   </ul>
 </nav>
 </div>
@@ -489,13 +488,13 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="iav-primula-detailed-design">
-<h1>IAV Primula Detailed Design<a class="headerlink" href="#iav-primula-detailed-design" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-10695c23">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__iav_primula_detailed_design">
+  <section id="pqc-provider-requirements">
+<h1>PQC Provider Requirements<a class="headerlink" href="#pqc-provider-requirements" title="Link to this heading">#</a></h1>
+<div class="need_container docutils container" id="SNCB-0dba9082">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__pqc_provider_requirements">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">IAV Primula Detailed Design</span></span></span></div>
+<div class="line"><span><span class="needs_title"><span class="needs_data">PQC Provider Requirements</span></span></span></div>
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
@@ -510,10 +509,10 @@
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">iav_primula</span></span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">pqc_provider</span><span class="needs_spacer">, </span><span class="needs_data">pqc_provider</span></span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/implementation/implementation_workproducts.html#wp__sw_implementation">wp__sw_implementation</a></span></span></div>
+<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/requirements_engineering/requirements_workproducts.html#wp__requirements_comp">wp__requirements_comp</a></span></span></div>
 </span></div>
 </div>
 </td>
@@ -522,7 +521,7 @@
 <tr class="content row-odd"><td class="content" colspan="6"></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#doc__iav_primula_detailed_design" title="doc__iav_primula_detailed_design">doc__iav_primula_detailed_design</a></span></span></div>
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#doc__pqc_provider_requirements" title="doc__pqc_provider_requirements">doc__pqc_provider_requirements</a></span></span></div>
 </div>
 </td>
 <td class="footer" colspan="2"><div class="needs_footer line-block">
@@ -535,62 +534,154 @@
 </table>
 </div>
 </div>
-</section>
-<section id="detailed-design-for-component-iav-primula">
-<h1>Detailed Design for Component: IAV Primula<a class="headerlink" href="#detailed-design-for-component-iav-primula" title="Link to this heading">#</a></h1>
-<section id="description">
-<h2>Description<a class="headerlink" href="#description" title="Link to this heading">#</a></h2>
-<p>The implementation is intentionally small and centralized in <code class="docutils literal notranslate"><span class="pre">src/main.rs</span></code>.</p>
-<p>Design constraints:</p>
-<ul class="simple">
-<li><p>Keep public API simple for onboarding.</p></li>
-<li><p>Keep deterministic output for stable first tests.</p></li>
-<li><p>Avoid unnecessary abstractions until additional behavior is introduced.</p></li>
-</ul>
-<p>Current unit split:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">src/main.rs</span></code>: public API and implementation of <code class="docutils literal notranslate"><span class="pre">get_hello_message()</span></code>.</p></li>
-</ul>
-<section id="rationale-behind-decomposition-into-units">
-<h3>Rationale Behind Decomposition into Units<a class="headerlink" href="#rationale-behind-decomposition-into-units" title="Link to this heading">#</a></h3>
-<p>No further unit decomposition is needed at this stage.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Reason for split into multiple units could be-
-- Based on design principles like SOLID,DRY etc
-- Based on design pattern’s etc.</p>
+<section id="scope">
+<h2>Scope<a class="headerlink" href="#scope" title="Link to this heading">#</a></h2>
+<section id="functional-requirements">
+<h3>Functional Requirements<a class="headerlink" href="#functional-requirements" title="Link to this heading">#</a></h3>
+<div class="need_container docutils container" id="SNCB-93a67a62">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_req table" id="comp_req__pqc_provider__provide_hello_message">
+<tbody>
+<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
+<div class="line"><span><span class="needs_title"><span class="needs_data">Provide hello message function</span></span></span></div>
+</div>
+</td>
+<td class="head_center" colspan="2"><div class="needs_head line-block">
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
+<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">NO</span></span></span></div>
+<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
+</div>
+</td>
+<td class="head_right" colspan="2"><div class="needs_head_right line-block">
+<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
+</div>
+</td>
+</tr>
+<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
+<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">pqc_provider</span></span></span></div>
+<div class="line"><span class="needs_reqtype"><span class="needs_label">reqtype: </span><span class="needs_data">Functional</span></span></div>
+<div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
+</span></span></div>
+<div class="line"><span><div class="line">satisfied by: <span class="satisfied_by"><span><a class="reference internal" href="../architecture/component_architecture.html#comp__pqc_provider" title="comp_req__pqc_provider__provide_hello_message">comp__pqc_provider</a></span></span></div>
+<div class="line">fulfilled by: <span class="fulfils"><span><a class="reference internal" href="../architecture/component_architecture.html#comp_arc_dyn__pqc_provider__dv" title="comp_req__pqc_provider__provide_hello_message">comp_arc_dyn__pqc_provider__dv</a>, <a class="reference internal" href="../architecture/component_architecture.html#comp_arc_sta__pqc_provider__sv" title="comp_req__pqc_provider__provide_hello_message">comp_arc_sta__pqc_provider__sv</a></span></span></div>
+</span></div>
+</div>
+</td>
+<td class="meta" colspan="3"></td>
+</tr>
+<tr class="content row-odd"><td class="content" colspan="6"><p>The component shall provide a public Rust function
+<code class="docutils literal notranslate"><span class="pre">get_hello_message()</span> <span class="pre">-&gt;</span> <span class="pre">&amp;'static</span> <span class="pre">str</span></code>.</p></td>
+</tr>
+<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp_req__pqc_provider__provide_hello_message" title="comp_req__pqc_provider__provide_hello_message">comp_req__pqc_provider__provide_hello_message</a></span></span></div>
+</div>
+</td>
+<td class="footer" colspan="2"><div class="needs_footer line-block">
+<div class="line"><span><span class="needs_type_name"><span class="needs_data">Component Requirement</span></span></span></div>
+</div>
+</td>
+<td class="footer_right" colspan="2"></td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 </section>
+<section id="assumption-of-use-requirements">
+<h3>Assumption of Use Requirements<a class="headerlink" href="#assumption-of-use-requirements" title="Link to this heading">#</a></h3>
+<div class="need_container docutils container" id="SNCB-773c5720">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_aou_req table" id="aou_req__pqc_provider__rust_lib_api">
+<tbody>
+<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
+<div class="line"><span><span class="needs_title"><span class="needs_data">Integrate as Rust library API</span></span></span></div>
+</div>
+</td>
+<td class="head_center" colspan="2"><div class="needs_head line-block">
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
+<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
+<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
+</div>
+</td>
+<td class="head_right" colspan="2"><div class="needs_head_right line-block">
+<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
+</div>
+</td>
+</tr>
+<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
+<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">pqc_provider</span></span></span></div>
+<div class="line"><span class="needs_reqtype"><span class="needs_label">reqtype: </span><span class="needs_data">Process</span></span></div>
+<div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
+</span></span></div>
+<div class="line"><span></span></div>
+</div>
+</td>
+<td class="meta" colspan="3"></td>
+</tr>
+<tr class="content row-odd"><td class="content" colspan="6"><p>The component user shall link the crate <code class="docutils literal notranslate"><span class="pre">pqc_provider</span></code> and call the public
+API from Rust code.</p></td>
+</tr>
+<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#aou_req__pqc_provider__rust_lib_api" title="aou_req__pqc_provider__rust_lib_api">aou_req__pqc_provider__rust_lib_api</a></span></span></div>
+</div>
+</td>
+<td class="footer" colspan="2"><div class="needs_footer line-block">
+<div class="line"><span><span class="needs_type_name"><span class="needs_data">Assumption of Use Requirement</span></span></span></div>
+</div>
+</td>
+<td class="footer_right" colspan="2"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 </section>
-<section id="static-diagrams-for-unit-interactions">
-<h2>Static Diagrams for Unit Interactions<a class="headerlink" href="#static-diagrams-for-unit-interactions" title="Link to this heading">#</a></h2>
-<p>A static view provides an overview of the units and their relationships using
-UML 2.0 notations (e.g. class diagrams, component diagrams). Use <code class="docutils literal notranslate"><span class="pre">..</span> <span class="pre">uml::</span></code>
-or <code class="docutils literal notranslate"><span class="pre">..</span> <span class="pre">image::</span></code> directives to include the diagram.</p>
-<p>For this first baseline implementation no additional static UML is required.</p>
+<section id="environmental-requirements">
+<h3>Environmental Requirements<a class="headerlink" href="#environmental-requirements" title="Link to this heading">#</a></h3>
+<div class="need_container docutils container" id="SNCB-7fbccb01">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_aou_req table" id="aou_req__pqc_provider__rust2021_build_env">
+<tbody>
+<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
+<div class="line"><span><span class="needs_title"><span class="needs_data">Build environment supports Rust 2021</span></span></span></div>
+</div>
+</td>
+<td class="head_center" colspan="2"><div class="needs_head line-block">
+<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
+<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
+<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
+</div>
+</td>
+<td class="head_right" colspan="2"><div class="needs_head_right line-block">
+<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
+</div>
+</td>
+</tr>
+<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
+<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">environment</span><span class="needs_spacer">, </span><span class="needs_data">pqc_provider</span></span></span></div>
+<div class="line"><span class="needs_reqtype"><span class="needs_label">reqtype: </span><span class="needs_data">Process</span></span></div>
+<div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
+</span></span></div>
+<div class="line"><span></span></div>
+</div>
+</td>
+<td class="meta" colspan="3"></td>
+</tr>
+<tr class="content row-odd"><td class="content" colspan="6"><p>The component shall be built in an environment that supports Rust edition
+2021, consistent with the component BUILD definition.</p></td>
+</tr>
+<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#aou_req__pqc_provider__rust2021_build_env" title="aou_req__pqc_provider__rust2021_build_env">aou_req__pqc_provider__rust2021_build_env</a></span></span></div>
+</div>
+</td>
+<td class="footer" colspan="2"><div class="needs_footer line-block">
+<div class="line"><span><span class="needs_type_name"><span class="needs_data">Assumption of Use Requirement</span></span></span></div>
+</div>
+</td>
+<td class="footer_right" colspan="2"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 </section>
-<section id="dynamic-diagrams-for-unit-interactions-optional">
-<h2>Dynamic Diagrams for Unit Interactions (optional)<a class="headerlink" href="#dynamic-diagrams-for-unit-interactions-optional" title="Link to this heading">#</a></h2>
-<p>A dynamic view illustrates how the units within a component interact over their
-interfaces to fulfill a specific use case or functionality. It is optional when the
-component’s behaviour is straightforward and can be understood from the static view
-and interface documentation alone.</p>
-<p>Use standard UML behavioural diagrams (sequence diagrams, state machine diagrams)
-with <code class="docutils literal notranslate"><span class="pre">..</span> <span class="pre">uml::</span></code> or <code class="docutils literal notranslate"><span class="pre">..</span> <span class="pre">image::</span></code> directives.</p>
-<p>For this first baseline implementation no additional dynamic UML is required.</p>
-</section>
-<section id="units-within-the-component">
-<h2>Units within the Component<a class="headerlink" href="#units-within-the-component" title="Link to this heading">#</a></h2>
-<p>The relationship between a unit and its parent component is established implicitly
-through the file path. Each component has its own directory, and units residing
-within that directory belong to it. The unit’s attributes and behaviour are documented
-in the source code itself. A separate static diagram per unit is not required.</p>
-<p>Interface documentation of a software unit is part of the source code (e.g. public
-API headers, trait definitions, or documented function signatures).</p>
-<p>Current unit list:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">main.rs</span></code>: returns constant hello message string.</p></li>
-</ul>
 </section>
 </section>
 
@@ -610,15 +701,15 @@ API headers, trait definitions, or documented function signatures).</p>
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Detailed Design</p>
+        <p class="prev-next-title">Requirements</p>
       </div>
     </a>
     <a class="right-next"
-       href="chklst_impl_inspection.html"
+       href="chklst_req_inspection.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Implementation Inspection Checklist</p>
+        <p class="prev-next-title">Requirement Inspection Checklist</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -641,26 +732,20 @@ API headers, trait definitions, or documented function signatures).</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">IAV Primula Detailed Design</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#detailed-design-for-component-iav-primula">Detailed Design for Component: IAV Primula</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#description">Description</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rationale-behind-decomposition-into-units">Rationale Behind Decomposition into Units</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#static-diagrams-for-unit-interactions">Static Diagrams for Unit Interactions</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dynamic-diagrams-for-unit-interactions-optional">Dynamic Diagrams for Unit Interactions (optional)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#units-within-the-component">Units within the Component</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scope">Scope</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#functional-requirements">Functional Requirements</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#assumption-of-use-requirements">Assumption of Use Requirements</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#environmental-requirements">Environmental Requirements</a></li>
 </ul>
 </li>
 </ul>
-
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/crypto/edit/main/score/iav_primula/docs/detailed_design/detailed_design_example.rst">
+    <a href="https://github.com/eclipse-score/crypto/edit/main/score/pqc_provider/docs/requirements/requirements.rst">
       <i class="fa-solid fa-pencil"></i>
       
       

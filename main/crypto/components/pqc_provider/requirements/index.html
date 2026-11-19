@@ -7,7 +7,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Component Architecture &#8212; Crypto Project  documentation</title>
+    <title>Requirements &#8212; Crypto Project  documentation</title>
   
   
   
@@ -61,7 +61,7 @@
     <script src="../../../../_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
     <script src="../../../../_static/sphinx-needs/libs/html/datatables_loader.js?v=a2cae175"></script>
     <script src="../../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'crypto/components/primula/architecture/index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'crypto/components/pqc_provider/requirements/index';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/crypto/versions.json';
@@ -72,8 +72,8 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="Component Architecture Documentation" href="component_architecture.html" />
-    <link rel="prev" title="IAV Primula Component" href="../index.html" />
+    <link rel="next" title="PQC Provider Requirements" href="requirements.html" />
+    <link rel="prev" title="Implementation Inspection Checklist" href="../detailed_design/chklst_impl_inspection.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="en"/>
@@ -408,14 +408,14 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../crypto/index.html">Crypto</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cryptoki/index.html">Cryptoki</a></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">IAV Primula Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active has-children"><a aria-current="page" class="current reference internal" href="#">Component Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="component_architecture.html">Component Architecture Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">PQC Provider Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../architecture/index.html">Component Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
+<li class="toctree-l2 current active has-children"><a aria-current="page" class="current reference internal" href="#">Requirements</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="requirements.html">PQC Provider Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="chklst_req_inspection.html">Requirement Inspection Checklist</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/fmea.html">FMEA (Failure Modes and Effects Analysis)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/aou_requirements_template.html">AoU Component Requirements Snippets</a></li>
@@ -466,9 +466,9 @@
     <li class="breadcrumb-item"><a href="../../../../docs/components/index.html" class="nav-link">Components</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">IAV Primula Component</a></li>
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">PQC Provider Component</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Component Architecture</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Requirements</span></li>
   </ul>
 </nav>
 </div>
@@ -485,27 +485,23 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="component-architecture">
-<span id="iav-primula-component-architecture"></span><h1>Component Architecture<a class="headerlink" href="#component-architecture" title="Link to this heading">#</a></h1>
+  <section id="requirements">
+<h1>Requirements<a class="headerlink" href="#requirements" title="Link to this heading">#</a></h1>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="component_architecture.html">Component Architecture Documentation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="component_architecture.html#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="component_architecture.html#requirements-linked-to-component-architecture">Requirements Linked to Component Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="component_architecture.html#description">Description</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="component_architecture.html#rationale-behind-architecture-decomposition">Rationale Behind Architecture Decomposition</a></li>
+<li class="toctree-l1"><a class="reference internal" href="requirements.html">PQC Provider Requirements</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="requirements.html#scope">Scope</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="requirements.html#functional-requirements">Functional Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="requirements.html#assumption-of-use-requirements">Assumption of Use Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="requirements.html#environmental-requirements">Environmental Requirements</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="component_architecture.html#static-architecture">Static Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="component_architecture.html#dynamic-architecture">Dynamic Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="component_architecture.html#interfaces">Interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="component_architecture.html#internal-components">Internal Components</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="chklst_arc_inspection.html">Architecture Inspection Checklist</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="chklst_arc_inspection.html#purpose">Purpose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="chklst_arc_inspection.html#conduct">Conduct</a></li>
-<li class="toctree-l2"><a class="reference internal" href="chklst_arc_inspection.html#checklist">Checklist</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chklst_req_inspection.html">Requirement Inspection Checklist</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="chklst_req_inspection.html#purpose">Purpose</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chklst_req_inspection.html#conduct">Conduct</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chklst_req_inspection.html#checklist">Checklist</a></li>
 </ul>
 </li>
 </ul>
@@ -523,20 +519,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../index.html"
+       href="../detailed_design/chklst_impl_inspection.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">IAV Primula Component</p>
+        <p class="prev-next-title">Implementation Inspection Checklist</p>
       </div>
     </a>
     <a class="right-next"
-       href="component_architecture.html"
+       href="requirements.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Component Architecture Documentation</p>
+        <p class="prev-next-title">PQC Provider Requirements</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -555,7 +551,7 @@
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/crypto/edit/main/score/iav_primula/docs/architecture/index.rst">
+    <a href="https://github.com/eclipse-score/crypto/edit/main/score/pqc_provider/docs/requirements/index.rst">
       <i class="fa-solid fa-pencil"></i>
       
       

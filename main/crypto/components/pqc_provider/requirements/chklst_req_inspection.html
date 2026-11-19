@@ -7,7 +7,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Component Architecture Documentation &#8212; Crypto Project  documentation</title>
+    <title>Requirement Inspection Checklist &#8212; Crypto Project  documentation</title>
   
   
   
@@ -61,7 +61,7 @@
     <script src="../../../../_static/sphinx-needs/libs/html/datatables.min.js?v=8a4aee21"></script>
     <script src="../../../../_static/sphinx-needs/libs/html/datatables_loader.js?v=a2cae175"></script>
     <script src="../../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js?v=dca66431"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'crypto/components/primula/architecture/component_architecture';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'crypto/components/pqc_provider/requirements/chklst_req_inspection';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.23.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://eclipse-score.github.io/crypto/versions.json';
@@ -72,8 +72,8 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="Architecture Inspection Checklist" href="chklst_arc_inspection.html" />
-    <link rel="prev" title="Component Architecture" href="index.html" />
+    <link rel="next" title="DFA (Dependent Failure Analysis)" href="../safety_analysis/dfa.html" />
+    <link rel="prev" title="PQC Provider Requirements" href="requirements.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="en"/>
@@ -408,14 +408,14 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../../crypto/index.html">Crypto</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cryptoki/index.html">Cryptoki</a></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">IAV Primula Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Component Architecture</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a aria-current="page" class="current reference internal" href="#">Component Architecture Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="chklst_arc_inspection.html">Architecture Inspection Checklist</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">PQC Provider Component</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../architecture/index.html">Component Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">Requirements</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="requirements.html">PQC Provider Requirements</a></li>
+<li class="toctree-l3 current active"><a aria-current="page" class="current reference internal" href="#">Requirement Inspection Checklist</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2"><a class="reference internal" href="../detailed_design/index.html">Detailed Design</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../requirements/index.html">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/dfa.html">DFA (Dependent Failure Analysis)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/fmea.html">FMEA (Failure Modes and Effects Analysis)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../safety_analysis/aou_requirements_template.html">AoU Component Requirements Snippets</a></li>
@@ -466,12 +466,12 @@
     <li class="breadcrumb-item"><a href="../../../../docs/components/index.html" class="nav-link">Components</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">IAV Primula Component</a></li>
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">PQC Provider Component</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Component Architecture</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Requirements</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Component Architecture Documentation</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Requirement Inspection Checklist</span></li>
   </ul>
 </nav>
 </div>
@@ -488,13 +488,11 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="component-architecture-documentation">
-<h1>Component Architecture Documentation<a class="headerlink" href="#component-architecture-documentation" title="Link to this heading">#</a></h1>
-<div class="need_container docutils container" id="SNCB-d8ee4833">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__iav_primula_architecture">
+  <div class="need_container docutils container" id="SNCB-e6d79659">
+<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_document table" id="doc__pqc_provider_req_inspection">
 <tbody>
 <tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">IAV Primula Architecture</span></span></span></div>
+<div class="line"><span><span class="needs_title"><span class="needs_data">PQC Provider Requirements Inspection Checklist</span></span></span></div>
 </div>
 </td>
 <td class="head_center" colspan="2"><div class="needs_head line-block">
@@ -509,10 +507,10 @@
 </td>
 </tr>
 <tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">iav_primula</span></span></span></div>
+<div class="line"><span><span><div class="line"><span class="needs_tags"><span class="needs_label">tags: </span><span class="needs_data_container"><span class="needs_data">pqc_provider</span></span></span></div>
 <div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
 </span></span></div>
-<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/architecture_design/architecture_workproducts.html#wp__component_arch">wp__component_arch</a></span></span></div>
+<div class="line"><span><div class="line">realizes: <span class="realizes"><span><a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/requirements_engineering/requirements_workproducts.html#wp__requirements_inspect">wp__requirements_inspect</a></span></span></div>
 </span></div>
 </div>
 </td>
@@ -521,7 +519,7 @@
 <tr class="content row-odd"><td class="content" colspan="6"></td>
 </tr>
 <tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#doc__iav_primula_architecture" title="doc__iav_primula_architecture">doc__iav_primula_architecture</a></span></span></div>
+<div class="line"><span><span class="needs-id"><a class="reference internal" href="#doc__pqc_provider_req_inspection" title="doc__pqc_provider_req_inspection">doc__pqc_provider_req_inspection</a></span></span></div>
 </div>
 </td>
 <td class="footer" colspan="2"><div class="needs_footer line-block">
@@ -534,238 +532,210 @@
 </table>
 </div>
 </div>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>The IAV Primula component is a lightweight Rust library exposing one public API
-to return a deterministic baseline message.</p>
+<section id="requirement-inspection-checklist">
+<h1>Requirement Inspection Checklist<a class="headerlink" href="#requirement-inspection-checklist" title="Link to this heading">#</a></h1>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading">#</a></h2>
+<p>The purpose of this requirement inspection checklist is to collect the topics to be checked during requirements inspection.</p>
 </section>
-<section id="requirements-linked-to-component-architecture">
-<h2>Requirements Linked to Component Architecture<a class="headerlink" href="#requirements-linked-to-component-architecture" title="Link to this heading">#</a></h2>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>.. needtable:: Overview of Component Requirements
-   :style: table
-   :columns: title;id
-   :filter: search("comp_arch_sta__archdes$", "fulfils_back")
-   :colwidths: 70,30
-</pre></div>
-</div>
-</section>
-<section id="description">
-<h2>Description<a class="headerlink" href="#description" title="Link to this heading">#</a></h2>
-<p>The component currently has no internal sub-components. Public API and
-implementation are both located in <code class="docutils literal notranslate"><span class="pre">src/main.rs</span></code>.</p>
-<p>Design constraints:</p>
+<section id="conduct">
+<h2>Conduct<a class="headerlink" href="#conduct" title="Link to this heading">#</a></h2>
+<p>As described in the concept <a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/general_concepts/score_review_concept.html#doc_concept__wp_inspections">doc_concept__wp_inspections</a> the following “inspection roles” are expected to be filled:</p>
 <ul class="simple">
-<li><p>Keep API deterministic and side-effect free.</p></li>
-<li><p>Keep implementation simple for initial onboarding and traceability.</p></li>
+<li><p>content responsible (author): &lt;contributor/committer explicitly named here, who is the main author, as can be seen in config mgt tooling&gt;</p></li>
+<li><p>reviewer: &lt;contributor/committer explicitly named here, who is the main content reviewer, must be different from content responsible&gt;</p></li>
+<li><p>moderator: &lt;committer explicitly named here, who is is the safety manager, security manager or quality manager initiating the inspection&gt;</p></li>
+<li><p>test expert: &lt;one of the reviewers explicitly named here, to cover REQ_08_01 as described&gt;</p></li>
 </ul>
-<section id="rationale-behind-architecture-decomposition">
-<h3>Rationale Behind Architecture Decomposition<a class="headerlink" href="#rationale-behind-architecture-decomposition" title="Link to this heading">#</a></h3>
-<p>No decomposition into lower-level components is introduced in this initial
-version because complexity is low and responsibilities are clear.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Common decisions across components / cross cutting concepts is at the higher level.</p>
-</div>
+<p>Current state: formal requirement inspection not executed yet.</p>
 </section>
-</section>
-<section id="static-architecture">
-<h2>Static Architecture<a class="headerlink" href="#static-architecture" title="Link to this heading">#</a></h2>
-<p>The components are designed to cover the expectations from the feature architecture
-(i.e. if already exists a definition it should be taken over and enriched).</p>
-<p>A component can optional also consist of lower level components to further structure the architecture. The component and its static views can also optionally use interfaces provided by other components.</p>
-<div class="need_container docutils container" id="SNCB-dd8b1cfc">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp table" id="comp__iav_primula">
+<section id="checklist">
+<h2>Checklist<a class="headerlink" href="#checklist" title="Link to this heading">#</a></h2>
+<p>It is mandatory to fill in the “passed” column with “yes” or “no” for each checklist item and additionally to add in the remarks why it is passed or not passed.
+In case of “no” an issue link to the issue tracking system has to be added in the last column (if not solved in the same issue).
+See also <a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/general_concepts/score_review_concept.html#doc_concept__wp_inspections">doc_concept__wp_inspections</a> for further information about reviews in general and inspection in particular.</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id1">
+<caption><span class="caption-number">Table 32 </span><span class="caption-text">Component Requirement Inspection Checklist</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 9.1%" />
+<col style="width: 27.3%" />
+<col style="width: 45.5%" />
+<col style="width: 5.5%" />
+<col style="width: 5.5%" />
+<col style="width: 7.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Review ID</p></th>
+<th class="head"><p>Acceptance Criteria</p></th>
+<th class="head"><p>Guidance</p></th>
+<th class="head"><p>Passed</p></th>
+<th class="head"><p>Remarks</p></th>
+<th class="head"><p>Issue link</p></th>
+</tr>
+</thead>
 <tbody>
-<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">IAV Primula</span></span></span></div>
-</div>
-</td>
-<td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
-<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
-<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
-</div>
-</td>
-<td class="head_right" colspan="2"><div class="needs_head_right line-block">
-<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
-</div>
-</td>
+<tr class="row-even"><td><p>REQ_01_01</p></td>
+<td><p>Is the requirement formulation template used?</p></td>
+<td><p>see <a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/requirements_engineering/guidance/requirements_templates.html#gd_temp__req_formulation">gd_temp__req_formulation</a>, this includes the use of “shall”.</p></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
-<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
-</span></span></div>
-<div class="line"><span><div class="line">belongs to: <span class="belongs_to"><span><a class="external_link reference external" href="https://eclipse-score.github.io/score/main/features/security_crypto/architecture/index.html#feat__security_crypto">feat__security_crypto</a></span></span></div>
-<div class="line">has: <span class="belongs_to"><span><a class="reference internal" href="#comp_arc_dyn__iav_primula__dv" title="comp__iav_primula">comp_arc_dyn__iav_primula__dv</a>, <a class="reference internal" href="#comp_arc_sta__iav_primula__sv" title="comp__iav_primula">comp_arc_sta__iav_primula__sv</a></span></span></div>
-<div class="line">satisfies: <span class="satisfied_by"><span><a class="reference internal" href="../requirements/requirements.html#comp_req__iav_primula__provide_hello_message" title="comp__iav_primula">comp_req__iav_primula__provide_hello_message</a></span></span></div>
-<div class="line">included by: <span class="includes"><span><a class="reference internal" href="../../../../docs/module/index.html#mod__crypto_module" title="comp__iav_primula">mod__crypto_module</a>, <a class="reference internal" href="../../../../docs/module/index.html#mod_view_sta__crypto__crypto_module" title="comp__iav_primula">mod_view_sta__crypto__crypto_module</a></span></span></div>
-</span></div>
-</div>
-</td>
-<td class="meta" colspan="3"></td>
+<tr class="row-odd"><td><p>REQ_02_01</p></td>
+<td><p>Is the requirement description <em>comprehensible</em> ?</p></td>
+<td><p>If you think the requirement is hard to understand, comment here.</p></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
-<tr class="content row-odd"><td class="content" colspan="6"></td>
+<tr class="row-even"><td><p>REQ_02_02</p></td>
+<td><p>Is the requirement description <em>unambiguous</em> ?</p></td>
+<td><p>Especially search for “weak words” like “about”, “etc.”, “relevant” and others (see the internet documentation on this). This check shall be supported by tooling.</p></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
-<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp__iav_primula" title="comp__iav_primula">comp__iav_primula</a></span></span></div>
+<tr class="row-odd"><td><p>REQ_02_03</p></td>
+<td><p>Is the requirement description <em>atomic</em> ?</p></td>
+<td><p>A good way to think about this is to consider if the requirement may be tested by one (positive) test case or needs more of these. The requirement formulation template should also avoid being non-atomic already. Note that there are cases where also non-atomic requirements are the better ones, for example if those are better understandable.</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>REQ_02_04</p></td>
+<td><p>Is the requirement description <em>feasible</em> ?</p></td>
+<td><p>If at the time of the inspection the requirement has already some implementation, the answer is yes. This can be checked via traces, but also <a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/requirements_engineering/guidance/requirements_process_reqs.html#gd_req__req_attr_impl">gd_req__req_attr_impl</a> shows this. In case the requirement has no implementation at the time of inspection (i.e. not implemented at least as “proof-of-concept”), a development expert should be invited to the Pull-Request review to explicitly check this item.</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>REQ_02_05</p></td>
+<td><p>Is the requirement description <em>independent from implementation</em> ?</p></td>
+<td><p>This checkpoint should improve requirements definition in the sense that the “what” is described and not the “how” - the latter should be described in architecture/design derived from the requirement. But there can also be a good reason for this, for example we would require using a file format like JSON and even specify the formatting standard already on stakeholder requirement level because we want to be compatible. A finding in this checkpoint does not mean there is a safety problem in the requirement.</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>REQ_03_01</p></td>
+<td><p>Is the <em>linkage to the parent requirement</em> correct?</p></td>
+<td><p>Linkage to correct levels and ASIL attributes is checked automatically, but it needs checking if the child requirement implements (at least) a part of the parent requirement.</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>REQ_04_01</p></td>
+<td><p>Is the requirement <em>internally and externally consistent</em>?</p></td>
+<td><p>Does the requirement contradict other requirements within the same or higher levels? One may restrict the search to the feature for component requirements, for features to other features using same components. Is the description of the requirement consistent with all its attributes (if not already part of another check, e.g. does the title fit?).</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>REQ_05_01</p></td>
+<td><p>Do the software requirements consider <em>timing constraints</em>?</p></td>
+<td><p>This checkpoint encourages to think about timing constraints even if those are not explicitly mentioned in the parent requirement. If the reviewer of a requirement already knows or suspects that the code execution will be consuming a lot of time, one should think of the expectation of a “user”.</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>REQ_06_01</p></td>
+<td><p>Does the requirement consider <em>external interfaces</em>?</p></td>
+<td><p>The SW platform’s external interfaces (to the user) are defined in the Feature Architecture, so the Feature and Component Requirements should determine the input data use and setting of output data for these interfaces. Are all output values defined?</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>REQ_07_01</p></td>
+<td><p>Is the <em>safety</em> attribute set correctly?</p></td>
+<td><p>Derived requirements are checked automatically, see <a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/requirements_engineering/guidance/requirements_process_reqs.html#gd_req__req_linkage_safety">gd_req__req_linkage_safety</a>. But for the top level requirements (and also all AoU) this needs to be checked manually for correctness.</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>REQ_07_02</p></td>
+<td><p>Is the attribute <em>security</em> set correctly?</p></td>
+<td><p>For component requirements this checklist item is supported by automated check: “Every requirement which satisfies a feature requirement with security attribute set to YES inherits this”. But the component requirements/architecture may additionally also be subject to a <a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/security_analysis/security_analysis_workproducts.html#wp__sw_component_security_analysis">wp__sw_component_security_analysis</a>.</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>REQ_08_01</p></td>
+<td><p>Is the requirement <em>verifiable</em>?</p></td>
+<td><p>If at the time of the inspection already tests are created for the requirement, the answer is yes. This can be checked via traces, but also <a class="external_link reference external" href="https://eclipse-score.github.io/process_description//main/process_areas/requirements_engineering/guidance/requirements_process_reqs.html#gd_req__req_attr_test_covered">gd_req__req_attr_test_covered</a> shows this. In case the requirement is not sufficiently traced to test cases already, a test expert is invited to the inspection to give their opinion whether the requirement is formulated in a way that supports test development and the available test infrastructure is sufficient to perform the test.</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>REQ_08_02</p></td>
+<td><p>Is the requirement verifiable by design or code review in case it is not feasibly testable?</p></td>
+<td><p>In very rare cases a requirement may not be verifiable by test cases, for example a specific non-functional requirement. In this case a requirement analysis verifies the requirement by design/code review. If such a requirement is in scope of this inspection, please check this here and link to the respective review record. A test expert is invited to the inspection to confirm their opinion that the requirement is not testable.</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>REQ_09_01</p></td>
+<td><p>Do the requirements that define a safety mechanism specify the error reaction leading to a safe state?</p></td>
+<td><p>Alternatively to the safe state there could also be “repair” mechanisms. Also do not forget to consider REQ_05_01 for these.</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
 </div>
-</td>
-<td class="footer" colspan="2"><div class="needs_footer line-block">
-<div class="line"><span><span class="needs_type_name"><span class="needs_data">Component</span></span></span></div>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>This checklist remains in draft until formal inspection is executed.</p>
 </div>
-</td>
-<td class="footer_right" colspan="2"></td>
+<p>Note: If a Review ID is not applicable for your requirement, then state “”n/a” in status and comment accordingly in remarks.</p>
+<p>The following requirements in “valid” state and with “inspected” tag set are in the scope of this inspection:</p>
+<div class="needstable_wrapper docutils container" id="needtable-crypto/components/pqc_provider/requirements/chklst_req_inspection-0">
+<div class="pst-scrollable-table-container"><table class="NEEDS_TABLE table" id="needtable-crypto/components/pqc_provider/requirements/chklst_req_inspection-0-table_node">
+<colgroup>
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>ID</p></th>
+<th class="head"><p>Status</p></th>
+<th class="head"><p>Tags</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="need row-even"><td class="needs_id"><p><a class="reference internal" href="requirements.html#comp_req__pqc_provider__provide_hello_message">comp_req__pqc_provider__provide_hello_message</a></p></td>
+<td class="needs_status"><p>valid</p></td>
+<td class="needs_tags"><p>pqc_provider</p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
-<div class="need_container docutils container" id="SNCB-964367fd">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_arc_sta table" id="comp_arc_sta__iav_primula__sv">
+<p>And also the following AoUs in “valid” state and with “inspected” tag set (for these please answer the questions above as if the AoUs are requirements, except question REQ_03_01):</p>
+<div class="needstable_wrapper docutils container" id="needtable-crypto/components/pqc_provider/requirements/chklst_req_inspection-1">
+<div class="pst-scrollable-table-container"><table class="NEEDS_TABLE table" id="needtable-crypto/components/pqc_provider/requirements/chklst_req_inspection-1-table_node">
+<colgroup>
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>ID</p></th>
+<th class="head"><p>Status</p></th>
+<th class="head"><p>Tags</p></th>
+</tr>
+</thead>
 <tbody>
-<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">IAV Primula Static View</span></span></span></div>
-</div>
-</td>
-<td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
-<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
-<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
-</div>
-</td>
-<td class="head_right" colspan="2"><div class="needs_head_right line-block">
-<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
-</div>
-</td>
+<tr class="need row-even"><td class="needs_id"><p><a class="reference internal" href="requirements.html#aou_req__pqc_provider__rust2021_build_env">aou_req__pqc_provider__rust2021_build_env</a></p></td>
+<td class="needs_status"><p>valid</p></td>
+<td class="needs_tags"><p>environment<em>; </em>pqc_provider</p></td>
 </tr>
-<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
-</span></span></div>
-<div class="line"><span><div class="line">belongs to: <span class="belongs_to"><span><a class="reference internal" href="#comp__iav_primula" title="comp_arc_sta__iav_primula__sv">comp__iav_primula</a></span></span></div>
-<div class="line">fulfils: <span class="fulfils"><span><a class="reference internal" href="../requirements/requirements.html#comp_req__iav_primula__provide_hello_message" title="comp_arc_sta__iav_primula__sv">comp_req__iav_primula__provide_hello_message</a></span></span></div>
-</span></div>
-</div>
-</td>
-<td class="meta" colspan="3"></td>
-</tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p class="plantuml" id="needarch-crypto/components/primula/architecture/component_architecture-0">
-<object data="../../../../_images/plantuml-676c0e07e464b1964aea0c783885bc9d75db9bed.svg" type="image/svg+xml" style="width:141px;height:67px;background:#FFFFFF;"></object></p>
-</td>
-</tr>
-<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp_arc_sta__iav_primula__sv" title="comp_arc_sta__iav_primula__sv">comp_arc_sta__iav_primula__sv</a></span></span></div>
-</div>
-</td>
-<td class="footer" colspan="2"><div class="needs_footer line-block">
-<div class="line"><span><span class="needs_type_name"><span class="needs_data">Component Package Diagram</span></span></span></div>
-</div>
-</td>
-<td class="footer_right" colspan="2"></td>
+<tr class="need row-odd"><td class="needs_id"><p><a class="reference internal" href="requirements.html#aou_req__pqc_provider__rust_lib_api">aou_req__pqc_provider__rust_lib_api</a></p></td>
+<td class="needs_status"><p>valid</p></td>
+<td class="needs_tags"><p>pqc_provider</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-</div>
-</section>
-<section id="dynamic-architecture">
-<h2>Dynamic Architecture<a class="headerlink" href="#dynamic-architecture" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-b29bd3d4">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_comp_arc_dyn table" id="comp_arc_dyn__iav_primula__dv">
-<tbody>
-<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">IAV Primula Dynamic View</span></span></span></div>
-</div>
-</td>
-<td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
-<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">YES</span></span></span></div>
-<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
-</div>
-</td>
-<td class="head_right" colspan="2"><div class="needs_head_right line-block">
-<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
-</div>
-</td>
-</tr>
-<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
-</span></span></div>
-<div class="line"><span><div class="line">belongs to: <span class="belongs_to"><span><a class="reference internal" href="#comp__iav_primula" title="comp_arc_dyn__iav_primula__dv">comp__iav_primula</a></span></span></div>
-<div class="line">fulfils: <span class="fulfils"><span><a class="reference internal" href="../requirements/requirements.html#comp_req__iav_primula__provide_hello_message" title="comp_arc_dyn__iav_primula__dv">comp_req__iav_primula__provide_hello_message</a></span></span></div>
-</span></div>
-</div>
-</td>
-<td class="meta" colspan="3"></td>
-</tr>
-<tr class="content row-odd"><td class="content" colspan="6"><p>Caller invokes <code class="docutils literal notranslate"><span class="pre">get_hello_message()</span></code> and receives the constant baseline
-string response immediately.</p></td>
-</tr>
-<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#comp_arc_dyn__iav_primula__dv" title="comp_arc_dyn__iav_primula__dv">comp_arc_dyn__iav_primula__dv</a></span></span></div>
-</div>
-</td>
-<td class="footer" colspan="2"><div class="needs_footer line-block">
-<div class="line"><span><span class="needs_type_name"><span class="needs_data">Component Sequence Diagram</span></span></span></div>
-</div>
-</td>
-<td class="footer_right" colspan="2"></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</section>
-<section id="interfaces">
-<h2>Interfaces<a class="headerlink" href="#interfaces" title="Link to this heading">#</a></h2>
-<div class="need_container docutils container" id="SNCB-6e33613a">
-<div class="pst-scrollable-table-container"><table class="need needs_grid_complex needs_layout_score needs_style_none needs_type_real_arc_int table" id="real_arc_int__iav_primula__get_hello_message">
-<tbody>
-<tr class="head row-odd"><td class="head_left" colspan="2"><div class="needs_head_left line-block">
-<div class="line"><span><span class="needs_title"><span class="needs_data">Public hello message interface</span></span></span></div>
-</div>
-</td>
-<td class="head_center" colspan="2"><div class="needs_head line-block">
-<div class="line"><span><span class="needs_status"><span class="needs_label">status: </span><span class="needs_data">valid</span></span></span></div>
-<div class="line"><span><span class="needs_security"><span class="needs_label">security: </span><span class="needs_data">NO</span></span></span></div>
-<div class="line"><span><span class="needs_safety"><span class="needs_label">safety: </span><span class="needs_data">QM</span></span></span></div>
-</div>
-</td>
-<td class="head_right" colspan="2"><div class="needs_head_right line-block">
-<div class="line"><span><span class="needs needs_collapse" id="target__show__meta"><span class="needs collapsed"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-down-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg></span><span class="needs visible collapse_is_hidden"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right-circle"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg></span></span></span></div>
-</div>
-</td>
-</tr>
-<tr class="meta row-even"><td class="meta" colspan="3"><div class="needs_meta_left line-block">
-<div class="line"><span><span><div class="line"><span class="needs_language"><span class="needs_label">language: </span><span class="needs_data">rust</span></span></div>
-<div class="line"><span class="needs_version"><span class="needs_label">version: </span>1</span></div>
-</span></span></div>
-<div class="line"><span></span></div>
-</div>
-</td>
-<td class="meta" colspan="3"></td>
-</tr>
-<tr class="content row-odd"><td class="content" colspan="6"></td>
-</tr>
-<tr class="footer row-even"><td class="footer_left" colspan="2"><div class="needs_footer_left line-block">
-<div class="line"><span><span class="needs-id"><a class="reference internal" href="#real_arc_int__iav_primula__get_hello_message" title="real_arc_int__iav_primula__get_hello_message">real_arc_int__iav_primula__get_hello_message</a></span></span></div>
-</div>
-</td>
-<td class="footer" colspan="2"><div class="needs_footer line-block">
-<div class="line"><span><span class="needs_type_name"><span class="needs_data">Interface &amp; Component Interface</span></span></span></div>
-</div>
-</td>
-<td class="footer_right" colspan="2"></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</section>
-<section id="internal-components">
-<h2>Internal Components<a class="headerlink" href="#internal-components" title="Link to this heading">#</a></h2>
-<p>No internal components are defined in this baseline version.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Architecture can be split into multiple files. At component level the public interfaces to be used by the user and tester to be shown.</p>
 </div>
 </section>
 </section>
@@ -781,20 +751,20 @@ string response immediately.</p></td>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="requirements.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Component Architecture</p>
+        <p class="prev-next-title">PQC Provider Requirements</p>
       </div>
     </a>
     <a class="right-next"
-       href="chklst_arc_inspection.html"
+       href="../safety_analysis/dfa.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Architecture Inspection Checklist</p>
+        <p class="prev-next-title">DFA (Dependent Failure Analysis)</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -817,16 +787,9 @@ string response immediately.</p></td>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#requirements-linked-to-component-architecture">Requirements Linked to Component Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#description">Description</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rationale-behind-architecture-decomposition">Rationale Behind Architecture Decomposition</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#static-architecture">Static Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dynamic-architecture">Dynamic Architecture</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interfaces">Interfaces</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#internal-components">Internal Components</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#purpose">Purpose</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conduct">Conduct</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#checklist">Checklist</a></li>
 </ul>
   </nav></div>
 
@@ -834,7 +797,7 @@ string response immediately.</p></td>
 
   
   <div class="tocsection editthispage">
-    <a href="https://github.com/eclipse-score/crypto/edit/main/score/iav_primula/docs/architecture/component_architecture.rst">
+    <a href="https://github.com/eclipse-score/crypto/edit/main/score/pqc_provider/docs/requirements/chklst_req_inspection.rst">
       <i class="fa-solid fa-pencil"></i>
       
       
