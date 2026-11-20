@@ -25,6 +25,8 @@
 # compatibility; new test targets should prefer the specific sub-targets.
 # ---------------------------------------------------------------------------
 
+load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
+
 filegroup(
     name = "basic",
     srcs = glob(
@@ -64,6 +66,33 @@ filegroup(
         ],
         allow_empty = True,
     ),
+    visibility = ["//visibility:public"],
+)
+
+pkg_files(
+    name = "basic_pkg",
+    srcs = glob([
+        "basic/**/*.pem",
+        "basic/**/*.der",
+        "basic/**/*.kv",
+        "basic/**/*.json",
+    ]),
+    # Install under share/test_vectors/certificate/basic.
+    strip_prefix = strip_prefix.from_root("score/tests"),
+    visibility = ["//visibility:public"],
+)
+
+pkg_files(
+    name = "pki_chain_pkg",
+    srcs = glob([
+        "pki_chain/**/*.pem",
+        "pki_chain/**/*.der",
+        "pki_chain/**/*.kv",
+        "pki_chain/**/*.json",
+        "pki_chain/**/*.conf",
+    ]),
+    # Install under share/test_vectors/certificate/pki_chain.
+    strip_prefix = strip_prefix.from_root("score/tests"),
     visibility = ["//visibility:public"],
 )
 

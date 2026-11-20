@@ -212,6 +212,40 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "score_cert_management_integration_test",
+    srcs = ["score_cert_management_integration_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    data = [
+        "//score/tests/test_vectors/certificate:basic",
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "score_cert_verification_integration_test",
+    srcs = ["score_cert_verification_integration_test.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    data = [
+        "//score/tests/test_vectors/certificate:pki_chain",
+        "//score/tests/test_vectors/config:integration_test_config",
+    ],
+    deps = [
+        "//score/crypto/src/api:crypto_stack",
+        "@googletest//:gtest_main",
+    ],
+)
+
 integration_test(
     name = "integration_test",
     size = "medium",
@@ -233,6 +267,8 @@ integration_test(
             ":score_api_ecdsa_test",
             ":score_api_signature_test",
             ":score_api_key_import_export_test",
+            ":score_cert_management_integration_test",
+            ":score_cert_verification_integration_test",
         ],
         "//conditions:default": [],
     }),
@@ -259,6 +295,8 @@ integration_test(
             "//score/tests/test_vectors/ecdsa:ecdsa_test_vectors_pkg",
             "//score/tests/test_vectors/ed25519:ed25519_test_vectors_pkg",
             "//score/tests/test_vectors/rsa:rsa_pss_test_vectors_pkg",
+            "//score/tests/test_vectors/certificate:basic_pkg",
+            "//score/tests/test_vectors/certificate:pki_chain_pkg",
         ],
         "//conditions:default": [],
     }),

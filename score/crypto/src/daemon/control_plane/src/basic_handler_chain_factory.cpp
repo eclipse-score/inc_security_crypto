@@ -17,10 +17,8 @@
 #include "score/crypto/src/daemon/control_plane/i_request_handler.hpp"
 #include "score/crypto/src/daemon/control_plane/src/connection_handler.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
-#include "score/crypto/src/daemon/data_plane/src/shm_registry.hpp"
 #include "score/crypto/src/daemon/data_plane/src/shm_request_handler.hpp"
-#include "score/crypto/src/daemon/mediator/src/mediator_impl.hpp"
-#include "score/crypto/src/daemon/provider/provider_manager.hpp"
+#include "score/crypto/src/daemon/mediator/i_mediator.hpp"
 
 #include <memory>
 #include <utility>
@@ -29,28 +27,16 @@ namespace score::crypto::daemon::control_plane
 {
 
 BasicHandlerChainFactory::BasicHandlerChainFactory(std::shared_ptr<data_manager::IDataManager> data_manager,
-                                                   std::shared_ptr<provider::ProviderManager> provider_manager,
                                                    const config::Config& config,
-                                                   key_management::KeyManagementService::Sptr km_service)
-    : IHandlerChainFactory(),
-      m_data_manager(std::move(data_manager)),
-      m_provider_manager(std::move(provider_manager)),
-      m_shm_registry(std::make_shared<data_plane::ShmRegistry>()),
-      m_config(config),
-      m_km_service(std::move(km_service))
+                                                   std::shared_ptr<mediator::IMediator> mediator)
+    : IHandlerChainFactory(), m_data_manager(std::move(data_manager)), m_config(config), m_mediator(std::move(mediator))
 {
 }
 
 std::unique_ptr<IRequestHandler> BasicHandlerChainFactory::CreateRequestHandler()
 {
-    // ShmRegistry is shared across all handler chains so that ShmDataNodes can
-    // release quota regardless of which thread destroys them.
-    auto shm_registry = m_shm_registry;
-
-    // whole chain i.e mediator and ConnectionHandler are created per invocation
-    auto mediator = std::make_unique<mediator::MediatorImpl>(
-        mediator::MediatorDependencies{m_data_manager, m_provider_manager, m_km_service, std::move(shm_registry)});
-    auto next_handler = std::make_unique<data_plane::ShmRequestHandler>(std::move(mediator), m_data_manager);
+    // The mediator is shared; the ShmRequestHandler and ConnectionHandler are per connection.
+    auto next_handler = std::make_unique<data_plane::ShmRequestHandler>(m_mediator, m_data_manager);
     auto handler = std::make_unique<ConnectionHandler>(std::move(next_handler),
                                                        m_data_manager,  // Shared data manager
                                                        m_config);

@@ -44,7 +44,7 @@ class OpenSslHashHandler final
 
     // Handler interface overrides (OpenSSL-specific initialization and cleanup)
     Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
-        const ::score::crypto::daemon::provider::handler::InitializationParams& init_params) override;
+        const ::score::crypto::daemon::common::InitializationParams& init_params) override;
     Expected<std::monostate, common::DaemonErrorCode> Reset() override;
 
     // ScoreHashHandler typed method overrides (OpenSSL crypto implementation)

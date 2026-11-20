@@ -44,6 +44,7 @@ cc_library(
         "//:__subpackages__",
     ],
     deps = [
+        "//score/crypto/src/daemon/common/context:context_types",
         "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_info",
@@ -80,6 +81,7 @@ cc_library(
     deps = [
         ":provider_pkcs11_headers",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common/context:context_mode",
         "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/data_plane",
         "//score/crypto/src/daemon/key_management",

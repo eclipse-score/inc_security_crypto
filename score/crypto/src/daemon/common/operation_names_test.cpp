@@ -49,7 +49,9 @@ TEST(OperationNamesTest, EveryRegisteredActorIsNamed)
                              actors::OP_ACTOR_CIPHER_HANDLER,
                              actors::OP_ACTOR_SIGN_HANDLER,
                              actors::OP_ACTOR_VERIFY_HANDLER,
-                             actors::OP_ACTOR_RANDOM_HANDLER})
+                             actors::OP_ACTOR_RANDOM_HANDLER,
+                             actors::OP_ACTOR_CERT_MANAGEMENT,
+                             actors::OP_ACTOR_CERT_VERIFICATION})
     {
         EXPECT_NE(common::ActorName(actor), "<unknown_actor>")
             << "actor " << static_cast<std::uint32_t>(actor) << " has no name";

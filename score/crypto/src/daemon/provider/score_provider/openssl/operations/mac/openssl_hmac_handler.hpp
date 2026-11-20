@@ -16,9 +16,9 @@
 
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/handler_init_params.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/mac/mac_executor.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/operations/mac/score_mac_handler.hpp"
 
@@ -53,7 +53,7 @@ class OpenSslHmacHandler final
     // -----------------------------------------------------------------------
 
     [[nodiscard]] ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode>
-    InitializeContext(const ::score::crypto::daemon::provider::handler::InitializationParams& init_params) override;
+    InitializeContext(const ::score::crypto::daemon::common::InitializationParams& init_params) override;
 
     [[nodiscard]] ::score::crypto::Expected<std::monostate, ::score::crypto::daemon::common::DaemonErrorCode> Reset()
         override;
@@ -102,7 +102,7 @@ class OpenSslHmacHandler final
     EVP_MAC* m_mac{nullptr};
     EVP_MAC_CTX* m_ctx{nullptr};
     std::vector<uint8_t> m_output_buffer;
-    ::score::crypto::daemon::provider::handler::InitializationParams m_init_params;
+    ::score::crypto::daemon::common::InitializationParams m_init_params;
 
     static constexpr std::string_view LOG_PREFIX = "[OPENSSL_HMAC_HANDLER]";
 };
