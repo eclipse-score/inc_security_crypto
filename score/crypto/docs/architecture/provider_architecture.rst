@@ -97,8 +97,8 @@ must not assume that every failure preserves a streaming operation.
 Provider Configuration
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Provider configuration is split into three layers. Each layer is owned by a
-separate config type and resolved at a different point during daemon startup.
+Provider configuration is split into four layers. Each layer has a distinct
+owner and is resolved at a different point during build or daemon startup.
 
 1. Provider-family topology — build time
    The set of provider families that can exist in a given daemon binary is
@@ -130,32 +130,86 @@ separate config type and resolved at a different point during daemon startup.
      user PIN, provider name, provider type, and session cleanup strategy.
      ``Pkcs11Config::ParseConfig(config)`` reads these values from the daemon config.
 
-3. Runtime enablement and type mapping — ``ProviderInitConfig``
-   After all factories have created and registered their providers,
-   ``ProviderManager::Initialize()`` applies ``ProviderInitConfig`` to decide:
+3. Construction policy — ``ProviderConstructionPolicy``
+   ``ProviderManagerFactory`` applies this policy before invoking backend
+   factories. Each entry identifies a provider by its stable ``ProviderName``
+   and specifies whether construction is enabled and whether registration is
+   required for daemon startup. An empty policy permits all providers exposed
+   by compiled-in backends. A non-empty policy permits only explicitly enabled
+   entries.
 
-   - Which registered providers are eligible. Disabled providers are excluded
-     before backend registration.
-   - Which provider is the default for each ``CryptoProviderType``
-     (``DEFAULT``, ``SOFTWARE``, ``HARDWARE``, ``SPECIALIZED``).
+   A required provider must be constructed and registered. It need not complete
+   eager initialization during startup; providers such as hardware modules may
+   use deferred initialization and become available on a later lookup.
 
-   ``ProviderInitConfig`` identifies providers by their stable
-   ``ProviderName`` (for example ``"OPENSSL"`` or ``"hsm_slot_1"``), not by the
-   runtime ``ProviderId`` assigned during registration. This keeps the
-   configuration stable across restarts and independent of registration order.
+   An enabled provider that is not required is optional. Its construction,
+   registration, or initialization failure is retained for diagnostics but does
+   not prevent daemon startup when another provider is registered and all
+   explicit routing targets are satisfied. Startup fails if no provider can be
+   registered.
 
-   If the daemon config does not supply a ``ProviderInitConfig``,
-   ``ProviderManager`` creates a default one that enables every registered
-   provider and selects defaults using the preference order
-   ``HARDWARE`` → ``SOFTWARE``.
+   Integrators configure required and optional providers independently from
+   routing. For example:
+
+   .. code-block:: cpp
+
+      auto& construction = config.GetProviderConstructionPolicy();
+      construction.AddProvider({"OPENSSL", true, true});
+      construction.AddProvider({"hsm_slot_1", true, false});
+
+   This configuration requires ``OPENSSL`` to be registered and permits the HSM
+   provider without making its registration a startup requirement. Parsing this
+   typed policy from deployment configuration is handled separately from the
+   policy model.
+
+4. Runtime routing policy — ``ProviderRoutingPolicy``
+   After registration, ``ProviderManager`` applies this independent policy to
+   select providers at runtime. It contains:
+
+   - Explicit default providers for ``CryptoProviderType`` categories.
+   - The category preference used to derive ``DEFAULT`` when it is not explicit.
+   - Per-capability category preferences and whether routing may fall back to a
+     capable provider outside those preferences.
+
+   Explicit mappings use stable ``ProviderName`` values rather than runtime
+   ``ProviderId`` values. A ``DEFAULT`` mapping may select any provider, while
+   category-specific mappings must match the category declared when the
+   provider was registered. When several providers have the same category,
+   an explicit category mapping is preferred; otherwise registration order
+   provides the deterministic implicit default. The category default is also
+   tried first for capability routing within that category. The default
+   routing policy preserves the standard ``HARDWARE`` → ``SOFTWARE`` preference
+   for cryptographic and key-management capabilities and ``SOFTWARE`` →
+   ``HARDWARE`` for certificate management. A routing rule may also require a
+   combination of capabilities; the selected provider must advertise every bit.
+
+Construction and routing policies do not define provider resource limits or
+caller authorization. Provider-specific operation limits belong to the provider
+implementation. Authorization to use a provider belongs to the daemon access
+control component.
+
+Parsing provider-specific deployment configuration into the standard daemon
+configuration and resolving application-scoped resource identifiers to
+configured providers are separate concerns. The policy types described here
+consume resolved provider names and do not implement either concern.
 
 Registration and availability are separate states. Registration assigns a
 stable ``ProviderId`` exactly once. ``ProviderManager::Initialize()`` makes
-an initial initialization attempt, but an individual provider may remain
-unavailable without preventing optional providers from being registered.
-A provider lookup retries initialization using the same ``ProviderId`` and
-serializes concurrent attempts. ``IProvider::IsInitialized()`` reports state
-only; it does not initialize the provider.
+an initial initialization attempt, but a registered provider may remain
+temporarily unavailable after startup. A provider lookup retries initialization
+using the same ``ProviderId`` and serializes concurrent attempts.
+``IProvider::IsInitialized()`` reports state only; it does not initialize the
+provider.
+
+Backend factories return ``ProviderFactoryResult`` rather than collapsing the
+outcome into a single error. This preserves partial success and per-provider
+failure details for startup diagnostics. ``ProviderManagerFactory`` evaluates
+those results against the construction policy, treats a missing required
+provider or an unsatisfied explicit routing target as fatal, and shuts down any
+providers already registered before returning a startup error. A configuration
+that registers no provider is reported as provider unavailable rather than as
+an unspecified internal error. Individual factory and provider failures remain
+available through ``ProviderManager`` and are logged during startup.
 
 Configuration flow
 ^^^^^^^^^^^^^^^^^^
@@ -164,26 +218,30 @@ Configuration flow
 
    Config::ParseConfig()
         │
-        ├── ScoreProviderConfig::ParseConfig(config)  ──► ScoreProviderEntry list
-        │
-        └── Pkcs11Config::ParseConfig(config)         ──► Pkcs11TokenEntry list
-        │
    ProviderManagerFactory::Create(config)
         │
+        ├── Validate ProviderConstructionPolicy and ProviderRoutingPolicy
+        │
         ├── CreateScoreProviderFactory(config)
+        │      ScoreProviderConfig::ParseConfig(config)  ──► ScoreProviderEntry list
+        │      filter entries with ProviderConstructionPolicy
         │      ScoreProviderFactory(ScoreProviderFactoryConfig)
         │      CreateAndRegister(manager) ──► ProviderId assigned once
         │
         ├── CreatePkcs11ProviderFactory(config)
+        │      Pkcs11Config::ParseConfig(config)         ──► Pkcs11TokenEntry list
+        │      filter entries with ProviderConstructionPolicy
         │      Pkcs11ProviderFactory(Pkcs11ProviderFactoryConfig)
         │      CreateAndRegister(manager) ──► ProviderId assigned once
+        │
+        ├── Verify required providers were registered
         │
         └── provider_manager->Initialize()
                │
                ├── InitializeAll()
                │      provider->Initialize(context)
                │
-               └── BuildTypeMappings(ProviderInitConfig.typeToProviderName)
+               └── BuildTypeMappings(ProviderRoutingPolicy.typeToProviderName)
                  resolve registered names → runtime ProviderId
 
 On a later request, ``ProviderManager::GetProvider(...)`` checks
