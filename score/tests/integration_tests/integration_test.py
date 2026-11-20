@@ -285,12 +285,6 @@ class TestCryptoDaemon:
         if target_os == "QNX":
             pytest.skip("The QNX integration target has no portable user-switch command")
 
-        exit_code, output = target.execute("chmod 0666 /tmp/crypto_daemon.sock")
-        assert exit_code == 0, (
-            "Failed to make the daemon socket accessible to the unprivileged test client: "
-            f"{output.decode()}"
-        )
-
         command = (
             "setpriv --reuid=1000 --regid=1000 --clear-groups "
             f"env LD_LIBRARY_PATH={install_dir}/lib "

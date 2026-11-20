@@ -93,9 +93,9 @@ class CertContextMediatorTest : public ::testing::Test
         control_plane::protocol::SingleOperationRequest operation{};
         operation.operationId = mediator::operations::CreateContext();
         operation.parameters = common::RequestParameters{context_type, std::string_view{""}};
-        request.operation.operations.push_back(std::move(operation));
+        request.operations.push_back(std::move(operation));
 
-        auto responses = m_mediator->processRequest(request).operation.operations;
+        auto responses = m_mediator->processRequest(request).operations;
         EXPECT_EQ(responses.size(), 1U);
         return responses.at(0U);
     }

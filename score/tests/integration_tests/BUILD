@@ -223,7 +223,6 @@ cc_binary(
         "//score/tests/test_vectors/certificate:basic",
         "//score/tests/test_vectors/config:integration_test_config",
     ],
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
         "@googletest//:gtest_main",
@@ -241,7 +240,6 @@ cc_binary(
         "//score/tests/test_vectors/certificate:pki_chain",
         "//score/tests/test_vectors/config:integration_test_config",
     ],
-    dynamic_deps = ["//third_party/grpc:libgrpc_shared"],
     deps = [
         "//score/crypto/src/api:crypto_stack",
         "@googletest//:gtest_main",

@@ -39,17 +39,6 @@
 namespace
 {
 
-std::string DaemonEndpoint()
-{
-    const auto* endpoint = std::getenv("SCORE_CRYPTO_DAEMON_ENDPOINT");
-#ifdef __QNXNTO__
-    constexpr std::string_view default_endpoint = "unix:///opt/crypto_daemon.sock";
-#else
-    constexpr std::string_view default_endpoint = "unix:///tmp/crypto_daemon.sock";
-#endif
-    return endpoint == nullptr ? std::string{default_endpoint} : endpoint;
-}
-
 std::string VectorPath(std::string_view relative_path)
 {
     const auto* root = std::getenv("TEST_VECTORS_DIR");
@@ -76,9 +65,7 @@ class CertificateVerificationIntegrationTest : public ::testing::Test
 
     void OpenClient()
     {
-        score::crypto::CryptoStackConfig stack_config;
-        stack_config.SetConnectionEndpoint(DaemonEndpoint());
-        auto stack_result = score::crypto::CreateCryptoStack(stack_config);
+        auto stack_result = score::crypto::CreateCryptoStack();
         ASSERT_TRUE(stack_result.has_value());
         m_stack = std::move(stack_result.value());
 
@@ -719,9 +706,7 @@ void RunRejectingVerification(score::crypto::ICryptoContext& context,
 /// uses. Workers start on different iterations, so accepting and rejecting verifications overlap in time.
 void RunConcurrentVerificationWorker(std::size_t worker_index, VerificationWorkerReport& report)
 {
-    score::crypto::CryptoStackConfig stack_config;
-    stack_config.SetConnectionEndpoint(DaemonEndpoint());
-    auto stack_result = score::crypto::CreateCryptoStack(stack_config);
+    auto stack_result = score::crypto::CreateCryptoStack();
     if (!stack_result.has_value())
     {
         RecordFailure(report, "CreateCryptoStack failed");
