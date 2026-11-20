@@ -18,6 +18,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace score::crypto::ipc::message_passing
 {
@@ -59,8 +60,10 @@ class ControlPlaneConnection final : public IConnection
     bool IsTerminal() const noexcept;
 
     /// @brief Opens the daemon-side control connection and records its node ID.
+    /// @param timeout Bound for CONNECTION_OPEN and the later CONNECTION_CLOSE; transport maximum when unset.
     /// @return Success when open, or the error returned by the transport or daemon.
-    Expected<std::monostate, score::crypto::CryptoErrorCode> Establish() noexcept;
+    Expected<std::monostate, score::crypto::CryptoErrorCode> Establish(
+        std::optional<std::chrono::milliseconds> timeout = std::nullopt) noexcept;
 
   private:
     /// @brief Sends CONNECTION_OPEN and returns the node ID assigned by the daemon.
@@ -69,8 +72,13 @@ class ControlPlaneConnection final : public IConnection
     /// @brief Sends CONNECTION_CLOSE for the recorded node ID.
     /// @return Success when closed, or the error returned by the transport or daemon.
     Expected<std::monostate, score::crypto::CryptoErrorCode> CloseConnection() noexcept;
+    /// @brief Sends a connection-lifecycle request bounded by m_lifecycle_timeout when set.
+    Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode> SendLifecycleRequest(
+        daemon::control_plane::protocol::ControlRequest& request);
 
     std::shared_ptr<score::crypto::ipc::message_passing::MessagePassingControlClient> m_transport;
+    /// Timeout for CONNECTION_OPEN/CONNECTION_CLOSE; transport maximum when unset.
+    std::optional<std::chrono::milliseconds> m_lifecycle_timeout{std::nullopt};
     /// Node ID assigned by the daemon; zero until the connection is established.
     daemon::control_plane::protocol::DataNodeId m_connection_node_id{0U};
 };

@@ -176,8 +176,10 @@ score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& con
             score::unexpect, MakeError(CryptoErrorCode::kInvalidArgument, "Connection endpoint must not be empty")};
     }
 
+    const auto operation_timeout = ResolveOperationTimeout(true, std::nullopt, config.default_operation_timeout);
+
     score::crypto::api::control_plane::ConnectionFactory factory;
-    auto connection_result = factory.EstablishConnection(config.connection_endpoint);
+    auto connection_result = factory.EstablishConnection(config.connection_endpoint, operation_timeout);
     if (!connection_result.has_value())
     {
         return score::Result<ICryptoStack::Uptr>{
@@ -188,7 +190,6 @@ score::Result<ICryptoStack::Uptr> CreateCryptoStack(const CryptoStackConfig& con
         std::shared_ptr<score::crypto::api::control_plane::IConnection>(std::move(connection_result.value()));
 
     // Setup data plane and extract pool geometry.
-    const auto operation_timeout = ResolveOperationTimeout(true, std::nullopt, config.default_operation_timeout);
     auto setup_result = SetupDataPlane(connection, operation_timeout);
     if (!setup_result.has_value())
     {

@@ -14,7 +14,9 @@
 #ifndef SCORE_CRYPTO_SRC_API_CONTROL_PLANE_CONNECTION_FACTORY_HPP
 #define SCORE_CRYPTO_SRC_API_CONTROL_PLANE_CONNECTION_FACTORY_HPP
 
+#include <chrono>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
@@ -44,9 +46,11 @@ class ConnectionFactory
 
     /// @brief Establishes or reuses the shared connection for an endpoint.
     /// @param endpoint Service endpoint identifying the daemon.
+    /// @param timeout Bound for the open/close handshake; transport maximum when unset.
     /// @return The shared connection, or the error that prevented establishment.
     Expected<std::shared_ptr<IConnection>, score::crypto::CryptoErrorCode> EstablishConnection(
-        std::string_view endpoint);
+        std::string_view endpoint,
+        std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 };
 
 }  // namespace score::crypto::api::control_plane

@@ -31,7 +31,8 @@ namespace score::crypto::api::control_plane
 {
 
 Expected<std::shared_ptr<IConnection>, score::crypto::CryptoErrorCode> ConnectionFactory::EstablishConnection(
-    std::string_view endpoint)
+    std::string_view endpoint,
+    std::optional<std::chrono::milliseconds> timeout)
 {
     const std::string_view messagePassingProtocolPrefix = score::crypto::ipc::kScoreConnectionEndpointPrefix;
     if (endpoint.rfind(messagePassingProtocolPrefix, 0) != 0)
@@ -45,7 +46,8 @@ Expected<std::shared_ptr<IConnection>, score::crypto::CryptoErrorCode> Connectio
 
     try
     {
-        auto connection_result = ControlPlaneConnectionRegistry::Instance().EstablishConnection(endpointIdentifier);
+        auto connection_result =
+            ControlPlaneConnectionRegistry::Instance().EstablishConnection(endpointIdentifier, timeout);
         if (!connection_result.has_value())
         {
             score::mw::log::LogError() << "[CONNECTION_FACTORY] ERROR - Failed to open endpoint: "

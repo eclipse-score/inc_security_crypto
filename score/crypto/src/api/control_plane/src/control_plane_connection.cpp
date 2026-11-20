@@ -38,7 +38,7 @@ ControlPlaneConnection::OpenConnection() noexcept
             return make_unexpected(score::crypto::CryptoErrorCode::kConnectionFailed);
         }
 
-        const auto response_result = SendRequest(request_result.value());
+        const auto response_result = SendLifecycleRequest(request_result.value());
         auto validator = daemon::control_plane::protocol::ControlResponseValidator::FromResult(response_result);
         validator.expectOperation(daemon::control_plane::operations::OpenConnection()).expectSuccess();
         if (!validator.isValid())
@@ -76,7 +76,7 @@ Expected<std::monostate, score::crypto::CryptoErrorCode> ControlPlaneConnection:
             return make_unexpected(score::crypto::CryptoErrorCode::kConnectionFailed);
         }
 
-        const auto response_result = SendRequest(request_result.value());
+        const auto response_result = SendLifecycleRequest(request_result.value());
         auto validator = daemon::control_plane::protocol::ControlResponseValidator::FromResult(response_result);
         validator.expectOperation(daemon::control_plane::operations::CloseConnection()).expectSuccess();
         if (!validator.isValid())
@@ -123,17 +123,29 @@ daemon::control_plane::protocol::DataNodeId ControlPlaneConnection::GetConnectio
     return m_connection_node_id;
 }
 
+Expected<daemon::control_plane::protocol::ControlResponse, score::crypto::CryptoErrorCode>
+ControlPlaneConnection::SendLifecycleRequest(daemon::control_plane::protocol::ControlRequest& request)
+{
+    if (m_lifecycle_timeout.has_value())
+    {
+        return SendRequest(request, m_lifecycle_timeout.value());
+    }
+    return SendRequest(request);
+}
+
 bool ControlPlaneConnection::IsTerminal() const noexcept
 {
     return (m_transport == nullptr) || m_transport->IsTerminal();
 }
 
-Expected<std::monostate, score::crypto::CryptoErrorCode> ControlPlaneConnection::Establish() noexcept
+Expected<std::monostate, score::crypto::CryptoErrorCode> ControlPlaneConnection::Establish(
+    const std::optional<std::chrono::milliseconds> timeout) noexcept
 {
     if (m_connection_node_id != 0U)
     {
         return {};
     }
+    m_lifecycle_timeout = timeout;
     const auto result = OpenConnection();
     if (!result.has_value())
     {

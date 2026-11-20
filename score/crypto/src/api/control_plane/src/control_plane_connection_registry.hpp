@@ -16,8 +16,10 @@
 #include "score/crypto/src/api/common/error_domain.hpp"
 #include "score/crypto/src/api/control_plane/src/control_plane_connection.hpp"
 
+#include <chrono>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -39,8 +41,10 @@ class ControlPlaneConnectionRegistry final
 
     /// @brief Reuses or establishes a connection to a daemon endpoint.
     /// @param service_identifier Endpoint identifying the daemon service.
+    /// @param timeout Bound for the open/close handshake; transport maximum when unset.
     /// @return A shared connection, or an error if establishment fails.
-    Result EstablishConnection(std::string_view service_identifier);
+    Result EstablishConnection(std::string_view service_identifier,
+                               std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
   private:
     /// Constructs the process-wide registry on first access.
