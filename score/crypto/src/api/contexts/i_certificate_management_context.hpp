@@ -159,7 +159,7 @@ class ICertificateManagementContext : public IContext
     ///
     /// Call this before ConvertCertificateFormat() to allocate a correctly-sized buffer.
     ///
-    /// @param input Certificate data in the source format
+    /// @param input Single certificate in the source format
     /// @param input_format Format of the input data
     /// @param output_format Desired output format
     /// @return Required buffer size in bytes
@@ -167,11 +167,11 @@ class ICertificateManagementContext : public IContext
                                                                    FormatType input_format,
                                                                    FormatType output_format) = 0;
 
-    /// @brief Converts certificate data between DER and PEM formats.
+    /// @brief Converts one certificate between DER and PEM formats.
     ///
     /// Call GetConvertedCertificateSize() first to allocate the output buffer.
     ///
-    /// @param input Certificate data in the source format
+    /// @param input Single certificate in the source format
     /// @param input_format Format of the input data
     /// @param output_format Desired output format
     /// @param output Caller-supplied buffer; must be at least GetConvertedCertificateSize() bytes

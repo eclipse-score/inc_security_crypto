@@ -24,11 +24,11 @@
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/common/context/handler_init_params.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
-#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/sign_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/verify_handler_operations.hpp"
@@ -188,7 +188,8 @@ class ProviderSignatureTest : public ::testing::TestWithParam<SignatureCase>
         }
     }
 
-    static handler::Handler::Sptr CreateHandler(const std::string& type, const SignatureCase& test_case)
+    static score::crypto::daemon::common::Handler::Sptr CreateHandler(const std::string& type,
+                                                                      const SignatureCase& test_case)
     {
         auto factory = provider_->GetCryptoHandlerFactory();
         EXPECT_NE(factory, nullptr);
@@ -197,10 +198,10 @@ class ProviderSignatureTest : public ::testing::TestWithParam<SignatureCase>
         return result.has_value() ? result.value() : nullptr;
     }
 
-    static handler::InitializationParams InitParams(const SignatureCase& test_case,
-                                                    const key_management::IKeyHandler& key)
+    static score::crypto::daemon::common::InitializationParams InitParams(const SignatureCase& test_case,
+                                                                          const key_management::IKeyHandler& key)
     {
-        handler::InitializationParams params;
+        score::crypto::daemon::common::InitializationParams params;
         params.provider_id = provider_->GetProviderId();
         params.context_node_id = 1U;
         params.key_node_id = 1U;
@@ -211,7 +212,7 @@ class ProviderSignatureTest : public ::testing::TestWithParam<SignatureCase>
         return params;
     }
 
-    static common::ResponseParameters Execute(handler::Handler& crypto_handler,
+    static common::ResponseParameters Execute(score::crypto::daemon::common::Handler& crypto_handler,
                                               common::OperationActor actor,
                                               common::OperationAction action,
                                               common::RequestParameters request = {})

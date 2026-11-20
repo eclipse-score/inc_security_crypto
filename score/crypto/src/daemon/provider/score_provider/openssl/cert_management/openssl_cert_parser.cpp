@@ -13,15 +13,22 @@
 
 #include "score/crypto/src/daemon/provider/score_provider/openssl/cert_management/openssl_cert_parser.hpp"
 #include "score/crypto/src/daemon/cert_management/interfaces/cert_types.hpp"
+#include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_algorithm_info.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/detail/openssl_cert_utils.hpp"
 
+#include <openssl/core_names.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
+#include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace score::crypto::daemon::provider::score_provider::openssl
@@ -89,6 +96,62 @@ X509Ptr ParseSingleCertificate(const std::uint8_t* bytes, std::size_t size, scor
     if (second)
         return nullptr;
     return first;
+}
+
+// SubjectPublicKeyInfo DER of the certificate's public key; empty when it cannot be encoded.
+std::vector<std::uint8_t> EncodePublicKeyInfo(X509* certificate)
+{
+    EVP_PKEY* key = X509_get0_pubkey(certificate);
+    if (key == nullptr)
+        return {};
+    unsigned char* der = nullptr;
+    const int length = i2d_PUBKEY(key, &der);
+    if (length <= 0 || der == nullptr)
+    {
+        OPENSSL_free(der);
+        return {};
+    }
+    std::vector<std::uint8_t> encoded{der, der + length};
+    OPENSSL_free(der);
+    return encoded;
+}
+
+// Catalog curve of an elliptic-curve key, from its OpenSSL group name; kNone when the catalog has no such curve.
+score::crypto::EccCurve CatalogCurve(EVP_PKEY* key)
+{
+    char group[64]{};
+    std::size_t length = 0U;
+    if (EVP_PKEY_get_utf8_string_param(key, OSSL_PKEY_PARAM_GROUP_NAME, group, sizeof(group), &length) != 1)
+        return score::crypto::EccCurve::kNone;
+    return openssl_detail::FromOpenSslGroupName(std::string_view{group});
+}
+
+// Catalog name of the certificate's public key; empty when the catalog defines no key algorithm for it.
+std::string PublicKeyAlgorithmName(X509* certificate)
+{
+    EVP_PKEY* key = X509_get0_pubkey(certificate);
+    if (key == nullptr)
+        return {};
+
+    std::optional<score::crypto::AlgorithmDescriptor> entry{};
+    switch (EVP_PKEY_base_id(key))
+    {
+        case EVP_PKEY_RSA:
+            entry = score::crypto::FindKeyAlgorithm(score::crypto::KeyType::kRsa,
+                                                    static_cast<std::uint16_t>(EVP_PKEY_get_bits(key)),
+                                                    score::crypto::EccCurve::kNone);
+            break;
+        case EVP_PKEY_EC:
+            entry = score::crypto::FindKeyAlgorithm(score::crypto::KeyType::kEcc, 0U, CatalogCurve(key));
+            break;
+        case EVP_PKEY_ED25519:
+            entry =
+                score::crypto::FindKeyAlgorithm(score::crypto::KeyType::kEd25519, 0U, score::crypto::EccCurve::kNone);
+            break;
+        default:
+            break;
+    }
+    return entry.has_value() ? std::string{entry->name} : std::string{};
 }
 
 score::crypto::Expected<CertObject::Sptr, Error> BuildObject(X509* certificate,
@@ -161,6 +224,11 @@ score::crypto::Expected<CertObject::Sptr, Error> BuildObject(X509* certificate,
         metadata.is_ca = constraints->ca != 0;
         BASIC_CONSTRAINTS_free(constraints);
     }
+
+    // The public key is metadata about the certificate, not part of parsing it: when it cannot be encoded or named, the
+    // certificate is still parsed and the field is left empty.
+    metadata.public_key_der = EncodePublicKeyInfo(certificate);
+    metadata.public_key_algorithm = PublicKeyAlgorithmName(certificate);
 
     return std::make_shared<CertObject>(std::move(metadata), std::vector<std::uint8_t>{bytes, bytes + size}, format);
 }

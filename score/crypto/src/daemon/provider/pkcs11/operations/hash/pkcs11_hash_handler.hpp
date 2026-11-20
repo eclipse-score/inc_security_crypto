@@ -15,9 +15,9 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_HASH_PKCS11_HASH_HANDLER_HPP
 
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_context.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_executor.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
@@ -46,7 +46,7 @@ class Pkcs11Provider;
 ///
 /// kRequirements declares the session type and auth state needed by this
 /// handler type so the factory and provider pool can allocate correctly.
-class Pkcs11HashHandler final : public handler::Handler
+class Pkcs11HashHandler final : public score::crypto::daemon::common::Handler
 {
   public:
     /// @brief Session and auth requirements for hash operations.
@@ -75,7 +75,7 @@ class Pkcs11HashHandler final : public handler::Handler
 
     // --- Handler interface ---
     [[nodiscard]] Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> InitializeContext(
-        const handler::InitializationParams& init_params) override;
+        const score::crypto::daemon::common::InitializationParams& init_params) override;
 
     [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> Execute(
         const common::OperationIdentifier& operationId,
