@@ -51,7 +51,8 @@ struct ContextCreationRequest final
 ///
 /// Performs no provider or data-node work. Checks run in a fixed order, and the first
 /// failure is returned: parameter count, context type, algorithm, provider preference,
-/// key reference, key requirement for the context type, and algorithm catalog lookup.
+/// key reference, and algorithm catalog lookup. The key requirement for the context type
+/// is checked next, at provider selection, before any provider is asked.
 /// @param operation CTX_CREATE operation whose parameters are decoded and validated.
 /// @return the validated request, or the error the client receives.
 [[nodiscard]] score::crypto::Expected<ContextCreationRequest, score::crypto::CryptoErrorCode>

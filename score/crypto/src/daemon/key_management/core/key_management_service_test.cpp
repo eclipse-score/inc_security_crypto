@@ -211,6 +211,15 @@ class BindAndAuthorizeTest : public ::testing::Test
         m_context_node = context.value();
     }
 
+    void TearDown() override
+    {
+        // A key node unregisters its key from the service's registry when it is destroyed, so the registries must
+        // outlive every key node. The fixture shares the data manager with the service; dropping the fixture's
+        // reference first leaves the service as the last owner, and it destroys the data manager before its
+        // registries.
+        m_data_manager.reset();
+    }
+
     /// Adds a key slot that permits @p allowed operations and returns its node id.
     score::crypto::Expected<data_manager::DataNodeId, common::DaemonErrorCode> AddSlot(
         score::crypto::KeyOperationPermission allowed)

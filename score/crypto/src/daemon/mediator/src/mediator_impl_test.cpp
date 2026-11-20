@@ -188,8 +188,8 @@ TEST_F(MediatorContextCreationTest, ValidationFailureReportsTheFirstFailingCheck
 {
     RecordProperty("PartiallyVerifies", "comp_req__crypto_mediator__decode_validate");
     RecordProperty("Description",
-                   "A request with an unknown algorithm reports the algorithm failure, which is checked before "
-                   "provider selection.");
+                   "A SIGN request with an unknown algorithm and no key reports the algorithm failure. The catalog "
+                   "lookup precedes the key requirement, which is checked at provider selection.");
     RecordProperty("TestType", "requirements-based");
     RecordProperty("DerivationTechnique", "requirements-analysis");
 
