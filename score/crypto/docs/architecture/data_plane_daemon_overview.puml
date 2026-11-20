@@ -48,12 +48,10 @@ package "control_plane" as ControlPlane  #EEF4FF {
 
     class BasicHandlerChainFactory {
         - m_data_manager : IDataManager::Sptr
-        - m_provider_manager : ProviderManager::Sptr
-        - m_shm_registry : IShmRegistry::Sptr
         - m_config : Config&
-        - m_km_service : KeyManagementService::Sptr
+        - m_mediator : IMediator::Sptr
         --
-        + BasicHandlerChainFactory(data_manager, provider_manager, config, km_service)
+        + BasicHandlerChainFactory(data_manager, config, mediator)
         + CreateRequestHandler() : unique_ptr<IRequestHandler>
     }
 }
@@ -65,8 +63,9 @@ package "mediator" as Mediator  #FFF0FF {
     abstract class IMediator {
         # m_data_manager : IDataManager::Sptr
         # m_provider_manager : ProviderManager::Sptr
-        # m_km_service : KeyManagementService::Sptr
         # m_shm_registry : IShmRegistry::Sptr
+        # m_resource_resolvers, m_mediator_queries : const registries
+        # m_handler_selector : HandlerSelector, m_assembler : ContextAssembler
         --
         + processRequest(req) : ControlResponse
     }

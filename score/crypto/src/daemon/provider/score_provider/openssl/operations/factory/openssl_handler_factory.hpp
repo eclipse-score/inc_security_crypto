@@ -37,21 +37,20 @@ class OpenSslHandlerFactory final
 
     ~OpenSslHandlerFactory() override = default;
 
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr>
-    CreateKeyManagementHandler() override;
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::common::Handler::Sptr> CreateKeyManagementHandler() override;
 
   protected:
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateHashHandler(
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::common::Handler::Sptr> CreateHashHandler(
         const AlgorithmDescriptor& algorithm) override;
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateMacHandler(
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::common::Handler::Sptr> CreateMacHandler(
         const AlgorithmDescriptor& algorithm) override;
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateCipherHandler(
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::common::Handler::Sptr> CreateCipherHandler(
         const AlgorithmDescriptor& algorithm) override;
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateSignHandler(
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::common::Handler::Sptr> CreateSignHandler(
         const AlgorithmDescriptor& algorithm) override;
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateVerifyHandler(
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::common::Handler::Sptr> CreateVerifyHandler(
         const AlgorithmDescriptor& algorithm) override;
-    [[nodiscard]] ::score::Result<::score::crypto::daemon::provider::handler::Handler::Sptr> CreateRandomHandler(
+    [[nodiscard]] ::score::Result<::score::crypto::daemon::common::Handler::Sptr> CreateRandomHandler(
         const AlgorithmDescriptor& algorithm) override;
 };
 

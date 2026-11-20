@@ -40,7 +40,7 @@ Expected<ResponseParameters, DaemonErrorCode> ScoreVerifyHandler::Execute(
 }
 
 Expected<std::monostate, DaemonErrorCode> ScoreVerifyHandler::InitializeContext(
-    const handler::InitializationParams& /*init_params*/)
+    const score::crypto::daemon::common::InitializationParams& /*init_params*/)
 {
     m_state = StreamOperationState::IDLE;
     return std::monostate{};

@@ -19,8 +19,6 @@ cc_library(
     hdrs = [
         "actors.hpp",
         "cipher_padding.hpp",
-        "context_mode.hpp",
-        "context_types.hpp",
         "daemon_error.hpp",
         "hex.hpp",
         "secure_memory.hpp",
@@ -102,16 +100,6 @@ cc_library(
         "//score/crypto/src/daemon/provider/handler:sign_handler_operations",
         "//score/crypto/src/daemon/provider/handler:verify_handler_operations",
         "@score_baselibs//score/mw/log",
-    ],
-)
-
-cc_test(
-    name = "context_types_test",
-    srcs = ["context_types_test.cpp"],
-    deps = [
-        ":common",
-        "//score/crypto/src/api/common:crypto_common",
-        "@googletest//:gtest_main",
     ],
 )
 
