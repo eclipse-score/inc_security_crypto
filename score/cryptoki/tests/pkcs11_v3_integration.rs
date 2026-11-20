@@ -28,6 +28,14 @@ use std::sync::Once;
 static INIT: Once = Once::new();
 fn init() {
     INIT.call_once(|| unsafe {
+        let test_tmpdir = std::env::var_os("TEST_TMPDIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(std::env::temp_dir);
+        std::env::set_var(
+            "CRYPTOKI_STORE",
+            test_tmpdir.join(format!("pkcs11_v3_integration_{}.json", std::process::id())),
+        );
+
         let fl = common::fn_list();
         let rv = p11!(fl, C_Initialize, ptr::null_mut());
         assert!(
