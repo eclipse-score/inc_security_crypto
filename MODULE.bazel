@@ -24,7 +24,14 @@ python.toolchain(
 )
 
 # Foreign CC rules for building projects with external build systems (make, cmake, etc.)
-bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
+bazel_dep(name = "rules_foreign_cc", version = "0.16.0")
+
+# rules_foreign_cc's cmake rule does not know the QNX target OS (CMAKE_SYSTEM_NAME "QNX")
+single_version_override(
+    module_name = "rules_foreign_cc",
+    patch_strip = 1,
+    patches = ["//third_party/soft_hsm:rules_foreign_cc_qnx.patch"],
+)
 
 # Use the host's pkg-config and m4 instead of building them from source. The bundled glib of the
 # source-built pkgconfig uses the GNU 'asm' keyword and fails with a strict -std=c11 host compiler.
@@ -156,6 +163,11 @@ use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
 bazel_dep(name = "score_toolchains_rust", version = "0.10.1", dev_dependency = True)
 
 bazel_dep(name = "score_crates", version = "0.0.15")
+git_override(
+    module_name = "score_crates",
+    commit = "871234431b05bc99b249fb5db775bbe850ed7f0d",
+    remote = "https://github.com/eclipse-score/score-crates.git",
+)
 
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", isolate = True)
 crate.from_cargo(
@@ -168,13 +180,6 @@ crate.from_cargo(
         "aarch64-unknown-nto-qnx710",
         "x86_64-pc-nto-qnx710",
     ],
-)
-crate.annotation(
-    crate = "openssl-sys",
-    patch_args = ["-p1"],
-    patches = ["@@//third_party/patches:openssl_sys_build_rs.patch"],
-    rustc_flags = ["--cap-lints=allow"],
-    deps = ["@@//third_party/openssl:openssl_shared"],
 )
 use_repo(crate, "crates")
 
@@ -214,21 +219,7 @@ use_repo(
 # OpenSSL
 # *******************************************************************************
 
-http_archive(
-    name = "openssl_source",
-    build_file_content = """
-filegroup(
-    name = "all",
-    srcs = glob(["**"]),
-    visibility = ["//visibility:public"],
-)
-""",
-    patch_args = ["-p1"],
-    patches = ["//third_party/openssl:openssl_qnx_target.patch"],
-    sha256 = "b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e",
-    strip_prefix = "openssl-3.6.1",
-    urls = ["https://www.openssl.org/source/openssl-3.6.1.tar.gz"],
-)
+bazel_dep(name = "score_openssl", version = "0.2.1")
 
 # *******************************************************************************
 # SoftHSMv2
