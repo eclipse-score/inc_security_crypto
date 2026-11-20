@@ -267,12 +267,12 @@ ImportEcKey(common::ProviderId provider_id, const key_management::KeyImportReque
         return ::score::crypto::make_unexpected(group.error());
     }
 
-    if (request.format == score::crypto::FormatType::kRaw)
+    if (detail::ResolveAsymmetricFormat(request) == score::crypto::FormatType::kRaw)
     {
         return ImportRawEcPublicKey(provider_id, request, *group);
     }
 
-    auto parsed = detail::ParseDerKey(request, EVP_PKEY_EC);
+    auto parsed = detail::ParseKey(request, EVP_PKEY_EC);
     if (!parsed.has_value())
     {
         return ::score::crypto::make_unexpected(parsed.error());

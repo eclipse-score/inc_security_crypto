@@ -80,6 +80,13 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
     }
     if (IsSymmetricKeySupported(request.algorithm))
     {
+        const auto valid = ValidateSymmetricImport(request);
+        if (!valid.has_value())
+        {
+            score::mw::log::LogError() << kLogPrefix << "ImportKey: " << request.key_data_size
+                                       << " bytes are not a valid raw '" << request.algorithm.name << "' key";
+            return ::score::crypto::make_unexpected(valid.error());
+        }
         return ImportSymmetricKey(m_provider_id, request);
     }
 

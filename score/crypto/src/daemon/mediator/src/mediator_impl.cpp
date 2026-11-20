@@ -328,7 +328,9 @@ MediatorImpl::BindAndAuthorizeKey(std::uint64_t client_id,
     if (!bind_res.has_value())
     {
         score::mw::log::LogError() << "[SCORE_API_MED] ERROR - key binding failed for key_node_id=" << key_node_id;
-        return score::crypto::make_unexpected(score::crypto::CryptoErrorCode::kInvalidArgument);
+        // Forward the cause: a slot whose material is refused at load (e.g. a
+        // 16-byte key labelled AES-256) reports kIncompatibleKeyType.
+        return score::crypto::make_unexpected(common::ToCryptoErrorCode(bind_res.error()));
     }
 
     if (pre_bind_key_size == 0U)

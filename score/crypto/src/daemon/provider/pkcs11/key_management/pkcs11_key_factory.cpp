@@ -167,6 +167,14 @@ Pkcs11KeyFactory::ImportKey(const key_management::KeyImportRequest& request)
         return score::crypto::make_unexpected(score::crypto::daemon::common::DaemonErrorCode::kInvalidArgument);
     }
 
+    const auto valid = ValidateSymmetricImport(request);
+    if (!valid.has_value())
+    {
+        score::mw::log::LogError() << LOG_PREFIX << "ImportKey: " << request.key_data_size
+                                   << " bytes are not a valid raw '" << request.algorithm.name << "' key";
+        return score::crypto::make_unexpected(valid.error());
+    }
+
     const Pkcs11HandlerRequirements reqs{Pkcs11SessionType::ReadWrite, Pkcs11TokenAuthState::User};
     Pkcs11SessionGuard guard(*provider, reqs);
     if (!guard)

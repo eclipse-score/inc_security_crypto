@@ -37,7 +37,7 @@ GenerateEd25519KeyPair(common::ProviderId provider_id, const key_management::Key
 ::score::crypto::Expected<key_management::IKeyHandler::Sptr, ::score::crypto::daemon::common::DaemonErrorCode>
 ImportEd25519Key(common::ProviderId provider_id, const key_management::KeyImportRequest& request)
 {
-    auto parsed = detail::ParseDerKey(request, EVP_PKEY_ED25519);
+    auto parsed = detail::ParseKey(request, EVP_PKEY_ED25519);
     if (!parsed.has_value())
     {
         return ::score::crypto::make_unexpected(parsed.error());
