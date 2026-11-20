@@ -25,6 +25,7 @@
 #include "score/mw/log/logging.h"
 #include "score/result/result.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -53,7 +54,7 @@ score::Result<proto::ControlRequest> MakeControlRequest(proto::OperationRequestB
     }
 
     proto::ControlRequest request{};
-    request.operation = operation_result.value();
+    request.operations = operation_result.value();
     request.data_node_id = context_id;
     return request;
 }
@@ -65,12 +66,13 @@ CryptoErrorCode GetResponseError(const proto::ControlResponseValidator& validato
     return validator.getOperationError().value_or(fallback);
 }
 
-/// Sends a trust-store request and maps any failure to the error the daemon reported.
+/// Sends a trust-store request, bounded by operation_timeout, and maps any failure to the error the daemon reported.
 score::Result<std::monostate> SendTrustStoreRequest(score::crypto::api::control_plane::IConnection& connection,
-                                                    const proto::ControlRequest& request,
-                                                    const proto::OperationIdentifier& op_id)
+                                                    proto::ControlRequest& request,
+                                                    const proto::OperationIdentifier& op_id,
+                                                    std::chrono::milliseconds operation_timeout)
 {
-    auto resp = connection.SendRequest(request);
+    auto resp = connection.SendRequest(request, operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -91,8 +93,9 @@ class TrustStoreManagementContextImpl::ContextReleaseCallbackImpl final : public
 {
   public:
     ContextReleaseCallbackImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
-                               proto::DataNodeId context_id)
-        : m_connection(std::move(connection)), m_context_id(context_id)
+                               proto::DataNodeId context_id,
+                               std::chrono::milliseconds operation_timeout)
+        : m_connection(std::move(connection)), m_context_id(context_id), m_operation_timeout(operation_timeout)
     {
     }
 
@@ -118,7 +121,7 @@ class TrustStoreManagementContextImpl::ContextReleaseCallbackImpl final : public
             score::mw::log::LogError() << "[API][TrustStoreMgmtCtxImpl] ERROR: Failed to build CTX_CLOSE request";
             return;
         }
-        auto resp = m_connection->SendRequest(req.value());
+        auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
         auto validator = proto::ControlResponseValidator::FromResult(resp);
         validator.expectOperation(score::crypto::daemon::mediator::operations::CloseContext()).expectSuccess();
         if (!validator.isValid())
@@ -136,6 +139,7 @@ class TrustStoreManagementContextImpl::ContextReleaseCallbackImpl final : public
   private:
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     proto::DataNodeId m_context_id;
+    std::chrono::milliseconds m_operation_timeout;
 };
 
 // ===========================================================================
@@ -145,11 +149,14 @@ class TrustStoreManagementContextImpl::ContextReleaseCallbackImpl final : public
 TrustStoreManagementContextImpl::TrustStoreManagementContextImpl(
     std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
     uint64_t context_id,
-    std::shared_ptr<IBufferTranscoder> transcoder)
+    std::shared_ptr<IBufferTranscoder> transcoder,
+    std::chrono::milliseconds operation_timeout)
     : m_connection(std::move(connection)),
       m_context_id(context_id),
       m_transcoder(std::move(transcoder)),
-      m_context_release_callback(std::make_shared<ContextReleaseCallbackImpl>(m_connection, m_context_id))
+      m_operation_timeout(operation_timeout),
+      m_context_release_callback(
+          std::make_shared<ContextReleaseCallbackImpl>(m_connection, m_context_id, m_operation_timeout))
 {
 }
 
@@ -176,7 +183,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::AddCertificateToT
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build TRUST_STORE_ADD_CERT")};
     }
-    return SendTrustStoreRequest(*m_connection, req.value(), op_id);
+    return SendTrustStoreRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> TrustStoreManagementContextImpl::AddCertificateToTrustStoreWithCrl(
@@ -198,7 +205,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::AddCertificateToT
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build TRUST_STORE_ADD_CERT")};
     }
-    return SendTrustStoreRequest(*m_connection, req.value(), op_id);
+    return SendTrustStoreRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> TrustStoreManagementContextImpl::RemoveCertificateFromTrustStore(
@@ -220,7 +227,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::RemoveCertificate
             score::unexpect,
             MakeError(CryptoErrorCode::kOperationFailed, "Failed to build TRUST_STORE_REMOVE_CERT_BY_ID")};
     }
-    return SendTrustStoreRequest(*m_connection, req.value(), op_id);
+    return SendTrustStoreRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> TrustStoreManagementContextImpl::RemoveCertificateFromTrustStore(
@@ -244,7 +251,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::RemoveCertificate
     {
         return score::Result<std::monostate>{score::unexpect, request_result.error()};
     }
-    return SendTrustStoreRequest(*m_connection, request_result.value(), op_id);
+    return SendTrustStoreRequest(*m_connection, request_result.value(), op_id, m_operation_timeout);
 }
 
 // ===========================================================================
@@ -268,7 +275,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::EnableTrustStoreM
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build TRUST_STORE_ENABLE_CERT")};
     }
-    return SendTrustStoreRequest(*m_connection, req.value(), op_id);
+    return SendTrustStoreRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> TrustStoreManagementContextImpl::DisableTrustStoreMember(
@@ -288,7 +295,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::DisableTrustStore
         return score::Result<std::monostate>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build TRUST_STORE_DISABLE_CERT")};
     }
-    return SendTrustStoreRequest(*m_connection, req.value(), op_id);
+    return SendTrustStoreRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> TrustStoreManagementContextImpl::AcknowledgeTrustStoreMemberUpdate(
@@ -314,7 +321,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::AcknowledgeTrustS
     {
         return score::Result<std::monostate>{score::unexpect, request_result.error()};
     }
-    return SendTrustStoreRequest(*m_connection, request_result.value(), op_id);
+    return SendTrustStoreRequest(*m_connection, request_result.value(), op_id, m_operation_timeout);
 }
 
 // ===========================================================================
@@ -348,7 +355,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::ImportCrlForTrust
     {
         return score::Result<std::monostate>{score::unexpect, request_result.error()};
     }
-    return SendTrustStoreRequest(*m_connection, request_result.value(), op_id);
+    return SendTrustStoreRequest(*m_connection, request_result.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> TrustStoreManagementContextImpl::DeleteCrlForTrustStoreMember(
@@ -369,7 +376,7 @@ score::Result<std::monostate> TrustStoreManagementContextImpl::DeleteCrlForTrust
             score::unexpect,
             MakeError(CryptoErrorCode::kOperationFailed, "Failed to build TRUST_STORE_DELETE_CRL_FOR_MEMBER")};
     }
-    return SendTrustStoreRequest(*m_connection, req.value(), op_id);
+    return SendTrustStoreRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 }  // namespace crypto

@@ -550,13 +550,16 @@ score::Result<std::unique_ptr<ITrustStoreManagementContext>> CryptoContextImpl::
     request.context_type = daemon_common::context_types::kCertTrustStore;
     request.provider_type = config.provider_type;
 
-    auto context_id = CreateDaemonContext(m_connection, request);
+    const auto operation_timeout =
+        ResolveOperationTimeout(config.timeout_enabled, config.operation_timeout, m_default_operation_timeout);
+    auto context_id = CreateDaemonContext(m_connection, request, operation_timeout);
     if (!context_id.has_value())
     {
         return score::Result<std::unique_ptr<ITrustStoreManagementContext>>{score::unexpect, context_id.error()};
     }
 
-    return std::make_unique<TrustStoreManagementContextImpl>(m_connection, context_id.value(), m_transcoder);
+    return std::make_unique<TrustStoreManagementContextImpl>(
+        m_connection, context_id.value(), m_transcoder, operation_timeout);
 }
 
 // ---------------------------------------------------------------------------
@@ -703,15 +706,17 @@ std::optional<MemberInfo> ReadTrustStoreMember(Validator& validator)
         return std::nullopt;
     }
 
-    MemberInfo member{};
+    CryptoResourceId slot_id{};
+    slot_id.id = slot_node_id.value();
+    slot_id.type = ResourceType::kCertSlot;
+    slot_id.persistence = ResourcePersistence::kPersistent;
+    slot_id.primary_provider = 0U;  // the member snapshot does not carry the provider
+
+    MemberInfo member{slot_id};
     if (!ReadFingerprint(validator, kTrustStoreMemberFingerprintIdx, member.sha256_fingerprint))
     {
         return std::nullopt;
     }
-    member.slot_id.id = slot_node_id.value();
-    member.slot_id.type = ResourceType::kCertSlot;
-    member.slot_id.persistence = ResourcePersistence::kPersistent;
-    member.slot_id.primary_provider = 0U;  // the member snapshot does not carry the provider
     member.subject = std::move(subject.value());
     member.issuer = std::move(issuer.value());
     member.serial_number = std::move(serial.value());
@@ -858,6 +863,8 @@ score::Result<std::unique_ptr<ITrustStoreObject>> CryptoContextImpl::GetTrustSto
     namespace proto = ::score::crypto::daemon::control_plane::protocol;
     namespace med_ops = ::score::crypto::daemon::mediator::operations;
     using ResultType = score::Result<std::unique_ptr<ITrustStoreObject>>;
+    // No per-call configuration exists for this lookup, so the stack default applies, as for ResolveResource.
+    const auto operation_timeout = ResolveOperationTimeout(true, std::nullopt, m_default_operation_timeout);
 
     if (id.type != ResourceType::kCertificateTrustStore)
     {
@@ -879,7 +886,7 @@ score::Result<std::unique_ptr<ITrustStoreObject>> CryptoContextImpl::GetTrustSto
                                     "GetTrustStoreObject: failed to build member id list request")};
     }
 
-    auto id_list_resp = m_connection->SendRequest(id_list_req.value());
+    auto id_list_resp = m_connection->SendRequest(id_list_req.value(), operation_timeout);
     auto id_list_validator = proto::ControlResponseValidator::FromResult(id_list_resp);
     id_list_validator.expectOperation(med_ops::GetTrustStoreMemberIdList()).expectSuccess();
     if (!id_list_validator.isValid())
@@ -928,7 +935,7 @@ score::Result<std::unique_ptr<ITrustStoreObject>> CryptoContextImpl::GetTrustSto
                 MakeError(CryptoErrorCode::kOperationFailed, "GetTrustStoreObject: failed to build member request")};
         }
 
-        auto member_resp = m_connection->SendRequest(member_req.value());
+        auto member_resp = m_connection->SendRequest(member_req.value(), operation_timeout);
         auto member_validator = proto::ControlResponseValidator::FromResult(member_resp);
         member_validator.expectOperation(med_ops::GetTrustStoreMemberObject()).expectSuccess();
         if (!member_validator.isValid())

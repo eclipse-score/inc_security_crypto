@@ -24,6 +24,7 @@
 #include "score/result/result.h"
 #include "score/span.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 
@@ -44,9 +45,12 @@ class TrustStoreManagementContextImpl final : public ITrustStoreManagementContex
     /// @param connection Shared connection for IPC communication
     /// @param context_id Daemon-assigned context identifier (from CTX_CREATE response)
     /// @param transcoder Buffer-routing abstraction for fingerprint and CRL data
+    /// @param operation_timeout Maximum duration for each IPC request, including the daemon-side context close
+    ///                          during destruction.
     TrustStoreManagementContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                     uint64_t context_id,
-                                    std::shared_ptr<IBufferTranscoder> transcoder = nullptr);
+                                    std::shared_ptr<IBufferTranscoder> transcoder = nullptr,
+                                    std::chrono::milliseconds operation_timeout = std::chrono::milliseconds::max());
 
     ~TrustStoreManagementContextImpl() override;
 
@@ -88,6 +92,7 @@ class TrustStoreManagementContextImpl final : public ITrustStoreManagementContex
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     daemon::control_plane::protocol::DataNodeId m_context_id;
     std::shared_ptr<IBufferTranscoder> m_transcoder;
+    std::chrono::milliseconds m_operation_timeout;
 
     /// @brief Release callback for the daemon-side context. Sends CTX_CLOSE when the last reference is dropped.
     class ContextReleaseCallbackImpl;
