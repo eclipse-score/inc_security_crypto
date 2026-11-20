@@ -46,3 +46,42 @@ jobs:
     with:
       bazel-target: ${{ matrix.bazel-target }}
       upload-name: ${{ matrix.upload-name }}
+
+  integration-example:
+    name: Integration Example (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: OpenSSL runtime
+            bazel-command: test
+            backend-config: openssl-only
+          - name: PKCS11 build
+            bazel-command: build
+            backend-config: pkcs11-only
+          - name: All backends build
+            bazel-command: build
+            backend-config: all-backends
+    defaults:
+      run:
+        working-directory: examples/integration
+    steps:
+      - uses: eclipse-score/more-disk-space@beee38c3b4426a7c43fdfeb2495d1af812179c3e # v1.3.0
+
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Bazel with shared caching
+        uses: eclipse-score/cicd-actions/setup-bazel-cache@e2a2a587a759b681632040ec1e1294015a0405f5 # setup-bazel-cache/v0.1.0
+        with:
+          disk-cache-key: ${{ github.job }}-${{ matrix.backend-config }}
+
+      - name: Enable the Bazel Linux sandbox
+        uses: eclipse-score/cicd-actions/unblock-user-namespace-for-linux-sandbox@212bbf86267e9381da9d2daf962d12f6feafbc90
+
+      - name: Verify external module integration
+        run: bazel ${{ matrix.bazel-command }} //... --config=x86_64-linux --config=${{ matrix.backend-config }}
