@@ -24,8 +24,8 @@
 #include "score/crypto/src/backend/score_provider/openssl/openssl_backend_adapter.hpp"
 #endif
 
-#ifdef SCORE_BACKEND_PRIMULA_ENABLED
-#include "score/crypto/src/backend/score_provider/iav_primula/primula_backend_adapter.hpp"
+#ifdef SCORE_BACKEND_PQC_PROVIDER_ENABLED
+#include "score/crypto/src/backend/score_provider/pqc_provider/pqc_provider_backend_adapter.hpp"
 #endif
 
 namespace score::crypto::backend::score_provider
@@ -53,7 +53,7 @@ inline std::vector<std::unique_ptr<daemon::provider::score_provider::IBackendPro
 #ifdef SCORE_BACKEND_OPENSSL_ENABLED
     backends.reserve(backends.capacity() + 1);
 #endif
-#ifdef SCORE_BACKEND_PRIMULA_ENABLED
+#ifdef SCORE_BACKEND_PQC_PROVIDER_ENABLED
     backends.reserve(backends.capacity() + 1);
 #endif
 
@@ -62,8 +62,8 @@ inline std::vector<std::unique_ptr<daemon::provider::score_provider::IBackendPro
     backends.push_back(std::make_unique<openssl::OpenSSLBackendAdapter>());
 #endif
 
-#ifdef SCORE_BACKEND_PRIMULA_ENABLED
-    backends.push_back(std::make_unique<primula::PrimulaBackendAdapter>());
+#ifdef SCORE_BACKEND_PQC_PROVIDER_ENABLED
+    backends.push_back(std::make_unique<pqc_provider::PqcProviderBackendAdapter>());
 #endif
 
     return backends;

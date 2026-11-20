@@ -131,8 +131,8 @@ class KeyManagementContextImpl final : public IKeyManagementContext
     /// @param request Built request, or the error encountered during request construction.
     /// @return Daemon response, or a request-construction, connection, or transport error.
     /// The caller validates its operation-specific response and maps errors as required.
-    score::Result<daemon::control_plane::protocol::ControlResponse> SendKeyManagementRequest(
-        const Expected<daemon::control_plane::protocol::ControlRequest, CryptoErrorCode>& request);
+    Expected<daemon::control_plane::protocol::ControlResponse, CryptoErrorCode> SendKeyManagementRequest(
+        Expected<daemon::control_plane::protocol::ControlRequest, CryptoErrorCode> request);
 
     /// @brief Sends a key-management request and validates its single-operation response.
     /// @param request Built request, or the error encountered during request construction.
@@ -152,7 +152,6 @@ class KeyManagementContextImpl final : public IKeyManagementContext
                                                        ResourceType type);
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     score::crypto::daemon::control_plane::protocol::DataNodeId m_context_id;
-    std::shared_ptr<IBufferTranscoder> m_transcoder;
 
     /// @brief IReleaseCallback whose destructor sends CTX_CLOSE to the daemon.
     /// Held by the context *and* transitively by every CryptoResourceGuard (via

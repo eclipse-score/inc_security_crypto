@@ -37,7 +37,7 @@ bool_flag(
 )
 
 bool_flag(
-    name = "score_crypto_score_primula_enabled",
+    name = "score_crypto_score_pqc_provider_enabled",
     build_setting_default = True,
     visibility = ["//visibility:public"],
 )
@@ -63,10 +63,10 @@ config_setting(
 # excludes sub-backend targets from wildcard builds.
 
 config_setting(
-    name = "primula_backend_active",
+    name = "pqc_provider_backend_active",
     flag_values = {
         ":score_crypto_score_backend_enabled": "True",
-        ":score_crypto_score_primula_enabled": "True",
+        ":score_crypto_score_pqc_provider_enabled": "True",
     },
     visibility = ["//:__subpackages__"],
 )

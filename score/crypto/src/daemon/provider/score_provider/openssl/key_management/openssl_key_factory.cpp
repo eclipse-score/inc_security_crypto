@@ -88,7 +88,7 @@ OpenSslKeyFactory::ImportKey(const key_management::KeyImportRequest& request)
 }
 
 ::score::crypto::Expected<key_management::SecureKeyBytes, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::ExportKey(const key_management::IKeyHandler& key, score::crypto::FormatType format)
+OpenSslKeyFactory::ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
 {
     if (IsEcKeySupported(handle.algorithm))
     {
@@ -100,7 +100,7 @@ OpenSslKeyFactory::ExportKey(const key_management::IKeyHandler& key, score::cryp
 }
 
 ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
-OpenSslKeyFactory::GetExportKeySize(const key_management::IKeyHandler& key, score::crypto::FormatType format)
+OpenSslKeyFactory::GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format)
 {
     if (IsEcKeySupported(handle.algorithm))
     {

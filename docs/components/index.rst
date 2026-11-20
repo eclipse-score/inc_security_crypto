@@ -19,11 +19,11 @@ The Crypto module contains the following documented components:
 
 * **Crypto**: the client library, crypto daemon, and provider integration.
 * **Cryptoki**: the Rust PKCS#11 provider.
-* **Primula**: a Rust cryptographic driver focused on post-quantum algorithms.
+* **PQC Provider**: a Rust cryptographic driver focused on post-quantum algorithms.
 
 .. toctree::
    :maxdepth: 1
 
    ../../crypto/components/crypto/index
    ../../crypto/components/cryptoki/index
-   ../../crypto/components/primula/index
+   ../../crypto/components/pqc_provider/index

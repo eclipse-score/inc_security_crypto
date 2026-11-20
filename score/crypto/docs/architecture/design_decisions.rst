@@ -413,7 +413,7 @@ Three candidate representations were evaluated:
    with comfortable headroom. All constructors and assignments are ``noexcept``.
 
 ``FixedCapacityString<64>`` (option 3) was selected. The same rationale applies to
-``ResourceId`` (``FixedCapacityString<64>``) and ``ProviderInfo::name``
+``ResourceId`` (``FixedCapacityString<128>``) and ``ProviderInfo::name``
 (``FixedCapacityString<32>``).
 
 Consequences

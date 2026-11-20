@@ -126,7 +126,7 @@ Module Work products List
         * - :need:`wp__verification_module_ver_report`
           - :need:`gd_temp__mod_ver_report`
           - :ndf:`copy('status', need_id='gd_temp__mod_ver_report')`
-          - :need:`doc__mod_temp_module_name_verification_report`
+          - :need:`mod_vrep__crypto__report`
 
         * - :need:`wp__module_sw_release_note`
           - :need:`gd_temp__rel_mod_rel_note`

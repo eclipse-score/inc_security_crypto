@@ -19,6 +19,7 @@
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_context.hpp"
+#include "score/crypto/src/daemon/provider/exports/key_exporter.hpp"
 
 #include <memory>
 #include <string>
@@ -38,7 +39,8 @@ class KeyManagementExecutor final
   public:
     KeyManagementExecutor(std::shared_ptr<key_management::IKeyFactory> factory,
                           std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
-                          std::shared_ptr<key_management::KeyManagementService> service);
+                          std::shared_ptr<key_management::KeyManagementService> service,
+                          std::shared_ptr<IKeyExporter> exporter = nullptr);
     ~KeyManagementExecutor() = default;
 
     KeyManagementExecutor(const KeyManagementExecutor&) = delete;
@@ -60,6 +62,7 @@ class KeyManagementExecutor final
     std::shared_ptr<key_management::IKeyFactory> m_factory;
     std::shared_ptr<key_management::IKeySlotHandler> m_slot_handler;
     std::shared_ptr<key_management::KeyManagementService> m_service;
+    std::shared_ptr<IKeyExporter> m_exporter;
 
     [[nodiscard]] Expected<common::ResponseParameters, score::crypto::daemon::common::DaemonErrorCode> HandleGetEncapsulationCiphertextSize(
         const KeyMgmtExecutionContext& ctx,

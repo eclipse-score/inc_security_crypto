@@ -10,14 +10,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-module(name = "score_security_crypto")
+module(name = "score_crypto")
 
-bazel_dep(name = "rules_python", version = "2.3.1")
-single_version_override(
-    module_name = "rules_python",
-    version = "1.5.4",
-)
-
+bazel_dep(name = "rules_python", version = "1.8.5")
 bazel_dep(name = "rules_uv", version = "0.89.2")
 
 PYTHON_VERSION = "3.12"
@@ -30,6 +25,13 @@ python.toolchain(
 
 # Foreign CC rules for building projects with external build systems (make, cmake, etc.)
 bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
+
+# Use the host's pkg-config and m4 instead of building them from source. The bundled glib of the
+# source-built pkgconfig uses the GNU 'asm' keyword and fails with a strict -std=c11 host compiler.
+register_toolchains(
+    "@rules_foreign_cc//toolchains:preinstalled_pkgconfig_toolchain",
+    "@rules_foreign_cc//toolchains:preinstalled_m4_toolchain",
+)
 
 # HTTP archive rule for downloading and extracting source code from the web
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -151,7 +153,7 @@ use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
 
 # >= 0.10.0: the standard Ferrocene toolchains ship llvm-cov/llvm-profdata,
 # which activates Rust coverage without any custom toolchain instance.
-bazel_dep(name = "score_toolchains_rust", version = "0.10.0", dev_dependency = True)
+bazel_dep(name = "score_toolchains_rust", version = "0.10.1", dev_dependency = True)
 
 bazel_dep(name = "score_crates", version = "0.0.15")
 
@@ -267,10 +269,10 @@ bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.3", dev_dependency = Tr
 bazel_dep(name = "rules_pkg", version = "1.2.0")
 
 #docs-as-code
-bazel_dep(name = "score_docs_as_code", version = "9.0.0")
+bazel_dep(name = "score_docs_as_code", version = "9.1.0")
 
 #process
-bazel_dep(name = "score_process_description", version = "2.2.2")
+bazel_dep(name = "score_process_description", version = "2.2.5")
 bazel_dep(name = "score_platform", version = "0.7.6")
 
 # score baselibs

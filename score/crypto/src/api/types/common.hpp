@@ -25,7 +25,7 @@ namespace score::crypto
 {
 
 /// @brief Application-defined name used to resolve a resource through the daemon.
-using ResourceId = FixedCapacityString<64>;
+using ResourceId = FixedCapacityString<128>;
 /// @brief Algorithm name or identifier accepted by a crypto operation.
 using AlgorithmId = FixedCapacityString<64>;
 

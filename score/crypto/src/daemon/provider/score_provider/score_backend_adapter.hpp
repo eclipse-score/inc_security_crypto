@@ -30,11 +30,11 @@ namespace score::crypto::daemon::provider::score_provider
 /// register them under the name and type from ScoreProviderEntry.
 struct ProviderCreator
 {
-    /// Unique identifier for the backend.
+    /// Unique identifier for the backend (e.g., "openssl", "pqc_provider").
     /// Matched against ScoreProviderEntry::providerImpl during dispatch.
     std::string backend_id;
 
-    /// Human-readable name for the backend.
+    /// Human-readable name for the backend (e.g., "OPENSSL", "PQC_PROVIDER").
     /// Used as the default providerName when populating ScoreProviderEntry via ParseConfig().
     std::string backend_name;
 

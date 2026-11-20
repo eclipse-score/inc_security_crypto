@@ -64,8 +64,12 @@ template <typename T>
 
 KeyManagementExecutor::KeyManagementExecutor(std::shared_ptr<key_management::IKeyFactory> factory,
                                              std::shared_ptr<key_management::IKeySlotHandler> slot_handler,
-                                             std::shared_ptr<key_management::KeyManagementService> service)
-    : m_factory{std::move(factory)}, m_slot_handler{std::move(slot_handler)}, m_service{std::move(service)}
+                                             std::shared_ptr<key_management::KeyManagementService> service,
+                                             std::shared_ptr<IKeyExporter> exporter)
+    : m_factory{std::move(factory)},
+      m_slot_handler{std::move(slot_handler)},
+      m_service{std::move(service)},
+      m_exporter{exporter ? std::move(exporter) : std::make_shared<KeyExporter>(m_factory)}
 {
 }
 
@@ -619,7 +623,7 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleGetExpo
     {
         return make_unexpected(entry.error());
     }
-    auto size = m_factory->GetExportKeySize(*entry.value()->GetKeyHandler(), format.value());
+    auto size = m_exporter->GetExportKeySize(*entry.value()->GetKeyHandler(), format.value());
     if (!size.has_value())
     {
         return make_unexpected(size.error());
@@ -661,7 +665,7 @@ Expected<common::ResponseParameters, Error> KeyManagementExecutor::HandleExportK
     {
         return make_unexpected(entry.error());
     }
-    auto exported = m_factory->ExportKey(*entry.value()->GetKeyHandler(), format.value());
+    auto exported = m_exporter->ExportKey(*entry.value()->GetKeyHandler(), format.value());
     if (!exported.has_value())
     {
         return make_unexpected(exported.error());

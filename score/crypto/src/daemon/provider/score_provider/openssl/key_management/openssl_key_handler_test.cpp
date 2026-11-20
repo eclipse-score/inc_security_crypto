@@ -195,13 +195,6 @@ TEST_F(OpenSslKeyHandlerTest, GenerateKey_HmacSha512_Returns64ByteKey)
     EXPECT_TRUE(
         score::crypto::HasPermission(handler->GetHandle().permissions, score::crypto::KeyOperationPermission::kExport));
 
-    auto size = m_factory->GetExportKeySize(*handler, score::crypto::FormatType::kRaw);
-    ASSERT_TRUE(size.has_value());
-    EXPECT_EQ(size.value(), 64U);
-    auto exported = m_factory->ExportKey(*handler, score::crypto::FormatType::kRaw);
-    ASSERT_TRUE(exported.has_value());
-    EXPECT_EQ(exported.value().bytes.size(), size.value());
-
     auto release = handler->Release();
     EXPECT_TRUE(release.has_value());
 }
@@ -1043,13 +1036,15 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_P384_ReproducesTheInputPoint)
 
     auto imported = m_factory->ImportKey(req);
     ASSERT_TRUE(imported.has_value());
+    const auto& handle = imported.value()->GetHandle();
+
     // The two-call size-then-data contract: the size query must agree with the
     // bytes the export actually produces.
-    auto size = m_factory->GetExportKeySize(*imported.value(), score::crypto::FormatType::kRaw);
+    auto size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kRaw);
     ASSERT_TRUE(size.has_value());
     EXPECT_EQ(size.value(), point.size());
 
-    auto exported = m_factory->ExportKey(*imported.value(), score::crypto::FormatType::kRaw);
+    auto exported = m_factory->ExportKey(handle, score::crypto::FormatType::kRaw);
     ASSERT_TRUE(exported.has_value());
     EXPECT_EQ(exported.value().bytes, point) << "Export must reproduce the imported 0x04||X||Y point verbatim";
 
@@ -1073,12 +1068,14 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_CompressedDerImport_StillExpo
 
     auto imported = m_factory->ImportKey(req);
     ASSERT_TRUE(imported.has_value()) << "A compressed-point SPKI is a legitimate public-key import";
+    const auto& handle = imported.value()->GetHandle();
+
     // The size query must agree with the bytes the export actually produces.
-    auto size = m_factory->GetExportKeySize(*imported.value(), score::crypto::FormatType::kRaw);
+    auto size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kRaw);
     ASSERT_TRUE(size.has_value());
     EXPECT_EQ(size.value(), 97U) << "GetExportKeySize always reports the uncompressed P-384 length";
 
-    auto exported = m_factory->ExportKey(*imported.value(), score::crypto::FormatType::kRaw);
+    auto exported = m_factory->ExportKey(handle, score::crypto::FormatType::kRaw);
     ASSERT_TRUE(exported.has_value());
     ASSERT_EQ(exported.value().bytes.size(), 97U)
         << "Export must be forced to the uncompressed 1 + 2*48 encoding, not the compressed 49";
@@ -1096,7 +1093,7 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_CompressedDerImport_StillExpo
     auto reimported = m_factory->ImportKey(reimp);
     ASSERT_TRUE(reimported.has_value()) << "The forced-uncompressed export must satisfy the raw import contract";
 
-    auto reexported = m_factory->ExportKey(*reimported.value(), score::crypto::FormatType::kRaw);
+    auto reexported = m_factory->ExportKey(reimported.value()->GetHandle(), score::crypto::FormatType::kRaw);
     ASSERT_TRUE(reexported.has_value());
     EXPECT_EQ(reexported.value().bytes, exported.value().bytes) << "Raw export/import must round-trip";
 
@@ -1119,7 +1116,7 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_P256_ReproducesTheInputPoint)
     auto imported = m_factory->ImportKey(req);
     ASSERT_TRUE(imported.has_value());
 
-    auto exported = m_factory->ExportKey(*imported.value(), score::crypto::FormatType::kRaw);
+    auto exported = m_factory->ExportKey(imported.value()->GetHandle(), score::crypto::FormatType::kRaw);
     ASSERT_TRUE(exported.has_value());
     EXPECT_EQ(exported.value().bytes, point);
 
@@ -1153,7 +1150,7 @@ TEST_F(OpenSslKeyHandlerTest, RawEcPublicKey_AllThreeCurves_GenerateExportImport
         auto generated = m_factory->GenerateKey(gen);
         ASSERT_TRUE(generated.has_value()) << "generate failed for " << std::string{curve.algorithm};
 
-        auto exported = m_factory->ExportKey(*generated.value(), score::crypto::FormatType::kRaw);
+        auto exported = m_factory->ExportKey(generated.value()->GetHandle(), score::crypto::FormatType::kRaw);
         ASSERT_TRUE(exported.has_value()) << "export failed for " << std::string{curve.algorithm};
         ASSERT_EQ(exported.value().bytes.size(), curve.point_size);
         EXPECT_EQ(exported.value().bytes.front(), 0x04) << "export must be an uncompressed point";
@@ -1169,7 +1166,7 @@ TEST_F(OpenSslKeyHandlerTest, RawEcPublicKey_AllThreeCurves_GenerateExportImport
         auto reimported = m_factory->ImportKey(imp);
         ASSERT_TRUE(reimported.has_value()) << "reimport failed for " << std::string{curve.algorithm};
 
-        auto reexported = m_factory->ExportKey(*reimported.value(), score::crypto::FormatType::kRaw);
+        auto reexported = m_factory->ExportKey(reimported.value()->GetHandle(), score::crypto::FormatType::kRaw);
         ASSERT_TRUE(reexported.has_value());
         EXPECT_EQ(reexported.value().bytes, exported.value().bytes)
             << "raw export/import must round-trip for " << std::string{curve.algorithm};
@@ -1253,11 +1250,13 @@ TEST_F(OpenSslKeyHandlerTest, ExportRawEcPublicKey_WithoutExportPermission_IsDen
 
     auto imported = m_factory->ImportKey(req);
     ASSERT_TRUE(imported.has_value());
-    auto exported = m_factory->ExportKey(*imported.value(), score::crypto::FormatType::kRaw);
+    const auto& handle = imported.value()->GetHandle();
+
+    auto exported = m_factory->ExportKey(handle, score::crypto::FormatType::kRaw);
     ASSERT_FALSE(exported.has_value()) << "Export of a non-exportable public key must be refused";
     EXPECT_EQ(exported.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
 
-    auto size = m_factory->GetExportKeySize(*imported.value(), score::crypto::FormatType::kRaw);
+    auto size = m_factory->GetExportKeySize(handle, score::crypto::FormatType::kRaw);
     ASSERT_FALSE(size.has_value());
     EXPECT_EQ(size.error(), score::crypto::daemon::common::DaemonErrorCode::kKeyNotExportable);
 

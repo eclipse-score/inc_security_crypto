@@ -14,6 +14,24 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
 
 cc_test(
+    name = "test_key_exporter",
+    srcs = ["test_key_exporter.cpp"],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/key_management",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/provider/exports:key_exporter",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_key_management_headers",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:provider_openssl_library",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "test_key_config_manager",
     srcs = ["test_key_config_manager.cpp"],
     data = [
@@ -49,7 +67,8 @@ cc_test(
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
-    ]
+        "@googletest//:gtest_main",
+    ],
 )
 
 cc_test(

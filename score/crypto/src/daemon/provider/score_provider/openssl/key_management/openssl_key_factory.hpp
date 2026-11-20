@@ -64,7 +64,7 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     ImportKey(const key_management::KeyImportRequest& request) override;
 
-    /// Export raw key material, using the uncompressed SEC1 point 0x04||X||Y for EC keys.
+    /// Export an EC public key as the raw uncompressed SEC1 point 0x04||X||Y.
     ///
     /// @param handle Handle of the key to export.
     /// @param format Requested export format; only kRaw is supported.
@@ -72,7 +72,7 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     ///         or the errors of ExportEcPublicKey().
     [[nodiscard]] ::score::crypto::Expected<key_management::SecureKeyBytes,
                                             ::score::crypto::daemon::common::DaemonErrorCode>
-    ExportKey(const key_management::IKeyHandler& key, score::crypto::FormatType format) override;
+    ExportKey(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
 
     /// Byte length of the raw export for @p handle, for the size-then-data two-call export.
     ///
@@ -80,7 +80,7 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
     /// @param format Requested export format; only kRaw is supported.
     /// @return The length, or the errors of ExportKey().
     [[nodiscard]] ::score::crypto::Expected<std::size_t, ::score::crypto::daemon::common::DaemonErrorCode>
-    GetExportKeySize(const key_management::IKeyHandler& key, score::crypto::FormatType format) override;
+    GetExportKeySize(const key_management::ProviderKeyHandle& handle, score::crypto::FormatType format) override;
 
   private:
     common::ProviderId m_provider_id{common::kInvalidProviderId};

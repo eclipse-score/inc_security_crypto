@@ -39,8 +39,8 @@ class IKeySlotHandler;
 /// or within ProviderEncapsulationResult. The caller registers that material
 /// via KeyManagementService::RegisterKeyMaterial().
 ///
-/// Default implementations return kNotSupported unless documented otherwise,
-/// so providers implement only what they support.
+/// Methods other than GenerateKey have default implementations that return
+/// kNotSupported, so providers implement only what they support.
 class IKeyFactory
 {
   public:
@@ -125,16 +125,17 @@ class IKeyFactory
 
     /// Export formatted key material (DER / PEM / RAW).
     ///
-    /// Default: delegates RAW export to IKeyHandler::Export(); other formats
-    /// return kNotSupported. Providers override for their supported encodings.
+    /// Used for asymmetric keys where formatting is provider-specific.
+    /// For raw symmetric bytes, prefer IKeyHandler::Export().
+    /// Default: returns kNotSupported.
     [[nodiscard]] virtual score::crypto::Expected<SecureKeyBytes, score::crypto::daemon::common::DaemonErrorCode>
-    ExportKey(const IKeyHandler& key, score::crypto::FormatType format);
+    ExportKey(const ProviderKeyHandle& handle, score::crypto::FormatType format);
 
     /// Return the byte length of the exported key in the given format.
     ///
-    /// Default: returns the byte length produced by ExportKey().
+    /// Default: returns kNotSupported.
     [[nodiscard]] virtual score::crypto::Expected<std::size_t, score::crypto::daemon::common::DaemonErrorCode>
-    GetExportKeySize(const IKeyHandler& key, score::crypto::FormatType format);
+    GetExportKeySize(const ProviderKeyHandle& handle, score::crypto::FormatType format);
 
     /// Generate a key atomically into a persistent slot.
     ///

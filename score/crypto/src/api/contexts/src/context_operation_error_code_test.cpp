@@ -360,7 +360,7 @@ std::vector<OperationCase> AllOperations()
                           return ErrorOf(key_mgmt.LoadKey(slot));
                       }},
         OperationCase{"KeyManagement_ImportKey",
-                      CryptoErrorCode::kConnectionFailed,
+                      CryptoErrorCode::kOperationFailed,
                       [in](const auto& connection, const auto& transcoder) {
                           KeyManagementContextImpl key_mgmt{connection, kContextId, transcoder};
                           ImportKeyParams params{};
@@ -369,7 +369,7 @@ std::vector<OperationCase> AllOperations()
                           return ErrorOf(key_mgmt.ImportKey(params));
                       }},
         OperationCase{"KeyManagement_ExportKey",
-                      CryptoErrorCode::kConnectionFailed,
+                      CryptoErrorCode::kOperationFailed,
                       [out](const auto& connection, const auto& transcoder) {
                           KeyManagementContextImpl key_mgmt{connection, kContextId, transcoder};
                           CryptoResourceId key{};
@@ -378,7 +378,7 @@ std::vector<OperationCase> AllOperations()
                           return ErrorOf(key_mgmt.ExportKey(key, out, FormatType::kDer));
                       }},
         OperationCase{"KeyManagement_GetExportKeySize",
-                      CryptoErrorCode::kConnectionFailed,
+                      CryptoErrorCode::kOperationFailed,
                       [](const auto& connection, const auto& transcoder) {
                           KeyManagementContextImpl key_mgmt{connection, kContextId, transcoder};
                           CryptoResourceId key{};

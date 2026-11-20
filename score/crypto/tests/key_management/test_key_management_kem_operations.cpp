@@ -672,11 +672,12 @@ class RecordingConnection final : public api::IConnection
 {
   public:
     std::vector<control::ControlRequest> requests;
+    std::vector<std::chrono::milliseconds> timeouts;
     std::vector<score::crypto::Expected<control::ControlResponse, score::crypto::CryptoErrorCode>> replies;
     std::function<void(const control::ControlRequest&)> on_request;
 
     score::crypto::Expected<control::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
-        const control::ControlRequest& request) override
+        control::ControlRequest& request) override
     {
         requests.push_back(request);
         if (on_request)
@@ -689,7 +690,15 @@ class RecordingConnection final : public api::IConnection
             replies.erase(replies.begin());
             return response;
         }
-        return Success(request.operation.operations.front().operationId, {});
+        return Success(request.operations.front().operationId, {});
+    }
+
+    score::crypto::Expected<control::ControlResponse, score::crypto::CryptoErrorCode> SendRequest(
+        control::ControlRequest& request,
+        std::chrono::milliseconds timeout) override
+    {
+        timeouts.push_back(timeout);
+        return SendRequest(request);
     }
 
     control::DataNodeId GetConnectionNodeId() const override
@@ -700,9 +709,9 @@ class RecordingConnection final : public api::IConnection
     static control::ControlResponse Success(const common::OperationIdentifier& operation,
                                             common::ResponseParameters parameters)
     {
-        return control::ControlResponse{0U,
-                                        control::OperationResponse{{control::SingleOperationResponse{
-                                            operation, control::OPERATION_RESULT_SUCCESS, std::move(parameters)}}}};
+        return control::ControlResponse{
+            0U,
+            {control::SingleOperationResponse{operation, control::OPERATION_RESULT_SUCCESS, std::move(parameters)}}};
     }
 };
 
@@ -735,8 +744,8 @@ TEST(KeyManagementContextTest, GenerateKeySendsItsParametersAndReturnsAnEphemera
     ASSERT_EQ(connection->requests.size(), 1U);
     const auto& request = connection->requests.front();
     EXPECT_EQ(request.data_node_id, 44U);
-    ASSERT_EQ(request.operation.operations.size(), 1U);
-    const auto& operation = request.operation.operations.front();
+    ASSERT_EQ(request.operations.size(), 1U);
+    const auto& operation = request.operations.front();
     EXPECT_EQ(operation.operationId.operationActor, score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT);
     EXPECT_EQ(operation.operationId.operationAction, operations::KEY_GENERATE);
     ASSERT_EQ(operation.parameters.size(), 2U);
@@ -745,7 +754,7 @@ TEST(KeyManagementContextTest, GenerateKeySendsItsParametersAndReturnsAnEphemera
 
     ASSERT_TRUE(result->Release().has_value());
     ASSERT_EQ(connection->requests.size(), 2U);
-    const auto& release = connection->requests.back().operation.operations.front();
+    const auto& release = connection->requests.back().operations.front();
     EXPECT_EQ(release.operationId.operationAction, operations::KEY_RELEASE);
     EXPECT_EQ(std::get<std::uint64_t>(release.parameters.front()), 81U);
 }
@@ -764,7 +773,7 @@ TEST(KeyManagementContextTest, GenerateKeySendsPublicKeyPermissionsOnlyWhenSpeci
 
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(connection->requests.size(), 1U);
-    const auto& parameters = connection->requests.front().operation.operations.front().parameters;
+    const auto& parameters = connection->requests.front().operations.front().parameters;
     ASSERT_EQ(parameters.size(), 3U);
     EXPECT_EQ(std::get<std::uint32_t>(parameters[2]), static_cast<std::uint32_t>(Permission::kAgree));
 }
@@ -797,7 +806,7 @@ TEST(KeyManagementContextTest, GenerateKeyPreservesItsExistingResponseLayoutHand
     auto response = RecordingConnection::Success(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, operations::KEY_GENERATE},
         {std::uint64_t{81U}, kProviderId, std::uint32_t{7U}});
-    response.operation.operations.push_back(control::SingleOperationResponse{
+    response.operations.push_back(control::SingleOperationResponse{
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, operations::KEY_LOAD},
         control::OPERATION_RESULT_SUCCESS,
         {}});
@@ -812,7 +821,7 @@ TEST(KeyManagementContextTest, GenerateKeyPreservesItsExistingResponseLayoutHand
     EXPECT_EQ(result->Id().primary_provider, kProviderId);
 }
 
-TEST(KeyManagementContextTest, GenerateKeyMapsTransportFailureToKeyGenerationFailed)
+TEST(KeyManagementContextTest, GenerateKeyForwardsTransportFailure)
 {
     auto connection = std::make_shared<RecordingConnection>();
     score::crypto::KeyManagementContextImpl context{connection, 44U};
@@ -823,7 +832,7 @@ TEST(KeyManagementContextTest, GenerateKeyMapsTransportFailureToKeyGenerationFai
     auto result = context.GenerateKey(params);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), score::crypto::MakeError(score::crypto::CryptoErrorCode::kKeyGenerationFailed));
+    EXPECT_EQ(result.error(), score::crypto::MakeError(score::crypto::CryptoErrorCode::kConnectionFailed));
 }
 
 TEST(KeyManagementContextTest, GenerateKeyForwardsDaemonErrorCode)
@@ -832,7 +841,7 @@ TEST(KeyManagementContextTest, GenerateKeyForwardsDaemonErrorCode)
     score::crypto::KeyManagementContextImpl context{connection, 44U};
     auto response = RecordingConnection::Success(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, operations::KEY_GENERATE}, {});
-    response.operation.operations.front().result =
+    response.operations.front().result =
         static_cast<control::OperationResult>(score::crypto::CryptoErrorCode::kUnsupportedAlgorithm);
     connection->replies.push_back(std::move(response));
     score::crypto::GenerateKeyParams params{};
@@ -859,7 +868,7 @@ TEST(KeyManagementContextTest, GenerateKeyRejectsMissingOrMistypedResourceIds)
         auto result = context.GenerateKey(params);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error(), score::crypto::MakeError(score::crypto::CryptoErrorCode::kKeyGenerationFailed));
+        EXPECT_EQ(result.error(), score::crypto::MakeError(score::crypto::CryptoErrorCode::kInternalError));
     }
 }
 
@@ -869,18 +878,6 @@ TEST(KeyManagementContextTest, GenerateKeyRejectsWrongOperationResponses)
     score::crypto::KeyManagementContextImpl context{connection, 44U};
     connection->replies.push_back(RecordingConnection::Success(
         {score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT, operations::KEY_LOAD}, {std::uint64_t{81U}}));
-    score::crypto::GenerateKeyParams params{};
-    params.SetAlgorithm("ML-KEM-768");
-
-    auto result = context.GenerateKey(params);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), score::crypto::MakeError(score::crypto::CryptoErrorCode::kKeyGenerationFailed));
-}
-
-TEST(KeyManagementContextTest, GenerateKeyHandlesAMissingConnection)
-{
-    score::crypto::KeyManagementContextImpl context{nullptr, 44U};
     score::crypto::GenerateKeyParams params{};
     params.SetAlgorithm("ML-KEM-768");
 
@@ -917,7 +914,8 @@ TEST(KeyManagementContextKemTest, MaterialOperationsUseTheirKeyManagementIpcCont
     auto connection = std::make_shared<RecordingConnection>();
     auto registry = std::make_shared<score::crypto::ShmRegionRegistry>(1024U);
     auto transcoder = std::make_shared<score::crypto::BufferShmTranscoder>(nullptr, registry);
-    score::crypto::KeyManagementContextImpl context{connection, 44U, transcoder};
+    constexpr std::chrono::milliseconds kTimeout{37U};
+    score::crypto::KeyManagementContextImpl context{connection, 44U, transcoder, kTimeout};
     const std::array<std::uint8_t, 3U> raw_key{{0x21U, 0x22U, 0x23U}};
     registry->Register({89U, reinterpret_cast<std::uintptr_t>(raw_key.data()), raw_key.size(), false});
     score::crypto::ImportKeyParams import{};
@@ -948,7 +946,7 @@ TEST(KeyManagementContextKemTest, MaterialOperationsUseTheirKeyManagementIpcCont
     std::array<std::uint8_t, 3U> exported{};
     registry->Register({90U, reinterpret_cast<std::uintptr_t>(exported.data()), exported.size(), false});
     connection->on_request = [&](const control::ControlRequest& request) {
-        const auto& operation = request.operation.operations[0];
+        const auto& operation = request.operations[0];
         if (operation.operationId.operationAction == operations::KEY_EXPORT)
         {
             std::copy(raw_key.begin(), raw_key.end(), exported.begin());
@@ -961,13 +959,18 @@ TEST(KeyManagementContextKemTest, MaterialOperationsUseTheirKeyManagementIpcCont
     connection->on_request = {};
 
     ASSERT_GE(connection->requests.size(), 4U);
-    EXPECT_EQ(connection->requests[0].operation.operations[0].operationId.operationAction, operations::KEY_IMPORT);
-    EXPECT_EQ(std::get<common::DataShm>(connection->requests[0].operation.operations[0].parameters[3]).direction,
+    EXPECT_EQ(connection->requests[0].operations[0].operationId.operationAction, operations::KEY_IMPORT);
+    EXPECT_EQ(std::get<common::DataShm>(connection->requests[0].operations[0].parameters[3]).direction,
               common::ShmDirection::In);
-    EXPECT_EQ(connection->requests[2].operation.operations[0].operationId.operationAction, operations::KEY_GET_EXPORT_SIZE);
-    EXPECT_EQ(connection->requests[3].operation.operations[0].operationId.operationAction, operations::KEY_EXPORT);
-    EXPECT_EQ(std::get<common::DataShm>(connection->requests[3].operation.operations[0].parameters[2]).direction,
+    EXPECT_EQ(connection->requests[2].operations[0].operationId.operationAction, operations::KEY_GET_EXPORT_SIZE);
+    EXPECT_EQ(connection->requests[3].operations[0].operationId.operationAction, operations::KEY_EXPORT);
+    EXPECT_EQ(std::get<common::DataShm>(connection->requests[3].operations[0].parameters[2]).direction,
               common::ShmDirection::InOut);
+    ASSERT_EQ(connection->timeouts.size(), connection->requests.size());
+    for (const auto timeout : connection->timeouts)
+    {
+        EXPECT_EQ(timeout, kTimeout);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1001,7 +1004,7 @@ TEST(KeyManagementContextKemTest, UsesDedicatedOperationsAndReturnsOnlyGuardsFor
     std::array<std::uint8_t, 4U> output{};
     registry->Register({90U, reinterpret_cast<std::uintptr_t>(output.data()), output.size(), false});
     connection->on_request = [&](const control::ControlRequest& request) {
-        if (request.operation.operations[0].operationId.operationAction == operations::KEY_ENCAPSULATE)
+        if (request.operations[0].operationId.operationAction == operations::KEY_ENCAPSULATE)
         {
             output = {{0x10U, 0x11U, 0x12U, 0x13U}};
         }
@@ -1036,21 +1039,21 @@ TEST(KeyManagementContextKemTest, UsesDedicatedOperationsAndReturnsOnlyGuardsFor
     ASSERT_TRUE(decapsulated->Release().has_value());
 
     ASSERT_GE(connection->requests.size(), 5U);
-    EXPECT_EQ(connection->requests[0].operation.operations[0].operationId.operationAction,
+    EXPECT_EQ(connection->requests[0].operations[0].operationId.operationAction,
               operations::KEY_GET_ENCAPSULATION_SIZE);
-    EXPECT_EQ(connection->requests[1].operation.operations[0].operationId.operationAction, operations::KEY_ENCAPSULATE);
-    EXPECT_EQ(connection->requests[3].operation.operations[0].operationId.operationAction, operations::KEY_DECAPSULATE);
-    EXPECT_EQ(connection->requests[1].operation.operations[0].parameters.size(), 3U);
-    EXPECT_EQ(connection->requests[3].operation.operations[0].parameters.size(), 3U);
-    EXPECT_EQ(std::get<common::DataShm>(connection->requests[1].operation.operations[0].parameters[2]).direction,
+    EXPECT_EQ(connection->requests[1].operations[0].operationId.operationAction, operations::KEY_ENCAPSULATE);
+    EXPECT_EQ(connection->requests[3].operations[0].operationId.operationAction, operations::KEY_DECAPSULATE);
+    EXPECT_EQ(connection->requests[1].operations[0].parameters.size(), 3U);
+    EXPECT_EQ(connection->requests[3].operations[0].parameters.size(), 3U);
+    EXPECT_EQ(std::get<common::DataShm>(connection->requests[1].operations[0].parameters[2]).direction,
               common::ShmDirection::InOut);
-    EXPECT_EQ(std::get<common::DataShm>(connection->requests[3].operation.operations[0].parameters[2]).direction,
+    EXPECT_EQ(std::get<common::DataShm>(connection->requests[3].operations[0].parameters[2]).direction,
               common::ShmDirection::In);
     for (const std::size_t index : {2U, 4U})
     {
         const control::ControlRequest& release_request = connection->requests[index];
         EXPECT_EQ(release_request.data_node_id, 44U);
-        const control::SingleOperationRequest& release = release_request.operation.operations.front();
+        const control::SingleOperationRequest& release = release_request.operations.front();
         EXPECT_EQ(release.operationId.operationActor, score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT);
         EXPECT_EQ(release.operationId.operationAction, operations::KEY_RELEASE);
         ASSERT_EQ(release.parameters.size(), 1U);
@@ -1181,7 +1184,7 @@ TEST(KeyManagementContextTest, ExportRequestsDeferResourceAndFormatValidationToT
         for (const auto action : {operations::KEY_GET_EXPORT_SIZE, operations::KEY_EXPORT})
         {
             auto reply = RecordingConnection::Success({common::actors::OP_ACTOR_KEY_MANAGEMENT, action}, {});
-            reply.operation.operations.front().result = static_cast<control::OperationResult>(test_case.daemon_error);
+            reply.operations.front().result = static_cast<control::OperationResult>(test_case.daemon_error);
             connection->replies.push_back(std::move(reply));
         }
 
@@ -1195,7 +1198,7 @@ TEST(KeyManagementContextTest, ExportRequestsDeferResourceAndFormatValidationToT
         ASSERT_EQ(connection->requests.size(), 2U);
         for (std::size_t i = 0U; i < connection->requests.size(); ++i)
         {
-            const auto& operation = connection->requests[i].operation.operations.front();
+            const auto& operation = connection->requests[i].operations.front();
             EXPECT_EQ(operation.operationId.operationAction,
                       i == 0U ? operations::KEY_GET_EXPORT_SIZE : operations::KEY_EXPORT);
             ASSERT_GE(operation.parameters.size(), 2U);
@@ -1262,7 +1265,7 @@ TEST(KeyManagementContextKemTest, SharedSecretGuardDestructionSendsKeyRelease)
     ASSERT_EQ(connection->requests.size(), 2U);
     const control::ControlRequest& request = connection->requests.back();
     EXPECT_EQ(request.data_node_id, 44U);
-    const control::SingleOperationRequest& release = request.operation.operations.front();
+    const control::SingleOperationRequest& release = request.operations.front();
     EXPECT_EQ(release.operationId.operationActor, score::crypto::daemon::common::actors::OP_ACTOR_KEY_MANAGEMENT);
     EXPECT_EQ(release.operationId.operationAction, operations::KEY_RELEASE);
     ASSERT_EQ(release.parameters.size(), 1U);

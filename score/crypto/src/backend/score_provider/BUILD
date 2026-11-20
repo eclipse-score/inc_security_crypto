@@ -57,8 +57,8 @@ cc_library(
         "//score/crypto/src/backend/score_provider/openssl:openssl_backend_define",
         # To add a new score backend: add its *_backend_define dep here (step 3).
     ] + select({
-        "//score/crypto/src/backend:primula_backend_active": [
-            "//score/crypto/src/backend/score_provider/iav_primula:primula_backend_define",
+        "//score/crypto/src/backend:pqc_provider_backend_active": [
+            "//score/crypto/src/backend/score_provider/pqc_provider:pqc_provider_backend_define",
         ],
         "//conditions:default": [],
     }),
@@ -78,8 +78,8 @@ cc_library(
         "//score/crypto/src/backend/score_provider/openssl:openssl_backend",
         # To add a new score backend: add its *_backend dep here (step 4).
     ] + select({
-        "//score/crypto/src/backend:primula_backend_active": [
-            "//score/crypto/src/backend/score_provider/iav_primula:primula_backend",
+        "//score/crypto/src/backend:pqc_provider_backend_active": [
+            "//score/crypto/src/backend/score_provider/pqc_provider:pqc_provider_backend",
         ],
         "//conditions:default": [],
     }),
