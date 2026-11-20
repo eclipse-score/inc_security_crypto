@@ -32,7 +32,6 @@ cc_library(
         "//score/crypto/src/common:common_types",
         "//score/crypto/src/daemon/control_plane:request_handler_hdr",
         "//score/crypto/src/daemon/common",
-        "//score/crypto/src/daemon/provider/handler:handler_headers",
         "@score_baselibs//score/mw/log",
     ],
 )

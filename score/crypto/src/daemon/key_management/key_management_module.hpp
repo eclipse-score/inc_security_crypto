@@ -14,6 +14,9 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_MODULE_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_KEY_MANAGEMENT_KEY_MANAGEMENT_MODULE_HPP
 
+#include "score/crypto/src/api/types/common.hpp"
+#include "score/crypto/src/daemon/common/context/i_mediator_registrar.hpp"
+#include "score/crypto/src/daemon/common/context/keyed_registry.hpp"
 #include "score/crypto/src/daemon/config/inc/config.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
@@ -37,7 +40,7 @@ namespace score::crypto::daemon::key_management
 /// The executor pattern is replaced by per-session context DataNodes created in
 /// the mediator on `CTX_CREATE` operations. This module is created once at
 /// daemon startup and its pointers are shared across all sessions.
-class KeyManagementModule
+class KeyManagementModule : public common::IMediatorRegistrar
 {
   public:
     using Sptr = std::shared_ptr<KeyManagementModule>;
@@ -73,6 +76,13 @@ class KeyManagementModule
 
     /// @brief Get the provider manager (for context node creation in mediator).
     provider::ProviderManager::Sptr GetProviderManager() const;
+
+    /// @brief Add this subsystem's entries to the mediator's registries.
+    ///
+    /// Registers the key-slot resource resolver.
+    /// @param registries Registries populated before the mediator is created.
+    /// @return False if a registry rejected an entry.
+    [[nodiscard]] bool Register(common::MediatorRegistries& registries) const override;
 
   private:
     KeyManagementModule() = default;
