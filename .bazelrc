@@ -108,5 +108,10 @@ common --lockfile_mode=error
 # LLVM source-based coverage (@score_coverage): --config=llvm_cov
 import %workspace%/tools/coverage/coverage.bazelrc
 
+# Dynamic linking ergonomics
+build:pkcs11-dynamic --//score/crypto/src/backend:pkcs11_link_type=dynamic
+build:pkcs11-dynamic --@score_openssl//:use_dynamic_openssl=true
+build:openssl-dynamic --@score_openssl//:use_dynamic_openssl=true
+
 # Import optional user-specific configurations after repository defaults.
 try-import %workspace%/user.bazelrc

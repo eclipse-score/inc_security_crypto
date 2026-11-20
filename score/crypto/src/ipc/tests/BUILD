@@ -72,10 +72,18 @@ integration_test(
     configs = ["//score/tests/config:logging.json"],
     data = ["conftest.py"],
     libraries = [
-        "//third_party/soft_hsm:softhsm_so",
         "//score/crypto/src/api/control_plane:control_plane_hdr",
-        "//third_party/openssl:openssl_so",
-    ],
+    ] + select({
+        "//score/crypto/src/backend:dynamic_openssl_in_daemon": [
+            "@score_openssl//:openssl_shared",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "//score/crypto/src/backend:dynamic_pkcs11_in_daemon": [
+            "//score/crypto/src/backend:pkcs11_shared_backend",
+        ],
+        "//conditions:default": [],
+    }),
     deps = [
         "//score/tests:common_fixtures",
         "//score/tests/utility/process_runner",
