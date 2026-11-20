@@ -37,7 +37,7 @@ restated here.
 Functional requirements
 -----------------------
 
-.. comp_req:: Validate context-creation requests before selecting a handler
+.. comp_req:: Validate context-creation requests before creating a handler
    :id: comp_req__crypto_mediator__decode_validate
    :version: 1
    :reqtype: Functional
@@ -47,11 +47,12 @@ Functional requirements
    :satisfied_by: comp__crypto_mediator
 
    The mediator shall refuse a context-creation request that fails validation
-   without selecting a handler or creating a data node. Checks shall run in a
-   fixed order and the first failure shall be the error the client receives:
-   parameter count, context type, algorithm, provider preference, key reference,
-   algorithm catalog lookup, key requirement of the context type. The key
-   requirement is checked before any provider is asked.
+   without creating a handler or a data node. When a request has more than one
+   defect, the client shall receive the error for the first of these, in this
+   order: a malformed request (parameter count, parameter types, provider
+   preference, key reference), an unknown algorithm, a key reference that does
+   not match the context type (absent where the type requires a key, present
+   where it accepts none).
 
 .. comp_req:: Deliver creation parameters to the handler unchanged
    :id: comp_req__crypto_mediator__handler_semantics

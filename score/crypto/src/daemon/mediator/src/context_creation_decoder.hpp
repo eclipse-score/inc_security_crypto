@@ -36,8 +36,8 @@ namespace score::crypto::daemon::mediator
 ///
 /// Performs no provider or data-node work. Checks run in a fixed order, and the first
 /// failure is returned: parameter count, context type, algorithm, provider preference,
-/// key reference, and algorithm catalog lookup. The key requirement for the context type
-/// is checked next, at provider selection, before any provider is asked.
+/// key reference, and algorithm catalog lookup. The key rules for the context type follow
+/// at handler selection, before any provider is asked or any factory runs.
 /// @param operation CTX_CREATE operation whose parameters are decoded and validated.
 /// @return the validated request, or the error the client receives.
 [[nodiscard]] score::crypto::Expected<common::ContextCreationRequest, score::crypto::CryptoErrorCode>
