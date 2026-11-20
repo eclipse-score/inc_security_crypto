@@ -572,7 +572,9 @@ score::Result<std::unique_ptr<ICertificateVerificationContext>> CryptoContextImp
     request.context_type = daemon_common::context_types::kCertVerification;
     request.provider_type = config.provider_type;
 
-    auto context_id = CreateDaemonContext(m_connection, request);
+    const auto operation_timeout =
+        ResolveOperationTimeout(config.timeout_enabled, config.operation_timeout, m_default_operation_timeout);
+    auto context_id = CreateDaemonContext(m_connection, request, operation_timeout);
     if (!context_id.has_value())
     {
         return score::Result<std::unique_ptr<ICertificateVerificationContext>>{score::unexpect, context_id.error()};
@@ -580,7 +582,8 @@ score::Result<std::unique_ptr<ICertificateVerificationContext>> CryptoContextImp
 
     // The configured defaults are applied before the context is returned. Destroying the local object on an early
     // return sends CTX_CLOSE, so a rejected default leaves no daemon-side context behind.
-    auto context = std::make_unique<CertVerificationContextImpl>(m_connection, context_id.value(), m_transcoder);
+    auto context = std::make_unique<CertVerificationContextImpl>(
+        m_connection, context_id.value(), m_transcoder, operation_timeout);
     if (config.revocation_policy.has_value())
     {
         auto policy_result = context->SetRevocationCheckPolicy(config.revocation_policy.value());

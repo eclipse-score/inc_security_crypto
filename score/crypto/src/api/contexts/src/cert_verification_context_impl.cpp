@@ -26,6 +26,7 @@
 #include "score/mw/log/logging.h"
 #include "score/result/result.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -58,7 +59,7 @@ score::Result<proto::ControlRequest> MakeControlRequest(proto::OperationRequestB
     }
 
     proto::ControlRequest request{};
-    request.operation = operation_result.value();
+    request.operations = operation_result.value();
     request.data_node_id = context_id;
     return request;
 }
@@ -76,12 +77,14 @@ score::Result<std::monostate> BuildRequestFailure(std::string_view message)
     return score::Result<std::monostate>{score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, message)};
 }
 
-/// Sends a request and requires a successful reply to @p op_id. A failure carries the error the daemon reported.
+/// Sends a request, bounded by @p operation_timeout, and requires a successful reply to @p op_id. A failure carries
+/// the error the daemon reported.
 score::Result<std::monostate> SendVerificationRequest(score::crypto::api::control_plane::IConnection& connection,
-                                                      const proto::ControlRequest& request,
-                                                      const proto::OperationIdentifier& op_id)
+                                                      proto::ControlRequest& request,
+                                                      const proto::OperationIdentifier& op_id,
+                                                      std::chrono::milliseconds operation_timeout)
 {
-    auto resp = connection.SendRequest(request);
+    auto resp = connection.SendRequest(request, operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -101,8 +104,12 @@ score::Result<std::monostate> SendVerificationRequest(score::crypto::api::contro
 CertVerificationContextImpl::CertVerificationContextImpl(
     std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
     uint64_t context_id,
-    std::shared_ptr<IBufferTranscoder> transcoder)
-    : m_connection(std::move(connection)), m_context_id(context_id), m_transcoder(std::move(transcoder))
+    std::shared_ptr<IBufferTranscoder> transcoder,
+    std::chrono::milliseconds operation_timeout)
+    : m_connection(std::move(connection)),
+      m_context_id(context_id),
+      m_transcoder(std::move(transcoder)),
+      m_operation_timeout(operation_timeout)
 {
 }
 
@@ -127,7 +134,7 @@ void CertVerificationContextImpl::CloseContext() noexcept
         score::mw::log::LogError() << "[API][CertVerificationCtx] ERROR: Failed to build CTX_CLOSE request";
         return;
     }
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(score::crypto::daemon::mediator::operations::CloseContext()).expectSuccess();
     if (!validator.isValid())
@@ -150,7 +157,7 @@ score::Result<std::monostate> CertVerificationContextImpl::SetCertificate(const 
     {
         return BuildRequestFailure("Failed to build CERT_VERIFY_SET_LEAF");
     }
-    return SendVerificationRequest(*m_connection, req.value(), op_id);
+    return SendVerificationRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> CertVerificationContextImpl::SetCertificateChain(
@@ -169,7 +176,7 @@ score::Result<std::monostate> CertVerificationContextImpl::SetCertificateChain(
     {
         return BuildRequestFailure("Failed to build CERT_VERIFY_SET_CHAIN");
     }
-    return SendVerificationRequest(*m_connection, req.value(), op_id);
+    return SendVerificationRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> CertVerificationContextImpl::SetVerificationTrustStore(
@@ -186,7 +193,7 @@ score::Result<std::monostate> CertVerificationContextImpl::SetVerificationTrustS
     {
         return BuildRequestFailure("Failed to build CERT_VERIFY_SET_TRUST_STORE");
     }
-    return SendVerificationRequest(*m_connection, req.value(), op_id);
+    return SendVerificationRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> CertVerificationContextImpl::SetTrustedCertificates(
@@ -205,7 +212,7 @@ score::Result<std::monostate> CertVerificationContextImpl::SetTrustedCertificate
     {
         return BuildRequestFailure("Failed to build CERT_VERIFY_SET_TRUSTED");
     }
-    return SendVerificationRequest(*m_connection, req.value(), op_id);
+    return SendVerificationRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> CertVerificationContextImpl::SetChainTerminationPolicy(ChainTerminationPolicy policy)
@@ -221,7 +228,7 @@ score::Result<std::monostate> CertVerificationContextImpl::SetChainTerminationPo
     {
         return BuildRequestFailure("Failed to build CERT_VERIFY_SET_POLICY");
     }
-    return SendVerificationRequest(*m_connection, req.value(), op_id);
+    return SendVerificationRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> CertVerificationContextImpl::SetUntrustedCertificates(
@@ -240,7 +247,7 @@ score::Result<std::monostate> CertVerificationContextImpl::SetUntrustedCertifica
     {
         return BuildRequestFailure("Failed to build CERT_VERIFY_SET_UNTRUSTED");
     }
-    return SendVerificationRequest(*m_connection, req.value(), op_id);
+    return SendVerificationRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> CertVerificationContextImpl::SetVerificationTime(int64_t epoch_seconds)
@@ -257,7 +264,7 @@ score::Result<std::monostate> CertVerificationContextImpl::SetVerificationTime(i
     {
         return BuildRequestFailure("Failed to build CERT_VERIFY_SET_VERIFICATION_TIME");
     }
-    return SendVerificationRequest(*m_connection, req.value(), op_id);
+    return SendVerificationRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> CertVerificationContextImpl::SetRevocationCheckPolicy(RevocationCheckPolicy policy)
@@ -274,7 +281,7 @@ score::Result<std::monostate> CertVerificationContextImpl::SetRevocationCheckPol
     {
         return BuildRequestFailure("Failed to build CERT_VERIFY_SET_REVOCATION_POLICY");
     }
-    return SendVerificationRequest(*m_connection, req.value(), op_id);
+    return SendVerificationRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> CertVerificationContextImpl::SetRevocationCoveragePolicy(RevocationCoveragePolicy policy)
@@ -291,7 +298,7 @@ score::Result<std::monostate> CertVerificationContextImpl::SetRevocationCoverage
     {
         return BuildRequestFailure("Failed to build CERT_VERIFY_SET_REVOCATION_COVERAGE_POLICY");
     }
-    return SendVerificationRequest(*m_connection, req.value(), op_id);
+    return SendVerificationRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 score::Result<std::monostate> CertVerificationContextImpl::SetEvidenceMode(VerificationEvidenceMode mode)
@@ -307,7 +314,7 @@ score::Result<std::monostate> CertVerificationContextImpl::SetEvidenceMode(Verif
     {
         return BuildRequestFailure("Failed to build CERT_VERIFY_SET_EVIDENCE_MODE");
     }
-    return SendVerificationRequest(*m_connection, req.value(), op_id);
+    return SendVerificationRequest(*m_connection, req.value(), op_id, m_operation_timeout);
 }
 
 // ===========================================================================
@@ -327,7 +334,7 @@ score::Result<CertVerifyResult> CertVerificationContextImpl::Verify()
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build CERT_VERIFY request")};
     }
 
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -389,7 +396,7 @@ score::Result<std::size_t> CertVerificationContextImpl::GetVerifiedChainExportSi
         return score::Result<std::size_t>{
             score::unexpect, MakeError(CryptoErrorCode::kOperationFailed, "Failed to build chain export size request")};
     }
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -426,7 +433,7 @@ score::Result<std::size_t> CertVerificationContextImpl::ExportVerifiedChain(Form
     {
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     }
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -455,7 +462,7 @@ score::Result<std::size_t> CertVerificationContextImpl::GetVerifiedCertificateEx
             score::unexpect,
             MakeError(CryptoErrorCode::kOperationFailed, "Failed to build certificate export size request")};
     }
-    auto resp = m_connection->SendRequest(req.value());
+    auto resp = m_connection->SendRequest(req.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -496,7 +503,7 @@ score::Result<std::size_t> CertVerificationContextImpl::ExportVerifiedCertificat
     {
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     }
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -518,7 +525,7 @@ score::Result<std::size_t> CertVerificationContextImpl::GetSelectedCrlMetadataCo
     {
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     }
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())
@@ -560,7 +567,7 @@ score::Result<std::size_t> CertVerificationContextImpl::GetSelectedCrlMetadata(s
     {
         return score::Result<std::size_t>{score::unexpect, request_result.error()};
     }
-    auto resp = m_connection->SendRequest(request_result.value());
+    auto resp = m_connection->SendRequest(request_result.value(), m_operation_timeout);
     auto validator = proto::ControlResponseValidator::FromResult(resp);
     validator.expectOperation(op_id).expectSuccess();
     if (!validator.isValid())

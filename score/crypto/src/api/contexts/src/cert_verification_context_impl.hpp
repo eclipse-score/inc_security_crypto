@@ -24,6 +24,7 @@
 #include "score/result/result.h"
 #include "score/span.hpp"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -49,9 +50,12 @@ class CertVerificationContextImpl final : public ICertificateVerificationContext
     /// @param connection Shared connection for IPC communication
     /// @param context_id Daemon-assigned context identifier (from CTX_CREATE response)
     /// @param transcoder Buffer-routing abstraction for exported chain and CRL metadata buffers
+    /// @param operation_timeout Maximum duration for each IPC request, including the daemon-side context close
+    ///                          during destruction.
     CertVerificationContextImpl(std::shared_ptr<score::crypto::api::control_plane::IConnection> connection,
                                 uint64_t context_id,
-                                std::shared_ptr<IBufferTranscoder> transcoder = nullptr);
+                                std::shared_ptr<IBufferTranscoder> transcoder = nullptr,
+                                std::chrono::milliseconds operation_timeout = std::chrono::milliseconds::max());
 
     ~CertVerificationContextImpl() override;
 
@@ -91,6 +95,7 @@ class CertVerificationContextImpl final : public ICertificateVerificationContext
     std::shared_ptr<score::crypto::api::control_plane::IConnection> m_connection;
     daemon::control_plane::protocol::DataNodeId m_context_id;
     std::shared_ptr<IBufferTranscoder> m_transcoder;
+    std::chrono::milliseconds m_operation_timeout;
 
     /// Outcome of the most recent successful CERT_VERIFY. Empty until a verification completes.
     std::optional<CertVerifyResult> m_verify_result;
