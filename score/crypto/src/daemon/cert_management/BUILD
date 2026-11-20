@@ -287,6 +287,7 @@ cc_library(
         "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "//score/crypto/src/daemon/config",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
         "//score/crypto/src/daemon/provider:provider_manager",
         "@score_baselibs//score/mw/log",
     ],

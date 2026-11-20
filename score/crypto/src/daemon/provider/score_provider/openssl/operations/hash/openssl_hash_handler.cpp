@@ -60,7 +60,7 @@ Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::ValidateAlgorithm(
 }
 
 Expected<std::monostate, DaemonErrorCode> OpenSslHashHandler::InitializeContext(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& init_params)
+    const ::score::crypto::daemon::common::InitializationParams& init_params)
 {
     score::mw::log::LogDebug() << "DEBUG: InitializeContext called with algorithm:" << m_algorithm.name;
 

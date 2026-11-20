@@ -24,6 +24,7 @@
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
+#include "score/crypto/src/daemon/common/context/handler_init_params.hpp"
 #include "score/crypto/src/daemon/config/src/flatbuffer_config_parser.hpp"
 #include "score/crypto/src/daemon/data_manager/data_manager.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
@@ -33,7 +34,6 @@
 #include "score/crypto/src/daemon/key_management/slot/file_backed_slot_handler.hpp"
 #include "score/crypto/src/daemon/key_management/slot/slot_registry.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
-#include "score/crypto/src/daemon/provider/handler/handler_init_params.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_key_factory.hpp"
 
 #include <gtest/gtest.h>
@@ -88,11 +88,11 @@ class KeyManagementHandlerTest : public ::testing::Test
         m_handler = std::make_shared<handler_ns::OpenSslKeyManagementHandler>(std::move(executor));
 
         // Initialize handler context with client identity and assigned node IDs
-        handler::InitializationParams init_params{.client_id = kAllowedClient,
-                                                  .context_node_id = m_parent_id,
-                                                  .provider_id = kProviderId,
-                                                  .key_node_id = 0U,
-                                                  .bound_key_handler = nullptr};
+        score::crypto::daemon::common::InitializationParams init_params{.client_id = kAllowedClient,
+                                                                        .context_node_id = m_parent_id,
+                                                                        .provider_id = kProviderId,
+                                                                        .key_node_id = 0U,
+                                                                        .bound_key_handler = nullptr};
         auto init_result = m_handler->InitializeContext(init_params);
         ASSERT_TRUE(init_result.has_value()) << "InitializeContext failed";
     }
@@ -236,11 +236,11 @@ TEST_F(KeyManagementHandlerTest, GetKeySlotInfo_DeniedClient_ReturnsError)
     auto denied_parent = m_data_manager->addNode(kDeniedClient, denied_parent_node);
     ASSERT_TRUE(denied_parent.has_value());
 
-    handler::InitializationParams denied_init{.client_id = kDeniedClient,
-                                              .context_node_id = denied_parent.value(),
-                                              .provider_id = kProviderId,
-                                              .key_node_id = 0U,
-                                              .bound_key_handler = nullptr};
+    score::crypto::daemon::common::InitializationParams denied_init{.client_id = kDeniedClient,
+                                                                    .context_node_id = denied_parent.value(),
+                                                                    .provider_id = kProviderId,
+                                                                    .key_node_id = 0U,
+                                                                    .bound_key_handler = nullptr};
     auto init_result = denied_handler->InitializeContext(denied_init);
     ASSERT_TRUE(init_result.has_value()) << "Handler init must succeed (denial is at slot level)";
 

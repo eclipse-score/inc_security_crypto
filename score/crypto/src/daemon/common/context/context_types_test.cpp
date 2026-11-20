@@ -12,7 +12,8 @@
  ********************************************************************************/
 
 /// @file context_types_test.cpp
-/// @brief Verifies the classification every keyed context creation depends on.
+/// @brief Verifies the classification every context creation depends on: the key permission
+///        and the provider capability a context type requires.
 ///
 /// RequiredKeyPermission() decides whether a key may bind: a type with no
 /// permission, keyless or unknown, is refused. A keyed type missing from the
@@ -20,8 +21,8 @@
 /// would accept a key it never uses. Neither mistake shows up in an integration
 /// test, because the client only ever sends well-known type strings.
 
-#include "score/crypto/src/daemon/common/context_types.hpp"
-#include "score/crypto/src/daemon/common/context_mode.hpp"
+#include "score/crypto/src/daemon/common/context/context_types.hpp"
+#include "score/crypto/src/daemon/common/context/context_mode.hpp"
 
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/api/types/key.hpp"
@@ -140,6 +141,30 @@ TEST(ContextModeTest, RoundTripsApiEnumsAndRejectsUnknownBytes)
     EXPECT_TRUE(common::ParseContextMode(static_cast<std::uint8_t>(common::ContextMode::kDecrypt)).has_value());
     EXPECT_FALSE(common::ParseContextMode(static_cast<std::uint8_t>(common::ContextMode::kDecrypt) + 1U).has_value());
     EXPECT_FALSE(common::ParseContextMode(0xFFU).has_value());
+}
+
+TEST(RequiredProviderCapabilityTest, ScopedManagementContextsRequireTheirCapability)
+{
+    EXPECT_EQ(common::RequiredProviderCapability(ctx::kKeyManagement), common::ProviderCapability::kKeyManagement);
+    EXPECT_EQ(common::RequiredProviderCapability(ctx::kCertManagement), common::ProviderCapability::kCertManagement);
+    EXPECT_EQ(common::RequiredProviderCapability("CERT:VERIFICATION"), common::ProviderCapability::kCertManagement);
+}
+
+TEST(RequiredProviderCapabilityTest, UnscopedContextsRequireNoCapability)
+{
+    for (const auto type : {ctx::kHash, ctx::kMac, ctx::kCipher, ctx::kSign, ctx::kVerify, ctx::kRandom})
+    {
+        EXPECT_EQ(common::RequiredProviderCapability(type), common::ProviderCapability::kNone) << type;
+    }
+}
+
+TEST(RequiredProviderCapabilityTest, UnknownOrMalformedScopesRequireNoCapability)
+{
+    EXPECT_EQ(common::RequiredProviderCapability("KEY_MANAGEMENT"), common::ProviderCapability::kNone);
+    EXPECT_EQ(common::RequiredProviderCapability("OTHER:MANAGEMENT"), common::ProviderCapability::kNone);
+    EXPECT_EQ(common::RequiredProviderCapability("key:MANAGEMENT"), common::ProviderCapability::kNone);
+    EXPECT_EQ(common::RequiredProviderCapability(":MANAGEMENT"), common::ProviderCapability::kNone);
+    EXPECT_EQ(common::RequiredProviderCapability(""), common::ProviderCapability::kNone);
 }
 
 }  // namespace

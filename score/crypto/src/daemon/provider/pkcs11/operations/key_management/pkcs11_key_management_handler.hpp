@@ -15,13 +15,13 @@
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_PKCS11_OPERATIONS_KEY_MANAGEMENT_PKCS11_KEY_MANAGEMENT_HANDLER_HPP
 
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_slot_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_context.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 
 #include <pkcs11.h>
 
@@ -53,7 +53,7 @@ class Pkcs11Provider;
 ///   - Pkcs11KeyFactory (injected) : handles GenerateKey and ImportKey
 ///   - Pkcs11KeyStore : handles opaque-id map and key release
 ///   - Pkcs11KeyManagementHandler : dispatch only
-class Pkcs11KeyManagementHandler final : public handler::Handler
+class Pkcs11KeyManagementHandler final : public score::crypto::daemon::common::Handler
 {
   public:
     Pkcs11KeyManagementHandler(std::shared_ptr<Pkcs11Provider> provider,
@@ -72,7 +72,7 @@ class Pkcs11KeyManagementHandler final : public handler::Handler
 
     /// No-op: all context is injected at construction.
     [[nodiscard]] Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> InitializeContext(
-        const handler::InitializationParams& init_params) override;
+        const score::crypto::daemon::common::InitializationParams& init_params) override;
 
     /// Dispatch key management operations via the shared executor.
     ///
