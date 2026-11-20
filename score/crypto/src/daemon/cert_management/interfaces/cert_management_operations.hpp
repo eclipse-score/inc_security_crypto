@@ -11,13 +11,13 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_CERT_MANAGEMENT_CERT_MANAGEMENT_OPERATIONS_HPP
-#define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_CERT_MANAGEMENT_CERT_MANAGEMENT_OPERATIONS_HPP
+#ifndef SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_INTERFACES_CERT_MANAGEMENT_OPERATIONS_HPP
+#define SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_INTERFACES_CERT_MANAGEMENT_OPERATIONS_HPP
 
 #include "score/crypto/src/daemon/common/types.hpp"
 #include <limits>
 
-namespace score::crypto::daemon::provider::cert_management
+namespace score::crypto::daemon::cert_management::operations
 {
 using OperationAction = common::OperationAction;
 inline constexpr OperationAction CERT_PARSE = 0x10U;
@@ -29,7 +29,7 @@ inline constexpr OperationAction CERT_GET_EXPORT_SIZE = 0x31U;
 inline constexpr OperationAction CERT_CONVERT = 0x32U;
 inline constexpr OperationAction CERT_GET_CONVERT_SIZE = 0x33U;
 inline constexpr OperationAction CERT_CLEAR = 0x40U;
-inline constexpr OperationAction CERT_PUBLIC_KEY = 0x60U;
+inline constexpr OperationAction CERT_LOAD_PUBLIC_KEY = 0x60U;
 inline constexpr OperationAction CRL_IMPORT = 0x80U;
 inline constexpr OperationAction CRL_DELETE = 0x81U;
 inline constexpr OperationAction CRL_IMPORT_TO_SLOT = 0x82U;
@@ -39,17 +39,17 @@ inline constexpr OperationAction TRUST_STORE_REMOVE_CERT = 0xC1U;
 inline constexpr OperationAction TRUST_STORE_ENABLE_CERT = 0xC2U;
 inline constexpr OperationAction TRUST_STORE_DISABLE_CERT = 0xC3U;
 inline constexpr OperationAction TRUST_STORE_ACK_UPDATE = 0xC4U;
-inline constexpr OperationAction TRUST_STORE_REMOVE_CERT_BY_ID = 0xC5U;      // remove by cert node_id (lib resolves fp)
-inline constexpr OperationAction TRUST_STORE_IMPORT_CRL_FOR_MEMBER = 0xC6U;  // fingerprint + CRL bytes → exclusive slot
-inline constexpr OperationAction TRUST_STORE_DELETE_CRL_FOR_MEMBER = 0xC8U;  // clear CRL from exclusive slot
+inline constexpr OperationAction TRUST_STORE_REMOVE_CERT_BY_ID = 0xC5U;      // remove by certificate node id
+inline constexpr OperationAction TRUST_STORE_IMPORT_CRL_FOR_MEMBER = 0xC6U;  // member CRL: slot node, format, bytes
+inline constexpr OperationAction TRUST_STORE_DELETE_CRL_FOR_MEMBER = 0xC8U;  // clear the CRL of a member slot
 // TRUST_STORE_ENABLE_CERT / TRUST_STORE_DISABLE_CERT: [0]=ts_node_id, [1]=slot_node_id
 
 inline constexpr OperationAction CERT_RELEASE = 0xF0U;
 
-// Provider-specific operation IDs must be >= CUSTOM_OP_START.
+// Custom operation IDs must be >= CUSTOM_OP_START.
 inline constexpr OperationAction CUSTOM_OP_START =
     static_cast<OperationAction>(1U << (std::numeric_limits<OperationAction>::digits - 1));
 
-}  // namespace score::crypto::daemon::provider::cert_management
+}  // namespace score::crypto::daemon::cert_management::operations
 
-#endif  // SCORE_CRYPTO_SRC_DAEMON_PROVIDER_CERT_MANAGEMENT_CERT_MANAGEMENT_OPERATIONS_HPP
+#endif  // SCORE_CRYPTO_SRC_DAEMON_CERT_MANAGEMENT_INTERFACES_CERT_MANAGEMENT_OPERATIONS_HPP

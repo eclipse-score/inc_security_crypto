@@ -58,6 +58,41 @@ cc_test(
 )
 
 cc_test(
+    name = "test_trust_store_management_executor",
+    srcs = [
+        "truststore/test_trust_store_management_executor.cpp",
+    ],
+    data = [
+        "//score/tests/config:logging.json",
+        "//score/tests/test_vectors/certificate:certificate_test_vectors",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:openssl_backend_active": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        "//score/crypto/src/daemon/cert_management",
+        "//score/crypto/src/daemon/cert_management:cert_management_context",
+        "//score/crypto/src/daemon/cert_management:cert_management_daemon_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_internal_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_operations",
+        "//score/crypto/src/daemon/cert_management:cert_management_runtime_headers",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common/context:handler_headers",
+        "//score/crypto/src/daemon/common/storage:kv_deployment",
+        "//score/crypto/src/daemon/config:config_types",
+        "//score/crypto/src/daemon/data_manager",
+        "//score/crypto/src/daemon/provider:provider_manager",
+        "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_cert_management_headers",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_cert_parser_library",
+        "//score/tests/utility:utility",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "test_cert_management_service",
     srcs = [
         "service/test_cert_management_service.cpp",
@@ -76,6 +111,8 @@ cc_test(
         "//score/crypto/src/daemon/cert_management:cert_management_headers",
         "//score/crypto/src/daemon/cert_management:cert_management_internal_headers",
         "//score/crypto/src/daemon/cert_management:cert_management_runtime_headers",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
         "//score/crypto/src/daemon/common/storage:kv_deployment",
         "//score/crypto/src/daemon/config:config_types",
         "//score/crypto/src/daemon/data_manager",

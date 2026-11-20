@@ -48,3 +48,30 @@ cc_library(
         "@score_baselibs//score/result",
     ],
 )
+
+cc_library(
+    name = "cert_objects_impl",
+    srcs = [
+        "src/cert_slot_object_impl.cpp",
+        "src/certificate_object_impl.cpp",
+        "src/trust_store_object_impl.cpp",
+    ],
+    hdrs = [
+        "src/cert_slot_object_impl.hpp",
+        "src/certificate_object_impl.hpp",
+        "src/trust_store_object_impl.hpp",
+    ],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":cert_objects",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/control_plane",
+        "//score/crypto/src/api/data_plane:data_plane_client",
+        "//score/crypto/src/api/types:types",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
+        "//score/crypto/src/daemon/mediator:mediator_operations",
+        "@score_baselibs//score/language/futurecpp",
+        "@score_baselibs//score/result",
+    ],
+)

@@ -31,38 +31,41 @@ namespace crypto
 // requires forward declarations for parameter and return types.
 
 // Config types (used as const& parameters)
+class CertificateContextConfig;
 class CipherContextConfig;
 class HashContextConfig;
 class KeyManagementContextConfig;
 class MacContextConfig;
 class RandomContextConfig;
 class SignContextConfig;
+class TrustStoreManagementContextConfig;
 class VerifySignatureContextConfig;
 
 // Operation contexts (returned as std::unique_ptr)
+class ICertificateManagementContext;
 class ICipherContext;
 class IHashContext;
 class IKeyManagementContext;
 class IMacContext;
 class IRandomContext;
 class ISignContext;
+class ITrustStoreManagementContext;
 class IVerifySignatureContext;
 
 // Typed object interfaces (returned as std::unique_ptr)
+class ICertificateObject;
+class ICertSlotObject;
 class IKeyObject;
 class IKeySlotObject;
+class ITrustStoreObject;
 
 // The following forward declarations are for contexts not yet active (IPC implementation pending).
 // class AeadContextConfig;
-// class CertificateContextConfig;
 // class CertificateVerificationContextConfig;
 // class CsrGenerationContextConfig;
 // class IAeadContext;
-// class ICertificateManagementContext;
 // class ICertificateVerificationContext;
 // class ICsrGenerationContext;
-// class ICertificateObject;
-// class ICertSlotObject;
 // class IProviderObject;
 
 // TODO: Consider splitting this interface into multiple smaller interfaces (e.g. IContextFactory, ICapabilityQuerier).
@@ -158,15 +161,25 @@ class ICryptoContext
     /// @param config Random configuration (algorithm and provider both optional)
     virtual score::Result<std::unique_ptr<IRandomContext>> CreateRandomContext(const RandomContextConfig& config) = 0;
 
+    /// @brief Creates a certificate management context.
+    /// @param config Certificate management configuration (provider optional)
+    /// @note The context is not bound to an algorithm; certificate and slot operations name their target.
+    virtual score::Result<std::unique_ptr<ICertificateManagementContext>> CreateCertificateManagementContext(
+        const CertificateContextConfig& config) = 0;
+
+    /// @brief Creates a trust-store management context.
+    /// @param config Trust-store management configuration (provider optional)
+    /// @note The context is not bound to an algorithm. Membership and enablement changes apply to the named trust
+    ///       store for every client that uses it.
+    virtual score::Result<std::unique_ptr<ITrustStoreManagementContext>> CreateTrustStoreManagementContext(
+        const TrustStoreManagementContextConfig& config) = 0;
+
     // The following factory methods are declared but not yet active.
     // Each is implemented in score/crypto/src/api/future/contexts/
     // and will be moved here together with its IPC implementation.
 
     // virtual score::Result<std::unique_ptr<IAeadContext>> CreateAeadContext(
     //     const AeadContextConfig& config) = 0;
-
-    // virtual score::Result<std::unique_ptr<ICertificateManagementContext>> CreateCertificateManagementContext(
-    //     const CertificateContextConfig& config) = 0;
 
     // virtual score::Result<std::unique_ptr<ICertificateVerificationContext>> CreateCertificateVerificationContext(
     //     const CertificateVerificationContextConfig& config) = 0;
@@ -224,18 +237,25 @@ class ICryptoContext
     /// @return IKeySlotObject for slot state / allowed-algorithm queries
     virtual score::Result<std::unique_ptr<IKeySlotObject>> GetKeySlotObject(const CryptoResourceId& id) = 0;
 
-    // FUTURE: Uncomment when the corresponding object interface is promoted
-    //         from score/crypto/src/api/future/objects/.
-    // ICertificateObject is the unified certificate view — used for both
-    // ephemeral (ParseCertificate result) and persistent (loaded from slot)
-    // certificates. Always has a valid GetId().
+    /// @brief Obtains a typed certificate object for the given resource.
+    /// @param id CryptoResourceId whose type must be kCertificate or kCertSlot
+    /// @return ICertificateObject for subject, issuer, validity, and CRL metadata queries
+    /// @note The same view serves ephemeral and persistent certificates. It always has a valid GetId().
+    /// A kCertSlot id loads the certificate from the slot on each call.
+    virtual score::Result<std::unique_ptr<ICertificateObject>> GetCertificateObject(const CryptoResourceId& id) = 0;
 
-    // virtual score::Result<std::unique_ptr<ICertificateObject>> GetCertificateObject(
-    //     const CryptoResourceId& id) = 0;
+    /// @brief Obtains a typed certificate-slot object for the given resource.
+    /// @param id CryptoResourceId whose type must be kCertSlot
+    /// @return ICertSlotObject for slot state and CRL presence queries
+    virtual score::Result<std::unique_ptr<ICertSlotObject>> GetCertSlotObject(const CryptoResourceId& id) = 0;
 
-    // virtual score::Result<std::unique_ptr<ICertSlotObject>> GetCertSlotObject(
-    //     const CryptoResourceId& id) = 0;
+    /// @brief Obtains a typed trust-store object for the given resource.
+    /// @param id CryptoResourceId whose type must be kCertificateTrustStore
+    /// @return ITrustStoreObject holding a point-in-time snapshot of the store's members
+    /// @note The snapshot is taken at call time and is not refreshed as membership changes.
+    virtual score::Result<std::unique_ptr<ITrustStoreObject>> GetTrustStoreObject(const CryptoResourceId& id) = 0;
 
+    // FUTURE: Uncomment when the corresponding object interface is available.
     // virtual score::Result<std::unique_ptr<IProviderObject>> GetProviderObject(
     //     const CryptoResourceId& id) = 0;
 

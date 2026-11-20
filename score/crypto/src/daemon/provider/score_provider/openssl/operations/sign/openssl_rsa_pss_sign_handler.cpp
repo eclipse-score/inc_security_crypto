@@ -54,7 +54,7 @@ bool OpenSslRsaPssSignHandler::IsAlgorithmSupported(const AlgorithmDescriptor& a
 }
 
 Expected<std::monostate, DaemonErrorCode> OpenSslRsaPssSignHandler::InitializeContext(
-    const ::score::crypto::daemon::provider::handler::InitializationParams& params)
+    const ::score::crypto::daemon::common::InitializationParams& params)
 {
     auto base = ScoreSignHandler::InitializeContext(params);
     if (!base.has_value())
