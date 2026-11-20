@@ -96,7 +96,6 @@ class Pkcs11MacHandler final : public handler::Handler
     [[nodiscard]] score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> Reset()
         override;
 
-    /// @brief Returns static handler configuration for registration in the factory.
     /// @brief Check if the given algorithm is supported by this handler.
     [[nodiscard]] static bool IsAlgorithmSupported(const AlgorithmDescriptor& algorithm) noexcept;
 

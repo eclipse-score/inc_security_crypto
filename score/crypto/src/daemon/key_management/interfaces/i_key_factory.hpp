@@ -17,6 +17,7 @@
 #include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/common/types.hpp"
 #include "score/crypto/src/daemon/common/daemon_error.hpp"
+#include "score/crypto/src/daemon/common/types.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_slot_config.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
@@ -61,6 +62,18 @@ class IKeyFactory
     /// Default: returns kNotSupported.
     [[nodiscard]] virtual score::crypto::Expected<IKeyHandler::Sptr, score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const KeyGenerationRequest& request);
+
+    /// Tell whether the factory accepts @p operation for @p algorithm, without performing it.
+    ///
+    /// @param operation Key management operation code (key_management::operations, e.g. KEY_GENERATE).
+    /// @param algorithm Catalog row the operation would be called with.
+    ///
+    /// Default: false, for factories that do not report capabilities.
+    [[nodiscard]] virtual bool IsOperationSupported(common::OperationAction /*operation*/,
+                                                    const ::score::crypto::AlgorithmDescriptor& /*algorithm*/) const
+    {
+        return false;
+    }
 
     /// Import raw key material.
     ///

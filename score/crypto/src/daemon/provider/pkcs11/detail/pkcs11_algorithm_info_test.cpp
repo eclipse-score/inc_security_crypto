@@ -29,6 +29,58 @@ using ::score::crypto::GetAlgorithmDescriptor;
     return *GetAlgorithmDescriptor(id);
 }
 
+CK_MECHANISM_INFO GenerationRange(CK_ULONG min_size, CK_ULONG max_size, CK_FLAGS flags = CKF_GENERATE)
+{
+    return CK_MECHANISM_INFO{min_size, max_size, flags};
+}
+
+TEST(Pkcs11AlgorithmInfoTest, AesKeySizeIsCountedInBytes)
+{
+    const auto aes128 = LookupAlgorithm(Row(Algorithm::kAes128));
+    const auto aes256 = LookupAlgorithm(Row(Algorithm::kAes256));
+    ASSERT_TRUE(aes128.has_value());
+    ASSERT_TRUE(aes256.has_value());
+    EXPECT_EQ(aes128->gen_mechanism, CKM_AES_KEY_GEN);
+    EXPECT_EQ(KeySizeInMechanismUnits(*aes128), 16U);
+    EXPECT_EQ(KeySizeInMechanismUnits(*aes256), 32U);
+
+    // A token limited to AES-128.
+    const auto aes128_only = GenerationRange(16U, 16U);
+    EXPECT_TRUE(CanGenerateKey(*aes128, aes128_only));
+    EXPECT_FALSE(CanGenerateKey(*aes256, aes128_only));
+
+    const auto any_aes = GenerationRange(16U, 32U);
+    EXPECT_TRUE(CanGenerateKey(*aes128, any_aes));
+    EXPECT_TRUE(CanGenerateKey(*aes256, any_aes));
+}
+
+TEST(Pkcs11AlgorithmInfoTest, GenericSecretKeySizeIsCountedInBits)
+{
+    const auto hmac256 = LookupAlgorithm(Row(Algorithm::kHmacSha256));
+    const auto hmac512 = LookupAlgorithm(Row(Algorithm::kHmacSha512));
+    ASSERT_TRUE(hmac256.has_value());
+    ASSERT_TRUE(hmac512.has_value());
+    EXPECT_EQ(hmac256->gen_mechanism, CKM_GENERIC_SECRET_KEY_GEN);
+    EXPECT_EQ(KeySizeInMechanismUnits(*hmac256), 256U);
+    EXPECT_EQ(KeySizeInMechanismUnits(*hmac512), 512U);
+
+    const auto up_to_256_bits = GenerationRange(8U, 256U);
+    EXPECT_TRUE(CanGenerateKey(*hmac256, up_to_256_bits));
+    EXPECT_FALSE(CanGenerateKey(*hmac512, up_to_256_bits));
+
+    const auto at_least_384_bits = GenerationRange(384U, 4096U);
+    EXPECT_FALSE(CanGenerateKey(*hmac256, at_least_384_bits));
+    EXPECT_TRUE(CanGenerateKey(*hmac512, at_least_384_bits));
+}
+
+TEST(Pkcs11AlgorithmInfoTest, KeyGenerationNeedsTheGenerateFlag)
+{
+    const auto aes128 = LookupAlgorithm(Row(Algorithm::kAes128));
+    ASSERT_TRUE(aes128.has_value());
+    EXPECT_FALSE(CanGenerateKey(*aes128, GenerationRange(16U, 32U, CKF_ENCRYPT)));
+    EXPECT_TRUE(CanGenerateKey(*aes128, GenerationRange(16U, 32U, CKF_GENERATE | CKF_ENCRYPT)));
+}
+
 TEST(Pkcs11AlgorithmInfoTest, HashRowsMapToDigestMechanisms)
 {
     EXPECT_EQ(LookupHashMechanism(Row(Algorithm::kSha224)), CKM_SHA224);

@@ -18,6 +18,8 @@
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_rsa_key_pair.hpp"
 #include "score/crypto/src/daemon/provider/score_provider/openssl/key_management/openssl_symmetric_key.hpp"
 
+#include "score/crypto/src/daemon/common/algorithm_info.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/mw/log/logging.h"
 
 #include <string_view>
@@ -31,6 +33,26 @@ constexpr std::string_view kLogPrefix = "[OPENSSL_KEY_FACTORY] ";
 }  // namespace
 
 OpenSslKeyFactory::OpenSslKeyFactory(common::ProviderId provider_id) : m_provider_id(provider_id) {};
+
+// Same decisions as GenerateKey() and the per-family generators, without generating a key.
+bool OpenSslKeyFactory::IsOperationSupported(common::OperationAction operation,
+                                             const AlgorithmDescriptor& algorithm) const
+{
+    if (operation != key_management::operations::KEY_GENERATE)
+    {
+        return false;
+    }
+    if (IsEcKeySupported(algorithm) || IsRsaKeySupported(algorithm) || IsEd25519KeySupported(algorithm))
+    {
+        return true;
+    }
+    if (IsSymmetricKeySupported(algorithm))
+    {
+        const auto key_size = ::score::crypto::daemon::common::LookupKeySize(algorithm);
+        return key_size.has_value() && (*key_size != 0U);
+    }
+    return false;
+}
 
 // Each key family claims the rows it serves; a row no family claims is unsupported.
 // A further family adds one branch to each of GenerateKey and ImportKey.

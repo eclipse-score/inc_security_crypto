@@ -25,6 +25,7 @@
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
+#include "score/crypto/src/daemon/provider/provider_capability_query.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 #include <cstddef>
@@ -171,6 +172,9 @@ class MediatorImpl : public IMediator
     bool ForwardSingleOperation(const control_plane::ControlRequest& request,
                                 const control_plane::SingleOperationRequest& operation,
                                 control_plane::protocol::OperationResponseBuilder& responseBuilder);
+
+    /// Serves PROVIDER_INFO, QUERY_CAPABILITIES and SYSTEM_CAPABILITIES.
+    provider::ProviderCapabilityQuery m_capability_query;
 };
 
 }  // namespace score::crypto::daemon::mediator

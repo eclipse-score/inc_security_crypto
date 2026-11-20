@@ -22,11 +22,13 @@
 #include <initializer_list>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/types.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/key_management_operations.hpp"
 #include "score/crypto/src/daemon/provider/handler/operations/hash_handler_operations.hpp"
 #include "score/crypto/src/daemon/provider/i_provider.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/operations/hash/pkcs11_hash_executor.hpp"
@@ -855,6 +857,40 @@ TEST_F(Pkcs11ProviderHashTest, QueriesSelectedTokenMechanisms)
     const auto hmac_sha256 = provider_->SupportsMechanism(CKM_SHA256_HMAC, CKF_SIGN | CKF_VERIFY);
     ASSERT_TRUE(hmac_sha256.has_value());
     EXPECT_TRUE(hmac_sha256.value());
+}
+
+TEST_F(Pkcs11ProviderHashTest, ReadsTokenKeyGenerationRanges)
+{
+    const auto aes_gen = provider_->GetMechanismInfo(CKM_AES_KEY_GEN);
+    ASSERT_TRUE(aes_gen.has_value());
+    ASSERT_TRUE(aes_gen.value().has_value());
+    EXPECT_NE(aes_gen.value()->flags & CKF_GENERATE, 0U);
+    EXPECT_LE(aes_gen.value()->ulMinKeySize, aes_gen.value()->ulMaxKeySize);
+
+    constexpr CK_MECHANISM_TYPE kUnknownVendorMechanism{CKM_VENDOR_DEFINED | 0x0053434FUL};
+    const auto unknown = provider_->GetMechanismInfo(kUnknownVendorMechanism);
+    ASSERT_TRUE(unknown.has_value());
+    EXPECT_FALSE(unknown.value().has_value());
+}
+
+TEST_F(Pkcs11ProviderHashTest, KeyGenerationSupportFollowsTheTokenKeySizeRange)
+{
+    const auto key_factory = provider_->GetKeyFactory();
+    ASSERT_NE(key_factory, nullptr);
+    const auto aes_gen = provider_->GetMechanismInfo(CKM_AES_KEY_GEN);
+    ASSERT_TRUE(aes_gen.has_value() && aes_gen.value().has_value());
+
+    // AES ranges are in bytes; the token's own range decides each key length.
+    for (const auto [algorithm, bytes] : {std::pair{score::crypto::Algorithm::kAes128, CK_ULONG{16U}},
+                                          std::pair{score::crypto::Algorithm::kAes192, CK_ULONG{24U}},
+                                          std::pair{score::crypto::Algorithm::kAes256, CK_ULONG{32U}}})
+    {
+        const bool in_range = (aes_gen.value()->ulMinKeySize <= bytes) && (bytes <= aes_gen.value()->ulMaxKeySize);
+        EXPECT_EQ(key_factory->IsOperationSupported(score::crypto::daemon::key_management::operations::KEY_GENERATE,
+                                                    *score::crypto::GetAlgorithmDescriptor(algorithm)),
+                  in_range)
+            << bytes;
+    }
 }
 
 TEST_F(Pkcs11ProviderHashTest, ReportsExecutorUpdateFailure)

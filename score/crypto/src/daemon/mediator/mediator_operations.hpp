@@ -90,6 +90,36 @@ inline constexpr std::array<ContextScopeCapability, 2> kContextScopeCapabilities
     return common::ProviderCapability::kNone;
 }
 
+/// @brief ProviderType values on the wire, shared by requests (CTX_CREATE and the
+/// key-management context) and replies (PROVIDER_INFO, SYSTEM_CAPABILITIES).
+///
+/// They equal the public ProviderType enumerator positions; the client checks
+/// that with static_asserts in crypto_context_impl.cpp.
+namespace provider_type_wire
+{
+inline constexpr std::uint8_t kDefault = 0U;
+inline constexpr std::uint8_t kHardware = 1U;
+inline constexpr std::uint8_t kSoftware = 2U;
+inline constexpr std::uint8_t kHardwarePreferred = 3U;
+inline constexpr std::uint8_t kSoftwarePreferred = 4U;
+}  // namespace provider_type_wire
+
+/// @brief Encode a registered provider's classification for PROVIDER_INFO and SYSTEM_CAPABILITIES.
+/// @return kHardware or kSoftware; kDefault for any other or no classification.
+[[nodiscard]] inline constexpr std::uint8_t EncodeProviderType(
+    const std::optional<common::CryptoProviderType> type) noexcept
+{
+    if (type == common::CryptoProviderType::HARDWARE)
+    {
+        return provider_type_wire::kHardware;
+    }
+    if (type == common::CryptoProviderType::SOFTWARE)
+    {
+        return provider_type_wire::kSoftware;
+    }
+    return provider_type_wire::kDefault;
+}
+
 /// @brief Daemon-side interpretation of a public ProviderType wire value.
 struct ProviderTypePreference final
 {
@@ -106,15 +136,15 @@ struct ProviderTypePreference final
 
     switch (wire_value)
     {
-        case 0U:
+        case provider_type_wire::kDefault:
             return ProviderTypePreference{ProviderType::DEFAULT, std::nullopt};
-        case 1U:
+        case provider_type_wire::kHardware:
             return ProviderTypePreference{ProviderType::HARDWARE, std::nullopt};
-        case 2U:
+        case provider_type_wire::kSoftware:
             return ProviderTypePreference{ProviderType::SOFTWARE, std::nullopt};
-        case 3U:
+        case provider_type_wire::kHardwarePreferred:
             return ProviderTypePreference{ProviderType::HARDWARE, ProviderType::SOFTWARE};
-        case 4U:
+        case provider_type_wire::kSoftwarePreferred:
             return ProviderTypePreference{ProviderType::SOFTWARE, ProviderType::HARDWARE};
         default:
             return std::nullopt;
@@ -235,6 +265,62 @@ inline control_plane::protocol::OperationIdentifier DestroyShmObject()
 {
     return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
                                                         .operationAction = operations::SHM_DESTROY_OBJECT};
+}
+
+// PROVIDER_INFO
+// Request:  uint64 — provider id
+// Response: status_code (SUCCESS / kInvalidArgument for an unknown id)
+//           param[0]: uint16     — provider id
+//           param[1]: uint8      — wire ProviderType (0 = default, 1 = hardware, 2 = software)
+//           param[2]: DataBuffer — provider name (UTF-8, not NUL-terminated)
+inline constexpr OperationAction PROVIDER_INFO = 6;
+
+// QUERY_CAPABILITIES
+// Request:  string — algorithm name, as in the algorithm catalog
+// Response: status_code (SUCCESS)
+//           param[0]: uint16 — operation count N; 0 if no provider accepts this name
+//           N times:  DataBuffer operation name (see capability_operations)
+inline constexpr OperationAction QUERY_CAPABILITIES = 7;
+
+// SYSTEM_CAPABILITIES
+// Request:  no parameters
+// Response: status_code (SUCCESS)
+//           param[0]: uint16 — provider count P
+//           P times:  uint16 provider id, uint8 wire ProviderType, DataBuffer name
+//           then:     uint16 — algorithm count A
+//           A times:  DataBuffer algorithm name (UTF-8, not NUL-terminated),
+//                     uint16 operation count N (never 0),
+//                     N times DataBuffer operation name (see capability_operations)
+// Effect:   Lists the providers and every catalog algorithm at least one of
+//           them accepts, in catalog order.
+inline constexpr OperationAction SYSTEM_CAPABILITIES = 8;
+
+/// Operation names reported by QUERY_CAPABILITIES and SYSTEM_CAPABILITIES.
+///
+/// An algorithm reports the context type (common::context_types, e.g. "HASH",
+/// "SIGN") of every context a provider would create for it, followed by
+/// kGenerateKey if a provider generates keys for it. The client passes the
+/// names through to AlgorithmCapabilities::operations unchanged, so a new
+/// operation needs no client change.
+namespace capability_operations
+{
+inline constexpr std::string_view kGenerateKey = "GENERATE_KEY";
+}  // namespace capability_operations
+
+inline control_plane::protocol::OperationIdentifier GetProviderInfo()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::PROVIDER_INFO};
+}
+inline control_plane::protocol::OperationIdentifier QueryCapabilities()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::QUERY_CAPABILITIES};
+}
+inline control_plane::protocol::OperationIdentifier QuerySystemCapabilities()
+{
+    return control_plane::protocol::OperationIdentifier{.operationActor = common::actors::OP_ACTOR_MEDIATOR,
+                                                        .operationAction = operations::SYSTEM_CAPABILITIES};
 }
 
 // Starting point for custom OPs

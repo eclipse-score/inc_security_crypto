@@ -65,6 +65,28 @@ struct Pkcs11AlgoInfo
     return std::nullopt;
 }
 
+/// @brief The key length of @p info in the unit its generation mechanism's
+///        CK_MECHANISM_INFO key-size range uses.
+///
+/// PKCS#11 v2.40 Current Mechanisms gives CKM_AES_KEY_GEN's range in bytes
+/// (section 2.8.3) and CKM_GENERIC_SECRET_KEY_GEN's in bits (section 2.6);
+/// those are the two mechanisms LookupAlgorithm returns.
+[[nodiscard]] inline constexpr CK_ULONG KeySizeInMechanismUnits(const Pkcs11AlgoInfo& info) noexcept
+{
+    return (info.gen_mechanism == CKM_AES_KEY_GEN) ? info.value_len : (info.value_len * 8U);
+}
+
+/// @brief Whether a token whose generation mechanism reports @p mechanism_info
+///        can generate the key @p info describes: it must allow CKF_GENERATE
+///        and its key-size range must include the key length.
+[[nodiscard]] inline constexpr bool CanGenerateKey(const Pkcs11AlgoInfo& info,
+                                                   const CK_MECHANISM_INFO& mechanism_info) noexcept
+{
+    const CK_ULONG size = KeySizeInMechanismUnits(info);
+    return ((mechanism_info.flags & CKF_GENERATE) == CKF_GENERATE) && (mechanism_info.ulMinKeySize <= size) &&
+           (size <= mechanism_info.ulMaxKeySize);
+}
+
 // ---------------------------------------------------------------------------
 // Hash / HMAC row → CK_MECHANISM_TYPE
 // ---------------------------------------------------------------------------

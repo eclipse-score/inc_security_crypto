@@ -55,6 +55,13 @@ class OpenSslKeyFactory final : public key_management::IKeyFactory
                                             ::score::crypto::daemon::common::DaemonErrorCode>
     GenerateKey(const key_management::KeyGenerationRequest& request) override;
 
+    /// @brief Whether the factory accepts @p operation for @p algorithm, without performing it.
+    ///
+    /// Reports KEY_GENERATE only: EC keys on a curve OpenSSL names, RSA keys of a
+    /// supported modulus size, Ed25519 keys, and symmetric keys of a known size.
+    [[nodiscard]] bool IsOperationSupported(common::OperationAction operation,
+                                            const AlgorithmDescriptor& algorithm) const override;
+
     /// Import raw symmetric key material, a DER-encoded key pair or public key, or a raw EC public point.
     ///
     /// @param request Key material, its format, catalog row and permissions.

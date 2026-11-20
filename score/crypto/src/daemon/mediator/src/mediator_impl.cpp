@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <limits>
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -26,6 +27,7 @@
 #include <vector>
 
 #include "score/crypto/src/api/common/error_domain.hpp"
+#include "score/crypto/src/api/types/common.hpp"
 #include "score/crypto/src/daemon/common/actors.hpp"
 #include "score/crypto/src/daemon/common/algorithm_catalog.hpp"
 #include "score/crypto/src/daemon/common/context_mode.hpp"
@@ -40,6 +42,7 @@
 #include "score/crypto/src/daemon/data_manager/data_node_accessor.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/data_plane/src/shm_data_node.hpp"
+#include "score/crypto/src/daemon/key_management/interfaces/i_key_factory.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/i_key_handler.hpp"
 #include "score/crypto/src/daemon/key_management/interfaces/key_types.hpp"
 #include "score/crypto/src/daemon/mediator/context_algorithm.hpp"
@@ -49,6 +52,7 @@
 #include "score/crypto/src/daemon/provider/handler/context_data_node.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_crypto_handler_factory.hpp"
 #include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
+#include "score/crypto/src/daemon/provider/provider_capability_query.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
 
 namespace control_plane = score::crypto::daemon::control_plane;
@@ -79,7 +83,8 @@ bool IsFallbackEligible(const score::crypto::CryptoErrorCode error) noexcept
 
 }  // namespace
 
-MediatorImpl::MediatorImpl(MediatorDependencies deps) : IMediator(std::move(deps))
+MediatorImpl::MediatorImpl(MediatorDependencies deps)
+    : IMediator(std::move(deps)), m_capability_query{m_provider_manager}
 {
     if (m_km_service)
     {
@@ -179,6 +184,10 @@ bool MediatorImpl::HandleMediatorOperation(const control_plane::ControlRequest& 
             score::mw::log::LogError() << "[SCORE_API_MED] ERROR - Failed to handle resource resolution operation";
         }
         return success;
+    }
+    else if (provider::ProviderCapabilityQuery::Serves(operationIdentifier.operationAction))
+    {
+        return m_capability_query.Handle(request, operation, responseBuilder);
     }
     else if (operationIdentifier.operationAction == operations::SHM_SETUP)
     {

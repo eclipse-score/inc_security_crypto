@@ -61,5 +61,25 @@ TEST(ProviderTypePreferenceTest, DecodesDefaultAndRejectsUnknownValues)
     EXPECT_FALSE(DecodeProviderTypePreference(255U).has_value());
 }
 
+TEST(ProviderTypePreferenceTest, EncodesRegisteredProviderTypeForReplies)
+{
+    EXPECT_EQ(EncodeProviderType(ProviderType::HARDWARE), provider_type_wire::kHardware);
+    EXPECT_EQ(EncodeProviderType(ProviderType::SOFTWARE), provider_type_wire::kSoftware);
+    EXPECT_EQ(EncodeProviderType(ProviderType::DEFAULT), provider_type_wire::kDefault);
+    EXPECT_EQ(EncodeProviderType(ProviderType::SPECIALIZED), provider_type_wire::kDefault);
+    EXPECT_EQ(EncodeProviderType(std::nullopt), provider_type_wire::kDefault);
+}
+
+TEST(ProviderTypePreferenceTest, EncodedProviderTypeDecodesToTheSameType)
+{
+    for (const auto type : {ProviderType::HARDWARE, ProviderType::SOFTWARE})
+    {
+        const auto decoded = DecodeProviderTypePreference(EncodeProviderType(type));
+        ASSERT_TRUE(decoded.has_value());
+        EXPECT_EQ(decoded->primary, type);
+        EXPECT_FALSE(decoded->fallback.has_value());
+    }
+}
+
 }  // namespace
 }  // namespace score::crypto::daemon::mediator::operations

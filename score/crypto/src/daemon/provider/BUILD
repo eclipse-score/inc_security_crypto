@@ -66,6 +66,25 @@ cc_library(
     }),
 )
 
+cc_library(
+    name = "provider_capability_query",
+    srcs = ["src/provider_capability_query.cpp"],
+    hdrs = ["provider_capability_query.hpp"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":provider_headers",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/api/types",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common:algorithm_catalog",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
+        "//score/crypto/src/daemon/key_management:key_management_headers",
+        "//score/crypto/src/daemon/mediator:mediator_operations",
+        "//score/crypto/src/daemon/provider/handler:crypto_handler_factory_headers",
+        "@score_baselibs//score/mw/log",
+    ],
+)
+
 #-----------------------------------#
 # Unit tests for the provider manager
 #-----------------------------------#
@@ -78,6 +97,21 @@ cc_test(
         "//score/crypto/src/daemon/data_manager",
         "//score/crypto/src/daemon/provider:provider_headers",
         "//score/crypto/src/daemon/provider:provider_manager",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "provider_capability_query_test",
+    srcs = ["src/provider_capability_query_test.cpp"],
+    deps = [
+        ":provider_capability_query",
+        ":provider_manager",
+        "//score/crypto/src/api/common:crypto_common",
+        "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/config",
+        "//score/crypto/src/daemon/control_plane:request_handler_hdr",
+        "//score/crypto/src/daemon/mediator:mediator_operations",
         "@googletest//:gtest_main",
     ],
 )
