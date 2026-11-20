@@ -39,6 +39,7 @@ class IShmFactory;
 namespace score::crypto::daemon::provider::cert_management
 {
 class ICertParser;
+class ICertPathValidator;
 }  // namespace score::crypto::daemon::provider::cert_management
 
 namespace score::crypto::daemon::cert_management
@@ -142,10 +143,20 @@ class IProvider
         return nullptr;
     }
 
+    /// Return the provider's certificate path validator.
+    ///
+    /// Returns nullptr if the provider does not perform path validation. Certificate management asks the provider
+    /// selected for each verification context for a validator, and each call returns a new instance.
+    virtual std::shared_ptr<provider::cert_management::ICertPathValidator> GetCertPathValidator()
+    {
+        return nullptr;
+    }
+
     /// Return a handler for a provider-owned certificate storage slot.
     ///
-    /// Returns nullptr when this provider does not implement certificate-slot
-    /// storage. The caller selects the provider by name via slot.storage_backend
+    /// Returns nullptr when this provider does not implement certificate-slot storage, or
+    /// when it cannot honour the slot's configuration (for example, an integrity policy it
+    /// cannot enforce). The caller selects the provider by name via slot.storage_backend
     /// (name-based lookup), NOT via the kCertManagement capability bit. A provider
     /// may implement this method without advertising kCertManagement — that bit
     /// exclusively governs GetCertParser() selection. The supplied parser is the

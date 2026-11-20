@@ -14,9 +14,9 @@
 #ifndef SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_KEY_MANAGEMENT_SCORE_KEY_MANAGEMENT_HANDLER_HPP
 #define SCORE_CRYPTO_SRC_DAEMON_PROVIDER_SCORE_PROVIDER_OPERATIONS_KEY_MANAGEMENT_SCORE_KEY_MANAGEMENT_HANDLER_HPP
 
+#include "score/crypto/src/daemon/common/context/i_handler.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_context.hpp"
 #include "score/crypto/src/daemon/provider/executors/key_mgmt_executor.hpp"
-#include "score/crypto/src/daemon/provider/handler/i_handler.hpp"
 
 #include <memory>
 
@@ -30,7 +30,7 @@ namespace score::crypto::daemon::provider::score_provider::operations::key_manag
 /// shared KeyManagementExecutor. All collaborators are constructor-injected.
 /// InitializeContext() stores the per-context runtime identity; Execute()
 /// delegates to the executor.
-class ScoreKeyManagementHandler : public handler::Handler
+class ScoreKeyManagementHandler : public score::crypto::daemon::common::Handler
 {
   public:
     explicit ScoreKeyManagementHandler(std::unique_ptr<crypto_executor::KeyManagementExecutor> executor);
@@ -44,7 +44,7 @@ class ScoreKeyManagementHandler : public handler::Handler
 
     /// Stores the runtime context (client_id, context_node_id, provider_id).
     [[nodiscard]] Expected<std::monostate, common::DaemonErrorCode> InitializeContext(
-        const handler::InitializationParams& init_params) override;
+        const score::crypto::daemon::common::InitializationParams& init_params) override;
 
     /// Delegates to KeyManagementExecutor::Execute.
     [[nodiscard]] Expected<common::ResponseParameters, common::DaemonErrorCode> Execute(

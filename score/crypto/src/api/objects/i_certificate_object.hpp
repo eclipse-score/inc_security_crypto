@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 namespace score
@@ -97,7 +98,8 @@ class ICertificateObject : public ICryptoObject
     /// PQC algorithms (e.g., ML-DSA-65) may have public keys in the kilobyte
     /// range; always query rather than assuming a fixed upper bound.
     ///
-    /// @return Required buffer size in bytes, or error on failure.
+    /// @return Required buffer size in bytes, or kUnsupportedAlgorithm if the provider could not encode the
+    ///         certificate's public key.
     virtual score::Result<std::size_t> GetPublicKeyExportSize() const noexcept = 0;
 
     /// @brief Exports the certificate's public key in DER (SubjectPublicKeyInfo) format.
@@ -106,6 +108,10 @@ class ICertificateObject : public ICryptoObject
     ///
     /// @param output Buffer to receive the exported public key. Must be at least
     ///        GetPublicKeyExportSize() bytes.
+    /// The key is requested from the daemon and written directly into @p output. The call fails with
+    /// kResourceNotFound if the certificate at this resource has been replaced or released since this object was
+    /// created.
+    ///
     /// @return Number of bytes written, or error if the buffer is too small.
     virtual score::Result<std::size_t> ExportPublicKey(score::cpp::span<uint8_t> output) const = 0;
 

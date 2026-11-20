@@ -13,6 +13,7 @@
 
 #include "score/crypto/src/daemon/src/disconnect_cleanup_callback.hpp"
 
+#include "score/crypto/src/daemon/cert_management/core/cert_management_service.hpp"
 #include "score/crypto/src/daemon/data_manager/i_data_manager.hpp"
 #include "score/crypto/src/daemon/key_management/core/key_management_service.hpp"
 
@@ -23,12 +24,15 @@ namespace score::crypto::daemon::detail
 {
 score::crypto::ipc::message_passing::DisconnectCleanupCallback MakeDisconnectCleanupCallback(
     std::shared_ptr<data_manager::IDataManager> data_manager,
-    std::shared_ptr<key_management::KeyManagementService> key_management_service)
+    std::shared_ptr<key_management::KeyManagementService> key_management_service,
+    std::shared_ptr<cert_management::CertManagementService> cert_management_service)
 {
-    // Using the lambda capture to hold shared pointers to the data manager and key management service
-    // to ensure liftime
-    return [data_manager = std::move(data_manager), key_management_service = std::move(key_management_service)](
-               const score::crypto::daemon::common::ClientId client_id) {
+    // Using the lambda capture to hold shared pointers to the data manager, key management service and certificate
+    // management service to ensure liftime
+    return [data_manager = std::move(data_manager),
+            key_management_service = std::move(key_management_service),
+            cert_management_service =
+                std::move(cert_management_service)](const score::crypto::daemon::common::ClientId client_id) {
         score::crypto::Expected<std::monostate, score::crypto::daemon::common::DaemonErrorCode> first_failure{};
         if (data_manager)
         {
@@ -41,6 +45,10 @@ score::crypto::ipc::message_passing::DisconnectCleanupCallback MakeDisconnectCle
         if (key_management_service)
         {
             key_management_service->CleanupClient(client_id);
+        }
+        if (cert_management_service)
+        {
+            cert_management_service->CleanupClient(client_id);
         }
 
         return first_failure;

@@ -16,6 +16,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 cc_library(
     name = "provider_pkcs11_headers",
     hdrs = [
+        "cert_management/pkcs11_cert_slot_handler.hpp",
         "detail/pkcs11_algorithm_info.hpp",
         "key_management/pkcs11_key_factory.hpp",
         "key_management/pkcs11_key_handler.hpp",
@@ -44,15 +45,21 @@ cc_library(
         "//:__subpackages__",
     ],
     deps = [
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_slot_backend_headers",
+        "//score/crypto/src/daemon/common/context:context_types",
+        "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/common:algorithm_catalog",
         "//score/crypto/src/daemon/common",
         "//score/crypto/src/daemon/common:algorithm_info",
+        "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
     ],
 )
 
 cc_library(
     name = "provider_pkcs11_library",
     srcs = [
+        "cert_management/pkcs11_cert_slot_handler.cpp",
         "key_management/pkcs11_key_factory.cpp",
         "key_management/pkcs11_key_handler.cpp",
         "key_management/pkcs11_key_slot_handler.cpp",
@@ -79,11 +86,18 @@ cc_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":provider_pkcs11_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/cert_management:cert_management_slot_backend_headers",
         "//score/crypto/src/daemon/common",
+        "//score/crypto/src/daemon/common/context:context_mode",
+        "//score/crypto/src/daemon/common/storage:deployment_iface",
+        "//score/crypto/src/daemon/common/storage:file_io",
         "//score/crypto/src/daemon/common:algorithm_info",
         "//score/crypto/src/daemon/data_plane",
         "//score/crypto/src/daemon/key_management",
         "//score/crypto/src/daemon/provider:provider_headers",
+        "//score/crypto/src/daemon/provider/cert_management:cert_parser_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
         "//score/crypto/src/daemon/provider/handler:handler_utils_impl",
         "//score/crypto/src/daemon/provider/handler:hash_handler_operations",
@@ -142,6 +156,30 @@ cc_test(
         "//score/crypto/src/daemon/key_management:key_management_headers",
         "//score/crypto/src/daemon/provider/executors:key_mgmt_executor",
         "//score/crypto/tests/softhsm:softhsm_test_fixture",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "pkcs11_cert_slot_handler_test",
+    srcs = ["cert_management/pkcs11_cert_slot_handler_test.cpp"],
+    data = [
+        "//score/tests/test_vectors/certificate:certificate_test_vectors",
+    ],
+    target_compatible_with = select({
+        "//score/crypto/src/backend:pkcs11_backend_enabled": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":provider_pkcs11_headers",
+        ":provider_pkcs11_library",
+        "//score/crypto/src/backend:active_pkcs11_backend",
+        "//score/crypto/src/daemon/cert_management:cert_management_headers",
+        "//score/crypto/src/daemon/common/storage:kv_deployment",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_cert_management_headers",
+        "//score/crypto/src/daemon/provider/score_provider/openssl:openssl_cert_parser_library",
+        "//score/crypto/tests/softhsm:softhsm_test_fixture",
+        "//score/tests/utility:utility",
         "@googletest//:gtest_main",
     ],
 )

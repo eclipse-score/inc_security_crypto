@@ -125,6 +125,16 @@ class Pkcs11Provider final : public IProvider, public std::enable_shared_from_th
     [[nodiscard]] std::shared_ptr<key_management::IKeySlotHandler> GetKeySlotHandler(
         const key_management::KeySlotConfig& config) override;
 
+    /// @brief Return a certificate slot handler for the given slot configuration.
+    ///
+    /// Returns a new Pkcs11CertSlotHandler per call. The handler keeps this provider
+    /// alive and uses the shared PKCS#11 module for token access. Returns nullptr for a
+    /// slot whose integrity_policy is kRequired: token-backed slots perform no integrity
+    /// check, so such a slot is refused rather than served unchecked.
+    [[nodiscard]] std::shared_ptr<::score::crypto::daemon::cert_management::ICertSlotHandler> GetCertSlotHandler(
+        const ::score::crypto::daemon::cert_management::CertSlotConfig& config,
+        std::shared_ptr<::score::crypto::daemon::provider::cert_management::ICertParser> parser) override;
+
     // --- Session pool API (called by handlers via factory) ---
 
     /// @brief Acquire a session for an operation handler.
