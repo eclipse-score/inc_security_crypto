@@ -29,6 +29,7 @@
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_module.hpp"
 #include "score/crypto/src/daemon/provider/pkcs11/pkcs11_provider.hpp"
 #include "score/crypto/src/daemon/provider/provider_manager.hpp"
+#include "score/crypto/tests/pkcs11/pkcs11_test_env_setup.hpp"
 
 namespace pkcs11 = score::crypto::daemon::provider::pkcs11;
 namespace provider = score::crypto::daemon::provider;
@@ -37,35 +38,17 @@ namespace common = score::crypto::daemon::common;
 namespace
 {
 
-/// @brief Test fixture that initialises two independent SoftHSM tokens.
+/// @brief Test fixture that initialises two independent PKCS#11 tokens.
 class Pkcs11MultiTokenTest : public ::testing::Test
 {
   protected:
     void SetUp() override
     {
-        const char* tmpdir = std::getenv("TEST_TMPDIR");
-        if (tmpdir == nullptr)
-        {
-            tmpdir = "/tmp";
-        }
-        // Separate the token database directory from the conf file directory so that
-        // SoftHSM2 does not see unexpected files inside its tokenDir.
-        const std::string baseDir = std::string(tmpdir) + "/multi_token_test";
-        m_tokenDir = baseDir + "/tokens";
-        std::filesystem::create_directories(m_tokenDir);
+        // Unique directory per test to avoid state conflicts
+        m_baseDir = tests::pkcs11::env::UniqueTestDirectory("multi_token_test");
 
-        m_confPath = baseDir + "/softhsm2.conf";
-        {
-            std::ofstream conf(m_confPath, std::ios::trunc);
-            conf << "directories.tokendir = " << m_tokenDir << "/\n";
-            conf << "objectstore.backend = file\n";
-            // SoftHSM2 creates slots dynamically; set library options to allow multislot
-            conf << "log.level = ERROR\n";
-            // Enable multislot operation if available
-            conf << "slots.num_of_slots = 10\n";
-        }
-        // NOLINTNEXTLINE(concurrency-mt-unsafe) — test setup, single-threaded
-        setenv("SOFTHSM2_CONF", m_confPath.c_str(), 1);
+        // Set up isolated backend environments with 2 slots
+        tests::pkcs11::env::PrepareBackendEnvironments(m_baseDir, /*num_slots=*/2U);
 
         // Reset slot counter for each test
         m_nextSlotId = 0U;
@@ -74,14 +57,20 @@ class Pkcs11MultiTokenTest : public ::testing::Test
         m_module = std::make_shared<pkcs11::Pkcs11Module>();
         ASSERT_TRUE(m_module->Init().has_value()) << "C_Initialize failed";
 
+        CK_FUNCTION_LIST* fns = m_module->GetFunctionList();
+        ASSERT_NE(fns, nullptr);
+        CK_ULONG totalSlots = 0U;
+        ASSERT_EQ(fns->C_GetSlotList(CK_FALSE, nullptr, &totalSlots), CKR_OK);
+        if (totalSlots < 2U)
+        {
+            GTEST_SKIP() << "Active PKCS#11 provider does not expose multiple slots.";
+        }
+
         // Initialise first token
         InitToken("TokenA", m_slotA);
 
         // Initialise second token
         InitToken("TokenB", m_slotB);
-        // Note: m_slotA and m_slotB will be the same if only one slot is available,
-        // which is expected behavior for SoftHSM2 in single-slot mode.
-        // The tokens have different labels, so they represent different token instances.
     }
 
     void TearDown() override
@@ -89,12 +78,10 @@ class Pkcs11MultiTokenTest : public ::testing::Test
         m_providerA.reset();
         m_providerB.reset();
         m_module.reset();  // C_Finalize
-        const char* tmpdir = std::getenv("TEST_TMPDIR");
-        if (tmpdir == nullptr)
-        {
-            tmpdir = "/tmp";
-        }
-        std::filesystem::remove_all(std::string(tmpdir) + "/multi_token_test");
+        std::error_code ec;
+        std::filesystem::remove_all(m_baseDir, ec);
+        ASSERT_FALSE(ec) << ec.message();
+        tests::pkcs11::env::CleanupBackendEnvironments();
     }
 
     void InitToken(const std::string& label, CK_SLOT_ID& outSlot)
@@ -102,8 +89,7 @@ class Pkcs11MultiTokenTest : public ::testing::Test
         CK_FUNCTION_LIST* fns = m_module->GetFunctionList();
         ASSERT_NE(fns, nullptr);
 
-        // Get available slots.  SoftHSM2 typically provides slot 0.
-        // For multiple tokens, we'll use slot 0 with different labels.
+        // Get available slots.
         CK_ULONG slotCount = 0U;
         ASSERT_EQ(fns->C_GetSlotList(CK_FALSE, nullptr, &slotCount), CKR_OK);
         ASSERT_GT(slotCount, 0U) << "No slots available for token=" << label;
@@ -111,11 +97,10 @@ class Pkcs11MultiTokenTest : public ::testing::Test
         std::vector<CK_SLOT_ID> slots(slotCount);
         ASSERT_EQ(fns->C_GetSlotList(CK_FALSE, slots.data(), &slotCount), CKR_OK);
 
-        // Try to use the next available slot, falling back to slot 0 if needed
+        // Use the next available slot for independent tokens
         CK_SLOT_ID targetSlot = (m_nextSlotId < slotCount) ? slots[m_nextSlotId] : slots[0];
         m_nextSlotId++;
 
-#ifndef USE_RUST_PKCS11
         // Pad label to 32 characters as required by C_InitToken.
         std::string paddedLabel = label;
         paddedLabel.resize(32U, ' ');
@@ -128,11 +113,9 @@ class Pkcs11MultiTokenTest : public ::testing::Test
 
         const CK_RV rv = fns->C_InitToken(targetSlot, soPinPtr, static_cast<CK_ULONG>(soPin.size()), labelPtr);
         ASSERT_EQ(rv, CKR_OK) << "C_InitToken failed for token=" << label << " on slot=" << targetSlot;
-#endif // USE_RUST_PKCS11
 
         outSlot = targetSlot;
 
-#ifndef USE_RUST_PKCS11
         // Open a session on the freshly initialized token to set the user PIN.
         CK_SESSION_HANDLE session{CK_INVALID_HANDLE};
         ASSERT_EQ(fns->C_OpenSession(outSlot, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &session), CKR_OK)
@@ -148,7 +131,6 @@ class Pkcs11MultiTokenTest : public ::testing::Test
 
         fns->C_Logout(session);
         fns->C_CloseSession(session);
-#endif // USE_RUST_PKCS11
     }
 
     std::shared_ptr<pkcs11::Pkcs11Provider> CreateProvider(const std::string& label, CK_SLOT_ID slot)
@@ -174,8 +156,7 @@ class Pkcs11MultiTokenTest : public ::testing::Test
     CK_SLOT_ID m_slotA{CK_INVALID_HANDLE};
     CK_SLOT_ID m_slotB{CK_INVALID_HANDLE};
     CK_ULONG m_nextSlotId{0U};
-    std::string m_tokenDir;
-    std::string m_confPath;
+    std::string m_baseDir;
 };
 
 TEST_F(Pkcs11MultiTokenTest, IndependentSessionPools)
